@@ -1,6 +1,6 @@
 {
   "isNoticeEnabled": true,
-  "neverShow": false,
+  "neverShow": true,
   "ShowFrequency": "perlaunchmanager",
   "Title": {
     "en_us": "Title",

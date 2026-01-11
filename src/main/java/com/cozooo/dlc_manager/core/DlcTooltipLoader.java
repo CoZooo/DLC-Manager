@@ -37,7 +37,7 @@ public class DlcTooltipLoader {
                 .forEach(path -> {
                     TooltipEntry entry = readEntry(path);
                     if (entry != null && entry.dlcName != null) {
-                        TooltipData data = new TooltipData(entry.tip, entry.type, entry.typeValid, entry.hasTypeField);
+                        TooltipData data = new TooltipData(entry.tip, entry.type, entry.typeValid, entry.hasTypeField, entry.allowEnableByAll);
                         result.put(entry.dlcName, data);
                     }
                 });
@@ -58,14 +58,13 @@ public class DlcTooltipLoader {
         }
         Path path = infoDir.resolve(dlcName + ".json");
         if (Files.exists(path)) {
-            if (updateExistingType) {
-                updateTypeField(path, dlcName, type);
-            }
+            updateTooltipFile(path, dlcName, type, updateExistingType);
             return;
         }
         JsonObject obj = new JsonObject();
         obj.addProperty("dlc_name", dlcName);
         obj.addProperty("type", toTypeString(type));
+        obj.addProperty("AllowEnableByAll", true);
         obj.add("tip", new JsonObject());
         try (Writer writer = Files.newBufferedWriter(path)) {
             PRETTY_GSON.toJson(obj, writer);
@@ -74,7 +73,7 @@ public class DlcTooltipLoader {
         }
     }
 
-    private void updateTypeField(Path path, String dlcName, DlcType type) {
+    private void updateTooltipFile(Path path, String dlcName, DlcType type, boolean updateExistingType) {
         JsonObject obj = null;
         try (Reader reader = Files.newBufferedReader(path)) {
             JsonReader jsonReader = new JsonReader(reader);
@@ -87,7 +86,14 @@ public class DlcTooltipLoader {
             return;
         }
         obj.addProperty("dlc_name", dlcName);
-        obj.addProperty("type", toTypeString(type));
+        if (updateExistingType) {
+            obj.addProperty("type", toTypeString(type));
+        }
+        if (!obj.has("AllowEnableByAll")
+            || !obj.get("AllowEnableByAll").isJsonPrimitive()
+            || !obj.get("AllowEnableByAll").getAsJsonPrimitive().isBoolean()) {
+            obj.addProperty("AllowEnableByAll", true);
+        }
         if (!obj.has("tip") || !obj.get("tip").isJsonObject()) {
             obj.add("tip", new JsonObject());
         }
@@ -109,6 +115,7 @@ public class DlcTooltipLoader {
             TooltipEntry entry = new TooltipEntry();
             entry.dlcName = getString(obj, "dlc_name");
             entry.hasTypeField = obj.has("type");
+            entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
             String type = getString(obj, "type");
             if (type != null) {
                 DlcType parsed = parseType(type);
@@ -140,12 +147,20 @@ public class DlcTooltipLoader {
         return null;
     }
 
+    private boolean getBoolean(JsonObject obj, String key, boolean fallback) {
+        if (obj.has(key) && obj.get(key).isJsonPrimitive() && obj.get(key).getAsJsonPrimitive().isBoolean()) {
+            return obj.get(key).getAsBoolean();
+        }
+        return fallback;
+    }
+
     private static class TooltipEntry {
         String dlcName;
         Map<String, String> tip;
         DlcType type;
         boolean typeValid;
         boolean hasTypeField;
+        boolean allowEnableByAll = true;
     }
 
     public static class TooltipData {
@@ -153,12 +168,14 @@ public class DlcTooltipLoader {
         private final DlcType type;
         private final boolean typeValid;
         private final boolean hasTypeField;
+        private final boolean allowEnableByAll;
 
-        public TooltipData(Map<String, String> tips, DlcType type, boolean typeValid, boolean hasTypeField) {
+        public TooltipData(Map<String, String> tips, DlcType type, boolean typeValid, boolean hasTypeField, boolean allowEnableByAll) {
             this.tips = tips == null ? Map.of() : tips;
             this.type = type;
             this.typeValid = typeValid;
             this.hasTypeField = hasTypeField;
+            this.allowEnableByAll = allowEnableByAll;
         }
 
         public Map<String, String> getTips() {
@@ -175,6 +192,10 @@ public class DlcTooltipLoader {
 
         public boolean hasTypeField() {
             return hasTypeField;
+        }
+
+        public boolean AllowEnableByAll() {
+            return allowEnableByAll;
         }
     }
 

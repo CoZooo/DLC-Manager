@@ -114,17 +114,14 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private void addHeaderButtons() {
+        HeaderLabels labels = getHeaderLabels();
         boolean showEnable = DlcPathConfig.isEnableAllButtonShown();
         int right = this.width - 18;
         int y = 0;
         int h = 12;
         int gap = 6;
-        String enableLabel = StringUtils.translate("dlc_manager.enable_all");
-        String disableLabel = StringUtils.translate("dlc_manager.disable_all");
-        String enableDone = StringUtils.translate("dlc_manager.all_enabled");
-        String disableDone = StringUtils.translate("dlc_manager.all_disabled");
-        int enableWidth = Math.max(60, maxTextWidth(enableLabel, enableDone) + 4);
-        int disableWidth = Math.max(60, maxTextWidth(disableLabel, disableDone) + 4);
+        int enableWidth = Math.max(60, maxTextWidth(labels.enableLabel, labels.enableDone) + 4);
+        int disableWidth = Math.max(60, maxTextWidth(labels.disableLabel, labels.disableDone) + 4);
 
         int disableX = right - disableWidth;
         int enableX = disableX - gap - enableWidth;
@@ -139,10 +136,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
         enableAllButton = null;
         if (showEnable) {
-            enableAllButton = new ButtonGeneric(enableX, y, enableWidth, h, enableLabel);
+            enableAllButton = new ButtonGeneric(enableX, y, enableWidth, h, labels.enableLabel);
             addButton(enableAllButton, new HeaderButtonListener(true));
         }
-        disableAllButton = new ButtonGeneric(disableX, y, disableWidth, h, disableLabel);
+        disableAllButton = new ButtonGeneric(disableX, y, disableWidth, h, labels.disableLabel);
         addButton(disableAllButton, new HeaderButtonListener(false));
         updateHeaderButtonsState();
     }
@@ -271,6 +268,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 if (typeItems != null && !typeItems.isEmpty()) {
                     for (DlcItem item : typeItems) {
                         DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                        Boolean override = DlcRuntimeState.getOverride(item.getId());
+                        if (override != null) {
+                            item.setEnabled(override);
+                        }
                         allItems.add(item);
                     }
                 }
@@ -285,6 +286,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
             for (DlcItem item : typeItems) {
                 DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                Boolean override = DlcRuntimeState.getOverride(item.getId());
+                if (override != null) {
+                    item.setEnabled(override);
+                }
                 allItems.add(item);
             }
             if (activeFilter == null) {
@@ -295,13 +300,17 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             for (Map.Entry<String, List<DlcItem>> entry : byPath.entrySet()) {
                 if ("__root__".equals(entry.getKey())) {
                     if (hasSubDir) {
-                        rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey())));
+                        rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true));
                     }
                 } else {
-                    rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey())));
+                    rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false));
                 }
                 for (DlcItem item : entry.getValue()) {
                     DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                    Boolean override = DlcRuntimeState.getOverride(item.getId());
+                    if (override != null) {
+                        item.setEnabled(override);
+                    }
                     item.setDirty(isItemModified(item));
                     rows.add(DlcListRow.item(item));
                     items.add(item);
@@ -400,6 +409,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         rebuildRows();
         reCreateListWidget();
         updateListLayout();
+        updateHeaderButtonsLayout();
+        updateNoticeButtonLayout();
         updateModeAvailability();
     }
 
@@ -807,18 +818,21 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
-            String key = enable ? "dlc_manager.confirm.enable_all" : "dlc_manager.confirm.disable_all";
+            Component message = getHeaderConfirmMessage(enable);
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(DlcMaLiLibScreen.this);
                 if (!accepted) {
                     return;
                 }
-                for (DlcItem item : allItems) {
-                    item.setEnabled(enable);
+                for (DlcItem item : items) {
+                    if (!enable || item.AllowEnableByAll()) {
+                        item.setEnabled(enable);
+                        DlcRuntimeState.setOverride(item.getId(), item.isEnabled());
+                    }
                 }
                 updateModeAvailability();
             }, Component.translatable("dlc_manager.title"),
-                Component.translatable(key),
+                message,
                 Component.translatable("dlc_manager.confirm_yes"),
                 Component.translatable("dlc_manager.confirm_no")));
         }
@@ -828,59 +842,164 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         if (disableAllButton == null) {
             return;
         }
-        boolean any = false;
-        boolean allEnabled = true;
+        boolean any = !items.isEmpty();
+        boolean anyEligible = false;
+        boolean allEligibleEnabled = true;
         boolean allDisabled = true;
-        for (DlcItem item : allItems) {
-            any = true;
+        for (DlcItem item : items) {
             if (item.isEnabled()) {
                 allDisabled = false;
-            } else {
-                allEnabled = false;
             }
-            if (!allEnabled && !allDisabled) {
+            if (item.AllowEnableByAll()) {
+                anyEligible = true;
+                if (!item.isEnabled()) {
+                    allEligibleEnabled = false;
+                }
+            }
+            if (!allDisabled && !allEligibleEnabled && anyEligible) {
                 break;
             }
         }
-        String enableLabel = StringUtils.translate("dlc_manager.enable_all");
-        String disableLabel = StringUtils.translate("dlc_manager.disable_all");
-        String enableDone = StringUtils.translate("dlc_manager.all_enabled");
-        String disableDone = StringUtils.translate("dlc_manager.all_disabled");
+        HeaderLabels labels = getHeaderLabels();
 
         if (!any) {
             if (enableAllButton != null) {
                 enableAllButton.setEnabled(false);
-                enableAllButton.setDisplayString(enableLabel);
+                enableAllButton.setDisplayString(labels.enableLabel);
             }
             disableAllButton.setEnabled(false);
-            disableAllButton.setDisplayString(disableLabel);
+            disableAllButton.setDisplayString(labels.disableLabel);
             return;
         }
-        if (allEnabled) {
-            if (enableAllButton != null) {
+        if (enableAllButton != null) {
+            if (!anyEligible) {
                 enableAllButton.setEnabled(false);
-                enableAllButton.setDisplayString(enableDone);
-            }
-            disableAllButton.setEnabled(true);
-            disableAllButton.setDisplayString(disableLabel);
-        } else if (allDisabled) {
-            disableAllButton.setEnabled(false);
-            disableAllButton.setDisplayString(disableDone);
-            if (enableAllButton != null) {
+                enableAllButton.setDisplayString(labels.enableLabel);
+            } else if (allEligibleEnabled) {
+                enableAllButton.setEnabled(false);
+                enableAllButton.setDisplayString(labels.enableDone);
+            } else {
                 enableAllButton.setEnabled(true);
-                enableAllButton.setDisplayString(enableLabel);
+                enableAllButton.setDisplayString(labels.enableLabel);
+            }
+        }
+        if (allDisabled) {
+            disableAllButton.setEnabled(false);
+            disableAllButton.setDisplayString(labels.disableDone);
+        } else {
+            disableAllButton.setEnabled(true);
+            disableAllButton.setDisplayString(labels.disableLabel);
+        }
+    }
+
+    private void updateHeaderButtonsLayout() {
+        if (disableAllButton == null) {
+            return;
+        }
+        HeaderLabels labels = getHeaderLabels();
+        boolean showEnable = DlcPathConfig.isEnableAllButtonShown();
+        int right = this.width - 18;
+        int y = 0;
+        int h = 12;
+        int gap = 6;
+        int enableWidth = Math.max(60, maxTextWidth(labels.enableLabel, labels.enableDone) + 4);
+        int disableWidth = Math.max(60, maxTextWidth(labels.disableLabel, labels.disableDone) + 4);
+        int disableX = right - disableWidth;
+        int enableX = disableX - gap - enableWidth;
+        if (showEnable) {
+            if (enableX < 18) {
+                enableX = 18;
+                disableX = enableX + enableWidth + gap;
             }
         } else {
-            if (enableAllButton != null) {
-                enableAllButton.setEnabled(true);
-                enableAllButton.setDisplayString(enableLabel);
-            }
-            disableAllButton.setEnabled(true);
-            disableAllButton.setDisplayString(disableLabel);
+            enableX = -1000;
         }
+        if (enableAllButton != null) {
+            enableAllButton.setX(enableX);
+            enableAllButton.setY(y);
+            enableAllButton.setWidth(enableWidth);
+            enableAllButton.setHeight(h);
+        }
+        disableAllButton.setX(disableX);
+        disableAllButton.setY(y);
+        disableAllButton.setWidth(disableWidth);
+        disableAllButton.setHeight(h);
+    }
+
+    private void updateNoticeButtonLayout() {
+        if (noticeButton == null) {
+            return;
+        }
+        String label = StringUtils.translate("dlc_manager.notice");
+        int buttonWidth = Math.max(36, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int titleWidth = this.textRenderer.width(getTitleString());
+        int x = 18 + titleWidth + 6;
+        int y = 1;
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (x + buttonWidth > rightLimit) {
+            x = rightLimit - buttonWidth;
+        }
+        if (x < 18) {
+            x = 18;
+        }
+        noticeButton.setX(x);
+        noticeButton.setY(y);
+        noticeButton.setWidth(buttonWidth);
+        noticeButton.setHeight(buttonHeight);
+    }
+
+    private Component getHeaderConfirmMessage(boolean enable) {
+        if (activeFilter == null) {
+            String key = enable ? "dlc_manager.confirm.enable_all" : "dlc_manager.confirm.disable_all";
+            return Component.translatable(key);
+        }
+        String key = enable ? "dlc_manager.confirm.enable_all_type" : "dlc_manager.confirm.disable_all_type";
+        return Component.translatable(key, Component.translatable(activeFilter.getDisplayKey()));
+    }
+
+    private HeaderLabels getHeaderLabels() {
+        if (activeFilter == null) {
+            return new HeaderLabels(
+                StringUtils.translate("dlc_manager.enable_all"),
+                StringUtils.translate("dlc_manager.disable_all"),
+                StringUtils.translate("dlc_manager.all_enabled"),
+                StringUtils.translate("dlc_manager.all_disabled"));
+        }
+        String typeName = StringUtils.translate(activeFilter.getDisplayKey());
+        return new HeaderLabels(
+            StringUtils.translate("dlc_manager.enable_all_type", typeName),
+            StringUtils.translate("dlc_manager.disable_all_type", typeName),
+            StringUtils.translate("dlc_manager.all_enabled_type", typeName),
+            StringUtils.translate("dlc_manager.all_disabled_type", typeName));
+    }
+
+    @Override
+    protected void closeGui(boolean closeInGame) {
+        DlcRuntimeState.clearOverrides();
+        super.closeGui(closeInGame);
     }
 
     private int maxTextWidth(String a, String b) {
         return Math.max(this.textRenderer.width(a), this.textRenderer.width(b));
+    }
+
+    private static final class HeaderLabels {
+        private final String enableLabel;
+        private final String disableLabel;
+        private final String enableDone;
+        private final String disableDone;
+
+        private HeaderLabels(String enableLabel, String disableLabel, String enableDone, String disableDone) {
+            this.enableLabel = enableLabel;
+            this.disableLabel = disableLabel;
+            this.enableDone = enableDone;
+            this.disableDone = disableDone;
+        }
     }
 }

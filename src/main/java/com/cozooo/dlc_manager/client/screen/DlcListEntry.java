@@ -24,12 +24,17 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
 
     private final DlcListRow row;
     private ButtonGeneric toggleButton;
+    private ButtonGeneric groupToggleButton;
+    private int groupToggleWidth;
+    private int groupToggleHeight;
 
     public DlcListEntry(int x, int y, int width, int height, boolean isOdd, DlcListRow row, int listIndex) {
         super(x, y, width, height, row, listIndex);
         this.row = row;
         if (row.getType() == DlcListRow.RowType.ITEM) {
             createToggleButton(width, height, row.getItem());
+        } else if (row.getType() == DlcListRow.RowType.PATH_HEADER && !row.isRootPath()) {
+            createGroupToggleButton(width, height, row.getItems());
         }
     }
 
@@ -42,6 +47,18 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         addButton(toggleButton, new ToggleListener(item));
     }
 
+    private void createGroupToggleButton(int width, int height, java.util.List<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        groupToggleWidth = 64;
+        groupToggleHeight = 18;
+        int bx = this.x + width - groupToggleWidth - 6 - 64 - 6;
+        int by = this.y + (height - groupToggleHeight) / 2;
+        groupToggleButton = new ButtonGeneric(bx, by, groupToggleWidth, groupToggleHeight, getGroupToggleState(items).label);
+        addButton(groupToggleButton, new GroupToggleListener(items));
+    }
+
     @Override
     public void render(int mouseX, int mouseY, boolean hovered, GuiGraphics guiGraphics) {
         if (row.getType() == DlcListRow.RowType.GROUP_HEADER) {
@@ -49,6 +66,24 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             drawStringWithShadow(this.x + 6, this.y + 4, COLOR_GROUP, label, guiGraphics);
         } else if (row.getType() == DlcListRow.RowType.PATH_HEADER) {
             drawString(this.x + 10, this.y + 4, COLOR_PATH, row.getLabel(), guiGraphics);
+            if (groupToggleButton != null) {
+                GroupToggleState state = getGroupToggleState(row.getItems());
+                if (state.show) {
+                    int bx = this.x + this.width - groupToggleWidth - 6 - 64 - 6;
+                    int by = this.y + (this.height - groupToggleHeight) / 2;
+                    groupToggleButton.setX(bx);
+                    groupToggleButton.setY(by);
+                    groupToggleButton.setWidth(groupToggleWidth);
+                    groupToggleButton.setHeight(groupToggleHeight);
+                    groupToggleButton.setDisplayString(state.label);
+                    groupToggleButton.setEnabled(state.enabled);
+                } else {
+                    groupToggleButton.setDisplayString("");
+                    groupToggleButton.setEnabled(false);
+                    groupToggleButton.setWidth(0);
+                    groupToggleButton.setX(-10000);
+                }
+            }
         } else if (row.getType() == DlcListRow.RowType.ITEM) {
             DlcItem item = row.getItem();
             boolean dirty = isDirty(item);
@@ -83,6 +118,21 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         return item.isEnabled()
             ? Component.translatable("dlc_manager.toggle.on").getString()
             : Component.translatable("dlc_manager.toggle.off").getString();
+    }
+
+    private static GroupToggleState getGroupToggleState(java.util.List<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return new GroupToggleState("", false, false);
+        }
+        boolean anyEligibleDisabled = items.stream().anyMatch(item -> item.AllowEnableByAll() && !item.isEnabled());
+        boolean anyEnabled = items.stream().anyMatch(DlcItem::isEnabled);
+        if (anyEligibleDisabled) {
+            return new GroupToggleState(Component.translatable("dlc_manager.group.enable").getString(), true, true);
+        }
+        if (anyEnabled) {
+            return new GroupToggleState(Component.translatable("dlc_manager.group.disable").getString(), true, true);
+        }
+        return new GroupToggleState("", false, false);
     }
 
     private String getTooltipText(DlcItem item) {
@@ -127,6 +177,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
             item.setEnabled(!item.isEnabled());
+            DlcRuntimeState.setOverride(item.getId(), item.isEnabled());
             if (button instanceof ButtonGeneric generic) {
                 generic.setDisplayString(item.isEnabled()
                     ? Component.translatable("dlc_manager.toggle.on").getString()
@@ -136,8 +187,52 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
     }
 
+    private static class GroupToggleListener implements IButtonActionListener {
+        private final java.util.List<DlcItem> items;
+
+        private GroupToggleListener(java.util.List<DlcItem> items) {
+            this.items = items;
+        }
+
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            if (items == null || items.isEmpty()) {
+                return;
+            }
+            GroupToggleState state = getGroupToggleState(items);
+            if (!state.show) {
+                return;
+            }
+            boolean anyEligibleDisabled = items.stream().anyMatch(item -> item.AllowEnableByAll() && !item.isEnabled());
+            boolean target = anyEligibleDisabled;
+            for (DlcItem item : items) {
+                if (!target || item.AllowEnableByAll()) {
+                    item.setEnabled(target);
+                    DlcRuntimeState.setOverride(item.getId(), item.isEnabled());
+                }
+            }
+            if (button instanceof ButtonGeneric generic) {
+                state = getGroupToggleState(items);
+                generic.setDisplayString(state.label);
+                generic.setEnabled(state.enabled);
+            }
+        }
+    }
+
     private static boolean isDirty(DlcItem item) {
         return DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled());
+    }
+
+    private static final class GroupToggleState {
+        private final String label;
+        private final boolean enabled;
+        private final boolean show;
+
+        private GroupToggleState(String label, boolean enabled, boolean show) {
+            this.label = label;
+            this.enabled = enabled;
+            this.show = show;
+        }
     }
 
     private static boolean isEnabledInTargets(DlcItem item) {

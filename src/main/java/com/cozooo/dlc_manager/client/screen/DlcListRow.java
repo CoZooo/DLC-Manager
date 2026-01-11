@@ -14,24 +14,28 @@ public class DlcListRow {
     private final String label;
     private final DlcType groupType;
     private final DlcItem item;
+    private final java.util.List<DlcItem> items;
+    private final boolean rootPath;
 
-    private DlcListRow(RowType type, String label, DlcType groupType, DlcItem item) {
+    private DlcListRow(RowType type, String label, DlcType groupType, DlcItem item, java.util.List<DlcItem> items, boolean rootPath) {
         this.type = type;
         this.label = label;
         this.groupType = groupType;
         this.item = item;
+        this.items = items;
+        this.rootPath = rootPath;
     }
 
     public static DlcListRow groupHeader(DlcType type) {
-        return new DlcListRow(RowType.GROUP_HEADER, null, type, null);
+        return new DlcListRow(RowType.GROUP_HEADER, null, type, null, null, false);
     }
 
-    public static DlcListRow pathHeader(String label) {
-        return new DlcListRow(RowType.PATH_HEADER, label, null, null);
+    public static DlcListRow pathHeader(String label, java.util.List<DlcItem> items, boolean rootPath) {
+        return new DlcListRow(RowType.PATH_HEADER, label, null, null, items, rootPath);
     }
 
     public static DlcListRow item(DlcItem item) {
-        return new DlcListRow(RowType.ITEM, null, null, item);
+        return new DlcListRow(RowType.ITEM, null, null, item, null, false);
     }
 
     public RowType getType() {
@@ -48,5 +52,13 @@ public class DlcListRow {
 
     public DlcItem getItem() {
         return item;
+    }
+
+    public java.util.List<DlcItem> getItems() {
+        return items;
+    }
+
+    public boolean isRootPath() {
+        return rootPath;
     }
 }

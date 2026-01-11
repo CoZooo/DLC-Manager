@@ -11,6 +11,7 @@ public final class DlcRuntimeState {
     private static final Set<String> PENDING_RESTART = new HashSet<>();
     private static final Set<String> PENDING_RELOAD = new HashSet<>();
     private static final Map<String, Boolean> BASELINE_ENABLED = new HashMap<>();
+    private static final Map<String, Boolean> OVERRIDE_ENABLED = new HashMap<>();
 
     private DlcRuntimeState() {
     }
@@ -107,5 +108,30 @@ public final class DlcRuntimeState {
             return false;
         }
         return baseline != enabled;
+    }
+
+    public static void setOverride(String id, boolean enabled) {
+        if (id == null) {
+            return;
+        }
+        OVERRIDE_ENABLED.put(id, enabled);
+    }
+
+    public static Boolean getOverride(String id) {
+        if (id == null) {
+            return null;
+        }
+        return OVERRIDE_ENABLED.get(id);
+    }
+
+    public static void clearOverride(String id) {
+        if (id == null) {
+            return;
+        }
+        OVERRIDE_ENABLED.remove(id);
+    }
+
+    public static void clearOverrides() {
+        OVERRIDE_ENABLED.clear();
     }
 }

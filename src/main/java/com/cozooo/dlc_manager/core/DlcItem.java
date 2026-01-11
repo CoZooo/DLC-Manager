@@ -12,15 +12,18 @@ public class DlcItem {
     private boolean enabled;
     private final List<Path> appliedTargets = new ArrayList<>();
     private final java.util.Map<String, String> tooltips;
+    private final boolean allowEnableByAll;
     private boolean dirty;
 
-    public DlcItem(String id, String name, DlcType type, Path sourcePath, boolean enabled, java.util.Map<String, String> tooltips) {
+    public DlcItem(String id, String name, DlcType type, Path sourcePath, boolean enabled, java.util.Map<String, String> tooltips,
+        boolean allowEnableByAll) {
         this.id = id;
         this.name = name;
         this.type = type;
         this.sourcePath = sourcePath;
         this.enabled = enabled;
         this.tooltips = tooltips == null ? java.util.Map.of() : tooltips;
+        this.allowEnableByAll = allowEnableByAll;
     }
 
     public String getId() {
@@ -53,6 +56,10 @@ public class DlcItem {
 
     public java.util.Map<String, String> getTooltips() {
         return tooltips;
+    }
+
+    public boolean AllowEnableByAll() {
+        return allowEnableByAll;
     }
 
     public boolean isDirty() {

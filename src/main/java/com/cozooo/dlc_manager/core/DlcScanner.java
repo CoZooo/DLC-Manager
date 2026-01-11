@@ -132,7 +132,8 @@ public class DlcScanner {
         String id = effectiveType.name().toLowerCase() + ":" + rootId + "|" + relative;
         boolean enabled = isEnabledInTargets(name, effectiveType);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
-        DlcItem item = new DlcItem(id, name, effectiveType, source, enabled, tips);
+        boolean allowEnableByAll = tooltipData == null || tooltipData.AllowEnableByAll();
+        DlcItem item = new DlcItem(id, name, effectiveType, source, enabled, tips, allowEnableByAll);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;
