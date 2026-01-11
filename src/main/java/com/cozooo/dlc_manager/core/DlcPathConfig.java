@@ -19,12 +19,14 @@ public class DlcPathConfig {
     private static final String DEFAULT_RESOURCEPACK_ROOT = "resourcepacks";
     private static final String DEFAULT_DATAPACK_ROOT = "datapacks";
     private static final String DEFAULT_OTHER_ROOT = "dlc_other";
+    private static final boolean DEFAULT_ENABLE_ALL_SHOWN = true;
+    private static final boolean DEFAULT_CONFIG_BUTTON_SHOWN = true;
 
     private static Path configPath;
     private static DlcPathData data;
 
     public static void load() {
-        configPath = FMLPaths.CONFIGDIR.get().resolve("dlc_manager/paths.json");
+        configPath = FMLPaths.CONFIGDIR.get().resolve("dlc_manager/config.json");
         if (Files.exists(configPath)) {
             try (Reader reader = Files.newBufferedReader(configPath)) {
                 data = GSON.fromJson(reader, DlcPathData.class);
@@ -34,12 +36,18 @@ public class DlcPathConfig {
         }
         if (data == null) {
             data = new DlcPathData();
-            data.dlcRoot = DEFAULT_DLC_ROOT;
-            data.taczRoot = DEFAULT_TACZ_DLC_ROOT;
-            data.resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT;
-            data.datapackRoot = DEFAULT_DATAPACK_ROOT;
-            data.otherRoot = DEFAULT_OTHER_ROOT;
+            data.paths = new PathSection();
+            data.paths.dlcRoot = DEFAULT_DLC_ROOT;
+            data.paths.taczRoot = DEFAULT_TACZ_DLC_ROOT;
+            data.paths.resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT;
+            data.paths.datapackRoot = DEFAULT_DATAPACK_ROOT;
+            data.paths.otherRoot = DEFAULT_OTHER_ROOT;
+            data.ui = new UiSection();
+            data.ui.isEnableAllButtonShown = DEFAULT_ENABLE_ALL_SHOWN;
+            data.ui.isConfigButtonShown = DEFAULT_CONFIG_BUTTON_SHOWN;
             save();
+        } else {
+            normalizeData();
         }
     }
 
@@ -75,63 +83,79 @@ public class DlcPathConfig {
     }
 
     public static List<Path> getDlcRoots() {
-        return resolvePaths(data.dlcRoot, DEFAULT_DLC_ROOT);
+        return resolvePaths(data.paths.dlcRoot, DEFAULT_DLC_ROOT);
     }
 
     public static List<Path> getTaczDlcRoots() {
-        return resolvePathsRelativeToDlc(data.taczRoot, DEFAULT_TACZ_DLC_ROOT);
+        return resolvePathsRelativeToDlc(data.paths.taczRoot, DEFAULT_TACZ_DLC_ROOT);
     }
 
     public static List<Path> getResourcepackRoots() {
-        return resolvePaths(data.resourcepackRoot, DEFAULT_RESOURCEPACK_ROOT);
+        return resolvePaths(data.paths.resourcepackRoot, DEFAULT_RESOURCEPACK_ROOT);
     }
 
     public static List<Path> getDatapackRoots() {
-        return resolvePaths(data.datapackRoot, DEFAULT_DATAPACK_ROOT);
+        return resolvePaths(data.paths.datapackRoot, DEFAULT_DATAPACK_ROOT);
     }
 
     public static List<Path> getOtherRoots() {
-        return resolvePaths(data.otherRoot, DEFAULT_OTHER_ROOT);
+        return resolvePaths(data.paths.otherRoot, DEFAULT_OTHER_ROOT);
     }
 
     public static String getDlcRootRaw() {
-        return data.dlcRoot == null ? DEFAULT_DLC_ROOT : data.dlcRoot;
+        return data.paths.dlcRoot == null ? DEFAULT_DLC_ROOT : data.paths.dlcRoot;
     }
 
     public static String getTaczRootRaw() {
-        return data.taczRoot == null ? DEFAULT_TACZ_DLC_ROOT : data.taczRoot;
+        return data.paths.taczRoot == null ? DEFAULT_TACZ_DLC_ROOT : data.paths.taczRoot;
     }
 
     public static String getResourcepackRootRaw() {
-        return data.resourcepackRoot == null ? DEFAULT_RESOURCEPACK_ROOT : data.resourcepackRoot;
+        return data.paths.resourcepackRoot == null ? DEFAULT_RESOURCEPACK_ROOT : data.paths.resourcepackRoot;
     }
 
     public static String getDatapackRootRaw() {
-        return data.datapackRoot == null ? DEFAULT_DATAPACK_ROOT : data.datapackRoot;
+        return data.paths.datapackRoot == null ? DEFAULT_DATAPACK_ROOT : data.paths.datapackRoot;
     }
 
     public static String getOtherRootRaw() {
-        return data.otherRoot == null ? DEFAULT_OTHER_ROOT : data.otherRoot;
+        return data.paths.otherRoot == null ? DEFAULT_OTHER_ROOT : data.paths.otherRoot;
+    }
+
+    public static boolean isEnableAllButtonShown() {
+        return data.ui.isEnableAllButtonShown == null ? DEFAULT_ENABLE_ALL_SHOWN : data.ui.isEnableAllButtonShown;
+    }
+
+    public static boolean isConfigButtonShown() {
+        return data.ui.isConfigButtonShown == null ? DEFAULT_CONFIG_BUTTON_SHOWN : data.ui.isConfigButtonShown;
     }
 
     public static void setDlcRoot(String value) {
-        data.dlcRoot = value;
+        data.paths.dlcRoot = value;
     }
 
     public static void setTaczRoot(String value) {
-        data.taczRoot = value;
+        data.paths.taczRoot = value;
     }
 
     public static void setResourcepackRoot(String value) {
-        data.resourcepackRoot = value;
+        data.paths.resourcepackRoot = value;
     }
 
     public static void setDatapackRoot(String value) {
-        data.datapackRoot = value;
+        data.paths.datapackRoot = value;
     }
 
     public static void setOtherRoot(String value) {
-        data.otherRoot = value;
+        data.paths.otherRoot = value;
+    }
+
+    public static void setEnableAllButtonShown(boolean value) {
+        data.ui.isEnableAllButtonShown = value;
+    }
+
+    public static void setConfigButtonShown(boolean value) {
+        data.ui.isConfigButtonShown = value;
     }
 
     private static Path resolvePath(String value, String fallback) {
@@ -182,13 +206,6 @@ public class DlcPathConfig {
                         added = true;
                     }
                 }
-                if (!added) {
-                    Path gameDirPath = FMLPaths.GAMEDIR.get().resolve(trimmed).normalize();
-                    if (Files.exists(gameDirPath)) {
-                        paths.add(gameDirPath);
-                        added = true;
-                    }
-                }
                 if (!added && !dlcRoots.isEmpty()) {
                     paths.add(dlcRoots.get(0).resolve(trimmed).normalize());
                 }
@@ -203,23 +220,85 @@ public class DlcPathConfig {
                     added = true;
                 }
             }
-            if (!added) {
-                Path gameDirPath = FMLPaths.GAMEDIR.get().resolve(fallback).normalize();
-                if (Files.exists(gameDirPath)) {
-                    paths.add(gameDirPath);
-                } else if (!dlcRoots.isEmpty()) {
-                    paths.add(dlcRoots.get(0).resolve(fallback).normalize());
-                }
+            if (!added && !dlcRoots.isEmpty()) {
+                paths.add(dlcRoots.get(0).resolve(fallback).normalize());
             }
         }
         return new ArrayList<>(paths);
     }
 
+    private static void normalizeData() {
+        if (data.paths == null) {
+            data.paths = new PathSection();
+        }
+        if (data.ui == null) {
+            data.ui = new UiSection();
+        }
+        if (data.paths.dlcRoot == null || data.paths.dlcRoot.isBlank()) {
+            data.paths.dlcRoot = firstNonBlank(data.dlcRoot, DEFAULT_DLC_ROOT);
+        }
+        if (data.paths.taczRoot == null || data.paths.taczRoot.isBlank()) {
+            data.paths.taczRoot = firstNonBlank(data.taczRoot, DEFAULT_TACZ_DLC_ROOT);
+        }
+        if (data.paths.resourcepackRoot == null || data.paths.resourcepackRoot.isBlank()) {
+            data.paths.resourcepackRoot = firstNonBlank(data.resourcepackRoot, DEFAULT_RESOURCEPACK_ROOT);
+        }
+        if (data.paths.datapackRoot == null || data.paths.datapackRoot.isBlank()) {
+            data.paths.datapackRoot = firstNonBlank(data.datapackRoot, DEFAULT_DATAPACK_ROOT);
+        }
+        if (data.paths.otherRoot == null || data.paths.otherRoot.isBlank()) {
+            data.paths.otherRoot = firstNonBlank(data.otherRoot, DEFAULT_OTHER_ROOT);
+        }
+        if (data.ui.isEnableAllButtonShown == null) {
+            data.ui.isEnableAllButtonShown = data.isEnableAllButtonShown != null
+                ? data.isEnableAllButtonShown
+                : DEFAULT_ENABLE_ALL_SHOWN;
+        }
+        if (data.ui.isConfigButtonShown == null) {
+            data.ui.isConfigButtonShown = data.isConfigButtonShown != null
+                ? data.isConfigButtonShown
+                : DEFAULT_CONFIG_BUTTON_SHOWN;
+        }
+        data.dlcRoot = null;
+        data.taczRoot = null;
+        data.resourcepackRoot = null;
+        data.datapackRoot = null;
+        data.otherRoot = null;
+        data.isEnableAllButtonShown = null;
+        data.isConfigButtonShown = null;
+        save();
+    }
+
+    private static String firstNonBlank(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
+    }
+
     private static class DlcPathData {
+        PathSection paths;
+        UiSection ui;
+        // Legacy flat fields for migration
         String dlcRoot;
         String taczRoot;
         String resourcepackRoot;
         String datapackRoot;
         String otherRoot;
+        Boolean isEnableAllButtonShown;
+        Boolean isConfigButtonShown;
+    }
+
+    private static class PathSection {
+        String dlcRoot;
+        String taczRoot;
+        String resourcepackRoot;
+        String datapackRoot;
+        String otherRoot;
+    }
+
+    private static class UiSection {
+        Boolean isEnableAllButtonShown;
+        Boolean isConfigButtonShown;
     }
 }

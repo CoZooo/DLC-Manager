@@ -42,7 +42,7 @@ ao:true
 prioritizeChunkUpdates:0
 biomeBlendRadius:2
 renderClouds:"true"
-resourcePacks:["vanilla","mod_resources"]
+resourcePacks:["vanilla","mod_resources","file/CozyUI+_v1.10.zip"]
 incompatibleResourcePacks:[]
 lastServer:
 lang:zh_cn

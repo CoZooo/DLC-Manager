@@ -10,6 +10,8 @@ import fi.dy.masa.malilib.gui.button.IButtonActionListener;
 import fi.dy.masa.malilib.gui.widgets.WidgetListEntryBase;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.server.packs.repository.PackRepository;
@@ -21,15 +23,21 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private static final int COLOR_GROUP = 0xFFBFD7FF;
     private static final int COLOR_PATH = 0xFF9AA7B1;
     private static final int COLOR_ITEM = 0xFFE6E6E6;
+    private static final int COLOR_ENABLED = 0xFF7AC37A;
 
     private final DlcListRow row;
     private ButtonGeneric toggleButton;
+    private ButtonGeneric groupToggleButton;
+    private int groupToggleWidth;
+    private int groupToggleHeight;
 
     public DlcListEntry(int x, int y, int width, int height, boolean isOdd, DlcListRow row, int listIndex) {
         super(x, y, width, height, row, listIndex);
         this.row = row;
         if (row.getType() == DlcListRow.RowType.ITEM) {
             createToggleButton(width, height, row.getItem());
+        } else if (row.getType() == DlcListRow.RowType.PATH_HEADER && !row.isRootPath()) {
+            createGroupToggleButton(width, height, row.getItems());
         }
     }
 
@@ -42,6 +50,18 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         addButton(toggleButton, new ToggleListener(item));
     }
 
+    private void createGroupToggleButton(int width, int height, java.util.List<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        groupToggleWidth = 64;
+        groupToggleHeight = 18;
+        int bx = this.x + width - groupToggleWidth - 6 - 64 - 6;
+        int by = this.y + (height - groupToggleHeight) / 2;
+        groupToggleButton = new ButtonGeneric(bx, by, groupToggleWidth, groupToggleHeight, getGroupToggleState(items).label);
+        addButton(groupToggleButton, new GroupToggleListener(items));
+    }
+
     @Override
     public void render(int mouseX, int mouseY, boolean hovered, GuiGraphics guiGraphics) {
         if (row.getType() == DlcListRow.RowType.GROUP_HEADER) {
@@ -49,40 +69,89 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             drawStringWithShadow(this.x + 6, this.y + 4, COLOR_GROUP, label, guiGraphics);
         } else if (row.getType() == DlcListRow.RowType.PATH_HEADER) {
             drawString(this.x + 10, this.y + 4, COLOR_PATH, row.getLabel(), guiGraphics);
+            if (groupToggleButton != null) {
+                GroupToggleState state = getGroupToggleState(row.getItems());
+                if (state.show) {
+                    int bx = this.x + this.width - groupToggleWidth - 6 - 64 - 6;
+                    int by = this.y + (this.height - groupToggleHeight) / 2;
+                    groupToggleButton.setX(bx);
+                    groupToggleButton.setY(by);
+                    groupToggleButton.setWidth(groupToggleWidth);
+                    groupToggleButton.setHeight(groupToggleHeight);
+                    groupToggleButton.setDisplayString(state.label);
+                    groupToggleButton.setEnabled(state.enabled);
+                } else {
+                    groupToggleButton.setDisplayString("");
+                    groupToggleButton.setEnabled(false);
+                    groupToggleButton.setWidth(0);
+                    groupToggleButton.setX(-10000);
+                }
+            }
         } else if (row.getType() == DlcListRow.RowType.ITEM) {
             DlcItem item = row.getItem();
             boolean dirty = isDirty(item);
             item.setDirty(dirty);
+            int nameColor = item.isEnabled() ? COLOR_ENABLED : COLOR_ITEM;
+            String displayName = DlcDisplayNameUtil.resolveDisplayName(item);
             if (dirty) {
                 String suffix = DlcMaLiLibScreen.getPendingSuffix(item);
-                String label = item.getName() + suffix;
+                String label = displayName + suffix;
                 guiGraphics.drawString(Minecraft.getInstance().font,
                     Component.literal(label).setStyle(Style.EMPTY.withItalic(true)),
-                    this.x + 10, this.y + 4, COLOR_ITEM, false);
+                    this.x + 10, this.y + 4, nameColor, false);
             } else {
-                drawString(this.x + 10, this.y + 4, COLOR_ITEM, item.getName(), guiGraphics);
+                drawString(this.x + 10, this.y + 4, nameColor, displayName, guiGraphics);
             }
             if (toggleButton != null) {
                 toggleButton.setDisplayString(getToggleLabel(item));
             }
         }
         super.render(mouseX, mouseY, hovered, guiGraphics);
-        if (row.getType() == DlcListRow.RowType.ITEM && isMouseWithin(mouseX, mouseY)) {
+        if (row.getType() == DlcListRow.RowType.ITEM && isMouseWithin(mouseX, mouseY) && !isMouseOverButton(mouseX, mouseY)) {
             DlcItem item = row.getItem();
-            String tooltip = getTooltipText(item);
-            if (tooltip != null && !tooltip.isBlank()) {
-                var font = Minecraft.getInstance().font;
-                int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
-                var lines = font.split(Component.literal(tooltip), maxWidth);
-                guiGraphics.renderTooltip(font, lines, mouseX, mouseY);
+            var font = Minecraft.getInstance().font;
+            int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
+            var lines = buildTooltipLines(font, item, maxWidth);
+            if (!lines.isEmpty()) {
+                DlcTooltipContext.set(lines, mouseX, mouseY);
             }
         }
+    }
+
+    private boolean isMouseOverButton(int mouseX, int mouseY) {
+        if (toggleButton != null && isMouseOverButton(toggleButton, mouseX, mouseY)) {
+            return true;
+        }
+        return groupToggleButton != null && isMouseOverButton(groupToggleButton, mouseX, mouseY);
+    }
+
+    private boolean isMouseOverButton(ButtonGeneric button, int mouseX, int mouseY) {
+        int bx = button.getX();
+        int by = button.getY();
+        int bw = button.getWidth();
+        int bh = button.getHeight();
+        return mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh;
     }
 
     private String getToggleLabel(DlcItem item) {
         return item.isEnabled()
             ? Component.translatable("dlc_manager.toggle.on").getString()
             : Component.translatable("dlc_manager.toggle.off").getString();
+    }
+
+    private static GroupToggleState getGroupToggleState(java.util.List<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return new GroupToggleState("", false, false);
+        }
+        boolean anyEligibleDisabled = items.stream().anyMatch(item -> item.AllowEnableByAll() && !item.isEnabled());
+        boolean anyEnabled = items.stream().anyMatch(DlcItem::isEnabled);
+        if (anyEligibleDisabled) {
+            return new GroupToggleState(Component.translatable("dlc_manager.group.enable").getString(), true, true);
+        }
+        if (anyEnabled) {
+            return new GroupToggleState(Component.translatable("dlc_manager.group.disable").getString(), true, true);
+        }
+        return new GroupToggleState("", false, false);
     }
 
     private String getTooltipText(DlcItem item) {
@@ -105,6 +174,48 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             && mouseY >= this.y && mouseY < this.y + this.height;
     }
 
+    private java.util.List<net.minecraft.util.FormattedCharSequence> buildTooltipLines(net.minecraft.client.gui.Font font, DlcItem item, int maxWidth) {
+        java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
+        String tooltip = getTooltipText(item);
+        if (tooltip != null && !tooltip.isBlank()) {
+            for (String line : tooltip.split("\\R", -1)) {
+                if (line.isEmpty()) {
+                    lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
+                    continue;
+                }
+                lines.addAll(font.split(Component.literal(line), maxWidth));
+            }
+        }
+
+        java.util.List<String> deps = item.getDependencies();
+        java.util.List<String> conflicts = item.getConflicts();
+        if (deps != null && !deps.isEmpty()) {
+            if (!lines.isEmpty()) {
+                lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
+            }
+            Component depLabel = Component.empty()
+                .append(Component.translatable("dlc_manager.tooltip.dependencies").withStyle(net.minecraft.ChatFormatting.GOLD))
+                .append(":");
+            lines.addAll(font.split(depLabel, maxWidth));
+            for (String dep : deps) {
+                lines.addAll(font.split(Component.literal(DlcDisplayNameUtil.resolveDisplayName(dep)), maxWidth));
+            }
+        }
+        if (conflicts != null && !conflicts.isEmpty()) {
+            if (!lines.isEmpty()) {
+                lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
+            }
+            Component conflictLabel = Component.empty()
+                .append(Component.translatable("dlc_manager.tooltip.conflicts").withStyle(net.minecraft.ChatFormatting.DARK_RED))
+                .append(":");
+            lines.addAll(font.split(conflictLabel, maxWidth));
+            for (String conflict : conflicts) {
+                lines.addAll(font.split(Component.literal(DlcDisplayNameUtil.resolveDisplayName(conflict)), maxWidth));
+            }
+        }
+        return lines;
+    }
+
     private static class ToggleListener implements IButtonActionListener {
         private final DlcItem item;
 
@@ -114,18 +225,290 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
 
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
-            item.setEnabled(!item.isEnabled());
-            if (button instanceof ButtonGeneric generic) {
-                generic.setDisplayString(item.isEnabled()
-                    ? Component.translatable("dlc_manager.toggle.on").getString()
-                    : Component.translatable("dlc_manager.toggle.off").getString());
+            if (item.isEnabled()) {
+                item.setEnabled(false);
+                DlcRuntimeState.setOverride(item.getId(), false);
+                updateToggleButtonLabel(button, item);
+                item.setDirty(isDirty(item));
+                return;
             }
+
+            ConflictCheck conflicts = getConflicts(item);
+            if (!conflicts.items.isEmpty()) {
+                showConflictPrompt(item, conflicts, button);
+                return;
+            }
+
+            DependencyCheck dependencies = getMissingDependencies(item);
+            if (!dependencies.names.isEmpty()) {
+                showDependencyPrompt(item, dependencies, button);
+                return;
+            }
+
+            item.setEnabled(true);
+            DlcRuntimeState.setOverride(item.getId(), true);
+            updateToggleButtonLabel(button, item);
             item.setDirty(isDirty(item));
+        }
+    }
+
+    private static class GroupToggleListener implements IButtonActionListener {
+        private final java.util.List<DlcItem> items;
+
+        private GroupToggleListener(java.util.List<DlcItem> items) {
+            this.items = items;
+        }
+
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            if (items == null || items.isEmpty()) {
+                return;
+            }
+            GroupToggleState state = getGroupToggleState(items);
+            if (!state.show) {
+                return;
+            }
+            boolean anyEligibleDisabled = items.stream().anyMatch(item -> item.AllowEnableByAll() && !item.isEnabled());
+            boolean target = anyEligibleDisabled;
+            if (target) {
+                java.util.List<DlcItem> targets = items.stream()
+                    .filter(item -> item.AllowEnableByAll() && !item.isEnabled())
+                    .toList();
+                DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);
+                if (!conflicts.getLines().isEmpty()) {
+                    showBatchConflictPrompt(conflicts.getLines());
+                    return;
+                }
+                DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
+                if (!deps.getLines().isEmpty()) {
+                    Component scopeLabel = Component.translatable("dlc_manager.scope.group");
+                    showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel);
+                    return;
+                }
+                enableItems(targets, true);
+            } else {
+                enableItems(items, false);
+            }
+            if (button instanceof ButtonGeneric generic) {
+                state = getGroupToggleState(items);
+                generic.setDisplayString(state.label);
+                generic.setEnabled(state.enabled);
+            }
         }
     }
 
     private static boolean isDirty(DlcItem item) {
         return DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled());
+    }
+
+    private static void updateToggleButtonLabel(fi.dy.masa.malilib.gui.button.ButtonBase button, DlcItem item) {
+        if (button instanceof ButtonGeneric generic) {
+            generic.setDisplayString(item.isEnabled()
+                ? Component.translatable("dlc_manager.toggle.on").getString()
+                : Component.translatable("dlc_manager.toggle.off").getString());
+        }
+    }
+
+    private static DependencyCheck getMissingDependencies(DlcItem item) {
+        java.util.List<String> deps = item.getDependencies();
+        if (deps == null || deps.isEmpty()) {
+            return new DependencyCheck(java.util.List.of(), java.util.List.of());
+        }
+        java.util.List<DlcItem> toEnable = new java.util.ArrayList<>();
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (String name : deps) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            DlcItem depItem = DlcRuntimeState.getItemByName(name);
+            if (depItem == null || !depItem.isEnabled()) {
+                names.add(DlcDisplayNameUtil.resolveDisplayName(name));
+                if (depItem != null) {
+                    toEnable.add(depItem);
+                }
+            }
+        }
+        return new DependencyCheck(names, toEnable);
+    }
+
+    private static ConflictCheck getConflicts(DlcItem item) {
+        java.util.List<String> conflicts = item.getConflicts();
+        if (conflicts == null || conflicts.isEmpty()) {
+            return new ConflictCheck(java.util.List.of(), java.util.List.of());
+        }
+        java.util.List<DlcItem> toDisable = new java.util.ArrayList<>();
+        java.util.List<String> names = new java.util.ArrayList<>();
+        for (String name : conflicts) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            DlcItem conflictItem = DlcRuntimeState.getItemByName(name);
+            if (conflictItem != null && conflictItem.isEnabled()) {
+                toDisable.add(conflictItem);
+                names.add(DlcDisplayNameUtil.resolveDisplayName(name));
+            }
+        }
+        return new ConflictCheck(names, toDisable);
+    }
+
+    private static Component buildConflictPromptMessage(String list) {
+        return Component.translatable("dlc_manager.conflict.prompt_prefix", list)
+            .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
+    }
+
+    private static Component buildConflictLine(String left, String right) {
+        return Component.translatable("dlc_manager.batch.conflicts_line_prefix", left, right)
+            .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
+    }
+
+    private static Component joinLines(java.util.List<Component> lines) {
+        net.minecraft.network.chat.MutableComponent result = Component.empty();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                result = result.append(Component.literal("\n"));
+            }
+            result = result.append(lines.get(i));
+        }
+        return result;
+    }
+
+    private static void enableItems(java.util.Collection<DlcItem> items, boolean enabled) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            item.setEnabled(enabled);
+            DlcRuntimeState.setOverride(item.getId(), enabled);
+        }
+    }
+
+    private static void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (DlcRuntimeState.ConflictLine line : lines) {
+            components.add(buildConflictLine(
+                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
+        }
+        Component message = joinLines(components);
+        Screen returnScreen = Minecraft.getInstance().screen;
+        Component title = Component.translatable("dlc_manager.batch.conflicts_title")
+            .withStyle(net.minecraft.ChatFormatting.RED);
+        Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(returnScreen, title, message,
+            Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private static void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
+        java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (DlcRuntimeState.DependencyLine line : lines) {
+            components.add(Component.translatable("dlc_manager.batch.dependencies_line",
+                DlcDisplayNameUtil.resolveDisplayName(line.getItemName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())));
+        }
+        Component message = joinLines(components);
+        Screen returnScreen = Minecraft.getInstance().screen;
+        Component title = Component.translatable("dlc_manager.batch.dependencies_title");
+        Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(returnScreen);
+            if (!accepted) {
+                return;
+            }
+            enableItems(depsToEnable, true);
+            enableItems(targets, true);
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
+        }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private static void showDependencyPrompt(DlcItem item, DependencyCheck dependencies, fi.dy.masa.malilib.gui.button.ButtonBase button) {
+        if (dependencies.names.isEmpty()) {
+            return;
+        }
+        Screen returnScreen = Minecraft.getInstance().screen;
+        String list = String.join(", ", dependencies.names);
+        Component message = Component.translatable("dlc_manager.dependency.prompt", list);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(returnScreen);
+            if (!accepted) {
+                return;
+            }
+            for (DlcItem dep : dependencies.items) {
+                dep.setEnabled(true);
+                DlcRuntimeState.setOverride(dep.getId(), true);
+            }
+            item.setEnabled(true);
+            DlcRuntimeState.setOverride(item.getId(), true);
+            updateToggleButtonLabel(button, item);
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
+        }, Component.translatable("dlc_manager.title"), message,
+            Component.translatable("dlc_manager.dependency.enable"),
+            Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private static void showConflictPrompt(DlcItem item, ConflictCheck conflicts, fi.dy.masa.malilib.gui.button.ButtonBase button) {
+        if (conflicts.items.isEmpty()) {
+            return;
+        }
+        Screen returnScreen = Minecraft.getInstance().screen;
+        String list = String.join(", ", conflicts.names);
+        Component message = buildConflictPromptMessage(list);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(returnScreen);
+            if (!accepted) {
+                return;
+            }
+            for (DlcItem conflict : conflicts.items) {
+                conflict.setEnabled(false);
+                DlcRuntimeState.setOverride(conflict.getId(), false);
+            }
+            item.setEnabled(true);
+            DlcRuntimeState.setOverride(item.getId(), true);
+            updateToggleButtonLabel(button, item);
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
+        }, Component.translatable("dlc_manager.title"), message,
+            Component.translatable("dlc_manager.conflict.resolve"),
+            Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private static final class DependencyCheck {
+        private final java.util.List<String> names;
+        private final java.util.List<DlcItem> items;
+
+        private DependencyCheck(java.util.List<String> names, java.util.List<DlcItem> items) {
+            this.names = names;
+            this.items = items;
+        }
+    }
+
+    private static final class ConflictCheck {
+        private final java.util.List<String> names;
+        private final java.util.List<DlcItem> items;
+
+        private ConflictCheck(java.util.List<String> names, java.util.List<DlcItem> items) {
+            this.names = names;
+            this.items = items;
+        }
+    }
+
+    private static final class GroupToggleState {
+        private final String label;
+        private final boolean enabled;
+        private final boolean show;
+
+        private GroupToggleState(String label, boolean enabled, boolean show) {
+            this.label = label;
+            this.enabled = enabled;
+            this.show = show;
+        }
     }
 
     private static boolean isEnabledInTargets(DlcItem item) {

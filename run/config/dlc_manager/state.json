@@ -9,8 +9,11 @@
       "appliedTargets": []
     },
     "resource_pack:/Users/cozozjw/Projects/DLC-Manager/run/DLC|1/CozyUI+_v1.10.zip": {
-      "enabled": false,
-      "appliedTargets": []
+      "enabled": true,
+      "appliedTargets": [
+        "/Users/cozozjw/Projects/DLC-Manager/run/resourcepacks/CozyUI+_v1.10.zip",
+        "/Users/cozozjw/Projects/DLC-Manager/run/glo/res/CozyUI+_v1.10.zip"
+      ]
     },
     "resource_pack:/Users/cozozjw/Projects/DLC-Manager/run/DLC|CozyUI+_v1.10.zip": {
       "enabled": false,

@@ -1,0 +1,18 @@
+{
+  "isNoticeEnabled": true,
+  "neverShow": true,
+  "ShowFrequency": "perlaunchmanager",
+  "Title": {
+    "en_us": "Title",
+    "zh_cn": "标题"
+  },
+  "Subhead": {
+    "zh_cn": "副标题",
+    "en_us": "Subhead",
+    "enabled": true
+  },
+  "Contents": {
+    "en_us": "Contents",
+    "zh_cn": "内容\n第二行\n第三行"
+  }
+}

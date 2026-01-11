@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
@@ -38,6 +39,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private final Screen parent;
     private final List<DlcListRow> rows = new ArrayList<>();
     private final List<DlcItem> items = new ArrayList<>();
+    private final List<DlcItem> allItems = new ArrayList<>();
     private ApplyMode applyMode;
     private boolean hasModItems;
     private boolean hasModChanges;
@@ -47,6 +49,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private ButtonGeneric backButton;
     private ButtonGeneric modeButton;
     private ButtonGeneric configButton;
+    private ButtonGeneric enableAllButton;
+    private ButtonGeneric disableAllButton;
+    private ButtonGeneric noticeButton;
+    private boolean noticeChecked;
     private ButtonGeneric allFilterButton;
     private ButtonGeneric modsFilterButton;
     private ButtonGeneric taczFilterButton;
@@ -91,12 +97,85 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     @Override
     public void initGui() {
+        if (!noticeChecked) {
+            noticeChecked = true;
+            if (DlcNoticeManager.maybeShowFromManager(this)) {
+                return;
+            }
+        }
         rebuildRows();
         reCreateListWidget();
         super.initGui();
+        addHeaderButtons();
+        addNoticeButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        DlcTooltipContext.clear();
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcTooltipContext.render(guiGraphics, Minecraft.getInstance().font);
+    }
+
+    private void addHeaderButtons() {
+        HeaderLabels labels = getHeaderLabels();
+        boolean showEnable = DlcPathConfig.isEnableAllButtonShown();
+        int right = this.width - 18;
+        int y = 0;
+        int h = 12;
+        int gap = 6;
+        int enableWidth = Math.max(60, maxTextWidth(labels.enableLabel, labels.enableDone) + 4);
+        int disableWidth = Math.max(60, maxTextWidth(labels.disableLabel, labels.disableDone) + 4);
+
+        int disableX = right - disableWidth;
+        int enableX = disableX - gap - enableWidth;
+        if (showEnable) {
+            if (enableX < 18) {
+                enableX = 18;
+                disableX = enableX + enableWidth + gap;
+            }
+        } else {
+            enableX = -1000;
+        }
+
+        enableAllButton = null;
+        if (showEnable) {
+            enableAllButton = new ButtonGeneric(enableX, y, enableWidth, h, labels.enableLabel);
+            addButton(enableAllButton, new HeaderButtonListener(true));
+        }
+        disableAllButton = new ButtonGeneric(disableX, y, disableWidth, h, labels.disableLabel);
+        addButton(disableAllButton, new HeaderButtonListener(false));
+        updateHeaderButtonsState();
+    }
+
+    private void addNoticeButton() {
+        if (!DlcNoticeManager.isNoticeEnabled()) {
+            noticeButton = null;
+            return;
+        }
+        String label = StringUtils.translate("dlc_manager.notice");
+        int buttonWidth = Math.max(36, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int titleWidth = this.textRenderer.width(getTitleString());
+        int x = 18 + titleWidth + 6;
+        int y = 1;
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (x + buttonWidth > rightLimit) {
+            x = rightLimit - buttonWidth;
+        }
+        if (x < 18) {
+            x = 18;
+        }
+        noticeButton = new ButtonGeneric(x, y, buttonWidth, buttonHeight, label);
+        addButton(noticeButton, new NoticeButtonListener());
     }
 
     private void addFilterButtons() {
@@ -150,21 +229,27 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         modeButton = new ButtonGeneric(left, y, 150, 20, getApplyModeLabel());
         addButton(modeButton, new FooterButtonListener());
 
-        configButton = new ButtonGeneric(left + 156, y, 48, 20, StringUtils.translate("dlc_manager.config"));
-        addButton(configButton, new FooterButtonListener());
+        configButton = null;
+        if (DlcPathConfig.isConfigButtonShown()) {
+            configButton = new ButtonGeneric(left + 156, y, 48, 20, StringUtils.translate("dlc_manager.config"));
+            addButton(configButton, new FooterButtonListener());
+        }
 
-        backButton = new ButtonGeneric(right - 70, y, 70, 20, StringUtils.translate("dlc_manager.back"));
+        backButton = new ButtonGeneric(right - 70, y, 70, 20, getBackButtonLabel());
         addButton(backButton, new FooterButtonListener());
 
         applyButton = new ButtonGeneric(right - 70 - 6 - 90, y, 90, 20, StringUtils.translate("dlc_manager.apply"));
         addButton(applyButton, new FooterButtonListener());
 
-        footerTwoRows = modeButton.getX() + modeButton.getWidth() + 8 > applyButton.getX();
+        int leftSpanEnd = configButton != null ? configButton.getX() + configButton.getWidth() : modeButton.getX() + modeButton.getWidth();
+        footerTwoRows = leftSpanEnd + 8 > applyButton.getX();
         if (footerTwoRows) {
             int row1Y = this.height - 52;
             int row2Y = this.height - 30;
             modeButton.setY(row1Y);
-            configButton.setY(row1Y);
+            if (configButton != null) {
+                configButton.setY(row1Y);
+            }
             applyButton.setY(row2Y);
             backButton.setY(row2Y);
         }
@@ -175,6 +260,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private void rebuildRows() {
         rows.clear();
         items.clear();
+        allItems.clear();
         hasModItems = false;
         hasModChanges = false;
         userSelectedApplyMode = false;
@@ -185,6 +271,17 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 continue;
             }
             if (activeFilter != null && type != activeFilter) {
+                List<DlcItem> typeItems = grouped.get(type);
+                if (typeItems != null && !typeItems.isEmpty()) {
+                    for (DlcItem item : typeItems) {
+                        DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                        Boolean override = DlcRuntimeState.getOverride(item.getId());
+                        if (override != null) {
+                            item.setEnabled(override);
+                        }
+                        allItems.add(item);
+                    }
+                }
                 continue;
             }
             List<DlcItem> typeItems = grouped.get(type);
@@ -194,6 +291,14 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             if (type == DlcType.MOD) {
                 hasModItems = true;
             }
+            for (DlcItem item : typeItems) {
+                DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                Boolean override = DlcRuntimeState.getOverride(item.getId());
+                if (override != null) {
+                    item.setEnabled(override);
+                }
+                allItems.add(item);
+            }
             if (activeFilter == null) {
                 rows.add(DlcListRow.groupHeader(type));
             }
@@ -202,20 +307,26 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             for (Map.Entry<String, List<DlcItem>> entry : byPath.entrySet()) {
                 if ("__root__".equals(entry.getKey())) {
                     if (hasSubDir) {
-                        rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey())));
+                        rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true));
                     }
                 } else {
-                    rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey())));
+                    rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false));
                 }
                 for (DlcItem item : entry.getValue()) {
                     DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                    Boolean override = DlcRuntimeState.getOverride(item.getId());
+                    if (override != null) {
+                        item.setEnabled(override);
+                    }
                     item.setDirty(isItemModified(item));
                     rows.add(DlcListRow.item(item));
                     items.add(item);
                 }
             }
         }
+        DlcRuntimeState.updateItemIndex(allItems);
         hasModChanges = computeModReloadChanges();
+        updateHeaderButtonsState();
     }
 
     private Map<String, List<DlcItem>> groupByRelativeFolder(List<DlcItem> items) {
@@ -306,6 +417,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         rebuildRows();
         reCreateListWidget();
         updateListLayout();
+        updateHeaderButtonsLayout();
+        updateNoticeButtonLayout();
         updateModeAvailability();
     }
 
@@ -405,6 +518,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         super.drawContents(guiGraphics, mouseX, mouseY, partialTick);
         drawTitle(guiGraphics, mouseX, mouseY, partialTick);
         updateModeAvailability();
+        updateHeaderButtonsState();
     }
 
     @Override
@@ -441,11 +555,26 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             modeButton.setEnabled(!modChanges);
             modeButton.setDisplayString(getApplyModeLabel());
         }
+        updateBackButtonLabel();
+    }
+
+    private String getBackButtonLabel() {
+        boolean hasChanges = computeApplyChanges() || computeModReloadChanges() || computeNonModReloadChanges();
+        return hasChanges
+            ? StringUtils.translate("dlc_manager.back_discard")
+            : StringUtils.translate("dlc_manager.back");
+    }
+
+    private void updateBackButtonLabel() {
+        if (backButton == null) {
+            return;
+        }
+        backButton.setDisplayString(getBackButtonLabel());
     }
 
     private boolean computeModReloadChanges() {
         for (DlcItem item : items) {
-            if (item.getType() != DlcType.MOD && item.getType() != DlcType.TACZ_PACK) {
+            if (item.getType() != DlcType.MOD) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -457,7 +586,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private boolean computeNonModReloadChanges() {
         for (DlcItem item : items) {
-            if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
+            if (item.getType() == DlcType.MOD) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -512,7 +641,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
             return "";
         }
-        if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
+        if (item.getType() == DlcType.MOD) {
             return StringUtils.translate("dlc_manager.pending.restart");
         }
         return StringUtils.translate("dlc_manager.pending.reload");
@@ -537,10 +666,33 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
     }
 
+    void refreshAfterStateChange() {
+        for (DlcItem item : allItems) {
+            if (item == null) {
+                continue;
+            }
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            if (override != null) {
+                item.setEnabled(override);
+            }
+        }
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            item.setDirty(isItemModified(item));
+        }
+        updateHeaderButtonsState();
+        updateModeAvailability();
+        updateListLayout();
+    }
+
     @Override
     public void resize(Minecraft minecraft, int width, int height) {
         super.resize(minecraft, width, height);
         clearButtons();
+        addHeaderButtons();
+        addNoticeButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
@@ -548,13 +700,15 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private void ensureFooterNoOverlap() {
         int minGap = 6;
-        int leftEnd = configButton.getX() + configButton.getWidth();
+        int leftEnd = configButton != null ? configButton.getX() + configButton.getWidth() : modeButton.getX() + modeButton.getWidth();
         int rightStart = applyButton.getX();
         if (rightStart - leftEnd < minGap) {
             int row1Y = this.height - 52;
             int row2Y = this.height - 30;
             modeButton.setY(row1Y);
-            configButton.setY(row1Y);
+            if (configButton != null) {
+                configButton.setY(row1Y);
+            }
             applyButton.setY(row2Y);
             backButton.setY(row2Y);
             footerTwoRows = true;
@@ -581,7 +735,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private void updateBaselineAfterReload() {
         for (DlcItem item : items) {
-            if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
+            if (item.getType() == DlcType.MOD) {
                 continue;
             }
             DlcRuntimeState.updateBaseline(item.getId(), item.isEnabled());
@@ -674,6 +828,294 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
             setFilter(filter);
+        }
+    }
+
+    private class NoticeButtonListener implements IButtonActionListener {
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            DlcNoticeManager.forceShow(DlcMaLiLibScreen.this);
+        }
+    }
+
+    private class HeaderButtonListener implements IButtonActionListener {
+        private final boolean enable;
+
+        private HeaderButtonListener(boolean enable) {
+            this.enable = enable;
+        }
+
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            Component message = getHeaderConfirmMessage(enable);
+            Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+                Minecraft.getInstance().setScreen(DlcMaLiLibScreen.this);
+                if (!accepted) {
+                    return;
+                }
+                if (enable) {
+                    java.util.List<DlcItem> targets = items.stream()
+                        .filter(item -> item.AllowEnableByAll() && !item.isEnabled())
+                        .toList();
+                    if (!targets.isEmpty()) {
+                        Component scopeLabel = activeFilter == null
+                            ? Component.translatable("dlc_manager.scope.all")
+                            : Component.translatable("dlc_manager.scope.group");
+                        handleBatchEnable(targets, scopeLabel);
+                    }
+                } else {
+                    enableItems(items, false);
+                    updateModeAvailability();
+                }
+            }, Component.translatable("dlc_manager.title"),
+                message,
+                Component.translatable("dlc_manager.confirm_yes"),
+                Component.translatable("dlc_manager.confirm_no")));
+        }
+    }
+
+    private void updateHeaderButtonsState() {
+        if (disableAllButton == null) {
+            return;
+        }
+        boolean any = !items.isEmpty();
+        boolean anyEligible = false;
+        boolean allEligibleEnabled = true;
+        boolean allDisabled = true;
+        for (DlcItem item : items) {
+            if (item.isEnabled()) {
+                allDisabled = false;
+            }
+            if (item.AllowEnableByAll()) {
+                anyEligible = true;
+                if (!item.isEnabled()) {
+                    allEligibleEnabled = false;
+                }
+            }
+            if (!allDisabled && !allEligibleEnabled && anyEligible) {
+                break;
+            }
+        }
+        HeaderLabels labels = getHeaderLabels();
+
+        if (!any) {
+            if (enableAllButton != null) {
+                enableAllButton.setEnabled(false);
+                enableAllButton.setDisplayString(labels.enableLabel);
+            }
+            disableAllButton.setEnabled(false);
+            disableAllButton.setDisplayString(labels.disableLabel);
+            return;
+        }
+        if (enableAllButton != null) {
+            if (!anyEligible) {
+                enableAllButton.setEnabled(false);
+                enableAllButton.setDisplayString(labels.enableLabel);
+            } else if (allEligibleEnabled) {
+                enableAllButton.setEnabled(false);
+                enableAllButton.setDisplayString(labels.enableDone);
+            } else {
+                enableAllButton.setEnabled(true);
+                enableAllButton.setDisplayString(labels.enableLabel);
+            }
+        }
+        if (allDisabled) {
+            disableAllButton.setEnabled(false);
+            disableAllButton.setDisplayString(labels.disableDone);
+        } else {
+            disableAllButton.setEnabled(true);
+            disableAllButton.setDisplayString(labels.disableLabel);
+        }
+    }
+
+    private void updateHeaderButtonsLayout() {
+        if (disableAllButton == null) {
+            return;
+        }
+        HeaderLabels labels = getHeaderLabels();
+        boolean showEnable = DlcPathConfig.isEnableAllButtonShown();
+        int right = this.width - 18;
+        int y = 0;
+        int h = 12;
+        int gap = 6;
+        int enableWidth = Math.max(60, maxTextWidth(labels.enableLabel, labels.enableDone) + 4);
+        int disableWidth = Math.max(60, maxTextWidth(labels.disableLabel, labels.disableDone) + 4);
+        int disableX = right - disableWidth;
+        int enableX = disableX - gap - enableWidth;
+        if (showEnable) {
+            if (enableX < 18) {
+                enableX = 18;
+                disableX = enableX + enableWidth + gap;
+            }
+        } else {
+            enableX = -1000;
+        }
+        if (enableAllButton != null) {
+            enableAllButton.setX(enableX);
+            enableAllButton.setY(y);
+            enableAllButton.setWidth(enableWidth);
+            enableAllButton.setHeight(h);
+        }
+        disableAllButton.setX(disableX);
+        disableAllButton.setY(y);
+        disableAllButton.setWidth(disableWidth);
+        disableAllButton.setHeight(h);
+    }
+
+    private void updateNoticeButtonLayout() {
+        if (noticeButton == null) {
+            return;
+        }
+        String label = StringUtils.translate("dlc_manager.notice");
+        int buttonWidth = Math.max(36, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int titleWidth = this.textRenderer.width(getTitleString());
+        int x = 18 + titleWidth + 6;
+        int y = 1;
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (x + buttonWidth > rightLimit) {
+            x = rightLimit - buttonWidth;
+        }
+        if (x < 18) {
+            x = 18;
+        }
+        noticeButton.setX(x);
+        noticeButton.setY(y);
+        noticeButton.setWidth(buttonWidth);
+        noticeButton.setHeight(buttonHeight);
+    }
+
+    private Component getHeaderConfirmMessage(boolean enable) {
+        if (activeFilter == null) {
+            String key = enable ? "dlc_manager.confirm.enable_all" : "dlc_manager.confirm.disable_all";
+            return Component.translatable(key);
+        }
+        String key = enable ? "dlc_manager.confirm.enable_all_type" : "dlc_manager.confirm.disable_all_type";
+        return Component.translatable(key, Component.translatable(activeFilter.getDisplayKey()));
+    }
+
+    private void handleBatchEnable(java.util.List<DlcItem> targets, Component scopeLabel) {
+        DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);
+        if (!conflicts.getLines().isEmpty()) {
+            showBatchConflictPrompt(conflicts.getLines());
+            return;
+        }
+        DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
+        if (!deps.getLines().isEmpty()) {
+            showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel);
+            return;
+        }
+        enableItems(targets, true);
+        updateModeAvailability();
+    }
+
+    private void enableItems(java.util.Collection<DlcItem> items, boolean enabled) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            item.setEnabled(enabled);
+            DlcRuntimeState.setOverride(item.getId(), enabled);
+        }
+    }
+
+    private void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (DlcRuntimeState.ConflictLine line : lines) {
+            components.add(buildConflictLine(
+                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
+        }
+        Component message = joinLines(components);
+        Component title = Component.translatable("dlc_manager.batch.conflicts_title")
+            .withStyle(net.minecraft.ChatFormatting.DARK_RED);
+        Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(this, title, message,
+            Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
+        java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (DlcRuntimeState.DependencyLine line : lines) {
+            components.add(Component.translatable("dlc_manager.batch.dependencies_line",
+                DlcDisplayNameUtil.resolveDisplayName(line.getItemName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())));
+        }
+        Component message = joinLines(components);
+        Component title = Component.translatable("dlc_manager.batch.dependencies_title");
+        Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (!accepted) {
+                return;
+            }
+            enableItems(depsToEnable, true);
+            enableItems(targets, true);
+            refreshAfterStateChange();
+        }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private Component buildConflictLine(String left, String right) {
+        return Component.translatable("dlc_manager.batch.conflicts_line_prefix", left, right)
+            .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
+    }
+
+    private Component joinLines(java.util.List<Component> lines) {
+        net.minecraft.network.chat.MutableComponent result = Component.empty();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                result = result.append(Component.literal("\n"));
+            }
+            result = result.append(lines.get(i));
+        }
+        return result;
+    }
+
+    private HeaderLabels getHeaderLabels() {
+        if (activeFilter == null) {
+            return new HeaderLabels(
+                StringUtils.translate("dlc_manager.enable_all"),
+                StringUtils.translate("dlc_manager.disable_all"),
+                StringUtils.translate("dlc_manager.all_enabled"),
+                StringUtils.translate("dlc_manager.all_disabled"));
+        }
+        String typeName = StringUtils.translate(activeFilter.getDisplayKey());
+        return new HeaderLabels(
+            StringUtils.translate("dlc_manager.enable_all_type", typeName),
+            StringUtils.translate("dlc_manager.disable_all_type", typeName),
+            StringUtils.translate("dlc_manager.all_enabled_type", typeName),
+            StringUtils.translate("dlc_manager.all_disabled_type", typeName));
+    }
+
+    @Override
+    protected void closeGui(boolean closeInGame) {
+        DlcRuntimeState.clearOverrides();
+        super.closeGui(closeInGame);
+    }
+
+    private int maxTextWidth(String a, String b) {
+        return Math.max(this.textRenderer.width(a), this.textRenderer.width(b));
+    }
+
+    private static final class HeaderLabels {
+        private final String enableLabel;
+        private final String disableLabel;
+        private final String enableDone;
+        private final String disableDone;
+
+        private HeaderLabels(String enableLabel, String disableLabel, String enableDone, String disableDone) {
+            this.enableLabel = enableLabel;
+            this.disableLabel = disableLabel;
+            this.enableDone = enableDone;
+            this.disableDone = disableDone;
         }
     }
 }
