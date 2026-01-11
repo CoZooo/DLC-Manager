@@ -1,0 +1,20 @@
+{
+  "stateById": {
+    "mod:/Users/cozozjw/Projects/DLC-Manager/run/DLC|appliedenergistics2-forge-15.4.10.jar": {
+      "enabled": false,
+      "appliedTargets": []
+    },
+    "mod:appliedenergistics2-forge-15.4.10.jar": {
+      "enabled": false,
+      "appliedTargets": []
+    },
+    "resource_pack:/Users/cozozjw/Projects/DLC-Manager/run/DLC|1/CozyUI+_v1.10.zip": {
+      "enabled": false,
+      "appliedTargets": []
+    },
+    "resource_pack:/Users/cozozjw/Projects/DLC-Manager/run/DLC|CozyUI+_v1.10.zip": {
+      "enabled": false,
+      "appliedTargets": []
+    }
+  }
+}

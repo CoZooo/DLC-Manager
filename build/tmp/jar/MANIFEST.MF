@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Specification-Title: DLC Manager
+Specification-Vendor: CoZooo
+Specification-Version: 1
+Implementation-Title: DLC Manager
+Implementation-Version: 1.0.0
+Implementation-Vendor: CoZooo
+

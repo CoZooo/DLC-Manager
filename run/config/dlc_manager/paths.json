@@ -1,0 +1,6 @@
+{
+  "dlcRoot": "DLC",
+  "taczRoot": "tacz",
+  "resourcepackRoot": "resourcepacks,glo/res",
+  "datapackRoot": "datapacks"
+}

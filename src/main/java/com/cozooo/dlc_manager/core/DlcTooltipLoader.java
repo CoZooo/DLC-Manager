@@ -1,0 +1,200 @@
+package com.cozooo.dlc_manager.core;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.JsonReader;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
+
+public class DlcTooltipLoader {
+    private static final Gson GSON = new GsonBuilder().create();
+    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Map<String, DlcType> TYPE_MAP = Map.of(
+        "mod", DlcType.MOD,
+        "resourcepack", DlcType.RESOURCE_PACK,
+        "datapack", DlcType.DATA_PACK,
+        "gunpack", DlcType.TACZ_PACK,
+        "others", DlcType.UNKNOWN
+    );
+
+    public Map<String, TooltipData> loadTooltips(Path dlcRoot) {
+        Map<String, TooltipData> result = new HashMap<>();
+        Path infoDir = dlcRoot.resolve("info");
+        if (!Files.isDirectory(infoDir)) {
+            return result;
+        }
+        try (var stream = Files.list(infoDir)) {
+            stream.filter(path -> path.getFileName().toString().endsWith(".json"))
+                .forEach(path -> {
+                    TooltipEntry entry = readEntry(path);
+                    if (entry != null && entry.dlcName != null) {
+                        TooltipData data = new TooltipData(entry.tip, entry.type, entry.typeValid, entry.hasTypeField);
+                        result.put(entry.dlcName, data);
+                    }
+                });
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+        return result;
+    }
+
+    public void ensureTooltipFile(Path infoDir, String dlcName, DlcType type, boolean updateExistingType) {
+        if (dlcName == null || dlcName.isBlank()) {
+            return;
+        }
+        try {
+            Files.createDirectories(infoDir);
+        } catch (IOException ignored) {
+            return;
+        }
+        Path path = infoDir.resolve(dlcName + ".json");
+        if (Files.exists(path)) {
+            if (updateExistingType) {
+                updateTypeField(path, dlcName, type);
+            }
+            return;
+        }
+        JsonObject obj = new JsonObject();
+        obj.addProperty("dlc_name", dlcName);
+        obj.addProperty("type", toTypeString(type));
+        obj.add("tip", new JsonObject());
+        try (Writer writer = Files.newBufferedWriter(path)) {
+            PRETTY_GSON.toJson(obj, writer);
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+    }
+
+    private void updateTypeField(Path path, String dlcName, DlcType type) {
+        JsonObject obj = null;
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            obj = GSON.fromJson(jsonReader, JsonObject.class);
+        } catch (IOException | JsonSyntaxException ignored) {
+            return;
+        }
+        if (obj == null) {
+            return;
+        }
+        obj.addProperty("dlc_name", dlcName);
+        obj.addProperty("type", toTypeString(type));
+        if (!obj.has("tip") || !obj.get("tip").isJsonObject()) {
+            obj.add("tip", new JsonObject());
+        }
+        try (Writer writer = Files.newBufferedWriter(path)) {
+            PRETTY_GSON.toJson(obj, writer);
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+    }
+
+    private TooltipEntry readEntry(Path path) {
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            JsonObject obj = GSON.fromJson(jsonReader, JsonObject.class);
+            if (obj == null) {
+                return null;
+            }
+            TooltipEntry entry = new TooltipEntry();
+            entry.dlcName = getString(obj, "dlc_name");
+            entry.hasTypeField = obj.has("type");
+            String type = getString(obj, "type");
+            if (type != null) {
+                DlcType parsed = parseType(type);
+                if (parsed != null) {
+                    entry.type = parsed;
+                    entry.typeValid = true;
+                }
+            }
+            JsonObject tipObj = obj.has("tip") && obj.get("tip").isJsonObject() ? obj.getAsJsonObject("tip") : null;
+            if (tipObj != null) {
+                Map<String, String> tips = new HashMap<>();
+                for (Map.Entry<String, JsonElement> e : tipObj.entrySet()) {
+                    if (e.getValue().isJsonPrimitive()) {
+                        tips.put(e.getKey(), e.getValue().getAsString());
+                    }
+                }
+                entry.tip = tips;
+            }
+            return entry;
+        } catch (IOException | JsonSyntaxException ignored) {
+            return null;
+        }
+    }
+
+    private String getString(JsonObject obj, String key) {
+        if (obj.has(key) && obj.get(key).isJsonPrimitive()) {
+            return obj.get(key).getAsString();
+        }
+        return null;
+    }
+
+    private static class TooltipEntry {
+        String dlcName;
+        Map<String, String> tip;
+        DlcType type;
+        boolean typeValid;
+        boolean hasTypeField;
+    }
+
+    public static class TooltipData {
+        private final Map<String, String> tips;
+        private final DlcType type;
+        private final boolean typeValid;
+        private final boolean hasTypeField;
+
+        public TooltipData(Map<String, String> tips, DlcType type, boolean typeValid, boolean hasTypeField) {
+            this.tips = tips == null ? Map.of() : tips;
+            this.type = type;
+            this.typeValid = typeValid;
+            this.hasTypeField = hasTypeField;
+        }
+
+        public Map<String, String> getTips() {
+            return tips;
+        }
+
+        public DlcType getType() {
+            return type;
+        }
+
+        public boolean isTypeValid() {
+            return typeValid;
+        }
+
+        public boolean hasTypeField() {
+            return hasTypeField;
+        }
+    }
+
+    private DlcType parseType(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        return TYPE_MAP.get(raw.toLowerCase());
+    }
+
+    public String toTypeString(DlcType type) {
+        if (type == null) {
+            return "others";
+        }
+        return switch (type) {
+            case MOD -> "mod";
+            case RESOURCE_PACK -> "resourcepack";
+            case DATA_PACK -> "datapack";
+            case TACZ_PACK -> "gunpack";
+            case UNKNOWN -> "others";
+        };
+    }
+}
