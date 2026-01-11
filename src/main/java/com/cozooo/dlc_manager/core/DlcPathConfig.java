@@ -206,13 +206,6 @@ public class DlcPathConfig {
                         added = true;
                     }
                 }
-                if (!added) {
-                    Path gameDirPath = FMLPaths.GAMEDIR.get().resolve(trimmed).normalize();
-                    if (Files.exists(gameDirPath)) {
-                        paths.add(gameDirPath);
-                        added = true;
-                    }
-                }
                 if (!added && !dlcRoots.isEmpty()) {
                     paths.add(dlcRoots.get(0).resolve(trimmed).normalize());
                 }
@@ -227,13 +220,8 @@ public class DlcPathConfig {
                     added = true;
                 }
             }
-            if (!added) {
-                Path gameDirPath = FMLPaths.GAMEDIR.get().resolve(fallback).normalize();
-                if (Files.exists(gameDirPath)) {
-                    paths.add(gameDirPath);
-                } else if (!dlcRoots.isEmpty()) {
-                    paths.add(dlcRoots.get(0).resolve(fallback).normalize());
-                }
+            if (!added && !dlcRoots.isEmpty()) {
+                paths.add(dlcRoots.get(0).resolve(fallback).normalize());
             }
         }
         return new ArrayList<>(paths);

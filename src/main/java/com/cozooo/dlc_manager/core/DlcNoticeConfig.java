@@ -18,6 +18,7 @@ import java.util.Map;
 public class DlcNoticeConfig {
     public enum ShowFrequency {
         PER_LAUNCH_GAME("perlaunchgame"),
+        PER_GAME_SESSION("pergamesession"),
         PER_LAUNCH_MANAGER("perlaunchmanager"),
         ONCE("once");
 
@@ -136,8 +137,12 @@ public class DlcNoticeConfig {
         obj.addProperty("neverShow", neverShow);
         obj.addProperty("ShowFrequency", showFrequency.getKey());
         obj.add("Title", writeLocalized(title));
-        JsonObject subheadObj = writeLocalized(subhead.text);
+        JsonObject subheadObj = new JsonObject();
         subheadObj.addProperty("enabled", subhead.enabled);
+        JsonObject subheadText = writeLocalized(subhead.text);
+        for (Map.Entry<String, JsonElement> entry : subheadText.entrySet()) {
+            subheadObj.add(entry.getKey(), entry.getValue());
+        }
         obj.add("Subhead", subheadObj);
         obj.add("Contents", writeLocalized(contents));
         try (Writer writer = Files.newBufferedWriter(path)) {

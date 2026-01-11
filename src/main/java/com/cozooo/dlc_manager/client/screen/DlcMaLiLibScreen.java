@@ -113,6 +113,13 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         updateListLayout();
     }
 
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        DlcTooltipContext.clear();
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcTooltipContext.render(guiGraphics, Minecraft.getInstance().font);
+    }
+
     private void addHeaderButtons() {
         HeaderLabels labels = getHeaderLabels();
         boolean showEnable = DlcPathConfig.isEnableAllButtonShown();
@@ -567,7 +574,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private boolean computeModReloadChanges() {
         for (DlcItem item : items) {
-            if (item.getType() != DlcType.MOD && item.getType() != DlcType.TACZ_PACK) {
+            if (item.getType() != DlcType.MOD) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -579,7 +586,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private boolean computeNonModReloadChanges() {
         for (DlcItem item : items) {
-            if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
+            if (item.getType() == DlcType.MOD) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -634,7 +641,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
             return "";
         }
-        if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
+        if (item.getType() == DlcType.MOD) {
             return StringUtils.translate("dlc_manager.pending.restart");
         }
         return StringUtils.translate("dlc_manager.pending.reload");
@@ -657,6 +664,27 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             getListWidget().setSize(getBrowserWidth(), getBrowserHeight());
             getListWidget().initGui();
         }
+    }
+
+    void refreshAfterStateChange() {
+        for (DlcItem item : allItems) {
+            if (item == null) {
+                continue;
+            }
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            if (override != null) {
+                item.setEnabled(override);
+            }
+        }
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            item.setDirty(isItemModified(item));
+        }
+        updateHeaderButtonsState();
+        updateModeAvailability();
+        updateListLayout();
     }
 
     @Override
@@ -707,7 +735,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private void updateBaselineAfterReload() {
         for (DlcItem item : items) {
-            if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
+            if (item.getType() == DlcType.MOD) {
                 continue;
             }
             DlcRuntimeState.updateBaseline(item.getId(), item.isEnabled());
@@ -1002,7 +1030,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {
         java.util.List<Component> components = new java.util.ArrayList<>();
         for (DlcRuntimeState.ConflictLine line : lines) {
-            components.add(buildConflictLine(line.getLeftName(), line.getRightName()));
+            components.add(buildConflictLine(
+                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
         }
         Component message = joinLines(components);
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
@@ -1016,7 +1046,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         java.util.List<Component> components = new java.util.ArrayList<>();
         for (DlcRuntimeState.DependencyLine line : lines) {
             components.add(Component.translatable("dlc_manager.batch.dependencies_line",
-                line.getItemName(), line.getDependencyName()));
+                DlcDisplayNameUtil.resolveDisplayName(line.getItemName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())));
         }
         Component message = joinLines(components);
         Component title = Component.translatable("dlc_manager.batch.dependencies_title");
@@ -1028,7 +1059,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
             enableItems(depsToEnable, true);
             enableItems(targets, true);
-            updateModeAvailability();
+            refreshAfterStateChange();
         }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
     }
 

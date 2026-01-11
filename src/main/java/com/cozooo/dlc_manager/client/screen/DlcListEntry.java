@@ -92,29 +92,45 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             boolean dirty = isDirty(item);
             item.setDirty(dirty);
             int nameColor = item.isEnabled() ? COLOR_ENABLED : COLOR_ITEM;
+            String displayName = DlcDisplayNameUtil.resolveDisplayName(item);
             if (dirty) {
                 String suffix = DlcMaLiLibScreen.getPendingSuffix(item);
-                String label = item.getName() + suffix;
+                String label = displayName + suffix;
                 guiGraphics.drawString(Minecraft.getInstance().font,
                     Component.literal(label).setStyle(Style.EMPTY.withItalic(true)),
                     this.x + 10, this.y + 4, nameColor, false);
             } else {
-                drawString(this.x + 10, this.y + 4, nameColor, item.getName(), guiGraphics);
+                drawString(this.x + 10, this.y + 4, nameColor, displayName, guiGraphics);
             }
             if (toggleButton != null) {
                 toggleButton.setDisplayString(getToggleLabel(item));
             }
         }
         super.render(mouseX, mouseY, hovered, guiGraphics);
-        if (row.getType() == DlcListRow.RowType.ITEM && isMouseWithin(mouseX, mouseY)) {
+        if (row.getType() == DlcListRow.RowType.ITEM && isMouseWithin(mouseX, mouseY) && !isMouseOverButton(mouseX, mouseY)) {
             DlcItem item = row.getItem();
             var font = Minecraft.getInstance().font;
             int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
             var lines = buildTooltipLines(font, item, maxWidth);
             if (!lines.isEmpty()) {
-                guiGraphics.renderTooltip(font, lines, mouseX, mouseY);
+                DlcTooltipContext.set(lines, mouseX, mouseY);
             }
         }
+    }
+
+    private boolean isMouseOverButton(int mouseX, int mouseY) {
+        if (toggleButton != null && isMouseOverButton(toggleButton, mouseX, mouseY)) {
+            return true;
+        }
+        return groupToggleButton != null && isMouseOverButton(groupToggleButton, mouseX, mouseY);
+    }
+
+    private boolean isMouseOverButton(ButtonGeneric button, int mouseX, int mouseY) {
+        int bx = button.getX();
+        int by = button.getY();
+        int bw = button.getWidth();
+        int bh = button.getHeight();
+        return mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh;
     }
 
     private String getToggleLabel(DlcItem item) {
@@ -182,7 +198,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 .append(":");
             lines.addAll(font.split(depLabel, maxWidth));
             for (String dep : deps) {
-                lines.addAll(font.split(Component.literal(dep), maxWidth));
+                lines.addAll(font.split(Component.literal(DlcDisplayNameUtil.resolveDisplayName(dep)), maxWidth));
             }
         }
         if (conflicts != null && !conflicts.isEmpty()) {
@@ -194,7 +210,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 .append(":");
             lines.addAll(font.split(conflictLabel, maxWidth));
             for (String conflict : conflicts) {
-                lines.addAll(font.split(Component.literal(conflict), maxWidth));
+                lines.addAll(font.split(Component.literal(DlcDisplayNameUtil.resolveDisplayName(conflict)), maxWidth));
             }
         }
         return lines;
@@ -306,7 +322,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
             DlcItem depItem = DlcRuntimeState.getItemByName(name);
             if (depItem == null || !depItem.isEnabled()) {
-                names.add(name);
+                names.add(DlcDisplayNameUtil.resolveDisplayName(name));
                 if (depItem != null) {
                     toEnable.add(depItem);
                 }
@@ -329,7 +345,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             DlcItem conflictItem = DlcRuntimeState.getItemByName(name);
             if (conflictItem != null && conflictItem.isEnabled()) {
                 toDisable.add(conflictItem);
-                names.add(name);
+                names.add(DlcDisplayNameUtil.resolveDisplayName(name));
             }
         }
         return new ConflictCheck(names, toDisable);
@@ -372,7 +388,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private static void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {
         java.util.List<Component> components = new java.util.ArrayList<>();
         for (DlcRuntimeState.ConflictLine line : lines) {
-            components.add(buildConflictLine(line.getLeftName(), line.getRightName()));
+            components.add(buildConflictLine(
+                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
         }
         Component message = joinLines(components);
         Screen returnScreen = Minecraft.getInstance().screen;
@@ -387,7 +405,8 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         java.util.List<Component> components = new java.util.ArrayList<>();
         for (DlcRuntimeState.DependencyLine line : lines) {
             components.add(Component.translatable("dlc_manager.batch.dependencies_line",
-                line.getItemName(), line.getDependencyName()));
+                DlcDisplayNameUtil.resolveDisplayName(line.getItemName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())));
         }
         Component message = joinLines(components);
         Screen returnScreen = Minecraft.getInstance().screen;
@@ -400,6 +419,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
             enableItems(depsToEnable, true);
             enableItems(targets, true);
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
         }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
     }
 
@@ -422,6 +444,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             item.setEnabled(true);
             DlcRuntimeState.setOverride(item.getId(), true);
             updateToggleButtonLabel(button, item);
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
         }, Component.translatable("dlc_manager.title"), message,
             Component.translatable("dlc_manager.dependency.enable"),
             Component.translatable("dlc_manager.confirm_no")));
@@ -446,6 +471,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             item.setEnabled(true);
             DlcRuntimeState.setOverride(item.getId(), true);
             updateToggleButtonLabel(button, item);
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
         }, Component.translatable("dlc_manager.title"), message,
             Component.translatable("dlc_manager.conflict.resolve"),
             Component.translatable("dlc_manager.confirm_no")));

@@ -4,7 +4,7 @@ license="All Rights Reserved"
 
 [[mods]]
 modId="dlc_manager"
-version="1.1.0"
+version="1.2.0"
 displayName="DLC Manager"
 logoFile="assets/dlc_manager/textures/gui/icon.png"
 authors="CoZooo"

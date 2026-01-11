@@ -79,7 +79,7 @@ public class DlcManagerClient {
                 button.setHeight(h);
             }
             event.addListener(button);
-            DlcNoticeManager.maybeShowFromTitle(screen);
+            DlcNoticeManager.showFromTitle(screen);
         }
 
         @SubscribeEvent

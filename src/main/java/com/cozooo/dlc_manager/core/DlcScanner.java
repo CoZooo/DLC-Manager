@@ -119,6 +119,9 @@ public class DlcScanner {
         String rootId = root.toString().replace('\\', '/');
         String name = source.getFileName().toString();
         DlcTooltipLoader.TooltipData tooltipData = tooltips != null ? tooltips.get(name) : null;
+        if (tooltipData != null && !tooltipData.isShownInList()) {
+            return;
+        }
         DlcType effectiveType = detectedType;
         boolean hadTypeField = false;
         boolean typeValid = false;
@@ -132,10 +135,14 @@ public class DlcScanner {
         String id = effectiveType.name().toLowerCase() + ":" + rootId + "|" + relative;
         boolean enabled = isEnabledInTargets(name, effectiveType);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
+        Map<String, String> displayNames = tooltipData != null ? tooltipData.getDisplayName() : null;
+        if (displayNames == null || displayNames.isEmpty()) {
+            displayNames = java.util.Map.of("en_us", name);
+        }
         java.util.List<String> dependencies = tooltipData != null ? tooltipData.getDependencies() : java.util.List.of();
         java.util.List<String> conflicts = tooltipData != null ? tooltipData.getConflicts() : java.util.List.of();
         boolean allowEnableByAll = tooltipData == null || tooltipData.AllowEnableByAll();
-        DlcItem item = new DlcItem(id, name, effectiveType, source, enabled, tips, dependencies, conflicts, allowEnableByAll);
+        DlcItem item = new DlcItem(id, name, effectiveType, source, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;

@@ -9,7 +9,7 @@ public class DlcNoticeManager {
     private static boolean shownOnGameLaunch = false;
     private static boolean shownOnManagerOpen = false;
 
-    public static boolean maybeShowFromTitle(Screen parent) {
+    public static boolean showFromTitle(Screen parent) {
         DlcNoticeConfig config = DlcNoticeConfig.load();
         if (!config.isNoticeEnabled() || config.isNeverShow()) {
             return false;
@@ -30,6 +30,13 @@ public class DlcNoticeManager {
             return false;
         }
         if (config.getShowFrequency() == DlcNoticeConfig.ShowFrequency.PER_LAUNCH_MANAGER) {
+            return openNotice(parent, config);
+        }
+        if (config.getShowFrequency() == DlcNoticeConfig.ShowFrequency.PER_GAME_SESSION) {
+            if (shownOnManagerOpen) {
+                return false;
+            }
+            shownOnManagerOpen = true;
             return openNotice(parent, config);
         }
         if (config.getShowFrequency() == DlcNoticeConfig.ShowFrequency.ONCE) {
