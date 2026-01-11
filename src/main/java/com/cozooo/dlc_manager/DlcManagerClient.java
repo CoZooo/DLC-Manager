@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -74,6 +75,7 @@ public class DlcManagerClient {
                 button.setHeight(h);
             }
             event.addListener(button);
+            DlcNoticeManager.maybeShowFromTitle(screen);
         }
 
         @SubscribeEvent

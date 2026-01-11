@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
@@ -50,6 +51,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private ButtonGeneric configButton;
     private ButtonGeneric enableAllButton;
     private ButtonGeneric disableAllButton;
+    private ButtonGeneric noticeButton;
+    private boolean noticeChecked;
     private ButtonGeneric allFilterButton;
     private ButtonGeneric modsFilterButton;
     private ButtonGeneric taczFilterButton;
@@ -94,10 +97,17 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     @Override
     public void initGui() {
+        if (!noticeChecked) {
+            noticeChecked = true;
+            if (DlcNoticeManager.maybeShowFromManager(this)) {
+                return;
+            }
+        }
         rebuildRows();
         reCreateListWidget();
         super.initGui();
         addHeaderButtons();
+        addNoticeButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
@@ -135,6 +145,33 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         disableAllButton = new ButtonGeneric(disableX, y, disableWidth, h, disableLabel);
         addButton(disableAllButton, new HeaderButtonListener(false));
         updateHeaderButtonsState();
+    }
+
+    private void addNoticeButton() {
+        if (!DlcNoticeManager.isNoticeEnabled()) {
+            noticeButton = null;
+            return;
+        }
+        String label = StringUtils.translate("dlc_manager.notice");
+        int buttonWidth = Math.max(36, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int titleWidth = this.textRenderer.width(getTitleString());
+        int x = 18 + titleWidth + 6;
+        int y = 1;
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (x + buttonWidth > rightLimit) {
+            x = rightLimit - buttonWidth;
+        }
+        if (x < 18) {
+            x = 18;
+        }
+        noticeButton = new ButtonGeneric(x, y, buttonWidth, buttonHeight, label);
+        addButton(noticeButton, new NoticeButtonListener());
     }
 
     private void addFilterButtons() {
@@ -615,6 +652,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         super.resize(minecraft, width, height);
         clearButtons();
         addHeaderButtons();
+        addNoticeButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
@@ -750,6 +788,13 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
             setFilter(filter);
+        }
+    }
+
+    private class NoticeButtonListener implements IButtonActionListener {
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            DlcNoticeManager.forceShow(DlcMaLiLibScreen.this);
         }
     }
 
