@@ -69,11 +69,11 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         super.render(mouseX, mouseY, hovered, guiGraphics);
         if (row.getType() == DlcListRow.RowType.ITEM && isMouseWithin(mouseX, mouseY)) {
             DlcItem item = row.getItem();
-            String tooltip = getTooltipText(item);
+                String tooltip = getTooltipText(item);
             if (tooltip != null && !tooltip.isBlank()) {
                 var font = Minecraft.getInstance().font;
                 int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
-                var lines = font.split(Component.literal(tooltip), maxWidth);
+                var lines = buildTooltipLines(font, tooltip, maxWidth);
                 guiGraphics.renderTooltip(font, lines, mouseX, mouseY);
             }
         }
@@ -103,6 +103,18 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private boolean isMouseWithin(int mouseX, int mouseY) {
         return mouseX >= this.x && mouseX < this.x + this.width
             && mouseY >= this.y && mouseY < this.y + this.height;
+    }
+
+    private java.util.List<net.minecraft.util.FormattedCharSequence> buildTooltipLines(net.minecraft.client.gui.Font font, String tooltip, int maxWidth) {
+        java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
+        for (String line : tooltip.split("\\R", -1)) {
+            if (line.isEmpty()) {
+                lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
+                continue;
+            }
+            lines.addAll(font.split(Component.literal(line), maxWidth));
+        }
+        return lines;
     }
 
     private static class ToggleListener implements IButtonActionListener {
