@@ -317,6 +317,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 }
             }
         }
+        DlcRuntimeState.updateItemIndex(allItems);
         hasModChanges = computeModReloadChanges();
         updateHeaderButtonsState();
     }
@@ -824,13 +825,20 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 if (!accepted) {
                     return;
                 }
-                for (DlcItem item : items) {
-                    if (!enable || item.AllowEnableByAll()) {
-                        item.setEnabled(enable);
-                        DlcRuntimeState.setOverride(item.getId(), item.isEnabled());
+                if (enable) {
+                    java.util.List<DlcItem> targets = items.stream()
+                        .filter(item -> item.AllowEnableByAll() && !item.isEnabled())
+                        .toList();
+                    if (!targets.isEmpty()) {
+                        Component scopeLabel = activeFilter == null
+                            ? Component.translatable("dlc_manager.scope.all")
+                            : Component.translatable("dlc_manager.scope.group");
+                        handleBatchEnable(targets, scopeLabel);
                     }
+                } else {
+                    enableItems(items, false);
+                    updateModeAvailability();
                 }
-                updateModeAvailability();
             }, Component.translatable("dlc_manager.title"),
                 message,
                 Component.translatable("dlc_manager.confirm_yes"),
@@ -961,6 +969,83 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         String key = enable ? "dlc_manager.confirm.enable_all_type" : "dlc_manager.confirm.disable_all_type";
         return Component.translatable(key, Component.translatable(activeFilter.getDisplayKey()));
+    }
+
+    private void handleBatchEnable(java.util.List<DlcItem> targets, Component scopeLabel) {
+        DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);
+        if (!conflicts.getLines().isEmpty()) {
+            showBatchConflictPrompt(conflicts.getLines());
+            return;
+        }
+        DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
+        if (!deps.getLines().isEmpty()) {
+            showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel);
+            return;
+        }
+        enableItems(targets, true);
+        updateModeAvailability();
+    }
+
+    private void enableItems(java.util.Collection<DlcItem> items, boolean enabled) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            item.setEnabled(enabled);
+            DlcRuntimeState.setOverride(item.getId(), enabled);
+        }
+    }
+
+    private void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (DlcRuntimeState.ConflictLine line : lines) {
+            components.add(buildConflictLine(line.getLeftName(), line.getRightName()));
+        }
+        Component message = joinLines(components);
+        Component title = Component.translatable("dlc_manager.batch.conflicts_title")
+            .withStyle(net.minecraft.ChatFormatting.DARK_RED);
+        Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(this, title, message,
+            Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
+        java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (DlcRuntimeState.DependencyLine line : lines) {
+            components.add(Component.translatable("dlc_manager.batch.dependencies_line",
+                line.getItemName(), line.getDependencyName()));
+        }
+        Component message = joinLines(components);
+        Component title = Component.translatable("dlc_manager.batch.dependencies_title");
+        Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (!accepted) {
+                return;
+            }
+            enableItems(depsToEnable, true);
+            enableItems(targets, true);
+            updateModeAvailability();
+        }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private Component buildConflictLine(String left, String right) {
+        return Component.translatable("dlc_manager.batch.conflicts_line_prefix", left, right)
+            .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
+    }
+
+    private Component joinLines(java.util.List<Component> lines) {
+        net.minecraft.network.chat.MutableComponent result = Component.empty();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                result = result.append(Component.literal("\n"));
+            }
+            result = result.append(lines.get(i));
+        }
+        return result;
     }
 
     private HeaderLabels getHeaderLabels() {

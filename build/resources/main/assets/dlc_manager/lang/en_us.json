@@ -60,5 +60,19 @@
   "dlc_manager.save": "Save",
   "dlc_manager.toast.reload_title": "DLC Manager",
   "dlc_manager.toast.reload_start": "Reloading resources...",
-  "dlc_manager.toast.reload_done": "Resources reloaded"
+  "dlc_manager.toast.reload_done": "Resources reloaded",
+  "dlc_manager.tooltip.dependencies": "Dependencies",
+  "dlc_manager.tooltip.conflicts": "Conflicts",
+  "dlc_manager.dependency.prompt": "This DLC requires: %s",
+  "dlc_manager.conflict.prompt_prefix": "This DLC conflicts with: %s ",
+  "dlc_manager.conflict.word": "conflict",
+  "dlc_manager.dependency.enable": "Enable dependencies and DLC",
+  "dlc_manager.conflict.resolve": "Remove conflicts and enable DLC",
+  "dlc_manager.batch.dependencies_title": "Dependencies",
+  "dlc_manager.batch.conflicts_title": "Conflicts",
+  "dlc_manager.batch.dependencies_line": "%s requires %s",
+  "dlc_manager.batch.conflicts_line_prefix": "%s conflicts with %s ",
+  "dlc_manager.batch.enable_deps": "Enable all dependencies and %s",
+  "dlc_manager.scope.all": "all DLC",
+  "dlc_manager.scope.group": "this group"
 }

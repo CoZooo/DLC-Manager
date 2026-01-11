@@ -60,5 +60,19 @@
   "dlc_manager.save": "保存",
   "dlc_manager.toast.reload_title": "DLC 管理器",
   "dlc_manager.toast.reload_start": "正在重载资源…",
-  "dlc_manager.toast.reload_done": "资源已重载"
+  "dlc_manager.toast.reload_done": "资源已重载",
+  "dlc_manager.tooltip.dependencies": "依赖",
+  "dlc_manager.tooltip.conflicts": "冲突",
+  "dlc_manager.dependency.prompt": "该DLC需要依赖：%s",
+  "dlc_manager.conflict.prompt_prefix": "该DLC与 %s ",
+  "dlc_manager.conflict.word": "冲突",
+  "dlc_manager.dependency.enable": "启用依赖并启用该DLC",
+  "dlc_manager.conflict.resolve": "移除冲突并启用该DLC",
+  "dlc_manager.batch.dependencies_title": "依赖确认",
+  "dlc_manager.batch.conflicts_title": "冲突",
+  "dlc_manager.batch.dependencies_line": "%s 需要 %s 作为依赖",
+  "dlc_manager.batch.conflicts_line_prefix": "%s 与 %s 有 ",
+  "dlc_manager.batch.enable_deps": "启用全部依赖以及%s",
+  "dlc_manager.scope.all": "全部DLC",
+  "dlc_manager.scope.group": "该组DLC"
 }
