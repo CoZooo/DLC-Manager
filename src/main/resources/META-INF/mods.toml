@@ -8,9 +8,14 @@ version="${mod_version}"
 displayName="${mod_name}"
 logoFile="assets/dlc_manager/textures/gui/icon.png"
 authors="${mod_author}"
+displayTest="IGNORE_SERVER_VERSION"
 description='''
 Manage optional DLC content (mods, resource packs, data packs) in-game.
 '''
+
+[modproperties.${mod_id}]
+curseforgeProjectId="1424546"
+modrinthProjectId="B05EUil9"
 
 [[dependencies.${mod_id}]]
 modId="forge"

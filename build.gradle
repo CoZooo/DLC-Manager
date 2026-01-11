@@ -66,7 +66,10 @@ tasks.named('processResources', ProcessResources).configure {
     }
 }
 
+def loaderName = project.findProperty("mod_loader") ?: "Forge"
+
 jar {
+    archiveFileName.set("DLC-Manager-${loaderName}-${mc_version}-${mod_version}.jar")
     manifest {
         attributes([
             'Specification-Title'     : mod_name,
