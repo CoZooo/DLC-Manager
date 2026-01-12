@@ -23,7 +23,7 @@
   "dlc_manager.group.tacz_packs": "TACZ 枪包",
   "dlc_manager.group.root": "根目录",
   "dlc_manager.group.other": "其他",
-  "dlc_manager.message.restart": "已应用变更。请重启游戏以加载模组/TACZ 包。",
+  "dlc_manager.message.restart": "已应用变更。请重启游戏以加载模组或资源包。",
   "dlc_manager.message.reloaded": "已应用变更并重载资源包。",
   "dlc_manager.message.reload_prompt": "已应用变更。是否立即重载资源？",
   "dlc_manager.message.reopen_world": "已应用变更。数据包可能需要重新进入世界生效。",

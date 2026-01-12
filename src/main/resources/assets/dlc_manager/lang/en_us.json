@@ -23,7 +23,7 @@
   "dlc_manager.group.tacz_packs": "TACZ Packs",
   "dlc_manager.group.root": "Root",
   "dlc_manager.group.other": "Other",
-  "dlc_manager.message.restart": "Changes applied. Please restart Minecraft to load mods/TACZ packs.",
+  "dlc_manager.message.restart": "Changes applied. Please restart Minecraft to load mods/packs.",
   "dlc_manager.message.reloaded": "Changes applied and resource packs reloaded.",
   "dlc_manager.message.reload_prompt": "Changes applied. Reload resources now?",
   "dlc_manager.message.reopen_world": "Changes applied. You may need to re-open your world to load data packs.",
