@@ -12,7 +12,8 @@ public final class DlcRuntimeState {
     private static final Set<String> PENDING_RELOAD = new HashSet<>();
     private static final Map<String, Boolean> BASELINE_ENABLED = new HashMap<>();
     private static final Map<String, Boolean> OVERRIDE_ENABLED = new HashMap<>();
-    private static final Map<String, DlcItem> ITEMS_BY_NAME = new HashMap<>();
+    private static final Map<String, DlcItem> ITEMS_BY_IDENTIFIER = new HashMap<>();
+    private static final Map<String, java.util.List<DlcItem>> DEPENDENTS_BY_IDENTIFIER = new HashMap<>();
 
     private DlcRuntimeState() {
     }
@@ -137,7 +138,8 @@ public final class DlcRuntimeState {
     }
 
     public static void updateItemIndex(java.util.Collection<DlcItem> items) {
-        ITEMS_BY_NAME.clear();
+        ITEMS_BY_IDENTIFIER.clear();
+        DEPENDENTS_BY_IDENTIFIER.clear();
         if (items == null || items.isEmpty()) {
             return;
         }
@@ -145,35 +147,13 @@ public final class DlcRuntimeState {
             if (item == null) {
                 continue;
             }
-            String name = item.getName();
-            if (name != null && !name.isBlank()) {
-                ITEMS_BY_NAME.put(name, item);
+            String identifier = item.getIdentifier();
+            if (identifier != null && !identifier.isBlank()) {
+                ITEMS_BY_IDENTIFIER.put(identifier, item);
             }
         }
-    }
-
-    public static DlcItem getItemByName(String name) {
-        if (name == null) {
-            return null;
-        }
-        return ITEMS_BY_NAME.get(name);
-    }
-
-    public static DependencyBatchResult collectMissingDependencies(java.util.Collection<DlcItem> targets) {
-        java.util.List<DependencyLine> lines = new java.util.ArrayList<>();
-        java.util.List<DlcItem> toEnable = new java.util.ArrayList<>();
-        if (targets == null || targets.isEmpty()) {
-            return new DependencyBatchResult(lines, toEnable);
-        }
-        java.util.Set<String> targetNames = new java.util.HashSet<>();
-        for (DlcItem item : targets) {
-            if (item != null && item.getName() != null) {
-                targetNames.add(item.getName());
-            }
-        }
-        java.util.Set<String> seen = new java.util.HashSet<>();
-        for (DlcItem item : targets) {
-            if (item == null) {
+        for (DlcItem item : items) {
+            if (item == null || item.getIdentifier() == null) {
                 continue;
             }
             java.util.List<String> deps = item.getDependencies();
@@ -184,16 +164,170 @@ public final class DlcRuntimeState {
                 if (depName == null || depName.isBlank()) {
                     continue;
                 }
-                DlcItem depItem = getItemByName(depName);
-                boolean satisfied = depItem != null && (depItem.isEnabled() || targetNames.contains(depItem.getName()));
+                DEPENDENTS_BY_IDENTIFIER.computeIfAbsent(depName, key -> new java.util.ArrayList<>()).add(item);
+            }
+        }
+    }
+
+    public static DlcItem getItemByIdentifier(String identifier) {
+        if (identifier == null) {
+            return null;
+        }
+        return ITEMS_BY_IDENTIFIER.get(identifier);
+    }
+
+    public static java.util.List<DlcItem> getDependents(String identifier) {
+        if (identifier == null) {
+            return java.util.List.of();
+        }
+        java.util.List<DlcItem> items = DEPENDENTS_BY_IDENTIFIER.get(identifier);
+        return items == null ? java.util.List.of() : items;
+    }
+
+    public static java.util.Set<DlcItem> collectDependentsRecursive(DlcItem item) {
+        java.util.LinkedHashSet<DlcItem> result = new java.util.LinkedHashSet<>();
+        if (item == null) {
+            return result;
+        }
+        java.util.ArrayDeque<DlcItem> queue = new java.util.ArrayDeque<>();
+        queue.add(item);
+        while (!queue.isEmpty()) {
+            DlcItem current = queue.poll();
+            if (current == null || current.getIdentifier() == null) {
+                continue;
+            }
+            if (!result.add(current)) {
+                continue;
+            }
+            for (DlcItem dependent : getDependents(current.getIdentifier())) {
+                if (dependent != null && !result.contains(dependent)) {
+                    queue.add(dependent);
+                }
+            }
+        }
+        return result;
+    }
+
+    public static java.util.Set<DlcItem> collectDependenciesRecursive(DlcItem item) {
+        java.util.LinkedHashSet<DlcItem> result = new java.util.LinkedHashSet<>();
+        if (item == null) {
+            return result;
+        }
+        java.util.ArrayDeque<DlcItem> queue = new java.util.ArrayDeque<>();
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        queue.add(item);
+        while (!queue.isEmpty()) {
+            DlcItem current = queue.poll();
+            if (current == null || current.getIdentifier() == null) {
+                continue;
+            }
+            if (!visited.add(current.getIdentifier())) {
+                continue;
+            }
+            java.util.List<String> deps = current.getDependencies();
+            if (deps == null || deps.isEmpty()) {
+                continue;
+            }
+            for (String depName : deps) {
+                if (depName == null || depName.isBlank()) {
+                    continue;
+                }
+                DlcItem depItem = getItemByIdentifier(depName);
+                if (depItem == null) {
+                    continue;
+                }
+                if (result.add(depItem)) {
+                    queue.add(depItem);
+                }
+            }
+        }
+        return result;
+    }
+
+    public static java.util.Set<DlcItem> collectHiddenDependenciesToDisable(java.util.Collection<DlcItem> disabledItems) {
+        java.util.LinkedHashSet<DlcItem> disabledSet = new java.util.LinkedHashSet<>();
+        if (disabledItems != null) {
+            disabledSet.addAll(disabledItems);
+        }
+        java.util.LinkedHashSet<DlcItem> candidates = new java.util.LinkedHashSet<>();
+        for (DlcItem item : disabledSet) {
+            if (item == null) {
+                continue;
+            }
+            for (DlcItem dep : collectDependenciesRecursive(item)) {
+                if (dep != null && dep.isHidden()) {
+                    candidates.add(dep);
+                }
+            }
+        }
+        java.util.LinkedHashSet<DlcItem> toDisable = new java.util.LinkedHashSet<>();
+        for (DlcItem candidate : candidates) {
+            boolean required = false;
+            for (DlcItem dependent : getDependents(candidate.getIdentifier())) {
+                if (dependent == null) {
+                    continue;
+                }
+                if (disabledSet.contains(dependent)) {
+                    continue;
+                }
+                if (dependent.isEnabled()) {
+                    required = true;
+                    break;
+                }
+            }
+            if (!required) {
+                toDisable.add(candidate);
+            }
+        }
+        return toDisable;
+    }
+
+    public static DependencyBatchResult collectMissingDependencies(java.util.Collection<DlcItem> targets) {
+        java.util.List<DependencyLine> lines = new java.util.ArrayList<>();
+        java.util.List<DlcItem> toEnable = new java.util.ArrayList<>();
+        if (targets == null || targets.isEmpty()) {
+            return new DependencyBatchResult(lines, toEnable);
+        }
+        java.util.Set<String> targetIdentifiers = new java.util.HashSet<>();
+        java.util.ArrayDeque<DlcItem> queue = new java.util.ArrayDeque<>();
+        for (DlcItem item : targets) {
+            if (item != null && item.getIdentifier() != null) {
+                targetIdentifiers.add(item.getIdentifier());
+                queue.add(item);
+            }
+        }
+        java.util.Set<String> seenLines = new java.util.HashSet<>();
+        java.util.Set<String> processed = new java.util.HashSet<>();
+        while (!queue.isEmpty()) {
+            DlcItem item = queue.poll();
+            if (item == null || item.getIdentifier() == null) {
+                continue;
+            }
+            if (!processed.add(item.getIdentifier())) {
+                continue;
+            }
+            java.util.List<String> deps = item.getDependencies();
+            if (deps == null || deps.isEmpty()) {
+                continue;
+            }
+            for (String depName : deps) {
+                if (depName == null || depName.isBlank()) {
+                    continue;
+                }
+                DlcItem depItem = getItemByIdentifier(depName);
+                boolean satisfied = depItem != null && (depItem.isEnabled() || targetIdentifiers.contains(depItem.getIdentifier()));
                 if (!satisfied) {
-                    String key = item.getName() + "|" + depName;
-                    if (seen.add(key)) {
-                        lines.add(new DependencyLine(item.getName(), depName));
+                    String key = item.getIdentifier() + "|" + depName;
+                    if (seenLines.add(key)) {
+                        lines.add(new DependencyLine(item.getIdentifier(), depName));
                     }
                     if (depItem != null && !toEnable.contains(depItem)) {
                         toEnable.add(depItem);
+                        targetIdentifiers.add(depItem.getIdentifier());
                     }
+                }
+                if (depItem != null) {
+                    queue.add(depItem);
                 }
             }
         }
@@ -205,10 +339,10 @@ public final class DlcRuntimeState {
         if (targets == null || targets.isEmpty()) {
             return new ConflictBatchResult(lines);
         }
-        java.util.Set<String> targetNames = new java.util.HashSet<>();
+        java.util.Set<String> targetIdentifiers = new java.util.HashSet<>();
         for (DlcItem item : targets) {
-            if (item != null && item.getName() != null) {
-                targetNames.add(item.getName());
+            if (item != null && item.getIdentifier() != null) {
+                targetIdentifiers.add(item.getIdentifier());
             }
         }
         java.util.Set<String> seen = new java.util.HashSet<>();
@@ -224,14 +358,14 @@ public final class DlcRuntimeState {
                 if (conflictName == null || conflictName.isBlank()) {
                     continue;
                 }
-                DlcItem conflictItem = getItemByName(conflictName);
+                DlcItem conflictItem = getItemByIdentifier(conflictName);
                 if (conflictItem == null) {
                     continue;
                 }
-                boolean conflictEnabled = conflictItem.isEnabled() || targetNames.contains(conflictItem.getName());
+                boolean conflictEnabled = conflictItem.isEnabled() || targetIdentifiers.contains(conflictItem.getIdentifier());
                 if (conflictEnabled) {
-                    String a = item.getName();
-                    String b = conflictItem.getName();
+                    String a = item.getIdentifier();
+                    String b = conflictItem.getIdentifier();
                     if (a == null || b == null) {
                         continue;
                     }

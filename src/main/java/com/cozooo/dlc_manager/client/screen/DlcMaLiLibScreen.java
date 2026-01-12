@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
@@ -52,6 +53,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private ButtonGeneric enableAllButton;
     private ButtonGeneric disableAllButton;
     private ButtonGeneric noticeButton;
+    private ButtonGeneric remoteButton;
     private boolean noticeChecked;
     private ButtonGeneric allFilterButton;
     private ButtonGeneric modsFilterButton;
@@ -97,6 +99,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     @Override
     public void initGui() {
+        if (DlcRemoteManager.maybeShowFromManager(this)) {
+            return;
+        }
         if (!noticeChecked) {
             noticeChecked = true;
             if (DlcNoticeManager.maybeShowFromManager(this)) {
@@ -108,6 +113,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         super.initGui();
         addHeaderButtons();
         addNoticeButton();
+        addRemoteButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
@@ -176,6 +182,35 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         noticeButton = new ButtonGeneric(x, y, buttonWidth, buttonHeight, label);
         addButton(noticeButton, new NoticeButtonListener());
+    }
+
+    private void addRemoteButton() {
+        if (!DlcRemoteManager.hasMissing()) {
+            remoteButton = null;
+            return;
+        }
+        String label = StringUtils.translate("dlc_manager.remote.complete");
+        int buttonWidth = Math.max(50, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int x = 18 + this.textRenderer.width(getTitleString()) + 6;
+        int y = 1;
+        if (noticeButton != null) {
+            x = noticeButton.getX() + noticeButton.getWidth() + 4;
+        }
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (x + buttonWidth > rightLimit) {
+            x = rightLimit - buttonWidth;
+        }
+        if (x < 18) {
+            x = 18;
+        }
+        remoteButton = new ButtonGeneric(x, y, buttonWidth, buttonHeight, label);
+        addButton(remoteButton, new RemoteButtonListener());
     }
 
     private void addFilterButtons() {
@@ -270,20 +305,6 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             if (type == DlcType.TACZ_PACK && !hasTaczMod) {
                 continue;
             }
-            if (activeFilter != null && type != activeFilter) {
-                List<DlcItem> typeItems = grouped.get(type);
-                if (typeItems != null && !typeItems.isEmpty()) {
-                    for (DlcItem item : typeItems) {
-                        DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
-                        Boolean override = DlcRuntimeState.getOverride(item.getId());
-                        if (override != null) {
-                            item.setEnabled(override);
-                        }
-                        allItems.add(item);
-                    }
-                }
-                continue;
-            }
             List<DlcItem> typeItems = grouped.get(type);
             if (typeItems == null || typeItems.isEmpty()) {
                 continue;
@@ -299,10 +320,19 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 }
                 allItems.add(item);
             }
+            if (activeFilter != null && type != activeFilter) {
+                continue;
+            }
+            List<DlcItem> visibleItems = typeItems.stream()
+                .filter(item -> !item.isHidden())
+                .toList();
+            if (visibleItems.isEmpty()) {
+                continue;
+            }
             if (activeFilter == null) {
                 rows.add(DlcListRow.groupHeader(type));
             }
-            Map<String, List<DlcItem>> byPath = groupByRelativeFolder(typeItems);
+            Map<String, List<DlcItem>> byPath = groupByRelativeFolder(visibleItems);
             boolean hasSubDir = byPath.keySet().stream().anyMatch(key -> !"__root__".equals(key));
             for (Map.Entry<String, List<DlcItem>> entry : byPath.entrySet()) {
                 if ("__root__".equals(entry.getKey())) {
@@ -419,6 +449,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         updateListLayout();
         updateHeaderButtonsLayout();
         updateNoticeButtonLayout();
+        updateRemoteButtonLayout();
         updateModeAvailability();
     }
 
@@ -432,7 +463,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
 
         if (applyNeeded) {
-            DlcApplier.apply(items, applyMode);
+            DlcApplier.apply(allItems, applyMode);
             updateResourcePackSelection();
         }
 
@@ -573,7 +604,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private boolean computeModReloadChanges() {
-        for (DlcItem item : items) {
+        for (DlcItem item : allItems) {
             if (item.getType() != DlcType.MOD) {
                 continue;
             }
@@ -585,7 +616,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private boolean computeNonModReloadChanges() {
-        for (DlcItem item : items) {
+        for (DlcItem item : allItems) {
             if (item.getType() == DlcType.MOD) {
                 continue;
             }
@@ -648,7 +679,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private boolean computeApplyChanges() {
-        for (DlcItem item : items) {
+        for (DlcItem item : allItems) {
             boolean current = isEnabledInTargets(item);
             if (item.isEnabled() != current) {
                 return true;
@@ -693,6 +724,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         clearButtons();
         addHeaderButtons();
         addNoticeButton();
+        addRemoteButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
@@ -838,6 +870,17 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
     }
 
+    private class RemoteButtonListener implements IButtonActionListener {
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            java.util.List<com.cozooo.dlc_manager.client.remote.DlcRemoteEntry> missing = DlcRemoteManager.collectMissing();
+            if (missing.isEmpty()) {
+                return;
+            }
+            Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(DlcMaLiLibScreen.this, missing));
+        }
+    }
+
     private class HeaderButtonListener implements IButtonActionListener {
         private final boolean enable;
 
@@ -853,8 +896,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 if (!accepted) {
                     return;
                 }
+                java.util.List<DlcItem> actionItems = getActionItems();
                 if (enable) {
-                    java.util.List<DlcItem> targets = items.stream()
+                    java.util.List<DlcItem> targets = actionItems.stream()
                         .filter(item -> item.AllowEnableByAll() && !item.isEnabled())
                         .toList();
                     if (!targets.isEmpty()) {
@@ -864,7 +908,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                         handleBatchEnable(targets, scopeLabel);
                     }
                 } else {
-                    enableItems(items, false);
+                    disableItemsWithDependents(actionItems);
                     updateModeAvailability();
                 }
             }, Component.translatable("dlc_manager.title"),
@@ -878,11 +922,12 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         if (disableAllButton == null) {
             return;
         }
-        boolean any = !items.isEmpty();
+        java.util.List<DlcItem> actionItems = getActionItems();
+        boolean any = !actionItems.isEmpty();
         boolean anyEligible = false;
         boolean allEligibleEnabled = true;
         boolean allDisabled = true;
-        for (DlcItem item : items) {
+        for (DlcItem item : actionItems) {
             if (item.isEnabled()) {
                 allDisabled = false;
             }
@@ -926,6 +971,15 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             disableAllButton.setEnabled(true);
             disableAllButton.setDisplayString(labels.disableLabel);
         }
+    }
+
+    private java.util.List<DlcItem> getActionItems() {
+        if (activeFilter == null) {
+            return new java.util.ArrayList<>(allItems);
+        }
+        return allItems.stream()
+            .filter(item -> item.getType() == activeFilter)
+            .toList();
     }
 
     private void updateHeaderButtonsLayout() {
@@ -990,6 +1044,36 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         noticeButton.setHeight(buttonHeight);
     }
 
+    private void updateRemoteButtonLayout() {
+        if (remoteButton == null) {
+            return;
+        }
+        String label = StringUtils.translate("dlc_manager.remote.complete");
+        int buttonWidth = Math.max(50, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int x = 18 + this.textRenderer.width(getTitleString()) + 6;
+        int y = 1;
+        if (noticeButton != null) {
+            x = noticeButton.getX() + noticeButton.getWidth() + 4;
+        }
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (x + buttonWidth > rightLimit) {
+            x = rightLimit - buttonWidth;
+        }
+        if (x < 18) {
+            x = 18;
+        }
+        remoteButton.setX(x);
+        remoteButton.setY(y);
+        remoteButton.setWidth(buttonWidth);
+        remoteButton.setHeight(buttonHeight);
+    }
+
     private Component getHeaderConfirmMessage(boolean enable) {
         if (activeFilter == null) {
             String key = enable ? "dlc_manager.confirm.enable_all" : "dlc_manager.confirm.disable_all";
@@ -1025,6 +1109,22 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             item.setEnabled(enabled);
             DlcRuntimeState.setOverride(item.getId(), enabled);
         }
+    }
+
+    private void disableItemsWithDependents(java.util.Collection<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        java.util.LinkedHashSet<DlcItem> toDisable = new java.util.LinkedHashSet<>();
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            toDisable.addAll(DlcRuntimeState.collectDependentsRecursive(item));
+        }
+        enableItems(toDisable, false);
+        java.util.Set<DlcItem> hiddenDeps = DlcRuntimeState.collectHiddenDependenciesToDisable(toDisable);
+        enableItems(hiddenDeps, false);
     }
 
     private void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {

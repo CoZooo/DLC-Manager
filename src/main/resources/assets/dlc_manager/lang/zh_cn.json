@@ -74,5 +74,15 @@
   "dlc_manager.batch.conflicts_line_prefix": "%s 与 %s 有 ",
   "dlc_manager.batch.enable_deps": "启用全部依赖以及%s",
   "dlc_manager.scope.all": "全部DLC",
-  "dlc_manager.scope.group": "该组DLC"
+  "dlc_manager.scope.group": "该组DLC",
+  "dlc_manager.remote.title": "补全DLC",
+  "dlc_manager.remote.desc": "检测到未下载的DLC，是否现在下载？",
+  "dlc_manager.remote.download": "下载",
+  "dlc_manager.remote.skip": "跳过",
+  "dlc_manager.remote.preparing": "正在准备下载列表...",
+  "dlc_manager.remote.detecting": "正在检测缺失的DLC...",
+  "dlc_manager.remote.ready": "已就绪",
+  "dlc_manager.remote.downloading": "正在下载 %s（%d/%d）",
+  "dlc_manager.remote.error": "下载失败：%s",
+  "dlc_manager.remote.complete": "补全DLC"
 }

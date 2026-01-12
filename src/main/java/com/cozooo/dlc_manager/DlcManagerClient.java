@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -51,7 +52,11 @@ public class DlcManagerClient {
             int w = 200;
             int h = 20;
             Button button = Button.builder(Component.translatable("dlc_manager.title"), btn -> {
-                Minecraft.getInstance().setScreen(new DlcMaLiLibScreen(screen));
+                Screen managerScreen = new DlcMaLiLibScreen(screen);
+                if (DlcRemoteManager.maybeShowFromManager(managerScreen)) {
+                    return;
+                }
+                Minecraft.getInstance().setScreen(managerScreen);
             }).bounds(x, y, w, h).build();
             boolean replaced = false;
             for (var child : event.getScreen().children()) {

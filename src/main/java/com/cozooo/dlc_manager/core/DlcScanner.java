@@ -26,14 +26,18 @@ public class DlcScanner {
         List<Path> roots = DlcPathConfig.getDlcRoots();
         List<Path> taczRoots = DlcPathConfig.getTaczDlcRoots();
         DlcTooltipLoader tooltipLoader = new DlcTooltipLoader();
+        Path mainDlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path mainInfoDir = mainDlcRoot == null ? null : mainDlcRoot.resolve("info");
+        Map<String, DlcTooltipLoader.TooltipData> tooltips = mainDlcRoot == null
+            ? java.util.Map.of()
+            : tooltipLoader.loadTooltips(mainDlcRoot);
         Set<Path> seen = new HashSet<>();
         for (Path root : roots) {
             if (!Files.exists(root) || seen.contains(root)) {
                 continue;
             }
             seen.add(root);
-            Map<String, DlcTooltipLoader.TooltipData> tooltips = tooltipLoader.loadTooltips(root);
-            scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader);
+            scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir);
         }
 
         if (ModList.get().isLoaded("tacz")) {
@@ -44,8 +48,8 @@ public class DlcScanner {
     }
 
     private void scanRoot(Map<DlcType, List<DlcItem>> grouped, Path root, List<Path> taczRoots,
-        Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader) {
-        Path infoDir = root.resolve("info");
+        Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir) {
+        Path localInfoDir = root.resolve("info");
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -53,7 +57,7 @@ public class DlcScanner {
                     if (root.equals(dir)) {
                         return FileVisitResult.CONTINUE;
                     }
-                    if (isUnderInfoDir(dir, infoDir)) {
+                    if (isUnderInfoDir(dir, infoDir) || isUnderInfoDir(dir, localInfoDir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderTaczRoot(dir, taczRoots)) {
@@ -70,7 +74,7 @@ public class DlcScanner {
 
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (isUnderInfoDir(file, infoDir)) {
+                    if (isUnderInfoDir(file, infoDir) || isUnderInfoDir(file, localInfoDir)) {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderTaczRoot(file, taczRoots)) {
@@ -119,9 +123,6 @@ public class DlcScanner {
         String rootId = root.toString().replace('\\', '/');
         String name = source.getFileName().toString();
         DlcTooltipLoader.TooltipData tooltipData = tooltips != null ? tooltips.get(name) : null;
-        if (tooltipData != null && !tooltipData.isShownInList()) {
-            return;
-        }
         DlcType effectiveType = detectedType;
         boolean hadTypeField = false;
         boolean typeValid = false;
@@ -133,16 +134,25 @@ public class DlcScanner {
             }
         }
         String id = effectiveType.name().toLowerCase() + ":" + rootId + "|" + relative;
+        String identifier = tooltipData != null ? tooltipData.getIdentifier() : null;
+        if (identifier == null || identifier.isBlank()) {
+            identifier = name;
+        }
         boolean enabled = isEnabledInTargets(name, effectiveType);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
+        boolean inList = tooltipData == null || tooltipData.isInList();
+        boolean hidden = tooltipData != null && tooltipData.isHidden();
         Map<String, String> displayNames = tooltipData != null ? tooltipData.getDisplayName() : null;
         if (displayNames == null || displayNames.isEmpty()) {
             displayNames = java.util.Map.of("en_us", name);
         }
+        if (!inList && !hidden) {
+            return;
+        }
         java.util.List<String> dependencies = tooltipData != null ? tooltipData.getDependencies() : java.util.List.of();
         java.util.List<String> conflicts = tooltipData != null ? tooltipData.getConflicts() : java.util.List.of();
         boolean allowEnableByAll = tooltipData == null || tooltipData.AllowEnableByAll();
-        DlcItem item = new DlcItem(id, name, effectiveType, source, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll);
+        DlcItem item = new DlcItem(id, identifier, name, effectiveType, source, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;
@@ -214,22 +224,23 @@ public class DlcScanner {
     }
 
     private void scanTaczRoots(Map<DlcType, List<DlcItem>> grouped, DlcTooltipLoader tooltipLoader) {
+        Path mainDlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path mainInfoDir = mainDlcRoot == null ? null : mainDlcRoot.resolve("info");
+        Map<String, DlcTooltipLoader.TooltipData> tooltips = mainDlcRoot == null
+            ? java.util.Map.of()
+            : tooltipLoader.loadTooltips(mainDlcRoot);
+
         for (Path root : DlcPathConfig.getTaczDlcRoots()) {
             if (!Files.exists(root) || !Files.isDirectory(root)) {
                 continue;
             }
-            Map<String, DlcTooltipLoader.TooltipData> tooltips = tooltipLoader.loadTooltips(root);
-            Path infoDir = root.resolve("info");
             try (var stream = Files.list(root)) {
                 stream.forEach(path -> {
-                    if (isUnderInfoDir(path, infoDir)) {
-                        return;
-                    }
                     String name = path.getFileName().toString();
                     if (Files.isDirectory(path)) {
-                        addItem(grouped, root, path, DlcType.TACZ_PACK, tooltips, tooltipLoader, infoDir);
+                        addItem(grouped, root, path, DlcType.TACZ_PACK, tooltips, tooltipLoader, mainInfoDir);
                     } else if (name.endsWith(".zip")) {
-                        addItem(grouped, root, path, DlcType.TACZ_PACK, tooltips, tooltipLoader, infoDir);
+                        addItem(grouped, root, path, DlcType.TACZ_PACK, tooltips, tooltipLoader, mainInfoDir);
                     }
                 });
             } catch (IOException ignored) {

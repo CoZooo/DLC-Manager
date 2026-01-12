@@ -3,6 +3,6 @@ Specification-Title: DLC Manager
 Specification-Vendor: CoZooo
 Specification-Version: 1
 Implementation-Title: DLC Manager
-Implementation-Version: 1.2.0
+Implementation-Version: 1.3.1
 Implementation-Vendor: CoZooo
 

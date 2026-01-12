@@ -6,6 +6,7 @@ import java.util.List;
 
 public class DlcItem {
     private final String id;
+    private final String identifier;
     private final String name;
     private final DlcType type;
     private final Path sourcePath;
@@ -16,12 +17,14 @@ public class DlcItem {
     private final java.util.List<String> dependencies;
     private final java.util.List<String> conflicts;
     private final boolean allowEnableByAll;
+    private final boolean hidden;
     private boolean dirty;
 
-    public DlcItem(String id, String name, DlcType type, Path sourcePath, boolean enabled, java.util.Map<String, String> tooltips,
+    public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, boolean enabled, java.util.Map<String, String> tooltips,
         java.util.Map<String, String> displayNames, java.util.List<String> dependencies, java.util.List<String> conflicts,
-        boolean allowEnableByAll) {
+        boolean allowEnableByAll, boolean hidden) {
         this.id = id;
+        this.identifier = identifier;
         this.name = name;
         this.type = type;
         this.sourcePath = sourcePath;
@@ -31,10 +34,15 @@ public class DlcItem {
         this.dependencies = dependencies == null ? java.util.List.of() : dependencies;
         this.conflicts = conflicts == null ? java.util.List.of() : conflicts;
         this.allowEnableByAll = allowEnableByAll;
+        this.hidden = hidden;
     }
 
     public String getId() {
         return id;
+    }
+
+    public String getIdentifier() {
+        return identifier;
     }
 
     public String getName() {
@@ -79,6 +87,10 @@ public class DlcItem {
 
     public boolean AllowEnableByAll() {
         return allowEnableByAll;
+    }
+
+    public boolean isHidden() {
+        return hidden;
     }
 
     public boolean isDirty() {
