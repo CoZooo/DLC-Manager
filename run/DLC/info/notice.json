@@ -7,9 +7,9 @@
     "zh_cn": "标题"
   },
   "Subhead": {
+    "enabled": "true",
     "zh_cn": "副标题",
-    "en_us": "Subhead",
-    "enabled": true
+    "en_us": "Subhead"
   },
   "Contents": {
     "en_us": "Contents",

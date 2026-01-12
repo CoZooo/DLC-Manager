@@ -187,7 +187,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
         }
 
-        java.util.List<String> deps = item.getDependencies();
+        java.util.List<String> deps = collectDependencyNamesRecursive(item);
         java.util.List<String> conflicts = item.getConflicts();
         if (deps != null && !deps.isEmpty()) {
             if (!lines.isEmpty()) {
@@ -216,6 +216,42 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         return lines;
     }
 
+    private static java.util.List<String> collectDependencyNamesRecursive(DlcItem item) {
+        if (item == null) {
+            return java.util.List.of();
+        }
+        java.util.LinkedHashSet<String> result = new java.util.LinkedHashSet<>();
+        java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>();
+        addDependencyNames(item.getDependencies(), result, queue);
+        while (!queue.isEmpty()) {
+            String name = queue.poll();
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            DlcItem depItem = com.cozooo.dlc_manager.core.DlcRuntimeState.getItemByIdentifier(name);
+            if (depItem == null) {
+                continue;
+            }
+            addDependencyNames(depItem.getDependencies(), result, queue);
+        }
+        return new java.util.ArrayList<>(result);
+    }
+
+    private static void addDependencyNames(java.util.List<String> names, java.util.Set<String> result,
+                                           java.util.ArrayDeque<String> queue) {
+        if (names == null || names.isEmpty()) {
+            return;
+        }
+        for (String name : names) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            if (result.add(name)) {
+                queue.add(name);
+            }
+        }
+    }
+
     private static class ToggleListener implements IButtonActionListener {
         private final DlcItem item;
 
@@ -226,8 +262,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
             if (item.isEnabled()) {
-                item.setEnabled(false);
-                DlcRuntimeState.setOverride(item.getId(), false);
+                disableItemsWithDependents(java.util.List.of(item));
                 updateToggleButtonLabel(button, item);
                 item.setDirty(isDirty(item));
                 return;
@@ -287,7 +322,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 }
                 enableItems(targets, true);
             } else {
-                enableItems(items, false);
+                disableItemsWithDependents(items);
             }
             if (button instanceof ButtonGeneric generic) {
                 state = getGroupToggleState(items);
@@ -310,25 +345,15 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     }
 
     private static DependencyCheck getMissingDependencies(DlcItem item) {
-        java.util.List<String> deps = item.getDependencies();
-        if (deps == null || deps.isEmpty()) {
+        DlcRuntimeState.DependencyBatchResult result = DlcRuntimeState.collectMissingDependencies(java.util.List.of(item));
+        if (result.getLines().isEmpty()) {
             return new DependencyCheck(java.util.List.of(), java.util.List.of());
         }
-        java.util.List<DlcItem> toEnable = new java.util.ArrayList<>();
-        java.util.List<String> names = new java.util.ArrayList<>();
-        for (String name : deps) {
-            if (name == null || name.isBlank()) {
-                continue;
-            }
-            DlcItem depItem = DlcRuntimeState.getItemByName(name);
-            if (depItem == null || !depItem.isEnabled()) {
-                names.add(DlcDisplayNameUtil.resolveDisplayName(name));
-                if (depItem != null) {
-                    toEnable.add(depItem);
-                }
-            }
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (DlcRuntimeState.DependencyLine line : result.getLines()) {
+            names.add(DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName()));
         }
-        return new DependencyCheck(names, toEnable);
+        return new DependencyCheck(new java.util.ArrayList<>(names), result.getItemsToEnable());
     }
 
     private static ConflictCheck getConflicts(DlcItem item) {
@@ -342,7 +367,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             if (name == null || name.isBlank()) {
                 continue;
             }
-            DlcItem conflictItem = DlcRuntimeState.getItemByName(name);
+        DlcItem conflictItem = DlcRuntimeState.getItemByIdentifier(name);
             if (conflictItem != null && conflictItem.isEnabled()) {
                 toDisable.add(conflictItem);
                 names.add(DlcDisplayNameUtil.resolveDisplayName(name));
@@ -383,6 +408,22 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             item.setEnabled(enabled);
             DlcRuntimeState.setOverride(item.getId(), enabled);
         }
+    }
+
+    private static void disableItemsWithDependents(java.util.Collection<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        java.util.LinkedHashSet<DlcItem> toDisable = new java.util.LinkedHashSet<>();
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            toDisable.addAll(DlcRuntimeState.collectDependentsRecursive(item));
+        }
+        enableItems(toDisable, false);
+        java.util.Set<DlcItem> hiddenDeps = DlcRuntimeState.collectHiddenDependenciesToDisable(toDisable);
+        enableItems(hiddenDeps, false);
     }
 
     private static void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {

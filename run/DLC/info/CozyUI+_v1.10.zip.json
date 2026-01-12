@@ -1,8 +1,13 @@
 {
   "dlc_name": "CozyUI+_v1.10.zip",
+  "DisplayName": {
+    "en_us": "CozyUI+_v1.10.zip"
+  },
   "type": "resourcepack",
+  "isInList": true,
+  "isHidden": false,
   "AllowEnableByAll": false,
-  "tip": {},
   "dependencies": "",
-  "conflicts": ""
+  "conflicts": "",
+  "tip": {}
 }

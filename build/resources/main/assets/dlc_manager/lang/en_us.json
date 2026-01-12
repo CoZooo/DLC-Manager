@@ -74,5 +74,15 @@
   "dlc_manager.batch.conflicts_line_prefix": "%s conflicts with %s ",
   "dlc_manager.batch.enable_deps": "Enable all dependencies and %s",
   "dlc_manager.scope.all": "all DLC",
-  "dlc_manager.scope.group": "this group"
+  "dlc_manager.scope.group": "this group",
+  "dlc_manager.remote.title": "Download Missing DLC",
+  "dlc_manager.remote.desc": "Some DLC are missing. Download now?",
+  "dlc_manager.remote.download": "Download",
+  "dlc_manager.remote.skip": "Skip",
+  "dlc_manager.remote.preparing": "Preparing download list...",
+  "dlc_manager.remote.detecting": "Detecting missing DLC...",
+  "dlc_manager.remote.ready": "Ready to download",
+  "dlc_manager.remote.downloading": "Downloading %s (%d/%d)",
+  "dlc_manager.remote.error": "Download failed: %s",
+  "dlc_manager.remote.complete": "Complete DLC"
 }

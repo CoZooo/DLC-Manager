@@ -17,15 +17,15 @@ final class DlcDisplayNameUtil {
         return resolveDisplayName(item, item.getName());
     }
 
-    static String resolveDisplayName(String name) {
-        if (name == null || name.isBlank()) {
+    static String resolveDisplayName(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
             return "";
         }
-        DlcItem item = DlcRuntimeState.getItemByName(name);
+        DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
         if (item == null) {
-            return name;
+            return identifier;
         }
-        return resolveDisplayName(item, name);
+        return resolveDisplayName(item, identifier);
     }
 
     private static String resolveDisplayName(DlcItem item, String fallback) {
