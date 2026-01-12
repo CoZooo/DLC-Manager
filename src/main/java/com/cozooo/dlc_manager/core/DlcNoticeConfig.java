@@ -182,53 +182,43 @@ public class DlcNoticeConfig {
     }
 
     private static Path resolveNoticePath() {
-        for (Path root : DlcPathConfig.getDlcRoots()) {
-            if (root == null) {
-                continue;
-            }
-            Path noticePath = root.resolve("info").resolve("notice.json");
-            if (Files.exists(noticePath)) {
-                return noticePath;
-            }
+        Path root = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        if (root == null) {
+            return null;
         }
-        // Fallback to first root if exists, but mark as non-existent.
-        if (!DlcPathConfig.getDlcRoots().isEmpty()) {
-            return DlcPathConfig.getDlcRoots().get(0).resolve("info").resolve("notice.json");
-        }
-        return null;
+        return root.resolve("info").resolve("notice.json");
     }
 
     private static void ensureNoticeFiles() {
-        for (Path root : DlcPathConfig.getDlcRoots()) {
-            if (root == null || !Files.exists(root)) {
-                continue;
+        Path root = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        if (root == null || !Files.exists(root)) {
+            return;
+        }
+        Path noticePath = root.resolve("info").resolve("notice.json");
+        if (Files.exists(noticePath)) {
+            return;
+        }
+        JsonObject obj = new JsonObject();
+        obj.addProperty("isNoticeEnabled", false);
+        obj.addProperty("neverShow", false);
+        obj.addProperty("ShowFrequency", ShowFrequency.PER_LAUNCH_MANAGER.getKey());
+        JsonObject title = new JsonObject();
+        title.addProperty("en_us", "Title");
+        obj.add("Title", title);
+        JsonObject subhead = new JsonObject();
+        subhead.addProperty("enabled", false);
+        subhead.addProperty("en_us", "Subhead");
+        obj.add("Subhead", subhead);
+        JsonObject contents = new JsonObject();
+        contents.addProperty("en_us", "Contents");
+        obj.add("Contents", contents);
+        try {
+            Files.createDirectories(noticePath.getParent());
+            try (Writer writer = Files.newBufferedWriter(noticePath)) {
+                GSON.toJson(obj, writer);
             }
-            Path noticePath = root.resolve("info").resolve("notice.json");
-            if (Files.exists(noticePath)) {
-                continue;
-            }
-            JsonObject obj = new JsonObject();
-            obj.addProperty("isNoticeEnabled", false);
-            obj.addProperty("neverShow", false);
-            obj.addProperty("ShowFrequency", ShowFrequency.PER_LAUNCH_MANAGER.getKey());
-            JsonObject title = new JsonObject();
-            title.addProperty("en_us", "Title");
-            obj.add("Title", title);
-            JsonObject subhead = new JsonObject();
-            subhead.addProperty("enabled", false);
-            subhead.addProperty("en_us", "Subhead");
-            obj.add("Subhead", subhead);
-            JsonObject contents = new JsonObject();
-            contents.addProperty("en_us", "Contents");
-            obj.add("Contents", contents);
-            try {
-                Files.createDirectories(noticePath.getParent());
-                try (Writer writer = Files.newBufferedWriter(noticePath)) {
-                    GSON.toJson(obj, writer);
-                }
-            } catch (IOException ignored) {
-                // Best-effort.
-            }
+        } catch (IOException ignored) {
+            // Best-effort.
         }
     }
 

@@ -40,30 +40,36 @@ public final class DlcRemoteManager {
 
     public static List<DlcRemoteEntry> collectMissing() {
         List<DlcRemoteEntry> missing = new ArrayList<>();
-        for (Path dlcRoot : DlcPathConfig.getDlcRoots()) {
-            List<DlcRemoteEntry> entries = DlcRemoteLoader.load(dlcRoot);
-            for (DlcRemoteEntry entry : entries) {
-                if (!entry.isInList() && !entry.isHidden()) {
-                    continue;
-                }
-                Path target = entry.getTargetPath();
-                if (target == null) {
-                    missing.add(entry);
-                    continue;
-                }
-                if (!Files.exists(target)) {
-                    missing.add(entry);
-                }
+        Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        if (dlcRoot == null) {
+            return missing;
+        }
+        List<DlcRemoteEntry> entries = DlcRemoteLoader.load(dlcRoot);
+        for (DlcRemoteEntry entry : entries) {
+            if (!entry.isInList() && !entry.isHidden()) {
+                continue;
+            }
+            Path target = entry.getTargetPath();
+            if (target == null) {
+                missing.add(entry);
+                continue;
+            }
+            if (!Files.exists(target)) {
+                missing.add(entry);
             }
         }
         return missing;
     }
 
     public static void writeInfoFile(Path dlcRoot, DlcRemoteEntry entry, String fileName) {
-        if (dlcRoot == null || entry == null || fileName == null || fileName.isBlank()) {
+        if (entry == null || fileName == null || fileName.isBlank()) {
             return;
         }
-        Path infoDir = dlcRoot.resolve("info");
+        Path root = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        if (root == null) {
+            return;
+        }
+        Path infoDir = root.resolve("info");
         try {
             Files.createDirectories(infoDir);
         } catch (IOException ignored) {

@@ -38,6 +38,7 @@ public class DlcRemoteDownloadScreen extends Screen {
     private volatile int totalCount;
     private volatile int completedCount;
     private volatile float currentProgress;
+    private int scrollIndex;
 
     public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing) {
         super(Component.translatable("dlc_manager.remote.title"));
@@ -84,14 +85,22 @@ public class DlcRemoteDownloadScreen extends Screen {
         }
 
         List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
-        for (DlcRemoteEntry entry : showList) {
+        int listTop = y;
+        int listBottom = this.height - 70;
+        int lineHeight = 10;
+        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
+        int totalLines = showList.size();
+        int maxScroll = Math.max(0, totalLines - maxVisible);
+        if (scrollIndex > maxScroll) {
+            scrollIndex = maxScroll;
+        }
+        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
+            DlcRemoteEntry entry = showList.get(i);
             String name = entry.resolveDisplayName();
             guiGraphics.drawString(this.font, "- " + name, 24, y, 0xE6E6E6, false);
-            y += 10;
-            if (y > this.height - 70) {
-                break;
-            }
+            y += lineHeight;
         }
+        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
 
         if (downloading) {
             y = this.height - 70;
@@ -99,12 +108,45 @@ public class DlcRemoteDownloadScreen extends Screen {
             guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
             y += 12;
             drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress);
+            int percent = Math.round(Math.max(0f, Math.min(1f, currentProgress)) * 100f);
+            guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
         } else if (errorText != null && !errorText.isBlank()) {
             y = this.height - 70;
             guiGraphics.drawCenteredString(this.font, errorText, centerX, y, 0xFF6B6B);
         }
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
+        int listTop = 20 + 18 + 16 + (detecting && !downloading ? 12 : 0);
+        int listBottom = this.height - 70;
+        int lineHeight = 10;
+        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
+        int totalLines = showList.size();
+        int maxScroll = Math.max(0, totalLines - maxVisible);
+        if (maxScroll > 0) {
+            int step = delta > 0 ? -1 : 1;
+            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
+        if (maxScroll <= 0 || totalLines <= maxVisible) {
+            return;
+        }
+        int barX = this.width - 12;
+        int barWidth = 4;
+        int barHeight = Math.max(12, (bottom - top) * maxVisible / totalLines);
+        int trackHeight = bottom - top;
+        int maxTrack = Math.max(1, trackHeight - barHeight);
+        int barY = top + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
+        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B);
+        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
     }
 
     private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
@@ -139,6 +181,7 @@ public class DlcRemoteDownloadScreen extends Screen {
         previewQueue = queue;
         detecting = false;
         statusText = Component.translatable("dlc_manager.remote.ready").getString();
+        scrollIndex = 0;
         Minecraft.getInstance().execute(() -> {
             if (downloadButton != null) {
                 downloadButton.visible = true;
@@ -271,10 +314,6 @@ public class DlcRemoteDownloadScreen extends Screen {
         String fileName = entry.getFileNameHint();
         if (directUrl != null && !directUrl.isBlank()) {
             url = directUrl;
-            String extracted = extractFileName(directUrl);
-            if (fileName == null || fileName.isBlank()) {
-                fileName = extracted;
-            }
         } else if (entry.getModrinthVersionId() != null && !entry.getModrinthVersionId().isBlank()) {
             ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(entry.getModrinthVersionId());
             if (version != null) {
@@ -285,20 +324,27 @@ public class DlcRemoteDownloadScreen extends Screen {
         if (url == null || url.isBlank()) {
             throw new IOException("missing download url");
         }
-        if (fileName == null || fileName.isBlank()) {
-            fileName = "dlc-download";
+        DownloadInfo downloadInfo = openDownload(url);
+        if (directUrl != null && !directUrl.isBlank()) {
+            if (downloadInfo.fileName != null && !downloadInfo.fileName.isBlank()) {
+                fileName = downloadInfo.fileName;
+            }
         }
-
+        if (fileName == null || fileName.isBlank()) {
+            fileName = downloadInfo.fileName;
+        }
+        fileName = finalizeFileName(fileName, entry, url);
         Path target = entry.resolveTargetPath(fileName);
         if (target == null) {
             throw new IOException("invalid target path");
         }
         Files.createDirectories(target.getParent());
         if (Files.exists(target)) {
+            closeQuietly(downloadInfo.connection);
             return;
         }
         Path tempFile = Files.createTempFile(target.getParent(), "dlc-download", ".tmp");
-        downloadToFile(url, tempFile);
+        downloadToFile(downloadInfo.connection, tempFile);
         Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
 
         entry.setFileNameHint(fileName);
@@ -324,11 +370,10 @@ public class DlcRemoteDownloadScreen extends Screen {
         }
     }
 
-    private void downloadToFile(String url, Path target) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(30000);
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
+    private void downloadToFile(HttpURLConnection connection, Path target) throws IOException {
+        if (connection == null) {
+            throw new IOException("missing download url");
+        }
         int total = connection.getContentLength();
         try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
              OutputStream out = Files.newOutputStream(target)) {
@@ -353,12 +398,118 @@ public class DlcRemoteDownloadScreen extends Screen {
             String path = new URL(url).getPath();
             int idx = path.lastIndexOf('/');
             if (idx >= 0 && idx + 1 < path.length()) {
-                return path.substring(idx + 1);
+                String name = path.substring(idx + 1);
+                return stripQuery(name);
             }
         } catch (Exception ignored) {
             // Best-effort.
         }
         return null;
+    }
+
+    private DownloadInfo openDownload(String url) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        connection.setInstanceFollowRedirects(true);
+        connection.setConnectTimeout(15000);
+        connection.setReadTimeout(30000);
+        connection.setRequestProperty("User-Agent", "DLC-Manager");
+        connection.connect();
+        String fileName = extractFileNameFromHeaders(connection);
+        if (fileName == null || fileName.isBlank()) {
+            fileName = extractFileName(connection.getURL().toString());
+        }
+        return new DownloadInfo(connection, fileName);
+    }
+
+    private String extractFileNameFromHeaders(HttpURLConnection connection) {
+        if (connection == null) {
+            return null;
+        }
+        String disposition = connection.getHeaderField("Content-Disposition");
+        if (disposition == null || disposition.isBlank()) {
+            return null;
+        }
+        String lower = disposition.toLowerCase();
+        int idx = lower.indexOf("filename=");
+        if (idx < 0) {
+            idx = lower.indexOf("filename*=");
+        }
+        if (idx < 0) {
+            return null;
+        }
+        String value = disposition.substring(idx);
+        int equals = value.indexOf('=');
+        if (equals >= 0) {
+            value = value.substring(equals + 1).trim();
+        }
+        value = value.replace("\"", "");
+        return stripQuery(value);
+    }
+
+    private String stripQuery(String name) {
+        if (name == null) {
+            return null;
+        }
+        int q = name.indexOf('?');
+        if (q >= 0) {
+            name = name.substring(0, q);
+        }
+        int hash = name.indexOf('#');
+        if (hash >= 0) {
+            name = name.substring(0, hash);
+        }
+        return name;
+    }
+
+    private String finalizeFileName(String fileName, DlcRemoteEntry entry, String url) {
+        String name = fileName;
+        if (name == null || name.isBlank()) {
+            String fallback = entry.getFileNameHint();
+            if (fallback == null || fallback.isBlank()) {
+                fallback = entry.getDlcIdentifier();
+            }
+            if (fallback == null || fallback.isBlank()) {
+                fallback = "dlc-download";
+            }
+            name = fallback;
+        }
+        if (!name.contains(".")) {
+            String extension = guessExtension(entry);
+            if (extension != null) {
+                name = name + extension;
+            }
+        }
+        return name;
+    }
+
+    private String guessExtension(DlcRemoteEntry entry) {
+        if (entry == null || entry.getType() == null) {
+            return null;
+        }
+        return switch (entry.getType()) {
+            case MOD -> ".jar";
+            case RESOURCE_PACK, DATA_PACK, TACZ_PACK, UNKNOWN -> ".zip";
+        };
+    }
+
+    private void closeQuietly(HttpURLConnection connection) {
+        if (connection != null) {
+            try {
+                connection.disconnect();
+            } catch (Exception ignored) {
+                // Best-effort.
+            }
+        }
+    }
+
+    private static final class DownloadInfo {
+        private final HttpURLConnection connection;
+        private final String fileName;
+
+        private DownloadInfo(HttpURLConnection connection, String fileName) {
+            this.connection = connection;
+            this.fileName = fileName;
+        }
     }
 
     private String stripJson(String name) {
