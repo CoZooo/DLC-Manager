@@ -30,7 +30,9 @@ public class DlcApplier {
                 if (!targets.isEmpty()) {
                     DlcConfig.DlcState state = new DlcConfig.DlcState();
                     state.enabled = true;
-                    state.appliedTargets = targets.stream().map(Path::toString).toList();
+                    state.appliedTargets = targets.stream()
+                        .map(DlcApplier::toGameRelativePath)
+                        .toList();
                     DlcConfig.setState(item.getId(), state);
                 }
                 if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
@@ -82,7 +84,7 @@ public class DlcApplier {
         }
         for (String pathString : previous.appliedTargets) {
             try {
-                deleteRecursive(Path.of(pathString));
+                deleteRecursive(resolveStoredPath(pathString));
             } catch (IOException ignored) {
                 // Best-effort cleanup.
             }
@@ -128,6 +130,42 @@ public class DlcApplier {
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    private static String toGameRelativePath(Path path) {
+        if (path == null) {
+            return "";
+        }
+        Path gameDir = DlcPaths.gameDir().toAbsolutePath().normalize();
+        Path normalized = path.toAbsolutePath().normalize();
+        try {
+            Path gameReal = gameDir.toRealPath();
+            Path pathReal = normalized.toRealPath();
+            if (pathReal.startsWith(gameReal)) {
+                return gameReal.relativize(pathReal).toString();
+            }
+        } catch (Exception ignored) {
+            // Fallback to normalized comparison.
+        }
+        try {
+            if (normalized.startsWith(gameDir)) {
+                return gameDir.relativize(normalized).toString();
+            }
+        } catch (Exception ignored) {
+            // Best-effort conversion.
+        }
+        return normalized.toString();
+    }
+
+    private static Path resolveStoredPath(String rawPath) {
+        if (rawPath == null || rawPath.isBlank()) {
+            return Path.of("");
+        }
+        Path path = Path.of(rawPath);
+        if (path.isAbsolute()) {
+            return path.normalize();
+        }
+        return DlcPaths.gameDir().resolve(path).normalize();
     }
 
     public record ApplyResult(List<String> messages, boolean requiresRestart, boolean hotReloaded) {}

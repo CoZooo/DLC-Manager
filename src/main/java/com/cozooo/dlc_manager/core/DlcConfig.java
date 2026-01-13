@@ -37,6 +37,11 @@ public class DlcConfig {
                 stateById = new HashMap<>();
             }
         }
+        boolean migrated = migrateStoredPaths();
+        migrated = migrateStateIds() || migrated;
+        if (migrated) {
+            save();
+        }
     }
 
     public static void save() {
@@ -71,5 +76,138 @@ public class DlcConfig {
 
     private static class DlcConfigData {
         Map<String, DlcState> stateById;
+    }
+
+    private static boolean migrateStoredPaths() {
+        if (stateById == null || stateById.isEmpty()) {
+            return false;
+        }
+        Path gameDir = DlcPaths.gameDir().toAbsolutePath().normalize();
+        Path gameReal = null;
+        try {
+            gameReal = gameDir.toRealPath();
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        boolean changed = false;
+        for (DlcState state : stateById.values()) {
+            if (state == null || state.appliedTargets == null || state.appliedTargets.isEmpty()) {
+                continue;
+            }
+            List<String> migrated = new java.util.ArrayList<>();
+            boolean localChanged = false;
+            for (String raw : state.appliedTargets) {
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                Path path = Path.of(raw);
+                if (path.isAbsolute()) {
+                    Path normalized = path.toAbsolutePath().normalize();
+                    boolean converted = false;
+                    if (gameReal != null) {
+                        try {
+                            Path pathReal = normalized.toRealPath();
+                            if (pathReal.startsWith(gameReal)) {
+                                migrated.add(gameReal.relativize(pathReal).toString());
+                                localChanged = true;
+                                converted = true;
+                            }
+                        } catch (Exception ignored) {
+                            // Best-effort.
+                        }
+                    }
+                    if (!converted && normalized.startsWith(gameDir)) {
+                        migrated.add(gameDir.relativize(normalized).toString());
+                        localChanged = true;
+                        converted = true;
+                    }
+                    if (!converted) {
+                        migrated.add(normalized.toString());
+                    }
+                } else {
+                    migrated.add(raw);
+                }
+            }
+            if (localChanged) {
+                state.appliedTargets = migrated;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private static boolean migrateStateIds() {
+        if (stateById == null || stateById.isEmpty()) {
+            return false;
+        }
+        Path gameDir = DlcPaths.gameDir().toAbsolutePath().normalize();
+        Path gameReal = null;
+        try {
+            gameReal = gameDir.toRealPath();
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        boolean changed = false;
+        Map<String, DlcState> migrated = new HashMap<>();
+        for (Map.Entry<String, DlcState> entry : stateById.entrySet()) {
+            String key = entry.getKey();
+            DlcState state = entry.getValue();
+            String newKey = migrateIdKey(key, gameDir, gameReal);
+            if (!newKey.equals(key)) {
+                changed = true;
+            }
+            DlcState existing = migrated.get(newKey);
+            if (existing == null) {
+                migrated.put(newKey, state);
+            } else if (state != null && state.enabled && !existing.enabled) {
+                migrated.put(newKey, state);
+            }
+        }
+        if (changed) {
+            stateById = migrated;
+        }
+        return changed;
+    }
+
+    private static String migrateIdKey(String key, Path gameDir, Path gameReal) {
+        if (key == null) {
+            return "";
+        }
+        int colon = key.indexOf(':');
+        int pipe = key.lastIndexOf('|');
+        if (colon < 0 || pipe < 0 || pipe <= colon) {
+            return key;
+        }
+        String prefix = key.substring(0, colon + 1);
+        String rootPart = key.substring(colon + 1, pipe);
+        String suffix = key.substring(pipe);
+        if (rootPart.isBlank()) {
+            return key;
+        }
+        try {
+            Path rootPath = Path.of(rootPart);
+            if (!rootPath.isAbsolute()) {
+                return key;
+            }
+            Path normalized = rootPath.toAbsolutePath().normalize();
+            if (gameReal != null) {
+                try {
+                    Path rootReal = normalized.toRealPath();
+                    if (rootReal.startsWith(gameReal)) {
+                        String relative = gameReal.relativize(rootReal).toString();
+                        return prefix + relative + suffix;
+                    }
+                } catch (Exception ignored) {
+                    // Best-effort.
+                }
+            }
+            if (normalized.startsWith(gameDir)) {
+                String relative = gameDir.relativize(normalized).toString();
+                return prefix + relative + suffix;
+            }
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        return key;
     }
 }

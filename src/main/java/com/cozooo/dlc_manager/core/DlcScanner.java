@@ -120,7 +120,7 @@ public class DlcScanner {
     private void addItem(Map<DlcType, List<DlcItem>> grouped, Path root, Path source, DlcType detectedType,
         Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir) {
         String relative = root.relativize(source).toString().replace('\\', '/');
-        String rootId = root.toString().replace('\\', '/');
+        String rootId = toGameRelativePath(root).replace('\\', '/');
         String name = source.getFileName().toString();
         DlcTooltipLoader.TooltipData tooltipData = tooltips != null ? tooltips.get(name) : null;
         DlcType effectiveType = detectedType;
@@ -247,5 +247,30 @@ public class DlcScanner {
                 // Best-effort TACZ scan.
             }
         }
+    }
+
+    private String toGameRelativePath(Path path) {
+        if (path == null) {
+            return "";
+        }
+        Path gameDir = DlcPaths.gameDir().toAbsolutePath().normalize();
+        Path normalized = path.toAbsolutePath().normalize();
+        try {
+            Path gameReal = gameDir.toRealPath();
+            Path pathReal = normalized.toRealPath();
+            if (pathReal.startsWith(gameReal)) {
+                return gameReal.relativize(pathReal).toString();
+            }
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        try {
+            if (normalized.startsWith(gameDir)) {
+                return gameDir.relativize(normalized).toString();
+            }
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        return normalized.toString();
     }
 }
