@@ -899,7 +899,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 java.util.List<DlcItem> actionItems = getActionItems();
                 if (enable) {
                     java.util.List<DlcItem> targets = actionItems.stream()
-                        .filter(item -> item.AllowEnableByAll() && !item.isEnabled())
+                        .filter(item -> item.AllowEnableByAll()
+                            && !DlcRuntimeState.hasMissingDependencies(item)
+                            && !item.isEnabled())
                         .toList();
                     if (!targets.isEmpty()) {
                         Component scopeLabel = activeFilter == null
@@ -931,7 +933,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             if (item.isEnabled()) {
                 allDisabled = false;
             }
-            if (item.AllowEnableByAll()) {
+            if (item.AllowEnableByAll() && !DlcRuntimeState.hasMissingDependencies(item)) {
                 anyEligible = true;
                 if (!item.isEnabled()) {
                     allEligibleEnabled = false;

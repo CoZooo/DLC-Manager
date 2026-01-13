@@ -62,6 +62,7 @@
   "dlc_manager.toast.reload_start": "Reloading resources...",
   "dlc_manager.toast.reload_done": "Resources reloaded",
   "dlc_manager.tooltip.dependencies": "Dependencies",
+  "dlc_manager.tooltip.missing_dependencies": "Missing dependencies",
   "dlc_manager.tooltip.conflicts": "Conflicts",
   "dlc_manager.dependency.prompt": "This DLC requires: %s",
   "dlc_manager.conflict.prompt_prefix": "This DLC conflicts with: %s ",

@@ -133,6 +133,10 @@ public class DlcScanner {
                 effectiveType = tooltipData.getType();
             }
         }
+        if (detectedType == DlcType.TACZ_PACK && effectiveType != DlcType.TACZ_PACK) {
+            effectiveType = detectedType;
+            typeValid = false;
+        }
         String id = effectiveType.name().toLowerCase() + ":" + rootId + "|" + relative;
         String identifier = tooltipData != null ? tooltipData.getIdentifier() : null;
         if (identifier == null || identifier.isBlank()) {

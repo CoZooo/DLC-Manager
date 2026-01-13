@@ -384,6 +384,45 @@ public final class DlcRuntimeState {
         return new ConflictBatchResult(lines);
     }
 
+    public static java.util.Set<String> collectMissingDependencyIdentifiers(DlcItem item) {
+        java.util.LinkedHashSet<String> missing = new java.util.LinkedHashSet<>();
+        if (item == null || item.getIdentifier() == null) {
+            return missing;
+        }
+        java.util.ArrayDeque<DlcItem> queue = new java.util.ArrayDeque<>();
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        queue.add(item);
+        while (!queue.isEmpty()) {
+            DlcItem current = queue.poll();
+            if (current == null || current.getIdentifier() == null) {
+                continue;
+            }
+            if (!visited.add(current.getIdentifier())) {
+                continue;
+            }
+            java.util.List<String> deps = current.getDependencies();
+            if (deps == null || deps.isEmpty()) {
+                continue;
+            }
+            for (String depName : deps) {
+                if (depName == null || depName.isBlank()) {
+                    continue;
+                }
+                DlcItem depItem = getItemByIdentifier(depName);
+                if (depItem == null) {
+                    missing.add(depName);
+                } else {
+                    queue.add(depItem);
+                }
+            }
+        }
+        return missing;
+    }
+
+    public static boolean hasMissingDependencies(DlcItem item) {
+        return !collectMissingDependencyIdentifiers(item).isEmpty();
+    }
+
     public static final class DependencyBatchResult {
         private final java.util.List<DependencyLine> lines;
         private final java.util.List<DlcItem> itemsToEnable;
