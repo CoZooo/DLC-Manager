@@ -106,6 +106,8 @@ public class DlcManagerClient {
             try {
                 repo.reload();
                 java.util.Set<String> selected = new java.util.LinkedHashSet<>(repo.getSelectedIds());
+                java.util.Set<String> originalSelected = new java.util.LinkedHashSet<>(selected);
+                boolean modified = false;
                 var grouped = new DlcScanner().scan();
                 for (DlcItem item : grouped.getOrDefault(DlcType.RESOURCE_PACK, java.util.List.of())) {
                     if (!item.isEnabled()) {
@@ -118,15 +120,22 @@ public class DlcManagerClient {
                         copyRecursive(item.getSourcePath(), target);
                         repo.reload();
                         packId = resolvePackId(repo, fileName);
+                        modified = true;
                     }
                     if (packId != null) {
-                        selected.add(packId);
+                        if (!isPackSelected(repo, selected, fileName)) {
+                            if (selected.add(packId)) {
+                                modified = true;
+                        }
                     }
                 }
+            }
+            if (modified || !selected.equals(originalSelected)) {
                 repo.setSelected(selected);
                 minecraft.options.resourcePacks = new java.util.ArrayList<>(selected);
                 minecraft.options.save();
                 minecraft.reloadResourcePacks();
+                }
             } catch (Throwable ignored) {
                 // Best effort.
             }
@@ -146,6 +155,19 @@ public class DlcManagerClient {
                 }
             }
             return null;
+        }
+
+        private static boolean isPackSelected(PackRepository repo, java.util.Set<String> selected, String fileName) {
+            String fileId = "file/" + fileName;
+            for (String id : selected) {
+                if (!repo.isAvailable(id)) {
+                    continue;
+                }
+                if (id.equals(fileId) || id.equals(fileName) || id.endsWith("/" + fileName) || id.endsWith(fileName)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static void copyRecursive(java.nio.file.Path source, java.nio.file.Path target) throws java.io.IOException {
