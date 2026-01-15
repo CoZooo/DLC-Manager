@@ -90,7 +90,16 @@ publishing {
     }
     repositories {
         maven {
-            url "${project.buildDir}/repo"
+            name = "GitHubPackages"
+            url = uri("https://maven.pkg.github.com/CoZooo/DLC-Manager")
+            credentials {
+                username = System.getenv("USERNAME") ?: (project.findProperty("gpr.user") ?: System.getenv("GITHUB_ACTOR"))
+                password = System.getenv("TOKEN") ?: (project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN"))
+            }
+        }
+        maven {
+            name = "LocalBuildRepo"
+            url = uri("${project.buildDir}/repo")
         }
     }
 }
