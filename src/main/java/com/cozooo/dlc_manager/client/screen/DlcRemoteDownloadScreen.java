@@ -414,36 +414,11 @@ public class DlcRemoteDownloadScreen extends Screen {
         connection.setReadTimeout(30000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
         connection.connect();
-        String fileName = extractFileNameFromHeaders(connection);
+        String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
         if (fileName == null || fileName.isBlank()) {
             fileName = extractFileName(connection.getURL().toString());
         }
         return new DownloadInfo(connection, fileName);
-    }
-
-    private String extractFileNameFromHeaders(HttpURLConnection connection) {
-        if (connection == null) {
-            return null;
-        }
-        String disposition = connection.getHeaderField("Content-Disposition");
-        if (disposition == null || disposition.isBlank()) {
-            return null;
-        }
-        String lower = disposition.toLowerCase();
-        int idx = lower.indexOf("filename=");
-        if (idx < 0) {
-            idx = lower.indexOf("filename*=");
-        }
-        if (idx < 0) {
-            return null;
-        }
-        String value = disposition.substring(idx);
-        int equals = value.indexOf('=');
-        if (equals >= 0) {
-            value = value.substring(equals + 1).trim();
-        }
-        value = value.replace("\"", "");
-        return stripQuery(value);
     }
 
     private String stripQuery(String name) {
