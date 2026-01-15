@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
+import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -84,6 +85,9 @@ public class DlcManagerClient {
                 button.setHeight(h);
             }
             event.addListener(button);
+            if (DlcRequiredManager.maybeShowFromTitle(screen)) {
+                return;
+            }
             DlcNoticeManager.showFromTitle(screen);
         }
 

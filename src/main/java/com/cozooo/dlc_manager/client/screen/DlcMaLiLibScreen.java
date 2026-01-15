@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
+import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
@@ -54,6 +55,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private ButtonGeneric disableAllButton;
     private ButtonGeneric noticeButton;
     private ButtonGeneric remoteButton;
+    private ButtonGeneric requiredButton;
     private boolean noticeChecked;
     private ButtonGeneric allFilterButton;
     private ButtonGeneric modsFilterButton;
@@ -114,6 +116,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         addHeaderButtons();
         addNoticeButton();
         addRemoteButton();
+        addRequiredButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
@@ -211,6 +214,33 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         remoteButton = new ButtonGeneric(x, y, buttonWidth, buttonHeight, label);
         addButton(remoteButton, new RemoteButtonListener());
+    }
+
+    private void addRequiredButton() {
+        String label = StringUtils.translate("dlc_manager.required.manage_button");
+        int buttonWidth = Math.max(50, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int x = 18 + this.textRenderer.width(getTitleString()) + 6;
+        int y = 1;
+        if (remoteButton != null) {
+            x = remoteButton.getX() + remoteButton.getWidth() + 4;
+        } else if (noticeButton != null) {
+            x = noticeButton.getX() + noticeButton.getWidth() + 4;
+        }
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (rightLimit - x < buttonWidth) {
+            requiredButton = new ButtonGeneric(-9999, -9999, 0, 0, label);
+            requiredButton.setEnabled(false);
+            addButton(requiredButton, new RequiredButtonListener());
+            return;
+        }
+        requiredButton = new ButtonGeneric(x, y, buttonWidth, buttonHeight, label);
+        addButton(requiredButton, new RequiredButtonListener());
     }
 
     private void addFilterButtons() {
@@ -450,6 +480,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         updateHeaderButtonsLayout();
         updateNoticeButtonLayout();
         updateRemoteButtonLayout();
+        updateRequiredButtonLayout();
         updateModeAvailability();
     }
 
@@ -457,8 +488,21 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         boolean applyNeeded = computeApplyChanges();
         boolean modReloadNeeded = computeModReloadChanges();
         boolean otherReloadNeeded = computeNonModReloadChanges();
+        boolean requiredPending = DlcRequiredRuntimeState.hasPendingChanges();
         if (!applyNeeded && !modReloadNeeded && !otherReloadNeeded) {
-            minecraft.setScreen(parent);
+            if (requiredPending) {
+                minecraft.setScreen(new ConfirmScreen(accepted -> {
+                    if (accepted) {
+                        minecraft.stop();
+                    } else {
+                        minecraft.setScreen(parent);
+                    }
+                }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.required.restart_prompt"),
+                    Component.translatable("dlc_manager.restart_now"),
+                    Component.translatable("dlc_manager.restart_later")));
+            } else {
+                minecraft.setScreen(parent);
+            }
             return;
         }
 
@@ -468,7 +512,19 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
 
         if (!modReloadNeeded && !otherReloadNeeded) {
-            minecraft.setScreen(parent);
+            if (requiredPending) {
+                minecraft.setScreen(new ConfirmScreen(accepted -> {
+                    if (accepted) {
+                        minecraft.stop();
+                    } else {
+                        minecraft.setScreen(parent);
+                    }
+                }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.required.restart_prompt"),
+                    Component.translatable("dlc_manager.restart_now"),
+                    Component.translatable("dlc_manager.restart_later")));
+            } else {
+                minecraft.setScreen(parent);
+            }
             return;
         }
 
@@ -601,6 +657,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             return;
         }
         backButton.setDisplayString(getBackButtonLabel());
+        backButton.setEnabled(!DlcRequiredRuntimeState.hasPendingChanges());
     }
 
     private boolean computeModReloadChanges() {
@@ -725,6 +782,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         addHeaderButtons();
         addNoticeButton();
         addRemoteButton();
+        addRequiredButton();
         addFilterButtons();
         addFooterButtons();
         updateListLayout();
@@ -878,6 +936,13 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 return;
             }
             Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(DlcMaLiLibScreen.this, missing));
+        }
+    }
+
+    private class RequiredButtonListener implements IButtonActionListener {
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            Minecraft.getInstance().setScreen(new DlcRequiredManagerScreen(DlcMaLiLibScreen.this));
         }
     }
 
@@ -1074,6 +1139,42 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         remoteButton.setY(y);
         remoteButton.setWidth(buttonWidth);
         remoteButton.setHeight(buttonHeight);
+    }
+
+    private void updateRequiredButtonLayout() {
+        if (requiredButton == null) {
+            return;
+        }
+        String label = StringUtils.translate("dlc_manager.required.manage_button");
+        int buttonWidth = Math.max(50, this.textRenderer.width(label) + 8);
+        int buttonHeight = 12;
+        int x = 18 + this.textRenderer.width(getTitleString()) + 6;
+        int y = 1;
+        if (remoteButton != null) {
+            x = remoteButton.getX() + remoteButton.getWidth() + 4;
+        } else if (noticeButton != null) {
+            x = noticeButton.getX() + noticeButton.getWidth() + 4;
+        }
+        int rightLimit = this.width - 18;
+        if (enableAllButton != null) {
+            rightLimit = Math.min(rightLimit, enableAllButton.getX() - 6);
+        } else if (disableAllButton != null) {
+            rightLimit = Math.min(rightLimit, disableAllButton.getX() - 6);
+        }
+        if (rightLimit - x < buttonWidth) {
+            requiredButton.setEnabled(false);
+            requiredButton.setX(-9999);
+            requiredButton.setY(-9999);
+            requiredButton.setWidth(0);
+            requiredButton.setHeight(0);
+            return;
+        }
+        requiredButton.setEnabled(true);
+        requiredButton.setDisplayString(label);
+        requiredButton.setX(x);
+        requiredButton.setY(y);
+        requiredButton.setWidth(buttonWidth);
+        requiredButton.setHeight(buttonHeight);
     }
 
     private Component getHeaderConfirmMessage(boolean enable) {

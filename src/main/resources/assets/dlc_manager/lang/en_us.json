@@ -85,5 +85,20 @@
   "dlc_manager.remote.ready": "Ready to download",
   "dlc_manager.remote.downloading": "Downloading %s (%d/%d)",
   "dlc_manager.remote.error": "Download failed: %s",
-  "dlc_manager.remote.complete": "Complete DLC"
+  "dlc_manager.remote.complete": "Complete DLC",
+  "dlc_manager.required.title": "Required Resources",
+  "dlc_manager.required.desc": "Some required resources are missing.\nDownload and apply them before entering the game.",
+  "dlc_manager.required.download": "Install",
+  "dlc_manager.required.skip": "Skip",
+  "dlc_manager.required.preparing": "Preparing...",
+  "dlc_manager.required.detecting": "Detecting required resources...",
+  "dlc_manager.required.ready": "Ready",
+  "dlc_manager.required.downloading": "Downloading %s (%d/%d)",
+  "dlc_manager.required.error": "Download failed: %s",
+  "dlc_manager.required.apply_button": "Apply Required Resources",
+  "dlc_manager.required.manage_button": "Req. Res.",
+  "dlc_manager.required.manage_title": "Required Resources",
+  "dlc_manager.required.apply_all": "Install All Required",
+  "dlc_manager.required.uninstall": "Uninstall",
+  "dlc_manager.required.restart_prompt": "Required resources applied. Restart now?"
 }
