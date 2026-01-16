@@ -1,0 +1,14 @@
+{
+  "directUrl": "https://mediafilez.forgecdn.net/files/7426/100/tfthreadsafetyaddon-0.1.3.jar",
+  "identifier": "TFThreadSafetyAddon",
+  "file_name": "tfthreadsafetyaddon-0.1.3.jar",
+  "appliedTarget": "mods",
+  "isInList": true,
+  "isHidden": false,
+  "dependencies": "",
+  "DisplayName": {
+    "en_us": "Twilight Forest Thread Safety Addon",
+    "zh_cn": "暮色森林线程崩溃修复"
+  },
+  "tip": {}
+}

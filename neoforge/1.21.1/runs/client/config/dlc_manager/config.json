@@ -1,0 +1,13 @@
+{
+  "paths": {
+    "dlcRoot": "DLC",
+    "taczRoot": "tacz",
+    "resourcepackRoot": "resourcepacks",
+    "datapackRoot": "datapacks",
+    "otherRoot": "dlc_other"
+  },
+  "ui": {
+    "isEnableAllButtonShown": true,
+    "isConfigButtonShown": true
+  }
+}

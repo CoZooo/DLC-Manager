@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "Manage optional DLC content (mods, resource packs, data packs) in-game.",
+  "authors": ["${mod_author}"],
+  "license": "All Rights Reserved",
+  "environment": "*",
+  "icon": "assets/dlc_manager/textures/gui/icon.png",
+  "entrypoints": {
+    "main": [
+      "com.cozooo.dlc_manager.DlcManager"
+    ],
+    "client": [
+      "com.cozooo.dlc_manager.DlcManagerClient"
+    ],
+    "modmenu": [
+      "com.cozooo.dlc_manager.client.ModMenuCompat"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "minecraft": ">=${mc_version}",
+    "fabric-api": ">=${fabric_api_version}",
+    "malilib": ">=${malilib_version}",
+    "java": ">=21"
+  }
+}

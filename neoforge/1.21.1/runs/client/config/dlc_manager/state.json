@@ -1,0 +1,10 @@
+{
+  "stateById": {
+    "mod:DLC|required/tfthreadsafetyaddon-0.1.3.jar": {
+      "enabled": true,
+      "appliedTargets": [
+        "mods/tfthreadsafetyaddon-0.1.3.jar"
+      ]
+    }
+  }
+}

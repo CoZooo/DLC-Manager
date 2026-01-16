@@ -53,5 +53,5 @@ gradle-app.setting
 .classpath
 
 build/
-run/
+**/run/
 .idea/
