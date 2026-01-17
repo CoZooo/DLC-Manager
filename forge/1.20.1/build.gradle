@@ -112,6 +112,7 @@ jar {
 publishing {
     publications {
         mavenJava(MavenPublication) {
+            artifactId = "forge-${forgeMcVersion}"
             artifact jar
         }
     }

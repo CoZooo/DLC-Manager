@@ -107,6 +107,7 @@ jar {
 publishing {
     publications {
         mavenJava(MavenPublication) {
+            artifactId = "neoforge-${neoMcVersion}"
             artifact jar
         }
     }
