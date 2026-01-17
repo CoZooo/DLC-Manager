@@ -9,6 +9,28 @@ pluginManagement {
 
 rootProject.name = 'DLC-Manager-Fabric'
 
+def sharedPropsFile = file('../gradle.properties')
+def sharedProps = new Properties()
+if (sharedPropsFile.exists()) {
+    sharedPropsFile.withInputStream { sharedProps.load(it) }
+}
+def sharedProjectProps = [:]
+sharedProps.each { key, value ->
+    def propKey = key.toString()
+    if (propKey.startsWith('org.gradle.') || propKey.startsWith('systemProp.')) {
+        return
+    }
+    sharedProjectProps[propKey] = value
+}
+
+gradle.beforeProject { project ->
+    sharedProjectProps.each { key, value ->
+        if (!project.hasProperty(key)) {
+            project.ext.set(key, value)
+        }
+    }
+}
+
 include 'common'
 include 'fabric:1.20.1'
 include 'fabric:1.21.1'

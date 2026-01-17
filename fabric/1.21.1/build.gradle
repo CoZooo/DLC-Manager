@@ -94,3 +94,7 @@ tasks.named('remapJar') {
     archiveFileName.set("DLC-Manager-${loaderName}-${mcVersion}-${mod_version}.jar")
     destinationDirectory.set(rootProject.layout.projectDirectory.dir("../output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
 }
+
+tasks.named('build') {
+    dependsOn tasks.named('remapJar')
+}

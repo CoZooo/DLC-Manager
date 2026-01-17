@@ -31,6 +31,17 @@ public class DlcNoticeScreen extends Screen {
     private int scrollOffset;
     private int maxScroll;
     private int contentTop;
+    private int contentBottom;
+    private int visibleHeight;
+    private int totalContentHeight;
+    private int lineStep;
+    private int scrollbarX;
+    private int scrollbarTop;
+    private int scrollbarBottom;
+    private int scrollbarHeight;
+    private boolean draggingScrollbar;
+    private int dragStartY;
+    private int dragStartScroll;
 
     public DlcNoticeScreen(Screen parent, DlcNoticeConfig config) {
         super(Component.translatable("dlc_manager.notice_title"));
@@ -95,11 +106,13 @@ public class DlcNoticeScreen extends Screen {
         int textY = contentTop - scrollOffset;
 
         for (FormattedCharSequence line : bodyLines) {
-            if (textY >= panelTop + 18 && textY <= panelTop + panelHeight - 40) {
+            if (textY >= contentTop && textY <= contentBottom - lineStep + 1) {
                 guiGraphics.drawString(this.font, line, textX, textY, 0xE6E6E6, false);
             }
-            textY += 10;
+            textY += lineStep;
         }
+
+        drawScrollBar(guiGraphics);
 
         for (var renderable : this.renderables) {
             renderable.render(guiGraphics, mouseX, mouseY, partialTick);
@@ -107,7 +120,8 @@ public class DlcNoticeScreen extends Screen {
     }
 
     private void layoutText() {
-        int margin = 24;
+        int minDim = Math.min(this.width, this.height);
+        int margin = Math.max(12, Math.min(20, (int) (minDim * 0.03f)));
         panelWidth = Math.max(260, this.width - margin * 2);
         panelLeft = (this.width - panelWidth) / 2;
         panelTop = margin;
@@ -126,18 +140,23 @@ public class DlcNoticeScreen extends Screen {
         subheadLine = subheadLines.isEmpty() ? null : subheadLines.get(0);
         bodyLines = wrapMultiline(contents, contentWidth);
 
-        int bodyHeight = bodyLines.size() * 10;
+        lineStep = this.font.lineHeight + 2;
+        int bodyHeight = bodyLines.size() * lineStep;
         panelHeight = Math.max(160, this.height - margin * 2);
 
         int titleY = panelTop + 10;
         int subheadHeight = 0;
         if (subheadEnabled && !subheadLines.isEmpty()) {
-            subheadHeight = subheadLines.size() * (this.font.lineHeight + 2);
+            subheadHeight = subheadLines.size() * lineStep;
         }
-        contentTop = titleY + 18 + subheadHeight;
+        contentTop = titleY + 18 + subheadHeight + 4;
         int checkboxY = panelTop + panelHeight - 26;
-        int visibleHeight = Math.max(10, checkboxY - 8 - contentTop);
-        int totalContentHeight = bodyHeight;
+        contentBottom = checkboxY - 8;
+        scrollbarTop = contentTop;
+        scrollbarBottom = contentBottom;
+        scrollbarX = panelLeft + panelWidth - 10;
+        visibleHeight = Math.max(10, contentBottom - contentTop);
+        totalContentHeight = bodyHeight;
         maxScroll = Math.max(0, totalContentHeight - visibleHeight);
         if (scrollOffset > maxScroll) {
             scrollOffset = maxScroll;
@@ -173,13 +192,86 @@ public class DlcNoticeScreen extends Screen {
         if (maxScroll <= 0) {
             return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
         }
-        int step = 10;
-        scrollOffset -= (int) (deltaY * step);
+        scrollOffset -= (int) (deltaY * lineStep);
         if (scrollOffset < 0) {
             scrollOffset = 0;
         } else if (scrollOffset > maxScroll) {
             scrollOffset = maxScroll;
         }
         return true;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && isOverScrollbar(mouseX, mouseY)) {
+            updateScrollFromDrag(mouseY);
+            draggingScrollbar = true;
+            dragStartY = (int) mouseY;
+            dragStartScroll = scrollOffset;
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (draggingScrollbar && button == 0) {
+            int trackHeight = Math.max(1, (scrollbarBottom - scrollbarTop) - scrollbarHeight);
+            int delta = (int) mouseY - dragStartY;
+            int next = dragStartScroll + (int) Math.round(delta * (maxScroll / (double) trackHeight));
+            scrollOffset = Math.max(0, Math.min(maxScroll, next));
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (draggingScrollbar && button == 0) {
+            draggingScrollbar = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private void drawScrollBar(GuiGraphics guiGraphics) {
+        if (maxScroll <= 0 || totalContentHeight <= 0) {
+            return;
+        }
+        int trackHeight = contentBottom - contentTop;
+        if (trackHeight <= 0) {
+            return;
+        }
+        scrollbarX = panelLeft + panelWidth - 10;
+        scrollbarTop = contentTop;
+        scrollbarBottom = contentBottom;
+        int barWidth = 4;
+        scrollbarHeight = Math.max(12, trackHeight * visibleHeight / Math.max(1, totalContentHeight));
+        int maxTrack = Math.max(1, trackHeight - scrollbarHeight);
+        int barY = scrollbarTop + (int) ((scrollOffset / (float) maxScroll) * maxTrack);
+        guiGraphics.fill(scrollbarX, scrollbarTop, scrollbarX + barWidth, scrollbarBottom, 0xFF2B2B2B);
+        guiGraphics.fill(scrollbarX, barY, scrollbarX + barWidth, barY + scrollbarHeight, 0xFF6B6B6B);
+    }
+
+    private boolean isOverScrollbar(double mouseX, double mouseY) {
+        if (maxScroll <= 0) {
+            return false;
+        }
+        int barWidth = 4;
+        int barX = panelLeft + panelWidth - 10;
+        return mouseX >= barX - 2 && mouseX <= barX + barWidth + 2
+            && mouseY >= scrollbarTop && mouseY <= scrollbarBottom;
+    }
+
+    private void updateScrollFromDrag(double mouseY) {
+        int trackHeight = contentBottom - contentTop;
+        if (trackHeight <= 0 || totalContentHeight <= 0) {
+            return;
+        }
+        int barHeight = Math.max(12, trackHeight * visibleHeight / Math.max(1, totalContentHeight));
+        int maxTrack = Math.max(1, trackHeight - barHeight);
+        int barCenter = (int) mouseY - contentTop - (barHeight / 2);
+        int next = (int) Math.round((barCenter / (double) maxTrack) * maxScroll);
+        scrollOffset = Math.max(0, Math.min(maxScroll, next));
     }
 }

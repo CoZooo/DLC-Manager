@@ -177,14 +177,14 @@ public class DlcRemoteEntry {
     }
 
     public Path getTargetPath() {
-        if (fileNameHint == null || baseDir == null) {
+        if (fileNameHint == null || fileNameHint.isBlank() || baseDir == null) {
             return null;
         }
         return baseDir.resolve(fileNameHint).normalize();
     }
 
     public Path resolveTargetPath(String fileName) {
-        if (baseDir == null || fileName == null) {
+        if (baseDir == null || fileName == null || fileName.isBlank()) {
             return null;
         }
         return baseDir.resolve(fileName).normalize();

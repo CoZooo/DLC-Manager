@@ -46,6 +46,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private boolean hasModItems;
     private boolean hasModChanges;
     private boolean userSelectedApplyMode;
+    private int savedScrollOffset;
+    private DlcType savedScrollFilter;
+    private boolean restoreScrollPending;
 
     private ButtonGeneric applyButton;
     private ButtonGeneric backButton;
@@ -87,18 +90,14 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     @Override
     protected int getBrowserWidth() {
-        return this.width - 32;
+        return this.width - 36;
     }
 
     @Override
     protected int getBrowserHeight() {
-        int panelTop = 16;
-        int headerHeight = 22;
-        int filterHeight = 20;
-        int footerHeight = footerTwoRows ? 56 : 36;
-        int panelBottom = this.height - 16 - footerHeight;
-        int listTop = panelTop + headerHeight + filterHeight;
-        return Math.max(80, panelBottom - listTop - 6);
+        int listTop = getListTop();
+        int listBottom = getFooterTop();
+        return Math.max(80, listBottom - listTop);
     }
 
     @Override
@@ -134,6 +133,42 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         DlcTooltipContext.render(guiGraphics, Minecraft.getInstance().font);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        if (isOverAnyButton(mouseX, mouseY)) {
+            return true;
+        }
+        return this.onMouseScrolled((int) mouseX, (int) mouseY, delta);
+    }
+
+    private boolean isOverAnyButton(double mouseX, double mouseY) {
+        return isOverButton(enableAllButton, mouseX, mouseY)
+            || isOverButton(disableAllButton, mouseX, mouseY)
+            || isOverButton(noticeButton, mouseX, mouseY)
+            || isOverButton(remoteButton, mouseX, mouseY)
+            || isOverButton(requiredButton, mouseX, mouseY)
+            || isOverButton(allFilterButton, mouseX, mouseY)
+            || isOverButton(modsFilterButton, mouseX, mouseY)
+            || isOverButton(taczFilterButton, mouseX, mouseY)
+            || isOverButton(resourceFilterButton, mouseX, mouseY)
+            || isOverButton(dataFilterButton, mouseX, mouseY)
+            || isOverButton(otherFilterButton, mouseX, mouseY)
+            || isOverButton(modeButton, mouseX, mouseY)
+            || isOverButton(configButton, mouseX, mouseY)
+            || isOverButton(applyButton, mouseX, mouseY)
+            || isOverButton(backButton, mouseX, mouseY);
+    }
+
+    private boolean isOverButton(ButtonGeneric button, double mouseX, double mouseY) {
+        if (button == null) {
+            return false;
+        }
+        int x = button.getX();
+        int y = button.getY();
+        return mouseX >= x && mouseX < x + button.getWidth()
+            && mouseY >= y && mouseY < y + button.getHeight();
     }
 
     private void addHeaderButtons() {
@@ -583,6 +618,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             } else if (button == applyButton) {
                 applyChanges();
             } else if (button == configButton) {
+                rememberListScroll();
                 Minecraft.getInstance().setScreen(new DlcPathConfigScreen(DlcMaLiLibScreen.this));
             } else if (button == modeButton) {
                 toggleApplyMode();
@@ -596,9 +632,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         int panelRight = this.width - 16;
         int panelTop = 16;
         int headerHeight = 22;
-        int footerHeight = footerTwoRows ? 56 : 36;
         int panelBottom = this.height - 16;
-        int footerTop = panelBottom - footerHeight;
+        int footerTop = getFooterTop();
+        int footerHeight = Math.max(0, panelBottom - footerTop);
 
         guiGraphics.fill(panelLeft, panelTop, panelRight, footerTop, 0xCC0F1114);
         guiGraphics.fill(panelLeft, panelTop, panelRight, panelTop + 2, 0xFF2A2F36);
@@ -615,6 +651,28 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         updateHeaderButtonsState();
     }
 
+    private int getFooterTop() {
+        int panelBottom = this.height - 16;
+        int footerTop = panelBottom - (footerTwoRows ? 38 : 16);
+        int buttonTop = Integer.MAX_VALUE;
+        if (modeButton != null) {
+            buttonTop = Math.min(buttonTop, modeButton.getY());
+        }
+        if (configButton != null) {
+            buttonTop = Math.min(buttonTop, configButton.getY());
+        }
+        if (applyButton != null) {
+            buttonTop = Math.min(buttonTop, applyButton.getY());
+        }
+        if (backButton != null) {
+            buttonTop = Math.min(buttonTop, backButton.getY());
+        }
+        if (buttonTop != Integer.MAX_VALUE) {
+            footerTop = Math.min(footerTop, buttonTop - 2);
+        }
+        return footerTop;
+    }
+
     @Override
     protected void drawTitle(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         int titleY = 6;
@@ -626,7 +684,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         int headerHeight = 22;
         int filterHeight = 20;
         int base = panelTop + headerHeight + filterHeight - 8;
-        return activeFilter == null ? base : base - 8;
+        return base - 8;
     }
 
     private void updateModeAvailability() {
@@ -759,6 +817,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             getListWidget().setSize(getBrowserWidth(), getBrowserHeight());
             getListWidget().initGui();
         }
+        restoreListScroll();
     }
 
     void refreshAfterStateChange() {
@@ -937,6 +996,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private class NoticeButtonListener implements IButtonActionListener {
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            rememberListScroll();
             DlcNoticeManager.forceShow(DlcMaLiLibScreen.this);
         }
     }
@@ -948,6 +1008,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             if (missing.isEmpty()) {
                 return;
             }
+            rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(DlcMaLiLibScreen.this, missing));
         }
     }
@@ -955,6 +1016,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private class RequiredButtonListener implements IButtonActionListener {
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcRequiredManagerScreen(DlcMaLiLibScreen.this));
         }
     }
@@ -969,6 +1031,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
             Component message = getHeaderConfirmMessage(enable);
+            rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(DlcMaLiLibScreen.this);
                 if (!accepted) {
@@ -1253,6 +1316,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         Component message = joinLines(components);
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.DARK_RED);
+        rememberListScroll();
         Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(this, title, message,
             Component.translatable("dlc_manager.confirm_no")));
     }
@@ -1268,6 +1332,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         Component message = joinLines(components);
         Component title = Component.translatable("dlc_manager.batch.dependencies_title");
         Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
+        rememberListScroll();
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(this);
             if (!accepted) {
@@ -1315,6 +1380,31 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     protected void closeGui(boolean closeInGame) {
         DlcRuntimeState.clearOverrides();
         super.closeGui(closeInGame);
+    }
+
+    void rememberListScroll() {
+        if (getListWidget() == null || getListWidget().getScrollbar() == null) {
+            return;
+        }
+        savedScrollOffset = getListWidget().getScrollbar().getValue();
+        savedScrollFilter = activeFilter;
+        restoreScrollPending = true;
+    }
+
+    private void restoreListScroll() {
+        if (!restoreScrollPending) {
+            return;
+        }
+        if (getListWidget() == null || getListWidget().getScrollbar() == null) {
+            return;
+        }
+        if (savedScrollFilter != activeFilter) {
+            restoreScrollPending = false;
+            return;
+        }
+        var scrollBar = getListWidget().getScrollbar();
+        scrollBar.setValue(Math.min(savedScrollOffset, scrollBar.getMaxValue()));
+        restoreScrollPending = false;
     }
 
     private int maxTextWidth(String a, String b) {

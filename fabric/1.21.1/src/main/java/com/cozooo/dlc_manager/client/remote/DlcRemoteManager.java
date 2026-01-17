@@ -107,4 +107,64 @@ public final class DlcRemoteManager {
             // Best-effort.
         }
     }
+
+    public static void updateFileNameKey(DlcRemoteEntry entry, String fileName) {
+        if (entry == null) {
+            return;
+        }
+        String normalized = normalizeFileName(fileName);
+        if (normalized == null) {
+            return;
+        }
+        Path config = entry.getConfigPath();
+        if (config == null || !Files.exists(config)) {
+            return;
+        }
+        try (java.io.Reader reader = Files.newBufferedReader(config)) {
+            JsonObject obj = PRETTY_GSON.fromJson(reader, JsonObject.class);
+            if (obj == null) {
+                return;
+            }
+            JsonObject reordered = new JsonObject();
+            boolean inserted = false;
+            for (var entryObj : obj.entrySet()) {
+                String key = entryObj.getKey();
+                if ("file_name".equals(key)) {
+                    if (!inserted) {
+                        reordered.addProperty("file_name", normalized);
+                        inserted = true;
+                    }
+                    continue;
+                }
+                reordered.add(key, entryObj.getValue());
+                if (!inserted && "dlc_identifier".equals(key)) {
+                    reordered.addProperty("file_name", normalized);
+                    inserted = true;
+                }
+            }
+            if (!inserted) {
+                reordered.addProperty("file_name", normalized);
+            }
+            try (Writer writer = Files.newBufferedWriter(config)) {
+                PRETTY_GSON.toJson(reordered, writer);
+            }
+            entry.setFileNameHint(normalized);
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+    }
+
+    private static String normalizeFileName(String fileName) {
+        if (fileName == null) {
+            return null;
+        }
+        String trimmed = fileName.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
+            return null;
+        }
+        return trimmed;
+    }
 }

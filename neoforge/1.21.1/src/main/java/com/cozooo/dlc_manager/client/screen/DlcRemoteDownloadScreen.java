@@ -353,26 +353,8 @@ public class DlcRemoteDownloadScreen extends Screen {
         Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
 
         entry.setFileNameHint(fileName);
-        renameRemoteConfigIfNeeded(entry, fileName);
+        DlcRemoteManager.updateFileNameKey(entry, fileName);
         DlcRemoteManager.writeInfoFile(entry.getDlcRoot(), entry, fileName);
-    }
-
-    private void renameRemoteConfigIfNeeded(DlcRemoteEntry entry, String fileName) {
-        Path configPath = entry.getConfigPath();
-        if (configPath == null || fileName == null) {
-            return;
-        }
-        String currentName = stripJson(configPath.getFileName().toString());
-        if (fileName.equals(currentName)) {
-            return;
-        }
-        Path newPath = configPath.getParent().resolve(fileName + ".json");
-        try {
-            Files.move(configPath, newPath, StandardCopyOption.REPLACE_EXISTING);
-            entry.setConfigPath(newPath);
-        } catch (IOException ignored) {
-            // Best-effort.
-        }
     }
 
     private void downloadToFile(HttpURLConnection connection, Path target) throws IOException {

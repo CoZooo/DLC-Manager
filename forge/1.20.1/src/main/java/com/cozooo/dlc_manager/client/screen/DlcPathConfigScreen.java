@@ -70,6 +70,7 @@ public class DlcPathConfigScreen extends Screen {
             .bounds(panelLeft + panelWidth - 70, buttonY, 70, 20).build());
     }
 
+
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(guiGraphics);

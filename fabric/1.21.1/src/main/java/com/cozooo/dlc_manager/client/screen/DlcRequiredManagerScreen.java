@@ -769,7 +769,7 @@ public class DlcRequiredManagerScreen extends Screen {
         downloadToFile(downloadInfo.connection, tempFile, state, stepIndex, totalSteps);
         Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
         entry.setResolvedFileName(fileName);
-        DlcRequiredManager.ensureFileNameKey(entry, fileName);
+        DlcRequiredManager.updateFileNameKey(entry, fileName);
     }
 
     private boolean applyEntry(DlcRequiredEntry entry) {

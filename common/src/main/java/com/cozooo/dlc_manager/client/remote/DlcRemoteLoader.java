@@ -117,7 +117,9 @@ public final class DlcRemoteLoader {
         }
         DlcRemoteEntry entry = normalized.entry;
         entry.setConfigPath(path);
-        entry.setFileNameHint(fileName);
+        if (entry.getFileNameHint() == null || entry.getFileNameHint().isBlank()) {
+            entry.setFileNameHint(fileName);
+        }
 
         try (Writer writer = Files.newBufferedWriter(path)) {
             PRETTY_GSON.toJson(normalized.ordered, writer);
@@ -135,12 +137,21 @@ public final class DlcRemoteLoader {
         String projectId = getString(obj, "modrinth_projectid");
         String versionId = getString(obj, "modrinth_versionid");
         String identifier = getString(obj, "dlc_identifier");
+        String fileName = getString(obj, "file_name");
         String nameFallback = fallbackName;
         if (nameFallback == null || nameFallback.isBlank()) {
             if (directUrl != null && !directUrl.isBlank()) {
                 nameFallback = extractFileName(directUrl);
             } else if (projectId != null && !projectId.isBlank()) {
                 nameFallback = projectId;
+            }
+        }
+        if (fileName == null || fileName.isBlank()) {
+            if (directUrl != null && !directUrl.isBlank()) {
+                fileName = extractFileName(directUrl);
+            }
+            if (fileName == null || fileName.isBlank()) {
+                fileName = nameFallback;
             }
         }
         JsonObject displayObj = sanitizeLocalized(obj.getAsJsonObject("DisplayName"));
@@ -170,6 +181,7 @@ public final class DlcRemoteLoader {
         ordered.addProperty("modrinth_projectid", projectId == null ? "" : projectId);
         ordered.addProperty("modrinth_versionid", versionId == null ? "" : versionId);
         ordered.addProperty("dlc_identifier", identifier);
+        ordered.addProperty("file_name", fileName == null ? "" : fileName);
         ordered.addProperty("type", DlcTooltipLoader.toTypeString(type));
         ordered.addProperty("isInList", inList);
         ordered.addProperty("isHidden", hidden);
@@ -197,6 +209,11 @@ public final class DlcRemoteLoader {
         entry.setModrinthProjectId(ordered.get("modrinth_projectid").getAsString());
         entry.setModrinthVersionId(ordered.get("modrinth_versionid").getAsString());
         entry.setDlcIdentifier(ordered.get("dlc_identifier").getAsString());
+        String resolvedFileName = fileName;
+        if (resolvedFileName == null || resolvedFileName.isBlank()) {
+            resolvedFileName = nameFallback;
+        }
+        entry.setFileNameHint(resolvedFileName);
         entry.setType(type);
         entry.setInList(inList);
         entry.setHidden(hidden);
@@ -445,6 +462,7 @@ public final class DlcRemoteLoader {
             || obj.has("modrinth_projectid")
             || obj.has("modrinth_versionid")
             || obj.has("dlc_identifier")
+            || obj.has("file_name")
             || obj.has("type")
             || obj.has("DisplayName")
             || obj.has("tip")

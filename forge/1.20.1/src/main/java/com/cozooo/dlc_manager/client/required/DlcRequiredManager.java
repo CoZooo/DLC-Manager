@@ -453,6 +453,48 @@ public final class DlcRequiredManager {
         }
     }
 
+    public static void updateFileNameKey(DlcRequiredEntry entry, String fileName) {
+        if (entry == null) {
+            return;
+        }
+        fileName = normalizeFileName(fileName);
+        if (fileName == null) {
+            return;
+        }
+        Path config = entry.getConfigPath();
+        if (config == null || !Files.exists(config)) {
+            return;
+        }
+        try (java.io.Reader reader = Files.newBufferedReader(config)) {
+            com.google.gson.JsonObject obj = GSON.fromJson(reader, com.google.gson.JsonObject.class);
+            if (obj == null) {
+                return;
+            }
+            com.google.gson.JsonObject reordered = new com.google.gson.JsonObject();
+            boolean inserted = false;
+            for (var entryObj : obj.entrySet()) {
+                String key = entryObj.getKey();
+                if ("file_name".equals(key)) {
+                    continue;
+                }
+                if (!inserted && ("appliedTarget".equals(key) || "appliedTaget".equals(key))) {
+                    reordered.addProperty("file_name", fileName);
+                    inserted = true;
+                }
+                reordered.add(key, entryObj.getValue());
+            }
+            if (!inserted) {
+                reordered.addProperty("file_name", fileName);
+            }
+            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
+                GSON.toJson(reordered, writer);
+            }
+            entry.setRequiredFileName(fileName);
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+    }
+
     private static Path resolveTarget(Path targetDir, String fileName) {
         if (targetDir == null || fileName == null || fileName.isBlank()) {
             return null;

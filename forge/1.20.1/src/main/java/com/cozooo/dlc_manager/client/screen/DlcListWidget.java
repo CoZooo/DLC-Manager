@@ -15,7 +15,7 @@ public class DlcListWidget extends WidgetListBase<DlcListRow, DlcListEntry> {
         this.allowMultiSelection = false;
         this.shouldSortList = false;
         this.browserPaddingX = 4;
-        this.browserPaddingY = 4;
+        this.browserPaddingY = 0;
     }
 
     @Override

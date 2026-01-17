@@ -48,4 +48,5 @@ public class DlcSingleButtonScreen extends Screen {
         }
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
+
 }

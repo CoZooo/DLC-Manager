@@ -68,6 +68,7 @@ public class DlcManagerScreen extends Screen {
         guiGraphics.drawCenteredString(font, title, width / 2, 22, 0xFFFFFF);
     }
 
+
     private void applyChanges() {
         List<DlcItem> items = entryList.getItems();
         DlcApplier.ApplyResult result = DlcApplier.apply(items, modeButton.getValue());

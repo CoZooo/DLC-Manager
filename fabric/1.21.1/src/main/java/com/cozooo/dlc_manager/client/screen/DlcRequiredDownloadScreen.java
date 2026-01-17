@@ -333,7 +333,7 @@ public class DlcRequiredDownloadScreen extends Screen {
         Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
         downloadedAny = true;
         entry.setResolvedFileName(fileName);
-        DlcRequiredManager.ensureFileNameKey(entry, fileName);
+        DlcRequiredManager.updateFileNameKey(entry, fileName);
     }
 
     private void applyAll() {

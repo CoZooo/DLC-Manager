@@ -457,6 +457,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
         Component message = joinLines(components);
         Screen returnScreen = Minecraft.getInstance().screen;
+        if (returnScreen instanceof DlcMaLiLibScreen screen) {
+            screen.rememberListScroll();
+        }
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.RED);
         Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(returnScreen, title, message,
@@ -473,6 +476,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
         Component message = joinLines(components);
         Screen returnScreen = Minecraft.getInstance().screen;
+        if (returnScreen instanceof DlcMaLiLibScreen screen) {
+            screen.rememberListScroll();
+        }
         Component title = Component.translatable("dlc_manager.batch.dependencies_title");
         Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
@@ -493,6 +499,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             return;
         }
         Screen returnScreen = Minecraft.getInstance().screen;
+        if (returnScreen instanceof DlcMaLiLibScreen screen) {
+            screen.rememberListScroll();
+        }
         String list = String.join(", ", dependencies.names);
         Component message = Component.translatable("dlc_manager.dependency.prompt", list);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
@@ -520,6 +529,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             return;
         }
         Screen returnScreen = Minecraft.getInstance().screen;
+        if (returnScreen instanceof DlcMaLiLibScreen screen) {
+            screen.rememberListScroll();
+        }
         String list = String.join(", ", conflicts.names);
         Component message = buildConflictPromptMessage(list);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
