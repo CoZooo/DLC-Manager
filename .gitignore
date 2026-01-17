@@ -49,5 +49,6 @@ gradle-app.setting
 
 build/
 **/run/
+**/runs/
 .idea/
 output/
