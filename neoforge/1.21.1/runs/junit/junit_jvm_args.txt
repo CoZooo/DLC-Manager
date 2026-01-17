@@ -11,3 +11,6 @@ java.base/sun.security.util=cpw.mods.securejarhandler
 --add-exports
 jdk.naming.dns/com.sun.jndi.dns=java.naming
 -XstartOnFirstThread
+-DlegacyClassPath.file=/Users/cozozjw/Projects/DLC-Manager/neoforge/1.21.1/.gradle/configuration/neoForm/neoFormJoined1.21.1-20240808.144430/steps/writeMinecraftClasspathJunit/classpath.txt
+-DignoreList=mixinextras-neoforge-0.5.0.jar,client-extra,neoforge-
+-Djava.net.preferIPv6Addresses=system
