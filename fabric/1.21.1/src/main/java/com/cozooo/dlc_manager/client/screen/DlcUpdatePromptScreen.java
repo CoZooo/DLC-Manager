@@ -3,6 +3,10 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
+import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
+import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -171,6 +175,33 @@ public class DlcUpdatePromptScreen extends Screen {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));
             return;
         }
+        if (maybeShowPostUpdateDownloads(result)) {
+            return;
+        }
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, Component.translatable("dlc_manager.update.success")));
+    }
+
+    private boolean maybeShowPostUpdateDownloads(UpdateApplyResult result) {
+        if (result == null || !result.isSuccess()) {
+            return false;
+        }
+        if (result.hasRequiredAdd()) {
+            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloads();
+            if (!missing.isEmpty()) {
+                Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing));
+                return true;
+            }
+            return false;
+        }
+        if (result.hasRemoteAdd()) {
+            List<DlcRemoteEntry> missing = DlcRemoteManager.collectMissing();
+            if (!missing.isEmpty()) {
+                Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(parent, missing));
+                return true;
+            }
+            Minecraft.getInstance().setScreen(parent);
+            return true;
+        }
+        return false;
     }
 }

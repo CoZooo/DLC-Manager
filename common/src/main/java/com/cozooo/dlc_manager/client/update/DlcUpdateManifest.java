@@ -98,9 +98,19 @@ public class DlcUpdateManifest {
             if (modEl.isJsonObject()) {
                 JsonObject modObj = modEl.getAsJsonObject();
                 for (var entry : modObj.entrySet()) {
-                    ModifyEntry mod = parseModifyEntry(entry.getKey(), entry.getValue());
-                    if (mod != null) {
-                        ops.modify.add(mod);
+                    JsonElement value = entry.getValue();
+                    if (value != null && value.isJsonArray()) {
+                        for (JsonElement child : value.getAsJsonArray()) {
+                            ModifyEntry mod = parseModifyEntry(entry.getKey(), child);
+                            if (mod != null) {
+                                ops.modify.add(mod);
+                            }
+                        }
+                    } else {
+                        ModifyEntry mod = parseModifyEntry(entry.getKey(), value);
+                        if (mod != null) {
+                            ops.modify.add(mod);
+                        }
                     }
                 }
             } else if (modEl.isJsonArray()) {

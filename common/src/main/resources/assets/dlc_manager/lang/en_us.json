@@ -127,6 +127,7 @@
   "dlc_manager.update.rolled_back": "(rolled back)",
   "dlc_manager.update.reapply": "Re-apply",
   "dlc_manager.update.rollback": "Rollback",
+  "dlc_manager.update.apply": "Update",
   "dlc_manager.update.rollback_success": "Rollback completed.",
   "dlc_manager.update.rollback_failed": "Rollback failed."
 }

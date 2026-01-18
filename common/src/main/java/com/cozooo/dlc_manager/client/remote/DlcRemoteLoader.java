@@ -487,7 +487,7 @@ public final class DlcRemoteLoader {
         }
         int idx = cleaned.lastIndexOf('/');
         if (idx >= 0 && idx + 1 < cleaned.length()) {
-            return cleaned.substring(idx + 1);
+            return DlcDownloadUtil.decodeUrlPathSegment(cleaned.substring(idx + 1));
         }
         return cleaned;
     }

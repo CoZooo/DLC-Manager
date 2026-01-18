@@ -127,6 +127,7 @@
   "dlc_manager.update.rolled_back": "（已回溯）",
   "dlc_manager.update.reapply": "重新更新",
   "dlc_manager.update.rollback": "回溯",
+  "dlc_manager.update.apply": "更新",
   "dlc_manager.update.rollback_success": "回溯完成。",
   "dlc_manager.update.rollback_failed": "回溯失败。"
 }
