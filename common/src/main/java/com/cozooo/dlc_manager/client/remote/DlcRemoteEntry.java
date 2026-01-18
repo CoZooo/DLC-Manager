@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.remote;
 
+import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 
@@ -15,6 +16,8 @@ public class DlcRemoteEntry {
     private String fileNameHint;
     private String dlcIdentifier;
     private String directUrl;
+    private List<String> directUrls = List.of();
+    private String downloadPriority = "modrinth";
     private String modrinthProjectId;
     private String modrinthVersionId;
     private DlcType type;
@@ -67,11 +70,59 @@ public class DlcRemoteEntry {
     }
 
     public String getDirectUrl() {
+        if (directUrls != null && !directUrls.isEmpty()) {
+            return directUrls.get(0);
+        }
         return directUrl;
     }
 
     public void setDirectUrl(String directUrl) {
         this.directUrl = directUrl;
+        if (directUrl != null && !directUrl.isBlank()) {
+            this.directUrls = List.of(directUrl);
+        }
+    }
+
+    public List<String> getDirectUrls() {
+        if (directUrls != null && !directUrls.isEmpty()) {
+            return directUrls;
+        }
+        if (directUrl != null && !directUrl.isBlank()) {
+            return List.of(directUrl);
+        }
+        return List.of();
+    }
+
+    public void setDirectUrls(List<String> directUrls) {
+        if (directUrls == null) {
+            this.directUrls = List.of();
+            return;
+        }
+        List<String> cleaned = new ArrayList<>();
+        for (String url : directUrls) {
+            if (url != null && !url.isBlank()) {
+                cleaned.add(url.trim());
+            }
+        }
+        this.directUrls = cleaned;
+        if (!cleaned.isEmpty()) {
+            this.directUrl = cleaned.get(0);
+        }
+    }
+
+    public String getDownloadPriority() {
+        return downloadPriority;
+    }
+
+    public void setDownloadPriority(String downloadPriority) {
+        if (downloadPriority == null || downloadPriority.isBlank()) {
+            return;
+        }
+        this.downloadPriority = downloadPriority.trim();
+    }
+
+    public boolean isDirectUrlPriority() {
+        return "directurl".equalsIgnoreCase(downloadPriority);
     }
 
     public String getModrinthProjectId() {
@@ -180,14 +231,22 @@ public class DlcRemoteEntry {
         if (fileNameHint == null || fileNameHint.isBlank() || baseDir == null) {
             return null;
         }
-        return baseDir.resolve(fileNameHint).normalize();
+        String safeName = sanitizeFileName(fileNameHint);
+        if (safeName == null || safeName.isBlank()) {
+            return null;
+        }
+        return baseDir.resolve(safeName).normalize();
     }
 
     public Path resolveTargetPath(String fileName) {
         if (baseDir == null || fileName == null || fileName.isBlank()) {
             return null;
         }
-        return baseDir.resolve(fileName).normalize();
+        String safeName = sanitizeFileName(fileName);
+        if (safeName == null || safeName.isBlank()) {
+            return null;
+        }
+        return baseDir.resolve(safeName).normalize();
     }
 
     public String getUniqueKey() {
@@ -224,5 +283,13 @@ public class DlcRemoteEntry {
             }
         }
         return new ArrayList<>(names);
+    }
+
+    private static String sanitizeFileName(String name) {
+        String cleaned = DlcDownloadUtil.stripQuery(name);
+        if (cleaned == null) {
+            return null;
+        }
+        return cleaned.replaceAll("[\\\\/:*?\"<>|]", "_");
     }
 }

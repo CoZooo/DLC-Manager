@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.io.IOException;
@@ -127,6 +128,7 @@ public final class DlcRemoteManager {
             }
             JsonObject reordered = new JsonObject();
             boolean inserted = false;
+            JsonElement deferredDirectUrl = null;
             for (var entryObj : obj.entrySet()) {
                 String key = entryObj.getKey();
                 if ("file_name".equals(key)) {
@@ -134,6 +136,10 @@ public final class DlcRemoteManager {
                         reordered.addProperty("file_name", normalized);
                         inserted = true;
                     }
+                    continue;
+                }
+                if ("directUrl".equalsIgnoreCase(key)) {
+                    deferredDirectUrl = entryObj.getValue();
                     continue;
                 }
                 reordered.add(key, entryObj.getValue());
@@ -144,6 +150,9 @@ public final class DlcRemoteManager {
             }
             if (!inserted) {
                 reordered.addProperty("file_name", normalized);
+            }
+            if (deferredDirectUrl != null) {
+                reordered.add("directUrl", deferredDirectUrl);
             }
             try (Writer writer = Files.newBufferedWriter(config)) {
                 PRETTY_GSON.toJson(reordered, writer);
@@ -158,13 +167,17 @@ public final class DlcRemoteManager {
         if (fileName == null) {
             return null;
         }
-        String trimmed = fileName.trim();
+        String trimmed = com.cozooo.dlc_manager.client.download.DlcDownloadUtil.stripQuery(fileName);
+        if (trimmed == null) {
+            return null;
+        }
+        trimmed = trimmed.trim();
         if (trimmed.isEmpty()) {
             return null;
         }
         if (trimmed.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
             return null;
         }
-        return trimmed;
+        return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");
     }
 }

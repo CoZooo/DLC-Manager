@@ -19,6 +19,8 @@ public class DlcRequiredEntry {
     private final Map<String, String> tips = new HashMap<>();
     private String requiredFileName;
     private String directUrl;
+    private List<String> directUrls = new ArrayList<>();
+    private String downloadPriority = "modrinth";
     private String modrinthProjectId;
     private String modrinthVersionId;
     private boolean inList = true;
@@ -83,6 +85,9 @@ public class DlcRequiredEntry {
     }
 
     public String getDirectUrl() {
+        if (directUrls != null && !directUrls.isEmpty()) {
+            return directUrls.get(0);
+        }
         return directUrl;
     }
 
@@ -101,6 +106,35 @@ public class DlcRequiredEntry {
 
     public void setDirectUrl(String directUrl) {
         this.directUrl = directUrl;
+        if (directUrl != null && !directUrl.isBlank()) {
+            this.directUrls = new ArrayList<>();
+            this.directUrls.add(directUrl);
+        }
+    }
+
+    public List<String> getDirectUrls() {
+        if (directUrls != null && !directUrls.isEmpty()) {
+            return new ArrayList<>(directUrls);
+        }
+        if (directUrl != null && !directUrl.isBlank()) {
+            return List.of(directUrl);
+        }
+        return List.of();
+    }
+
+    public void setDirectUrls(List<String> directUrls) {
+        this.directUrls = new ArrayList<>();
+        if (directUrls == null) {
+            return;
+        }
+        for (String url : directUrls) {
+            if (url != null && !url.isBlank()) {
+                this.directUrls.add(url.trim());
+            }
+        }
+        if (!this.directUrls.isEmpty()) {
+            this.directUrl = this.directUrls.get(0);
+        }
     }
 
     public String getModrinthProjectId() {
@@ -117,6 +151,21 @@ public class DlcRequiredEntry {
 
     public void setModrinthVersionId(String modrinthVersionId) {
         this.modrinthVersionId = modrinthVersionId;
+    }
+
+    public String getDownloadPriority() {
+        return downloadPriority;
+    }
+
+    public void setDownloadPriority(String downloadPriority) {
+        if (downloadPriority == null || downloadPriority.isBlank()) {
+            return;
+        }
+        this.downloadPriority = downloadPriority.trim();
+    }
+
+    public boolean isDirectUrlPriority() {
+        return "directurl".equalsIgnoreCase(downloadPriority);
     }
 
     public boolean isInList() {
