@@ -681,8 +681,8 @@ public class DlcRequiredDownloadScreen extends Screen {
     private DownloadInfo openDownload(String url) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(30000);
+        connection.setConnectTimeout(20000);
+        connection.setReadTimeout(180000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
         connection.connect();
         String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
