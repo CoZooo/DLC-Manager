@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
+import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -33,6 +35,7 @@ public class DlcManagerClient {
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
+        DlcUpdateService.ensureUpdateDir();
         ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory.class,
             () -> (modContainer, parent) -> new DlcPathConfigScreen(parent));
     }
@@ -113,6 +116,18 @@ public class DlcManagerClient {
                 }
             }
             event.addListener(button);
+            int iconSize = Math.min(20, h);
+            int iconX = button.getX() + button.getWidth() + 4;
+            int iconY = button.getY();
+            Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"), btn -> DlcUpdateClient.openUpdateManager(screen))
+                .bounds(iconX, iconY, iconSize, h)
+                .build();
+            if (DlcPathConfig.isUButtomShown()) {
+                event.addListener(updateButton);
+            }
+            if (DlcUpdateClient.maybeShowFromTitle(screen)) {
+                return;
+            }
             if (DlcRequiredManager.maybeShowFromTitle(screen)) {
                 return;
             }

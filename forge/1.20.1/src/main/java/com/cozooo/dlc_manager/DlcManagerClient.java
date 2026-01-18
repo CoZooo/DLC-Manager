@@ -5,6 +5,8 @@ import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
+import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -33,6 +35,7 @@ public class DlcManagerClient {
     }
 
     private static void onClientSetup(FMLClientSetupEvent event) {
+        DlcUpdateService.ensureUpdateDir();
         ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
             () -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> new DlcPathConfigScreen(parent)));
     }
@@ -85,6 +88,18 @@ public class DlcManagerClient {
                 button.setHeight(h);
             }
             event.addListener(button);
+            int iconSize = Math.min(20, h);
+            int iconX = button.getX() + button.getWidth() + 4;
+            int iconY = button.getY();
+            Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"), btn -> DlcUpdateClient.openUpdateManager(screen))
+                .bounds(iconX, iconY, iconSize, h)
+                .build();
+            if (DlcPathConfig.isUButtomShown()) {
+                event.addListener(updateButton);
+            }
+            if (DlcUpdateClient.maybeShowFromTitle(screen)) {
+                return;
+            }
             if (DlcRequiredManager.maybeShowFromTitle(screen)) {
                 return;
             }

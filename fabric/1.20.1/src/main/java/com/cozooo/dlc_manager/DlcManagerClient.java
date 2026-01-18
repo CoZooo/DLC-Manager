@@ -4,7 +4,10 @@ import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import net.fabricmc.api.ClientModInitializer;
@@ -25,6 +28,7 @@ public class DlcManagerClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        DlcUpdateService.ensureUpdateDir();
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
@@ -42,12 +46,23 @@ public class DlcManagerClient implements ClientModInitializer {
                 }
                 Minecraft.getInstance().setScreen(managerScreen);
             }).bounds(x, y, w, h).build();
+            Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"),
+                btn -> DlcUpdateClient.openUpdateManager(screen))
+                .bounds(x + w + 4, y, 20, h)
+                .build();
 
             if (!hasDlcButton(screen)) {
                 Screens.getButtons(screen).add(button);
             }
+            if (DlcPathConfig.isUButtomShown()
+                && findButtonByKey(screen, "dlc_manager.update.import_icon") == null) {
+                Screens.getButtons(screen).add(updateButton);
+            }
             alignTitleButtons(screen);
             pendingAlignScreen = screen;
+            if (DlcUpdateClient.maybeShowFromTitle(screen)) {
+                return;
+            }
             if (DlcRequiredManager.maybeShowFromTitle(screen)) {
                 return;
             }
@@ -150,6 +165,7 @@ public class DlcManagerClient implements ClientModInitializer {
         AbstractWidget multiplayerWidget = findButtonByKey(screen, "menu.multiplayer");
         AbstractWidget modsWidget = findModsButton(screen);
         AbstractWidget dlcWidget = findButtonByKey(screen, "dlc_manager.title");
+        AbstractWidget updateWidget = findButtonByKey(screen, "dlc_manager.update.import_icon");
         if (realmsWidget != null) {
             realmsWidget.visible = false;
             realmsWidget.active = false;
@@ -177,19 +193,38 @@ public class DlcManagerClient implements ClientModInitializer {
         if (modsWidget != null) {
             int gap = 4;
             int halfWidth = Math.max(40, (rowW - gap) / 2);
+            int iconGap = 4;
+            int iconWidth = 20;
             modsWidget.setX(rowX);
             modsWidget.setY(rowY);
             modsWidget.setWidth(halfWidth);
-            dlcWidget.setX(rowX + halfWidth + gap);
+            int dlcX = rowX + halfWidth + gap;
+            int dlcWidth = halfWidth;
+            if (updateWidget != null) {
+                dlcWidth = Math.max(40, halfWidth - iconWidth - iconGap);
+                updateWidget.setWidth(iconWidth);
+                updateWidget.setX(dlcX + dlcWidth + iconGap);
+                updateWidget.setY(rowY);
+            }
+            dlcWidget.setX(dlcX);
             dlcWidget.setY(rowY);
-            dlcWidget.setWidth(halfWidth);
+            dlcWidget.setWidth(dlcWidth);
 
             int optionsRowY = rowY + rowStep;
             moveBottomRow(screen, optionsRowY);
         } else {
+            int iconGap = 4;
+            int iconWidth = 20;
+            int dlcWidth = rowW;
+            if (updateWidget != null) {
+                dlcWidth = Math.max(40, rowW - iconWidth - iconGap);
+                updateWidget.setWidth(iconWidth);
+                updateWidget.setX(rowX + dlcWidth + iconGap);
+                updateWidget.setY(rowY);
+            }
             dlcWidget.setX(rowX);
             dlcWidget.setY(rowY);
-            dlcWidget.setWidth(rowW);
+            dlcWidget.setWidth(dlcWidth);
         }
     }
 

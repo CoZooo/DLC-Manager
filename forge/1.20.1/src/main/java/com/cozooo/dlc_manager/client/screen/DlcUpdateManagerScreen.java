@@ -1,0 +1,346 @@
+package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
+import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateRollbackResult;
+import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
+import com.cozooo.dlc_manager.core.DlcPaths;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
+
+public class DlcUpdateManagerScreen extends Screen {
+    private final Screen parent;
+    private Button importButton;
+    private Button backButton;
+    private int scrollIndex;
+    private List<DlcUpdateMeta> history = List.of();
+    private List<Button> rollbackButtons = new ArrayList<>();
+    private List<String> rollbackTargets = List.of();
+    private List<RowAction> rowActions = List.of();
+    private String currentVersion;
+    private String rollbackFrom;
+    private UpdateCheckResult updateCheck;
+
+    public DlcUpdateManagerScreen(Screen parent) {
+        super(Component.translatable("dlc_manager.update.manager_title"));
+        this.parent = parent;
+    }
+
+    @Override
+    protected void init() {
+        refreshData();
+    }
+
+    public void refreshData() {
+        List<DlcUpdateMeta> baseHistory = DlcUpdateService.listUpdateHistory();
+        DlcUpdateVersion version = DlcUpdateVersion.load(DlcPaths.dlcRoot());
+        currentVersion = version == null ? "" : version.getDlc();
+        rollbackFrom = version == null ? null : version.getRollbackFrom();
+        updateCheck = DlcUpdateService.checkForUpdates();
+        List<DlcUpdateMeta> rows = new ArrayList<>();
+        List<String> targets = new ArrayList<>();
+        List<RowAction> actions = new ArrayList<>();
+        if (rollbackFrom != null && !rollbackFrom.isBlank() && !rollbackFrom.equals(currentVersion)) {
+            DlcUpdateMeta rolled = new DlcUpdateMeta();
+            rolled.setDlcOld(currentVersion);
+            rolled.setDlcNew(rollbackFrom);
+            rows.add(rolled);
+            targets.add(null);
+            actions.add(RowAction.REUPDATE);
+        }
+        for (DlcUpdateMeta meta : baseHistory) {
+            rows.add(meta);
+            targets.add(meta == null ? null : meta.getDlcOld());
+            actions.add(RowAction.ROLLBACK);
+        }
+        history = rows;
+        rollbackTargets = targets;
+        rowActions = actions;
+        buildWidgets();
+    }
+
+    private void buildWidgets() {
+        clearWidgets();
+        int buttonWidth = 120;
+        int buttonHeight = 20;
+        int y = this.height - 40;
+        importButton = Button.builder(Component.translatable("dlc_manager.update.import"), button -> importUpdate())
+            .bounds(20, y, buttonWidth, buttonHeight)
+            .build();
+        int backX = this.width - 20 - buttonWidth;
+        backButton = Button.builder(Component.translatable("gui.back"), button -> Minecraft.getInstance().setScreen(parent))
+            .bounds(backX, y, buttonWidth, buttonHeight)
+            .build();
+        addRenderableWidget(importButton);
+        addRenderableWidget(backButton);
+        rollbackButtons.clear();
+        for (int i = 0; i < history.size(); i++) {
+            RowAction action = i < rowActions.size() ? rowActions.get(i) : RowAction.NONE;
+            Component label = action == RowAction.REUPDATE
+                ? Component.translatable("dlc_manager.update.reapply")
+                : Component.translatable("dlc_manager.update.rollback");
+            int buttonW = action == RowAction.REUPDATE ? 80 : 50;
+            Button rollback = Button.builder(label, btn -> {
+                int idx = rollbackButtons.indexOf(btn);
+                if (idx >= 0 && idx < rowActions.size()) {
+                    RowAction chosen = rowActions.get(idx);
+                    if (chosen == RowAction.ROLLBACK) {
+                        String target = rollbackTargets.get(idx);
+                        if (target != null && !target.isBlank()) {
+                            confirmRollback(target);
+                        }
+                    } else if (chosen == RowAction.REUPDATE) {
+                        DlcUpdateMeta meta = idx < history.size() ? history.get(idx) : null;
+                        if (meta != null) {
+                            confirmReupdate(meta.getDlcOld(), meta.getDlcNew());
+                        }
+                    }
+                }
+            }).bounds(-10000, -10000, buttonW, 16).build();
+            rollback.visible = false;
+            addRenderableWidget(rollback);
+            rollbackButtons.add(rollback);
+        }
+    }
+
+    @Override
+    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        this.renderBackground(guiGraphics);
+        int centerX = this.width / 2;
+        int y = 20;
+        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
+        y += 16;
+        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.current", currentVersion), centerX, y, 0xC8C8C8);
+        y += 14;
+        if (updateCheck != null && updateCheck.hasUpdates()) {
+            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.desc"), centerX, y, 0xE6E6E6);
+            y += 12;
+        }
+        drawHistoryList(guiGraphics, y, mouseX, mouseY);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private void drawHistoryList(GuiGraphics guiGraphics, int startY, int mouseX, int mouseY) {
+        int listTop = startY;
+        int listBottom = this.height - 60;
+        int lineHeight = 20;
+        int totalLines = history.size();
+        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
+        int maxScroll = Math.max(0, totalLines - maxVisible);
+        if (scrollIndex > maxScroll) {
+            scrollIndex = maxScroll;
+        }
+        int y = listTop;
+        int visibleEnd = Math.min(totalLines, scrollIndex + maxVisible);
+        for (int i = scrollIndex; i < visibleEnd; i++) {
+            DlcUpdateMeta meta = history.get(i);
+            String label = meta.getDlcOld() + " -> " + meta.getDlcNew();
+            if (i < rowActions.size() && rowActions.get(i) == RowAction.REUPDATE) {
+                label = label + " " + Component.translatable("dlc_manager.update.rolled_back").getString();
+            }
+            guiGraphics.drawString(this.font, label, 24, y + 6, 0xE6E6E6, false);
+            int buttonIndex = i;
+            int buttonWidth = buttonIndex < rowActions.size() && rowActions.get(buttonIndex) == RowAction.REUPDATE ? 80 : 50;
+            int buttonHeight = 16;
+            int buttonX = this.width - 24 - buttonWidth;
+            int buttonY = y + 2;
+            if (buttonIndex >= 0 && buttonIndex < rollbackButtons.size()) {
+                Button rollback = rollbackButtons.get(buttonIndex);
+                RowAction action = buttonIndex < rowActions.size() ? rowActions.get(buttonIndex) : RowAction.NONE;
+                boolean enabled = action != RowAction.NONE;
+                rollback.visible = enabled;
+                rollback.active = enabled;
+                if (enabled) {
+                    rollback.setX(buttonX);
+                    rollback.setY(buttonY);
+                } else {
+                    rollback.setX(-10000);
+                    rollback.setY(-10000);
+                }
+            }
+            y += lineHeight;
+        }
+        for (int i = 0; i < rollbackButtons.size(); i++) {
+            if (i < scrollIndex || i >= visibleEnd) {
+                Button rollback = rollbackButtons.get(i);
+                rollback.visible = false;
+                rollback.setX(-10000);
+                rollback.setY(-10000);
+            }
+        }
+        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        int listTop = 20 + 16 + 14
+            + (updateCheck != null && updateCheck.hasUpdates() ? 12 : 0);
+        int listBottom = this.height - 60;
+        int lineHeight = 20;
+        int totalLines = history.size();
+        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
+        int maxScroll = Math.max(0, totalLines - maxVisible);
+        if (maxScroll > 0) {
+            int step = delta > 0 ? -1 : 1;
+            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    private void startRollback(String targetVersion) {
+        if (targetVersion == null || targetVersion.isBlank()) {
+            return;
+        }
+        if (importButton != null) {
+            importButton.active = false;
+        }
+        if (backButton != null) {
+            backButton.active = false;
+        }
+        new Thread(() -> {
+            UpdateRollbackResult result = DlcUpdateService.rollbackTo(targetVersion);
+            Minecraft.getInstance().execute(() -> {
+                if (!result.isSuccess()) {
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.rollback_failed")));
+                } else {
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, true, Component.translatable("dlc_manager.update.rollback_success")));
+                }
+            });
+        }, "dlc-update-rollback").start();
+    }
+
+    private void confirmRollback(String targetVersion) {
+        Component title = Component.translatable("dlc_manager.update.manager_title");
+        Component message = Component.translatable("dlc_manager.update.confirm_rollback", targetVersion);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) {
+                startRollback(targetVersion);
+            } else {
+                Minecraft.getInstance().setScreen(this);
+            }
+        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private void startReupdate(String dlcOld, String dlcNew) {
+        if (dlcOld == null || dlcNew == null) {
+            return;
+        }
+        var chain = DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true);
+        if (chain == null || chain.isEmpty()) {
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
+            return;
+        }
+        if (importButton != null) {
+            importButton.active = false;
+        }
+        if (backButton != null) {
+            backButton.active = false;
+        }
+        new Thread(() -> {
+            UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+            Minecraft.getInstance().execute(() -> handleReupdateResult(result, null));
+        }, "dlc-update-reapply").start();
+    }
+
+    private void confirmReupdate(String dlcOld, String dlcNew) {
+        Component title = Component.translatable("dlc_manager.update.manager_title");
+        Component message = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) {
+                startReupdate(dlcOld, dlcNew);
+            } else {
+                Minecraft.getInstance().setScreen(this);
+            }
+        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {
+        if (result.isMissing()) {
+            UpdateCheckResult missingCheck = check == null ? DlcUpdateService.checkForUpdates(true) : check;
+            Minecraft.getInstance().setScreen(new DlcUpdateMissingScreen(this, missingCheck, result.getMissingPaths()));
+            return;
+        }
+        if (!result.isSuccess()) {
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
+            return;
+        }
+        Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, true, Component.translatable("dlc_manager.update.success")));
+    }
+
+    private void importUpdate() {
+        Path picked = DlcUpdateFilePicker.pickUpdateZip("Import Update");
+        if (picked == null) {
+            return;
+        }
+        if (!DlcUpdateService.isImportPackageValid(picked)) {
+            showToast(Component.translatable("dlc_manager.update.manager_title"),
+                Component.translatable("dlc_manager.update.import_invalid"));
+            return;
+        }
+        Path updateDir = DlcUpdateService.getUpdateDir();
+        if (updateDir == null) {
+            showToast(Component.translatable("dlc_manager.update.manager_title"),
+                Component.translatable("dlc_manager.update.dlc_root_missing"));
+            return;
+        }
+        try {
+            Files.createDirectories(updateDir);
+            Path target = updateDir.resolve(picked.getFileName().toString());
+            Files.copy(picked, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (Exception ignored) {
+            return;
+        }
+        UpdateCheckResult check = DlcUpdateService.checkForUpdates();
+        if (check.hasUpdates()) {
+            Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, check));
+            return;
+        }
+        refreshData();
+    }
+
+    private void showToast(Component title, Component desc) {
+        Minecraft minecraft = Minecraft.getInstance();
+        SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION, title, desc);
+    }
+
+    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
+        if (maxScroll <= 0 || totalLines <= maxVisible) {
+            return;
+        }
+        int barX = this.width - 12;
+        int barWidth = 4;
+        int barHeight = Math.max(12, (bottom - top) * maxVisible / totalLines);
+        int trackHeight = bottom - top;
+        int maxTrack = Math.max(1, trackHeight - barHeight);
+        int barY = top + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
+        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B);
+        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
+    }
+
+    private enum RowAction {
+        NONE,
+        ROLLBACK,
+        REUPDATE
+    }
+
+}

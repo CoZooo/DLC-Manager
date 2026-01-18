@@ -20,6 +20,7 @@ public class DlcPathConfig {
     private static final String DEFAULT_OTHER_ROOT = "dlc_other";
     private static final boolean DEFAULT_ENABLE_ALL_SHOWN = true;
     private static final boolean DEFAULT_CONFIG_BUTTON_SHOWN = true;
+    private static final boolean DEFAULT_U_BUTTON_SHOWN = true;
 
     private static Path configPath;
     private static DlcPathData data;
@@ -44,6 +45,7 @@ public class DlcPathConfig {
             data.ui = new UiSection();
             data.ui.isEnableAllButtonShown = DEFAULT_ENABLE_ALL_SHOWN;
             data.ui.isConfigButtonShown = DEFAULT_CONFIG_BUTTON_SHOWN;
+            data.ui.isUButtomShown = DEFAULT_U_BUTTON_SHOWN;
             save();
         } else {
             normalizeData();
@@ -129,6 +131,12 @@ public class DlcPathConfig {
         return data.ui.isConfigButtonShown == null ? DEFAULT_CONFIG_BUTTON_SHOWN : data.ui.isConfigButtonShown;
     }
 
+    public static boolean isUButtomShown() {
+        return data.ui.isUButtomShown == null
+            ? DEFAULT_U_BUTTON_SHOWN
+            : data.ui.isUButtomShown;
+    }
+
     public static void setDlcRoot(String value) {
         data.paths.dlcRoot = value;
     }
@@ -155,6 +163,10 @@ public class DlcPathConfig {
 
     public static void setConfigButtonShown(boolean value) {
         data.ui.isConfigButtonShown = value;
+    }
+
+    public static void setUButtomShown(boolean value) {
+        data.ui.isUButtomShown = value;
     }
 
     private static Path resolvePath(String value, String fallback) {
@@ -258,6 +270,9 @@ public class DlcPathConfig {
                 ? data.isConfigButtonShown
                 : DEFAULT_CONFIG_BUTTON_SHOWN;
         }
+        if (data.ui.isUButtomShown == null) {
+            data.ui.isUButtomShown = DEFAULT_U_BUTTON_SHOWN;
+        }
         data.dlcRoot = null;
         data.taczRoot = null;
         data.resourcepackRoot = null;
@@ -286,6 +301,7 @@ public class DlcPathConfig {
         String otherRoot;
         Boolean isEnableAllButtonShown;
         Boolean isConfigButtonShown;
+        Boolean isUButtomShown;
     }
 
     private static class PathSection {
@@ -299,5 +315,6 @@ public class DlcPathConfig {
     private static class UiSection {
         Boolean isEnableAllButtonShown;
         Boolean isConfigButtonShown;
+        Boolean isUButtomShown;
     }
 }

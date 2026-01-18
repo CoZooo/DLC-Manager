@@ -14,6 +14,7 @@ public class DlcManager {
     public static final String MOD_ID = "dlc_manager";
 
     public DlcManager() {
+        System.setProperty("java.awt.headless", "false");
         ForgePlatformServices.init();
         DlcPathConfig.load();
         DlcConfig.load();
