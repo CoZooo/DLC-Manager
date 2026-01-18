@@ -38,6 +38,7 @@ public class DlcUpdateManagerScreen extends Screen {
     private String rollbackFrom;
     private boolean rolledBackMode;
     private UpdateCheckResult updateCheck;
+    private boolean hasVisibleUpdates;
 
     public DlcUpdateManagerScreen(Screen parent) {
         super(Component.translatable("dlc_manager.update.manager_title"));
@@ -56,6 +57,7 @@ public class DlcUpdateManagerScreen extends Screen {
         rollbackFrom = version == null ? null : version.getRollbackFrom();
         updateCheck = DlcUpdateService.checkForUpdates();
         rolledBackMode = rollbackFrom != null && !rollbackFrom.isBlank() && !rollbackFrom.equals(currentVersion);
+        hasVisibleUpdates = false;
         if (rolledBackMode) {
             List<DlcUpdateMeta> rolledHistory = DlcUpdateService.listUpdateHistoryFrom(rollbackFrom);
             if (!rolledHistory.isEmpty()) {
@@ -80,6 +82,9 @@ public class DlcUpdateManagerScreen extends Screen {
                 if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
                     continue;
                 }
+                if (pkg.getManifest().isHidden()) {
+                    continue;
+                }
                 var info = pkg.getManifest().getVersion();
                 DlcUpdateMeta meta = new DlcUpdateMeta();
                 meta.setDlcOld(info.getDlcOld());
@@ -87,6 +92,7 @@ public class DlcUpdateManagerScreen extends Screen {
                 rows.add(meta);
                 targets.add(null);
                 actions.add(RowAction.UPDATE);
+                hasVisibleUpdates = true;
             }
         }
         history = rows;
@@ -156,7 +162,7 @@ public class DlcUpdateManagerScreen extends Screen {
                 centerX, y, 0xE6E6E6);
             y += 12;
         }
-        if (updateCheck != null && updateCheck.hasUpdates()) {
+        if (hasVisibleUpdates) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.desc"), centerX, y, 0xE6E6E6);
             y += 12;
         }
@@ -222,7 +228,7 @@ public class DlcUpdateManagerScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
         int listTop = 20 + 16 + 14
             + (rolledBackMode ? 12 : 0)
-            + (updateCheck != null && updateCheck.hasUpdates() ? 12 : 0);
+            + (hasVisibleUpdates ? 12 : 0);
         int listBottom = this.height - 60;
         int lineHeight = 20;
         int totalLines = history.size();

@@ -20,6 +20,7 @@ import java.util.List;
 public class DlcUpdatePromptScreen extends Screen {
     private final Screen parent;
     private final UpdateCheckResult result;
+    private final boolean forceUpdate;
     private Button applyButton;
     private Button cancelButton;
     private int scrollIndex;
@@ -30,6 +31,7 @@ public class DlcUpdatePromptScreen extends Screen {
         super(Component.translatable("dlc_manager.update.title"));
         this.parent = parent;
         this.result = result;
+        this.forceUpdate = hasHiddenUpdates(result);
     }
 
     @Override
@@ -37,14 +39,22 @@ public class DlcUpdatePromptScreen extends Screen {
         int buttonWidth = 120;
         int buttonHeight = 20;
         int y = this.height - 40;
-        applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
-            .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
-            .build();
-        cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
-            .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
-            .build();
-        addRenderableWidget(applyButton);
-        addRenderableWidget(cancelButton);
+        if (forceUpdate) {
+            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+                .bounds(this.width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
+                .build();
+            addRenderableWidget(applyButton);
+            cancelButton = null;
+        } else {
+            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+                .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
+                .build();
+            cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+                .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
+                .build();
+            addRenderableWidget(applyButton);
+            addRenderableWidget(cancelButton);
+        }
     }
 
     private void confirmApply() {
@@ -146,6 +156,23 @@ public class DlcUpdatePromptScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return !forceUpdate;
+    }
+
+    private boolean hasHiddenUpdates(UpdateCheckResult result) {
+        if (result == null || result.getUpdates() == null) {
+            return false;
+        }
+        for (DlcUpdatePackage pkg : result.getUpdates()) {
+            if (pkg != null && pkg.getManifest() != null && pkg.getManifest().isHidden()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void startApply(boolean forceMissing) {

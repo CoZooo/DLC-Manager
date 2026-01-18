@@ -51,6 +51,7 @@ public class DlcScanner {
         Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir) {
         Path localInfoDir = root.resolve("info");
         Path localRequiredDir = root.resolve("required");
+        Path localRemoteDir = root.resolve("remote");
         Path localUpdateDir = root.resolve("update");
         Path localUpdateTmpDir = root.resolve("update_tmp");
         try {
@@ -64,6 +65,9 @@ public class DlcScanner {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderRequiredDir(dir, localRequiredDir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (isUnderRemoteDir(dir, localRemoteDir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localUpdateTmpDir)) {
@@ -87,6 +91,9 @@ public class DlcScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderRequiredDir(file, localRequiredDir)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (isUnderRemoteDir(file, localRemoteDir)) {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localUpdateTmpDir)) {
@@ -148,6 +155,15 @@ public class DlcScanner {
         Path normalized = path.normalize();
         Path normalizedUpdate = updateDir.normalize();
         return normalized.startsWith(normalizedUpdate);
+    }
+
+    private boolean isUnderRemoteDir(Path path, Path remoteDir) {
+        if (remoteDir == null) {
+            return false;
+        }
+        Path normalized = path.normalize();
+        Path normalizedRemote = remoteDir.normalize();
+        return normalized.startsWith(normalizedRemote);
     }
 
     private void addItem(Map<DlcType, List<DlcItem>> grouped, Path root, Path source, DlcType detectedType,

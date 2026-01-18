@@ -24,6 +24,7 @@ public class DlcUpdateManifest {
 
     private VersionInfo version;
     private FileOps fileOps;
+    private boolean hidden;
 
     public static DlcUpdateManifest load(Path updateJson) {
         if (updateJson == null || !Files.exists(updateJson)) {
@@ -46,6 +47,7 @@ public class DlcUpdateManifest {
         }
         DlcUpdateManifest manifest = new DlcUpdateManifest();
         manifest.version = parseVersion(obj.getAsJsonObject("version"));
+        manifest.hidden = getBoolean(obj, "isHidden", false);
         manifest.fileOps = parseFileOps(obj.getAsJsonObject("file"));
         return manifest;
     }
@@ -56,6 +58,10 @@ public class DlcUpdateManifest {
 
     public FileOps getFileOps() {
         return fileOps;
+    }
+
+    public boolean isHidden() {
+        return hidden;
     }
 
     private static VersionInfo parseVersion(JsonObject obj) {
@@ -320,6 +326,19 @@ public class DlcUpdateManifest {
             return null;
         }
         return obj.get(key).getAsString();
+    }
+
+    private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
+        if (obj == null || key == null) {
+            return fallback;
+        }
+        if (!obj.has(key) || obj.get(key).isJsonNull()) {
+            return fallback;
+        }
+        if (obj.get(key).isJsonPrimitive() && obj.get(key).getAsJsonPrimitive().isBoolean()) {
+            return obj.get(key).getAsBoolean();
+        }
+        return fallback;
     }
 
     public static class VersionInfo {

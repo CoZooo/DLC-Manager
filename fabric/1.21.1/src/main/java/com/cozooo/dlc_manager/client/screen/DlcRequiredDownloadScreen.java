@@ -7,6 +7,10 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -31,6 +35,7 @@ public class DlcRequiredDownloadScreen extends Screen {
     private final List<DlcRequiredEntry> displayList = new ArrayList<>();
     private final List<DlcRequiredEntry> downloadQueue = new ArrayList<>();
     private final List<DlcRequiredEntry> applyQueue = new ArrayList<>();
+    private boolean updatePackageRequired;
 
     private Button downloadButton;
     private Button skipButton;
@@ -204,6 +209,7 @@ public class DlcRequiredDownloadScreen extends Screen {
         downloadQueue.addAll(download);
         applyQueue.clear();
         applyQueue.addAll(applyCandidates);
+        updatePackageRequired = hasUpdatePackageTargets(applyQueue);
         detecting = false;
         statusText = Component.translatable("dlc_manager.required.ready").getString();
         scrollIndex = 0;
@@ -352,6 +358,7 @@ public class DlcRequiredDownloadScreen extends Screen {
     private void applyAll() {
         Minecraft minecraft = Minecraft.getInstance();
         boolean didApply = downloadedAny;
+        boolean updateApplied = false;
         java.util.Map<String, Boolean> baselines = new java.util.HashMap<>();
         for (DlcRequiredEntry entry : applyQueue) {
             if (entry == null) {
@@ -402,7 +409,25 @@ public class DlcRequiredDownloadScreen extends Screen {
             }
             DlcRequiredRuntimeState.setOverride(id, true);
         }
-        if (!didApply) {
+        if (updatePackageRequired) {
+            UpdateCheckResult updateCheck = DlcUpdateService.checkForUpdates(true);
+            if (updateCheck != null && updateCheck.getUpdates() != null && !updateCheck.getUpdates().isEmpty()) {
+                UpdateApplyResult updateResult = DlcUpdateService.applyUpdates(updateCheck.getUpdates(), false);
+                if (updateResult.isMissing()) {
+                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateMissingScreen(parent, updateCheck, updateResult.getMissingPaths())));
+                    return;
+                }
+                if (!updateResult.isSuccess()) {
+                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed"))));
+                    return;
+                }
+                updateApplied = true;
+                if (maybeShowPostUpdateDownloads(updateResult)) {
+                    return;
+                }
+            }
+        }
+        if (!didApply && !updateApplied) {
             Minecraft.getInstance().execute(() -> minecraft.setScreen(parent));
             return;
         }
@@ -415,6 +440,47 @@ public class DlcRequiredDownloadScreen extends Screen {
         }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.required.restart_prompt"),
             Component.translatable("dlc_manager.restart_now"),
             Component.translatable("dlc_manager.restart_later"))));
+    }
+
+    private boolean maybeShowPostUpdateDownloads(UpdateApplyResult result) {
+        if (result == null || !result.isSuccess()) {
+            return false;
+        }
+        if (result.hasRequiredAdd()) {
+            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloads();
+            if (!missing.isEmpty()) {
+                Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing)));
+                return true;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    private boolean hasUpdatePackageTargets(List<DlcRequiredEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return false;
+        }
+        Path dlcRoot = DlcPaths.dlcRoot();
+        if (dlcRoot == null) {
+            return false;
+        }
+        Path updateRoot = dlcRoot.resolve("update").normalize();
+        for (DlcRequiredEntry entry : entries) {
+            if (entry == null) {
+                continue;
+            }
+            for (Path target : entry.resolveAppliedTargets()) {
+                if (target == null) {
+                    continue;
+                }
+                Path normalized = target.normalize();
+                if (normalized.equals(updateRoot) || normalized.startsWith(updateRoot)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private Path resolveTargetPath(Path targetDir, String fileName) {

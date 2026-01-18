@@ -775,7 +775,7 @@ public final class DlcUpdateService {
         }
         Path remoteDir = context.stagingRoot.resolve("remote");
         if (!hasRemoteAdd && Files.isDirectory(remoteDir)) {
-            Path target = context.dlcRoot.resolve("info").resolve("remote");
+            Path target = context.dlcRoot.resolve("remote");
             if (Files.exists(target)) {
                 backupPath(toGameRelativePath(target), target, context);
             } else {
@@ -817,7 +817,7 @@ public final class DlcUpdateService {
             uninstallRequiredConfig(normalized, dlcRoot, context);
             return;
         }
-        if (isUnderDir(normalized, dlcRoot.resolve("info").resolve("remote"))) {
+        if (isUnderDir(normalized, dlcRoot.resolve("remote"))) {
             uninstallRemoteConfig(normalized, dlcRoot, context);
             return;
         }
@@ -963,7 +963,7 @@ public final class DlcUpdateService {
             if (context.dlcRoot != null && target != null && Files.exists(target)) {
                 Path dlcRoot = context.dlcRoot;
                 Path requiredRoot = dlcRoot.resolve("required");
-                Path remoteRoot = dlcRoot.resolve("info").resolve("remote");
+                Path remoteRoot = dlcRoot.resolve("remote");
                 if (isUnderDir(target, requiredRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, true);
@@ -1107,7 +1107,7 @@ public final class DlcUpdateService {
         if (target == null || dlcRoot == null) {
             return false;
         }
-        return isUnderDir(target, dlcRoot.resolve("info").resolve("remote"));
+        return isUnderDir(target, dlcRoot.resolve("remote"));
     }
 
     private static void resetNoticeNeverShow(Path noticePath) {

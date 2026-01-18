@@ -33,7 +33,7 @@ public final class DlcRemoteLoader {
         if (dlcRoot == null) {
             return List.of();
         }
-        Path remoteRoot = dlcRoot.resolve("info").resolve("remote");
+        Path remoteRoot = ensureRemoteRoot(dlcRoot);
         if (!Files.isDirectory(remoteRoot)) {
             return List.of();
         }
@@ -57,14 +57,27 @@ public final class DlcRemoteLoader {
         if (configPath == null || dlcRoot == null) {
             return null;
         }
-        Path remoteRoot = dlcRoot.resolve("info").resolve("remote");
+        Path remoteRoot = ensureRemoteRoot(dlcRoot);
+        Path legacyRoot = dlcRoot.resolve("info").resolve("remote");
         if (!Files.isDirectory(remoteRoot)) {
             return null;
         }
-        if (!Files.exists(configPath)) {
-            return null;
+        Path resolved = configPath;
+        if (!Files.exists(resolved)) {
+            try {
+                Path normalized = resolved.normalize();
+                if (normalized.startsWith(legacyRoot.normalize())) {
+                    Path relative = legacyRoot.relativize(normalized);
+                    resolved = remoteRoot.resolve(relative);
+                }
+            } catch (Exception ignored) {
+                // Best-effort.
+            }
+            if (!Files.exists(resolved)) {
+                return null;
+            }
         }
-        return readEntry(configPath, dlcRoot, remoteRoot);
+        return readEntry(resolved, dlcRoot, remoteRoot);
     }
 
     private static void linkIdentifierDependencies(List<DlcRemoteEntry> entries) {
@@ -142,6 +155,52 @@ public final class DlcRemoteLoader {
             // Best-effort.
         }
         return entry;
+    }
+
+    private static Path ensureRemoteRoot(Path dlcRoot) {
+        Path remoteRoot = dlcRoot.resolve("remote");
+        Path legacyRoot = dlcRoot.resolve("info").resolve("remote");
+        if (!Files.exists(remoteRoot) && Files.isDirectory(legacyRoot)) {
+            moveLegacyRemote(legacyRoot, remoteRoot);
+        } else if (Files.isDirectory(legacyRoot)) {
+            moveLegacyRemote(legacyRoot, remoteRoot);
+        }
+        return remoteRoot;
+    }
+
+    private static void moveLegacyRemote(Path legacyRoot, Path remoteRoot) {
+        try {
+            Files.createDirectories(remoteRoot);
+        } catch (IOException ignored) {
+            return;
+        }
+        try {
+            Files.walkFileTree(legacyRoot, new java.nio.file.SimpleFileVisitor<>() {
+                @Override
+                public java.nio.file.FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
+                    Path relative = legacyRoot.relativize(file);
+                    Path target = remoteRoot.resolve(relative);
+                    if (!Files.exists(target)) {
+                        Files.createDirectories(target.getParent());
+                        Files.move(file, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    } else {
+                        Files.deleteIfExists(file);
+                    }
+                    return java.nio.file.FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public java.nio.file.FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    if (!dir.equals(legacyRoot)) {
+                        Files.deleteIfExists(dir);
+                    }
+                    return java.nio.file.FileVisitResult.CONTINUE;
+                }
+            });
+            Files.deleteIfExists(legacyRoot);
+        } catch (IOException ignored) {
+            // Best-effort migration.
+        }
     }
 
     private static NormalizedRemote normalizeRemoteObject(JsonObject obj, String fallbackName, Path dlcRoot, Path baseDir) {
