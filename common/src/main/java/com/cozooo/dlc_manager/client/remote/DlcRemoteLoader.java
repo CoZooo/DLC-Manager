@@ -53,6 +53,20 @@ public final class DlcRemoteLoader {
         return entries;
     }
 
+    public static DlcRemoteEntry loadSingle(Path configPath, Path dlcRoot) {
+        if (configPath == null || dlcRoot == null) {
+            return null;
+        }
+        Path remoteRoot = dlcRoot.resolve("info").resolve("remote");
+        if (!Files.isDirectory(remoteRoot)) {
+            return null;
+        }
+        if (!Files.exists(configPath)) {
+            return null;
+        }
+        return readEntry(configPath, dlcRoot, remoteRoot);
+    }
+
     private static void linkIdentifierDependencies(List<DlcRemoteEntry> entries) {
         if (entries == null || entries.isEmpty()) {
             return;

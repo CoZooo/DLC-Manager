@@ -51,6 +51,8 @@ public class DlcScanner {
         Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir) {
         Path localInfoDir = root.resolve("info");
         Path localRequiredDir = root.resolve("required");
+        Path localUpdateDir = root.resolve("update");
+        Path localUpdateTmpDir = root.resolve("update_tmp");
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -62,6 +64,9 @@ public class DlcScanner {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderRequiredDir(dir, localRequiredDir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localUpdateTmpDir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderTaczRoot(dir, taczRoots)) {
@@ -82,6 +87,9 @@ public class DlcScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderRequiredDir(file, localRequiredDir)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localUpdateTmpDir)) {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderTaczRoot(file, taczRoots)) {
@@ -131,6 +139,15 @@ public class DlcScanner {
         Path normalized = path.normalize();
         Path normalizedRequired = requiredDir.normalize();
         return normalized.startsWith(normalizedRequired);
+    }
+
+    private boolean isUnderUpdateDir(Path path, Path updateDir) {
+        if (updateDir == null) {
+            return false;
+        }
+        Path normalized = path.normalize();
+        Path normalizedUpdate = updateDir.normalize();
+        return normalized.startsWith(normalizedUpdate);
     }
 
     private void addItem(Map<DlcType, List<DlcItem>> grouped, Path root, Path source, DlcType detectedType,
