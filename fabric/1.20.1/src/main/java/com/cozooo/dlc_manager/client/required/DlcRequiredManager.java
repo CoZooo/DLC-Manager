@@ -369,10 +369,6 @@ public final class DlcRequiredManager {
     }
 
     private static String resolveFileName(DlcRequiredEntry entry) {
-        String fileName = guessFileName(entry);
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName;
-        }
         String versionId = entry == null ? null : entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
             try {
@@ -383,6 +379,10 @@ public final class DlcRequiredManager {
             } catch (Exception ignored) {
                 // Best-effort.
             }
+        }
+        String fileName = guessFileName(entry);
+        if (fileName != null && !fileName.isBlank()) {
+            return fileName;
         }
         return null;
     }
@@ -430,9 +430,14 @@ public final class DlcRequiredManager {
             }
             com.google.gson.JsonObject reordered = new com.google.gson.JsonObject();
             boolean inserted = false;
+            com.google.gson.JsonElement deferredDirectUrl = null;
             for (var entryObj : obj.entrySet()) {
                 String key = entryObj.getKey();
                 if ("file_name".equals(key)) {
+                    continue;
+                }
+                if ("directUrl".equalsIgnoreCase(key)) {
+                    deferredDirectUrl = entryObj.getValue();
                     continue;
                 }
                 if (!inserted && ("appliedTarget".equals(key) || "appliedTaget".equals(key))) {
@@ -443,6 +448,9 @@ public final class DlcRequiredManager {
             }
             if (!inserted) {
                 reordered.addProperty("file_name", fileName);
+            }
+            if (deferredDirectUrl != null) {
+                reordered.add("directUrl", deferredDirectUrl);
             }
             try (java.io.Writer writer = Files.newBufferedWriter(config)) {
                 GSON.toJson(reordered, writer);
@@ -472,9 +480,14 @@ public final class DlcRequiredManager {
             }
             com.google.gson.JsonObject reordered = new com.google.gson.JsonObject();
             boolean inserted = false;
+            com.google.gson.JsonElement deferredDirectUrl = null;
             for (var entryObj : obj.entrySet()) {
                 String key = entryObj.getKey();
                 if ("file_name".equals(key)) {
+                    continue;
+                }
+                if ("directUrl".equalsIgnoreCase(key)) {
+                    deferredDirectUrl = entryObj.getValue();
                     continue;
                 }
                 if (!inserted && ("appliedTarget".equals(key) || "appliedTaget".equals(key))) {
@@ -485,6 +498,9 @@ public final class DlcRequiredManager {
             }
             if (!inserted) {
                 reordered.addProperty("file_name", fileName);
+            }
+            if (deferredDirectUrl != null) {
+                reordered.add("directUrl", deferredDirectUrl);
             }
             try (java.io.Writer writer = Files.newBufferedWriter(config)) {
                 GSON.toJson(reordered, writer);
@@ -510,13 +526,17 @@ public final class DlcRequiredManager {
         if (fileName == null) {
             return null;
         }
-        String trimmed = fileName.trim();
+        String trimmed = DlcDownloadUtil.stripQuery(fileName);
+        if (trimmed == null) {
+            return null;
+        }
+        trimmed = trimmed.trim();
         if (trimmed.isEmpty()) {
             return null;
         }
         if (trimmed.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
             return null;
         }
-        return trimmed;
+        return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");
     }
 }

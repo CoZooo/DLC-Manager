@@ -306,34 +306,47 @@ public class DlcRequiredDownloadScreen extends Screen {
             return;
         }
         currentProgress = 0f;
-        String url = resolveDownloadUrl(entry);
-        if (url == null || url.isBlank()) {
-            throw new IOException("missing download url");
+        List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
+        IOException lastError = null;
+        for (DownloadCandidate candidate : candidates) {
+            try {
+                DownloadInfo downloadInfo = openDownload(candidate.url);
+                String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
+                if (fileName == null && candidate.fileNameOverride != null) {
+                    fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
+                }
+                if (fileName == null) {
+                    fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                }
+                if (fileName == null) {
+                    fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
+                }
+                Path target = entry.resolveRequiredPath(fileName);
+                if (target == null) {
+                    closeQuietly(downloadInfo.connection);
+                    throw new IOException("invalid target path");
+                }
+                Files.createDirectories(target.getParent());
+                if (Files.exists(target)) {
+                    closeQuietly(downloadInfo.connection);
+                    entry.setResolvedFileName(fileName);
+                    return;
+                }
+                Path tempFile = Files.createTempFile(target.getParent(), "dlc-required", ".tmp");
+                downloadToFile(downloadInfo.connection, tempFile);
+                Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
+                downloadedAny = true;
+                entry.setResolvedFileName(fileName);
+                DlcRequiredManager.updateFileNameKey(entry, fileName);
+                return;
+            } catch (IOException ex) {
+                lastError = ex;
+            }
         }
-        DownloadInfo downloadInfo = openDownload(url);
-        String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
-        if (fileName == null) {
-            fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+        if (lastError != null) {
+            throw lastError;
         }
-        if (fileName == null) {
-            fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
-        }
-        Path target = entry.resolveRequiredPath(fileName);
-        if (target == null) {
-            throw new IOException("invalid target path");
-        }
-        Files.createDirectories(target.getParent());
-        if (Files.exists(target)) {
-            closeQuietly(downloadInfo.connection);
-            entry.setResolvedFileName(fileName);
-            return;
-        }
-        Path tempFile = Files.createTempFile(target.getParent(), "dlc-required", ".tmp");
-        downloadToFile(downloadInfo.connection, tempFile);
-        Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
-        downloadedAny = true;
-        entry.setResolvedFileName(fileName);
-        DlcRequiredManager.updateFileNameKey(entry, fileName);
+        throw new IOException("missing download url");
     }
 
     private void applyAll() {
@@ -533,10 +546,6 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (entry == null) {
             return null;
         }
-        String directUrl = entry.getDirectUrl();
-        if (directUrl != null && !directUrl.isBlank()) {
-            return directUrl;
-        }
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
             ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
@@ -547,19 +556,16 @@ public class DlcRequiredDownloadScreen extends Screen {
                 return version.url;
             }
         }
+        String directUrl = entry.getDirectUrl();
+        if (directUrl != null && !directUrl.isBlank()) {
+            return directUrl;
+        }
         return null;
     }
 
     private String resolveFileName(DlcRequiredEntry entry) {
         if (entry == null) {
             return null;
-        }
-        String directUrl = entry.getDirectUrl();
-        if (directUrl != null && !directUrl.isBlank()) {
-            String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
-            if (name != null && !name.isBlank()) {
-                return name;
-            }
         }
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
@@ -570,6 +576,13 @@ public class DlcRequiredDownloadScreen extends Screen {
                 }
             } catch (Exception ignored) {
                 // Best-effort.
+            }
+        }
+        String directUrl = entry.getDirectUrl();
+        if (directUrl != null && !directUrl.isBlank()) {
+            String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
+            if (name != null && !name.isBlank()) {
+                return name;
             }
         }
         return null;
@@ -618,6 +631,53 @@ public class DlcRequiredDownloadScreen extends Screen {
             connection.disconnect();
         }
         currentProgress = 1f;
+    }
+
+    private List<DownloadCandidate> buildDownloadCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
+        List<DownloadCandidate> candidates = new ArrayList<>();
+        if (entry == null) {
+            return candidates;
+        }
+        ModrinthClient.ModrinthVersion version = null;
+        String versionId = entry.getModrinthVersionId();
+        if (versionId != null && !versionId.isBlank()) {
+            version = ModrinthClient.fetchVersion(versionId);
+        }
+        List<String> directUrls = new ArrayList<>();
+        for (String url : entry.getDirectUrls()) {
+            if (url != null && !url.isBlank()) {
+                directUrls.add(url);
+            }
+        }
+        if (directUrls.isEmpty() && entry.getDirectUrl() != null && !entry.getDirectUrl().isBlank()) {
+            directUrls.add(entry.getDirectUrl());
+        }
+        if (entry.isDirectUrlPriority()) {
+            for (String url : directUrls) {
+                candidates.add(new DownloadCandidate(url, null));
+            }
+            if (version != null && version.url != null && !version.url.isBlank()) {
+                candidates.add(new DownloadCandidate(version.url, version.fileName));
+            }
+        } else {
+            if (version != null && version.url != null && !version.url.isBlank()) {
+                candidates.add(new DownloadCandidate(version.url, version.fileName));
+            }
+            for (String url : directUrls) {
+                candidates.add(new DownloadCandidate(url, null));
+            }
+        }
+        return candidates;
+    }
+
+    private static final class DownloadCandidate {
+        private final String url;
+        private final String fileNameOverride;
+
+        private DownloadCandidate(String url, String fileNameOverride) {
+            this.url = url;
+            this.fileNameOverride = fileNameOverride;
+        }
     }
 
     private DownloadInfo openDownload(String url) throws IOException {

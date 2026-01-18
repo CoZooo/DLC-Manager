@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.remote;
 
+import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
@@ -133,9 +134,11 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return null;
         }
-        String directUrl = getString(obj, "directUrl");
+        List<String> directUrls = getDirectUrls(obj);
+        String directUrl = directUrls.isEmpty() ? getString(obj, "directUrl") : directUrls.get(0);
         String projectId = getString(obj, "modrinth_projectid");
         String versionId = getString(obj, "modrinth_versionid");
+        String priority = getString(obj, "priority");
         String identifier = getString(obj, "dlc_identifier");
         String fileName = getString(obj, "file_name");
         String nameFallback = fallbackName;
@@ -177,9 +180,18 @@ public final class DlcRemoteLoader {
         DependencyResult conflicts = normalizeConflicts(obj.get("conflicts"));
 
         JsonObject ordered = new JsonObject();
-        ordered.addProperty("directUrl", directUrl == null ? "" : directUrl);
         ordered.addProperty("modrinth_projectid", projectId == null ? "" : projectId);
         ordered.addProperty("modrinth_versionid", versionId == null ? "" : versionId);
+        ordered.addProperty("priority", priority == null || priority.isBlank() ? "modrinth" : priority);
+        if (directUrls.size() > 1) {
+            JsonArray urls = new JsonArray();
+            for (String url : directUrls) {
+                urls.add(url);
+            }
+            ordered.add("directUrl", urls);
+        } else {
+            ordered.addProperty("directUrl", directUrl == null ? "" : directUrl);
+        }
         ordered.addProperty("dlc_identifier", identifier);
         ordered.addProperty("file_name", fileName == null ? "" : fileName);
         ordered.addProperty("type", DlcTooltipLoader.toTypeString(type));
@@ -205,9 +217,23 @@ public final class DlcRemoteLoader {
         }
 
         DlcRemoteEntry entry = new DlcRemoteEntry(null, dlcRoot, baseDir, nameFallback);
-        entry.setDirectUrl(ordered.get("directUrl").getAsString());
+        if (ordered.get("directUrl") != null && ordered.get("directUrl").isJsonArray()) {
+            List<String> urls = new ArrayList<>();
+            ordered.getAsJsonArray("directUrl").forEach(el -> {
+                if (el != null && el.isJsonPrimitive()) {
+                    String url = el.getAsString();
+                    if (url != null && !url.isBlank()) {
+                        urls.add(url);
+                    }
+                }
+            });
+            entry.setDirectUrls(urls);
+        } else {
+            entry.setDirectUrl(ordered.get("directUrl").getAsString());
+        }
         entry.setModrinthProjectId(ordered.get("modrinth_projectid").getAsString());
         entry.setModrinthVersionId(ordered.get("modrinth_versionid").getAsString());
+        entry.setDownloadPriority(ordered.get("priority").getAsString());
         entry.setDlcIdentifier(ordered.get("dlc_identifier").getAsString());
         String resolvedFileName = fileName;
         if (resolvedFileName == null || resolvedFileName.isBlank()) {
@@ -408,15 +434,48 @@ public final class DlcRemoteLoader {
         return name;
     }
 
+    private static List<String> getDirectUrls(JsonObject obj) {
+        if (obj == null || !obj.has("directUrl")) {
+            return List.of();
+        }
+        JsonElement element = obj.get("directUrl");
+        if (element == null) {
+            return List.of();
+        }
+        List<String> urls = new ArrayList<>();
+        if (element.isJsonPrimitive()) {
+            String url = element.getAsString();
+            if (url != null && !url.isBlank()) {
+                urls.add(url.trim());
+            }
+            return urls;
+        }
+        if (element.isJsonArray()) {
+            element.getAsJsonArray().forEach(item -> {
+                if (item != null && item.isJsonPrimitive()) {
+                    String url = item.getAsString();
+                    if (url != null && !url.isBlank()) {
+                        urls.add(url.trim());
+                    }
+                }
+            });
+        }
+        return urls;
+    }
+
     private static String extractFileName(String url) {
         if (url == null) {
             return null;
         }
-        int idx = url.lastIndexOf('/');
-        if (idx >= 0 && idx + 1 < url.length()) {
-            return url.substring(idx + 1);
+        String cleaned = DlcDownloadUtil.stripQuery(url);
+        if (cleaned == null || cleaned.isBlank()) {
+            cleaned = url;
         }
-        return url;
+        int idx = cleaned.lastIndexOf('/');
+        if (idx >= 0 && idx + 1 < cleaned.length()) {
+            return cleaned.substring(idx + 1);
+        }
+        return cleaned;
     }
 
     private static boolean isIdentifierOnlyObject(JsonObject obj) {

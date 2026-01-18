@@ -71,7 +71,10 @@ public final class DlcRequiredLoader {
         if (obj.has("file_name") && obj.get("file_name").isJsonPrimitive()) {
             entry.setRequiredFileName(obj.get("file_name").getAsString());
         }
-        if (obj.has("directUrl") && obj.get("directUrl").isJsonPrimitive()) {
+        List<String> directUrls = getDirectUrls(obj);
+        if (!directUrls.isEmpty()) {
+            entry.setDirectUrls(directUrls);
+        } else if (obj.has("directUrl") && obj.get("directUrl").isJsonPrimitive()) {
             entry.setDirectUrl(obj.get("directUrl").getAsString());
         }
         if (obj.has("modrinth_projectid") && obj.get("modrinth_projectid").isJsonPrimitive()) {
@@ -79,6 +82,9 @@ public final class DlcRequiredLoader {
         }
         if (obj.has("modrinth_versionid") && obj.get("modrinth_versionid").isJsonPrimitive()) {
             entry.setModrinthVersionId(obj.get("modrinth_versionid").getAsString());
+        }
+        if (obj.has("priority") && obj.get("priority").isJsonPrimitive()) {
+            entry.setDownloadPriority(obj.get("priority").getAsString());
         }
         if (obj.has("isInList") && obj.get("isInList").isJsonPrimitive()) {
             entry.setInList(obj.get("isInList").getAsBoolean());
@@ -214,5 +220,34 @@ public final class DlcRequiredLoader {
             depId = identifier;
         }
         owner.addDependency(new DlcRequiredDependency(depId, depEntry));
+    }
+
+    private static List<String> getDirectUrls(JsonObject obj) {
+        if (obj == null || !obj.has("directUrl")) {
+            return List.of();
+        }
+        JsonElement element = obj.get("directUrl");
+        if (element == null) {
+            return List.of();
+        }
+        List<String> urls = new ArrayList<>();
+        if (element.isJsonPrimitive()) {
+            String url = element.getAsString();
+            if (url != null && !url.isBlank()) {
+                urls.add(url.trim());
+            }
+            return urls;
+        }
+        if (element.isJsonArray()) {
+            for (JsonElement item : element.getAsJsonArray()) {
+                if (item != null && item.isJsonPrimitive()) {
+                    String url = item.getAsString();
+                    if (url != null && !url.isBlank()) {
+                        urls.add(url.trim());
+                    }
+                }
+            }
+        }
+        return urls;
     }
 }
