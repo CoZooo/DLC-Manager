@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ModrinthClient {
     private static final Gson GSON = new Gson();
     private static final HttpClient CLIENT = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(10))
+        .connectTimeout(Duration.ofSeconds(20))
         .build();
     private static final Map<String, ModrinthVersion> CACHE = new ConcurrentHashMap<>();
 
@@ -37,7 +37,7 @@ public final class ModrinthClient {
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create("https://api.modrinth.com/v2/version/" + versionId))
             .header("User-Agent", "DLC-Manager")
-            .timeout(Duration.ofSeconds(20))
+            .timeout(Duration.ofSeconds(180))
             .GET()
             .build();
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
