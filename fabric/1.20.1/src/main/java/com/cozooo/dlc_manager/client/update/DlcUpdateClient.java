@@ -20,9 +20,21 @@ public final class DlcUpdateClient {
         if (!result.hasUpdates()) {
             return false;
         }
+        showPrompt(parent, result);
+        return true;
+    }
+
+    public static boolean isPrompted() {
+        return promptedThisSession;
+    }
+
+    public static void markPrompted() {
+        promptedThisSession = true;
+    }
+
+    public static void showPrompt(Screen parent, UpdateCheckResult result) {
         promptedThisSession = true;
         Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, result));
-        return true;
     }
 
     public static void openUpdateManager(Screen parent) {

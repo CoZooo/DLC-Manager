@@ -12,7 +12,6 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 public class DlcUpdatePackage {
     private static final Gson GSON = new GsonBuilder().create();
@@ -20,28 +19,30 @@ public class DlcUpdatePackage {
     private final Path archivePath;
     private final String name;
     private final DlcUpdateManifest manifest;
+    private final String contentRoot;
     private Path stagingRoot;
 
-    private DlcUpdatePackage(Path archivePath, String name, DlcUpdateManifest manifest) {
+    private DlcUpdatePackage(Path archivePath, String name, DlcUpdateManifest manifest, String contentRoot) {
         this.archivePath = archivePath;
         this.name = name;
         this.manifest = manifest;
+        this.contentRoot = contentRoot == null ? "" : contentRoot;
     }
 
     public static DlcUpdatePackage fromZip(Path zipPath) {
         if (zipPath == null || !Files.exists(zipPath)) {
             return null;
         }
-        DlcUpdateManifest manifest = readManifest(zipPath);
-        if (manifest == null) {
+        ManifestInfo info = readManifest(zipPath);
+        if (info == null || info.manifest == null) {
             return null;
         }
         String fileName = zipPath.getFileName() == null ? "update" : zipPath.getFileName().toString();
         String baseName = fileName.endsWith(".zip") ? fileName.substring(0, fileName.length() - 4) : fileName;
-        return new DlcUpdatePackage(zipPath, baseName, manifest);
+        return new DlcUpdatePackage(zipPath, baseName, info.manifest, info.contentRoot);
     }
 
-    private static DlcUpdateManifest readManifest(Path zipPath) {
+    private static ManifestInfo readManifest(Path zipPath) {
         try (ZipFile zipFile = new ZipFile(zipPath.toFile())) {
             ZipEntry entry = zipFile.getEntry("update.json");
             if (entry == null) {
@@ -63,11 +64,21 @@ public class DlcUpdatePackage {
             if (entry == null) {
                 return null;
             }
+            String entryName = entry.getName() == null ? "" : entry.getName().replace('\\', '/');
+            if (entryName.startsWith("./")) {
+                entryName = entryName.substring(2);
+            }
+            String root = "";
+            int slash = entryName.lastIndexOf('/');
+            if (slash > 0) {
+                root = entryName.substring(0, slash);
+            }
             try (var reader = new InputStreamReader(zipFile.getInputStream(entry), StandardCharsets.UTF_8)) {
                 JsonReader jsonReader = new JsonReader(reader);
                 jsonReader.setLenient(true);
                 JsonObject obj = GSON.fromJson(jsonReader, JsonObject.class);
-                return DlcUpdateManifest.fromJsonObject(obj);
+                DlcUpdateManifest manifest = DlcUpdateManifest.fromJsonObject(obj);
+                return new ManifestInfo(manifest, root);
             }
         } catch (IOException ignored) {
             return null;
@@ -89,9 +100,13 @@ public class DlcUpdatePackage {
         } catch (IOException ignored) {
             return null;
         }
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(archivePath))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
+        try (ZipFile zipFile = new ZipFile(archivePath.toFile(), StandardCharsets.UTF_8)) {
+            var entries = zipFile.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (entry == null) {
+                    continue;
+                }
                 String rawName = entry.getName();
                 if (rawName == null || rawName.isBlank()) {
                     continue;
@@ -100,17 +115,32 @@ public class DlcUpdatePackage {
                 if (!outPath.startsWith(target)) {
                     continue;
                 }
-                if (entry.isDirectory()) {
-                    Files.createDirectories(outPath);
-                } else {
-                    Files.createDirectories(outPath.getParent());
-                    Files.copy(zis, outPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                try {
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(outPath);
+                    } else {
+                        Files.createDirectories(outPath.getParent());
+                        try (var in = zipFile.getInputStream(entry)) {
+                            Files.copy(in, outPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    }
+                } catch (IOException ignored) {
+                    // Best-effort per entry.
                 }
             }
         } catch (IOException ignored) {
             // Best-effort extraction.
         }
-        stagingRoot = target;
+        if (contentRoot != null && !contentRoot.isBlank()) {
+            Path rootPath = target.resolve(contentRoot).normalize();
+            if (rootPath.startsWith(target)) {
+                stagingRoot = rootPath;
+            } else {
+                stagingRoot = target;
+            }
+        } else {
+            stagingRoot = target;
+        }
         return stagingRoot;
     }
 
@@ -136,5 +166,15 @@ public class DlcUpdatePackage {
 
     public Path getStagingRoot() {
         return stagingRoot;
+    }
+
+    private static final class ManifestInfo {
+        private final DlcUpdateManifest manifest;
+        private final String contentRoot;
+
+        private ManifestInfo(DlcUpdateManifest manifest, String contentRoot) {
+            this.manifest = manifest;
+            this.contentRoot = contentRoot == null ? "" : contentRoot;
+        }
     }
 }

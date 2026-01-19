@@ -211,7 +211,7 @@ public final class DlcRequiredManager {
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
             if (fileName == null) {
-                fileName = normalizeFileName(resolveFileName(entry));
+                fileName = normalizeFileName(resolveFileNameLocal(entry));
             }
             if (fileName == null) {
                 fileName = normalizeFileName(resolveExistingRequiredFile(entry));
@@ -237,7 +237,7 @@ public final class DlcRequiredManager {
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
             if (fileName == null) {
-                fileName = normalizeFileName(resolveFileName(entry));
+                fileName = normalizeFileName(resolveFileNameLocal(entry));
             }
             entry.setResolvedFileName(fileName);
             if (fileName == null) {
@@ -264,7 +264,7 @@ public final class DlcRequiredManager {
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
             if (fileName == null) {
-                fileName = normalizeFileName(resolveFileName(entry));
+                fileName = normalizeFileName(resolveFileNameLocal(entry));
             }
             if (fileName == null) {
                 fileName = normalizeFileName(resolveExistingRequiredFile(entry));
@@ -293,7 +293,7 @@ public final class DlcRequiredManager {
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
             if (fileName == null) {
-                fileName = normalizeFileName(resolveFileName(entry));
+                fileName = normalizeFileName(resolveFileNameLocal(entry));
             }
             entry.setResolvedFileName(fileName);
             if (fileName == null) {
@@ -387,6 +387,14 @@ public final class DlcRequiredManager {
         return null;
     }
 
+    private static String resolveFileNameLocal(DlcRequiredEntry entry) {
+        String fileName = guessFileName(entry);
+        if (fileName != null && !fileName.isBlank()) {
+            return fileName;
+        }
+        return null;
+    }
+
     private static String resolveExistingRequiredFile(DlcRequiredEntry entry) {
         if (entry == null) {
             return null;
@@ -428,30 +436,7 @@ public final class DlcRequiredManager {
             if (obj == null) {
                 return;
             }
-            com.google.gson.JsonObject reordered = new com.google.gson.JsonObject();
-            boolean inserted = false;
-            com.google.gson.JsonElement deferredDirectUrl = null;
-            for (var entryObj : obj.entrySet()) {
-                String key = entryObj.getKey();
-                if ("file_name".equals(key)) {
-                    continue;
-                }
-                if ("directUrl".equalsIgnoreCase(key)) {
-                    deferredDirectUrl = entryObj.getValue();
-                    continue;
-                }
-                if (!inserted && ("appliedTarget".equals(key) || "appliedTaget".equals(key))) {
-                    reordered.addProperty("file_name", fileName);
-                    inserted = true;
-                }
-                reordered.add(key, entryObj.getValue());
-            }
-            if (!inserted) {
-                reordered.addProperty("file_name", fileName);
-            }
-            if (deferredDirectUrl != null) {
-                reordered.add("directUrl", deferredDirectUrl);
-            }
+            com.google.gson.JsonObject reordered = reorderRequiredJson(obj, fileName);
             try (java.io.Writer writer = Files.newBufferedWriter(config)) {
                 GSON.toJson(reordered, writer);
             }
@@ -478,36 +463,101 @@ public final class DlcRequiredManager {
             if (obj == null) {
                 return;
             }
-            com.google.gson.JsonObject reordered = new com.google.gson.JsonObject();
-            boolean inserted = false;
-            com.google.gson.JsonElement deferredDirectUrl = null;
-            for (var entryObj : obj.entrySet()) {
-                String key = entryObj.getKey();
-                if ("file_name".equals(key)) {
-                    continue;
-                }
-                if ("directUrl".equalsIgnoreCase(key)) {
-                    deferredDirectUrl = entryObj.getValue();
-                    continue;
-                }
-                if (!inserted && ("appliedTarget".equals(key) || "appliedTaget".equals(key))) {
-                    reordered.addProperty("file_name", fileName);
-                    inserted = true;
-                }
-                reordered.add(key, entryObj.getValue());
-            }
-            if (!inserted) {
-                reordered.addProperty("file_name", fileName);
-            }
-            if (deferredDirectUrl != null) {
-                reordered.add("directUrl", deferredDirectUrl);
-            }
+            com.google.gson.JsonObject reordered = reorderRequiredJson(obj, fileName);
             try (java.io.Writer writer = Files.newBufferedWriter(config)) {
                 GSON.toJson(reordered, writer);
             }
             entry.setRequiredFileName(fileName);
         } catch (Exception ignored) {
             // Best-effort.
+        }
+    }
+
+    private static com.google.gson.JsonObject reorderRequiredJson(com.google.gson.JsonObject obj, String fileNameOverride) {
+        com.google.gson.JsonObject ordered = new com.google.gson.JsonObject();
+        ordered.addProperty("modrinth_projectid", getString(obj, "modrinth_projectid"));
+        ordered.addProperty("modrinth_versionid", getString(obj, "modrinth_versionid"));
+
+        com.google.gson.JsonElement directUrl = obj.get("directUrl");
+        if (directUrl == null || directUrl.isJsonNull()) {
+            ordered.addProperty("directUrl", "");
+        } else {
+            ordered.add("directUrl", directUrl);
+        }
+
+        String priority = getString(obj, "priority");
+        if (priority == null || priority.isBlank()) {
+            priority = "modrinth";
+        }
+        ordered.addProperty("priority", priority);
+
+        ordered.addProperty("identifier", getString(obj, "identifier"));
+
+        String fileName = fileNameOverride;
+        if (fileName == null || fileName.isBlank()) {
+            fileName = getString(obj, "file_name");
+        }
+        if (fileName != null && !fileName.isBlank()) {
+            ordered.addProperty("file_name", fileName);
+        }
+
+        String applied = getString(obj, "appliedTarget");
+        if (applied == null || applied.isBlank()) {
+            applied = getString(obj, "appliedTaget");
+        }
+        ordered.addProperty("appliedTarget", applied == null ? "" : applied);
+
+        ordered.addProperty("isInList", getBoolean(obj, "isInList", true));
+        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
+
+        com.google.gson.JsonElement deps = obj.get("dependencies");
+        ordered.add("dependencies", deps == null ? new com.google.gson.JsonPrimitive("") : deps);
+
+        com.google.gson.JsonObject display = null;
+        if (obj.has("DisplayName") && obj.get("DisplayName").isJsonObject()) {
+            display = obj.getAsJsonObject("DisplayName");
+        } else if (obj.has("displayName") && obj.get("displayName").isJsonObject()) {
+            display = obj.getAsJsonObject("displayName");
+        }
+        if (display == null) {
+            display = new com.google.gson.JsonObject();
+            display.addProperty("en_us", "");
+        }
+        ordered.add("DisplayName", display);
+
+        com.google.gson.JsonObject tip = obj.has("tip") && obj.get("tip").isJsonObject()
+            ? obj.getAsJsonObject("tip")
+            : new com.google.gson.JsonObject();
+        ordered.add("tip", tip);
+
+        for (var entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || ordered.has(key)) {
+                continue;
+            }
+            if ("appliedTaget".equals(key) || "displayName".equals(key)) {
+                continue;
+            }
+            ordered.add(key, entry.getValue());
+        }
+        return ordered;
+    }
+
+    private static String getString(com.google.gson.JsonObject obj, String key) {
+        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive()) {
+            return "";
+        }
+        return obj.get(key).getAsString();
+    }
+
+    private static boolean getBoolean(com.google.gson.JsonObject obj, String key, boolean fallback) {
+        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive()) {
+            return fallback;
+        }
+        try {
+            return obj.get(key).getAsBoolean();
+        } catch (Exception ignored) {
+            return fallback;
         }
     }
 

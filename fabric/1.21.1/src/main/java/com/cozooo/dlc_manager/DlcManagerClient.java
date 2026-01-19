@@ -2,14 +2,17 @@ package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
+import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -21,10 +24,13 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
+import org.slf4j.Logger;
 
 public class DlcManagerClient implements ClientModInitializer {
     private static boolean resourcePackSynced = false;
     private static Screen pendingAlignScreen;
+    private static volatile boolean startupCheckRunning = false;
+    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
     public void onInitializeClient() {
@@ -59,13 +65,7 @@ public class DlcManagerClient implements ClientModInitializer {
             }
             alignTitleButtons(screen);
             pendingAlignScreen = screen;
-            if (DlcUpdateClient.maybeShowFromTitle(screen)) {
-                return;
-            }
-            if (DlcRequiredManager.maybeShowFromTitle(screen)) {
-                return;
-            }
-            DlcNoticeManager.showFromTitle(screen);
+            runStartupChecksAsync(screen);
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
@@ -84,6 +84,59 @@ public class DlcManagerClient implements ClientModInitializer {
             resourcePackSynced = true;
             client.execute(DlcManagerClient::syncEnabledResourcePacks);
         });
+    }
+
+    private static void runStartupChecksAsync(Screen screen) {
+        if (startupCheckRunning) {
+            return;
+        }
+        startupCheckRunning = true;
+        new Thread(() -> {
+            LOGGER.info("[dlc-manager] startup check begin");
+            long startAt = System.currentTimeMillis();
+            UpdateCheckResult updateResult = null;
+            boolean hasUpdate = false;
+            boolean hasRequired = false;
+            java.util.List<DlcRequiredEntry> missing = java.util.List.of();
+            if (!DlcUpdateClient.isPrompted()) {
+                long updateAt = System.currentTimeMillis();
+                updateResult = DlcUpdateService.checkForUpdates();
+                hasUpdate = updateResult != null && updateResult.hasUpdates();
+                int updateCount = updateResult == null || updateResult.getUpdates() == null ? 0 : updateResult.getUpdates().size();
+                LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, took={}ms", hasUpdate, updateCount, System.currentTimeMillis() - updateAt);
+            }
+            if (!hasUpdate) {
+                if (!DlcRequiredManager.hasSkipMarker()) {
+                    long requiredAt = System.currentTimeMillis();
+                    hasRequired = DlcRequiredManager.hasMissingDownloads();
+                    if (hasRequired) {
+                        missing = DlcRequiredManager.collectMissingDownloads();
+                    }
+                    LOGGER.info("[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms", hasRequired, missing.size(), System.currentTimeMillis() - requiredAt);
+                }
+            }
+            final boolean finalHasUpdate = hasUpdate;
+            final UpdateCheckResult finalUpdateResult = updateResult;
+            final boolean finalHasRequired = hasRequired;
+            final java.util.List<DlcRequiredEntry> finalMissing = missing;
+            Minecraft.getInstance().execute(() -> {
+                startupCheckRunning = false;
+                LOGGER.info("[dlc-manager] startup check finished in {}ms", System.currentTimeMillis() - startAt);
+                if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                    return;
+                }
+                if (finalHasUpdate && finalUpdateResult != null) {
+                    DlcUpdateClient.showPrompt(screen, finalUpdateResult);
+                    return;
+                }
+                if (finalHasRequired && !finalMissing.isEmpty()) {
+                    DlcRequiredManager.markPrompted();
+                    Minecraft.getInstance().setScreen(new com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen(screen, finalMissing));
+                    return;
+                }
+                DlcNoticeManager.showFromTitle(screen);
+            });
+        }, "dlc-startup-check").start();
     }
 
     private static boolean hasDlcButton(Screen screen) {

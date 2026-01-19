@@ -26,10 +26,12 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
 public class DlcRequiredDownloadScreen extends Screen {
+    private static final int MAX_RETRY = 5;
     private final Screen parent;
     private final List<DlcRequiredEntry> entries;
     private final List<DlcRequiredEntry> displayList = new ArrayList<>();
@@ -197,8 +199,13 @@ public class DlcRequiredDownloadScreen extends Screen {
             if (!hasFile) {
                 download.add(entry);
                 missingOrApply.add(entry);
-            } else if (fileName != null && !fileName.isBlank()) {
-                DlcRequiredManager.ensureFileNameKey(entry, fileName);
+            } else {
+                if (DlcRequiredManager.entryNeedsApply(entry)) {
+                    missingOrApply.add(entry);
+                }
+                if (fileName != null && !fileName.isBlank()) {
+                    DlcRequiredManager.ensureFileNameKey(entry, fileName);
+                }
             }
         }
         displayList.clear();
@@ -270,6 +277,16 @@ public class DlcRequiredDownloadScreen extends Screen {
         downloadedAny = false;
         downloadButton.active = false;
         skipButton.active = false;
+        if (downloadQueue.isEmpty()) {
+            new Thread(() -> {
+                try {
+                    applyAll();
+                } finally {
+                    downloading = false;
+                }
+            }, "dlc-required-apply").start();
+            return;
+        }
         new Thread(this::downloadAll, "dlc-required-download").start();
     }
 
@@ -313,38 +330,56 @@ public class DlcRequiredDownloadScreen extends Screen {
         List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
         IOException lastError = null;
         for (DownloadCandidate candidate : candidates) {
-            try {
-                DownloadInfo downloadInfo = openDownload(candidate.url);
-                String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
-                if (fileName == null && candidate.fileNameOverride != null) {
-                    fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
-                }
-                if (fileName == null) {
-                    fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
-                }
-                if (fileName == null) {
-                    fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
-                }
-                Path target = entry.resolveRequiredPath(fileName);
-                if (target == null) {
+            for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
+                try {
+                    String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
+                    if (fileName == null && candidate.fileNameOverride != null) {
+                        fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
+                    }
+                    if (fileName == null) {
+                        fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(candidate.url));
+                    }
+                    DownloadInfo downloadInfo = openDownload(candidate.url, 0);
+                    if (fileName == null) {
+                        fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                    }
+                    if (fileName == null) {
+                        fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
+                    }
+                    Path target = entry.resolveRequiredPath(fileName);
+                    if (target == null) {
+                        closeQuietly(downloadInfo.connection);
+                        throw new IOException("invalid target path");
+                    }
+                    Files.createDirectories(target.getParent());
+                    if (Files.exists(target)) {
+                        closeQuietly(downloadInfo.connection);
+                        entry.setResolvedFileName(fileName);
+                        return;
+                    }
+                    Path tempFile = target.getParent().resolve(fileName + ".part");
+                    long existing = Files.exists(tempFile) ? Files.size(tempFile) : 0L;
                     closeQuietly(downloadInfo.connection);
-                    throw new IOException("invalid target path");
-                }
-                Files.createDirectories(target.getParent());
-                if (Files.exists(target)) {
-                    closeQuietly(downloadInfo.connection);
+                    if (existing > 0) {
+                        downloadInfo = openDownload(candidate.url, existing);
+                        if (downloadInfo.responseCode != HttpURLConnection.HTTP_PARTIAL) {
+                            closeQuietly(downloadInfo.connection);
+                            existing = 0L;
+                            Files.deleteIfExists(tempFile);
+                            downloadInfo = openDownload(candidate.url, 0);
+                        }
+                    } else {
+                        downloadInfo = openDownload(candidate.url, 0);
+                    }
+                    downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes);
+                    Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
+                    downloadedAny = true;
                     entry.setResolvedFileName(fileName);
+                    DlcRequiredManager.updateFileNameKey(entry, fileName);
                     return;
+                } catch (IOException ex) {
+                    lastError = ex;
                 }
-                Path tempFile = Files.createTempFile(target.getParent(), "dlc-required", ".tmp");
-                downloadToFile(downloadInfo.connection, tempFile);
-                Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
-                downloadedAny = true;
-                entry.setResolvedFileName(fileName);
-                DlcRequiredManager.updateFileNameKey(entry, fileName);
-                return;
-            } catch (IOException ex) {
-                lastError = ex;
             }
         }
         if (lastError != null) {
@@ -674,16 +709,22 @@ public class DlcRequiredDownloadScreen extends Screen {
         guiGraphics.fill(x, y, x + filled, y + height, fg);
     }
 
-    private void downloadToFile(HttpURLConnection connection, Path target) throws IOException {
+    private void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes) throws IOException {
         if (connection == null) {
             throw new IOException("missing download url");
         }
-        int total = connection.getContentLength();
+        long total = totalBytes > 0 ? totalBytes : connection.getContentLengthLong();
+        if (total > 0 && offset > 0) {
+            currentProgress = Math.min(1f, (float) offset / (float) total);
+        }
+        long read = offset;
         try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-             OutputStream out = Files.newOutputStream(target)) {
+             OutputStream out = Files.newOutputStream(target,
+                 StandardOpenOption.CREATE,
+                 StandardOpenOption.WRITE,
+                 offset > 0 ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING)) {
             byte[] buffer = new byte[8192];
             int len;
-            int read = 0;
             while ((len = in.read(buffer)) >= 0) {
                 out.write(buffer, 0, len);
                 read += len;
@@ -694,7 +735,10 @@ public class DlcRequiredDownloadScreen extends Screen {
         } finally {
             connection.disconnect();
         }
-        currentProgress = 1f;
+        if (total > 0 && read < total) {
+            throw new IOException("download incomplete");
+        }
+        currentProgress = total > 0 ? Math.min(1f, (float) read / (float) total) : 1f;
     }
 
     private List<DownloadCandidate> buildDownloadCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
@@ -744,18 +788,24 @@ public class DlcRequiredDownloadScreen extends Screen {
         }
     }
 
-    private DownloadInfo openDownload(String url) throws IOException {
+    private DownloadInfo openDownload(String url, long offset) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(180000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
+        if (offset > 0) {
+            connection.setRequestProperty("Range", "bytes=" + offset + "-");
+        }
         connection.connect();
         String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
         if (fileName == null || fileName.isBlank()) {
             fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.getURL().toString());
         }
-        return new DownloadInfo(connection, fileName);
+        int responseCode = connection.getResponseCode();
+        long contentLength = connection.getContentLengthLong();
+        long totalBytes = contentLength > 0 ? contentLength + Math.max(0, offset) : -1L;
+        return new DownloadInfo(connection, fileName, responseCode, totalBytes);
     }
 
     private void closeQuietly(HttpURLConnection connection) {
@@ -771,10 +821,14 @@ public class DlcRequiredDownloadScreen extends Screen {
     private static final class DownloadInfo {
         private final HttpURLConnection connection;
         private final String fileName;
+        private final int responseCode;
+        private final long totalBytes;
 
-        private DownloadInfo(HttpURLConnection connection, String fileName) {
+        private DownloadInfo(HttpURLConnection connection, String fileName, int responseCode, long totalBytes) {
             this.connection = connection;
             this.fileName = fileName;
+            this.responseCode = responseCode;
+            this.totalBytes = totalBytes;
         }
     }
 }

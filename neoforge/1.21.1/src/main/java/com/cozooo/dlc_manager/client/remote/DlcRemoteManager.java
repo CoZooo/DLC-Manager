@@ -126,40 +126,97 @@ public final class DlcRemoteManager {
             if (obj == null) {
                 return;
             }
-            JsonObject reordered = new JsonObject();
-            boolean inserted = false;
-            JsonElement deferredDirectUrl = null;
-            for (var entryObj : obj.entrySet()) {
-                String key = entryObj.getKey();
-                if ("file_name".equals(key)) {
-                    if (!inserted) {
-                        reordered.addProperty("file_name", normalized);
-                        inserted = true;
-                    }
-                    continue;
-                }
-                if ("directUrl".equalsIgnoreCase(key)) {
-                    deferredDirectUrl = entryObj.getValue();
-                    continue;
-                }
-                reordered.add(key, entryObj.getValue());
-                if (!inserted && "dlc_identifier".equals(key)) {
-                    reordered.addProperty("file_name", normalized);
-                    inserted = true;
-                }
-            }
-            if (!inserted) {
-                reordered.addProperty("file_name", normalized);
-            }
-            if (deferredDirectUrl != null) {
-                reordered.add("directUrl", deferredDirectUrl);
-            }
+            JsonObject reordered = reorderRemoteJson(obj, normalized);
             try (Writer writer = Files.newBufferedWriter(config)) {
                 PRETTY_GSON.toJson(reordered, writer);
             }
             entry.setFileNameHint(normalized);
         } catch (IOException ignored) {
             // Best-effort.
+        }
+    }
+
+    private static JsonObject reorderRemoteJson(JsonObject obj, String fileNameOverride) {
+        JsonObject ordered = new JsonObject();
+        ordered.addProperty("modrinth_projectid", getString(obj, "modrinth_projectid"));
+        ordered.addProperty("modrinth_versionid", getString(obj, "modrinth_versionid"));
+
+        JsonElement directUrl = obj.get("directUrl");
+        if (directUrl == null || directUrl.isJsonNull()) {
+            ordered.addProperty("directUrl", "");
+        } else {
+            ordered.add("directUrl", directUrl);
+        }
+
+        String priority = getString(obj, "priority");
+        if (priority == null || priority.isBlank()) {
+            priority = "modrinth";
+        }
+        ordered.addProperty("priority", priority);
+
+        ordered.addProperty("dlc_identifier", getString(obj, "dlc_identifier"));
+
+        String type = getString(obj, "type");
+        if (type == null || type.isBlank()) {
+            type = "mod";
+        }
+        ordered.addProperty("type", type);
+
+        String fileName = fileNameOverride;
+        if (fileName == null || fileName.isBlank()) {
+            fileName = getString(obj, "file_name");
+        }
+        if (fileName != null && !fileName.isBlank()) {
+            ordered.addProperty("file_name", fileName);
+        }
+
+        ordered.addProperty("isInList", getBoolean(obj, "isInList", true));
+        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
+        ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
+
+        JsonElement deps = obj.get("dependencies");
+        ordered.add("dependencies", deps == null ? new com.google.gson.JsonPrimitive("") : deps);
+        JsonElement conflicts = obj.get("conflicts");
+        ordered.add("conflicts", conflicts == null ? new com.google.gson.JsonPrimitive("") : conflicts);
+
+        JsonObject display = obj.has("DisplayName") && obj.get("DisplayName").isJsonObject()
+            ? obj.getAsJsonObject("DisplayName")
+            : new JsonObject();
+        if (display.entrySet().isEmpty()) {
+            display.addProperty("en_us", "");
+        }
+        ordered.add("DisplayName", display);
+
+        JsonObject tip = obj.has("tip") && obj.get("tip").isJsonObject()
+            ? obj.getAsJsonObject("tip")
+            : new JsonObject();
+        ordered.add("tip", tip);
+
+        for (var entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || ordered.has(key)) {
+                continue;
+            }
+            ordered.add(key, entry.getValue());
+        }
+        return ordered;
+    }
+
+    private static String getString(JsonObject obj, String key) {
+        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive()) {
+            return "";
+        }
+        return obj.get(key).getAsString();
+    }
+
+    private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
+        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive()) {
+            return fallback;
+        }
+        try {
+            return obj.get(key).getAsBoolean();
+        } catch (Exception ignored) {
+            return fallback;
         }
     }
 

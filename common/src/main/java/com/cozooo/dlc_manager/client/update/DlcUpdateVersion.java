@@ -24,7 +24,10 @@ public class DlcUpdateVersion {
         if (dlcRoot == null) {
             return version;
         }
-        Path path = dlcRoot.resolve("version.json");
+        Path path = resolveVersionPath(dlcRoot);
+        if (!Files.exists(path)) {
+            migrateLegacyVersionFile(dlcRoot, path);
+        }
         if (!Files.exists(path)) {
             version.save(dlcRoot);
             return version;
@@ -61,7 +64,7 @@ public class DlcUpdateVersion {
         if (dlcRoot == null) {
             return;
         }
-        Path path = dlcRoot.resolve("version.json");
+        Path path = resolveVersionPath(dlcRoot);
         try {
             Files.createDirectories(path.getParent());
             JsonObject obj = new JsonObject();
@@ -75,6 +78,26 @@ public class DlcUpdateVersion {
             }
         } catch (IOException ignored) {
             // Best-effort save.
+        }
+    }
+
+    private static Path resolveVersionPath(Path dlcRoot) {
+        return dlcRoot.resolve("info").resolve("version.json");
+    }
+
+    private static void migrateLegacyVersionFile(Path dlcRoot, Path targetPath) {
+        if (dlcRoot == null || targetPath == null) {
+            return;
+        }
+        Path legacy = dlcRoot.resolve("version.json");
+        if (!Files.exists(legacy)) {
+            return;
+        }
+        try {
+            Files.createDirectories(targetPath.getParent());
+            Files.move(legacy, targetPath);
+        } catch (IOException ignored) {
+            // Best-effort migration.
         }
     }
 

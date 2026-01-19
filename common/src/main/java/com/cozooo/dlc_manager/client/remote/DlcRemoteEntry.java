@@ -14,6 +14,7 @@ public class DlcRemoteEntry {
     private final Path dlcRoot;
     private final Path baseDir;
     private String fileNameHint;
+    private boolean fileNameExplicit;
     private String dlcIdentifier;
     private String directUrl;
     private List<String> directUrls = List.of();
@@ -59,6 +60,14 @@ public class DlcRemoteEntry {
 
     public void setFileNameHint(String fileNameHint) {
         this.fileNameHint = fileNameHint;
+    }
+
+    public boolean isFileNameExplicit() {
+        return fileNameExplicit;
+    }
+
+    public void setFileNameExplicit(boolean fileNameExplicit) {
+        this.fileNameExplicit = fileNameExplicit;
     }
 
     public String getDlcIdentifier() {

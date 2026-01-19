@@ -19,6 +19,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 public class DlcRemoteDownloadScreen extends Screen {
+    private static final int MAX_RETRY = 5;
     private final Screen parent;
     private final List<DlcRemoteEntry> missing;
     private List<DlcRemoteEntry> previewQueue = List.of();
@@ -314,40 +316,59 @@ public class DlcRemoteDownloadScreen extends Screen {
         List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
         IOException lastError = null;
         for (DownloadCandidate candidate : candidates) {
-            try {
-                DownloadInfo downloadInfo = openDownload(candidate.url);
-                String headerName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
-                String fileName = candidate.fileNameOverride;
-                if (fileName == null || fileName.isBlank()) {
-                    fileName = entry.getFileNameHint();
-                }
-                if (candidate.direct && headerName != null) {
-                    fileName = headerName;
-                }
-                if (!DlcDownloadUtil.isLikelyFileName(fileName) && headerName != null) {
-                    fileName = headerName;
-                }
-                fileName = finalizeFileName(fileName, entry, candidate.url);
-                Path target = entry.resolveTargetPath(fileName);
-                if (target == null) {
+            for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
+                try {
+                    DownloadInfo downloadInfo = openDownload(candidate.url, 0);
+                    String headerName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                    String fileName = candidate.fileNameOverride;
+                    boolean fileNameExplicit = entry.isFileNameExplicit()
+                        && fileName != null && !fileName.isBlank();
+                    if (fileName == null || fileName.isBlank()) {
+                        fileName = entry.getFileNameHint();
+                    }
+                    if (!fileNameExplicit) {
+                        if (candidate.direct && headerName != null) {
+                            fileName = headerName;
+                        }
+                        if (!DlcDownloadUtil.isLikelyFileName(fileName) && headerName != null) {
+                            fileName = headerName;
+                        }
+                    }
+                    fileName = finalizeFileName(fileName, entry, candidate.url);
+                    Path target = entry.resolveTargetPath(fileName);
+                    if (target == null) {
+                        closeQuietly(downloadInfo.connection);
+                        throw new IOException("invalid target path");
+                    }
+                    Files.createDirectories(target.getParent());
+                    if (Files.exists(target)) {
+                        closeQuietly(downloadInfo.connection);
+                        return;
+                    }
+                    Path tempFile = target.getParent().resolve(fileName + ".part");
+                    long existing = Files.exists(tempFile) ? Files.size(tempFile) : 0L;
                     closeQuietly(downloadInfo.connection);
-                    throw new IOException("invalid target path");
-                }
-                Files.createDirectories(target.getParent());
-                if (Files.exists(target)) {
-                    closeQuietly(downloadInfo.connection);
-                    return;
-                }
-                Path tempFile = Files.createTempFile(target.getParent(), "dlc-download", ".tmp");
-                downloadToFile(downloadInfo.connection, tempFile);
-                Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
+                    if (existing > 0) {
+                        downloadInfo = openDownload(candidate.url, existing);
+                        if (downloadInfo.responseCode != HttpURLConnection.HTTP_PARTIAL) {
+                            closeQuietly(downloadInfo.connection);
+                            existing = 0L;
+                            Files.deleteIfExists(tempFile);
+                            downloadInfo = openDownload(candidate.url, 0);
+                        }
+                    } else {
+                        downloadInfo = openDownload(candidate.url, 0);
+                    }
+                    downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes);
+                    Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
 
-                entry.setFileNameHint(fileName);
-                DlcRemoteManager.updateFileNameKey(entry, fileName);
-                DlcRemoteManager.writeInfoFile(entry.getDlcRoot(), entry, fileName);
-                return;
-            } catch (IOException ex) {
-                lastError = ex;
+                    entry.setFileNameHint(fileName);
+                    DlcRemoteManager.updateFileNameKey(entry, fileName);
+                    DlcRemoteManager.writeInfoFile(entry.getDlcRoot(), entry, fileName);
+                    return;
+                } catch (IOException ex) {
+                    lastError = ex;
+                }
             }
         }
         if (lastError != null) {
@@ -356,16 +377,22 @@ public class DlcRemoteDownloadScreen extends Screen {
         throw new IOException("missing download url");
     }
 
-    private void downloadToFile(HttpURLConnection connection, Path target) throws IOException {
+    private void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes) throws IOException {
         if (connection == null) {
             throw new IOException("missing download url");
         }
-        int total = connection.getContentLength();
+        long total = totalBytes > 0 ? totalBytes : connection.getContentLengthLong();
+        if (total > 0 && offset > 0) {
+            currentProgress = Math.min(1f, (float) offset / (float) total);
+        }
+        long read = offset;
         try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-             OutputStream out = Files.newOutputStream(target)) {
+             OutputStream out = Files.newOutputStream(target,
+                 StandardOpenOption.CREATE,
+                 StandardOpenOption.WRITE,
+                 offset > 0 ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING)) {
             byte[] buffer = new byte[8192];
             int len;
-            int read = 0;
             while ((len = in.read(buffer)) >= 0) {
                 out.write(buffer, 0, len);
                 read += len;
@@ -376,21 +403,35 @@ public class DlcRemoteDownloadScreen extends Screen {
         } finally {
             connection.disconnect();
         }
+        if (total > 0 && read < total) {
+            try {
+                Files.deleteIfExists(target);
+            } catch (IOException ignored) {
+                // Best-effort cleanup.
+            }
+            throw new IOException("download incomplete");
+        }
         currentProgress = 1f;
     }
 
-    private DownloadInfo openDownload(String url) throws IOException {
+    private DownloadInfo openDownload(String url, long offset) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(180000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
+        if (offset > 0) {
+            connection.setRequestProperty("Range", "bytes=" + offset + "-");
+        }
         connection.connect();
         String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
         if (fileName == null || fileName.isBlank()) {
             fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.getURL().toString());
         }
-        return new DownloadInfo(connection, fileName);
+        int responseCode = connection.getResponseCode();
+        long contentLength = connection.getContentLengthLong();
+        long totalBytes = contentLength > 0 ? contentLength + Math.max(0, offset) : -1L;
+        return new DownloadInfo(connection, fileName, responseCode, totalBytes);
     }
 
     private String finalizeFileName(String fileName, DlcRemoteEntry entry, String url) {
@@ -486,10 +527,14 @@ public class DlcRemoteDownloadScreen extends Screen {
     private static final class DownloadInfo {
         private final HttpURLConnection connection;
         private final String fileName;
+        private final int responseCode;
+        private final long totalBytes;
 
-        private DownloadInfo(HttpURLConnection connection, String fileName) {
+        private DownloadInfo(HttpURLConnection connection, String fileName, int responseCode, long totalBytes) {
             this.connection = connection;
             this.fileName = fileName;
+            this.responseCode = responseCode;
+            this.totalBytes = totalBytes;
         }
     }
 

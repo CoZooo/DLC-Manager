@@ -324,8 +324,9 @@ public final class DlcUpdateService {
             return List.of();
         }
         List<DlcUpdatePackage> packages = new ArrayList<>();
-        try (var stream = Files.walk(updateDir)) {
-            stream.filter(path -> path.getFileName() != null && path.getFileName().toString().toLowerCase().endsWith(".zip"))
+        try (var stream = Files.list(updateDir)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null && path.getFileName().toString().toLowerCase().endsWith(".zip"))
                 .forEach(path -> {
                     DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(path);
                     if (pkg != null) {
@@ -687,8 +688,7 @@ public final class DlcUpdateService {
                 }
                 case ALL -> {
                     backupPath(toGameRelativePath(target), target, context);
-                    deleteRecursive(target);
-                    copyRecursive(source, target);
+                    syncDirectory(source, target);
                     return;
                 }
                 case FALSE -> {
@@ -1093,7 +1093,7 @@ public final class DlcUpdateService {
         if (path == null || dlcRoot == null) {
             return false;
         }
-        return path.normalize().equals(dlcRoot.resolve("version.json").normalize());
+        return path.normalize().equals(dlcRoot.resolve("info").resolve("version.json").normalize());
     }
 
     private static boolean isRequiredPath(Path target, Path dlcRoot) {
@@ -1127,18 +1127,60 @@ public final class DlcUpdateService {
             Files.walkFileTree(path, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    Files.deleteIfExists(file);
+                    forceDelete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                    forceDelete(file);
                     return FileVisitResult.CONTINUE;
                 }
 
                 @Override
                 public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                    Files.deleteIfExists(dir);
+                    forceDelete(dir);
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException ignored) {
             // Best-effort delete.
+        }
+    }
+
+    private static void forceDelete(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+            return;
+        } catch (IOException ignored) {
+            // Retry below.
+        }
+        try {
+            Files.setAttribute(path, "dos:readonly", false);
+        } catch (Exception ignored) {
+            // Ignore if not supported.
+        }
+        try {
+            java.io.File file = path.toFile();
+            file.setWritable(true);
+            file.setReadable(true);
+            file.setExecutable(true, false);
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        try {
+            Files.deleteIfExists(path);
+            return;
+        } catch (IOException ignored) {
+            // Fall back to deleteOnExit.
+        }
+        try {
+            path.toFile().deleteOnExit();
+        } catch (Exception ignored) {
+            // Best-effort.
         }
     }
 
@@ -1152,15 +1194,28 @@ public final class DlcUpdateService {
                     @Override
                     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                         Path relative = source.relativize(dir);
-                        Files.createDirectories(target.resolve(relative));
+                        try {
+                            Files.createDirectories(target.resolve(relative));
+                        } catch (IOException ignored) {
+                            // Best-effort.
+                        }
                         return FileVisitResult.CONTINUE;
                     }
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                         Path relative = source.relativize(file);
-                        Files.createDirectories(target.resolve(relative).getParent());
-                        Files.copy(file, target.resolve(relative), StandardCopyOption.REPLACE_EXISTING);
+                        try {
+                            Files.createDirectories(target.resolve(relative).getParent());
+                            Files.copy(file, target.resolve(relative), StandardCopyOption.REPLACE_EXISTING);
+                        } catch (IOException ignored) {
+                            // Best-effort.
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFileFailed(Path file, IOException exc) {
                         return FileVisitResult.CONTINUE;
                     }
                 });
@@ -1173,6 +1228,50 @@ public final class DlcUpdateService {
         }
     }
 
+    private static void syncDirectory(Path source, Path target) {
+        if (source == null || target == null) {
+            return;
+        }
+        if (!Files.exists(target)) {
+            copyRecursive(source, target);
+            return;
+        }
+        deleteExtras(source, target);
+        copyRecursive(source, target);
+    }
+
+    private static void deleteExtras(Path source, Path target) {
+        if (source == null || target == null || !Files.exists(target)) {
+            return;
+        }
+        try {
+            Files.walkFileTree(target, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    Path relative = target.relativize(file);
+                    if (!Files.exists(source.resolve(relative))) {
+                        forceDelete(file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
+                    if (dir.equals(target)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    Path relative = target.relativize(dir);
+                    if (!Files.exists(source.resolve(relative))) {
+                        forceDelete(dir);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException ignored) {
+            // Best-effort sync.
+        }
+    }
+
     private static void copyDirectory(Path source, Path target, boolean override) {
         if (source == null || target == null) {
             return;
@@ -1182,7 +1281,11 @@ public final class DlcUpdateService {
                 @Override
                 public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
                     Path relative = source.relativize(dir);
-                    Files.createDirectories(target.resolve(relative));
+                    try {
+                        Files.createDirectories(target.resolve(relative));
+                    } catch (IOException ignored) {
+                        // Best-effort.
+                    }
                     return FileVisitResult.CONTINUE;
                 }
 
@@ -1193,8 +1296,17 @@ public final class DlcUpdateService {
                     if (!override && Files.exists(dest)) {
                         return FileVisitResult.CONTINUE;
                     }
-                    Files.createDirectories(dest.getParent());
-                    Files.copy(file, dest, StandardCopyOption.REPLACE_EXISTING);
+                    try {
+                        Files.createDirectories(dest.getParent());
+                        Files.copy(file, dest, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (IOException ignored) {
+                        // Best-effort.
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFileFailed(Path file, IOException exc) {
                     return FileVisitResult.CONTINUE;
                 }
             });

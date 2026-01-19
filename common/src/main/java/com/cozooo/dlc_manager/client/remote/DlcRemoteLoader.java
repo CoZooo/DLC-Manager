@@ -214,6 +214,7 @@ public final class DlcRemoteLoader {
         String priority = getString(obj, "priority");
         String identifier = getString(obj, "dlc_identifier");
         String fileName = getString(obj, "file_name");
+        boolean fileNameExplicit = fileName != null && !fileName.isBlank();
         String nameFallback = fallbackName;
         if (nameFallback == null || nameFallback.isBlank()) {
             if (directUrl != null && !directUrl.isBlank()) {
@@ -255,7 +256,6 @@ public final class DlcRemoteLoader {
         JsonObject ordered = new JsonObject();
         ordered.addProperty("modrinth_projectid", projectId == null ? "" : projectId);
         ordered.addProperty("modrinth_versionid", versionId == null ? "" : versionId);
-        ordered.addProperty("priority", priority == null || priority.isBlank() ? "modrinth" : priority);
         if (directUrls.size() > 1) {
             JsonArray urls = new JsonArray();
             for (String url : directUrls) {
@@ -265,9 +265,12 @@ public final class DlcRemoteLoader {
         } else {
             ordered.addProperty("directUrl", directUrl == null ? "" : directUrl);
         }
+        ordered.addProperty("priority", priority == null || priority.isBlank() ? "modrinth" : priority);
         ordered.addProperty("dlc_identifier", identifier);
-        ordered.addProperty("file_name", fileName == null ? "" : fileName);
         ordered.addProperty("type", DlcTooltipLoader.toTypeString(type));
+        if (fileName != null && !fileName.isBlank()) {
+            ordered.addProperty("file_name", fileName);
+        }
         ordered.addProperty("isInList", inList);
         ordered.addProperty("isHidden", hidden);
         ordered.addProperty("AllowEnableByAll", allowEnableByAll);
@@ -313,6 +316,7 @@ public final class DlcRemoteLoader {
             resolvedFileName = nameFallback;
         }
         entry.setFileNameHint(resolvedFileName);
+        entry.setFileNameExplicit(fileNameExplicit);
         entry.setType(type);
         entry.setInList(inList);
         entry.setHidden(hidden);
