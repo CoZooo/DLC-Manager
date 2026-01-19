@@ -71,8 +71,11 @@ public class DlcRequiredDownloadScreen extends Screen {
         int buttonWidth = 140;
         int buttonHeight = 20;
         int y = this.height - 40;
+        int downloadX = forceRequired
+            ? this.width / 2 - buttonWidth / 2
+            : this.width / 2 - buttonWidth - 6;
         downloadButton = Button.builder(Component.translatable("dlc_manager.required.download"), button -> startDownload())
-            .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
+            .bounds(downloadX, y, buttonWidth, buttonHeight)
             .build();
         downloadButton.active = false;
         downloadButton.visible = false;
