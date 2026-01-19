@@ -47,6 +47,9 @@ public final class DlcRequiredManager {
     }
 
     public static void markSkipped() {
+        if (hasForceMarker()) {
+            return;
+        }
         Path requiredDir = getRequiredDir();
         if (requiredDir == null) {
             return;
@@ -60,11 +63,22 @@ public final class DlcRequiredManager {
     }
 
     public static boolean hasSkipMarker() {
+        if (hasForceMarker()) {
+            return false;
+        }
         Path requiredDir = getRequiredDir();
         if (requiredDir == null) {
             return false;
         }
         return Files.exists(requiredDir.resolve("SKIP"));
+    }
+
+    public static boolean hasForceMarker() {
+        Path requiredDir = getRequiredDir();
+        if (requiredDir == null) {
+            return false;
+        }
+        return Files.exists(requiredDir.resolve("FORCE"));
     }
 
     public static List<DlcRequiredEntry> loadEntries() {

@@ -88,6 +88,7 @@
   "dlc_manager.remote.complete": "补全DLC",
   "dlc_manager.required.title": "必要资源",
   "dlc_manager.required.desc": "检测到必要资源缺失，请先安装后再进入游戏。",
+  "dlc_manager.required.force_notice": "必须安装必要资源才能继续。",
   "dlc_manager.required.download": "安装",
   "dlc_manager.required.skip": "跳过",
   "dlc_manager.required.preparing": "正在准备...",

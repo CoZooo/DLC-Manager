@@ -37,6 +37,7 @@ public class DlcRequiredDownloadScreen extends Screen {
     private final List<DlcRequiredEntry> displayList = new ArrayList<>();
     private final List<DlcRequiredEntry> downloadQueue = new ArrayList<>();
     private final List<DlcRequiredEntry> applyQueue = new ArrayList<>();
+    private final boolean forceRequired;
     private boolean updatePackageRequired;
 
     private Button downloadButton;
@@ -58,6 +59,7 @@ public class DlcRequiredDownloadScreen extends Screen {
         super(Component.translatable("dlc_manager.required.title"));
         this.parent = parent;
         this.entries = entries == null ? List.of() : entries;
+        this.forceRequired = DlcRequiredManager.hasForceMarker();
     }
 
     @Override
@@ -79,6 +81,8 @@ public class DlcRequiredDownloadScreen extends Screen {
             DlcRequiredManager.markSkipped();
             Minecraft.getInstance().setScreen(parent);
         }).bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight).build();
+        skipButton.visible = !forceRequired;
+        skipButton.active = !forceRequired;
         addRenderableWidget(downloadButton);
         addRenderableWidget(skipButton);
         noticeLines = splitLines(DlcRequiredNotice.load().resolveDownloadDesc());
@@ -96,6 +100,10 @@ public class DlcRequiredDownloadScreen extends Screen {
         y += 18;
         for (String line : getDescLines()) {
             guiGraphics.drawCenteredString(this.font, line, centerX, y, 0xC8C8C8);
+            y += this.font.lineHeight + 2;
+        }
+        if (forceRequired) {
+            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.required.force_notice"), centerX, y, 0xFFAA55);
             y += this.font.lineHeight + 2;
         }
         y += 6;
@@ -155,6 +163,11 @@ public class DlcRequiredDownloadScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return !forceRequired;
     }
 
     private void detectEntries() {
@@ -278,7 +291,9 @@ public class DlcRequiredDownloadScreen extends Screen {
         errorText = null;
         downloadedAny = false;
         downloadButton.active = false;
-        skipButton.active = false;
+        if (!forceRequired) {
+            skipButton.active = false;
+        }
         if (downloadQueue.isEmpty()) {
             new Thread(() -> {
                 try {
@@ -304,7 +319,9 @@ public class DlcRequiredDownloadScreen extends Screen {
                 downloading = false;
                 Minecraft.getInstance().execute(() -> {
                     downloadButton.active = true;
-                    skipButton.active = true;
+                    if (!forceRequired) {
+                        skipButton.active = true;
+                    }
                 });
                 return;
             }
@@ -317,7 +334,9 @@ public class DlcRequiredDownloadScreen extends Screen {
             downloading = false;
             Minecraft.getInstance().execute(() -> {
                 downloadButton.active = true;
-                skipButton.active = true;
+                if (!forceRequired) {
+                    skipButton.active = true;
+                }
             });
             return;
         }

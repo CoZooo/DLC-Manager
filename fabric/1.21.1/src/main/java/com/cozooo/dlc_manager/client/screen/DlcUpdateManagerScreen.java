@@ -51,7 +51,7 @@ public class DlcUpdateManagerScreen extends Screen {
     }
 
     public void refreshData() {
-        List<DlcUpdateMeta> baseHistory = DlcUpdateService.listUpdateHistory();
+        List<DlcUpdateMeta> baseHistory = filterVisible(DlcUpdateService.listUpdateHistory());
         DlcUpdateVersion version = DlcUpdateVersion.load(DlcPaths.dlcRoot());
         currentVersion = version == null ? "" : version.getDlc();
         rollbackFrom = version == null ? null : version.getRollbackFrom();
@@ -59,7 +59,7 @@ public class DlcUpdateManagerScreen extends Screen {
         rolledBackMode = rollbackFrom != null && !rollbackFrom.isBlank() && !rollbackFrom.equals(currentVersion);
         hasVisibleUpdates = false;
         if (rolledBackMode) {
-            List<DlcUpdateMeta> rolledHistory = DlcUpdateService.listUpdateHistoryFrom(rollbackFrom);
+            List<DlcUpdateMeta> rolledHistory = filterVisible(DlcUpdateService.listUpdateHistoryFrom(rollbackFrom));
             if (!rolledHistory.isEmpty()) {
                 baseHistory = rolledHistory;
             }
@@ -99,6 +99,19 @@ public class DlcUpdateManagerScreen extends Screen {
         rollbackTargets = targets;
         rowActions = actions;
         buildWidgets();
+    }
+
+    private List<DlcUpdateMeta> filterVisible(List<DlcUpdateMeta> input) {
+        if (input == null || input.isEmpty()) {
+            return List.of();
+        }
+        List<DlcUpdateMeta> out = new ArrayList<>();
+        for (DlcUpdateMeta meta : input) {
+            if (meta != null && !meta.isHidden()) {
+                out.add(meta);
+            }
+        }
+        return out;
     }
 
     private void buildWidgets() {

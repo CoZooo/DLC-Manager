@@ -88,6 +88,7 @@
   "dlc_manager.remote.complete": "Complete DLC",
   "dlc_manager.required.title": "Required Resources",
   "dlc_manager.required.desc": "Some required resources are missing.\nDownload and apply them before entering the game.",
+  "dlc_manager.required.force_notice": "Required resources must be installed to continue.",
   "dlc_manager.required.download": "Install",
   "dlc_manager.required.skip": "Skip",
   "dlc_manager.required.preparing": "Preparing...",

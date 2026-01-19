@@ -17,6 +17,7 @@ public class DlcUpdateMeta {
     private String dlcOld;
     private String dlcNew;
     private String timestamp;
+    private boolean hidden;
     private final List<String> restorePaths = new ArrayList<>();
     private final List<String> createdPaths = new ArrayList<>();
 
@@ -38,6 +39,9 @@ public class DlcUpdateMeta {
             }
             if (obj.has("timestamp") && obj.get("timestamp").isJsonPrimitive()) {
                 meta.timestamp = obj.get("timestamp").getAsString();
+            }
+            if (obj.has("hidden") && obj.get("hidden").isJsonPrimitive()) {
+                meta.hidden = obj.get("hidden").getAsBoolean();
             }
             if (obj.has("restore") && obj.get("restore").isJsonArray()) {
                 obj.getAsJsonArray("restore").forEach(el -> {
@@ -69,6 +73,7 @@ public class DlcUpdateMeta {
             obj.addProperty("dlc_old", dlcOld == null ? "" : dlcOld);
             obj.addProperty("dlc_new", dlcNew == null ? "" : dlcNew);
             obj.addProperty("timestamp", timestamp == null ? "" : timestamp);
+            obj.addProperty("hidden", hidden);
             com.google.gson.JsonArray restore = new com.google.gson.JsonArray();
             for (String path : restorePaths) {
                 restore.add(path);
@@ -109,6 +114,14 @@ public class DlcUpdateMeta {
 
     public void setTimestamp(String timestamp) {
         this.timestamp = timestamp;
+    }
+
+    public boolean isHidden() {
+        return hidden;
+    }
+
+    public void setHidden(boolean hidden) {
+        this.hidden = hidden;
     }
 
     public List<String> getRestorePaths() {

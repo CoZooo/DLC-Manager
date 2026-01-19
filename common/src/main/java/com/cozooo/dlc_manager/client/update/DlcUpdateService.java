@@ -141,6 +141,7 @@ public final class DlcUpdateService {
         meta.setDlcOld(info.getDlcOld());
         meta.setDlcNew(info.getDlcNew());
         meta.setTimestamp(Long.toString(System.currentTimeMillis()));
+        meta.setHidden(manifest.isHidden());
         Path backupRoot = dlcRoot.resolve("update_tmp").resolve(info.getDlcNew() == null ? "unknown" : info.getDlcNew());
         Path metaPath = backupRoot.resolve("meta.json");
 

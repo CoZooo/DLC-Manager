@@ -104,7 +104,7 @@ public class DlcRequiredManagerScreen extends Screen {
 
         int listTop = y;
         int listBottom = this.height - 70;
-        int lineHeight = 14;
+        int lineHeight = 18;
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int totalLines = visibleEntries.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
@@ -144,7 +144,7 @@ public class DlcRequiredManagerScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         int listTop = getListTop();
         int listBottom = this.height - 70;
-        int lineHeight = 14;
+        int lineHeight = 18;
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int totalLines = visibleEntries.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
