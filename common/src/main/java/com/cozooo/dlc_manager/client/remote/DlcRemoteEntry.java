@@ -14,6 +14,7 @@ public class DlcRemoteEntry {
     private final Path dlcRoot;
     private final Path baseDir;
     private String fileNameHint;
+    private boolean fileNameExplicit;
     private String dlcIdentifier;
     private String directUrl;
     private List<String> directUrls = List.of();
@@ -21,6 +22,7 @@ public class DlcRemoteEntry {
     private String modrinthProjectId;
     private String modrinthVersionId;
     private DlcType type;
+    private String appliedTargetRaw;
     private boolean inList;
     private boolean hidden;
     private boolean allowEnableByAll;
@@ -59,6 +61,14 @@ public class DlcRemoteEntry {
 
     public void setFileNameHint(String fileNameHint) {
         this.fileNameHint = fileNameHint;
+    }
+
+    public boolean isFileNameExplicit() {
+        return fileNameExplicit;
+    }
+
+    public void setFileNameExplicit(boolean fileNameExplicit) {
+        this.fileNameExplicit = fileNameExplicit;
     }
 
     public String getDlcIdentifier() {
@@ -147,6 +157,14 @@ public class DlcRemoteEntry {
 
     public void setType(DlcType type) {
         this.type = type;
+    }
+
+    public String getAppliedTargetRaw() {
+        return appliedTargetRaw;
+    }
+
+    public void setAppliedTargetRaw(String appliedTargetRaw) {
+        this.appliedTargetRaw = appliedTargetRaw;
     }
 
     public boolean isInList() {

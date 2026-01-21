@@ -104,7 +104,7 @@ public class DlcRequiredManagerScreen extends Screen {
 
         int listTop = y;
         int listBottom = this.height - 70;
-        int lineHeight = 14;
+        int lineHeight = 18;
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int totalLines = visibleEntries.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
@@ -146,7 +146,7 @@ public class DlcRequiredManagerScreen extends Screen {
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
         int listTop = getListTop();
         int listBottom = this.height - 70;
-        int lineHeight = 14;
+        int lineHeight = 18;
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int totalLines = visibleEntries.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
@@ -391,6 +391,7 @@ public class DlcRequiredManagerScreen extends Screen {
                 }
                 DlcRequiredRuntimeState.getBaseline(id, isApplied(entry));
                 removeEntryFiles(entry);
+                DlcRequiredManager.updateUserRemoved(entry, true);
                 DlcRequiredRuntimeState.setOverride(id, false);
             }
         }
@@ -727,6 +728,7 @@ public class DlcRequiredManagerScreen extends Screen {
             if (applyEntry(entry)) {
                 didApply = true;
             }
+            DlcRequiredManager.updateUserRemoved(entry, false);
             DlcRequiredRuntimeState.setOverride(id, true);
             index++;
             updateProgress(state, index, 0f, total);

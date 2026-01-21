@@ -38,7 +38,7 @@ public class DlcTooltipLoader {
                     TooltipEntry entry = readEntry(path);
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField,
-                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts);
+                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw);
                         result.put(entry.dlcName, data);
                     }
                 });
@@ -153,6 +153,7 @@ public class DlcTooltipLoader {
             if (entry.displayName.isEmpty() && entry.dlcName != null) {
                 entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName));
             }
+            entry.appliedTargetRaw = getString(obj, "appliedTarget");
             String type = getString(obj, "type");
             if (type != null) {
                 DlcType parsed = parseTypeString(type);
@@ -317,6 +318,7 @@ public class DlcTooltipLoader {
         boolean inList = true;
         boolean hidden = false;
         boolean allowEnableByAll = true;
+        String appliedTargetRaw;
     }
 
     public static class TooltipData {
@@ -331,9 +333,11 @@ public class DlcTooltipLoader {
         private final boolean allowEnableByAll;
         private final java.util.List<String> dependencies;
         private final java.util.List<String> conflicts;
+        private final String appliedTargetRaw;
 
         public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField,
-            boolean inList, boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts) {
+            boolean inList, boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
+            String appliedTargetRaw) {
             this.identifier = identifier;
             this.tips = tips == null ? Map.of() : tips;
             this.displayName = displayName == null ? Map.of() : displayName;
@@ -345,6 +349,7 @@ public class DlcTooltipLoader {
             this.allowEnableByAll = allowEnableByAll;
             this.dependencies = dependencies == null ? java.util.List.of() : dependencies;
             this.conflicts = conflicts == null ? java.util.List.of() : conflicts;
+            this.appliedTargetRaw = appliedTargetRaw;
         }
 
         public Map<String, String> getTips() {
@@ -389,6 +394,10 @@ public class DlcTooltipLoader {
 
         public java.util.List<String> getConflicts() {
             return conflicts;
+        }
+
+        public String getAppliedTargetRaw() {
+            return appliedTargetRaw;
         }
     }
 

@@ -44,6 +44,20 @@ public final class DlcRequiredLoader {
         return entries;
     }
 
+    public static DlcRequiredEntry loadSingle(Path configPath, Path dlcRoot) {
+        if (configPath == null || dlcRoot == null) {
+            return null;
+        }
+        Path requiredDir = dlcRoot.resolve("required");
+        if (!Files.isDirectory(requiredDir)) {
+            return null;
+        }
+        if (!Files.exists(configPath)) {
+            return null;
+        }
+        return readEntry(configPath, requiredDir);
+    }
+
     private static DlcRequiredEntry readEntry(Path path, Path requiredDir) {
         if (path == null) {
             return null;
@@ -57,7 +71,7 @@ public final class DlcRequiredLoader {
         return fromJsonObject(obj, requiredDir, path, null);
     }
 
-    static DlcRequiredEntry fromJsonObject(JsonObject obj, Path requiredDir, Path configPath, String defaultIdentifier) {
+    public static DlcRequiredEntry fromJsonObject(JsonObject obj, Path requiredDir, Path configPath, String defaultIdentifier) {
         if (obj == null) {
             return null;
         }
@@ -91,6 +105,11 @@ public final class DlcRequiredLoader {
         }
         if (obj.has("isHidden") && obj.get("isHidden").isJsonPrimitive()) {
             entry.setHidden(obj.get("isHidden").getAsBoolean());
+        }
+        if (obj.has("UserRemoved") && obj.get("UserRemoved").isJsonPrimitive()) {
+            entry.setUserRemoved(obj.get("UserRemoved").getAsBoolean());
+        } else if (obj.has("userRemoved") && obj.get("userRemoved").isJsonPrimitive()) {
+            entry.setUserRemoved(obj.get("userRemoved").getAsBoolean());
         }
         readDisplayNames(obj, entry);
         readTips(obj, entry);

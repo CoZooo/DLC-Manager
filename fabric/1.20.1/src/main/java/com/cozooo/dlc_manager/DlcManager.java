@@ -11,6 +11,7 @@ public class DlcManager implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        System.setProperty("java.awt.headless", "false");
         FabricPlatformServices.init();
         DlcPathConfig.load();
         DlcConfig.load();

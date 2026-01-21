@@ -11,7 +11,7 @@ public final class DlcDownloadUtil {
             String path = new URL(url).getPath();
             int idx = path.lastIndexOf('/');
             if (idx >= 0 && idx + 1 < path.length()) {
-                String name = path.substring(idx + 1);
+                String name = decodeUrlPathSegment(path.substring(idx + 1));
                 return sanitizeFileName(name);
             }
         } catch (Exception ignored) {
@@ -54,5 +54,42 @@ public final class DlcDownloadUtil {
             name = name.substring(0, hash);
         }
         return name;
+    }
+
+    public static String decodeUrlPathSegment(String segment) {
+        if (segment == null || segment.isBlank()) {
+            return segment;
+        }
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(segment.length());
+        int i = 0;
+        while (i < segment.length()) {
+            char c = segment.charAt(i);
+            if (c == '%' && i + 2 < segment.length()) {
+                int hi = hexValue(segment.charAt(i + 1));
+                int lo = hexValue(segment.charAt(i + 2));
+                if (hi >= 0 && lo >= 0) {
+                    out.write((hi << 4) + lo);
+                    i += 3;
+                    continue;
+                }
+            }
+            byte[] bytes = String.valueOf(c).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            out.write(bytes, 0, bytes.length);
+            i++;
+        }
+        return new String(out.toByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private static int hexValue(char c) {
+        if (c >= '0' && c <= '9') {
+            return c - '0';
+        }
+        if (c >= 'a' && c <= 'f') {
+            return 10 + (c - 'a');
+        }
+        if (c >= 'A' && c <= 'F') {
+            return 10 + (c - 'A');
+        }
+        return -1;
     }
 }

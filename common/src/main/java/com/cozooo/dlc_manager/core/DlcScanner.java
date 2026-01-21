@@ -51,6 +51,9 @@ public class DlcScanner {
         Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir) {
         Path localInfoDir = root.resolve("info");
         Path localRequiredDir = root.resolve("required");
+        Path localRemoteDir = root.resolve("remote");
+        Path localUpdateDir = root.resolve("update");
+        Path localUpdateTmpDir = root.resolve("update_tmp");
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -62,6 +65,12 @@ public class DlcScanner {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderRequiredDir(dir, localRequiredDir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (isUnderRemoteDir(dir, localRemoteDir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localUpdateTmpDir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderTaczRoot(dir, taczRoots)) {
@@ -82,6 +91,12 @@ public class DlcScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderRequiredDir(file, localRequiredDir)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (isUnderRemoteDir(file, localRemoteDir)) {
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localUpdateTmpDir)) {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderTaczRoot(file, taczRoots)) {
@@ -133,6 +148,24 @@ public class DlcScanner {
         return normalized.startsWith(normalizedRequired);
     }
 
+    private boolean isUnderUpdateDir(Path path, Path updateDir) {
+        if (updateDir == null) {
+            return false;
+        }
+        Path normalized = path.normalize();
+        Path normalizedUpdate = updateDir.normalize();
+        return normalized.startsWith(normalizedUpdate);
+    }
+
+    private boolean isUnderRemoteDir(Path path, Path remoteDir) {
+        if (remoteDir == null) {
+            return false;
+        }
+        Path normalized = path.normalize();
+        Path normalizedRemote = remoteDir.normalize();
+        return normalized.startsWith(normalizedRemote);
+    }
+
     private void addItem(Map<DlcType, List<DlcItem>> grouped, Path root, Path source, DlcType detectedType,
         Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir) {
         String relative = root.relativize(source).toString().replace('\\', '/');
@@ -158,7 +191,11 @@ public class DlcScanner {
         if (identifier == null || identifier.isBlank()) {
             identifier = name;
         }
-        boolean enabled = isEnabledInTargets(name, effectiveType);
+        String appliedTargetRaw = tooltipData != null ? tooltipData.getAppliedTargetRaw() : null;
+        if (effectiveType == DlcType.UNKNOWN && (appliedTargetRaw == null || appliedTargetRaw.isBlank())) {
+            return;
+        }
+        boolean enabled = isEnabledInTargets(name, effectiveType, appliedTargetRaw, source);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
         boolean inList = tooltipData == null || tooltipData.isInList();
         boolean hidden = tooltipData != null && tooltipData.isHidden();
@@ -172,7 +209,7 @@ public class DlcScanner {
         java.util.List<String> dependencies = tooltipData != null ? tooltipData.getDependencies() : java.util.List.of();
         java.util.List<String> conflicts = tooltipData != null ? tooltipData.getConflicts() : java.util.List.of();
         boolean allowEnableByAll = tooltipData == null || tooltipData.AllowEnableByAll();
-        DlcItem item = new DlcItem(id, identifier, name, effectiveType, source, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
+        DlcItem item = new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;
@@ -180,13 +217,24 @@ public class DlcScanner {
         }
     }
 
-    private boolean isEnabledInTargets(String fileName, DlcType type) {
+    private boolean isEnabledInTargets(String fileName, DlcType type, String appliedTargetRaw, Path source) {
+        if (type == DlcType.UNKNOWN) {
+            Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
+            if (target == null) {
+                return false;
+            }
+            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(appliedTargetRaw, target, source);
+            if (dirTarget) {
+                return Files.exists(target.resolve(fileName));
+            }
+            return Files.exists(target);
+        }
         List<Path> targetDirs = switch (type) {
             case MOD -> List.of(DlcPaths.modsDir());
             case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
             case DATA_PACK -> DlcPathConfig.getDatapackRoots();
             case TACZ_PACK -> List.of(DlcPaths.taczDir());
-            default -> DlcPathConfig.getOtherRoots();
+            default -> List.of();
         };
         if (targetDirs.isEmpty()) {
             return false;
