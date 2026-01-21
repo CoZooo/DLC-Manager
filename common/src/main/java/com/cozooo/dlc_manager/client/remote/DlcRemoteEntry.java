@@ -22,6 +22,7 @@ public class DlcRemoteEntry {
     private String modrinthProjectId;
     private String modrinthVersionId;
     private DlcType type;
+    private String appliedTargetRaw;
     private boolean inList;
     private boolean hidden;
     private boolean allowEnableByAll;
@@ -156,6 +157,14 @@ public class DlcRemoteEntry {
 
     public void setType(DlcType type) {
         this.type = type;
+    }
+
+    public String getAppliedTargetRaw() {
+        return appliedTargetRaw;
+    }
+
+    public void setAppliedTargetRaw(String appliedTargetRaw) {
+        this.appliedTargetRaw = appliedTargetRaw;
     }
 
     public boolean isInList() {

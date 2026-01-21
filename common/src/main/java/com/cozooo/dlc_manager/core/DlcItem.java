@@ -10,6 +10,7 @@ public class DlcItem {
     private final String name;
     private final DlcType type;
     private final Path sourcePath;
+    private final String appliedTargetRaw;
     private boolean enabled;
     private final List<Path> appliedTargets = new ArrayList<>();
     private final java.util.Map<String, String> tooltips;
@@ -20,7 +21,7 @@ public class DlcItem {
     private final boolean hidden;
     private boolean dirty;
 
-    public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, boolean enabled, java.util.Map<String, String> tooltips,
+    public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, String appliedTargetRaw, boolean enabled, java.util.Map<String, String> tooltips,
         java.util.Map<String, String> displayNames, java.util.List<String> dependencies, java.util.List<String> conflicts,
         boolean allowEnableByAll, boolean hidden) {
         this.id = id;
@@ -28,6 +29,7 @@ public class DlcItem {
         this.name = name;
         this.type = type;
         this.sourcePath = sourcePath;
+        this.appliedTargetRaw = appliedTargetRaw;
         this.enabled = enabled;
         this.tooltips = tooltips == null ? java.util.Map.of() : tooltips;
         this.displayNames = displayNames == null ? java.util.Map.of() : displayNames;
@@ -55,6 +57,10 @@ public class DlcItem {
 
     public Path getSourcePath() {
         return sourcePath;
+    }
+
+    public String getAppliedTargetRaw() {
+        return appliedTargetRaw;
     }
 
     public boolean isEnabled() {

@@ -34,11 +34,11 @@ public final class DlcRequiredManager {
         if (hasSkipMarker()) {
             return false;
         }
-        if (!hasMissingDownloads()) {
+        if (!hasMissingDownloadsForPrompt()) {
             return false;
         }
         promptedThisSession = true;
-        Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, collectMissingDownloads()));
+        Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, collectMissingDownloadsForPrompt()));
         return true;
     }
 
@@ -79,6 +79,23 @@ public final class DlcRequiredManager {
             return false;
         }
         return Files.exists(requiredDir.resolve("FORCE"));
+    }
+
+    public static boolean hasForceRestartMarker() {
+        Path requiredDir = getRequiredDir();
+        if (requiredDir == null) {
+            return false;
+        }
+        Path marker = requiredDir.resolve("FORCE");
+        if (!Files.exists(marker)) {
+            return false;
+        }
+        try {
+            String content = Files.readString(marker);
+            return content != null && content.toLowerCase(java.util.Locale.ROOT).contains("forcerestart");
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     public static List<DlcRequiredEntry> loadEntries() {
@@ -243,6 +260,32 @@ public final class DlcRequiredManager {
         return false;
     }
 
+    public static boolean hasMissingDownloadsForPrompt() {
+        List<DlcRequiredEntry> entries = loadAllEntries();
+        for (DlcRequiredEntry entry : entries) {
+            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+                continue;
+            }
+            String fileName = normalizeFileName(entry.getRequiredFileName());
+            if (fileName == null) {
+                fileName = normalizeFileName(resolveFileNameLocal(entry));
+            }
+            if (fileName == null) {
+                fileName = normalizeFileName(resolveExistingRequiredFile(entry));
+            }
+            entry.setResolvedFileName(fileName);
+            if (fileName == null) {
+                return true;
+            }
+            Path required = entry.resolveRequiredPath(fileName);
+            if (required == null || !Files.exists(required)) {
+                return true;
+            }
+            ensureFileNameKey(entry, fileName);
+        }
+        return false;
+    }
+
     public static boolean hasMissingOrApply() {
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
@@ -274,6 +317,35 @@ public final class DlcRequiredManager {
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
             if (entry == null || !entry.isInList()) {
+                continue;
+            }
+            String fileName = normalizeFileName(entry.getRequiredFileName());
+            if (fileName == null) {
+                fileName = normalizeFileName(resolveFileNameLocal(entry));
+            }
+            if (fileName == null) {
+                fileName = normalizeFileName(resolveExistingRequiredFile(entry));
+            }
+            entry.setResolvedFileName(fileName);
+            if (fileName == null) {
+                missing.add(entry);
+                continue;
+            }
+            Path required = entry.resolveRequiredPath(fileName);
+            if (required == null || !Files.exists(required)) {
+                missing.add(entry);
+            } else {
+                ensureFileNameKey(entry, fileName);
+            }
+        }
+        return missing;
+    }
+
+    public static List<DlcRequiredEntry> collectMissingDownloadsForPrompt() {
+        List<DlcRequiredEntry> missing = new ArrayList<>();
+        List<DlcRequiredEntry> entries = loadAllEntries();
+        for (DlcRequiredEntry entry : entries) {
+            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -487,6 +559,35 @@ public final class DlcRequiredManager {
         }
     }
 
+    public static void updateUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
+        if (entry == null) {
+            return;
+        }
+        Path config = entry.getConfigPath();
+        if (config == null || !Files.exists(config)) {
+            return;
+        }
+        try (java.io.Reader reader = Files.newBufferedReader(config)) {
+            com.google.gson.JsonObject obj = GSON.fromJson(reader, com.google.gson.JsonObject.class);
+            if (obj == null) {
+                return;
+            }
+            if (userRemoved) {
+                obj.addProperty("UserRemoved", true);
+            } else {
+                obj.remove("UserRemoved");
+                obj.remove("userRemoved");
+            }
+            com.google.gson.JsonObject reordered = reorderRequiredJson(obj, entry.getRequiredFileName());
+            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
+                GSON.toJson(reordered, writer);
+            }
+            entry.setUserRemoved(userRemoved);
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+    }
+
     private static com.google.gson.JsonObject reorderRequiredJson(com.google.gson.JsonObject obj, String fileNameOverride) {
         com.google.gson.JsonObject ordered = new com.google.gson.JsonObject();
         ordered.addProperty("modrinth_projectid", getString(obj, "modrinth_projectid"));
@@ -523,6 +624,10 @@ public final class DlcRequiredManager {
 
         ordered.addProperty("isInList", getBoolean(obj, "isInList", true));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
+        boolean userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false);
+        if (userRemoved) {
+            ordered.addProperty("UserRemoved", true);
+        }
 
         com.google.gson.JsonElement deps = obj.get("dependencies");
         ordered.add("dependencies", deps == null ? new com.google.gson.JsonPrimitive("") : deps);
@@ -550,6 +655,9 @@ public final class DlcRequiredManager {
                 continue;
             }
             if ("appliedTaget".equals(key) || "displayName".equals(key)) {
+                continue;
+            }
+            if ("UserRemoved".equals(key) || "userRemoved".equals(key)) {
                 continue;
             }
             ordered.add(key, entry.getValue());

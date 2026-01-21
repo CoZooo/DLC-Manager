@@ -13,6 +13,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -28,6 +29,7 @@ import java.util.List;
 public class DlcUpdateManagerScreen extends Screen {
     private final Screen parent;
     private Button importButton;
+    private Button urlButton;
     private Button backButton;
     private int scrollIndex;
     private List<DlcUpdateMeta> history = List.of();
@@ -35,10 +37,12 @@ public class DlcUpdateManagerScreen extends Screen {
     private List<String> rollbackTargets = List.of();
     private List<RowAction> rowActions = List.of();
     private String currentVersion;
+    private String baseVersion;
     private String rollbackFrom;
     private boolean rolledBackMode;
     private UpdateCheckResult updateCheck;
     private boolean hasVisibleUpdates;
+    private boolean applyingUpdates;
 
     public DlcUpdateManagerScreen(Screen parent) {
         super(Component.translatable("dlc_manager.update.manager_title"));
@@ -54,6 +58,7 @@ public class DlcUpdateManagerScreen extends Screen {
         List<DlcUpdateMeta> baseHistory = filterVisible(DlcUpdateService.listUpdateHistory());
         DlcUpdateVersion version = DlcUpdateVersion.load(DlcPaths.dlcRoot());
         currentVersion = version == null ? "" : version.getDlc();
+        baseVersion = version == null ? "" : version.getBase();
         rollbackFrom = version == null ? null : version.getRollbackFrom();
         updateCheck = DlcUpdateService.checkForUpdates();
         rolledBackMode = rollbackFrom != null && !rollbackFrom.isBlank() && !rollbackFrom.equals(currentVersion);
@@ -122,11 +127,16 @@ public class DlcUpdateManagerScreen extends Screen {
         importButton = Button.builder(Component.translatable("dlc_manager.update.import"), button -> importUpdate())
             .bounds(20, y, buttonWidth, buttonHeight)
             .build();
+        int urlX = this.width / 2 - buttonWidth / 2;
+        urlButton = Button.builder(Component.translatable("dlc_manager.update.import_url"), button -> {
+            Minecraft.getInstance().setScreen(new DlcUpdateUrlScreen(this));
+        }).bounds(urlX, y, buttonWidth, buttonHeight).build();
         int backX = this.width - 20 - buttonWidth;
         backButton = Button.builder(Component.translatable("gui.back"), button -> Minecraft.getInstance().setScreen(parent))
             .bounds(backX, y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(importButton);
+        addRenderableWidget(urlButton);
         addRenderableWidget(backButton);
         rollbackButtons.clear();
         for (int i = 0; i < history.size(); i++) {
@@ -167,6 +177,8 @@ public class DlcUpdateManagerScreen extends Screen {
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
         y += 16;
+        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.base", baseVersion), centerX, y, 0xC8C8C8);
+        y += 14;
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.current", currentVersion), centerX, y, 0xC8C8C8);
         y += 14;
         if (rolledBackMode) {
@@ -303,12 +315,7 @@ public class DlcUpdateManagerScreen extends Screen {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
             return;
         }
-        if (importButton != null) {
-            importButton.active = false;
-        }
-        if (backButton != null) {
-            backButton.active = false;
-        }
+        setApplyingUpdates(true);
         new Thread(() -> {
             UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
             Minecraft.getInstance().execute(() -> handleReupdateResult(result, null));
@@ -316,6 +323,17 @@ public class DlcUpdateManagerScreen extends Screen {
     }
 
     private void confirmReupdate(String dlcOld, String dlcNew) {
+        String changelog = DlcUpdateService.buildChangelogText(
+            DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true),
+            PlatformServices.get().languageCode());
+        if (changelog != null && !changelog.isBlank()) {
+            Minecraft.getInstance().setScreen(new DlcUpdateChangelogScreen(this, changelog, () -> confirmReupdateNow(dlcOld, dlcNew)));
+            return;
+        }
+        confirmReupdateNow(dlcOld, dlcNew);
+    }
+
+    private void confirmReupdateNow(String dlcOld, String dlcNew) {
         Component title = Component.translatable("dlc_manager.update.manager_title");
         Component message = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
@@ -328,6 +346,7 @@ public class DlcUpdateManagerScreen extends Screen {
     }
 
     private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {
+        setApplyingUpdates(false);
         if (result.isMissing()) {
             UpdateCheckResult missingCheck = check == null ? DlcUpdateService.checkForUpdates(true) : check;
             Minecraft.getInstance().setScreen(new DlcUpdateMissingScreen(this, missingCheck, result.getMissingPaths()));
@@ -348,7 +367,7 @@ public class DlcUpdateManagerScreen extends Screen {
             return false;
         }
         if (result.hasRequiredAdd()) {
-            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloads();
+            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
             if (!missing.isEmpty()) {
                 Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(this, missing));
                 return true;
@@ -366,6 +385,34 @@ public class DlcUpdateManagerScreen extends Screen {
             return true;
         }
         return false;
+    }
+
+    private void setApplyingUpdates(boolean applying) {
+        applyingUpdates = applying;
+        if (importButton != null) {
+            importButton.active = !applying;
+        }
+        if (urlButton != null) {
+            urlButton.active = !applying;
+        }
+        if (backButton != null) {
+            backButton.active = !applying;
+        }
+        for (Button button : rollbackButtons) {
+            button.active = !applying;
+        }
+    }
+
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return !applyingUpdates;
+    }
+
+    @Override
+    public void onClose() {
+        if (!applyingUpdates) {
+            super.onClose();
+        }
     }
 
     private void importUpdate() {

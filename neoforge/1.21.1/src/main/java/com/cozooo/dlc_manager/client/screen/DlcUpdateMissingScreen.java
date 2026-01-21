@@ -109,6 +109,18 @@ public class DlcUpdateMissingScreen extends Screen {
         return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
     }
 
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return !applying;
+    }
+
+    @Override
+    public void onClose() {
+        if (!applying) {
+            super.onClose();
+        }
+    }
+
     private void startApply() {
         if (applying) {
             return;
@@ -142,7 +154,7 @@ public class DlcUpdateMissingScreen extends Screen {
             return false;
         }
         if (result.hasRequiredAdd()) {
-            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloads();
+            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
             if (!missing.isEmpty()) {
                 Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing));
                 return true;

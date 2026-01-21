@@ -10,14 +10,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class DlcUpdateMeta {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private String dlcOld;
     private String dlcNew;
+    private String baseOld;
+    private String baseNew;
     private String timestamp;
     private boolean hidden;
+    private final Map<String, String> changelog = new LinkedHashMap<>();
     private final List<String> restorePaths = new ArrayList<>();
     private final List<String> createdPaths = new ArrayList<>();
 
@@ -37,11 +42,28 @@ public class DlcUpdateMeta {
             if (obj.has("dlc_new") && obj.get("dlc_new").isJsonPrimitive()) {
                 meta.dlcNew = obj.get("dlc_new").getAsString();
             }
+            if (obj.has("base_old") && obj.get("base_old").isJsonPrimitive()) {
+                meta.baseOld = obj.get("base_old").getAsString();
+            }
+            if (obj.has("base_new") && obj.get("base_new").isJsonPrimitive()) {
+                meta.baseNew = obj.get("base_new").getAsString();
+            }
             if (obj.has("timestamp") && obj.get("timestamp").isJsonPrimitive()) {
                 meta.timestamp = obj.get("timestamp").getAsString();
             }
             if (obj.has("hidden") && obj.get("hidden").isJsonPrimitive()) {
                 meta.hidden = obj.get("hidden").getAsBoolean();
+            }
+            if (obj.has("changelog") && obj.get("changelog").isJsonObject()) {
+                JsonObject logObj = obj.getAsJsonObject("changelog");
+                for (var entry : logObj.entrySet()) {
+                    if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
+                        String raw = entry.getValue().getAsString();
+                        if (raw != null && !raw.isBlank()) {
+                            meta.changelog.put(entry.getKey(), raw);
+                        }
+                    }
+                }
             }
             if (obj.has("restore") && obj.get("restore").isJsonArray()) {
                 obj.getAsJsonArray("restore").forEach(el -> {
@@ -72,8 +94,21 @@ public class DlcUpdateMeta {
             JsonObject obj = new JsonObject();
             obj.addProperty("dlc_old", dlcOld == null ? "" : dlcOld);
             obj.addProperty("dlc_new", dlcNew == null ? "" : dlcNew);
+            if (baseOld != null && !baseOld.isBlank()) {
+                obj.addProperty("base_old", baseOld);
+            }
+            if (baseNew != null && !baseNew.isBlank()) {
+                obj.addProperty("base_new", baseNew);
+            }
             obj.addProperty("timestamp", timestamp == null ? "" : timestamp);
             obj.addProperty("hidden", hidden);
+            if (!changelog.isEmpty()) {
+                JsonObject logObj = new JsonObject();
+                for (Map.Entry<String, String> entry : changelog.entrySet()) {
+                    logObj.addProperty(entry.getKey(), entry.getValue());
+                }
+                obj.add("changelog", logObj);
+            }
             com.google.gson.JsonArray restore = new com.google.gson.JsonArray();
             for (String path : restorePaths) {
                 restore.add(path);
@@ -108,6 +143,22 @@ public class DlcUpdateMeta {
         this.dlcNew = dlcNew;
     }
 
+    public String getBaseOld() {
+        return baseOld;
+    }
+
+    public void setBaseOld(String baseOld) {
+        this.baseOld = baseOld;
+    }
+
+    public String getBaseNew() {
+        return baseNew;
+    }
+
+    public void setBaseNew(String baseNew) {
+        this.baseNew = baseNew;
+    }
+
     public String getTimestamp() {
         return timestamp;
     }
@@ -122,6 +173,35 @@ public class DlcUpdateMeta {
 
     public void setHidden(boolean hidden) {
         this.hidden = hidden;
+    }
+
+    public Map<String, String> getChangelog() {
+        return changelog;
+    }
+
+    public void setChangelog(Map<String, String> values) {
+        changelog.clear();
+        if (values == null) {
+            return;
+        }
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isBlank()) {
+                changelog.put(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    public String resolveChangelog(String lang) {
+        if (changelog.isEmpty()) {
+            return "";
+        }
+        if (lang != null && changelog.containsKey(lang)) {
+            return changelog.get(lang);
+        }
+        if (changelog.containsKey("en_us")) {
+            return changelog.get("en_us");
+        }
+        return changelog.values().stream().findFirst().orElse("");
     }
 
     public List<String> getRestorePaths() {

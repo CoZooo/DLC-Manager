@@ -27,6 +27,10 @@ public final class DlcUpdateService {
     }
 
     public static UpdateCheckResult checkForUpdates() {
+        if (!DlcPathConfig.isUpdateManagerOn()) {
+            Path dlcRoot = getDlcRoot();
+            return new UpdateCheckResult(DlcUpdateVersion.load(dlcRoot), List.of());
+        }
         Path dlcRoot = getDlcRoot();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         List<DlcUpdatePackage> packages = scanUpdatePackages(dlcRoot);
@@ -35,6 +39,10 @@ public final class DlcUpdateService {
     }
 
     public static UpdateCheckResult checkForUpdates(boolean ignoreRollback) {
+        if (!DlcPathConfig.isUpdateManagerOn()) {
+            Path dlcRoot = getDlcRoot();
+            return new UpdateCheckResult(DlcUpdateVersion.load(dlcRoot), List.of());
+        }
         Path dlcRoot = getDlcRoot();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         List<DlcUpdatePackage> packages = scanUpdatePackages(dlcRoot);
@@ -140,8 +148,14 @@ public final class DlcUpdateService {
         DlcUpdateMeta meta = new DlcUpdateMeta();
         meta.setDlcOld(info.getDlcOld());
         meta.setDlcNew(info.getDlcNew());
+        meta.setBaseOld(safeVersion(current.getBase()));
+        String baseNew = optionalVersion(info.getBaseNew());
+        if (baseNew != null) {
+            meta.setBaseNew(baseNew);
+        }
         meta.setTimestamp(Long.toString(System.currentTimeMillis()));
         meta.setHidden(manifest.isHidden());
+        meta.setChangelog(manifest.getChangelog());
         Path backupRoot = dlcRoot.resolve("update_tmp").resolve(info.getDlcNew() == null ? "unknown" : info.getDlcNew());
         Path metaPath = backupRoot.resolve("meta.json");
 
@@ -149,14 +163,20 @@ public final class DlcUpdateService {
 
         try {
             applyDeleteOps(manifest.getFileOps(), context);
+            applyMoveOps(manifest.getFileOps(), context);
             applyAddOps(manifest.getFileOps(), context);
             applyModifyOps(manifest.getFileOps(), context, forceMissing);
             meta.save(metaPath);
 
             DlcUpdateVersion updated = new DlcUpdateVersion();
-            updated.setBase(safeVersion(current.getBase()));
+            String nextBase = safeVersion(current.getBase());
+            if (baseNew != null) {
+                nextBase = baseNew;
+            }
+            updated.setBase(nextBase);
             updated.setDlc(safeVersion(info.getDlcNew()));
             updated.setRollbackFrom(null);
+            updated.setChangelogShown(null);
             updated.save(dlcRoot);
 
             pkg.cleanupStaging();
@@ -197,6 +217,7 @@ public final class DlcUpdateService {
         }
         String beforeRollback = current.getDlc();
         String working = current.getDlc();
+        String workingBase = current.getBase();
         for (DlcUpdateMeta meta : chain) {
             if (meta == null) {
                 break;
@@ -208,12 +229,15 @@ public final class DlcUpdateService {
             UpdateContext context = new UpdateContext(dlcRoot, null, backupRoot, meta);
             rollbackUpdate(context);
             working = meta.getDlcOld();
+            if (meta.getBaseOld() != null && !meta.getBaseOld().isBlank()) {
+                workingBase = meta.getBaseOld();
+            }
             if (working != null && working.equals(targetVersion)) {
                 break;
             }
         }
         DlcUpdateVersion updated = new DlcUpdateVersion();
-        updated.setBase(current.getBase());
+        updated.setBase(workingBase);
         updated.setDlc(working);
         updated.setRollbackFrom(beforeRollback);
         updated.save(dlcRoot);
@@ -240,12 +264,49 @@ public final class DlcUpdateService {
         return loadRollbackChain(dlcRoot, startVersion);
     }
 
+    public static DlcUpdateMeta loadMetaForVersion(String dlcVersion) {
+        Path dlcRoot = getDlcRoot();
+        if (dlcRoot == null || dlcVersion == null || dlcVersion.isBlank()) {
+            return null;
+        }
+        Path metaPath = dlcRoot.resolve("update_tmp").resolve(dlcVersion).resolve("meta.json");
+        return DlcUpdateMeta.load(metaPath);
+    }
+
+    public static String buildChangelogText(List<DlcUpdatePackage> packages, String lang) {
+        if (packages == null || packages.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (DlcUpdatePackage pkg : packages) {
+            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+                continue;
+            }
+            String text = pkg.getManifest().resolveChangelog(lang);
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
+            if (builder.length() > 0) {
+                builder.append("\n\n");
+            }
+            if (info != null) {
+                builder.append(safeVersion(info.getDlcOld())).append(" -> ").append(safeVersion(info.getDlcNew())).append("\n");
+            }
+            builder.append(text.trim());
+        }
+        return builder.toString();
+    }
+
     public static Path getUpdateDir() {
         Path dlcRoot = getDlcRoot();
         return dlcRoot == null ? null : dlcRoot.resolve("update");
     }
 
     public static void ensureUpdateDir() {
+        if (!DlcPathConfig.isUpdateManagerOn()) {
+            return;
+        }
         Path updateDir = getUpdateDir();
         if (updateDir == null) {
             return;
@@ -671,6 +732,54 @@ public final class DlcUpdateService {
         removeSkipMarkerIfNeeded(addedRequiredFiles);
         if (!addedRequiredFiles.isEmpty()) {
             context.addedRequired = true;
+        }
+    }
+
+    private static void applyMoveOps(DlcUpdateManifest.FileOps ops, UpdateContext context) {
+        if (ops == null || context == null) {
+            return;
+        }
+        if (ops.getMove().isEmpty()) {
+            return;
+        }
+        Path gameDir = DlcPaths.gameDir();
+        for (Map.Entry<String, String> entry : ops.getMove().entrySet()) {
+            String rawFrom = entry.getKey();
+            String rawTo = entry.getValue();
+            if (rawFrom == null || rawFrom.isBlank() || rawTo == null || rawTo.isBlank()) {
+                continue;
+            }
+            Path from = resolveGamePath(gameDir, rawFrom);
+            if (from == null || !Files.exists(from)) {
+                continue;
+            }
+            boolean toIsDirHint = rawTo.endsWith("/");
+            Path to = resolveGamePath(gameDir, rawTo);
+            if (to == null) {
+                continue;
+            }
+            if (toIsDirHint || Files.isDirectory(to)) {
+                to = to.resolve(from.getFileName().toString());
+            }
+            boolean destExisted = Files.exists(to);
+            backupPath(toGameRelativePath(from), from, context);
+            if (destExisted) {
+                backupPath(toGameRelativePath(to), to, context);
+                deleteRecursive(to);
+            } else {
+                context.meta.getCreatedPaths().add(toGameRelativePath(to));
+            }
+            try {
+                Files.createDirectories(to.getParent());
+                Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException ignored) {
+                try {
+                    copyRecursive(from, to);
+                    deleteRecursive(from);
+                } catch (Exception ignored2) {
+                    // Best-effort.
+                }
+            }
         }
     }
 
@@ -1386,6 +1495,14 @@ public final class DlcUpdateService {
 
     private static String safeVersion(String value) {
         return value == null || value.isBlank() ? "1.0.0" : value.trim();
+    }
+
+    private static String optionalVersion(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 
     private static int compareVersion(String a, String b) {

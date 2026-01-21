@@ -25,6 +25,7 @@ public class DlcUpdateManifest {
     private VersionInfo version;
     private FileOps fileOps;
     private boolean hidden;
+    private Map<String, String> changelog = new java.util.LinkedHashMap<>();
 
     public static DlcUpdateManifest load(Path updateJson) {
         if (updateJson == null || !Files.exists(updateJson)) {
@@ -48,7 +49,12 @@ public class DlcUpdateManifest {
         DlcUpdateManifest manifest = new DlcUpdateManifest();
         manifest.version = parseVersion(obj.getAsJsonObject("version"));
         manifest.hidden = getBoolean(obj, "isHidden", false);
-        manifest.fileOps = parseFileOps(obj.getAsJsonObject("file"));
+        JsonObject fileObj = obj.getAsJsonObject("file");
+        manifest.fileOps = parseFileOps(fileObj);
+        manifest.changelog = parseChangelog(obj.get("changelog"));
+        if ((manifest.changelog == null || manifest.changelog.isEmpty()) && fileObj != null && fileObj.has("changelog")) {
+            manifest.changelog = parseChangelog(fileObj.get("changelog"));
+        }
         return manifest;
     }
 
@@ -64,15 +70,59 @@ public class DlcUpdateManifest {
         return hidden;
     }
 
+    public Map<String, String> getChangelog() {
+        return changelog == null ? Map.of() : changelog;
+    }
+
+    public String resolveChangelog(String lang) {
+        if (changelog == null || changelog.isEmpty()) {
+            return "";
+        }
+        if (lang != null && changelog.containsKey(lang)) {
+            return changelog.get(lang);
+        }
+        if (changelog.containsKey("en_us")) {
+            return changelog.get("en_us");
+        }
+        return changelog.values().stream().findFirst().orElse("");
+    }
+
     private static VersionInfo parseVersion(JsonObject obj) {
         VersionInfo info = new VersionInfo();
         if (obj == null) {
             return info;
         }
         info.base = getString(obj, "base");
+        info.baseNew = getString(obj, "base_new");
         info.dlcOld = getString(obj, "dlc_old");
         info.dlcNew = getString(obj, "dlc_new");
         return info;
+    }
+
+    private static Map<String, String> parseChangelog(JsonElement element) {
+        Map<String, String> values = new java.util.LinkedHashMap<>();
+        if (element == null || element.isJsonNull()) {
+            return values;
+        }
+        if (element.isJsonPrimitive()) {
+            String raw = element.getAsString();
+            if (raw != null && !raw.isBlank()) {
+                values.put("en_us", raw);
+            }
+            return values;
+        }
+        if (element.isJsonObject()) {
+            JsonObject obj = element.getAsJsonObject();
+            for (var entry : obj.entrySet()) {
+                if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
+                    String raw = entry.getValue().getAsString();
+                    if (raw != null && !raw.isBlank()) {
+                        values.put(entry.getKey(), raw);
+                    }
+                }
+            }
+        }
+        return values;
     }
 
     private static FileOps parseFileOps(JsonObject obj) {
@@ -96,6 +146,27 @@ public class DlcUpdateManifest {
                     if (addEntry != null) {
                         ops.add.put(key, addEntry);
                     }
+                }
+            }
+        }
+        if (obj.has("move")) {
+            JsonElement moveEl = obj.get("move");
+            if (moveEl != null && moveEl.isJsonObject()) {
+                JsonObject moveObj = moveEl.getAsJsonObject();
+                for (var entry : moveObj.entrySet()) {
+                    String from = entry.getKey();
+                    if (from == null || from.isBlank()) {
+                        continue;
+                    }
+                    JsonElement value = entry.getValue();
+                    if (value == null || !value.isJsonPrimitive()) {
+                        continue;
+                    }
+                    String to = value.getAsString();
+                    if (to == null || to.isBlank()) {
+                        continue;
+                    }
+                    ops.move.put(from, to);
                 }
             }
         }
@@ -343,11 +414,16 @@ public class DlcUpdateManifest {
 
     public static class VersionInfo {
         private String base;
+        private String baseNew;
         private String dlcOld;
         private String dlcNew;
 
         public String getBase() {
             return base;
+        }
+
+        public String getBaseNew() {
+            return baseNew;
         }
 
         public String getDlcOld() {
@@ -362,6 +438,7 @@ public class DlcUpdateManifest {
     public static class FileOps {
         private final List<String> del = new ArrayList<>();
         private final Map<String, AddEntry> add = new LinkedHashMap<>();
+        private final Map<String, String> move = new LinkedHashMap<>();
         private final List<ModifyEntry> modify = new ArrayList<>();
 
         public List<String> getDel() {
@@ -370,6 +447,10 @@ public class DlcUpdateManifest {
 
         public Map<String, AddEntry> getAdd() {
             return add;
+        }
+
+        public Map<String, String> getMove() {
+            return move;
         }
 
         public List<ModifyEntry> getModify() {

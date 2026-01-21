@@ -16,6 +16,7 @@ public class DlcUpdateVersion {
     private String base;
     private String dlc;
     private String rollbackFrom;
+    private String changelogShown;
 
     public static DlcUpdateVersion load(Path dlcRoot) {
         DlcUpdateVersion version = new DlcUpdateVersion();
@@ -48,6 +49,11 @@ public class DlcUpdateVersion {
             } else if (obj.has("rollbackFrom") && obj.get("rollbackFrom").isJsonPrimitive()) {
                 version.rollbackFrom = obj.get("rollbackFrom").getAsString();
             }
+            if (obj.has("changelog_shown") && obj.get("changelog_shown").isJsonPrimitive()) {
+                version.changelogShown = obj.get("changelog_shown").getAsString();
+            } else if (obj.has("changelogShown") && obj.get("changelogShown").isJsonPrimitive()) {
+                version.changelogShown = obj.get("changelogShown").getAsString();
+            }
         } catch (IOException ignored) {
             // Best-effort load.
         }
@@ -72,6 +78,9 @@ public class DlcUpdateVersion {
             obj.addProperty("dlc", dlc == null || dlc.isBlank() ? DEFAULT_VERSION : dlc);
             if (rollbackFrom != null && !rollbackFrom.isBlank()) {
                 obj.addProperty("rollback_from", rollbackFrom);
+            }
+            if (changelogShown != null && !changelogShown.isBlank()) {
+                obj.addProperty("changelog_shown", changelogShown);
             }
             try (Writer writer = Files.newBufferedWriter(path)) {
                 GSON.toJson(obj, writer);
@@ -123,5 +132,13 @@ public class DlcUpdateVersion {
 
     public void setRollbackFrom(String rollbackFrom) {
         this.rollbackFrom = rollbackFrom;
+    }
+
+    public String getChangelogShown() {
+        return changelogShown;
+    }
+
+    public void setChangelogShown(String changelogShown) {
+        this.changelogShown = changelogShown;
     }
 }

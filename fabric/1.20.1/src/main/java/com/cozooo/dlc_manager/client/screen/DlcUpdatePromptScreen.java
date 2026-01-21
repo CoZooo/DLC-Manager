@@ -72,6 +72,12 @@ public class DlcUpdatePromptScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(guiGraphics);
+        if (applyButton != null) {
+            applyButton.active = !applying;
+        }
+        if (cancelButton != null) {
+            cancelButton.active = !applying;
+        }
         int centerX = this.width / 2;
         int y = 20;
         int titleX = (this.width - this.font.width(getTitle())) / 2;
@@ -160,7 +166,14 @@ public class DlcUpdatePromptScreen extends Screen {
 
     @Override
     public boolean shouldCloseOnEsc() {
-        return !forceUpdate;
+        return !forceUpdate && !applying;
+    }
+
+    @Override
+    public void onClose() {
+        if (!applying) {
+            super.onClose();
+        }
     }
 
     private boolean hasHiddenUpdates(UpdateCheckResult result) {
@@ -213,7 +226,7 @@ public class DlcUpdatePromptScreen extends Screen {
             return false;
         }
         if (result.hasRequiredAdd()) {
-            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloads();
+            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
             if (!missing.isEmpty()) {
                 Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing));
                 return true;

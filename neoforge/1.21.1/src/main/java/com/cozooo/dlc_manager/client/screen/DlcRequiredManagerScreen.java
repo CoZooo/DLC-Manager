@@ -391,6 +391,7 @@ public class DlcRequiredManagerScreen extends Screen {
                 }
                 DlcRequiredRuntimeState.getBaseline(id, isApplied(entry));
                 removeEntryFiles(entry);
+                DlcRequiredManager.updateUserRemoved(entry, true);
                 DlcRequiredRuntimeState.setOverride(id, false);
             }
         }
@@ -727,6 +728,7 @@ public class DlcRequiredManagerScreen extends Screen {
             if (applyEntry(entry)) {
                 didApply = true;
             }
+            DlcRequiredManager.updateUserRemoved(entry, false);
             DlcRequiredRuntimeState.setOverride(id, true);
             index++;
             updateProgress(state, index, 0f, total);

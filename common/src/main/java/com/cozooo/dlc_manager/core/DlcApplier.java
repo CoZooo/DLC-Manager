@@ -58,12 +58,33 @@ public class DlcApplier {
     private static List<Path> applyItem(DlcItem item) {
         List<Path> targets = new ArrayList<>();
         try {
+            if (item.getType() == DlcType.UNKNOWN) {
+                Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
+                if (target == null) {
+                    return targets;
+                }
+                boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, item.getSourcePath());
+                if (dirTarget) {
+                    Files.createDirectories(target);
+                    Path resolved = target.resolve(item.getSourcePath().getFileName().toString());
+                    copyRecursive(item.getSourcePath(), resolved);
+                    targets.add(resolved);
+                } else {
+                    Path parent = target.getParent();
+                    if (parent != null) {
+                        Files.createDirectories(parent);
+                    }
+                    copyRecursive(item.getSourcePath(), target);
+                    targets.add(target);
+                }
+                return targets;
+            }
             List<Path> targetDirs = switch (item.getType()) {
                 case MOD -> List.of(DlcPaths.modsDir());
                 case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
                 case DATA_PACK -> DlcPathConfig.getDatapackRoots();
                 case TACZ_PACK -> List.of(DlcPaths.taczDir());
-                default -> DlcPathConfig.getOtherRoots();
+                default -> List.of();
             };
             for (Path targetDir : targetDirs) {
                 Files.createDirectories(targetDir);

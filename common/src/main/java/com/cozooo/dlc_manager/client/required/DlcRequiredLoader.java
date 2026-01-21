@@ -106,6 +106,11 @@ public final class DlcRequiredLoader {
         if (obj.has("isHidden") && obj.get("isHidden").isJsonPrimitive()) {
             entry.setHidden(obj.get("isHidden").getAsBoolean());
         }
+        if (obj.has("UserRemoved") && obj.get("UserRemoved").isJsonPrimitive()) {
+            entry.setUserRemoved(obj.get("UserRemoved").getAsBoolean());
+        } else if (obj.has("userRemoved") && obj.get("userRemoved").isJsonPrimitive()) {
+            entry.setUserRemoved(obj.get("userRemoved").getAsBoolean());
+        }
         readDisplayNames(obj, entry);
         readTips(obj, entry);
         String applied = null;

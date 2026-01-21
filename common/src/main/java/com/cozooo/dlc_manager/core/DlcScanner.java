@@ -191,7 +191,11 @@ public class DlcScanner {
         if (identifier == null || identifier.isBlank()) {
             identifier = name;
         }
-        boolean enabled = isEnabledInTargets(name, effectiveType);
+        String appliedTargetRaw = tooltipData != null ? tooltipData.getAppliedTargetRaw() : null;
+        if (effectiveType == DlcType.UNKNOWN && (appliedTargetRaw == null || appliedTargetRaw.isBlank())) {
+            return;
+        }
+        boolean enabled = isEnabledInTargets(name, effectiveType, appliedTargetRaw, source);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
         boolean inList = tooltipData == null || tooltipData.isInList();
         boolean hidden = tooltipData != null && tooltipData.isHidden();
@@ -205,7 +209,7 @@ public class DlcScanner {
         java.util.List<String> dependencies = tooltipData != null ? tooltipData.getDependencies() : java.util.List.of();
         java.util.List<String> conflicts = tooltipData != null ? tooltipData.getConflicts() : java.util.List.of();
         boolean allowEnableByAll = tooltipData == null || tooltipData.AllowEnableByAll();
-        DlcItem item = new DlcItem(id, identifier, name, effectiveType, source, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
+        DlcItem item = new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;
@@ -213,13 +217,24 @@ public class DlcScanner {
         }
     }
 
-    private boolean isEnabledInTargets(String fileName, DlcType type) {
+    private boolean isEnabledInTargets(String fileName, DlcType type, String appliedTargetRaw, Path source) {
+        if (type == DlcType.UNKNOWN) {
+            Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
+            if (target == null) {
+                return false;
+            }
+            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(appliedTargetRaw, target, source);
+            if (dirTarget) {
+                return Files.exists(target.resolve(fileName));
+            }
+            return Files.exists(target);
+        }
         List<Path> targetDirs = switch (type) {
             case MOD -> List.of(DlcPaths.modsDir());
             case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
             case DATA_PACK -> DlcPathConfig.getDatapackRoots();
             case TACZ_PACK -> List.of(DlcPaths.taczDir());
-            default -> DlcPathConfig.getOtherRoots();
+            default -> List.of();
         };
         if (targetDirs.isEmpty()) {
             return false;

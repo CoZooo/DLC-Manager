@@ -25,6 +25,7 @@ public class DlcRequiredEntry {
     private String modrinthVersionId;
     private boolean inList = true;
     private boolean hidden;
+    private boolean userRemoved;
     private String appliedTargetRaw;
     private String resolvedFileName;
     private final List<DlcRequiredDependency> dependencies = new ArrayList<>();
@@ -182,6 +183,14 @@ public class DlcRequiredEntry {
 
     public void setHidden(boolean hidden) {
         this.hidden = hidden;
+    }
+
+    public boolean isUserRemoved() {
+        return userRemoved;
+    }
+
+    public void setUserRemoved(boolean userRemoved) {
+        this.userRemoved = userRemoved;
     }
 
     public List<DlcRequiredDependency> getDependencies() {

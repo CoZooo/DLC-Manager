@@ -214,6 +214,10 @@ public final class DlcRemoteLoader {
         String priority = getString(obj, "priority");
         String identifier = getString(obj, "dlc_identifier");
         String fileName = getString(obj, "file_name");
+        String appliedTarget = getString(obj, "appliedTarget");
+        if (appliedTarget != null) {
+            appliedTarget = appliedTarget.trim();
+        }
         boolean fileNameExplicit = fileName != null && !fileName.isBlank();
         String nameFallback = fallbackName;
         if (nameFallback == null || nameFallback.isBlank()) {
@@ -249,6 +253,9 @@ public final class DlcRemoteLoader {
         boolean inList = obj.has("isInList") ? getBoolean(obj, "isInList", true) : legacyShown;
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
+        if (type == DlcType.UNKNOWN && (appliedTarget == null || appliedTarget.isBlank())) {
+            inList = false;
+        }
 
         DependencyResult deps = normalizeDependencies(obj.get("dependencies"), dlcRoot, baseDir);
         DependencyResult conflicts = normalizeConflicts(obj.get("conflicts"));
@@ -268,6 +275,9 @@ public final class DlcRemoteLoader {
         ordered.addProperty("priority", priority == null || priority.isBlank() ? "modrinth" : priority);
         ordered.addProperty("dlc_identifier", identifier);
         ordered.addProperty("type", DlcTooltipLoader.toTypeString(type));
+        if (appliedTarget != null && !appliedTarget.isBlank()) {
+            ordered.addProperty("appliedTarget", appliedTarget);
+        }
         if (fileName != null && !fileName.isBlank()) {
             ordered.addProperty("file_name", fileName);
         }
@@ -318,6 +328,7 @@ public final class DlcRemoteLoader {
         entry.setFileNameHint(resolvedFileName);
         entry.setFileNameExplicit(fileNameExplicit);
         entry.setType(type);
+        entry.setAppliedTargetRaw(appliedTarget);
         entry.setInList(inList);
         entry.setHidden(hidden);
         entry.setAllowEnableByAll(allowEnableByAll);
@@ -600,6 +611,7 @@ public final class DlcRemoteLoader {
             || obj.has("dlc_identifier")
             || obj.has("file_name")
             || obj.has("type")
+            || obj.has("appliedTarget")
             || obj.has("DisplayName")
             || obj.has("tip")
             || obj.has("isInList")

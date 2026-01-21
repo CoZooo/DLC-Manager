@@ -91,6 +91,12 @@ public final class DlcRemoteManager {
         obj.add("DisplayName", displayObj);
         DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
         obj.addProperty("type", DlcTooltipLoader.toTypeString(type));
+        if (type == DlcType.UNKNOWN) {
+            String appliedTarget = entry.getAppliedTargetRaw();
+            if (appliedTarget != null && !appliedTarget.isBlank()) {
+                obj.addProperty("appliedTarget", appliedTarget);
+            }
+        }
         obj.addProperty("isInList", entry.isInList());
         obj.addProperty("isHidden", entry.isHidden());
         obj.addProperty("AllowEnableByAll", entry.isAllowEnableByAll());
@@ -161,6 +167,10 @@ public final class DlcRemoteManager {
             type = "mod";
         }
         ordered.addProperty("type", type);
+        String appliedTarget = getString(obj, "appliedTarget");
+        if (appliedTarget != null && !appliedTarget.isBlank()) {
+            ordered.addProperty("appliedTarget", appliedTarget);
+        }
 
         String fileName = fileNameOverride;
         if (fileName == null || fileName.isBlank()) {

@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -29,16 +30,31 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class DlcRequiredDownloadScreen extends Screen {
-    private static final int MAX_RETRY = 5;
     private final Screen parent;
     private final List<DlcRequiredEntry> entries;
     private final List<DlcRequiredEntry> displayList = new ArrayList<>();
     private final List<DlcRequiredEntry> downloadQueue = new ArrayList<>();
     private final List<DlcRequiredEntry> applyQueue = new ArrayList<>();
     private final boolean forceRequired;
+    private final boolean forceRestartRequired;
     private boolean updatePackageRequired;
+    private final int maxConcurrentDownloads;
+    private final int maxSegmentsPerFile;
+    private final long minSegmentBytes;
+    private final int maxRetry;
+    private final int connectTimeoutMs;
+    private final int taskTimeoutMs;
+    private final Map<String, Float> progressByKey = new ConcurrentHashMap<>();
+    private final Map<String, Integer> attemptByKey = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicInteger attemptCounter = new java.util.concurrent.atomic.AtomicInteger();
 
     private Button downloadButton;
     private Button skipButton;
@@ -60,6 +76,13 @@ public class DlcRequiredDownloadScreen extends Screen {
         this.parent = parent;
         this.entries = entries == null ? List.of() : entries;
         this.forceRequired = DlcRequiredManager.hasForceMarker();
+        this.forceRestartRequired = DlcRequiredManager.hasForceRestartMarker();
+        this.maxConcurrentDownloads = Math.max(1, DlcPathConfig.getMaxConcurrentDownloads());
+        this.maxSegmentsPerFile = Math.max(1, DlcPathConfig.getMaxSegmentsPerFile());
+        this.minSegmentBytes = Math.max(1L, DlcPathConfig.getMinSegmentBytes());
+        this.maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
+        this.connectTimeoutMs = Math.max(1, DlcPathConfig.getConnectTimeoutMs());
+        this.taskTimeoutMs = Math.max(1, DlcPathConfig.getTaskTimeoutMs());
     }
 
     @Override
@@ -128,26 +151,52 @@ public class DlcRequiredDownloadScreen extends Screen {
             DlcRequiredEntry entry = displayList.get(i);
             String name = entry.resolveDisplayName();
             guiGraphics.drawString(this.font, "- " + name, 24, y, 0xE6E6E6, false);
+            if (downloading && maxConcurrentDownloads > 1) {
+                Float progress = progressByKey.get(progressKey(entry));
+                if (progress != null) {
+                    int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
+                    String progressText = percent + "%";
+                    int textWidth = this.font.width(progressText);
+                    int percentBoxWidth = this.font.width("100%");
+                    int barWidth = 36;
+                    int barHeight = 6;
+                    int percentRight = this.width - 18;
+                    int percentLeft = percentRight - percentBoxWidth;
+                    int barRight = percentLeft - 6;
+                    int barLeft = barRight - barWidth;
+                    int barY = y + 2;
+                    drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress);
+                    guiGraphics.drawString(this.font, progressText, percentRight - textWidth, y, 0xC8C8C8, false);
+                }
+            }
             y += lineHeight;
         }
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
 
         if (downloading) {
             y = this.height - 70;
-            String status = statusText == null ? "" : statusText;
-            guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
-            y += 12;
-            drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress);
-            int percent = Math.round(Math.max(0f, Math.min(1f, currentProgress)) * 100f);
-            guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
+            if (maxConcurrentDownloads <= 1) {
+                String status = statusText == null ? "" : statusText;
+                guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
+                y += 12;
+                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress);
+                int percent = Math.round(Math.max(0f, Math.min(1f, currentProgress)) * 100f);
+                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
+            } else {
+                String status = Component.translatable("dlc_manager.required.downloading_multi").getString();
+                guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
+                y += 12;
+                float totalProgress = getTotalProgress();
+                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, totalProgress);
+                int percent = Math.round(Math.max(0f, Math.min(1f, totalProgress)) * 100f);
+                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
+            }
         } else if (errorText != null && !errorText.isBlank()) {
             y = this.height - 70;
             guiGraphics.drawCenteredString(this.font, errorText, centerX, y, 0xFF6B6B);
         }
 
-        for (var renderable : this.renderables) {
-            renderable.render(guiGraphics, mouseX, mouseY, partialTick);
-        }
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -295,10 +344,19 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (!forceRequired) {
             skipButton.active = false;
         }
+        initProgressMap(downloadQueue);
         if (downloadQueue.isEmpty()) {
             new Thread(() -> {
                 try {
                     applyAll();
+                } catch (Exception e) {
+                    errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
+                    Minecraft.getInstance().execute(() -> {
+                        downloadButton.active = true;
+                        if (!forceRequired) {
+                            skipButton.active = true;
+                        }
+                    });
                 } finally {
                     downloading = false;
                 }
@@ -309,25 +367,31 @@ public class DlcRequiredDownloadScreen extends Screen {
     }
 
     private void downloadAll() {
-        totalCount = downloadQueue.size();
+        List<DlcRequiredEntry> pending = new ArrayList<>(downloadQueue);
+        totalCount = pending.size();
         completedCount = 0;
-        for (DlcRequiredEntry entry : downloadQueue) {
-            statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
-            try {
-                downloadEntry(entry);
-            } catch (Exception e) {
-                errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
-                downloading = false;
-                Minecraft.getInstance().execute(() -> {
-                    downloadButton.active = true;
-                    if (!forceRequired) {
-                        skipButton.active = true;
-                    }
-                });
-                return;
-            }
-            completedCount++;
+        List<DlcRequiredEntry> failed = runDownloadBatch(pending);
+        if (!failed.isEmpty()) {
+            failed = runDownloadBatch(failed);
         }
+        if (!failed.isEmpty()) {
+            downloading = false;
+            Minecraft.getInstance().execute(() -> {
+                downloadButton.active = true;
+                if (!forceRequired) {
+                    skipButton.active = true;
+                }
+            });
+            return;
+        }
+        for (DlcRequiredEntry entry : downloadQueue) {
+            String key = progressKey(entry);
+            Integer active = attemptByKey.get(key);
+            int attemptId = active == null ? attemptCounter.incrementAndGet() : active;
+            attemptByKey.put(key, attemptId);
+            setEntryProgress(key, attemptId, 1f);
+        }
+        errorText = null;
         try {
             applyAll();
         } catch (Exception e) {
@@ -344,16 +408,74 @@ public class DlcRequiredDownloadScreen extends Screen {
         downloading = false;
     }
 
+    private List<DlcRequiredEntry> runDownloadBatch(List<DlcRequiredEntry> pending) {
+        List<DlcRequiredEntry> failed = new ArrayList<>();
+        if (pending.isEmpty()) {
+            return failed;
+        }
+        if (maxConcurrentDownloads <= 1) {
+            for (DlcRequiredEntry entry : pending) {
+                statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                try {
+                    downloadEntry(entry);
+                    completedCount++;
+                } catch (Exception e) {
+                    failed.add(entry);
+                    errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
+                }
+            }
+            return failed;
+        }
+        ExecutorService executor = Executors.newFixedThreadPool(maxConcurrentDownloads);
+        ExecutorCompletionService<DownloadResult> completion = new ExecutorCompletionService<>(executor);
+        for (DlcRequiredEntry entry : pending) {
+            completion.submit(() -> downloadEntryWithResult(entry));
+        }
+        for (int i = 0; i < pending.size(); i++) {
+            try {
+                Future<DownloadResult> future = completion.take();
+                DownloadResult result = future.get();
+                if (result.success) {
+                    completedCount++;
+                } else {
+                    failed.add(result.entry);
+                    if (result.error != null) {
+                        errorText = Component.translatable("dlc_manager.required.error", result.error.getMessage()).getString();
+                    }
+                }
+            } catch (Exception e) {
+                errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
+                failed.add(pending.get(i));
+            }
+        }
+        executor.shutdownNow();
+        return failed;
+    }
+
+    private DownloadResult downloadEntryWithResult(DlcRequiredEntry entry) {
+        try {
+            downloadEntry(entry);
+            return new DownloadResult(entry, true, null);
+        } catch (Exception e) {
+            return new DownloadResult(entry, false, e);
+        }
+    }
+
     private void downloadEntry(DlcRequiredEntry entry) throws IOException, InterruptedException {
         if (entry == null) {
             return;
         }
         currentProgress = 0f;
+        String progressKey = progressKey(entry);
         List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
         IOException lastError = null;
+        Path lastTempFile = null;
+        int attemptId = 0;
         for (DownloadCandidate candidate : candidates) {
-            for (int attempt = 1; attempt <= MAX_RETRY; attempt++) {
+            for (int attempt = 1; attempt <= maxRetry; attempt++) {
                 try {
+                    attemptId = attemptCounter.incrementAndGet();
+                    attemptByKey.put(progressKey, attemptId);
                     String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
                     if (fileName == null && candidate.fileNameOverride != null) {
                         fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
@@ -377,9 +499,11 @@ public class DlcRequiredDownloadScreen extends Screen {
                     if (Files.exists(target)) {
                         closeQuietly(downloadInfo.connection);
                         entry.setResolvedFileName(fileName);
+                        setEntryProgress(progressKey, attemptId, 1f);
                         return;
                     }
                     Path tempFile = target.getParent().resolve(fileName + ".part");
+                    lastTempFile = tempFile;
                     long existing = Files.exists(tempFile) ? Files.size(tempFile) : 0L;
                     closeQuietly(downloadInfo.connection);
                     if (existing > 0) {
@@ -393,16 +517,50 @@ public class DlcRequiredDownloadScreen extends Screen {
                     } else {
                         downloadInfo = openDownload(candidate.url, 0);
                     }
-                    downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes);
+                    if (downloadInfo.responseCode >= 400) {
+                        closeQuietly(downloadInfo.connection);
+                        throw new IOException("http " + downloadInfo.responseCode);
+                    }
+                    if (existing == 0 && maxSegmentsPerFile > 1) {
+                        DownloadProbe probe = probeDownload(candidate.url, downloadInfo);
+                        if (probe.supportsRanges && probe.totalBytes > 0 && probe.totalBytes >= minSegmentBytes) {
+                            downloadSegmented(candidate.url, tempFile, probe.totalBytes, progressKey, attemptId);
+                        } else {
+                            downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes, progressKey, attemptId);
+                        }
+                    } else {
+                        downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes, progressKey, attemptId);
+                    }
+                    if (downloadInfo.totalBytes <= 0 && Files.size(tempFile) <= 0) {
+                        throw new IOException("download empty");
+                    }
                     Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
                     downloadedAny = true;
+                    setEntryProgress(progressKey, attemptId, 1f);
                     entry.setResolvedFileName(fileName);
                     DlcRequiredManager.updateFileNameKey(entry, fileName);
                     return;
                 } catch (IOException ex) {
                     lastError = ex;
+                    if (ex instanceof SegmentDownloadException) {
+                        setEntryProgress(progressKey, attemptId, 0f);
+                        break;
+                    }
+                    if (attempt >= maxRetry) {
+                        setEntryProgress(progressKey, attemptId, 0f);
+                    }
                 }
             }
+        }
+        if (lastTempFile != null) {
+            try {
+                Files.deleteIfExists(lastTempFile);
+            } catch (IOException ignored) {
+                // Best-effort.
+            }
+        }
+        if (attemptId > 0) {
+            setEntryProgress(progressKey, attemptId, 0f);
         }
         if (lastError != null) {
             throw lastError;
@@ -410,10 +568,13 @@ public class DlcRequiredDownloadScreen extends Screen {
         throw new IOException("missing download url");
     }
 
-    private void applyAll() {
+    private void applyAll() throws IOException {
         Minecraft minecraft = Minecraft.getInstance();
         boolean didApply = downloadedAny;
         boolean updateApplied = false;
+        if (!ensureAllRequiredReady()) {
+            throw new IOException("download incomplete");
+        }
         java.util.Map<String, Boolean> baselines = new java.util.HashMap<>();
         for (DlcRequiredEntry entry : applyQueue) {
             if (entry == null) {
@@ -462,6 +623,7 @@ public class DlcRequiredDownloadScreen extends Screen {
             if (id == null || id.isBlank()) {
                 continue;
             }
+            DlcRequiredManager.updateUserRemoved(entry, false);
             DlcRequiredRuntimeState.setOverride(id, true);
         }
         if (updatePackageRequired) {
@@ -486,6 +648,37 @@ public class DlcRequiredDownloadScreen extends Screen {
             Minecraft.getInstance().execute(() -> minecraft.setScreen(parent));
             return;
         }
+        if (forceRestartRequired) {
+            Minecraft.getInstance().execute(() -> minecraft.setScreen(new Screen(Component.translatable("dlc_manager.title")) {
+                @Override
+                protected void init() {
+                    int buttonWidth = 140;
+                    int buttonHeight = 20;
+                    int y = this.height - 40;
+                    addRenderableWidget(Button.builder(Component.translatable("dlc_manager.restart_now"), button -> Minecraft.getInstance().stop())
+                        .bounds(this.width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
+                        .build());
+                }
+
+                @Override
+                public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+                    this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+                    int centerX = this.width / 2;
+                    int y = 40;
+                    int titleX = (this.width - this.font.width(getTitle())) / 2;
+                    guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
+                    y += 20;
+                    guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.required.restart_prompt"), centerX, y, 0xC8C8C8);
+                    super.render(guiGraphics, mouseX, mouseY, partialTick);
+                }
+
+                @Override
+                public boolean shouldCloseOnEsc() {
+                    return false;
+                }
+            }));
+            return;
+        }
         Minecraft.getInstance().execute(() -> minecraft.setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 minecraft.stop();
@@ -497,12 +690,30 @@ public class DlcRequiredDownloadScreen extends Screen {
             Component.translatable("dlc_manager.restart_later"))));
     }
 
+    private boolean ensureAllRequiredReady() {
+        for (DlcRequiredEntry entry : applyQueue) {
+            if (entry == null) {
+                continue;
+            }
+            String fileName = resolveExistingFileName(entry);
+            if (fileName == null || fileName.isBlank()) {
+                return false;
+            }
+            entry.setResolvedFileName(fileName);
+            Path required = entry.resolveRequiredPath(fileName);
+            if (required == null || !Files.exists(required)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean maybeShowPostUpdateDownloads(UpdateApplyResult result) {
         if (result == null || !result.isSuccess()) {
             return false;
         }
         if (result.hasRequiredAdd()) {
-            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloads();
+            List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
             if (!missing.isEmpty()) {
                 Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing)));
                 return true;
@@ -731,13 +942,13 @@ public class DlcRequiredDownloadScreen extends Screen {
         guiGraphics.fill(x, y, x + filled, y + height, fg);
     }
 
-    private void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes) throws IOException {
+    private void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes, String progressKey, int attemptId) throws IOException {
         if (connection == null) {
             throw new IOException("missing download url");
         }
         long total = totalBytes > 0 ? totalBytes : connection.getContentLengthLong();
         if (total > 0 && offset > 0) {
-            currentProgress = Math.min(1f, (float) offset / (float) total);
+            setEntryProgress(progressKey, attemptId, Math.min(1f, (float) offset / (float) total));
         }
         long read = offset;
         try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
@@ -751,7 +962,7 @@ public class DlcRequiredDownloadScreen extends Screen {
                 out.write(buffer, 0, len);
                 read += len;
                 if (total > 0) {
-                    currentProgress = Math.min(1f, (float) read / (float) total);
+                    setEntryProgress(progressKey, attemptId, Math.min(1f, (float) read / (float) total));
                 }
             }
         } finally {
@@ -760,7 +971,167 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (total > 0 && read < total) {
             throw new IOException("download incomplete");
         }
-        currentProgress = total > 0 ? Math.min(1f, (float) read / (float) total) : 1f;
+        setEntryProgress(progressKey, attemptId, total > 0 ? Math.min(1f, (float) read / (float) total) : 1f);
+    }
+
+    private DownloadProbe probeDownload(String url, DownloadInfo existingInfo) throws IOException {
+        long total = existingInfo != null ? existingInfo.totalBytes : -1L;
+        boolean supports = false;
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestMethod("HEAD");
+            connection.setConnectTimeout(connectTimeoutMs);
+            connection.setReadTimeout(taskTimeoutMs);
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            String accept = connection.getHeaderField("Accept-Ranges");
+            supports = accept != null && accept.toLowerCase(java.util.Locale.ROOT).contains("bytes");
+            long length = connection.getContentLengthLong();
+            if (length > 0) {
+                total = length;
+            }
+            if (supports && total > 0) {
+                return new DownloadProbe(total, true);
+            }
+        } catch (Exception ignored) {
+            // Best-effort.
+        } finally {
+            closeQuietly(connection);
+        }
+        HttpURLConnection rangeConn = null;
+        try {
+            rangeConn = (HttpURLConnection) new URL(url).openConnection();
+            rangeConn.setInstanceFollowRedirects(true);
+            rangeConn.setConnectTimeout(connectTimeoutMs);
+            rangeConn.setReadTimeout(taskTimeoutMs);
+            rangeConn.setRequestProperty("User-Agent", "DLC-Manager");
+            rangeConn.setRequestProperty("Range", "bytes=0-0");
+            rangeConn.connect();
+            int code = rangeConn.getResponseCode();
+            String contentRange = rangeConn.getHeaderField("Content-Range");
+            long parsed = parseTotalBytes(contentRange);
+            if (code == HttpURLConnection.HTTP_PARTIAL && parsed > 0) {
+                return new DownloadProbe(parsed, true);
+            }
+            if (total <= 0) {
+                long length = rangeConn.getContentLengthLong();
+                if (length > 0) {
+                    total = length;
+                }
+            }
+        } finally {
+            closeQuietly(rangeConn);
+        }
+        return new DownloadProbe(total, false);
+    }
+
+    private long parseTotalBytes(String contentRange) {
+        if (contentRange == null || contentRange.isBlank()) {
+            return -1L;
+        }
+        int slash = contentRange.lastIndexOf('/');
+        if (slash < 0 || slash + 1 >= contentRange.length()) {
+            return -1L;
+        }
+        try {
+            return Long.parseLong(contentRange.substring(slash + 1).trim());
+        } catch (NumberFormatException ignored) {
+            return -1L;
+        }
+    }
+
+    private static class SegmentDownloadException extends IOException {
+        private SegmentDownloadException(String message) {
+            super(message);
+        }
+
+        private SegmentDownloadException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    private void downloadSegmented(String url, Path tempFile, long totalBytes, String progressKey, int attemptId) throws IOException {
+        int segments = Math.max(1, Math.min(maxSegmentsPerFile, (int) Math.min(Integer.MAX_VALUE, totalBytes)));
+        long segmentSize = Math.max(1L, totalBytes / segments);
+        java.util.concurrent.atomic.AtomicLong readBytes = new java.util.concurrent.atomic.AtomicLong(0L);
+        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(tempFile.toFile(), "rw")) {
+            raf.setLength(totalBytes);
+        }
+        ExecutorService executor = Executors.newFixedThreadPool(segments);
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < segments; i++) {
+            long start = i * segmentSize;
+            long end = (i == segments - 1) ? totalBytes - 1 : (start + segmentSize - 1);
+            long segmentTotal = end - start + 1;
+            futures.add(executor.submit(() -> {
+                long segmentRead = 0L;
+                int attempts = 0;
+                IOException lastError = null;
+                while (segmentRead < segmentTotal) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new SegmentDownloadException("interrupted");
+                    }
+                    attempts++;
+                    if (attempts > maxRetry) {
+                        throw new SegmentDownloadException("segment retry exceeded", lastError);
+                    }
+                    HttpURLConnection connection = null;
+                    try {
+                        connection = (HttpURLConnection) new URL(url).openConnection();
+                        connection.setInstanceFollowRedirects(true);
+                        connection.setConnectTimeout(connectTimeoutMs);
+                        connection.setReadTimeout(taskTimeoutMs);
+                        connection.setRequestProperty("User-Agent", "DLC-Manager");
+                        long rangeStart = start + segmentRead;
+                        connection.setRequestProperty("Range", "bytes=" + rangeStart + "-" + end);
+                        connection.connect();
+                        int code = connection.getResponseCode();
+                        if (code != HttpURLConnection.HTTP_PARTIAL) {
+                            throw new IOException("range not supported");
+                        }
+                        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+                             java.io.RandomAccessFile raf = new java.io.RandomAccessFile(tempFile.toFile(), "rw")) {
+                            raf.seek(rangeStart);
+                            byte[] buffer = new byte[8192];
+                            int len;
+                            while ((len = in.read(buffer)) >= 0) {
+                                if (Thread.currentThread().isInterrupted()) {
+                                    throw new IOException("interrupted");
+                                }
+                                raf.write(buffer, 0, len);
+                                segmentRead += len;
+                                long totalRead = readBytes.addAndGet(len);
+                                setEntryProgress(progressKey, attemptId, Math.min(1f, (float) totalRead / (float) totalBytes));
+                            }
+                        }
+                    } catch (IOException ex) {
+                        lastError = ex;
+                        continue;
+                    } finally {
+                        closeQuietly(connection);
+                    }
+                }
+                return null;
+            }));
+        }
+        executor.shutdown();
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (Exception e) {
+                for (Future<?> pending : futures) {
+                    pending.cancel(true);
+                }
+                Throwable cause = e.getCause();
+                if (cause instanceof SegmentDownloadException) {
+                    throw (SegmentDownloadException) cause;
+                }
+                throw new SegmentDownloadException("segment failed", e);
+            }
+        }
+        setEntryProgress(progressKey, attemptId, 1f);
     }
 
     private List<DownloadCandidate> buildDownloadCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
@@ -813,8 +1184,8 @@ public class DlcRequiredDownloadScreen extends Screen {
     private DownloadInfo openDownload(String url, long offset) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(180000);
+        connection.setConnectTimeout(connectTimeoutMs);
+        connection.setReadTimeout(taskTimeoutMs);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
         if (offset > 0) {
             connection.setRequestProperty("Range", "bytes=" + offset + "-");
@@ -837,6 +1208,78 @@ public class DlcRequiredDownloadScreen extends Screen {
             } catch (Exception ignored) {
                 // Best-effort.
             }
+        }
+    }
+
+    private void initProgressMap(List<DlcRequiredEntry> pending) {
+        progressByKey.clear();
+        attemptByKey.clear();
+        if (pending == null) {
+            return;
+        }
+        for (DlcRequiredEntry entry : pending) {
+            progressByKey.put(progressKey(entry), 0f);
+        }
+    }
+
+    private void setEntryProgress(String key, int attemptId, float progress) {
+        if (key == null) {
+            return;
+        }
+        Integer active = attemptByKey.get(key);
+        if (active != null && active != attemptId) {
+            return;
+        }
+        progressByKey.put(key, progress);
+        if (maxConcurrentDownloads <= 1) {
+            currentProgress = progress;
+        }
+    }
+
+    private float getTotalProgress() {
+        if (totalCount <= 0) {
+            return 0f;
+        }
+        float sum = 0f;
+        for (Float value : progressByKey.values()) {
+            if (value != null) {
+                sum += value;
+            }
+        }
+        return sum / Math.max(1, totalCount);
+    }
+
+    private String progressKey(DlcRequiredEntry entry) {
+        if (entry == null) {
+            return "";
+        }
+        String id = entry.getIdentifier();
+        String suffix = "#" + System.identityHashCode(entry);
+        if (id != null && !id.isBlank()) {
+            return id + suffix;
+        }
+        return suffix;
+    }
+
+    private static final class DownloadResult {
+        private final DlcRequiredEntry entry;
+        private final boolean success;
+        private final Exception error;
+
+        private DownloadResult(DlcRequiredEntry entry, boolean success, Exception error) {
+            this.entry = entry;
+            this.success = success;
+            this.error = error;
+        }
+    }
+
+    private static final class DownloadProbe {
+        private final long totalBytes;
+        private final boolean supportsRanges;
+
+        private DownloadProbe(long totalBytes, boolean supportsRanges) {
+            this.totalBytes = totalBytes;
+            this.supportsRanges = supportsRanges;
         }
     }
 

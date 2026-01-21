@@ -588,12 +588,23 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
 
     private static boolean isEnabledInTargets(DlcItem item) {
         String name = item.getSourcePath().getFileName().toString();
+        if (item.getType() == DlcType.UNKNOWN) {
+            Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
+            if (target == null) {
+                return false;
+            }
+            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, item.getSourcePath());
+            if (dirTarget) {
+                return java.nio.file.Files.exists(target.resolve(name));
+            }
+            return java.nio.file.Files.exists(target);
+        }
         List<Path> targetDirs = switch (item.getType()) {
             case MOD -> List.of(DlcPaths.modsDir());
             case RESOURCE_PACK -> List.of();
             case DATA_PACK -> DlcPathConfig.getDatapackRoots();
             case TACZ_PACK -> List.of(DlcPaths.taczDir());
-            default -> DlcPathConfig.getOtherRoots();
+            default -> List.of();
         };
         if (item.getType() == DlcType.RESOURCE_PACK) {
             return isResourcePackSelected(name);
