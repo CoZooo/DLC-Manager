@@ -33,11 +33,11 @@ public class DlcPathConfig {
     static final boolean DEFAULT_CONFIG_BUTTON_SHOWN = true;
     static final boolean DEFAULT_U_BUTTON_SHOWN = true;
     static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
-    static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 3;
+    static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 5;
     static final int DEFAULT_MAX_SEGMENTS_PER_FILE = 4;
     static final int DEFAULT_MIN_SEGMENT_MB = 20;
     static final int DEFAULT_MAX_RETRY = 5;
-    static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 20;
+    static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
     static final int DEFAULT_TASK_TIMEOUT_SECONDS = 180;
 
     private static boolean registered;
