@@ -38,7 +38,7 @@ public class DlcPathConfig {
     static final int DEFAULT_MIN_SEGMENT_MB = 20;
     static final int DEFAULT_MAX_RETRY = 5;
     static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
-    static final int DEFAULT_TASK_TIMEOUT_SECONDS = 90;
+    static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
 
     private static boolean registered;
 
@@ -318,6 +318,7 @@ public class DlcPathConfig {
         }
         return value * 1000;
     }
+
 
     public static void setDlcRoot(String value) {
         if (value != null) {

@@ -18,9 +18,11 @@ public class DlcRemoteEntry {
     private String dlcIdentifier;
     private String directUrl;
     private List<String> directUrls = List.of();
-    private String downloadPriority = "modrinth";
+    private String downloadPriority = "curseforge";
     private String modrinthProjectId;
     private String modrinthVersionId;
+    private String curseforgeProjectId;
+    private String curseforgeFileId;
     private DlcType type;
     private String appliedTargetRaw;
     private boolean inList;
@@ -135,6 +137,10 @@ public class DlcRemoteEntry {
         return "directurl".equalsIgnoreCase(downloadPriority);
     }
 
+    public boolean isCurseForgePriority() {
+        return "curseforge".equalsIgnoreCase(downloadPriority);
+    }
+
     public String getModrinthProjectId() {
         return modrinthProjectId;
     }
@@ -149,6 +155,22 @@ public class DlcRemoteEntry {
 
     public void setModrinthVersionId(String modrinthVersionId) {
         this.modrinthVersionId = modrinthVersionId;
+    }
+
+    public String getCurseforgeProjectId() {
+        return curseforgeProjectId;
+    }
+
+    public void setCurseforgeProjectId(String curseforgeProjectId) {
+        this.curseforgeProjectId = curseforgeProjectId;
+    }
+
+    public String getCurseforgeFileId() {
+        return curseforgeFileId;
+    }
+
+    public void setCurseforgeFileId(String curseforgeFileId) {
+        this.curseforgeFileId = curseforgeFileId;
     }
 
     public DlcType getType() {
@@ -270,6 +292,12 @@ public class DlcRemoteEntry {
     public String getUniqueKey() {
         if (modrinthVersionId != null && !modrinthVersionId.isBlank()) {
             return "modrinth:" + modrinthVersionId;
+        }
+        if (curseforgeFileId != null && !curseforgeFileId.isBlank()) {
+            String prefix = (curseforgeProjectId == null || curseforgeProjectId.isBlank())
+                ? "curseforge"
+                : "curseforge:" + curseforgeProjectId;
+            return prefix + ":" + curseforgeFileId;
         }
         if (directUrl != null && !directUrl.isBlank()) {
             return "url:" + directUrl;
