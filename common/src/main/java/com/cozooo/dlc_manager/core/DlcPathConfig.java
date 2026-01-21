@@ -38,7 +38,7 @@ public class DlcPathConfig {
     static final int DEFAULT_MIN_SEGMENT_MB = 20;
     static final int DEFAULT_MAX_RETRY = 5;
     static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
-    static final int DEFAULT_TASK_TIMEOUT_SECONDS = 180;
+    static final int DEFAULT_TASK_TIMEOUT_SECONDS = 90;
 
     private static boolean registered;
 
