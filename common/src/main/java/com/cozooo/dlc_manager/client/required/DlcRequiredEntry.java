@@ -20,9 +20,11 @@ public class DlcRequiredEntry {
     private String requiredFileName;
     private String directUrl;
     private List<String> directUrls = new ArrayList<>();
-    private String downloadPriority = "modrinth";
+    private String downloadPriority = "curseforge";
     private String modrinthProjectId;
     private String modrinthVersionId;
+    private String curseforgeProjectId;
+    private String curseforgeFileId;
     private boolean inList = true;
     private boolean hidden;
     private boolean userRemoved;
@@ -154,6 +156,22 @@ public class DlcRequiredEntry {
         this.modrinthVersionId = modrinthVersionId;
     }
 
+    public String getCurseforgeProjectId() {
+        return curseforgeProjectId;
+    }
+
+    public void setCurseforgeProjectId(String curseforgeProjectId) {
+        this.curseforgeProjectId = curseforgeProjectId;
+    }
+
+    public String getCurseforgeFileId() {
+        return curseforgeFileId;
+    }
+
+    public void setCurseforgeFileId(String curseforgeFileId) {
+        this.curseforgeFileId = curseforgeFileId;
+    }
+
     public String getDownloadPriority() {
         return downloadPriority;
     }
@@ -167,6 +185,10 @@ public class DlcRequiredEntry {
 
     public boolean isDirectUrlPriority() {
         return "directurl".equalsIgnoreCase(downloadPriority);
+    }
+
+    public boolean isCurseForgePriority() {
+        return "curseforge".equalsIgnoreCase(downloadPriority);
     }
 
     public boolean isInList() {

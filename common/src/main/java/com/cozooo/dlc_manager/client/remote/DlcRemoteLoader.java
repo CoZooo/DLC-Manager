@@ -211,6 +211,8 @@ public final class DlcRemoteLoader {
         String directUrl = directUrls.isEmpty() ? getString(obj, "directUrl") : directUrls.get(0);
         String projectId = getString(obj, "modrinth_projectid");
         String versionId = getString(obj, "modrinth_versionid");
+        String curseProjectId = getString(obj, "curseforge_projectid");
+        String curseFileId = getString(obj, "curseforge_fileid");
         String priority = getString(obj, "priority");
         String identifier = getString(obj, "dlc_identifier");
         String fileName = getString(obj, "file_name");
@@ -225,6 +227,8 @@ public final class DlcRemoteLoader {
                 nameFallback = extractFileName(directUrl);
             } else if (projectId != null && !projectId.isBlank()) {
                 nameFallback = projectId;
+            } else if (curseProjectId != null && !curseProjectId.isBlank()) {
+                nameFallback = curseProjectId;
             }
         }
         if (fileName == null || fileName.isBlank()) {
@@ -261,6 +265,8 @@ public final class DlcRemoteLoader {
         DependencyResult conflicts = normalizeConflicts(obj.get("conflicts"));
 
         JsonObject ordered = new JsonObject();
+        ordered.addProperty("curseforge_projectid", curseProjectId == null ? "" : curseProjectId);
+        ordered.addProperty("curseforge_fileid", curseFileId == null ? "" : curseFileId);
         ordered.addProperty("modrinth_projectid", projectId == null ? "" : projectId);
         ordered.addProperty("modrinth_versionid", versionId == null ? "" : versionId);
         if (directUrls.size() > 1) {
@@ -272,7 +278,7 @@ public final class DlcRemoteLoader {
         } else {
             ordered.addProperty("directUrl", directUrl == null ? "" : directUrl);
         }
-        ordered.addProperty("priority", priority == null || priority.isBlank() ? "modrinth" : priority);
+        ordered.addProperty("priority", priority == null || priority.isBlank() ? "curseforge" : priority);
         ordered.addProperty("dlc_identifier", identifier);
         ordered.addProperty("type", DlcTooltipLoader.toTypeString(type));
         if (appliedTarget != null && !appliedTarget.isBlank()) {
@@ -319,6 +325,8 @@ public final class DlcRemoteLoader {
         }
         entry.setModrinthProjectId(ordered.get("modrinth_projectid").getAsString());
         entry.setModrinthVersionId(ordered.get("modrinth_versionid").getAsString());
+        entry.setCurseforgeProjectId(ordered.get("curseforge_projectid").getAsString());
+        entry.setCurseforgeFileId(ordered.get("curseforge_fileid").getAsString());
         entry.setDownloadPriority(ordered.get("priority").getAsString());
         entry.setDlcIdentifier(ordered.get("dlc_identifier").getAsString());
         String resolvedFileName = fileName;
@@ -608,6 +616,8 @@ public final class DlcRemoteLoader {
         return obj.has("directUrl")
             || obj.has("modrinth_projectid")
             || obj.has("modrinth_versionid")
+            || obj.has("curseforge_projectid")
+            || obj.has("curseforge_fileid")
             || obj.has("dlc_identifier")
             || obj.has("file_name")
             || obj.has("type")

@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
+import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
@@ -690,6 +691,11 @@ public class DlcRemoteDownloadScreen extends Screen {
         if (versionId != null && !versionId.isBlank()) {
             version = ModrinthClient.fetchVersion(versionId);
         }
+        CurseForgeClient.CurseForgeFile curseFile = null;
+        String curseFileId = entry.getCurseforgeFileId();
+        if (curseFileId != null && !curseFileId.isBlank()) {
+            curseFile = CurseForgeClient.fetchFile(entry.getCurseforgeProjectId(), curseFileId);
+        }
         List<String> directUrls = new ArrayList<>();
         for (String url : entry.getDirectUrls()) {
             if (url != null && !url.isBlank()) {
@@ -703,10 +709,26 @@ public class DlcRemoteDownloadScreen extends Screen {
             for (String url : directUrls) {
                 candidates.add(new DownloadCandidate(url, true, null));
             }
+            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
+                candidates.add(new DownloadCandidate(curseFile.url, false, curseFile.fileName));
+            }
             if (version != null && version.url != null && !version.url.isBlank()) {
                 candidates.add(new DownloadCandidate(version.url, false, version.fileName));
             }
+        } else if (entry.isCurseForgePriority()) {
+            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
+                candidates.add(new DownloadCandidate(curseFile.url, false, curseFile.fileName));
+            }
+            if (version != null && version.url != null && !version.url.isBlank()) {
+                candidates.add(new DownloadCandidate(version.url, false, version.fileName));
+            }
+            for (String url : directUrls) {
+                candidates.add(new DownloadCandidate(url, true, null));
+            }
         } else {
+            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
+                candidates.add(new DownloadCandidate(curseFile.url, false, curseFile.fileName));
+            }
             if (version != null && version.url != null && !version.url.isBlank()) {
                 candidates.add(new DownloadCandidate(version.url, false, version.fileName));
             }
