@@ -143,6 +143,7 @@
   "dlc_manager.update.base": "底包版本：%s",
   "dlc_manager.update.current": "当前 DLC 版本：%s",
   "dlc_manager.update.rollback_info": "已回溯：%s -> %s",
+  "dlc_manager.update.manager_prefix": "DLC管理器：",
   "dlc_manager.update.confirm_apply": "确定开始更新吗？",
   "dlc_manager.update.confirm_reapply": "确定重新更新 %s -> %s 吗？",
   "dlc_manager.update.confirm_rollback": "确定回溯到 %s 吗？",
@@ -173,5 +174,16 @@
   "dlc_manager.update.rollback": "回溯",
   "dlc_manager.update.apply": "更新",
   "dlc_manager.update.rollback_success": "回溯完成。",
-  "dlc_manager.update.rollback_failed": "回溯失败。"
+  "dlc_manager.update.rollback_failed": "回溯失败。",
+  "dlc_manager.self_update.title": "DLC 管理器更新",
+  "dlc_manager.self_update.button": "更新DLC管理器",
+  "dlc_manager.self_update.current": "当前版本：%s",
+  "dlc_manager.self_update.latest": "最新版本：%s",
+  "dlc_manager.self_update.checking": "正在检查更新...",
+  "dlc_manager.self_update.none": "没有可用的模组更新。",
+  "dlc_manager.self_update.download": "下载更新",
+  "dlc_manager.self_update.skip": "跳过",
+  "dlc_manager.self_update.downloading": "正在下载更新...",
+  "dlc_manager.self_update.failed": "下载更新失败。",
+  "dlc_manager.self_update.restart": "更新已下载，是否立即重启？"
 }

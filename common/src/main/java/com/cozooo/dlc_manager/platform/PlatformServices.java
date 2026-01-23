@@ -8,6 +8,10 @@ public final class PlatformServices {
         Path configDir();
         boolean isModLoaded(String modId);
         String languageCode();
+        String loaderName();
+        String mcVersion();
+        String modVersion(String modId);
+        Path modFilePath(String modId);
     }
 
     private static Provider provider;
@@ -47,6 +51,26 @@ public final class PlatformServices {
         @Override
         public String languageCode() {
             return "en_us";
+        }
+
+        @Override
+        public String loaderName() {
+            return "";
+        }
+
+        @Override
+        public String mcVersion() {
+            return "";
+        }
+
+        @Override
+        public String modVersion(String modId) {
+            return "";
+        }
+
+        @Override
+        public Path modFilePath(String modId) {
+            return null;
         }
     }
 }

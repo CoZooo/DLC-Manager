@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.platform.NeoForgePlatformServices;
 import com.cozooo.dlc_manager.world.DlcWorldSync;
 import net.neoforged.neoforge.common.NeoForge;
@@ -16,6 +17,7 @@ public class DlcManager {
     public DlcManager() {
         System.setProperty("java.awt.headless", "false");
         NeoForgePlatformServices.init();
+        DlcSelfUpdateService.applyPendingUpdate();
         DlcPathConfig.load();
         DlcConfig.load();
 

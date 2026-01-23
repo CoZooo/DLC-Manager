@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.platform.ForgePlatformServices;
 import com.cozooo.dlc_manager.world.DlcWorldSync;
 import com.mojang.logging.LogUtils;
@@ -18,6 +19,7 @@ public class DlcManager {
 
     public DlcManager() {
         ForgePlatformServices.init();
+        DlcSelfUpdateService.applyPendingUpdate();
         DlcPathConfig.load();
         DlcConfig.load();
 

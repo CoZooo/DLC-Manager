@@ -11,6 +11,8 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
+import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
+import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -41,6 +43,7 @@ import java.nio.file.Path;
 @Mod.EventBusSubscriber(modid = DlcManager.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class DlcManagerClient {
     private static volatile boolean startupCheckRunning = false;
+    private static volatile boolean selfUpdatePrompted = false;
     private static final Logger LOGGER = LogUtils.getLogger();
     public static void init(IEventBus modBus) {
         modBus.addListener(DlcManagerClient::onClientSetup);
@@ -231,6 +234,8 @@ public class DlcManagerClient {
             boolean hasUpdate = false;
             boolean hasRequired = false;
             java.util.List<DlcRequiredEntry> missing = java.util.List.of();
+            DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = null;
+            boolean hasSelfUpdate = false;
             boolean updateManagerOn = DlcPathConfig.isUpdateManagerOn();
             String changelogText = "";
             String changelogVersion = null;
@@ -260,6 +265,12 @@ public class DlcManagerClient {
                 int updateCount = updateResult == null || updateResult.getUpdates() == null ? 0 : updateResult.getUpdates().size();
                 LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, took={}ms", hasUpdate, updateCount, System.currentTimeMillis() - updateAt);
             }
+            if (updateManagerOn && !selfUpdatePrompted) {
+                long selfAt = System.currentTimeMillis();
+                selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
+                hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate;
+                LOGGER.info("[dlc-manager] self update check done: hasUpdate={}, took={}ms", hasSelfUpdate, System.currentTimeMillis() - selfAt);
+            }
             if (!hasUpdate) {
                 if (!DlcRequiredManager.hasSkipMarker()) {
                     long requiredAt = System.currentTimeMillis();
@@ -276,6 +287,8 @@ public class DlcManagerClient {
             final java.util.List<DlcRequiredEntry> finalMissing = missing;
             final String finalChangelog = changelogText;
             final String finalChangelogVersion = changelogVersion;
+            final boolean finalHasSelfUpdate = hasSelfUpdate;
+            final DlcSelfUpdateService.SelfUpdateResult finalSelfUpdateResult = selfUpdateResult;
             Minecraft.getInstance().execute(() -> {
                 startupCheckRunning = false;
                 LOGGER.info("[dlc-manager] startup check finished in {}ms", System.currentTimeMillis() - startAt);
@@ -283,6 +296,11 @@ public class DlcManagerClient {
                     return;
                 }
                 Runnable continueFlow = () -> {
+                    if (finalHasSelfUpdate && finalSelfUpdateResult != null && !selfUpdatePrompted) {
+                        selfUpdatePrompted = true;
+                        Minecraft.getInstance().setScreen(new DlcSelfUpdateScreen(screen, finalSelfUpdateResult));
+                        return;
+                    }
                     if (finalHasUpdate && finalUpdateResult != null) {
                         DlcUpdateClient.showPrompt(screen, finalUpdateResult);
                         return;
