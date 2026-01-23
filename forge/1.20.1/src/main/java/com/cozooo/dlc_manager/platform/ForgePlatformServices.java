@@ -1,9 +1,12 @@
 package com.cozooo.dlc_manager.platform;
 
 import java.nio.file.Path;
+import java.util.Optional;
 import net.minecraft.client.Minecraft;
+import net.minecraft.SharedConstants;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.loading.FMLPaths;
+import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo;
 
 public final class ForgePlatformServices implements PlatformServices.Provider {
     public static void init() {
@@ -31,6 +34,41 @@ public final class ForgePlatformServices implements PlatformServices.Provider {
             return Minecraft.getInstance().options.languageCode;
         } catch (Exception ignored) {
             return "en_us";
+        }
+    }
+
+    @Override
+    public String loaderName() {
+        return "Forge";
+    }
+
+    @Override
+    public String mcVersion() {
+        try {
+            return SharedConstants.getCurrentVersion().getName();
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    @Override
+    public String modVersion(String modId) {
+        return ModList.get().getModContainerById(modId)
+            .map(container -> container.getModInfo().getVersion().toString())
+            .orElse("");
+    }
+
+    @Override
+    public Path modFilePath(String modId) {
+        Optional<ModFileInfo> modFile = ModList.get().getModContainerById(modId)
+            .map(container -> (ModFileInfo) container.getModInfo().getOwningFile());
+        if (modFile.isEmpty()) {
+            return null;
+        }
+        try {
+            return modFile.get().getFile().getFilePath();
+        } catch (Exception ignored) {
+            return null;
         }
     }
 }

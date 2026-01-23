@@ -157,7 +157,7 @@ public class DlcPathConfig {
 
         @Override
         public void onConfigsChanged() {
-            saveToDisk();
+            // Do not auto-save; only persist when user clicks Save.
         }
     };
 

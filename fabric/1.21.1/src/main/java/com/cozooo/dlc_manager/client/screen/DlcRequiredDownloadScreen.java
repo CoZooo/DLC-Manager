@@ -13,6 +13,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -997,7 +998,12 @@ public class DlcRequiredDownloadScreen extends Screen {
     private ModrinthClient.ModrinthVersion fetchModrinthVersion(DlcRequiredEntry entry) throws IOException, InterruptedException {
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
-            return ModrinthClient.fetchVersion(versionId);
+            return ModrinthClient.fetchVersionByIdOrVersion(
+                entry.getModrinthProjectId(),
+                versionId,
+                PlatformServices.get().mcVersion(),
+                PlatformServices.get().loaderName()
+            );
         }
         return null;
     }
@@ -1006,7 +1012,12 @@ public class DlcRequiredDownloadScreen extends Screen {
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
             try {
-                ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
+                ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(
+                    entry.getModrinthProjectId(),
+                    versionId,
+                    PlatformServices.get().mcVersion(),
+                    PlatformServices.get().loaderName()
+                );
                 if (version != null && version.fileName != null && !version.fileName.isBlank()) {
                     return version.fileName;
                 }
@@ -1020,7 +1031,12 @@ public class DlcRequiredDownloadScreen extends Screen {
     private CurseForgeClient.CurseForgeFile fetchCurseForgeFile(DlcRequiredEntry entry) throws IOException, InterruptedException {
         String fileId = entry.getCurseforgeFileId();
         if (fileId != null && !fileId.isBlank()) {
-            return CurseForgeClient.fetchFile(entry.getCurseforgeProjectId(), fileId);
+            return CurseForgeClient.fetchFileByIdOrVersion(
+                entry.getCurseforgeProjectId(),
+                fileId,
+                PlatformServices.get().mcVersion(),
+                PlatformServices.get().loaderName()
+            );
         }
         return null;
     }
@@ -1029,7 +1045,12 @@ public class DlcRequiredDownloadScreen extends Screen {
         String fileId = entry.getCurseforgeFileId();
         if (fileId != null && !fileId.isBlank()) {
             try {
-                CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFile(entry.getCurseforgeProjectId(), fileId);
+                CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
+                    entry.getCurseforgeProjectId(),
+                    fileId,
+                    PlatformServices.get().mcVersion(),
+                    PlatformServices.get().loaderName()
+                );
                 if (file != null && file.fileName != null && !file.fileName.isBlank()) {
                     return file.fileName;
                 }

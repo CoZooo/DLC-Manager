@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -689,12 +690,22 @@ public class DlcRemoteDownloadScreen extends Screen {
         ModrinthClient.ModrinthVersion version = null;
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
-            version = ModrinthClient.fetchVersion(versionId);
+            version = ModrinthClient.fetchVersionByIdOrVersion(
+                entry.getModrinthProjectId(),
+                versionId,
+                PlatformServices.get().mcVersion(),
+                PlatformServices.get().loaderName()
+            );
         }
         CurseForgeClient.CurseForgeFile curseFile = null;
         String curseFileId = entry.getCurseforgeFileId();
         if (curseFileId != null && !curseFileId.isBlank()) {
-            curseFile = CurseForgeClient.fetchFile(entry.getCurseforgeProjectId(), curseFileId);
+            curseFile = CurseForgeClient.fetchFileByIdOrVersion(
+                entry.getCurseforgeProjectId(),
+                curseFileId,
+                PlatformServices.get().mcVersion(),
+                PlatformServices.get().loaderName()
+            );
         }
         List<String> directUrls = new ArrayList<>();
         for (String url : entry.getDirectUrls()) {

@@ -8,10 +8,13 @@ import com.google.gson.JsonObject;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -85,11 +88,188 @@ public final class ModrinthClient {
         return version;
     }
 
+    public static ModrinthVersion fetchVersionByIdOrVersion(String projectIdOrSlug, String versionIdOrString, String mcVersion, String loader)
+        throws IOException, InterruptedException {
+        if (versionIdOrString == null || versionIdOrString.isBlank()) {
+            return null;
+        }
+        String trimmed = versionIdOrString.trim();
+        ModrinthVersion direct = fetchVersion(trimmed);
+        if (direct != null) {
+            return direct;
+        }
+        if (projectIdOrSlug == null || projectIdOrSlug.isBlank()) {
+            return null;
+        }
+        String cacheKey = projectIdOrSlug + ":" + (mcVersion == null ? "" : mcVersion)
+            + ":" + (loader == null ? "" : loader) + ":version:" + trimmed;
+        ModrinthVersion cached = CACHE.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        ModrinthVersion matched = fetchVersionByProjectVersion(projectIdOrSlug, trimmed, mcVersion, loader);
+        if (matched != null) {
+            CACHE.put(cacheKey, matched);
+        }
+        return matched;
+    }
+
+    private static ModrinthVersion fetchVersionByProjectVersion(String projectIdOrSlug, String version, String mcVersion, String loader)
+        throws IOException, InterruptedException {
+        String endpoint = "https://api.modrinth.com/v2/project/" + projectIdOrSlug + "/version";
+        String normalizedLoader = normalizeLoader(loader);
+        List<String> params = new ArrayList<>();
+        if (normalizedLoader != null && !normalizedLoader.isBlank()) {
+            params.add("loaders=" + URLEncoder.encode("[\"" + normalizedLoader + "\"]", StandardCharsets.UTF_8));
+        }
+        if (mcVersion != null && !mcVersion.isBlank()) {
+            params.add("game_versions=" + URLEncoder.encode("[\"" + mcVersion + "\"]", StandardCharsets.UTF_8));
+        }
+        if (!params.isEmpty()) {
+            endpoint = endpoint + "?" + String.join("&", params);
+        }
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
+            .GET()
+            .build();
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null;
+        }
+        JsonArray data = GSON.fromJson(response.body(), JsonArray.class);
+        if (data == null) {
+            return null;
+        }
+        String versionLower = version.trim().toLowerCase();
+        ModrinthVersion matched = null;
+        Instant matchedTime = null;
+        for (JsonElement element : data) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject obj = element.getAsJsonObject();
+            String versionNumber = getString(obj, "version_number");
+            if (versionNumber == null || !versionNumber.toLowerCase().contains(versionLower)) {
+                continue;
+            }
+            if (!matchesGameVersion(obj, mcVersion, normalizedLoader)) {
+                continue;
+            }
+            ModrinthVersion versionObj = new ModrinthVersion();
+            JsonArray files = obj.getAsJsonArray("files");
+            if (files != null && files.size() > 0) {
+                JsonObject fileObj = files.get(0).getAsJsonObject();
+                versionObj.fileName = getString(fileObj, "filename");
+                versionObj.url = getString(fileObj, "url");
+                for (JsonElement fileElement : files) {
+                    JsonObject file = fileElement.getAsJsonObject();
+                    if (file.has("primary") && file.get("primary").getAsBoolean()) {
+                        versionObj.fileName = getString(file, "filename");
+                        versionObj.url = getString(file, "url");
+                        break;
+                    }
+                }
+            }
+            JsonArray deps = obj.getAsJsonArray("dependencies");
+            if (deps != null) {
+                for (JsonElement depElement : deps) {
+                    if (!depElement.isJsonObject()) {
+                        continue;
+                    }
+                    JsonObject depObj = depElement.getAsJsonObject();
+                    String depType = getString(depObj, "dependency_type");
+                    if (!"required".equalsIgnoreCase(depType)) {
+                        continue;
+                    }
+                    ModrinthDependency dep = new ModrinthDependency();
+                    dep.versionId = getString(depObj, "version_id");
+                    dep.projectId = getString(depObj, "project_id");
+                    versionObj.requiredDependencies.add(dep);
+                }
+            }
+            Instant time = parseInstant(getString(obj, "date_published"));
+            if (matched == null || isAfter(time, matchedTime)) {
+                matched = versionObj;
+                matchedTime = time;
+            }
+        }
+        return matched;
+    }
+
     private static String getString(JsonObject obj, String key) {
         if (obj != null && obj.has(key) && obj.get(key).isJsonPrimitive()) {
             return obj.get(key).getAsString();
         }
         return null;
+    }
+
+    private static boolean matchesGameVersion(JsonObject obj, String mcVersion, String loader) {
+        if (obj == null) {
+            return false;
+        }
+        if (mcVersion != null && !mcVersion.isBlank()) {
+            JsonArray versions = obj.getAsJsonArray("game_versions");
+            if (versions == null || !containsIgnoreCase(versions, mcVersion)) {
+                return false;
+            }
+        }
+        if (loader != null && !loader.isBlank()) {
+            JsonArray loaders = obj.getAsJsonArray("loaders");
+            if (loaders == null || !containsIgnoreCase(loaders, loader)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean containsIgnoreCase(JsonArray array, String value) {
+        if (array == null || value == null) {
+            return false;
+        }
+        for (JsonElement element : array) {
+            if (element.isJsonPrimitive()) {
+                if (value.equalsIgnoreCase(element.getAsString())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String normalizeLoader(String loader) {
+        if (loader == null || loader.isBlank()) {
+            return null;
+        }
+        String trimmed = loader.trim().toLowerCase();
+        return switch (trimmed) {
+            case "forge" -> "forge";
+            case "neoforge", "neo_forge", "neo-forge" -> "neoforge";
+            case "fabric" -> "fabric";
+            default -> trimmed;
+        };
+    }
+
+    private static Instant parseInstant(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(value);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isAfter(Instant candidate, Instant current) {
+        if (candidate == null) {
+            return false;
+        }
+        if (current == null) {
+            return true;
+        }
+        return candidate.isAfter(current);
     }
 
     public static final class ModrinthVersion {
