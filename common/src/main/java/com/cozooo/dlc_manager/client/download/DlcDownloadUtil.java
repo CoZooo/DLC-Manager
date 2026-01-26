@@ -1,6 +1,13 @@
 package com.cozooo.dlc_manager.client.download;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 public final class DlcDownloadUtil {
     private DlcDownloadUtil() {
@@ -91,5 +98,52 @@ public final class DlcDownloadUtil {
             return 10 + (c - 'A');
         }
         return -1;
+    }
+
+    public static String computeHashHex(Path file, String algorithm) throws IOException {
+        byte[] hash = computeHashBytes(file, algorithm);
+        if (hash == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder(hash.length * 2);
+        for (byte b : hash) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    public static String computeMd5Base64(Path file) throws IOException {
+        byte[] hash = computeHashBytes(file, "MD5");
+        if (hash == null) {
+            return null;
+        }
+        return Base64.getEncoder().encodeToString(hash);
+    }
+
+    private static byte[] computeHashBytes(Path file, String algorithm) throws IOException {
+        if (file == null || algorithm == null || algorithm.isBlank()) {
+            return null;
+        }
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance(algorithm);
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
+        try (InputStream in = Files.newInputStream(file)) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) >= 0) {
+                digest.update(buffer, 0, read);
+            }
+        }
+        return digest.digest();
+    }
+
+    public static String normalizeHash(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.trim().replace("\"", "");
     }
 }

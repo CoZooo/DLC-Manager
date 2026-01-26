@@ -1,0 +1,108 @@
+package com.cozooo.dlc_manager.client.preset;
+
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.stream.JsonReader;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+public final class DlcPresetStateStore {
+    private static final Gson GSON = new GsonBuilder().create();
+    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+    private static final String STATE_FILE_NAME = "state.json";
+
+    private DlcPresetStateStore() {
+    }
+
+    public static Path getStatePath() {
+        Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        return configDir.resolve(STATE_FILE_NAME);
+    }
+
+    public static Map<String, DlcPresetStatus> loadPresetStatus() {
+        Map<String, DlcPresetStatus> result = new LinkedHashMap<>();
+        Path path = getStatePath();
+        if (path == null || !Files.exists(path)) {
+            return result;
+        }
+        JsonObject root;
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            root = GSON.fromJson(jsonReader, JsonObject.class);
+        } catch (IOException | JsonSyntaxException ignored) {
+            return result;
+        }
+        if (root == null) {
+            return result;
+        }
+        JsonObject presets = JsonCaseUtil.getObjectIgnoreCase(root, "presets");
+        if (presets == null) {
+            return result;
+        }
+        for (Map.Entry<String, JsonElement> entry : presets.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null || entry.getValue().isJsonNull()) {
+                continue;
+            }
+            try {
+                String raw = entry.getValue().getAsString();
+                DlcPresetStatus status = DlcPresetStatus.fromString(raw);
+                result.put(entry.getKey(), status);
+            } catch (Exception ignored) {
+                // Skip invalid entries.
+            }
+        }
+        return result;
+    }
+
+    public static void savePresetStatus(Map<String, DlcPresetStatus> statuses) {
+        if (statuses == null) {
+            statuses = Map.of();
+        }
+        Path path = getStatePath();
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.createDirectories(path.getParent());
+        } catch (IOException ignored) {
+            return;
+        }
+        JsonObject root;
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            root = GSON.fromJson(jsonReader, JsonObject.class);
+        } catch (IOException | JsonSyntaxException ignored) {
+            root = new JsonObject();
+        }
+        if (root == null) {
+            root = new JsonObject();
+        }
+
+        JsonObject presets = new JsonObject();
+        for (Map.Entry<String, DlcPresetStatus> entry : statuses.entrySet()) {
+            if (entry.getKey() == null || entry.getKey().isBlank() || entry.getValue() == null) {
+                continue;
+            }
+            presets.addProperty(entry.getKey(), entry.getValue().toConfigValue());
+        }
+        JsonCaseUtil.removeIgnoreCase(root, "presets");
+        root.add("presets", presets);
+        try {
+            Files.writeString(path, PRETTY_GSON.toJson(root));
+        } catch (IOException ignored) {
+            // Best-effort write.
+        }
+    }
+}

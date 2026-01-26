@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -26,6 +27,7 @@ public class DlcUpdateManifest {
     private FileOps fileOps;
     private boolean hidden;
     private Map<String, String> changelog = new java.util.LinkedHashMap<>();
+    private UpdateOps updateOps = new UpdateOps();
 
     public static DlcUpdateManifest load(Path updateJson) {
         if (updateJson == null || !Files.exists(updateJson)) {
@@ -47,13 +49,14 @@ public class DlcUpdateManifest {
             return null;
         }
         DlcUpdateManifest manifest = new DlcUpdateManifest();
-        manifest.version = parseVersion(obj.getAsJsonObject("version"));
+        manifest.version = parseVersion(JsonCaseUtil.getObjectIgnoreCase(obj, "version"));
         manifest.hidden = getBoolean(obj, "isHidden", false);
-        JsonObject fileObj = obj.getAsJsonObject("file");
+        JsonObject fileObj = JsonCaseUtil.getObjectIgnoreCase(obj, "file");
         manifest.fileOps = parseFileOps(fileObj);
-        manifest.changelog = parseChangelog(obj.get("changelog"));
-        if ((manifest.changelog == null || manifest.changelog.isEmpty()) && fileObj != null && fileObj.has("changelog")) {
-            manifest.changelog = parseChangelog(fileObj.get("changelog"));
+        manifest.updateOps = parseUpdateOps(JsonCaseUtil.getIgnoreCase(obj, "update"));
+        manifest.changelog = parseChangelog(JsonCaseUtil.getIgnoreCase(obj, "changelog"));
+        if ((manifest.changelog == null || manifest.changelog.isEmpty()) && fileObj != null && JsonCaseUtil.hasIgnoreCase(fileObj, "changelog")) {
+            manifest.changelog = parseChangelog(JsonCaseUtil.getIgnoreCase(fileObj, "changelog"));
         }
         return manifest;
     }
@@ -74,12 +77,17 @@ public class DlcUpdateManifest {
         return changelog == null ? Map.of() : changelog;
     }
 
+    public UpdateOps getUpdateOps() {
+        return updateOps;
+    }
+
     public String resolveChangelog(String lang) {
         if (changelog == null || changelog.isEmpty()) {
             return "";
         }
-        if (lang != null && changelog.containsKey(lang)) {
-            return changelog.get(lang);
+        String key = JsonCaseUtil.normalizeLangKey(lang);
+        if (key != null && changelog.containsKey(key)) {
+            return changelog.get(key);
         }
         if (changelog.containsKey("en_us")) {
             return changelog.get("en_us");
@@ -117,7 +125,7 @@ public class DlcUpdateManifest {
                 if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
                     String raw = entry.getValue().getAsString();
                     if (raw != null && !raw.isBlank()) {
-                        values.put(entry.getKey(), raw);
+                        values.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), raw);
                     }
                 }
             }
@@ -130,11 +138,11 @@ public class DlcUpdateManifest {
         if (obj == null) {
             return ops;
         }
-        if (obj.has("del")) {
-            ops.del.addAll(readStringArray(obj.get("del")));
+        if (JsonCaseUtil.hasIgnoreCase(obj, "del")) {
+            ops.del.addAll(readStringArray(JsonCaseUtil.getIgnoreCase(obj, "del")));
         }
-        if (obj.has("add")) {
-            JsonElement addEl = obj.get("add");
+        if (JsonCaseUtil.hasIgnoreCase(obj, "add")) {
+            JsonElement addEl = JsonCaseUtil.getIgnoreCase(obj, "add");
             if (addEl != null && addEl.isJsonObject()) {
                 JsonObject addObj = addEl.getAsJsonObject();
                 for (var entry : addObj.entrySet()) {
@@ -149,8 +157,8 @@ public class DlcUpdateManifest {
                 }
             }
         }
-        if (obj.has("move")) {
-            JsonElement moveEl = obj.get("move");
+        if (JsonCaseUtil.hasIgnoreCase(obj, "move")) {
+            JsonElement moveEl = JsonCaseUtil.getIgnoreCase(obj, "move");
             if (moveEl != null && moveEl.isJsonObject()) {
                 JsonObject moveObj = moveEl.getAsJsonObject();
                 for (var entry : moveObj.entrySet()) {
@@ -170,8 +178,8 @@ public class DlcUpdateManifest {
                 }
             }
         }
-        if (obj.has("modify")) {
-            JsonElement modEl = obj.get("modify");
+        if (JsonCaseUtil.hasIgnoreCase(obj, "modify")) {
+            JsonElement modEl = JsonCaseUtil.getIgnoreCase(obj, "modify");
             if (modEl.isJsonObject()) {
                 JsonObject modObj = modEl.getAsJsonObject();
                 for (var entry : modObj.entrySet()) {
@@ -210,6 +218,57 @@ public class DlcUpdateManifest {
         return ops;
     }
 
+    private static UpdateOps parseUpdateOps(JsonElement element) {
+        UpdateOps ops = new UpdateOps();
+        if (element == null || element.isJsonNull() || !element.isJsonObject()) {
+            return ops;
+        }
+        JsonObject obj = element.getAsJsonObject();
+        JsonObject remoteObj = JsonCaseUtil.getObjectIgnoreCase(obj, "remote");
+        if (remoteObj != null) {
+            for (var entry : remoteObj.entrySet()) {
+                String key = entry.getKey();
+                if (key == null || key.isBlank()) {
+                    continue;
+                }
+                UpdateEntry updateEntry = parseUpdateEntry(entry.getValue());
+                if (updateEntry != null) {
+                    ops.remote.put(key, updateEntry);
+                }
+            }
+        }
+        JsonObject requiredObj = JsonCaseUtil.getObjectIgnoreCase(obj, "required");
+        if (requiredObj != null) {
+            for (var entry : requiredObj.entrySet()) {
+                String key = entry.getKey();
+                if (key == null || key.isBlank()) {
+                    continue;
+                }
+                UpdateEntry updateEntry = parseUpdateEntry(entry.getValue());
+                if (updateEntry != null) {
+                    ops.required.put(key, updateEntry);
+                }
+            }
+        }
+        return ops;
+    }
+
+    private static UpdateEntry parseUpdateEntry(JsonElement element) {
+        if (element == null || element.isJsonNull() || !element.isJsonObject()) {
+            return null;
+        }
+        JsonObject obj = element.getAsJsonObject();
+        String curseforge = getString(obj, "curseforge");
+        String modrinth = getString(obj, "modrinth");
+        if ((curseforge == null || curseforge.isBlank()) && (modrinth == null || modrinth.isBlank())) {
+            return null;
+        }
+        UpdateEntry entry = new UpdateEntry();
+        entry.curseforge = curseforge;
+        entry.modrinth = modrinth;
+        return entry;
+    }
+
     private static AddEntry parseAddEntry(String key, JsonElement element) {
         if (element == null || !element.isJsonObject()) {
             return null;
@@ -218,7 +277,7 @@ public class DlcUpdateManifest {
         AddEntry entry = new AddEntry();
         entry.sourcePath = key;
         entry.appliedTarget = getString(obj, "appliedTarget");
-        entry.overrideMode = parseOverride(obj.get("override"));
+        entry.overrideMode = parseOverride(JsonCaseUtil.getIgnoreCase(obj, "override"));
         entry.sourceIsDir = key != null && key.endsWith("/");
         return entry;
     }
@@ -237,7 +296,7 @@ public class DlcUpdateManifest {
         entry.targetPath = path;
         entry.find = find;
         entry.replace = replace;
-        entry.which = parseWhich(obj.get("which"));
+        entry.which = parseWhich(JsonCaseUtil.getIgnoreCase(obj, "which"));
         entry.normalizedFind = normalizeFind(find);
         return entry;
     }
@@ -390,26 +449,11 @@ public class DlcUpdateManifest {
     }
 
     private static String getString(JsonObject obj, String key) {
-        if (obj == null || key == null) {
-            return null;
-        }
-        if (!obj.has(key) || !obj.get(key).isJsonPrimitive()) {
-            return null;
-        }
-        return obj.get(key).getAsString();
+        return JsonCaseUtil.getStringIgnoreCase(obj, key);
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        if (obj == null || key == null) {
-            return fallback;
-        }
-        if (!obj.has(key) || obj.get(key).isJsonNull()) {
-            return fallback;
-        }
-        if (obj.get(key).isJsonPrimitive() && obj.get(key).getAsJsonPrimitive().isBoolean()) {
-            return obj.get(key).getAsBoolean();
-        }
-        return fallback;
+        return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     public static class VersionInfo {
@@ -455,6 +499,32 @@ public class DlcUpdateManifest {
 
         public List<ModifyEntry> getModify() {
             return modify;
+        }
+    }
+
+    public static class UpdateOps {
+        private final Map<String, UpdateEntry> remote = new LinkedHashMap<>();
+        private final Map<String, UpdateEntry> required = new LinkedHashMap<>();
+
+        public Map<String, UpdateEntry> getRemote() {
+            return remote;
+        }
+
+        public Map<String, UpdateEntry> getRequired() {
+            return required;
+        }
+    }
+
+    public static class UpdateEntry {
+        private String curseforge;
+        private String modrinth;
+
+        public String getCurseforge() {
+            return curseforge;
+        }
+
+        public String getModrinth() {
+            return modrinth;
         }
     }
 

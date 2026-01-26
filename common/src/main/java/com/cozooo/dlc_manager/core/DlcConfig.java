@@ -38,6 +38,7 @@ public class DlcConfig {
         }
         boolean migrated = migrateStoredPaths();
         migrated = migrateStateIds() || migrated;
+        migrated = normalizeEnabledStates() || migrated;
         if (migrated) {
             save();
         }
@@ -166,6 +167,51 @@ public class DlcConfig {
             stateById = migrated;
         }
         return changed;
+    }
+
+    private static boolean normalizeEnabledStates() {
+        if (stateById == null || stateById.isEmpty()) {
+            return false;
+        }
+        boolean changed = false;
+        for (DlcState state : stateById.values()) {
+            if (state == null || !state.enabled) {
+                continue;
+            }
+            if (state.appliedTargets == null || state.appliedTargets.isEmpty()) {
+                state.enabled = false;
+                changed = true;
+                continue;
+            }
+            boolean allExist = true;
+            for (String raw : state.appliedTargets) {
+                if (raw == null || raw.isBlank()) {
+                    allExist = false;
+                    break;
+                }
+                Path path = resolveStoredPath(raw);
+                if (!Files.exists(path)) {
+                    allExist = false;
+                    break;
+                }
+            }
+            if (!allExist) {
+                state.enabled = false;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private static Path resolveStoredPath(String raw) {
+        if (raw == null) {
+            return DlcPaths.gameDir();
+        }
+        Path path = Path.of(raw);
+        if (path.isAbsolute()) {
+            return path;
+        }
+        return DlcPaths.gameDir().resolve(raw);
     }
 
     private static String migrateIdKey(String key, Path gameDir, Path gameReal) {

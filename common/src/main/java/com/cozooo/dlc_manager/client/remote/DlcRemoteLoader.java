@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -239,7 +240,7 @@ public final class DlcRemoteLoader {
                 fileName = nameFallback;
             }
         }
-        JsonObject displayObj = sanitizeLocalized(obj.getAsJsonObject("DisplayName"));
+        JsonObject displayObj = sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
         if (displayObj.entrySet().isEmpty()) {
             displayObj = new JsonObject();
             displayObj.addProperty("en_us", nameFallback == null ? "" : nameFallback);
@@ -247,22 +248,25 @@ public final class DlcRemoteLoader {
         if (identifier == null || identifier.isBlank()) {
             identifier = nameFallback == null ? "" : nameFallback;
         }
-        JsonObject tipObj = obj.has("tip") && obj.get("tip").isJsonObject() ? obj.getAsJsonObject("tip") : new JsonObject();
+        JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
+        if (tipObj == null) {
+            tipObj = new JsonObject();
+        }
         String typeRaw = getString(obj, "type");
         DlcType type = DlcTooltipLoader.parseTypeString(typeRaw);
         if (type == null) {
             type = DlcType.MOD;
         }
         boolean legacyShown = getBoolean(obj, "isShownInList", true);
-        boolean inList = obj.has("isInList") ? getBoolean(obj, "isInList", true) : legacyShown;
+        boolean inList = getBoolean(obj, "isInList", legacyShown);
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         if (type == DlcType.UNKNOWN && (appliedTarget == null || appliedTarget.isBlank())) {
             inList = false;
         }
 
-        DependencyResult deps = normalizeDependencies(obj.get("dependencies"), dlcRoot, baseDir);
-        DependencyResult conflicts = normalizeConflicts(obj.get("conflicts"));
+        DependencyResult deps = normalizeDependencies(JsonCaseUtil.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir);
+        DependencyResult conflicts = normalizeConflicts(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
 
         JsonObject ordered = new JsonObject();
         ordered.addProperty("curseforge_projectid", curseProjectId == null ? "" : curseProjectId);
@@ -531,10 +535,10 @@ public final class DlcRemoteLoader {
     }
 
     private static List<String> getDirectUrls(JsonObject obj) {
-        if (obj == null || !obj.has("directUrl")) {
+        if (obj == null) {
             return List.of();
         }
-        JsonElement element = obj.get("directUrl");
+        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, "directUrl");
         if (element == null) {
             return List.of();
         }
@@ -578,7 +582,9 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return false;
         }
-        boolean hasIdentifier = obj.has("dlc_identifier") || obj.has("dlc_name") || obj.has("name");
+        boolean hasIdentifier = JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
+            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_name")
+            || JsonCaseUtil.hasIgnoreCase(obj, "name");
         if (!hasIdentifier) {
             return false;
         }
@@ -613,37 +619,30 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return false;
         }
-        return obj.has("directUrl")
-            || obj.has("modrinth_projectid")
-            || obj.has("modrinth_versionid")
-            || obj.has("curseforge_projectid")
-            || obj.has("curseforge_fileid")
-            || obj.has("dlc_identifier")
-            || obj.has("file_name")
-            || obj.has("type")
-            || obj.has("appliedTarget")
-            || obj.has("DisplayName")
-            || obj.has("tip")
-            || obj.has("isInList")
-            || obj.has("isHidden")
-            || obj.has("AllowEnableByAll")
-            || obj.has("dependencies")
-            || obj.has("conflicts");
+        return JsonCaseUtil.hasIgnoreCase(obj, "directUrl")
+            || JsonCaseUtil.hasIgnoreCase(obj, "modrinth_projectid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "modrinth_versionid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_projectid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_fileid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
+            || JsonCaseUtil.hasIgnoreCase(obj, "file_name")
+            || JsonCaseUtil.hasIgnoreCase(obj, "type")
+            || JsonCaseUtil.hasIgnoreCase(obj, "appliedTarget")
+            || JsonCaseUtil.hasIgnoreCase(obj, "DisplayName")
+            || JsonCaseUtil.hasIgnoreCase(obj, "tip")
+            || JsonCaseUtil.hasIgnoreCase(obj, "isInList")
+            || JsonCaseUtil.hasIgnoreCase(obj, "isHidden")
+            || JsonCaseUtil.hasIgnoreCase(obj, "AllowEnableByAll")
+            || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
+            || JsonCaseUtil.hasIgnoreCase(obj, "conflicts");
     }
 
     private static String getString(JsonObject obj, String key) {
-        if (obj != null && obj.has(key) && obj.get(key).isJsonPrimitive()) {
-            return obj.get(key).getAsString();
-        }
-        return null;
+        return JsonCaseUtil.getStringIgnoreCase(obj, key);
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        if (obj != null && obj.has(key) && obj.get(key).isJsonPrimitive()
-            && obj.get(key).getAsJsonPrimitive().isBoolean()) {
-            return obj.get(key).getAsBoolean();
-        }
-        return fallback;
+        return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private static JsonObject sanitizeLocalized(JsonObject obj) {
@@ -653,7 +652,10 @@ public final class DlcRemoteLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                result.addProperty(entry.getKey(), entry.getValue().getAsString());
+                String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                if (key != null) {
+                    result.addProperty(key, entry.getValue().getAsString());
+                }
             }
         }
         return result;
@@ -666,7 +668,10 @@ public final class DlcRemoteLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                values.put(entry.getKey(), entry.getValue().getAsString());
+                String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                if (key != null) {
+                    values.put(key, entry.getValue().getAsString());
+                }
             }
         }
         return values;

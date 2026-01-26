@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.stream.JsonReader;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -95,55 +96,66 @@ public final class DlcRequiredLoader {
         if (defaultIdentifier != null && !defaultIdentifier.isBlank()) {
             entry.setIdentifier(defaultIdentifier);
         }
-        if (obj.has("identifier") && obj.get("identifier").isJsonPrimitive()) {
-            entry.setIdentifier(obj.get("identifier").getAsString());
+        String identifier = getString(obj, "identifier");
+        if (identifier != null && !identifier.isBlank()) {
+            entry.setIdentifier(identifier);
         }
-        if (obj.has("file_name") && obj.get("file_name").isJsonPrimitive()) {
-            entry.setRequiredFileName(obj.get("file_name").getAsString());
+        String fileName = getString(obj, "file_name");
+        if (fileName != null && !fileName.isBlank()) {
+            entry.setRequiredFileName(fileName);
         }
         List<String> directUrls = getDirectUrls(obj);
         if (!directUrls.isEmpty()) {
             entry.setDirectUrls(directUrls);
-        } else if (obj.has("directUrl") && obj.get("directUrl").isJsonPrimitive()) {
-            entry.setDirectUrl(obj.get("directUrl").getAsString());
+        } else {
+            String directUrl = getString(obj, "directUrl");
+            if (directUrl != null && !directUrl.isBlank()) {
+                entry.setDirectUrl(directUrl);
+            }
         }
-        if (obj.has("modrinth_projectid") && obj.get("modrinth_projectid").isJsonPrimitive()) {
-            entry.setModrinthProjectId(obj.get("modrinth_projectid").getAsString());
+        String modrinthProjectId = getString(obj, "modrinth_projectid");
+        if (modrinthProjectId != null && !modrinthProjectId.isBlank()) {
+            entry.setModrinthProjectId(modrinthProjectId);
         }
-        if (obj.has("modrinth_versionid") && obj.get("modrinth_versionid").isJsonPrimitive()) {
-            entry.setModrinthVersionId(obj.get("modrinth_versionid").getAsString());
+        String modrinthVersionId = getString(obj, "modrinth_versionid");
+        if (modrinthVersionId != null && !modrinthVersionId.isBlank()) {
+            entry.setModrinthVersionId(modrinthVersionId);
         }
-        if (obj.has("curseforge_projectid") && obj.get("curseforge_projectid").isJsonPrimitive()) {
-            entry.setCurseforgeProjectId(obj.get("curseforge_projectid").getAsString());
+        String curseProjectId = getString(obj, "curseforge_projectid");
+        if (curseProjectId != null && !curseProjectId.isBlank()) {
+            entry.setCurseforgeProjectId(curseProjectId);
         }
-        if (obj.has("curseforge_fileid") && obj.get("curseforge_fileid").isJsonPrimitive()) {
-            entry.setCurseforgeFileId(obj.get("curseforge_fileid").getAsString());
+        String curseFileId = getString(obj, "curseforge_fileid");
+        if (curseFileId != null && !curseFileId.isBlank()) {
+            entry.setCurseforgeFileId(curseFileId);
         }
-        if (obj.has("priority") && obj.get("priority").isJsonPrimitive()) {
-            entry.setDownloadPriority(obj.get("priority").getAsString());
+        String priority = getString(obj, "priority");
+        if (priority != null && !priority.isBlank()) {
+            entry.setDownloadPriority(priority);
         }
-        if (obj.has("isInList") && obj.get("isInList").isJsonPrimitive()) {
-            entry.setInList(obj.get("isInList").getAsBoolean());
+        Boolean inList = getBoolean(obj, "isInList");
+        if (inList != null) {
+            entry.setInList(inList);
         }
-        if (obj.has("isHidden") && obj.get("isHidden").isJsonPrimitive()) {
-            entry.setHidden(obj.get("isHidden").getAsBoolean());
+        Boolean hidden = getBoolean(obj, "isHidden");
+        if (hidden != null) {
+            entry.setHidden(hidden);
         }
-        if (obj.has("UserRemoved") && obj.get("UserRemoved").isJsonPrimitive()) {
-            entry.setUserRemoved(obj.get("UserRemoved").getAsBoolean());
-        } else if (obj.has("userRemoved") && obj.get("userRemoved").isJsonPrimitive()) {
-            entry.setUserRemoved(obj.get("userRemoved").getAsBoolean());
+        Boolean userRemoved = getBoolean(obj, "UserRemoved");
+        if (userRemoved != null) {
+            entry.setUserRemoved(userRemoved);
         }
         readDisplayNames(obj, entry);
         readTips(obj, entry);
         String applied = null;
-        if (obj.has("appliedTarget") && obj.get("appliedTarget").isJsonPrimitive()) {
-            applied = obj.get("appliedTarget").getAsString();
-        } else if (obj.has("appliedTaget") && obj.get("appliedTaget").isJsonPrimitive()) {
-            applied = obj.get("appliedTaget").getAsString();
+        applied = getString(obj, "appliedTarget");
+        if (applied == null || applied.isBlank()) {
+            applied = getString(obj, "appliedTaget");
         }
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
-        if (obj.has("dependencies")) {
-            parseDependencies(obj.get("dependencies"), entry, requiredDir);
+        JsonElement depsElement = JsonCaseUtil.getIgnoreCase(obj, "dependencies");
+        if (depsElement != null) {
+            parseDependencies(depsElement, entry, requiredDir);
         }
         return entry;
     }
@@ -152,11 +164,9 @@ public final class DlcRequiredLoader {
         if (obj == null || entry == null) {
             return;
         }
-        JsonObject display = null;
-        if (obj.has("displayName") && obj.get("displayName").isJsonObject()) {
-            display = obj.getAsJsonObject("displayName");
-        } else if (obj.has("DisplayName") && obj.get("DisplayName").isJsonObject()) {
-            display = obj.getAsJsonObject("DisplayName");
+        JsonObject display = JsonCaseUtil.getObjectIgnoreCase(obj, "displayName");
+        if (display == null) {
+            display = JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName");
         }
         if (display == null) {
             String fallback = entry.getBaseName();
@@ -168,7 +178,10 @@ public final class DlcRequiredLoader {
         }
         for (var e : display.entrySet()) {
             if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                entry.putDisplayName(e.getKey(), e.getValue().getAsString());
+                String key = JsonCaseUtil.normalizeLangKey(e.getKey());
+                if (key != null) {
+                    entry.putDisplayName(key, e.getValue().getAsString());
+                }
             }
         }
         if (entry.getDisplayNames().isEmpty()) {
@@ -184,11 +197,14 @@ public final class DlcRequiredLoader {
         if (obj == null || entry == null) {
             return;
         }
-        if (obj.has("tip") && obj.get("tip").isJsonObject()) {
-            JsonObject tipObj = obj.getAsJsonObject("tip");
+        JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
+        if (tipObj != null) {
             for (var e : tipObj.entrySet()) {
                 if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                    entry.putTip(e.getKey(), e.getValue().getAsString());
+                    String key = JsonCaseUtil.normalizeLangKey(e.getKey());
+                    if (key != null) {
+                        entry.putTip(key, e.getValue().getAsString());
+                    }
                 }
             }
         }
@@ -249,8 +265,9 @@ public final class DlcRequiredLoader {
         }
         JsonObject obj = value.getAsJsonObject();
         String identifier = key;
-        if (obj.has("identifier") && obj.get("identifier").isJsonPrimitive()) {
-            identifier = obj.get("identifier").getAsString();
+        String resolved = getString(obj, "identifier");
+        if (resolved != null && !resolved.isBlank()) {
+            identifier = resolved;
         }
         DlcRequiredEntry depEntry = fromJsonObject(obj, requiredDir, null, identifier);
         if (depEntry != null && !depEntry.isInList()) {
@@ -264,10 +281,10 @@ public final class DlcRequiredLoader {
     }
 
     private static List<String> getDirectUrls(JsonObject obj) {
-        if (obj == null || !obj.has("directUrl")) {
+        if (obj == null) {
             return List.of();
         }
-        JsonElement element = obj.get("directUrl");
+        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, "directUrl");
         if (element == null) {
             return List.of();
         }
@@ -310,7 +327,7 @@ public final class DlcRequiredLoader {
         String identifier = entry.getIdentifier();
         String fileName = entry.getRequiredFileName();
         String appliedTarget = entry.getAppliedTargetRaw();
-        DependencyResult deps = normalizeDependencies(obj.get("dependencies"), requiredDir);
+        DependencyResult deps = normalizeDependencies(JsonCaseUtil.getIgnoreCase(obj, "dependencies"), requiredDir);
         JsonObject display = new JsonObject();
         entry.getDisplayNames().forEach(display::addProperty);
         JsonObject tip = new JsonObject();
@@ -546,15 +563,14 @@ public final class DlcRequiredLoader {
         if (obj == null || obj.size() != 1) {
             return false;
         }
-        return obj.has("identifier") && obj.get("identifier").isJsonPrimitive();
+        String value = getString(obj, "identifier");
+        return value != null && !value.isBlank();
     }
 
     private static String resolveIdentifier(JsonObject obj, String fallback) {
-        if (obj != null && obj.has("identifier") && obj.get("identifier").isJsonPrimitive()) {
-            String value = obj.get("identifier").getAsString();
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
+        String value = getString(obj, "identifier");
+        if (value != null && !value.isBlank()) {
+            return value;
         }
         return fallback;
     }
@@ -571,6 +587,14 @@ public final class DlcRequiredLoader {
             }
         }
         return names;
+    }
+
+    private static String getString(JsonObject obj, String key) {
+        return JsonCaseUtil.getStringIgnoreCase(obj, key);
+    }
+
+    private static Boolean getBoolean(JsonObject obj, String key) {
+        return JsonCaseUtil.getBooleanIgnoreCase(obj, key);
     }
 
     private static final class DependencyResult {

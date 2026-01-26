@@ -62,10 +62,7 @@ public final class CurseForgeClient {
         }
         CurseForgeFile file = new CurseForgeFile();
         file.id = fileId;
-        file.fileName = getString(data, "fileName");
-        file.displayName = getString(data, "displayName");
-        file.fileDate = getString(data, "fileDate");
-        file.url = getString(data, "downloadUrl");
+        applyFileData(file, data);
         if (file.url == null || file.url.isBlank()) {
             file.url = fetchDownloadUrl(projectId, fileId, apiKey);
         }
@@ -147,10 +144,7 @@ public final class CurseForgeClient {
             }
             CurseForgeFile file = new CurseForgeFile();
             file.id = getString(data, "id");
-            file.fileName = getString(data, "fileName");
-            file.displayName = getString(data, "displayName");
-            file.fileDate = getString(data, "fileDate");
-            file.url = getString(data, "downloadUrl");
+            applyFileData(file, data);
             Instant time = parseInstant(file.fileDate);
             if (latest == null || isAfter(time, latestTime)) {
                 latest = file;
@@ -214,10 +208,9 @@ public final class CurseForgeClient {
             }
             CurseForgeFile file = new CurseForgeFile();
             file.id = getString(data, "id");
+            applyFileData(file, data);
             file.fileName = fileName;
             file.displayName = displayName;
-            file.fileDate = getString(data, "fileDate");
-            file.url = getString(data, "downloadUrl");
             Instant time = parseInstant(file.fileDate);
             if (matched == null || isAfter(time, matchedTime)) {
                 matched = file;
@@ -443,11 +436,56 @@ public final class CurseForgeClient {
         return candidate.isAfter(current);
     }
 
+    private static void applyFileData(CurseForgeFile file, JsonObject data) {
+        if (file == null || data == null) {
+            return;
+        }
+        file.fileName = getString(data, "fileName");
+        file.displayName = getString(data, "displayName");
+        file.fileDate = getString(data, "fileDate");
+        file.url = getString(data, "downloadUrl");
+        if (data.has("fileLength") && data.get("fileLength").isJsonPrimitive()) {
+            try {
+                file.size = data.get("fileLength").getAsLong();
+            } catch (Exception ignored) {
+                file.size = -1L;
+            }
+        }
+        if (data.has("hashes") && data.get("hashes").isJsonArray()) {
+            for (var entry : data.getAsJsonArray("hashes")) {
+                if (!entry.isJsonObject()) {
+                    continue;
+                }
+                JsonObject hash = entry.getAsJsonObject();
+                int algo = -1;
+                if (hash.has("algo") && hash.get("algo").isJsonPrimitive()) {
+                    try {
+                        algo = hash.get("algo").getAsInt();
+                    } catch (Exception ignored) {
+                        algo = -1;
+                    }
+                }
+                String value = getString(hash, "value");
+                if (value == null || value.isBlank()) {
+                    continue;
+                }
+                if (algo == 1 && (file.sha1 == null || file.sha1.isBlank())) {
+                    file.sha1 = value;
+                } else if (algo == 2 && (file.md5 == null || file.md5.isBlank())) {
+                    file.md5 = value;
+                }
+            }
+        }
+    }
+
     public static final class CurseForgeFile {
         public String id;
         public String fileName;
         public String displayName;
         public String fileDate;
         public String url;
+        public String sha1;
+        public String md5;
+        public long size;
     }
 }

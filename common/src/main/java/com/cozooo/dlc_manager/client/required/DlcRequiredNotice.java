@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.required;
 
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -42,8 +43,8 @@ public final class DlcRequiredNotice {
             if (obj == null) {
                 return new DlcRequiredNotice(download, manage);
             }
-            readLocalized(obj, "download_desc", download);
-            readLocalized(obj, "manage_desc", manage);
+            readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "download_desc"), download);
+            readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "manage_desc"), manage);
         } catch (Exception ignored) {
             // Best-effort.
         }
@@ -58,13 +59,13 @@ public final class DlcRequiredNotice {
         return resolveLocalized(manageDesc);
     }
 
-    private static void readLocalized(JsonObject obj, String key, Map<String, String> out) {
-        if (obj.has(key) && obj.get(key).isJsonObject()) {
-            JsonObject data = obj.getAsJsonObject(key);
-            for (var entry : data.entrySet()) {
-                if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
-                    out.put(entry.getKey(), entry.getValue().getAsString());
-                }
+    private static void readLocalized(JsonObject data, Map<String, String> out) {
+        if (data == null) {
+            return;
+        }
+        for (var entry : data.entrySet()) {
+            if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
+                out.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
             }
         }
     }
@@ -73,8 +74,8 @@ public final class DlcRequiredNotice {
         if (values == null || values.isEmpty()) {
             return "";
         }
-        String lang = com.cozooo.dlc_manager.platform.PlatformServices.get().languageCode();
-        if (values.containsKey(lang)) {
+        String lang = JsonCaseUtil.normalizeLangKey(com.cozooo.dlc_manager.platform.PlatformServices.get().languageCode());
+        if (lang != null && values.containsKey(lang)) {
             return values.get(lang);
         }
         if (values.containsKey("en_us")) {
