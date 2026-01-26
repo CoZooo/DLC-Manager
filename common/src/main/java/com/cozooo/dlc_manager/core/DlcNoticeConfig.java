@@ -63,8 +63,9 @@ public class DlcNoticeConfig {
             if (values.isEmpty()) {
                 return "";
             }
-            if (lang != null && values.containsKey(lang)) {
-                return values.get(lang);
+            String key = JsonCaseUtil.normalizeLangKey(lang);
+            if (key != null && values.containsKey(key)) {
+                return values.get(key);
             }
             if (values.containsKey("en_us")) {
                 return values.get("en_us");
@@ -113,13 +114,13 @@ public class DlcNoticeConfig {
             config.noticeEnabled = getBoolean(obj, "isNoticeEnabled", true);
             config.neverShow = getBoolean(obj, "neverShow", false);
             config.showFrequency = ShowFrequency.fromString(getString(obj, "ShowFrequency"));
-            config.title.values.putAll(readLocalized(obj.getAsJsonObject("Title")));
-            JsonObject subheadObj = obj.has("Subhead") && obj.get("Subhead").isJsonObject() ? obj.getAsJsonObject("Subhead") : null;
+            config.title.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Title")));
+            JsonObject subheadObj = JsonCaseUtil.getObjectIgnoreCase(obj, "Subhead");
             if (subheadObj != null) {
                 config.subhead.enabled = getBoolean(subheadObj, "enabled", true);
                 config.subhead.text.values.putAll(readLocalized(subheadObj));
             }
-            config.contents.values.putAll(readLocalized(obj.getAsJsonObject("Contents")));
+            config.contents.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Contents")));
             config.ensureDefaults();
             return config;
         } catch (IOException | JsonSyntaxException ignored) {
@@ -229,7 +230,7 @@ public class DlcNoticeConfig {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                values.put(entry.getKey(), entry.getValue().getAsString());
+                values.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
             }
         }
         return values;
@@ -244,25 +245,11 @@ public class DlcNoticeConfig {
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        if (obj == null || !obj.has(key)) {
-            return fallback;
-        }
-        JsonElement element = obj.get(key);
-        if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isBoolean()) {
-            return element.getAsBoolean();
-        }
-        return fallback;
+        return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private static String getString(JsonObject obj, String key) {
-        if (obj == null || !obj.has(key)) {
-            return null;
-        }
-        JsonElement element = obj.get(key);
-        if (element.isJsonPrimitive()) {
-            return element.getAsString();
-        }
-        return null;
+        return JsonCaseUtil.getStringIgnoreCase(obj, key);
     }
 
     private void ensureDefaults() {

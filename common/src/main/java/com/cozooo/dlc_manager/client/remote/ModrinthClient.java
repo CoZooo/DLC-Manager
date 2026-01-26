@@ -56,13 +56,11 @@ public final class ModrinthClient {
         JsonArray files = obj.getAsJsonArray("files");
         if (files != null && files.size() > 0) {
             JsonObject fileObj = files.get(0).getAsJsonObject();
-            version.fileName = getString(fileObj, "filename");
-            version.url = getString(fileObj, "url");
+            applyFile(version, fileObj);
             for (JsonElement element : files) {
                 JsonObject file = element.getAsJsonObject();
                 if (file.has("primary") && file.get("primary").getAsBoolean()) {
-                    version.fileName = getString(file, "filename");
-                    version.url = getString(file, "url");
+                    applyFile(version, file);
                     break;
                 }
             }
@@ -161,13 +159,11 @@ public final class ModrinthClient {
             JsonArray files = obj.getAsJsonArray("files");
             if (files != null && files.size() > 0) {
                 JsonObject fileObj = files.get(0).getAsJsonObject();
-                versionObj.fileName = getString(fileObj, "filename");
-                versionObj.url = getString(fileObj, "url");
+                applyFile(versionObj, fileObj);
                 for (JsonElement fileElement : files) {
                     JsonObject file = fileElement.getAsJsonObject();
                     if (file.has("primary") && file.get("primary").getAsBoolean()) {
-                        versionObj.fileName = getString(file, "filename");
-                        versionObj.url = getString(file, "url");
+                        applyFile(versionObj, file);
                         break;
                     }
                 }
@@ -272,14 +268,42 @@ public final class ModrinthClient {
         return candidate.isAfter(current);
     }
 
+    private static void applyFile(ModrinthVersion target, JsonObject file) {
+        if (target == null || file == null) {
+            return;
+        }
+        target.fileName = getString(file, "filename");
+        target.url = getString(file, "url");
+        target.size = getLong(file, "size");
+        if (file.has("hashes") && file.get("hashes").isJsonObject()) {
+            JsonObject hashes = file.getAsJsonObject("hashes");
+            target.sha1 = getString(hashes, "sha1");
+            target.sha512 = getString(hashes, "sha512");
+        }
+    }
+
     public static final class ModrinthVersion {
         public String fileName;
         public String url;
+        public String sha1;
+        public String sha512;
+        public long size;
         public final List<ModrinthDependency> requiredDependencies = new ArrayList<>();
     }
 
     public static final class ModrinthDependency {
         public String versionId;
         public String projectId;
+    }
+
+    private static long getLong(JsonObject obj, String key) {
+        if (obj != null && obj.has(key) && obj.get(key).isJsonPrimitive()) {
+            try {
+                return obj.get(key).getAsLong();
+            } catch (Exception ignored) {
+                return -1L;
+            }
+        }
+        return -1L;
     }
 }

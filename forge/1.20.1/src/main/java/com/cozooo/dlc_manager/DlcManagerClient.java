@@ -96,12 +96,23 @@ public class DlcManagerClient {
                     }
                 }
             }
+            int desiredW = DlcPathConfig.getTitleWidth();
+            int desiredH = DlcPathConfig.getTitleHeight();
+            if (desiredW > 0) {
+                w = desiredW;
+            }
+            if (desiredH > 0) {
+                h = desiredH;
+            }
             if (replaced) {
-                button.setX(x);
-                button.setY(y);
                 button.setWidth(w);
                 button.setHeight(h);
             }
+            int[] pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, w, h, x, y);
+            x = pos[0];
+            y = pos[1];
+            button.setX(x);
+            button.setY(y);
             event.addListener(button);
             int iconSize = Math.min(20, h);
             int iconX = button.getX() + button.getWidth() + 4;
@@ -237,6 +248,7 @@ public class DlcManagerClient {
             DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = null;
             boolean hasSelfUpdate = false;
             boolean updateManagerOn = DlcPathConfig.isUpdateManagerOn();
+            boolean selfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn();
             String changelogText = "";
             String changelogVersion = null;
             if (updateManagerOn) {
@@ -265,7 +277,7 @@ public class DlcManagerClient {
                 int updateCount = updateResult == null || updateResult.getUpdates() == null ? 0 : updateResult.getUpdates().size();
                 LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, took={}ms", hasUpdate, updateCount, System.currentTimeMillis() - updateAt);
             }
-            if (updateManagerOn && !selfUpdatePrompted) {
+            if (selfUpdateAutoCheckOn && !selfUpdatePrompted) {
                 long selfAt = System.currentTimeMillis();
                 selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
                 hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate;

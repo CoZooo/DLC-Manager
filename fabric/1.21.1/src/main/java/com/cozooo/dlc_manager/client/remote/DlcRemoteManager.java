@@ -26,6 +26,10 @@ public final class DlcRemoteManager {
         if (promptedThisSession) {
             return false;
         }
+        Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot)) {
+            return false;
+        }
         List<DlcRemoteEntry> missing = collectMissing();
         if (missing.isEmpty()) {
             return false;

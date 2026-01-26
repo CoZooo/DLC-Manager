@@ -52,8 +52,10 @@ public class DlcScanner {
         Path localInfoDir = root.resolve("info");
         Path localRequiredDir = root.resolve("required");
         Path localRemoteDir = root.resolve("remote");
+        Path localPresetDir = root.resolve("preset");
         Path localUpdateDir = root.resolve("update");
         Path localUpdateTmpDir = root.resolve("update_tmp");
+        Map<String, String> groupedOwners = buildGroupedOwners(tooltips);
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -68,6 +70,9 @@ public class DlcScanner {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderRemoteDir(dir, localRemoteDir)) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    if (isUnderPresetDir(dir, localPresetDir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localUpdateTmpDir)) {
@@ -96,6 +101,9 @@ public class DlcScanner {
                     if (isUnderRemoteDir(file, localRemoteDir)) {
                         return FileVisitResult.CONTINUE;
                     }
+                    if (isUnderPresetDir(file, localPresetDir)) {
+                        return FileVisitResult.CONTINUE;
+                    }
                     if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localUpdateTmpDir)) {
                         return FileVisitResult.CONTINUE;
                     }
@@ -103,6 +111,11 @@ public class DlcScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     String name = file.getFileName().toString();
+                    String relative = root.relativize(file).toString().replace('\\', '/');
+                    String owner = groupedOwners.get(relative);
+                    if (owner != null && !owner.equals(name)) {
+                        return FileVisitResult.CONTINUE;
+                    }
                     if (name.endsWith(".jar")) {
                         addItem(grouped, root, file, DlcType.MOD, tooltips, tooltipLoader, infoDir);
                         return FileVisitResult.CONTINUE;
@@ -166,12 +179,27 @@ public class DlcScanner {
         return normalized.startsWith(normalizedRemote);
     }
 
+    private boolean isUnderPresetDir(Path path, Path presetDir) {
+        if (presetDir == null) {
+            return false;
+        }
+        Path normalized = path.normalize();
+        Path normalizedPreset = presetDir.normalize();
+        return normalized.startsWith(normalizedPreset);
+    }
+
     private void addItem(Map<DlcType, List<DlcItem>> grouped, Path root, Path source, DlcType detectedType,
         Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir) {
         String relative = root.relativize(source).toString().replace('\\', '/');
         String rootId = toGameRelativePath(root).replace('\\', '/');
         String name = source.getFileName().toString();
         DlcTooltipLoader.TooltipData tooltipData = tooltips != null ? tooltips.get(name) : null;
+        java.util.List<String> fileNames = tooltipData != null ? tooltipData.getFileNames() : java.util.List.of();
+        if (!fileNames.isEmpty() && fileNames.stream().noneMatch(name::equals)) {
+            java.util.List<String> merged = new java.util.ArrayList<>(fileNames);
+            merged.add(0, name);
+            fileNames = merged;
+        }
         DlcType effectiveType = detectedType;
         boolean hadTypeField = false;
         boolean typeValid = false;
@@ -195,7 +223,7 @@ public class DlcScanner {
         if (effectiveType == DlcType.UNKNOWN && (appliedTargetRaw == null || appliedTargetRaw.isBlank())) {
             return;
         }
-        boolean enabled = isEnabledInTargets(name, effectiveType, appliedTargetRaw, source);
+        boolean enabled = isEnabledInTargets(name, fileNames, effectiveType, appliedTargetRaw, source);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
         boolean inList = tooltipData == null || tooltipData.isInList();
         boolean hidden = tooltipData != null && tooltipData.isHidden();
@@ -209,7 +237,19 @@ public class DlcScanner {
         java.util.List<String> dependencies = tooltipData != null ? tooltipData.getDependencies() : java.util.List.of();
         java.util.List<String> conflicts = tooltipData != null ? tooltipData.getConflicts() : java.util.List.of();
         boolean allowEnableByAll = tooltipData == null || tooltipData.AllowEnableByAll();
-        DlcItem item = new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
+        List<Path> sources = new java.util.ArrayList<>();
+        if (!fileNames.isEmpty() && effectiveType == DlcType.UNKNOWN) {
+            for (String entry : fileNames) {
+                if (entry == null || entry.isBlank()) {
+                    continue;
+                }
+                Path resolved = root.resolve(entry.replace('\\', '/'));
+                sources.add(resolved);
+            }
+        }
+        DlcItem item = sources.isEmpty()
+            ? new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden)
+            : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;
@@ -217,13 +257,32 @@ public class DlcScanner {
         }
     }
 
-    private boolean isEnabledInTargets(String fileName, DlcType type, String appliedTargetRaw, Path source) {
+    private boolean isEnabledInTargets(String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source) {
         if (type == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
             if (target == null) {
                 return false;
             }
             boolean dirTarget = DlcPaths.isAppliedTargetDirectory(appliedTargetRaw, target, source);
+            if (fileNames != null && !fileNames.isEmpty()) {
+                if (!dirTarget && fileNames.size() > 1) {
+                    return false;
+                }
+                for (String entry : fileNames) {
+                    if (entry == null || entry.isBlank()) {
+                        continue;
+                    }
+                    String normalized = entry.replace('\\', '/');
+                    Path check = dirTarget ? target.resolve(normalized) : target;
+                    if (!Files.exists(check)) {
+                        return false;
+                    }
+                    if (!dirTarget) {
+                        break;
+                    }
+                }
+                return true;
+            }
             if (dirTarget) {
                 return Files.exists(target.resolve(fileName));
             }
@@ -245,6 +304,35 @@ public class DlcScanner {
             }
         }
         return true;
+    }
+
+    private Map<String, String> buildGroupedOwners(Map<String, DlcTooltipLoader.TooltipData> tooltips) {
+        Map<String, String> owners = new java.util.HashMap<>();
+        if (tooltips == null || tooltips.isEmpty()) {
+            return owners;
+        }
+        for (Map.Entry<String, DlcTooltipLoader.TooltipData> entry : tooltips.entrySet()) {
+            String primary = entry.getKey();
+            if (primary == null || primary.isBlank()) {
+                continue;
+            }
+            DlcTooltipLoader.TooltipData data = entry.getValue();
+            if (data == null || data.getType() != DlcType.UNKNOWN) {
+                continue;
+            }
+            java.util.List<String> fileNames = data.getFileNames();
+            if (fileNames == null || fileNames.isEmpty()) {
+                continue;
+            }
+            owners.put(primary, primary);
+            for (String name : fileNames) {
+                if (name == null || name.isBlank()) {
+                    continue;
+                }
+                owners.put(name.replace('\\', '/'), primary);
+            }
+        }
+        return owners;
     }
 
     private DlcType classifyDirectory(Path dir) {

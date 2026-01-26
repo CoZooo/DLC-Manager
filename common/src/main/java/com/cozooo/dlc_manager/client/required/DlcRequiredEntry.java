@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.required;
 
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 
 import java.util.ArrayList;
@@ -177,18 +178,68 @@ public class DlcRequiredEntry {
     }
 
     public void setDownloadPriority(String downloadPriority) {
-        if (downloadPriority == null || downloadPriority.isBlank()) {
-            return;
-        }
-        this.downloadPriority = downloadPriority.trim();
+        this.downloadPriority = normalizePriority(downloadPriority);
     }
 
     public boolean isDirectUrlPriority() {
-        return "directurl".equalsIgnoreCase(downloadPriority);
+        return getDownloadPriorityList().stream().findFirst().map("directurl"::equals).orElse(false);
     }
 
     public boolean isCurseForgePriority() {
-        return "curseforge".equalsIgnoreCase(downloadPriority);
+        return getDownloadPriorityList().stream().findFirst().map("curseforge"::equals).orElse(false);
+    }
+
+    public List<String> getDownloadPriorityList() {
+        return parsePriority(downloadPriority);
+    }
+
+    private static String normalizePriority(String raw) {
+        List<String> order = parsePriority(raw);
+        return String.join(",", order);
+    }
+
+    private static List<String> parsePriority(String raw) {
+        List<String> order = new ArrayList<>();
+        if (raw != null) {
+            for (String part : raw.split(",")) {
+                String token = normalizePriorityToken(part);
+                if (token == null || token.isBlank()) {
+                    continue;
+                }
+                if (!order.contains(token)) {
+                    order.add(token);
+                }
+            }
+        }
+        if (order.isEmpty()) {
+            order.add("curseforge");
+            order.add("modrinth");
+            order.add("directurl");
+            return order;
+        }
+        for (String fallback : List.of("curseforge", "modrinth", "directurl")) {
+            if (!order.contains(fallback)) {
+                order.add(fallback);
+            }
+        }
+        return order;
+    }
+
+    private static String normalizePriorityToken(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String token = raw.trim().toLowerCase();
+        if (token.isBlank()) {
+            return null;
+        }
+        token = token.replace("_", "").replace("-", "");
+        return switch (token) {
+            case "curseforge" -> "curseforge";
+            case "modrinth" -> "modrinth";
+            case "directurl", "direct" -> "directurl";
+            default -> null;
+        };
     }
 
     public boolean isInList() {
@@ -279,7 +330,7 @@ public class DlcRequiredEntry {
         if (displayNames.isEmpty()) {
             return fallback;
         }
-        String lang = PlatformServices.get().languageCode();
+        String lang = JsonCaseUtil.normalizeLangKey(PlatformServices.get().languageCode());
         if (displayNames.containsKey(lang)) {
             return displayNames.get(lang);
         }

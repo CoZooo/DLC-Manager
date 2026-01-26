@@ -10,6 +10,7 @@ public class DlcItem {
     private final String name;
     private final DlcType type;
     private final Path sourcePath;
+    private final List<Path> sourcePaths;
     private final String appliedTargetRaw;
     private boolean enabled;
     private final List<Path> appliedTargets = new ArrayList<>();
@@ -29,6 +30,30 @@ public class DlcItem {
         this.name = name;
         this.type = type;
         this.sourcePath = sourcePath;
+        this.sourcePaths = sourcePath == null ? List.of() : List.of(sourcePath);
+        this.appliedTargetRaw = appliedTargetRaw;
+        this.enabled = enabled;
+        this.tooltips = tooltips == null ? java.util.Map.of() : tooltips;
+        this.displayNames = displayNames == null ? java.util.Map.of() : displayNames;
+        this.dependencies = dependencies == null ? java.util.List.of() : dependencies;
+        this.conflicts = conflicts == null ? java.util.List.of() : conflicts;
+        this.allowEnableByAll = allowEnableByAll;
+        this.hidden = hidden;
+    }
+
+    public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, List<Path> sourcePaths, String appliedTargetRaw,
+        boolean enabled, java.util.Map<String, String> tooltips, java.util.Map<String, String> displayNames,
+        java.util.List<String> dependencies, java.util.List<String> conflicts, boolean allowEnableByAll, boolean hidden) {
+        this.id = id;
+        this.identifier = identifier;
+        this.name = name;
+        this.type = type;
+        this.sourcePath = sourcePath;
+        if (sourcePaths == null || sourcePaths.isEmpty()) {
+            this.sourcePaths = sourcePath == null ? List.of() : List.of(sourcePath);
+        } else {
+            this.sourcePaths = List.copyOf(sourcePaths);
+        }
         this.appliedTargetRaw = appliedTargetRaw;
         this.enabled = enabled;
         this.tooltips = tooltips == null ? java.util.Map.of() : tooltips;
@@ -57,6 +82,10 @@ public class DlcItem {
 
     public Path getSourcePath() {
         return sourcePath;
+    }
+
+    public List<Path> getSourcePaths() {
+        return sourcePaths;
     }
 
     public String getAppliedTargetRaw() {

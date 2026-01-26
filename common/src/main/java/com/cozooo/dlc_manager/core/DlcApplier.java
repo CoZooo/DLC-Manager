@@ -26,7 +26,7 @@ public class DlcApplier {
                 if (!wasEnabled) {
                     messages.add("Enabled " + item.getName());
                 }
-                List<Path> targets = applyItem(item);
+                List<Path> targets = applyItem(item, wasEnabled);
                 if (!targets.isEmpty()) {
                     DlcConfig.DlcState state = new DlcConfig.DlcState();
                     state.enabled = true;
@@ -55,7 +55,7 @@ public class DlcApplier {
         return new ApplyResult(messages, requiresRestart, attemptedHotReload);
     }
 
-    private static List<Path> applyItem(DlcItem item) {
+    private static List<Path> applyItem(DlcItem item, boolean wasEnabled) {
         List<Path> targets = new ArrayList<>();
         try {
             if (item.getType() == DlcType.UNKNOWN) {
@@ -63,18 +63,37 @@ public class DlcApplier {
                 if (target == null) {
                     return targets;
                 }
-                boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, item.getSourcePath());
+                List<Path> sources = item.getSourcePaths();
+                if (sources.isEmpty()) {
+                    return targets;
+                }
+                boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, sources.get(0));
+                if (!dirTarget && sources.size() > 1) {
+                    return targets;
+                }
                 if (dirTarget) {
                     Files.createDirectories(target);
-                    Path resolved = target.resolve(item.getSourcePath().getFileName().toString());
-                    copyRecursive(item.getSourcePath(), resolved);
-                    targets.add(resolved);
+                    for (Path source : sources) {
+                        if (source == null) {
+                            continue;
+                        }
+                        Path resolved = target.resolve(source.getFileName().toString());
+                        if (!wasEnabled && Files.exists(resolved)) {
+                            backupExisting(resolved);
+                        }
+                        copyRecursive(source, resolved);
+                        targets.add(resolved);
+                    }
                 } else {
                     Path parent = target.getParent();
                     if (parent != null) {
                         Files.createDirectories(parent);
                     }
-                    copyRecursive(item.getSourcePath(), target);
+                    Path source = sources.get(0);
+                    if (!wasEnabled && Files.exists(target)) {
+                        backupExisting(target);
+                    }
+                    copyRecursive(source, target);
                     targets.add(target);
                 }
                 return targets;
@@ -89,6 +108,9 @@ public class DlcApplier {
             for (Path targetDir : targetDirs) {
                 Files.createDirectories(targetDir);
                 Path target = targetDir.resolve(item.getSourcePath().getFileName().toString());
+                if (!wasEnabled && Files.exists(target)) {
+                    backupExisting(target);
+                }
                 copyRecursive(item.getSourcePath(), target);
                 targets.add(target);
             }
@@ -131,6 +153,27 @@ public class DlcApplier {
             });
         } else {
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static void backupExisting(Path target) {
+        if (target == null || !Files.exists(target)) {
+            return;
+        }
+        Path backupRoot = null;
+        if (!DlcPathConfig.getDlcRoots().isEmpty()) {
+            backupRoot = DlcPathConfig.getDlcRoots().get(0).resolve("update_tmp").resolve("backup");
+        }
+        if (backupRoot == null) {
+            backupRoot = DlcPaths.gameDir().resolve("update_tmp").resolve("backup");
+        }
+        try {
+            Files.createDirectories(backupRoot);
+            String name = target.getFileName().toString() + "." + System.currentTimeMillis() + ".bak";
+            Path backupTarget = backupRoot.resolve(name);
+            copyRecursive(target, backupTarget);
+        } catch (IOException ignored) {
+            // Best-effort backup.
         }
     }
 

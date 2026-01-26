@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -38,22 +39,18 @@ public class DlcUpdateVersion {
             if (obj == null) {
                 return version;
             }
-            if (obj.has("base") && obj.get("base").isJsonPrimitive()) {
-                version.base = obj.get("base").getAsString();
+            version.base = JsonCaseUtil.getStringIgnoreCase(obj, "base");
+            version.dlc = JsonCaseUtil.getStringIgnoreCase(obj, "dlc");
+            String rollback = JsonCaseUtil.getStringIgnoreCase(obj, "rollback_from");
+            if (rollback == null || rollback.isBlank()) {
+                rollback = JsonCaseUtil.getStringIgnoreCase(obj, "rollbackFrom");
             }
-            if (obj.has("dlc") && obj.get("dlc").isJsonPrimitive()) {
-                version.dlc = obj.get("dlc").getAsString();
+            version.rollbackFrom = rollback;
+            String shown = JsonCaseUtil.getStringIgnoreCase(obj, "changelog_shown");
+            if (shown == null || shown.isBlank()) {
+                shown = JsonCaseUtil.getStringIgnoreCase(obj, "changelogShown");
             }
-            if (obj.has("rollback_from") && obj.get("rollback_from").isJsonPrimitive()) {
-                version.rollbackFrom = obj.get("rollback_from").getAsString();
-            } else if (obj.has("rollbackFrom") && obj.get("rollbackFrom").isJsonPrimitive()) {
-                version.rollbackFrom = obj.get("rollbackFrom").getAsString();
-            }
-            if (obj.has("changelog_shown") && obj.get("changelog_shown").isJsonPrimitive()) {
-                version.changelogShown = obj.get("changelog_shown").getAsString();
-            } else if (obj.has("changelogShown") && obj.get("changelogShown").isJsonPrimitive()) {
-                version.changelogShown = obj.get("changelogShown").getAsString();
-            }
+            version.changelogShown = shown;
         } catch (IOException ignored) {
             // Best-effort load.
         }

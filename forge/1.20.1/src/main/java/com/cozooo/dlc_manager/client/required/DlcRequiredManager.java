@@ -247,6 +247,9 @@ public final class DlcRequiredManager {
             if (fileName == null) {
                 fileName = normalizeFileName(resolveExistingRequiredFile(entry));
             }
+            if (isTempFileName(fileName)) {
+                fileName = null;
+            }
             entry.setResolvedFileName(fileName);
             if (fileName == null) {
                 return true;
@@ -274,11 +277,14 @@ public final class DlcRequiredManager {
                 fileName = normalizeFileName(resolveExistingRequiredFile(entry));
             }
             entry.setResolvedFileName(fileName);
+            if (isTempFileName(fileName)) {
+                fileName = null;
+            }
             if (fileName == null) {
                 return true;
             }
             Path required = entry.resolveRequiredPath(fileName);
-            if (required == null || !Files.exists(required)) {
+            if (required == null || !Files.exists(required) || entryNeedsApply(entry)) {
                 return true;
             }
             ensureFileNameKey(entry, fileName);
@@ -327,6 +333,9 @@ public final class DlcRequiredManager {
                 fileName = normalizeFileName(resolveExistingRequiredFile(entry));
             }
             entry.setResolvedFileName(fileName);
+            if (isTempFileName(fileName)) {
+                fileName = null;
+            }
             if (fileName == null) {
                 missing.add(entry);
                 continue;
@@ -356,12 +365,15 @@ public final class DlcRequiredManager {
                 fileName = normalizeFileName(resolveExistingRequiredFile(entry));
             }
             entry.setResolvedFileName(fileName);
+            if (isTempFileName(fileName)) {
+                fileName = null;
+            }
             if (fileName == null) {
                 missing.add(entry);
                 continue;
             }
             Path required = entry.resolveRequiredPath(fileName);
-            if (required == null || !Files.exists(required)) {
+            if (required == null || !Files.exists(required) || entryNeedsApply(entry)) {
                 missing.add(entry);
             } else {
                 ensureFileNameKey(entry, fileName);
@@ -382,6 +394,9 @@ public final class DlcRequiredManager {
                 fileName = normalizeFileName(resolveFileNameLocal(entry));
             }
             entry.setResolvedFileName(fileName);
+            if (isTempFileName(fileName)) {
+                fileName = null;
+            }
             if (fileName == null) {
                 list.add(entry);
                 continue;
@@ -427,6 +442,10 @@ public final class DlcRequiredManager {
                 }
             }
             entry.setResolvedFileName(fileName);
+        }
+        if (isTempFileName(fileName)) {
+            entry.setResolvedFileName(null);
+            return true;
         }
         if (fileName == null) {
             return true;
@@ -492,7 +511,7 @@ public final class DlcRequiredManager {
         try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
             for (Path path : stream) {
                 String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (!name.endsWith(".json")) {
+                if (!name.endsWith(".json") && !name.endsWith(".part")) {
                     return name;
                 }
             }
@@ -710,5 +729,12 @@ public final class DlcRequiredManager {
             return null;
         }
         return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    private static boolean isTempFileName(String fileName) {
+        if (fileName == null) {
+            return false;
+        }
+        return fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".part");
     }
 }

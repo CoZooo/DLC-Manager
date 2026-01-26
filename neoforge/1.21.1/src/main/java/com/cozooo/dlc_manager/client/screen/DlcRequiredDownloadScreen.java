@@ -33,6 +33,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
@@ -40,6 +41,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 public class DlcRequiredDownloadScreen extends Screen {
+    private static final long SWITCH_DELAY_MS = 20_000L;
+    private static final int SWITCH_BUTTON_SIZE = 8;
+    private static final int SWITCH_BUTTON_PAD = 4;
+
     private final Screen parent;
     private final List<DlcRequiredEntry> entries;
     private final List<DlcRequiredEntry> displayList = new ArrayList<>();
@@ -57,12 +62,16 @@ public class DlcRequiredDownloadScreen extends Screen {
     private final Map<String, Float> progressByKey = new ConcurrentHashMap<>();
     private final Map<String, Integer> attemptByKey = new ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicInteger attemptCounter = new java.util.concurrent.atomic.AtomicInteger();
+    private final Map<String, Long> downloadStartByKey = new ConcurrentHashMap<>();
+    private final Set<String> switchRequested = ConcurrentHashMap.newKeySet();
+    private volatile DlcRequiredEntry activeDownloadEntry;
 
     private Button downloadButton;
     private Button skipButton;
 
     private volatile boolean detecting = true;
     private volatile boolean downloading;
+    private volatile boolean cancelRequested;
     private volatile String statusText;
     private volatile String errorText;
     private volatile int totalCount;
@@ -99,7 +108,7 @@ public class DlcRequiredDownloadScreen extends Screen {
         int downloadX = forceRequired
             ? this.width / 2 - buttonWidth / 2
             : this.width / 2 - buttonWidth - 6;
-        downloadButton = Button.builder(Component.translatable("dlc_manager.required.download"), button -> startDownload())
+        downloadButton = Button.builder(Component.translatable("dlc_manager.required.download"), button -> handleDownloadButton())
             .bounds(downloadX, y, buttonWidth, buttonHeight)
             .build();
         downloadButton.active = false;
@@ -153,8 +162,12 @@ public class DlcRequiredDownloadScreen extends Screen {
             DlcRequiredEntry entry = displayList.get(i);
             String name = entry.resolveDisplayName();
             guiGraphics.drawString(this.font, "- " + name, 24, y, 0xE6E6E6, false);
-            if (downloading && maxConcurrentDownloads > 1) {
-                Float progress = progressByKey.get(progressKey(entry));
+            if (!downloading || maxConcurrentDownloads > 1) {
+                String key = progressKey(entry);
+                Float progress = downloading ? progressByKey.get(key) : null;
+                if (progress == null) {
+                    progress = getCompletedProgress(entry);
+                }
                 if (progress != null) {
                     int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
                     String progressText = percent + "%";
@@ -168,6 +181,12 @@ public class DlcRequiredDownloadScreen extends Screen {
                     int barLeft = barRight - barWidth;
                     int barY = y + 2;
                     drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress);
+                    if (shouldShowSwitch(key, entry, progress)) {
+                        int switchRight = barLeft - SWITCH_BUTTON_PAD;
+                        int switchLeft = switchRight - SWITCH_BUTTON_SIZE;
+                        int switchTop = barY - 1;
+                        drawSwitchButton(guiGraphics, switchLeft, switchTop);
+                    }
                     guiGraphics.drawString(this.font, progressText, percentRight - textWidth, y, 0xC8C8C8, false);
                 }
             }
@@ -181,6 +200,14 @@ public class DlcRequiredDownloadScreen extends Screen {
                 String status = statusText == null ? "" : statusText;
                 guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
                 y += 12;
+                DlcRequiredEntry activeEntry = activeDownloadEntry;
+                String activeKey = activeEntry == null ? null : progressKey(activeEntry);
+                if (activeKey != null && shouldShowSwitch(activeKey, activeEntry, currentProgress)) {
+                    int barLeft = centerX - 120;
+                    int switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE;
+                    int switchTop = y - 1;
+                    drawSwitchButton(guiGraphics, switchLeft, switchTop);
+                }
                 drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress);
                 int percent = Math.round(Math.max(0f, Math.min(1f, currentProgress)) * 100f);
                 guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
@@ -218,6 +245,14 @@ public class DlcRequiredDownloadScreen extends Screen {
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (downloading && handleSwitchClick(mouseX, mouseY)) {
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean shouldCloseOnEsc() {
         return !forceRequired;
     }
@@ -241,9 +276,12 @@ public class DlcRequiredDownloadScreen extends Screen {
             if (isConfigFileName(fileName)) {
                 fileName = null;
             }
+            if (isTempFileName(fileName)) {
+                fileName = null;
+            }
             entry.setResolvedFileName(fileName);
             boolean hasFile = fileName != null && entry.resolveRequiredPath(fileName) != null
-                && Files.exists(entry.resolveRequiredPath(fileName));
+                && Files.exists(entry.resolveRequiredPath(fileName)) && !isTempFileName(fileName);
             if (!hasFile && fileName == null) {
                 // fall back to base name match
                 String base = entry.getBaseName();
@@ -254,6 +292,9 @@ public class DlcRequiredDownloadScreen extends Screen {
                                 continue;
                             }
                             fileName = file.getFileName().toString();
+                            if (isTempFileName(fileName)) {
+                                continue;
+                            }
                             entry.setResolvedFileName(fileName);
                             hasFile = true;
                             break;
@@ -335,14 +376,45 @@ public class DlcRequiredDownloadScreen extends Screen {
         return new ArrayList<>(List.of(text));
     }
 
+    private void handleDownloadButton() {
+        if (downloading) {
+            requestCancel();
+            return;
+        }
+        startDownload();
+    }
+
+    private void requestCancel() {
+        if (!downloading || cancelRequested) {
+            return;
+        }
+        cancelRequested = true;
+        statusText = Component.translatable("dlc_manager.required.canceling").getString();
+        downloadButton.active = false;
+        if (!forceRequired) {
+            skipButton.active = false;
+        }
+    }
+
+    private void updateDownloadButtonLabel(boolean isDownloading) {
+        if (downloadButton == null) {
+            return;
+        }
+        downloadButton.setMessage(Component.translatable(isDownloading
+            ? "dlc_manager.required.cancel"
+            : "dlc_manager.required.download"));
+    }
+
     private void startDownload() {
         if (downloading) {
             return;
         }
         downloading = true;
+        cancelRequested = false;
         errorText = null;
         downloadedAny = false;
-        downloadButton.active = false;
+        updateDownloadButtonLabel(true);
+        downloadButton.active = true;
         if (!forceRequired) {
             skipButton.active = false;
         }
@@ -350,10 +422,15 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (downloadQueue.isEmpty()) {
             new Thread(() -> {
                 try {
+                    Minecraft.getInstance().execute(() -> {
+                        updateDownloadButtonLabel(false);
+                        downloadButton.active = false;
+                    });
                     applyAll();
                 } catch (Exception e) {
                     errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
                     Minecraft.getInstance().execute(() -> {
+                        updateDownloadButtonLabel(false);
                         downloadButton.active = true;
                         if (!forceRequired) {
                             skipButton.active = true;
@@ -373,12 +450,37 @@ public class DlcRequiredDownloadScreen extends Screen {
         totalCount = pending.size();
         completedCount = 0;
         List<DlcRequiredEntry> failed = runDownloadBatch(pending);
+        if (cancelRequested) {
+            downloading = false;
+            statusText = Component.translatable("dlc_manager.required.canceled").getString();
+            Minecraft.getInstance().execute(() -> {
+                updateDownloadButtonLabel(false);
+                downloadButton.active = true;
+                if (!forceRequired) {
+                    skipButton.active = true;
+                }
+            });
+            return;
+        }
         if (!failed.isEmpty()) {
             failed = runDownloadBatch(failed);
+        }
+        if (cancelRequested) {
+            downloading = false;
+            statusText = Component.translatable("dlc_manager.required.canceled").getString();
+            Minecraft.getInstance().execute(() -> {
+                updateDownloadButtonLabel(false);
+                downloadButton.active = true;
+                if (!forceRequired) {
+                    skipButton.active = true;
+                }
+            });
+            return;
         }
         if (!failed.isEmpty()) {
             downloading = false;
             Minecraft.getInstance().execute(() -> {
+                updateDownloadButtonLabel(false);
                 downloadButton.active = true;
                 if (!forceRequired) {
                     skipButton.active = true;
@@ -395,11 +497,16 @@ public class DlcRequiredDownloadScreen extends Screen {
         }
         errorText = null;
         try {
+            Minecraft.getInstance().execute(() -> {
+                updateDownloadButtonLabel(false);
+                downloadButton.active = false;
+            });
             applyAll();
         } catch (Exception e) {
             errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
             downloading = false;
             Minecraft.getInstance().execute(() -> {
+                updateDownloadButtonLabel(false);
                 downloadButton.active = true;
                 if (!forceRequired) {
                     skipButton.active = true;
@@ -415,13 +522,26 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (pending.isEmpty()) {
             return failed;
         }
+        if (cancelRequested) {
+            return failed;
+        }
         if (maxConcurrentDownloads <= 1) {
             for (DlcRequiredEntry entry : pending) {
+                if (cancelRequested) {
+                    break;
+                }
                 statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
                 try {
                     downloadEntry(entry);
                     completedCount++;
+                    if (cancelRequested) {
+                        break;
+                    }
                 } catch (Exception e) {
+                    if (e instanceof DownloadCanceledException) {
+                        cancelRequested = true;
+                        break;
+                    }
                     failed.add(entry);
                     errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
                 }
@@ -437,7 +557,9 @@ public class DlcRequiredDownloadScreen extends Screen {
             try {
                 Future<DownloadResult> future = completion.take();
                 DownloadResult result = future.get();
-                if (result.success) {
+                if (result.canceled) {
+                    cancelRequested = true;
+                } else if (result.success) {
                     completedCount++;
                 } else {
                     failed.add(result.entry);
@@ -446,8 +568,15 @@ public class DlcRequiredDownloadScreen extends Screen {
                     }
                 }
             } catch (Exception e) {
-                errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
-                failed.add(pending.get(i));
+                if (e instanceof DownloadCanceledException) {
+                    cancelRequested = true;
+                } else {
+                    errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
+                    failed.add(pending.get(i));
+                }
+            }
+            if (cancelRequested) {
+                break;
             }
         }
         executor.shutdownNow();
@@ -457,9 +586,11 @@ public class DlcRequiredDownloadScreen extends Screen {
     private DownloadResult downloadEntryWithResult(DlcRequiredEntry entry) {
         try {
             downloadEntry(entry);
-            return new DownloadResult(entry, true, null);
+            return new DownloadResult(entry, true, false, null);
+        } catch (DownloadCanceledException e) {
+            return new DownloadResult(entry, false, true, null);
         } catch (Exception e) {
-            return new DownloadResult(entry, false, e);
+            return new DownloadResult(entry, false, false, e);
         }
     }
 
@@ -467,18 +598,27 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (entry == null) {
             return;
         }
+        checkCanceled();
         currentProgress = 0f;
         String progressKey = progressKey(entry);
-        List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
-        IOException lastError = null;
-        Path lastTempFile = null;
-        int attemptId = 0;
-        for (DownloadCandidate candidate : candidates) {
-            for (int attempt = 1; attempt <= maxRetry; attempt++) {
-                try {
-                    attemptId = attemptCounter.incrementAndGet();
-                    attemptByKey.put(progressKey, attemptId);
-                    String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
+        if (maxConcurrentDownloads <= 1) {
+            activeDownloadEntry = entry;
+        }
+        try {
+            List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
+            IOException lastError = null;
+            Path lastTempFile = null;
+            int attemptId = 0;
+            boolean canceled = false;
+            for (int candidateIndex = 0; candidateIndex < candidates.size(); candidateIndex++) {
+                DownloadCandidate candidate = candidates.get(candidateIndex);
+                for (int attempt = 1; attempt <= maxRetry; attempt++) {
+                    try {
+                        checkCanceled();
+                        attemptId = attemptCounter.incrementAndGet();
+                        attemptByKey.put(progressKey, attemptId);
+                        markDownloadStart(progressKey);
+                        String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
                     if (fileName == null && candidate.fileNameOverride != null) {
                         fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
                     }
@@ -508,6 +648,7 @@ public class DlcRequiredDownloadScreen extends Screen {
                     lastTempFile = tempFile;
                     long existing = Files.exists(tempFile) ? Files.size(tempFile) : 0L;
                     closeQuietly(downloadInfo.connection);
+                    checkCanceled();
                     if (existing > 0) {
                         downloadInfo = openDownload(candidate.url, existing);
                         if (downloadInfo.responseCode != HttpURLConnection.HTTP_PARTIAL) {
@@ -533,41 +674,75 @@ public class DlcRequiredDownloadScreen extends Screen {
                     } else {
                         downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes, progressKey, attemptId);
                     }
+                    checkCanceled();
                     if (downloadInfo.totalBytes <= 0 && Files.size(tempFile) <= 0) {
                         throw new IOException("download empty");
                     }
+                    verifyDownloadedFile(tempFile, candidate, downloadInfo);
                     Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
                     downloadedAny = true;
                     setEntryProgress(progressKey, attemptId, 1f);
                     entry.setResolvedFileName(fileName);
                     DlcRequiredManager.updateFileNameKey(entry, fileName);
-                    return;
-                } catch (IOException ex) {
-                    lastError = ex;
-                    if (ex instanceof SegmentDownloadException) {
-                        setEntryProgress(progressKey, attemptId, 0f);
-                        break;
-                    }
-                    if (attempt >= maxRetry) {
-                        setEntryProgress(progressKey, attemptId, 0f);
+                        return;
+                    } catch (DownloadCanceledException ex) {
+                        canceled = true;
+                        throw ex;
+                    } catch (IOException ex) {
+                        if (isSwitchException(ex)) {
+                            lastError = ex;
+                            clearSwitchRequest(progressKey);
+                            if (candidateIndex < candidates.size() - 1) {
+                                if (!canceled) {
+                                    setEntryProgress(progressKey, attemptId, 0f);
+                                }
+                                break;
+                            }
+                            continue;
+                        }
+                        if (ex.getCause() instanceof DownloadCanceledException) {
+                            canceled = true;
+                            throw (DownloadCanceledException) ex.getCause();
+                        }
+                        lastError = ex;
+                        if (ex instanceof SegmentDownloadException) {
+                            if (!canceled) {
+                                setEntryProgress(progressKey, attemptId, 0f);
+                            }
+                            break;
+                        }
+                        if (attempt >= maxRetry) {
+                            if (!canceled) {
+                                setEntryProgress(progressKey, attemptId, 0f);
+                            }
+                        }
                     }
                 }
             }
-        }
-        if (lastTempFile != null) {
-            try {
-                Files.deleteIfExists(lastTempFile);
-            } catch (IOException ignored) {
-                // Best-effort.
+            if (cancelRequested || canceled) {
+                throw new DownloadCanceledException("canceled");
+            }
+            if (lastTempFile != null) {
+                try {
+                    Files.deleteIfExists(lastTempFile);
+                } catch (IOException ignored) {
+                    // Best-effort.
+                }
+            }
+            if (attemptId > 0) {
+                setEntryProgress(progressKey, attemptId, 0f);
+            }
+            if (lastError != null) {
+                throw lastError;
+            }
+            throw new IOException("missing download url");
+        } finally {
+            downloadStartByKey.remove(progressKey);
+            switchRequested.remove(progressKey);
+            if (activeDownloadEntry == entry) {
+                activeDownloadEntry = null;
             }
         }
-        if (attemptId > 0) {
-            setEntryProgress(progressKey, attemptId, 0f);
-        }
-        if (lastError != null) {
-            throw lastError;
-        }
-        throw new IOException("missing download url");
     }
 
     private void applyAll() throws IOException {
@@ -793,6 +968,28 @@ public class DlcRequiredDownloadScreen extends Screen {
         return fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".json");
     }
 
+    private boolean isTempFileName(String fileName) {
+        if (fileName == null) {
+            return false;
+        }
+        return fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".part");
+    }
+
+    private Float getCompletedProgress(DlcRequiredEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        String fileName = resolveExistingFileName(entry);
+        if (fileName == null || isTempFileName(fileName)) {
+            return null;
+        }
+        Path required = entry.resolveRequiredPath(fileName);
+        if (required != null && Files.exists(required)) {
+            return 1f;
+        }
+        return null;
+    }
+
     private boolean isConfigFile(DlcRequiredEntry entry, Path path) {
         if (entry == null || path == null) {
             return false;
@@ -850,7 +1047,7 @@ public class DlcRequiredDownloadScreen extends Screen {
 
     private String resolveExistingFileName(DlcRequiredEntry entry) {
         String fileName = entry.getResolvedFileName();
-        if (isConfigFileName(fileName)) {
+        if (isConfigFileName(fileName) || isTempFileName(fileName)) {
             fileName = null;
         }
         if (fileName != null && !fileName.isBlank()) {
@@ -868,7 +1065,11 @@ public class DlcRequiredDownloadScreen extends Screen {
                 if (isConfigFile(entry, path)) {
                     continue;
                 }
-                return path.getFileName().toString();
+                String name = path.getFileName() == null ? "" : path.getFileName().toString();
+                if (isTempFileName(name)) {
+                    continue;
+                }
+                return name;
             }
         } catch (IOException ignored) {
             // Best-effort.
@@ -1100,6 +1301,10 @@ public class DlcRequiredDownloadScreen extends Screen {
             byte[] buffer = new byte[8192];
             int len;
             while ((len = in.read(buffer)) >= 0) {
+                checkCanceled();
+                if (isSwitchRequested(progressKey)) {
+                    throw new DownloadSwitchException("switch");
+                }
                 out.write(buffer, 0, len);
                 read += len;
                 if (total > 0) {
@@ -1194,6 +1399,7 @@ public class DlcRequiredDownloadScreen extends Screen {
     }
 
     private void downloadSegmented(String url, Path tempFile, long totalBytes, String progressKey, int attemptId) throws IOException {
+        checkCanceled();
         int segments = Math.max(1, Math.min(maxSegmentsPerFile, (int) Math.min(Integer.MAX_VALUE, totalBytes)));
         long segmentSize = Math.max(1L, totalBytes / segments);
         java.util.concurrent.atomic.AtomicLong readBytes = new java.util.concurrent.atomic.AtomicLong(0L);
@@ -1211,6 +1417,12 @@ public class DlcRequiredDownloadScreen extends Screen {
                 int attempts = 0;
                 IOException lastError = null;
                 while (segmentRead < segmentTotal) {
+                    if (cancelRequested) {
+                        throw new SegmentDownloadException("canceled", new DownloadCanceledException("canceled"));
+                    }
+                    if (isSwitchRequested(progressKey)) {
+                        throw new SegmentDownloadException("switch", new DownloadSwitchException("switch"));
+                    }
                     if (Thread.currentThread().isInterrupted()) {
                         throw new SegmentDownloadException("interrupted");
                     }
@@ -1238,6 +1450,12 @@ public class DlcRequiredDownloadScreen extends Screen {
                             byte[] buffer = new byte[8192];
                             int len;
                             while ((len = in.read(buffer)) >= 0) {
+                                if (cancelRequested) {
+                                    throw new IOException("canceled");
+                                }
+                                if (isSwitchRequested(progressKey)) {
+                                    throw new DownloadSwitchException("switch");
+                                }
                                 if (Thread.currentThread().isInterrupted()) {
                                     throw new IOException("interrupted");
                                 }
@@ -1271,8 +1489,151 @@ public class DlcRequiredDownloadScreen extends Screen {
                 }
                 throw new SegmentDownloadException("segment failed", e);
             }
+            if (cancelRequested) {
+                throw new SegmentDownloadException("canceled", new DownloadCanceledException("canceled"));
+            }
         }
         setEntryProgress(progressKey, attemptId, 1f);
+    }
+
+    private void checkCanceled() throws DownloadCanceledException {
+        if (cancelRequested) {
+            throw new DownloadCanceledException("canceled");
+        }
+    }
+
+    private void markDownloadStart(String key) {
+        if (key == null) {
+            return;
+        }
+        downloadStartByKey.put(key, System.currentTimeMillis());
+    }
+
+    private boolean isSwitchRequested(String key) {
+        return key != null && switchRequested.contains(key);
+    }
+
+    private void clearSwitchRequest(String key) {
+        if (key != null) {
+            switchRequested.remove(key);
+        }
+    }
+
+    private boolean isSwitchException(IOException ex) {
+        if (ex instanceof DownloadSwitchException) {
+            return true;
+        }
+        return ex.getCause() instanceof DownloadSwitchException;
+    }
+
+    private boolean hasMultipleSources(DlcRequiredEntry entry) {
+        if (entry == null) {
+            return false;
+        }
+        int count = 0;
+        if ((entry.getCurseforgeProjectId() != null && !entry.getCurseforgeProjectId().isBlank())
+            || (entry.getCurseforgeFileId() != null && !entry.getCurseforgeFileId().isBlank())) {
+            count += 1;
+        }
+        if ((entry.getModrinthProjectId() != null && !entry.getModrinthProjectId().isBlank())
+            || (entry.getModrinthVersionId() != null && !entry.getModrinthVersionId().isBlank())) {
+            count += 1;
+        }
+        int directCount = entry.getDirectUrls().size();
+        if (directCount > 0) {
+            count += directCount;
+        }
+        return count > 1;
+    }
+
+    private boolean shouldShowSwitch(String key, DlcRequiredEntry entry, float progress) {
+        if (!downloading || key == null || entry == null) {
+            return false;
+        }
+        if (progress >= 1f) {
+            return false;
+        }
+        Long start = downloadStartByKey.get(key);
+        if (start == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() - start < SWITCH_DELAY_MS) {
+            return false;
+        }
+        return hasMultipleSources(entry);
+    }
+
+    private void drawSwitchButton(GuiGraphics guiGraphics, int x, int y) {
+        int right = x + SWITCH_BUTTON_SIZE;
+        int bottom = y + SWITCH_BUTTON_SIZE;
+        guiGraphics.fill(x, y, right, bottom, 0xFF4B4B4B);
+        guiGraphics.drawString(this.font, ">", x + 2, y + 1, 0xE6E6E6, false);
+    }
+
+    private boolean handleSwitchClick(double mouseX, double mouseY) {
+        if (!downloading) {
+            return false;
+        }
+        if (maxConcurrentDownloads <= 1) {
+            DlcRequiredEntry activeEntry = activeDownloadEntry;
+            String key = activeEntry == null ? null : progressKey(activeEntry);
+            if (key != null && shouldShowSwitch(key, activeEntry, currentProgress)) {
+                int centerX = this.width / 2;
+                int barLeft = centerX - 120;
+                int switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE;
+                int switchTop = (this.height - 70) + 12 - 1;
+                if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE
+                    && mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE) {
+                    switchRequested.add(key);
+                    return true;
+                }
+            }
+            return false;
+        }
+        int listTop = getListTop();
+        int listBottom = this.height - 70;
+        int lineHeight = 10;
+        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
+        int totalLines = displayList.size();
+        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
+            DlcRequiredEntry entry = displayList.get(i);
+            String key = progressKey(entry);
+            Float progress = progressByKey.get(key);
+            if (progress == null || !shouldShowSwitch(key, entry, progress)) {
+                continue;
+            }
+            int row = i - scrollIndex;
+            int rowY = listTop + row * lineHeight;
+            int barWidth = 36;
+            int barHeight = 6;
+            int percentBoxWidth = this.font.width("100%");
+            int percentRight = this.width - 18;
+            int percentLeft = percentRight - percentBoxWidth;
+            int barRight = percentLeft - 6;
+            int barLeft = barRight - barWidth;
+            int barY = rowY + 2;
+            int switchRight = barLeft - SWITCH_BUTTON_PAD;
+            int switchLeft = switchRight - SWITCH_BUTTON_SIZE;
+            int switchTop = barY - 1;
+            if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE
+                && mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE) {
+                switchRequested.add(key);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final class DownloadSwitchException extends IOException {
+        private DownloadSwitchException(String message) {
+            super(message);
+        }
+    }
+
+    private static final class DownloadCanceledException extends IOException {
+        private DownloadCanceledException(String message) {
+            super(message);
+        }
     }
 
     private List<DownloadCandidate> buildDownloadCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
@@ -1295,35 +1656,61 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (directUrls.isEmpty() && entry.getDirectUrl() != null && !entry.getDirectUrl().isBlank()) {
             directUrls.add(entry.getDirectUrl());
         }
+        String curseHashType = null;
+        String curseHashValue = null;
+        long curseSize = -1L;
+        if (curseFile != null) {
+            if (curseFile.sha1 != null && !curseFile.sha1.isBlank()) {
+                curseHashType = "sha1";
+                curseHashValue = curseFile.sha1;
+            } else if (curseFile.md5 != null && !curseFile.md5.isBlank()) {
+                curseHashType = "md5";
+                curseHashValue = curseFile.md5;
+            }
+            curseSize = curseFile.size;
+        }
+        String modrinthHashType = null;
+        String modrinthHashValue = null;
+        long modrinthSize = -1L;
+        if (version != null) {
+            if (version.sha1 != null && !version.sha1.isBlank()) {
+                modrinthHashType = "sha1";
+                modrinthHashValue = version.sha1;
+            } else if (version.sha512 != null && !version.sha512.isBlank()) {
+                modrinthHashType = "sha512";
+                modrinthHashValue = version.sha512;
+            }
+            modrinthSize = version.size;
+        }
         if (entry.isDirectUrlPriority()) {
             for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null));
+                candidates.add(new DownloadCandidate(url, null, null, null, -1L));
             }
             if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName));
+                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName, curseHashType, curseHashValue, curseSize));
             }
             if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName));
+                candidates.add(new DownloadCandidate(version.url, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
             }
         } else if (entry.isCurseForgePriority()) {
             if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName));
+                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName, curseHashType, curseHashValue, curseSize));
             }
             if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName));
+                candidates.add(new DownloadCandidate(version.url, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
             }
             for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null));
+                candidates.add(new DownloadCandidate(url, null, null, null, -1L));
             }
         } else {
             if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName));
+                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName, curseHashType, curseHashValue, curseSize));
             }
             if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName));
+                candidates.add(new DownloadCandidate(version.url, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
             }
             for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null));
+                candidates.add(new DownloadCandidate(url, null, null, null, -1L));
             }
         }
         return candidates;
@@ -1332,10 +1719,16 @@ public class DlcRequiredDownloadScreen extends Screen {
     private static final class DownloadCandidate {
         private final String url;
         private final String fileNameOverride;
+        private final String hashType;
+        private final String hashValue;
+        private final long expectedSize;
 
-        private DownloadCandidate(String url, String fileNameOverride) {
+        private DownloadCandidate(String url, String fileNameOverride, String hashType, String hashValue, long expectedSize) {
             this.url = url;
             this.fileNameOverride = fileNameOverride;
+            this.hashType = hashType;
+            this.hashValue = hashValue;
+            this.expectedSize = expectedSize;
         }
     }
 
@@ -1356,7 +1749,8 @@ public class DlcRequiredDownloadScreen extends Screen {
         int responseCode = connection.getResponseCode();
         long contentLength = connection.getContentLengthLong();
         long totalBytes = contentLength > 0 ? contentLength + Math.max(0, offset) : -1L;
-        return new DownloadInfo(connection, fileName, responseCode, totalBytes);
+        String contentMd5 = connection.getHeaderField("Content-MD5");
+        return new DownloadInfo(connection, fileName, responseCode, totalBytes, contentMd5);
     }
 
     private void closeQuietly(HttpURLConnection connection) {
@@ -1372,6 +1766,9 @@ public class DlcRequiredDownloadScreen extends Screen {
     private void initProgressMap(List<DlcRequiredEntry> pending) {
         progressByKey.clear();
         attemptByKey.clear();
+        downloadStartByKey.clear();
+        switchRequested.clear();
+        activeDownloadEntry = null;
         if (pending == null) {
             return;
         }
@@ -1422,11 +1819,13 @@ public class DlcRequiredDownloadScreen extends Screen {
     private static final class DownloadResult {
         private final DlcRequiredEntry entry;
         private final boolean success;
+        private final boolean canceled;
         private final Exception error;
 
-        private DownloadResult(DlcRequiredEntry entry, boolean success, Exception error) {
+        private DownloadResult(DlcRequiredEntry entry, boolean success, boolean canceled, Exception error) {
             this.entry = entry;
             this.success = success;
+            this.canceled = canceled;
             this.error = error;
         }
     }
@@ -1446,12 +1845,64 @@ public class DlcRequiredDownloadScreen extends Screen {
         private final String fileName;
         private final int responseCode;
         private final long totalBytes;
+        private final String contentMd5;
 
-        private DownloadInfo(HttpURLConnection connection, String fileName, int responseCode, long totalBytes) {
+        private DownloadInfo(HttpURLConnection connection, String fileName, int responseCode, long totalBytes, String contentMd5) {
             this.connection = connection;
             this.fileName = fileName;
             this.responseCode = responseCode;
             this.totalBytes = totalBytes;
+            this.contentMd5 = contentMd5;
         }
+    }
+
+    private void verifyDownloadedFile(Path tempFile, DownloadCandidate candidate, DownloadInfo info) throws IOException {
+        checkCanceled();
+        String hashType = candidate == null ? null : candidate.hashType;
+        String hashValue = candidate == null ? null : candidate.hashValue;
+        if (hashType != null && hashValue != null && !hashValue.isBlank()) {
+            String algorithm = mapHashAlgorithm(hashType);
+            String actual = DlcDownloadUtil.computeHashHex(tempFile, algorithm);
+            if (actual == null || !actual.equalsIgnoreCase(DlcDownloadUtil.normalizeHash(hashValue))) {
+                Files.deleteIfExists(tempFile);
+                throw new IOException("hash mismatch");
+            }
+            return;
+        }
+        if (info != null && info.contentMd5 != null && !info.contentMd5.isBlank()) {
+            String expected = DlcDownloadUtil.normalizeHash(info.contentMd5);
+            String actualHex = DlcDownloadUtil.computeHashHex(tempFile, "MD5");
+            String actualBase64 = DlcDownloadUtil.computeMd5Base64(tempFile);
+            if (actualHex == null || actualBase64 == null
+                || (!expected.equalsIgnoreCase(actualHex) && !expected.equalsIgnoreCase(actualBase64))) {
+                Files.deleteIfExists(tempFile);
+                throw new IOException("hash mismatch");
+            }
+            return;
+        }
+        long expectedSize = candidate == null ? -1L : candidate.expectedSize;
+        if (expectedSize <= 0 && info != null && info.totalBytes > 0) {
+            expectedSize = info.totalBytes;
+        }
+        if (expectedSize > 0) {
+            long size = Files.size(tempFile);
+            if (size != expectedSize) {
+                Files.deleteIfExists(tempFile);
+                throw new IOException("size mismatch");
+            }
+        }
+    }
+
+    private String mapHashAlgorithm(String hashType) {
+        if (hashType == null) {
+            return null;
+        }
+        return switch (hashType.toLowerCase(java.util.Locale.ROOT)) {
+            case "sha1", "sha-1" -> "SHA-1";
+            case "sha256", "sha-256" -> "SHA-256";
+            case "sha512", "sha-512" -> "SHA-512";
+            case "md5" -> "MD5";
+            default -> hashType;
+        };
     }
 }

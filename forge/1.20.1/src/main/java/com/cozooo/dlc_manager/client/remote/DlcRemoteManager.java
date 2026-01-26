@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
@@ -24,6 +25,10 @@ public final class DlcRemoteManager {
 
     public static boolean maybeShowFromManager(net.minecraft.client.gui.screens.Screen parent) {
         if (promptedThisSession) {
+            return false;
+        }
+        Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot)) {
             return false;
         }
         List<DlcRemoteEntry> missing = collectMissing();

@@ -110,6 +110,7 @@ public class DlcManagerClient implements ClientModInitializer {
             DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = null;
             boolean hasSelfUpdate = false;
             boolean updateManagerOn = DlcPathConfig.isUpdateManagerOn();
+            boolean selfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn();
             String changelogText = "";
             String changelogVersion = null;
             if (updateManagerOn) {
@@ -138,7 +139,7 @@ public class DlcManagerClient implements ClientModInitializer {
                 int updateCount = updateResult == null || updateResult.getUpdates() == null ? 0 : updateResult.getUpdates().size();
                 LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, took={}ms", hasUpdate, updateCount, System.currentTimeMillis() - updateAt);
             }
-            if (updateManagerOn && !selfUpdatePrompted) {
+            if (selfUpdateAutoCheckOn && !selfUpdatePrompted) {
                 long selfAt = System.currentTimeMillis();
                 selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
                 hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate;
@@ -304,6 +305,17 @@ public class DlcManagerClient implements ClientModInitializer {
                 rowY = anchor.getY();
             }
         }
+        int desiredW = DlcPathConfig.getTitleWidth();
+        int desiredH = DlcPathConfig.getTitleHeight();
+        int buttonW = desiredW > 0 ? desiredW : rowW;
+        int buttonH = desiredH > 0 ? desiredH : rowH;
+        int[] pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, buttonW, buttonH, rowX, rowY);
+        rowX = pos[0];
+        rowY = pos[1];
+        if (desiredH > 0) {
+            rowH = buttonH;
+            rowStep = rowH + 4;
+        }
 
         if (modsWidget != null) {
             int gap = 4;
@@ -313,33 +325,60 @@ public class DlcManagerClient implements ClientModInitializer {
             modsWidget.setX(rowX);
             modsWidget.setY(rowY);
             modsWidget.setWidth(halfWidth);
+            setWidgetHeight(modsWidget, rowH);
             int dlcX = rowX + halfWidth + gap;
-            int dlcWidth = halfWidth;
+            int dlcWidth = desiredW > 0 ? desiredW : halfWidth;
             if (updateWidget != null) {
-                dlcWidth = Math.max(40, halfWidth - iconWidth - iconGap);
+                int baseWidth = desiredW > 0 ? desiredW : halfWidth;
+                dlcWidth = Math.max(40, baseWidth - iconWidth - iconGap);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(dlcX + dlcWidth + iconGap);
                 updateWidget.setY(rowY);
+                setWidgetHeight(updateWidget, rowH);
             }
             dlcWidget.setX(dlcX);
             dlcWidget.setY(rowY);
             dlcWidget.setWidth(dlcWidth);
+            setWidgetHeight(dlcWidget, rowH);
 
             int optionsRowY = rowY + rowStep;
             moveBottomRow(screen, optionsRowY);
         } else {
             int iconGap = 4;
             int iconWidth = 20;
-            int dlcWidth = rowW;
+            int dlcWidth = desiredW > 0 ? desiredW : rowW;
             if (updateWidget != null) {
-                dlcWidth = Math.max(40, rowW - iconWidth - iconGap);
+                int baseWidth = desiredW > 0 ? desiredW : rowW;
+                dlcWidth = Math.max(40, baseWidth - iconWidth - iconGap);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(rowX + dlcWidth + iconGap);
                 updateWidget.setY(rowY);
+                setWidgetHeight(updateWidget, rowH);
             }
             dlcWidget.setX(rowX);
             dlcWidget.setY(rowY);
             dlcWidget.setWidth(dlcWidth);
+            setWidgetHeight(dlcWidget, rowH);
+        }
+    }
+
+    private static void setWidgetHeight(AbstractWidget widget, int height) {
+        if (widget == null) {
+            return;
+        }
+        try {
+            java.lang.reflect.Method method = widget.getClass().getMethod("setHeight", int.class);
+            method.invoke(widget, height);
+            return;
+        } catch (Exception ignored) {
+            // Fall back to direct field access for 1.20.x.
+        }
+        try {
+            java.lang.reflect.Field field = AbstractWidget.class.getDeclaredField("height");
+            field.setAccessible(true);
+            field.setInt(widget, height);
+        } catch (Exception ignored) {
+            // Best-effort only.
         }
     }
 

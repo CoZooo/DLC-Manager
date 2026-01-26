@@ -42,6 +42,19 @@ public class DlcConfigScreen extends GuiModConfigs {
     private WidgetListConfigOptionsBase<?, ?> listWidget;
     private ButtonGeneric saveButton;
     private ButtonGeneric cancelButton;
+    private ButtonGeneric checkUpdateButton;
+    private static final String[] TITLE_ANCHOR_VALUES = new String[] {
+            "auto",
+            "top_left",
+            "top",
+            "top_right",
+            "left",
+            "center",
+            "right",
+            "bottom_left",
+            "bottom",
+            "bottom_right"
+    };
 
     public DlcConfigScreen(Screen parent) {
         this(parent, Tab.PATHS);
@@ -80,10 +93,15 @@ public class DlcConfigScreen extends GuiModConfigs {
         int buttonY = this.height - 28;
         int centerX = this.width / 2;
         int spacing = 10;
-        int saveX = centerX - spacing / 2 - buttonWidth;
-        int cancelX = centerX + spacing / 2;
+        int totalWidth = buttonWidth * 3 + spacing * 2;
+        int startX = centerX - totalWidth / 2;
+        int checkX = startX;
+        int saveX = startX + buttonWidth + spacing;
+        int cancelX = saveX + buttonWidth + spacing;
+        this.checkUpdateButton = new ButtonGeneric(checkX, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.config.check_update"));
         this.saveButton = new ButtonGeneric(saveX, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.config.save"));
         this.cancelButton = new ButtonGeneric(cancelX, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.config.cancel"));
+        this.addButton(this.checkUpdateButton, new CheckUpdateButtonListener());
         this.addButton(this.saveButton, new SaveButtonListener());
         this.addButton(this.cancelButton, new CancelButtonListener());
         updateSaveButtonState();
@@ -171,6 +189,51 @@ public class DlcConfigScreen extends GuiModConfigs {
         this.mc.setScreen(new DlcConfigScreen(this.getParent(), tab));
     }
 
+    private static boolean isTitleAnchorConfig(IConfigBase config) {
+        return config != null && "titleAnchor".equals(config.getName());
+    }
+
+    private static String normalizeAnchorValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "auto";
+        }
+        String normalized = value.trim().toLowerCase().replace(' ', '_');
+        return switch (normalized) {
+            case "topleft", "top-left" -> "top_left";
+            case "topcenter", "top_center" -> "top";
+            case "topright", "top-right" -> "top_right";
+            case "centerleft", "center_left" -> "left";
+            case "centerright", "center_right" -> "right";
+            case "bottomleft", "bottom-left" -> "bottom_left";
+            case "bottomcenter", "bottom_center" -> "bottom";
+            case "bottomright", "bottom-right" -> "bottom_right";
+            default -> normalized;
+        };
+    }
+
+    private static int indexOfAnchorValue(String value) {
+        String normalized = normalizeAnchorValue(value);
+        for (int i = 0; i < TITLE_ANCHOR_VALUES.length; i++) {
+            if (TITLE_ANCHOR_VALUES[i].equals(normalized)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private static String nextAnchorValue(String value) {
+        int index = indexOfAnchorValue(value);
+        int nextIndex = (index + 1) % TITLE_ANCHOR_VALUES.length;
+        return TITLE_ANCHOR_VALUES[nextIndex];
+    }
+
+    private static String anchorDisplay(String value) {
+        String normalized = normalizeAnchorValue(value);
+        String key = "dlc_manager.config.ui.titleAnchor." + normalized;
+        String label = StringUtils.translate(key);
+        return label.equals(key) ? normalized : label;
+    }
+
     private void saveAndClose() {
         if (this.listWidget != null) {
             this.listWidget.applyPendingModifications();
@@ -212,6 +275,13 @@ public class DlcConfigScreen extends GuiModConfigs {
         @Override
         public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
             DlcConfigScreen.this.cancelAndClose();
+        }
+    }
+
+    private class CheckUpdateButtonListener implements IButtonActionListener {
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            DlcConfigScreen.this.mc.setScreen(new DlcSelfUpdateScreen(DlcConfigScreen.this, null));
         }
     }
 
@@ -269,6 +339,13 @@ public class DlcConfigScreen extends GuiModConfigs {
 
         @Override
         protected void addConfigTextFieldEntry(int x, int y, int resetButtonX, int width, int height, IConfigValue config) {
+            if (isTitleAnchorConfig(config)) {
+                ButtonGeneric anchorButton = new ButtonGeneric(x, y, width, height, anchorDisplay(config.getStringValue()));
+                ButtonGeneric resetButton = createResetButton(resetButtonX, y, config);
+                this.addButton(anchorButton, new AnchorCycleListener(config, anchorButton, resetButton));
+                this.addButton(resetButton, new ConfirmResetListenerGeneric(new AnchorResetListener(config, anchorButton, resetButton)));
+                return;
+            }
             GuiTextFieldGeneric textField = createTextField(x, y + 1, width - 4, height - 3);
             textField.setMaxLength(this.maxTextfieldTextLength);
             textField.setValue(config.getStringValue());
@@ -331,6 +408,70 @@ public class DlcConfigScreen extends GuiModConfigs {
                 }
                 delegate.actionPerformedWithButton(button, mouseButton);
             }, title, message, yes, no));
+        }
+    }
+
+    private static class ConfirmResetListenerGeneric implements IButtonActionListener {
+        private final IButtonActionListener delegate;
+
+        private ConfirmResetListenerGeneric(IButtonActionListener delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            Minecraft minecraft = Minecraft.getInstance();
+            Screen returnScreen = minecraft.screen;
+            Component title = Component.translatable("dlc_manager.config.reset_title");
+            Component message = Component.translatable("dlc_manager.config.reset_prompt");
+            Component yes = Component.translatable("dlc_manager.config.reset_yes");
+            Component no = Component.translatable("dlc_manager.config.reset_no");
+            minecraft.setScreen(new ConfirmScreen(accepted -> {
+                minecraft.setScreen(returnScreen);
+                if (!accepted) {
+                    return;
+                }
+                delegate.actionPerformedWithButton(button, mouseButton);
+            }, title, message, yes, no));
+        }
+    }
+
+    private static class AnchorCycleListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric anchorButton;
+        private final ButtonGeneric resetButton;
+
+        private AnchorCycleListener(IConfigValue config, ButtonGeneric anchorButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.anchorButton = anchorButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            String nextValue = nextAnchorValue(config.getStringValue());
+            config.setValueFromString(nextValue);
+            anchorButton.setDisplayString(anchorDisplay(nextValue));
+            resetButton.setEnabled(config.isModified());
+        }
+    }
+
+    private static class AnchorResetListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric anchorButton;
+        private final ButtonGeneric resetButton;
+
+        private AnchorResetListener(IConfigValue config, ButtonGeneric anchorButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.anchorButton = anchorButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            config.resetToDefault();
+            anchorButton.setDisplayString(anchorDisplay(config.getStringValue()));
+            resetButton.setEnabled(config.isModified());
         }
     }
 

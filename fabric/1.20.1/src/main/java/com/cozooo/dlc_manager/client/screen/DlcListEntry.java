@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
@@ -106,7 +107,8 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             if (toggleButton != null) {
                 toggleButton.setDisplayString(getToggleLabel(item));
                 boolean missing = DlcRuntimeState.hasMissingDependencies(item);
-                toggleButton.setEnabled(item.isEnabled() || !missing);
+                boolean blocked = DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier());
+                toggleButton.setEnabled(!blocked && (item.isEnabled() || !missing));
             }
         }
         super.render(mouseX, mouseY, hovered, guiGraphics);
@@ -148,6 +150,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
         boolean anyEligibleDisabled = items.stream().anyMatch(item -> item.AllowEnableByAll()
             && !DlcRuntimeState.hasMissingDependencies(item)
+            && !DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier())
             && !item.isEnabled());
         boolean anyEnabled = items.stream().anyMatch(DlcItem::isEnabled);
         if (anyEligibleDisabled) {
@@ -195,6 +198,18 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         java.util.List<String> deps = collectDependencyNamesRecursive(item);
         java.util.List<String> conflicts = item.getConflicts();
         java.util.Set<String> missing = DlcRuntimeState.collectMissingDependencyIdentifiers(item);
+        java.util.List<String> presetBlockers = DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(),
+            Minecraft.getInstance().options.languageCode);
+        if (!presetBlockers.isEmpty()) {
+            if (!lines.isEmpty()) {
+                lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
+            }
+            for (String blocker : presetBlockers) {
+                Component line = Component.translatable("dlc_manager.preset.conflict", blocker)
+                    .withStyle(net.minecraft.ChatFormatting.DARK_RED);
+                lines.addAll(font.split(line, maxWidth));
+            }
+        }
         if (!missing.isEmpty()) {
             if (!lines.isEmpty()) {
                 lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
@@ -286,6 +301,10 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 return;
             }
 
+            if (DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier())) {
+                return;
+            }
+
             ConflictCheck conflicts = getConflicts(item);
             if (!conflicts.items.isEmpty()) {
                 showConflictPrompt(item, conflicts, button);
@@ -323,12 +342,14 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
             boolean anyEligibleDisabled = items.stream().anyMatch(item -> item.AllowEnableByAll()
                 && !DlcRuntimeState.hasMissingDependencies(item)
+                && !DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier())
                 && !item.isEnabled());
             boolean target = anyEligibleDisabled;
             if (target) {
                 java.util.List<DlcItem> targets = items.stream()
                     .filter(item -> item.AllowEnableByAll()
                         && !DlcRuntimeState.hasMissingDependencies(item)
+                        && !DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier())
                         && !item.isEnabled())
                     .toList();
                 DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);

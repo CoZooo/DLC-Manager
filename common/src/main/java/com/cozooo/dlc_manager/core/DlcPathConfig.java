@@ -33,31 +33,73 @@ public class DlcPathConfig {
     static final boolean DEFAULT_CONFIG_BUTTON_SHOWN = true;
     static final boolean DEFAULT_U_BUTTON_SHOWN = true;
     static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
+    static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
+    static final boolean DEFAULT_PRESET_FUNC_ON = true;
+    static final String DEFAULT_TITLE_ANCHOR = "auto";
+    static final int DEFAULT_TITLE_OFFSET_X = 0;
+    static final int DEFAULT_TITLE_OFFSET_Y = 0;
     static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 5;
     static final int DEFAULT_MAX_SEGMENTS_PER_FILE = 4;
     static final int DEFAULT_MIN_SEGMENT_MB = 20;
     static final int DEFAULT_MAX_RETRY = 5;
     static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
     static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
+    static final int DEFAULT_TITLE_WIDTH = 0;
+    static final int DEFAULT_TITLE_HEIGHT = 0;
 
     private static boolean registered;
 
-    private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DEFAULT_DLC_ROOT, "dlc_manager.config.paths.dlcRoot");
-    private static final ConfigString TACZ_ROOT = new DlcConfigString("taczRoot", DEFAULT_TACZ_DLC_ROOT, "dlc_manager.config.paths.taczRoot");
-    private static final ConfigString RESOURCEPACK_ROOT = new DlcConfigString("resourcepackRoot", DEFAULT_RESOURCEPACK_ROOT, "dlc_manager.config.paths.resourcepackRoot");
-    private static final ConfigString DATAPACK_ROOT = new DlcConfigString("datapackRoot", DEFAULT_DATAPACK_ROOT, "dlc_manager.config.paths.datapackRoot");
+    private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DEFAULT_DLC_ROOT, "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
+    private static final ConfigString TACZ_ROOT = new DlcConfigString("taczRoot", DEFAULT_TACZ_DLC_ROOT, "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot");
+    private static final ConfigString RESOURCEPACK_ROOT = new DlcConfigString("resourcepackRoot", DEFAULT_RESOURCEPACK_ROOT, "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot");
+    private static final ConfigString DATAPACK_ROOT = new DlcConfigString("datapackRoot", DEFAULT_DATAPACK_ROOT, "dlc_manager.config.comment.paths.datapackRoot", "dlc_manager.config.paths.datapackRoot");
 
-    private static final ConfigBoolean ENABLE_ALL_BUTTON = new DlcConfigBoolean("isEnableAllButtonShown", DEFAULT_ENABLE_ALL_SHOWN, "dlc_manager.config.ui.isEnableAllButtonShown");
-    private static final ConfigBoolean CONFIG_BUTTON = new DlcConfigBoolean("isConfigButtonShown", DEFAULT_CONFIG_BUTTON_SHOWN, "dlc_manager.config.ui.isConfigButtonShown");
-    private static final ConfigBoolean U_BUTTON = new DlcConfigBoolean("isUButtomShown", DEFAULT_U_BUTTON_SHOWN, "dlc_manager.config.ui.isUButtomShown");
-    private static final ConfigBoolean UPDATE_MANAGER_ON = new DlcConfigBoolean("isUpdateManagerOn", DEFAULT_UPDATE_MANAGER_ON, "dlc_manager.config.ui.isUpdateManagerOn");
+    private static final ConfigBoolean ENABLE_ALL_BUTTON = new DlcConfigBoolean("isEnableAllButtonShown", DEFAULT_ENABLE_ALL_SHOWN, "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown");
+    private static final ConfigBoolean CONFIG_BUTTON = new DlcConfigBoolean("isConfigButtonShown", DEFAULT_CONFIG_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isConfigButtonShown", "dlc_manager.config.ui.isConfigButtonShown");
+    private static final ConfigBoolean U_BUTTON = new DlcConfigBoolean("isUButtomShown", DEFAULT_U_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isUButtomShown", "dlc_manager.config.ui.isUButtomShown");
+    private static final ConfigBoolean UPDATE_MANAGER_ON = new DlcConfigBoolean("isUpdateManagerOn", DEFAULT_UPDATE_MANAGER_ON, "dlc_manager.config.comment.ui.isUpdateManagerOn", "dlc_manager.config.ui.isUpdateManagerOn");
+    private static final ConfigBoolean SELF_UPDATE_AUTO_CHECK_ON = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DEFAULT_SELF_UPDATE_AUTO_CHECK_ON, "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
+    private static final ConfigBoolean PRESET_FUNC_ON = new DlcConfigBoolean("isPresetFuncOn", DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
+    private static final ConfigString TITLE_ANCHOR = new DlcConfigString("titleAnchor", DEFAULT_TITLE_ANCHOR, "dlc_manager.config.comment.ui.titleAnchor", "dlc_manager.config.ui.titleAnchor");
+    private static final ConfigInteger TITLE_OFFSET_X = new DlcConfigInteger(
+            "titleOffsetX",
+            DEFAULT_TITLE_OFFSET_X,
+            -10000,
+            10000,
+            "dlc_manager.config.comment.ui.titleOffsetX",
+            "dlc_manager.config.ui.titleOffsetX"
+    );
+    private static final ConfigInteger TITLE_OFFSET_Y = new DlcConfigInteger(
+            "titleOffsetY",
+            DEFAULT_TITLE_OFFSET_Y,
+            -10000,
+            10000,
+            "dlc_manager.config.comment.ui.titleOffsetY",
+            "dlc_manager.config.ui.titleOffsetY"
+    );
+    private static final ConfigInteger TITLE_WIDTH = new DlcConfigInteger(
+            "titleWidth",
+            DEFAULT_TITLE_WIDTH,
+            0,
+            10000,
+            "dlc_manager.config.comment.ui.titleWidth",
+            "dlc_manager.config.ui.titleWidth"
+    );
+    private static final ConfigInteger TITLE_HEIGHT = new DlcConfigInteger(
+            "titleHeight",
+            DEFAULT_TITLE_HEIGHT,
+            0,
+            10000,
+            "dlc_manager.config.comment.ui.titleHeight",
+            "dlc_manager.config.ui.titleHeight"
+    );
 
     private static final ConfigInteger MAX_CONCURRENT_DOWNLOADS = new DlcConfigInteger(
             "maxConcurrentDownloads",
             DEFAULT_MAX_CONCURRENT_DOWNLOADS,
             1,
             64,
-            "",
+            "dlc_manager.config.comment.download.maxConcurrentDownloads",
             "dlc_manager.config.download.maxConcurrentDownloads"
     );
     private static final ConfigInteger MAX_SEGMENTS_PER_FILE = new DlcConfigInteger(
@@ -65,7 +107,7 @@ public class DlcPathConfig {
             DEFAULT_MAX_SEGMENTS_PER_FILE,
             1,
             64,
-            "",
+            "dlc_manager.config.comment.download.maxSegmentsPerFile",
             "dlc_manager.config.download.maxSegmentsPerFile"
     );
     private static final ConfigInteger MIN_SEGMENT_MB = new DlcConfigInteger(
@@ -73,7 +115,7 @@ public class DlcPathConfig {
             DEFAULT_MIN_SEGMENT_MB,
             1,
             Integer.MAX_VALUE,
-            "",
+            "dlc_manager.config.comment.download.minSegmentMB",
             "dlc_manager.config.download.minSegmentMB"
     );
     private static final ConfigInteger MAX_RETRY = new DlcConfigInteger(
@@ -81,7 +123,7 @@ public class DlcPathConfig {
             DEFAULT_MAX_RETRY,
             1,
             100,
-            "",
+            "dlc_manager.config.comment.download.maxRetryCount",
             "dlc_manager.config.download.maxRetryCount"
     );
     private static final ConfigInteger CONNECT_TIMEOUT_SECONDS = new DlcConfigInteger(
@@ -89,7 +131,7 @@ public class DlcPathConfig {
             DEFAULT_CONNECT_TIMEOUT_SECONDS,
             1,
             36000,
-            "",
+            "dlc_manager.config.comment.download.connectTimeoutSeconds",
             "dlc_manager.config.download.connectTimeoutSeconds"
     );
     private static final ConfigInteger TASK_TIMEOUT_SECONDS = new DlcConfigInteger(
@@ -97,7 +139,7 @@ public class DlcPathConfig {
             DEFAULT_TASK_TIMEOUT_SECONDS,
             1,
             36000,
-            "",
+            "dlc_manager.config.comment.download.taskTimeoutSeconds",
             "dlc_manager.config.download.taskTimeoutSeconds"
     );
 
@@ -107,11 +149,18 @@ public class DlcPathConfig {
             "resourcepackRoot", RESOURCEPACK_ROOT,
             "datapackRoot", DATAPACK_ROOT
     );
-    private static final Map<String, IConfigBase> UI_KEY_MAP = Map.of(
-            "isEnableAllButtonShown", ENABLE_ALL_BUTTON,
-            "isConfigButtonShown", CONFIG_BUTTON,
-            "isUButtomShown", U_BUTTON,
-            "isUpdateManagerOn", UPDATE_MANAGER_ON
+    private static final Map<String, IConfigBase> UI_KEY_MAP = Map.ofEntries(
+            Map.entry("isEnableAllButtonShown", ENABLE_ALL_BUTTON),
+            Map.entry("isConfigButtonShown", CONFIG_BUTTON),
+            Map.entry("isUButtomShown", U_BUTTON),
+            Map.entry("isUpdateManagerOn", UPDATE_MANAGER_ON),
+            Map.entry("isSelfUpdateAutoCheckOn", SELF_UPDATE_AUTO_CHECK_ON),
+            Map.entry("isPresetFuncOn", PRESET_FUNC_ON),
+            Map.entry("titleAnchor", TITLE_ANCHOR),
+            Map.entry("titleOffsetX", TITLE_OFFSET_X),
+            Map.entry("titleOffsetY", TITLE_OFFSET_Y),
+            Map.entry("titleWidth", TITLE_WIDTH),
+            Map.entry("titleHeight", TITLE_HEIGHT)
     );
     private static final Map<String, IConfigBase> DOWNLOAD_KEY_MAP = Map.of(
             "maxConcurrentDownloads", MAX_CONCURRENT_DOWNLOADS,
@@ -132,7 +181,14 @@ public class DlcPathConfig {
             ENABLE_ALL_BUTTON,
             CONFIG_BUTTON,
             U_BUTTON,
-            UPDATE_MANAGER_ON
+            UPDATE_MANAGER_ON,
+            SELF_UPDATE_AUTO_CHECK_ON,
+            PRESET_FUNC_ON,
+            TITLE_ANCHOR,
+            TITLE_OFFSET_X,
+            TITLE_OFFSET_Y,
+            TITLE_WIDTH,
+            TITLE_HEIGHT
     );
     private static final List<IConfigBase> DOWNLOAD_CONFIGS = List.of(
             MAX_CONCURRENT_DOWNLOADS,
@@ -271,6 +327,89 @@ public class DlcPathConfig {
         return UPDATE_MANAGER_ON.getBooleanValue();
     }
 
+    public static boolean isSelfUpdateAutoCheckOn() {
+        return SELF_UPDATE_AUTO_CHECK_ON.getBooleanValue();
+    }
+
+    public static boolean isPresetFuncOn() {
+        return PRESET_FUNC_ON.getBooleanValue();
+    }
+
+    public static String getTitleAnchor() {
+        return TITLE_ANCHOR.getStringValue();
+    }
+
+    public static int getTitleOffsetX() {
+        return TITLE_OFFSET_X.getIntegerValue();
+    }
+
+    public static int getTitleOffsetY() {
+        return TITLE_OFFSET_Y.getIntegerValue();
+    }
+
+    public static int getTitleWidth() {
+        return TITLE_WIDTH.getIntegerValue();
+    }
+
+    public static int getTitleHeight() {
+        return TITLE_HEIGHT.getIntegerValue();
+    }
+
+    public static int[] computeTitleButtonPosition(int screenWidth, int screenHeight, int buttonWidth, int buttonHeight, int defaultX, int defaultY) {
+        String anchor = getTitleAnchor();
+        int offsetX = getTitleOffsetX();
+        int offsetY = getTitleOffsetY();
+        if (anchor == null || anchor.isBlank() || "auto".equalsIgnoreCase(anchor)) {
+            return new int[] { defaultX + offsetX, defaultY + offsetY };
+        }
+        String normalized = anchor.trim().toLowerCase(java.util.Locale.ROOT).replace(' ', '_');
+        int x;
+        int y;
+        switch (normalized) {
+            case "top_left", "topleft", "top-left" -> {
+                x = 0;
+                y = 0;
+            }
+            case "top", "top_center", "topcenter" -> {
+                x = (screenWidth - buttonWidth) / 2;
+                y = 0;
+            }
+            case "top_right", "topright", "top-right" -> {
+                x = screenWidth - buttonWidth;
+                y = 0;
+            }
+            case "left", "center_left", "centerleft" -> {
+                x = 0;
+                y = (screenHeight - buttonHeight) / 2;
+            }
+            case "center", "middle" -> {
+                x = (screenWidth - buttonWidth) / 2;
+                y = (screenHeight - buttonHeight) / 2;
+            }
+            case "right", "center_right", "centerright" -> {
+                x = screenWidth - buttonWidth;
+                y = (screenHeight - buttonHeight) / 2;
+            }
+            case "bottom_left", "bottomleft", "bottom-left" -> {
+                x = 0;
+                y = screenHeight - buttonHeight;
+            }
+            case "bottom", "bottom_center", "bottomcenter" -> {
+                x = (screenWidth - buttonWidth) / 2;
+                y = screenHeight - buttonHeight;
+            }
+            case "bottom_right", "bottomright", "bottom-right" -> {
+                x = screenWidth - buttonWidth;
+                y = screenHeight - buttonHeight;
+            }
+            default -> {
+                x = defaultX;
+                y = defaultY;
+            }
+        }
+        return new int[] { x + offsetX, y + offsetY };
+    }
+
     public static int getMaxConcurrentDownloads() {
         int value = MAX_CONCURRENT_DOWNLOADS.getIntegerValue();
         if (value < 1) {
@@ -358,6 +497,10 @@ public class DlcPathConfig {
 
     public static void setUpdateManagerOn(boolean value) {
         UPDATE_MANAGER_ON.setBooleanValue(value);
+    }
+
+    public static void setSelfUpdateAutoCheckOn(boolean value) {
+        SELF_UPDATE_AUTO_CHECK_ON.setBooleanValue(value);
     }
 
     public static void setMaxConcurrentDownloads(int value) {
@@ -494,43 +637,73 @@ public class DlcPathConfig {
 
     private static class DlcConfigString extends ConfigString {
         private final String translationKey;
+        private final String commentKey;
 
-        private DlcConfigString(String name, String defaultValue, String translationKey) {
+        private DlcConfigString(String name, String defaultValue, String commentKey, String translationKey) {
             super(name, defaultValue, "");
             this.translationKey = translationKey;
+            this.commentKey = commentKey;
         }
 
         @Override
         public String getConfigGuiDisplayName() {
             return StringUtils.translate(this.translationKey);
+        }
+
+        @Override
+        public String getComment() {
+            if (commentKey == null || commentKey.isBlank()) {
+                return "";
+            }
+            return StringUtils.translate(commentKey);
         }
     }
 
     private static class DlcConfigBoolean extends ConfigBoolean {
         private final String translationKey;
+        private final String commentKey;
 
-        private DlcConfigBoolean(String name, boolean defaultValue, String translationKey) {
+        private DlcConfigBoolean(String name, boolean defaultValue, String commentKey, String translationKey) {
             super(name, defaultValue, "", name);
             this.translationKey = translationKey;
+            this.commentKey = commentKey;
         }
 
         @Override
         public String getConfigGuiDisplayName() {
             return StringUtils.translate(this.translationKey);
+        }
+
+        @Override
+        public String getComment() {
+            if (commentKey == null || commentKey.isBlank()) {
+                return "";
+            }
+            return StringUtils.translate(commentKey);
         }
     }
 
     private static class DlcConfigInteger extends ConfigInteger {
         private final String translationKey;
+        private final String commentKey;
 
-        private DlcConfigInteger(String name, int defaultValue, int min, int max, String comment, String translationKey) {
-            super(name, defaultValue, min, max, comment);
+        private DlcConfigInteger(String name, int defaultValue, int min, int max, String commentKey, String translationKey) {
+            super(name, defaultValue, min, max, "");
             this.translationKey = translationKey;
+            this.commentKey = commentKey;
         }
 
         @Override
         public String getConfigGuiDisplayName() {
             return StringUtils.translate(this.translationKey);
+        }
+
+        @Override
+        public String getComment() {
+            if (commentKey == null || commentKey.isBlank()) {
+                return "";
+            }
+            return StringUtils.translate(commentKey);
         }
     }
 
@@ -545,21 +718,14 @@ public class DlcPathConfig {
         if (root == null) {
             return;
         }
-        JsonObject obj = root.getAsJsonObject(section);
-        if (obj == null) {
-            for (String key : root.keySet()) {
-                if (key.equalsIgnoreCase(section)) {
-                    obj = root.getAsJsonObject(key);
-                    break;
-                }
-            }
-        }
+        JsonObject obj = JsonCaseUtil.getObjectIgnoreCase(root, section);
         if (obj == null) {
             return;
         }
         for (Map.Entry<String, IConfigBase> entry : keyMap.entrySet()) {
-            if (obj.has(entry.getKey())) {
-                entry.getValue().setValueFromJsonElement(obj.get(entry.getKey()));
+            JsonElement value = JsonCaseUtil.getIgnoreCase(obj, entry.getKey());
+            if (value != null) {
+                entry.getValue().setValueFromJsonElement(value);
             }
         }
     }

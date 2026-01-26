@@ -1,19 +1,38 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
+import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.Writer;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.FileVisitResult;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,6 +42,8 @@ import java.util.Map;
 import java.util.Set;
 
 public final class DlcUpdateService {
+    private static final Gson UPDATE_GSON = new GsonBuilder().setPrettyPrinting().create();
+
     private DlcUpdateService() {
     }
 
@@ -166,6 +187,7 @@ public final class DlcUpdateService {
             applyMoveOps(manifest.getFileOps(), context);
             applyAddOps(manifest.getFileOps(), context);
             applyModifyOps(manifest.getFileOps(), context, forceMissing);
+            applyUpdateOps(manifest.getUpdateOps(), context);
             meta.save(metaPath);
 
             DlcUpdateVersion updated = new DlcUpdateVersion();
@@ -178,6 +200,10 @@ public final class DlcUpdateService {
             updated.setRollbackFrom(null);
             updated.setChangelogShown(null);
             updated.save(dlcRoot);
+
+            if (context.addedRemote) {
+                DlcRemoteMarker.clearPartMarker(dlcRoot);
+            }
 
             pkg.cleanupStaging();
             return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote);
@@ -879,6 +905,715 @@ public final class DlcUpdateService {
         }
     }
 
+    private static void applyUpdateOps(DlcUpdateManifest.UpdateOps ops, UpdateContext context) throws IOException, InterruptedException {
+        if (ops == null || context == null || context.dlcRoot == null) {
+            return;
+        }
+        if (!ops.getRemote().isEmpty()) {
+            applyRemoteUpdateOps(ops.getRemote(), context);
+        }
+        if (!ops.getRequired().isEmpty()) {
+            applyRequiredUpdateOps(ops.getRequired(), context);
+        }
+    }
+
+    private static void applyRemoteUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context)
+        throws IOException, InterruptedException {
+        Map<String, DlcRemoteEntry> entries = loadRemoteEntries(context.dlcRoot);
+        if (entries.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, DlcUpdateManifest.UpdateEntry> update : updates.entrySet()) {
+            String identifier = update.getKey();
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            DlcRemoteEntry entry = entries.get(identifier);
+            if (entry == null) {
+                continue;
+            }
+            if (context != null) {
+                context.addedRemote = true;
+            }
+            boolean wasEnabled = isRemoteEnabled(entry);
+            Path oldTarget = entry.getTargetPath();
+            if (wasEnabled && oldTarget != null) {
+                uninstallDlcPath(oldTarget, context.dlcRoot, context);
+            }
+            if (oldTarget != null && Files.exists(oldTarget)) {
+                backupAndDelete(oldTarget, context);
+            }
+            DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
+            Path configPath = entry.getConfigPath();
+            if (configPath != null && Files.exists(configPath)) {
+                backupPath(toGameRelativePath(configPath), configPath, context);
+                updateRemoteConfigFields(configPath, updateEntry);
+                entry = DlcRemoteLoader.loadSingle(configPath, context.dlcRoot);
+                if (entry == null) {
+                    continue;
+                }
+            }
+            DownloadedFile downloaded = downloadRemoteEntry(entry);
+            if (downloaded == null) {
+                throw new IOException("remote update download failed");
+            }
+            if (context != null && downloaded.path != null) {
+                String created = toGameRelativePath(downloaded.path);
+                if (created != null && !created.isBlank() && !context.meta.getCreatedPaths().contains(created)) {
+                    context.meta.getCreatedPaths().add(created);
+                }
+            }
+            if (!entry.isFileNameExplicit()) {
+                updateRemoteFileName(configPath, downloaded.fileName);
+            }
+            if (wasEnabled) {
+                List<Path> applied = applyRemoteTargets(entry, downloaded.path, context);
+                updateConfigState(entry, downloaded.path, applied, context);
+            }
+        }
+    }
+
+    private static void applyRequiredUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context)
+        throws IOException, InterruptedException {
+        Map<String, DlcRequiredEntry> entries = loadRequiredEntries(context.dlcRoot);
+        if (entries.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, DlcUpdateManifest.UpdateEntry> update : updates.entrySet()) {
+            String identifier = update.getKey();
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            DlcRequiredEntry entry = entries.get(identifier);
+            if (entry == null) {
+                continue;
+            }
+            String oldFileName = resolveRequiredFileName(entry, context.dlcRoot);
+            List<AppliedTarget> appliedTargets = collectExistingRequiredTargets(entry, oldFileName);
+            boolean wasApplied = !appliedTargets.isEmpty();
+            if (wasApplied) {
+                for (AppliedTarget target : appliedTargets) {
+                    Path resolved = target.directory
+                        ? (oldFileName == null ? null : target.path.resolve(oldFileName))
+                        : target.path;
+                    if (resolved != null) {
+                        backupAndDelete(resolved, context);
+                    }
+                }
+            }
+            if (oldFileName != null) {
+                Path oldDownload = entry.resolveRequiredPath(oldFileName);
+                if (oldDownload != null && Files.exists(oldDownload)) {
+                    backupAndDelete(oldDownload, context);
+                }
+            }
+            DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
+            Path configPath = entry.getConfigPath();
+            if (configPath != null && Files.exists(configPath)) {
+                backupPath(toGameRelativePath(configPath), configPath, context);
+                updateRequiredConfigFields(configPath, updateEntry);
+                entry = DlcRequiredLoader.loadSingle(configPath, context.dlcRoot);
+                if (entry == null) {
+                    continue;
+                }
+            }
+            DownloadedFile downloaded = downloadRequiredEntry(entry);
+            if (downloaded == null) {
+                throw new IOException("required update download failed");
+            }
+            if (context != null && downloaded.path != null) {
+                String created = toGameRelativePath(downloaded.path);
+                if (created != null && !created.isBlank() && !context.meta.getCreatedPaths().contains(created)) {
+                    context.meta.getCreatedPaths().add(created);
+                }
+            }
+            if (entry.getRequiredFileName() == null || entry.getRequiredFileName().isBlank()) {
+                updateRequiredFileName(configPath, downloaded.fileName);
+            }
+            if (wasApplied) {
+                applyRequiredTargets(downloaded.path, downloaded.fileName, appliedTargets, context);
+            }
+        }
+    }
+
+    private static Map<String, DlcRemoteEntry> loadRemoteEntries(Path dlcRoot) {
+        Map<String, DlcRemoteEntry> map = new java.util.HashMap<>();
+        for (DlcRemoteEntry entry : DlcRemoteLoader.load(dlcRoot)) {
+            if (entry == null) {
+                continue;
+            }
+            String id = entry.getDlcIdentifier();
+            if (id != null && !id.isBlank()) {
+                map.put(id, entry);
+            }
+        }
+        return map;
+    }
+
+    private static Map<String, DlcRequiredEntry> loadRequiredEntries(Path dlcRoot) {
+        Map<String, DlcRequiredEntry> map = new java.util.HashMap<>();
+        Path requiredDir = dlcRoot == null ? null : dlcRoot.resolve("required");
+        if (requiredDir == null || !Files.isDirectory(requiredDir)) {
+            return map;
+        }
+        try (var stream = Files.newDirectoryStream(requiredDir, "*.json")) {
+            for (Path path : stream) {
+                if (path.getFileName() != null && "notice.json".equalsIgnoreCase(path.getFileName().toString())) {
+                    continue;
+                }
+                DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(path, dlcRoot);
+                if (entry == null) {
+                    continue;
+                }
+                String id = entry.getIdentifier();
+                if (id != null && !id.isBlank()) {
+                    map.put(id, entry);
+                }
+            }
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+        return map;
+    }
+
+    private static boolean isRemoteEnabled(DlcRemoteEntry entry) {
+        if (entry == null) {
+            return false;
+        }
+        String fileName = entry.getFileNameHint();
+        if (fileName == null || fileName.isBlank()) {
+            Path target = entry.getTargetPath();
+            if (target == null) {
+                return false;
+            }
+            fileName = target.getFileName().toString();
+        }
+        DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
+        if (type == DlcType.UNKNOWN) {
+            Path target = DlcPaths.resolveAppliedTarget(entry.getAppliedTargetRaw());
+            if (target == null) {
+                return false;
+            }
+            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(entry.getAppliedTargetRaw(), target, entry.getTargetPath());
+            if (dirTarget) {
+                return Files.exists(target.resolve(fileName));
+            }
+            return Files.exists(target);
+        }
+        List<Path> targets = switch (type) {
+            case MOD -> List.of(DlcPaths.modsDir());
+            case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
+            case DATA_PACK -> DlcPathConfig.getDatapackRoots();
+            case TACZ_PACK -> List.of(DlcPaths.taczDir());
+            default -> List.of();
+        };
+        if (targets.isEmpty()) {
+            return false;
+        }
+        for (Path dir : targets) {
+            if (!Files.exists(dir.resolve(fileName))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isRequiredApplied(DlcRequiredEntry entry, Path dlcRoot) {
+        if (entry == null || dlcRoot == null) {
+            return false;
+        }
+        String fileName = resolveRequiredFileName(entry, dlcRoot);
+        if (fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        for (Path target : entry.resolveAppliedTargets()) {
+            Path resolved = resolveTarget(target, fileName);
+            if (resolved != null && Files.exists(resolved)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<AppliedTarget> collectExistingRequiredTargets(DlcRequiredEntry entry, String fileName) {
+        if (entry == null) {
+            return List.of();
+        }
+        List<AppliedTarget> targets = new ArrayList<>();
+        for (Path target : entry.resolveAppliedTargets()) {
+            if (target == null) {
+                continue;
+            }
+            boolean dirTarget = Files.isDirectory(target)
+                || target.toString().endsWith("/")
+                || target.toString().endsWith("\\");
+            if (dirTarget) {
+                if (fileName != null && !fileName.isBlank()) {
+                    Path resolved = target.resolve(fileName).normalize();
+                    if (Files.exists(resolved)) {
+                        targets.add(new AppliedTarget(target, true));
+                    }
+                }
+            } else if (Files.exists(target)) {
+                targets.add(new AppliedTarget(target, false));
+            }
+        }
+        return targets;
+    }
+
+    private static void updateRemoteConfigFields(Path configPath, DlcUpdateManifest.UpdateEntry update) {
+        if (configPath == null || update == null) {
+            return;
+        }
+        JsonObject obj = readJson(configPath);
+        if (obj == null) {
+            return;
+        }
+        if (update.getCurseforge() != null && !update.getCurseforge().isBlank()) {
+            obj.addProperty("curseforge_fileid", update.getCurseforge());
+        }
+        if (update.getModrinth() != null && !update.getModrinth().isBlank()) {
+            obj.addProperty("modrinth_versionid", update.getModrinth());
+        }
+        writeJson(configPath, obj);
+    }
+
+    private static void updateRequiredConfigFields(Path configPath, DlcUpdateManifest.UpdateEntry update) {
+        if (configPath == null || update == null) {
+            return;
+        }
+        JsonObject obj = readJson(configPath);
+        if (obj == null) {
+            return;
+        }
+        if (update.getCurseforge() != null && !update.getCurseforge().isBlank()) {
+            obj.addProperty("curseforge_fileid", update.getCurseforge());
+        }
+        if (update.getModrinth() != null && !update.getModrinth().isBlank()) {
+            obj.addProperty("modrinth_versionid", update.getModrinth());
+        }
+        writeJson(configPath, obj);
+    }
+
+    private static void updateRemoteFileName(Path configPath, String fileName) {
+        if (configPath == null || fileName == null || fileName.isBlank()) {
+            return;
+        }
+        JsonObject obj = readJson(configPath);
+        if (obj == null) {
+            return;
+        }
+        obj.addProperty("file_name", fileName);
+        writeJson(configPath, obj);
+        Path dlcRoot = getDlcRoot();
+        if (dlcRoot != null) {
+            DlcRemoteLoader.loadSingle(configPath, dlcRoot);
+        }
+    }
+
+    private static void updateRequiredFileName(Path configPath, String fileName) {
+        if (configPath == null || fileName == null || fileName.isBlank()) {
+            return;
+        }
+        JsonObject obj = readJson(configPath);
+        if (obj == null) {
+            return;
+        }
+        obj.addProperty("file_name", fileName);
+        writeJson(configPath, obj);
+        Path dlcRoot = getDlcRoot();
+        if (dlcRoot != null) {
+            DlcRequiredLoader.loadSingle(configPath, dlcRoot);
+        }
+    }
+
+    private static JsonObject readJson(Path path) {
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            return UPDATE_GSON.fromJson(jsonReader, JsonObject.class);
+        } catch (IOException ignored) {
+            return null;
+        }
+    }
+
+    private static void writeJson(Path path, JsonObject obj) {
+        if (path == null || obj == null) {
+            return;
+        }
+        try (Writer writer = Files.newBufferedWriter(path)) {
+            UPDATE_GSON.toJson(obj, writer);
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+    }
+
+    private static DownloadedFile downloadRemoteEntry(DlcRemoteEntry entry) throws IOException, InterruptedException {
+        if (entry == null) {
+            return null;
+        }
+        List<DownloadCandidate> candidates = buildRemoteCandidates(entry);
+        if (candidates.isEmpty()) {
+            throw new IOException("missing download url");
+        }
+        return downloadWithRetry(entry, candidates);
+    }
+
+    private static DownloadedFile downloadRequiredEntry(DlcRequiredEntry entry) throws IOException, InterruptedException {
+        if (entry == null) {
+            return null;
+        }
+        List<DownloadCandidate> candidates = buildRequiredCandidates(entry);
+        if (candidates.isEmpty()) {
+            throw new IOException("missing download url");
+        }
+        return downloadWithRetry(entry, candidates);
+    }
+
+    private static List<DownloadCandidate> buildRemoteCandidates(DlcRemoteEntry entry) throws IOException, InterruptedException {
+        List<DownloadCandidate> candidates = new ArrayList<>();
+        List<String> order = entry.getDownloadPriorityList();
+        addCandidatesForPriority(candidates, order, entry.getCurseforgeProjectId(), entry.getCurseforgeFileId(),
+            entry.getModrinthProjectId(), entry.getModrinthVersionId(), entry.getDirectUrls());
+        return candidates;
+    }
+
+    private static List<DownloadCandidate> buildRequiredCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
+        List<DownloadCandidate> candidates = new ArrayList<>();
+        List<String> order = entry.getDownloadPriorityList();
+        addCandidatesForPriority(candidates, order, entry.getCurseforgeProjectId(), entry.getCurseforgeFileId(),
+            entry.getModrinthProjectId(), entry.getModrinthVersionId(), entry.getDirectUrls());
+        return candidates;
+    }
+
+    private static void addCandidatesForPriority(List<DownloadCandidate> candidates, List<String> order,
+        String curseProjectId, String curseFileId, String modrinthProjectId, String modrinthVersionId, List<String> directUrls)
+        throws IOException, InterruptedException {
+        List<String> resolvedOrder = new ArrayList<>();
+        if (order != null) {
+            for (String key : order) {
+                if (key != null && !key.isBlank() && !resolvedOrder.contains(key)) {
+                    resolvedOrder.add(key);
+                }
+            }
+        }
+        if (resolvedOrder.isEmpty()) {
+            resolvedOrder.add("curseforge");
+            resolvedOrder.add("modrinth");
+            resolvedOrder.add("directurl");
+        }
+        for (String key : resolvedOrder) {
+            switch (key) {
+                case "curseforge" -> {
+                    if (curseFileId != null && !curseFileId.isBlank()) {
+                        CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
+                            curseProjectId, curseFileId, PlatformServices.get().mcVersion(), PlatformServices.get().loaderName());
+                        if (file != null && file.url != null && !file.url.isBlank()) {
+                            candidates.add(DownloadCandidate.fromCurseForge(file));
+                        }
+                    }
+                }
+                case "modrinth" -> {
+                    if (modrinthVersionId != null && !modrinthVersionId.isBlank()) {
+                        ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(
+                            modrinthProjectId, modrinthVersionId, PlatformServices.get().mcVersion(), PlatformServices.get().loaderName());
+                        if (version != null && version.url != null && !version.url.isBlank()) {
+                            candidates.add(DownloadCandidate.fromModrinth(version));
+                        }
+                    }
+                }
+                case "directurl" -> {
+                    if (directUrls != null) {
+                        for (String url : directUrls) {
+                            if (url != null && !url.isBlank()) {
+                                candidates.add(DownloadCandidate.fromDirect(url));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (candidates.isEmpty() && directUrls != null) {
+            for (String url : directUrls) {
+                if (url != null && !url.isBlank()) {
+                    candidates.add(DownloadCandidate.fromDirect(url));
+                }
+            }
+        }
+    }
+
+    private static DownloadedFile downloadWithRetry(Object entry, List<DownloadCandidate> candidates)
+        throws IOException {
+        int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
+        IOException lastError = null;
+        for (DownloadCandidate candidate : candidates) {
+            for (int attempt = 1; attempt <= maxRetry; attempt++) {
+                try {
+                    return downloadCandidate(entry, candidate);
+                } catch (IOException ex) {
+                    lastError = ex;
+                }
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        throw new IOException("missing download url");
+    }
+
+    private static DownloadedFile downloadCandidate(Object entry, DownloadCandidate candidate) throws IOException {
+        String fileName = null;
+        boolean fileNameExplicit = false;
+        if (entry instanceof DlcRemoteEntry remote) {
+            fileName = remote.getFileNameHint();
+            fileNameExplicit = remote.isFileNameExplicit();
+        } else if (entry instanceof DlcRequiredEntry required) {
+            fileName = required.getRequiredFileName();
+            fileNameExplicit = fileName != null && !fileName.isBlank();
+        }
+        if (!fileNameExplicit) {
+            if (candidate.fileName != null && !candidate.fileName.isBlank()) {
+                fileName = candidate.fileName;
+            }
+            if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
+                String urlName = DlcDownloadUtil.extractFileNameFromUrl(candidate.url);
+                if (DlcDownloadUtil.isLikelyFileName(urlName)) {
+                    fileName = urlName;
+                }
+            }
+            if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
+                String headerName = fetchHeaderFileName(candidate.url);
+                if (DlcDownloadUtil.isLikelyFileName(headerName)) {
+                    fileName = headerName;
+                }
+            }
+        }
+        if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
+            throw new IOException("invalid file name");
+        }
+        fileName = sanitizeFileName(fileName);
+        Path target;
+        if (entry instanceof DlcRemoteEntry remote) {
+            target = remote.resolveTargetPath(fileName);
+        } else if (entry instanceof DlcRequiredEntry required) {
+            target = required.resolveRequiredPath(fileName);
+        } else {
+            target = null;
+        }
+        if (target == null) {
+            throw new IOException("invalid target path");
+        }
+        Files.createDirectories(target.getParent());
+        Path tempFile = target.resolveSibling(fileName + ".part");
+        Files.deleteIfExists(tempFile);
+        downloadToFile(candidate.url, tempFile);
+        Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
+        return new DownloadedFile(target, fileName);
+    }
+
+    private static void downloadToFile(String url, Path target) throws IOException {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            int code = connection.getResponseCode();
+            if (code >= 400) {
+                throw new IOException("http " + code);
+            }
+            long total = connection.getContentLengthLong();
+            long read = 0L;
+            try (InputStream in = connection.getInputStream();
+                 OutputStream out = Files.newOutputStream(target,
+                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = in.read(buffer)) >= 0) {
+                    out.write(buffer, 0, len);
+                    read += len;
+                }
+            }
+            if (total > 0 && read < total) {
+                Files.deleteIfExists(target);
+                throw new IOException("download incomplete");
+            }
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static String fetchHeaderFileName(String url) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestMethod("HEAD");
+            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            return DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static List<Path> applyRemoteTargets(DlcRemoteEntry entry, Path source, UpdateContext context) {
+        List<Path> targets = new ArrayList<>();
+        if (entry == null || source == null) {
+            return targets;
+        }
+        DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
+        String fileName = source.getFileName().toString();
+        try {
+            if (type == DlcType.UNKNOWN) {
+                Path target = DlcPaths.resolveAppliedTarget(entry.getAppliedTargetRaw());
+                if (target == null) {
+                    return targets;
+                }
+                boolean dirTarget = DlcPaths.isAppliedTargetDirectory(entry.getAppliedTargetRaw(), target, source);
+                if (dirTarget) {
+                    Files.createDirectories(target);
+                    Path resolved = target.resolve(fileName);
+                    backupOrCreate(resolved, context);
+                    Files.copy(source, resolved, StandardCopyOption.REPLACE_EXISTING);
+                    targets.add(resolved);
+                } else {
+                    Files.createDirectories(target.getParent());
+                    backupOrCreate(target, context);
+                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                    targets.add(target);
+                }
+                return targets;
+            }
+            List<Path> targetDirs = switch (type) {
+                case MOD -> List.of(DlcPaths.modsDir());
+                case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
+                case DATA_PACK -> DlcPathConfig.getDatapackRoots();
+                case TACZ_PACK -> List.of(DlcPaths.taczDir());
+                default -> List.of();
+            };
+            for (Path targetDir : targetDirs) {
+                Files.createDirectories(targetDir);
+                Path target = targetDir.resolve(fileName);
+                backupOrCreate(target, context);
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                targets.add(target);
+            }
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+        return targets;
+    }
+
+    private static void applyRequiredTargets(Path source, String fileName, List<AppliedTarget> targets, UpdateContext context) {
+        if (source == null || fileName == null || fileName.isBlank() || targets == null || targets.isEmpty()) {
+            return;
+        }
+        for (AppliedTarget applied : targets) {
+            if (applied == null || applied.path == null) {
+                continue;
+            }
+            Path target = applied.directory ? applied.path.resolve(fileName) : applied.path;
+            try {
+                Files.createDirectories(target.getParent());
+                backupOrCreate(target, context);
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException ignored) {
+                // Best-effort.
+            }
+        }
+    }
+
+    private static void backupOrCreate(Path target, UpdateContext context) {
+        if (target == null || context == null) {
+            return;
+        }
+        if (Files.exists(target)) {
+            backupPath(toGameRelativePath(target), target, context);
+        } else {
+            context.meta.getCreatedPaths().add(toGameRelativePath(target));
+        }
+    }
+
+    private static void updateConfigState(DlcRemoteEntry entry, Path source, List<Path> applied, UpdateContext context) {
+        if (entry == null || source == null || applied == null) {
+            return;
+        }
+        DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
+        String key = buildConfigKey(entry.getDlcRoot(), source, type);
+        if (key == null || key.isBlank()) {
+            return;
+        }
+        DlcConfig.DlcState state = DlcConfig.getState(key);
+        if (state == null) {
+            state = new DlcConfig.DlcState();
+        }
+        state.enabled = true;
+        state.appliedTargets = applied.stream()
+            .map(DlcUpdateService::toGameRelativePath)
+            .toList();
+        DlcConfig.setState(key, state);
+        DlcConfig.save();
+    }
+
+    private static String buildConfigKey(Path dlcRoot, Path source, DlcType type) {
+        if (dlcRoot == null || source == null || type == null) {
+            return null;
+        }
+        String rootId = toGameRelativePath(dlcRoot).replace('\\', '/');
+        String relative = dlcRoot.relativize(source).toString().replace('\\', '/');
+        return type.name().toLowerCase(java.util.Locale.ROOT) + ":" + rootId + "|" + relative;
+    }
+
+    private static Path resolveTarget(Path targetDir, String fileName) {
+        if (targetDir == null || fileName == null || fileName.isBlank()) {
+            return null;
+        }
+        if (Files.isDirectory(targetDir) || targetDir.toString().endsWith("/") || targetDir.toString().endsWith("\\")) {
+            return targetDir.resolve(fileName).normalize();
+        }
+        return targetDir.normalize();
+    }
+
+    private static String sanitizeFileName(String name) {
+        if (name == null) {
+            return null;
+        }
+        String cleaned = DlcDownloadUtil.stripQuery(name);
+        if (cleaned == null) {
+            return null;
+        }
+        return cleaned.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    private record DownloadCandidate(String url, String fileName) {
+        static DownloadCandidate fromCurseForge(CurseForgeClient.CurseForgeFile file) {
+            return new DownloadCandidate(file.url, file.fileName);
+        }
+
+        static DownloadCandidate fromModrinth(ModrinthClient.ModrinthVersion version) {
+            return new DownloadCandidate(version.url, version.fileName);
+        }
+
+        static DownloadCandidate fromDirect(String url) {
+            return new DownloadCandidate(url, null);
+        }
+    }
+
+    private record DownloadedFile(Path path, String fileName) {}
+
+    private record AppliedTarget(Path path, boolean directory) {}
+
     private static void applyImplicitRemoteAndRequired(UpdateContext context, List<Path> addedRequiredFiles, boolean hasRemoteAdd, boolean hasRequiredAdd) {
         if (context.stagingRoot == null || context.dlcRoot == null) {
             return;
@@ -976,6 +1711,9 @@ public final class DlcUpdateService {
         Path target = entry.getTargetPath();
         if (target == null) {
             return;
+        }
+        if (context != null) {
+            context.addedRemote = true;
         }
         uninstallDlcPath(target, dlcRoot, context);
     }

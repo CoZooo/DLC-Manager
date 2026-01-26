@@ -6,9 +6,11 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
@@ -56,6 +58,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private ButtonGeneric modeButton;
     private ButtonGeneric configButton;
     private ButtonGeneric updateButton;
+    private ButtonGeneric presetButton;
     private ButtonGeneric enableAllButton;
     private ButtonGeneric disableAllButton;
     private ButtonGeneric noticeButton;
@@ -72,6 +75,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private DlcType activeFilter;
     private boolean footerTwoRows;
     private final boolean hasTaczMod = ModList.get().isLoaded("tacz");
+    private final Set<String> presetSnapshot = new LinkedHashSet<>();
+    private boolean presetSnapshotCaptured;
 
     public DlcMaLiLibScreen(Screen parent) {
         super(10, 34);
@@ -112,6 +117,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
         }
         rebuildRows();
+        capturePresetSnapshot();
         reCreateListWidget();
         super.initGui();
         addHeaderButtons();
@@ -340,11 +346,23 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             addButton(updateButton, new FooterButtonListener());
         }
 
+        presetButton = null;
+        if (DlcPathConfig.isPresetFuncOn()) {
+            presetButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, 90, 20, StringUtils.translate("dlc_manager.preset.manager"));
+            if (updateButton != null) {
+                presetButton.setX(updateButton.getX() + updateButton.getWidth() + gap);
+            }
+            addButton(presetButton, new FooterButtonListener());
+        }
+
         configButton = null;
         if (DlcPathConfig.isConfigButtonShown()) {
             int configX = left + modeButton.getWidth() + gap;
             if (updateButton != null) {
                 configX += updateButton.getWidth() + gap;
+            }
+            if (presetButton != null) {
+                configX += presetButton.getWidth() + gap;
             }
             configButton = new ButtonGeneric(configX, y, 48, 20, StringUtils.translate("dlc_manager.config"));
             addButton(configButton, new FooterButtonListener());
@@ -360,6 +378,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         int leftSpanEnd;
         if (configButton != null) {
             leftSpanEnd = configButton.getX() + configButton.getWidth();
+        } else if (presetButton != null) {
+            leftSpanEnd = presetButton.getX() + presetButton.getWidth();
         } else if (updateButton != null) {
             leftSpanEnd = updateButton.getX() + updateButton.getWidth();
         } else {
@@ -372,6 +392,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             modeButton.setY(row1Y);
             if (updateButton != null) {
                 updateButton.setY(row1Y);
+            }
+            if (presetButton != null) {
+                presetButton.setY(row1Y);
             }
             if (configButton != null) {
                 configButton.setY(row1Y);
@@ -390,6 +413,12 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         hasModItems = false;
         hasModChanges = false;
         userSelectedApplyMode = false;
+
+        if (DlcPathConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.reload();
+        } else {
+            DlcPresetRuntimeState.clearAll();
+        }
 
         Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
         for (DlcType type : DlcType.values()) {
@@ -446,6 +475,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
         }
         DlcRuntimeState.updateItemIndex(allItems);
+        DlcPresetRuntimeState.applyOverridesToRuntime();
         hasModChanges = computeModReloadChanges();
         updateHeaderButtonsState();
     }
@@ -570,6 +600,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         if (applyNeeded) {
             DlcApplier.apply(allItems, applyMode);
             updateResourcePackSelection();
+            if (DlcPathConfig.isPresetFuncOn()) {
+                DlcPresetRuntimeState.syncStatusFromRuntime();
+            }
         }
 
         if (!modReloadNeeded && !otherReloadNeeded) {
@@ -639,6 +672,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         } else if (button == updateButton) {
             rememberListScroll();
             DlcUpdateClient.openUpdateManager(DlcMaLiLibScreen.this);
+        } else if (button == presetButton) {
+            rememberListScroll();
+            Minecraft.getInstance().setScreen(new DlcPresetManagerScreen(DlcMaLiLibScreen.this));
         } else if (button == configButton) {
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcPathConfigScreen(DlcMaLiLibScreen.this));
@@ -685,6 +721,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         if (configButton != null) {
             buttonTop = Math.min(buttonTop, configButton.getY());
+        }
+        if (presetButton != null) {
+            buttonTop = Math.min(buttonTop, presetButton.getY());
         }
         if (applyButton != null) {
             buttonTop = Math.min(buttonTop, applyButton.getY());
@@ -736,7 +775,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private String getBackButtonLabel() {
-        boolean hasChanges = computeApplyChanges() || computeModReloadChanges() || computeNonModReloadChanges();
+        boolean hasChanges = computeApplyChanges() || computeModReloadChanges() || computeNonModReloadChanges() || hasPresetChanges();
         return hasChanges
             ? StringUtils.translate("dlc_manager.back_discard")
             : StringUtils.translate("dlc_manager.back");
@@ -775,6 +814,20 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private boolean isEnabledInTargets(DlcItem item) {
+        DlcConfig.DlcState state = DlcConfig.getState(item.getId());
+        if (state != null && state.enabled && state.appliedTargets != null && !state.appliedTargets.isEmpty()) {
+            boolean anyExists = false;
+            for (String raw : state.appliedTargets) {
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                if (java.nio.file.Files.exists(resolveStatePath(raw))) {
+                    anyExists = true;
+                    break;
+                }
+            }
+            return anyExists;
+        }
         String name = item.getSourcePath().getFileName().toString();
         if (item.getType() == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
@@ -806,6 +859,14 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
         }
         return true;
+    }
+
+    private Path resolveStatePath(String raw) {
+        Path path = Path.of(raw);
+        if (path.isAbsolute()) {
+            return path;
+        }
+        return DlcPaths.gameDir().resolve(raw);
     }
 
     private boolean isResourcePackSelected(String fileName) {
@@ -895,6 +956,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         int leftEnd;
         if (configButton != null) {
             leftEnd = configButton.getX() + configButton.getWidth();
+        } else if (presetButton != null) {
+            leftEnd = presetButton.getX() + presetButton.getWidth();
         } else if (updateButton != null) {
             leftEnd = updateButton.getX() + updateButton.getWidth();
         } else {
@@ -1418,8 +1481,35 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     @Override
     protected void closeGui(boolean closeInGame) {
+        if (hasPresetChanges()) {
+            DlcPresetRuntimeState.restoreEnabledPresets(presetSnapshot);
+        }
         DlcRuntimeState.clearOverrides();
         super.closeGui(closeInGame);
+    }
+
+    private void capturePresetSnapshot() {
+        if (presetSnapshotCaptured) {
+            return;
+        }
+        if (!DlcPathConfig.isPresetFuncOn()) {
+            presetSnapshot.clear();
+            presetSnapshotCaptured = true;
+            return;
+        }
+        presetSnapshot.clear();
+        presetSnapshot.addAll(DlcPresetRuntimeState.getEnabledPresetIds());
+        presetSnapshotCaptured = true;
+    }
+
+    private boolean hasPresetChanges() {
+        if (!DlcPathConfig.isPresetFuncOn()) {
+            return false;
+        }
+        if (!presetSnapshotCaptured) {
+            return false;
+        }
+        return !DlcPresetRuntimeState.getEnabledPresetIds().equals(presetSnapshot);
     }
 
     void rememberListScroll() {

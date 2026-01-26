@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -36,44 +37,34 @@ public class DlcUpdateMeta {
                 return null;
             }
             DlcUpdateMeta meta = new DlcUpdateMeta();
-            if (obj.has("dlc_old") && obj.get("dlc_old").isJsonPrimitive()) {
-                meta.dlcOld = obj.get("dlc_old").getAsString();
-            }
-            if (obj.has("dlc_new") && obj.get("dlc_new").isJsonPrimitive()) {
-                meta.dlcNew = obj.get("dlc_new").getAsString();
-            }
-            if (obj.has("base_old") && obj.get("base_old").isJsonPrimitive()) {
-                meta.baseOld = obj.get("base_old").getAsString();
-            }
-            if (obj.has("base_new") && obj.get("base_new").isJsonPrimitive()) {
-                meta.baseNew = obj.get("base_new").getAsString();
-            }
-            if (obj.has("timestamp") && obj.get("timestamp").isJsonPrimitive()) {
-                meta.timestamp = obj.get("timestamp").getAsString();
-            }
-            if (obj.has("hidden") && obj.get("hidden").isJsonPrimitive()) {
-                meta.hidden = obj.get("hidden").getAsBoolean();
-            }
-            if (obj.has("changelog") && obj.get("changelog").isJsonObject()) {
-                JsonObject logObj = obj.getAsJsonObject("changelog");
+            meta.dlcOld = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_old");
+            meta.dlcNew = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_new");
+            meta.baseOld = JsonCaseUtil.getStringIgnoreCase(obj, "base_old");
+            meta.baseNew = JsonCaseUtil.getStringIgnoreCase(obj, "base_new");
+            meta.timestamp = JsonCaseUtil.getStringIgnoreCase(obj, "timestamp");
+            meta.hidden = JsonCaseUtil.getBooleanIgnoreCase(obj, "hidden", false);
+            JsonObject logObj = JsonCaseUtil.getObjectIgnoreCase(obj, "changelog");
+            if (logObj != null) {
                 for (var entry : logObj.entrySet()) {
                     if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
                         String raw = entry.getValue().getAsString();
                         if (raw != null && !raw.isBlank()) {
-                            meta.changelog.put(entry.getKey(), raw);
+                            meta.changelog.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), raw);
                         }
                     }
                 }
             }
-            if (obj.has("restore") && obj.get("restore").isJsonArray()) {
-                obj.getAsJsonArray("restore").forEach(el -> {
+            var restoreArray = JsonCaseUtil.getArrayIgnoreCase(obj, "restore");
+            if (restoreArray != null) {
+                restoreArray.forEach(el -> {
                     if (el != null && el.isJsonPrimitive()) {
                         meta.restorePaths.add(el.getAsString());
                     }
                 });
             }
-            if (obj.has("created") && obj.get("created").isJsonArray()) {
-                obj.getAsJsonArray("created").forEach(el -> {
+            var createdArray = JsonCaseUtil.getArrayIgnoreCase(obj, "created");
+            if (createdArray != null) {
+                createdArray.forEach(el -> {
                     if (el != null && el.isJsonPrimitive()) {
                         meta.createdPaths.add(el.getAsString());
                     }
@@ -186,7 +177,7 @@ public class DlcUpdateMeta {
         }
         for (Map.Entry<String, String> entry : values.entrySet()) {
             if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isBlank()) {
-                changelog.put(entry.getKey(), entry.getValue());
+                changelog.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), entry.getValue());
             }
         }
     }
@@ -195,8 +186,9 @@ public class DlcUpdateMeta {
         if (changelog.isEmpty()) {
             return "";
         }
-        if (lang != null && changelog.containsKey(lang)) {
-            return changelog.get(lang);
+        String key = JsonCaseUtil.normalizeLangKey(lang);
+        if (key != null && changelog.containsKey(key)) {
+            return changelog.get(key);
         }
         if (changelog.containsKey("en_us")) {
             return changelog.get("en_us");
