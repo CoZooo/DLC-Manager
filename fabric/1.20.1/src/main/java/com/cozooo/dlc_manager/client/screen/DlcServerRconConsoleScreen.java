@@ -80,7 +80,7 @@ public class DlcServerRconConsoleScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.renderBackground(guiGraphics);
-        guiGraphics.drawCenteredString(this.font, styledText(getTitle()), this.width / 2, 16, 0xFFFFFF);
+        guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 16, 0xFFFFFF);
         drawConsole(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
@@ -97,7 +97,7 @@ public class DlcServerRconConsoleScreen extends Screen {
         int index = scroll;
         for (int i = 0; i < maxVisible && index + i < lines.size(); i++) {
             String line = lines.get(index + i);
-            guiGraphics.drawString(this.font, styledText(line), listLeft + 4, startY + i * lineHeight, 0xC8C8C8, false);
+            guiGraphics.drawString(this.font, line, listLeft + 4, startY + i * lineHeight, 0xC8C8C8, false);
         }
         drawScrollbar(guiGraphics, maxVisible, maxScroll);
     }
@@ -180,14 +180,6 @@ public class DlcServerRconConsoleScreen extends Screen {
         int target = (int) (mouseY - trackTop - barHeight / 2.0);
         target = Math.max(0, Math.min(maxTrack, target));
         scroll = Math.max(0, Math.min(maxScroll, target * maxScroll / Math.max(1, maxTrack)));
-    }
-
-    private Component styledText(Component component) {
-        return component;
-    }
-
-    private Component styledText(String text) {
-        return Component.literal(text);
     }
 
     private void sendCommand() {

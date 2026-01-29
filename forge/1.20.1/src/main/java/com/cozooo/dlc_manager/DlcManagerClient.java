@@ -3,7 +3,6 @@ package com.cozooo.dlc_manager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
-import com.cozooo.dlc_manager.client.screen.DlcServerMismatchScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
@@ -492,60 +491,11 @@ public class DlcManagerClient {
         }
 
         private static void handleJoin(JoinMultiplayerScreen screen) {
-            ServerData serverData = getSelectedServerData(screen);
-            if (serverData == null) {
-                invokeOriginalJoin(screen);
-                return;
-            }
-            DlcServerEntry entry = createEntryFromServer(serverData);
-            DlcServerVersionUtil.VersionPair serverVersion = resolveServerVersion(serverData, entry, screen);
-            if (serverVersion == null) {
-                invokeOriginalJoin(screen);
-                return;
-            }
-            DlcUpdateVersion localVersion = DlcUpdateVersion.load(DlcPaths.dlcRoot());
-            boolean mismatch = localVersion == null
-                || localVersion.getBase() == null
-                || localVersion.getDlc() == null
-                || !serverVersion.base.equals(localVersion.getBase())
-                || !serverVersion.dlc.equals(localVersion.getDlc());
-            if (!mismatch) {
-                invokeOriginalJoin(screen);
-                return;
-            }
-            Minecraft.getInstance().setScreen(new DlcServerMismatchScreen(screen, entry, serverVersion, localVersion));
+            invokeOriginalJoin(screen);
         }
 
         private static void handleDirectConnect(Screen screen, Button originalJoinButton) {
-            String address = getDirectConnectAddress(screen);
-            if (address == null || address.isBlank()) {
-                originalJoinButton.onPress();
-                return;
-            }
-            ServerData serverData = createServerDataForAddress(address);
-            if (serverData == null) {
-                originalJoinButton.onPress();
-                return;
-            }
-            DlcServerEntry entry = createEntryFromServer(serverData);
-            pingServerForMotd(serverData, () -> {
-                DlcServerVersionUtil.VersionPair serverVersion = resolveServerVersion(serverData, entry, screen);
-                if (serverVersion == null) {
-                    originalJoinButton.onPress();
-                    return;
-                }
-                DlcUpdateVersion localVersion = DlcUpdateVersion.load(DlcPaths.dlcRoot());
-                boolean mismatch = localVersion == null
-                    || localVersion.getBase() == null
-                    || localVersion.getDlc() == null
-                    || !serverVersion.base.equals(localVersion.getBase())
-                    || !serverVersion.dlc.equals(localVersion.getDlc());
-                if (!mismatch) {
-                    originalJoinButton.onPress();
-                    return;
-                }
-                Minecraft.getInstance().setScreen(new DlcServerMismatchScreen(screen, entry, serverVersion, localVersion));
-            });
+            originalJoinButton.onPress();
         }
 
         private static boolean handleJoinDoubleClick(JoinMultiplayerScreen screen) {
@@ -578,132 +528,6 @@ public class DlcManagerClient {
             joinSelectedServer(screen);
         }
 
-        private static DlcServerVersionUtil.VersionPair resolveServerVersion(ServerData data, DlcServerEntry entry, Screen screen) {
-            if (entry != null) {
-                com.cozooo.dlc_manager.client.server.DlcServerInfo cached =
-                    com.cozooo.dlc_manager.client.server.DlcServerCache.get(entry.getKey());
-                if (cached != null && cached.baseVersion != null && cached.dlcVersion != null) {
-                    return new DlcServerVersionUtil.VersionPair(cached.baseVersion, cached.dlcVersion);
-                }
-            }
-            String motd = data.motd == null ? "" : data.motd.getString();
-            DlcServerVersionUtil.VersionPair version = DlcServerVersionUtil.parse(motd);
-            if (version != null) {
-                return version;
-            }
-            try {
-                String playerName = null;
-                String playerUuid = null;
-                if (Minecraft.getInstance().player != null) {
-                    playerName = Minecraft.getInstance().player.getGameProfile().getName();
-                    playerUuid = Minecraft.getInstance().player.getUUID().toString();
-                }
-                var info = com.cozooo.dlc_manager.client.server.DlcServerTcpClient.fetchServerInfo(entry, 1500, playerName, playerUuid);
-                if (info == null || info.baseVersion == null || info.dlcVersion == null) {
-                    return null;
-                }
-                return new DlcServerVersionUtil.VersionPair(info.baseVersion, info.dlcVersion);
-            } catch (Throwable ignored) {
-                return null;
-            }
-        }
-
-        private static String getDirectConnectAddress(Screen screen) {
-            try {
-                for (var field : screen.getClass().getDeclaredFields()) {
-                    if (EditBox.class.isAssignableFrom(field.getType())) {
-                        field.setAccessible(true);
-                        Object value = field.get(screen);
-                        if (value instanceof EditBox editBox) {
-                            return editBox.getValue();
-                        }
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
-            return "";
-        }
-
-        private static void pingServerForMotd(ServerData data, Runnable onComplete) {
-            Runnable completeOnMain = () -> Minecraft.getInstance().execute(onComplete);
-            try {
-                Object pinger = getServerStatusPinger(Minecraft.getInstance());
-                if (pinger == null) {
-                    completeOnMain.run();
-                    return;
-                }
-                for (var method : pinger.getClass().getMethods()) {
-                    if (!"pingServer".equals(method.getName())) {
-                        continue;
-                    }
-                    Class<?>[] params = method.getParameterTypes();
-                    if (params.length < 2 || params[0] != ServerData.class) {
-                        continue;
-                    }
-                    if (params.length == 2 && params[1] == Runnable.class) {
-                        method.invoke(pinger, data, completeOnMain);
-                        return;
-                    }
-                    if (params.length == 3 && params[1] == Runnable.class && params[2] == Runnable.class) {
-                        method.invoke(pinger, data, completeOnMain, completeOnMain);
-                        return;
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
-            completeOnMain.run();
-        }
-
-        private static Object getServerStatusPinger(Minecraft minecraft) {
-            try {
-                var method = minecraft.getClass().getMethod("getServerStatusPinger");
-                method.setAccessible(true);
-                return method.invoke(minecraft);
-            } catch (Throwable ignored) {
-            }
-            for (var field : minecraft.getClass().getDeclaredFields()) {
-                if (!field.getType().getSimpleName().contains("ServerStatusPinger")) {
-                    continue;
-                }
-                try {
-                    field.setAccessible(true);
-                    return field.get(minecraft);
-                } catch (Throwable ignored) {
-                }
-            }
-            return null;
-        }
-
-        private static ServerData createServerDataForAddress(String address) {
-            try {
-                for (var ctor : ServerData.class.getDeclaredConstructors()) {
-                    Class<?>[] params = ctor.getParameterTypes();
-                    if (params.length == 3 && params[0] == String.class && params[1] == String.class) {
-                        ctor.setAccessible(true);
-                        if (params[2] == boolean.class || params[2] == Boolean.class) {
-                            return (ServerData) ctor.newInstance(address, address, false);
-                        }
-                        if (params[2].isEnum()) {
-                            Object[] constants = params[2].getEnumConstants();
-                            Object value = constants.length > 0 ? constants[0] : null;
-                            for (Object constant : constants) {
-                                if ("OTHER".equalsIgnoreCase(constant.toString())) {
-                                    value = constant;
-                                    break;
-                                }
-                            }
-                            return (ServerData) ctor.newInstance(address, address, value);
-                        }
-                    }
-                    if (params.length == 2 && params[0] == String.class && params[1] == String.class) {
-                        ctor.setAccessible(true);
-                        return (ServerData) ctor.newInstance(address, address);
-                    }
-                }
-            } catch (Throwable ignored) {
-            }
-            return null;
-        }
 
         private static boolean isDirectConnectScreen(Screen screen) {
             return screen.getClass().getName().endsWith("DirectConnectScreen");
@@ -835,11 +659,13 @@ public class DlcManagerClient {
             int port = DlcPathConfig.getServerPort();
             int index = ip.lastIndexOf(':');
             if (index > 0 && index < ip.length() - 1) {
-                host = ip.substring(0, index);
-                try {
-                    port = Integer.parseInt(ip.substring(index + 1));
-                } catch (NumberFormatException ignored) {
-                    port = DlcPathConfig.getServerPort();
+                if (ip.startsWith("[") && ip.contains("]")) {
+                    int end = ip.indexOf(']');
+                    if (end > 1) {
+                        host = ip.substring(1, end);
+                    }
+                } else {
+                    host = ip.substring(0, index);
                 }
             }
             entry.host = host;

@@ -111,6 +111,10 @@ public class DlcUpdatePackage {
                 if (rawName == null || rawName.isBlank()) {
                     continue;
                 }
+                String normalizedName = rawName.replace('\\', '/');
+                if (normalizedName.startsWith("__MACOSX/") || normalizedName.startsWith("._") || normalizedName.endsWith("/.DS_Store") || normalizedName.equals(".DS_Store")) {
+                    continue;
+                }
                 Path outPath = target.resolve(rawName).normalize();
                 if (!outPath.startsWith(target)) {
                     continue;
