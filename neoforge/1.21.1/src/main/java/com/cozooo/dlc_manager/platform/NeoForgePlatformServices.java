@@ -2,9 +2,10 @@ package com.cozooo.dlc_manager.platform;
 
 import java.nio.file.Path;
 import java.util.Optional;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.fml.ModList;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.fml.loading.FMLPaths;
-import net.minecraft.client.Minecraft;
 import net.minecraft.SharedConstants;
 import net.neoforged.fml.loading.moddiscovery.ModFileInfo;
 
@@ -30,9 +31,19 @@ public final class NeoForgePlatformServices implements PlatformServices.Provider
 
     @Override
     public String languageCode() {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return "en_us";
+        }
         try {
-            return Minecraft.getInstance().options.languageCode;
-        } catch (Exception ignored) {
+            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
+            Object mc = mcClass.getMethod("getInstance").invoke(null);
+            Object options = mcClass.getField("options").get(mc);
+            try {
+                return (String) options.getClass().getField("languageCode").get(options);
+            } catch (NoSuchFieldException ignored) {
+                return (String) options.getClass().getMethod("getLanguage").invoke(options);
+            }
+        } catch (Throwable ignored) {
             return "en_us";
         }
     }

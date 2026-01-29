@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.config.DlcPathConfigClient;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import fi.dy.masa.malilib.config.IConfigBase;
 import fi.dy.masa.malilib.config.IConfigDouble;
@@ -161,10 +162,11 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private static List<ConfigOptionWrapper> buildOptions(Tab tab) {
+        DlcPathConfigClient.syncFromConfig();
         List<IConfigBase> configs = switch (tab) {
-            case UI -> DlcPathConfig.getUiConfigs();
-            case DOWNLOADS -> DlcPathConfig.getDownloadConfigs();
-            case PATHS -> DlcPathConfig.getPathConfigs();
+            case UI -> DlcPathConfigClient.getUiConfigs();
+            case DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs();
+            case PATHS -> DlcPathConfigClient.getPathConfigs();
         };
         return new ArrayList<>(ConfigOptionWrapper.createFor(configs));
     }
@@ -239,6 +241,7 @@ public class DlcConfigScreen extends GuiModConfigs {
             this.listWidget.applyPendingModifications();
             this.listWidget.clearConfigsModifiedFlag();
         }
+        DlcPathConfigClient.applyToConfig();
         DlcPathConfig.save();
         this.mc.setScreen(this.getParent());
     }
@@ -260,6 +263,7 @@ public class DlcConfigScreen extends GuiModConfigs {
                 return;
             }
             DlcPathConfig.load();
+            DlcPathConfigClient.syncFromConfig();
             minecraft.setScreen(this.getParent());
         }, title, message, yes, no));
     }

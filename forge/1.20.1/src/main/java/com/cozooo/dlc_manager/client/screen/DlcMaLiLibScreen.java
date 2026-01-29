@@ -23,6 +23,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraftforge.fml.ModList;
 import net.minecraft.server.packs.repository.PackRepository;
@@ -59,6 +60,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private ButtonGeneric configButton;
     private ButtonGeneric updateButton;
     private ButtonGeneric presetButton;
+    private ButtonGeneric serverButton;
     private ButtonGeneric enableAllButton;
     private ButtonGeneric disableAllButton;
     private ButtonGeneric noticeButton;
@@ -159,8 +161,13 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             || isOverButton(modeButton, mouseX, mouseY)
             || isOverButton(updateButton, mouseX, mouseY)
             || isOverButton(configButton, mouseX, mouseY)
+            || isOverButton(serverButton, mouseX, mouseY)
             || isOverButton(applyButton, mouseX, mouseY)
             || isOverButton(backButton, mouseX, mouseY);
+    }
+
+    private boolean canShowServerButton() {
+        return DlcPathConfig.isServerSupportOn();
     }
 
     private boolean isOverButton(ButtonGeneric button, double mouseX, double mouseY) {
@@ -334,21 +341,25 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         int y = this.height - 30;
         int margin = 8;
         int gap = 2;
+        int padding = 12;
         int left = margin;
         int right = this.width - margin;
 
-        modeButton = new ButtonGeneric(left, y, 150, 20, getApplyModeLabel());
+        int modeWidth = Math.max(90, StringUtils.getStringWidth(getApplyModeLabel()) + padding);
+        modeButton = new ButtonGeneric(left, y, modeWidth, 20, getApplyModeLabel());
         addButton(modeButton, new FooterButtonListener());
 
         updateButton = null;
-        if (DlcPathConfig.isUpdateManagerOn()) {
-            updateButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, 90, 20, StringUtils.translate("dlc_manager.update.manager"));
+        if (DlcPathConfig.isUpdateManagerOn() && !DlcPathConfig.isUButtomShown()) {
+            int updateWidth = Math.max(80, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.update.manager")) + padding);
+            updateButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, updateWidth, 20, StringUtils.translate("dlc_manager.update.manager"));
             addButton(updateButton, new FooterButtonListener());
         }
 
         presetButton = null;
         if (DlcPathConfig.isPresetFuncOn()) {
-            presetButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, 90, 20, StringUtils.translate("dlc_manager.preset.manager"));
+            int presetWidth = Math.max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.preset.manager")) + 8);
+            presetButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, presetWidth, 20, StringUtils.translate("dlc_manager.preset.manager"));
             if (updateButton != null) {
                 presetButton.setX(updateButton.getX() + updateButton.getWidth() + gap);
             }
@@ -364,28 +375,42 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             if (presetButton != null) {
                 configX += presetButton.getWidth() + gap;
             }
-            configButton = new ButtonGeneric(configX, y, 48, 20, StringUtils.translate("dlc_manager.config"));
+            int configWidth = Math.max(60, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.config")) + padding);
+            configButton = new ButtonGeneric(configX, y, configWidth, 20, StringUtils.translate("dlc_manager.config"));
             addButton(configButton, new FooterButtonListener());
         }
 
-        int tailWidth = 70;
-        backButton = new ButtonGeneric(right - tailWidth, y, tailWidth, 20, getBackButtonLabel());
+        int applyWidth = Math.max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.apply")) + padding);
+        int backWidth = Math.max(70, StringUtils.getStringWidth(getBackButtonLabel()) + padding);
+        backButton = new ButtonGeneric(right - backWidth, y, backWidth, 20, getBackButtonLabel());
         addButton(backButton, new FooterButtonListener());
 
-        applyButton = new ButtonGeneric(backButton.getX() - gap - tailWidth, y, tailWidth, 20, StringUtils.translate("dlc_manager.apply"));
+        applyButton = new ButtonGeneric(backButton.getX() - gap - applyWidth, y, applyWidth, 20, StringUtils.translate("dlc_manager.apply"));
         addButton(applyButton, new FooterButtonListener());
 
-        int leftSpanEnd;
-        if (configButton != null) {
-            leftSpanEnd = configButton.getX() + configButton.getWidth();
-        } else if (presetButton != null) {
-            leftSpanEnd = presetButton.getX() + presetButton.getWidth();
-        } else if (updateButton != null) {
-            leftSpanEnd = updateButton.getX() + updateButton.getWidth();
-        } else {
-            leftSpanEnd = modeButton.getX() + modeButton.getWidth();
+        serverButton = null;
+        if (canShowServerButton()) {
+            int serverWidth = Math.max(80, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.server.manage")) + padding);
+            int serverX = applyButton.getX() - gap - serverWidth;
+            serverButton = new ButtonGeneric(serverX, y, serverWidth, 20, StringUtils.translate("dlc_manager.server.manage"));
+            addButton(serverButton, new FooterButtonListener());
         }
-        footerTwoRows = leftSpanEnd + gap > applyButton.getX();
+
+        int leftSpanEnd = modeButton.getX() + modeButton.getWidth();
+        if (updateButton != null) {
+            leftSpanEnd = Math.max(leftSpanEnd, updateButton.getX() + updateButton.getWidth());
+        }
+        if (presetButton != null) {
+            leftSpanEnd = Math.max(leftSpanEnd, presetButton.getX() + presetButton.getWidth());
+        }
+        if (configButton != null) {
+            leftSpanEnd = Math.max(leftSpanEnd, configButton.getX() + configButton.getWidth());
+        }
+        int rightStart = applyButton.getX();
+        if (serverButton != null) {
+            rightStart = Math.min(rightStart, serverButton.getX());
+        }
+        footerTwoRows = leftSpanEnd + gap > rightStart;
         if (footerTwoRows) {
             int row1Y = this.height - 52;
             int row2Y = this.height - 30;
@@ -398,6 +423,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
             if (configButton != null) {
                 configButton.setY(row1Y);
+            }
+            if (serverButton != null) {
+                serverButton.setY(row2Y);
             }
             applyButton.setY(row2Y);
             backButton.setY(row2Y);
@@ -666,7 +694,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
         if (button == backButton) {
-            closeGui(true);
+            returnToMainMenu();
         } else if (button == applyButton) {
             applyChanges();
         } else if (button == updateButton) {
@@ -678,6 +706,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         } else if (button == configButton) {
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcPathConfigScreen(DlcMaLiLibScreen.this));
+        } else if (button == serverButton) {
+            rememberListScroll();
+            Minecraft.getInstance().setScreen(new DlcServerListScreen(DlcMaLiLibScreen.this));
         } else if (button == modeButton) {
             toggleApplyMode();
         }
@@ -721,6 +752,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         if (configButton != null) {
             buttonTop = Math.min(buttonTop, configButton.getY());
+        }
+        if (serverButton != null) {
+            buttonTop = Math.min(buttonTop, serverButton.getY());
         }
         if (presetButton != null) {
             buttonTop = Math.min(buttonTop, presetButton.getY());
@@ -953,17 +987,20 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private void ensureFooterNoOverlap() {
         int minGap = 6;
-        int leftEnd;
+        int leftEnd = modeButton.getX() + modeButton.getWidth();
+        if (updateButton != null) {
+            leftEnd = Math.max(leftEnd, updateButton.getX() + updateButton.getWidth());
+        }
+        if (presetButton != null) {
+            leftEnd = Math.max(leftEnd, presetButton.getX() + presetButton.getWidth());
+        }
         if (configButton != null) {
-            leftEnd = configButton.getX() + configButton.getWidth();
-        } else if (presetButton != null) {
-            leftEnd = presetButton.getX() + presetButton.getWidth();
-        } else if (updateButton != null) {
-            leftEnd = updateButton.getX() + updateButton.getWidth();
-        } else {
-            leftEnd = modeButton.getX() + modeButton.getWidth();
+            leftEnd = Math.max(leftEnd, configButton.getX() + configButton.getWidth());
         }
         int rightStart = applyButton.getX();
+        if (serverButton != null) {
+            rightStart = Math.min(rightStart, serverButton.getX());
+        }
         if (rightStart - leftEnd < minGap) {
             int row1Y = this.height - 52;
             int row2Y = this.height - 30;
@@ -973,6 +1010,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
             if (configButton != null) {
                 configButton.setY(row1Y);
+            }
+            if (serverButton != null) {
+                serverButton.setY(row2Y);
             }
             applyButton.setY(row2Y);
             backButton.setY(row2Y);
@@ -1486,6 +1526,14 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         DlcRuntimeState.clearOverrides();
         super.closeGui(closeInGame);
+    }
+
+    private void returnToMainMenu() {
+        if (hasPresetChanges()) {
+            DlcPresetRuntimeState.restoreEnabledPresets(presetSnapshot);
+        }
+        DlcRuntimeState.clearOverrides();
+        Minecraft.getInstance().setScreen(new TitleScreen());
     }
 
     private void capturePresetSnapshot() {

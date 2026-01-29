@@ -203,6 +203,31 @@ public final class DlcPresetRuntimeState {
         presetDirty = false;
     }
 
+    public static void syncStatusFromExternal(Map<String, DlcPresetStatus> statuses) {
+        if (PRESETS_BY_ID.isEmpty()) {
+            return;
+        }
+        if (statuses == null) {
+            statuses = Map.of();
+        }
+        Map<String, DlcPresetStatus> normalized = new LinkedHashMap<>();
+        ENABLED_PRESETS.clear();
+        for (DlcPresetEntry entry : PRESETS_BY_ID.values()) {
+            if (entry == null) {
+                continue;
+            }
+            DlcPresetStatus status = statuses.getOrDefault(entry.getId(), DlcPresetStatus.OFF);
+            entry.setStatus(status);
+            normalized.put(entry.getId(), status);
+            if (status.isEnabled()) {
+                ENABLED_PRESETS.add(entry.getId());
+            }
+        }
+        DlcPresetStateStore.savePresetStatus(normalized);
+        presetDirty = false;
+        rebuildBlocks();
+    }
+
     public static void applyOverridesToRuntime() {
         if (PRESETS_BY_ID.isEmpty()) {
             return;

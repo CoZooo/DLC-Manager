@@ -1,266 +1,134 @@
 package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import fi.dy.masa.malilib.config.ConfigManager;
-import fi.dy.masa.malilib.config.IConfigBase;
-import fi.dy.masa.malilib.config.IConfigHandler;
-import fi.dy.masa.malilib.config.options.ConfigBoolean;
-import fi.dy.masa.malilib.config.options.ConfigInteger;
-import fi.dy.masa.malilib.config.options.ConfigString;
-import fi.dy.masa.malilib.util.StringUtils;
-import fi.dy.masa.malilib.util.JsonUtils;
+import com.google.gson.JsonParser;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class DlcPathConfig {
     public static final String MOD_ID = "dlc_manager";
 
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String CONFIG_DIR = "dlc_manager";
     private static final String CONFIG_NAME = "config.json";
+    private static final String CONFIG_SERVER_NAME = "config-server.json";
 
-    static final String DEFAULT_DLC_ROOT = "DLC";
-    static final String DEFAULT_TACZ_DLC_ROOT = "tacz";
-    static final String DEFAULT_RESOURCEPACK_ROOT = "resourcepacks";
-    static final String DEFAULT_DATAPACK_ROOT = "datapacks";
-    static final boolean DEFAULT_ENABLE_ALL_SHOWN = true;
-    static final boolean DEFAULT_CONFIG_BUTTON_SHOWN = true;
-    static final boolean DEFAULT_U_BUTTON_SHOWN = true;
-    static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
-    static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
-    static final boolean DEFAULT_PRESET_FUNC_ON = true;
-    static final String DEFAULT_TITLE_ANCHOR = "auto";
-    static final int DEFAULT_TITLE_OFFSET_X = 0;
-    static final int DEFAULT_TITLE_OFFSET_Y = 0;
-    static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 5;
-    static final int DEFAULT_MAX_SEGMENTS_PER_FILE = 4;
-    static final int DEFAULT_MIN_SEGMENT_MB = 20;
-    static final int DEFAULT_MAX_RETRY = 5;
-    static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
-    static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
-    static final int DEFAULT_TITLE_WIDTH = 0;
-    static final int DEFAULT_TITLE_HEIGHT = 0;
+    public static final String DEFAULT_DLC_ROOT = "DLC";
+    public static final String DEFAULT_TACZ_DLC_ROOT = "tacz";
+    public static final String DEFAULT_RESOURCEPACK_ROOT = "resourcepacks";
+    public static final String DEFAULT_DATAPACK_ROOT = "datapacks";
+    public static final boolean DEFAULT_ENABLE_ALL_SHOWN = true;
+    public static final boolean DEFAULT_CONFIG_BUTTON_SHOWN = false;
+    public static final boolean DEFAULT_U_BUTTON_SHOWN = true;
+    public static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
+    public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
+    public static final boolean DEFAULT_PRESET_FUNC_ON = true;
+    public static final boolean DEFAULT_SERVER_SUPPORT = true;
+    public static final int DEFAULT_SERVER_PORT = 29690;
+    public static final String DEFAULT_SERVER_PASSWORD = "";
+    public static final String DEFAULT_RCON_HOST = "";
+    public static final int DEFAULT_RCON_PORT = 25575;
+    public static final String DEFAULT_RCON_PASSWORD = "";
+    public static final String DEFAULT_TITLE_ANCHOR = "auto";
+    public static final int DEFAULT_TITLE_OFFSET_X = 0;
+    public static final int DEFAULT_TITLE_OFFSET_Y = 0;
+    public static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 5;
+    public static final int DEFAULT_MAX_SEGMENTS_PER_FILE = 4;
+    public static final int DEFAULT_MIN_SEGMENT_MB = 20;
+    public static final int DEFAULT_MAX_RETRY = 5;
+    public static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 10;
+    public static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
+    public static final int DEFAULT_TITLE_WIDTH = 0;
+    public static final int DEFAULT_TITLE_HEIGHT = 0;
 
-    private static boolean registered;
+    private static String dlcRoot = DEFAULT_DLC_ROOT;
+    private static String taczRoot = DEFAULT_TACZ_DLC_ROOT;
+    private static String resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT;
+    private static String datapackRoot = DEFAULT_DATAPACK_ROOT;
 
-    private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DEFAULT_DLC_ROOT, "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
-    private static final ConfigString TACZ_ROOT = new DlcConfigString("taczRoot", DEFAULT_TACZ_DLC_ROOT, "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot");
-    private static final ConfigString RESOURCEPACK_ROOT = new DlcConfigString("resourcepackRoot", DEFAULT_RESOURCEPACK_ROOT, "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot");
-    private static final ConfigString DATAPACK_ROOT = new DlcConfigString("datapackRoot", DEFAULT_DATAPACK_ROOT, "dlc_manager.config.comment.paths.datapackRoot", "dlc_manager.config.paths.datapackRoot");
+    private static boolean enableAllButtonShown = DEFAULT_ENABLE_ALL_SHOWN;
+    private static boolean configButtonShown = DEFAULT_CONFIG_BUTTON_SHOWN;
+    private static boolean uButtonShown = DEFAULT_U_BUTTON_SHOWN;
+    private static boolean updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
+    private static boolean selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
+    private static boolean presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+    private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
+    private static boolean serverSupportServer = DEFAULT_SERVER_SUPPORT;
+    private static int serverPort = DEFAULT_SERVER_PORT;
+    private static String serverPassword = DEFAULT_SERVER_PASSWORD;
+    private static String serverRconHost = DEFAULT_RCON_HOST;
+    private static int serverRconPort = DEFAULT_RCON_PORT;
+    private static String serverRconPassword = DEFAULT_RCON_PASSWORD;
+    private static String titleAnchor = DEFAULT_TITLE_ANCHOR;
+    private static int titleOffsetX = DEFAULT_TITLE_OFFSET_X;
+    private static int titleOffsetY = DEFAULT_TITLE_OFFSET_Y;
+    private static int titleWidth = DEFAULT_TITLE_WIDTH;
+    private static int titleHeight = DEFAULT_TITLE_HEIGHT;
 
-    private static final ConfigBoolean ENABLE_ALL_BUTTON = new DlcConfigBoolean("isEnableAllButtonShown", DEFAULT_ENABLE_ALL_SHOWN, "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown");
-    private static final ConfigBoolean CONFIG_BUTTON = new DlcConfigBoolean("isConfigButtonShown", DEFAULT_CONFIG_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isConfigButtonShown", "dlc_manager.config.ui.isConfigButtonShown");
-    private static final ConfigBoolean U_BUTTON = new DlcConfigBoolean("isUButtomShown", DEFAULT_U_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isUButtomShown", "dlc_manager.config.ui.isUButtomShown");
-    private static final ConfigBoolean UPDATE_MANAGER_ON = new DlcConfigBoolean("isUpdateManagerOn", DEFAULT_UPDATE_MANAGER_ON, "dlc_manager.config.comment.ui.isUpdateManagerOn", "dlc_manager.config.ui.isUpdateManagerOn");
-    private static final ConfigBoolean SELF_UPDATE_AUTO_CHECK_ON = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DEFAULT_SELF_UPDATE_AUTO_CHECK_ON, "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
-    private static final ConfigBoolean PRESET_FUNC_ON = new DlcConfigBoolean("isPresetFuncOn", DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
-    private static final ConfigString TITLE_ANCHOR = new DlcConfigString("titleAnchor", DEFAULT_TITLE_ANCHOR, "dlc_manager.config.comment.ui.titleAnchor", "dlc_manager.config.ui.titleAnchor");
-    private static final ConfigInteger TITLE_OFFSET_X = new DlcConfigInteger(
-            "titleOffsetX",
-            DEFAULT_TITLE_OFFSET_X,
-            -10000,
-            10000,
-            "dlc_manager.config.comment.ui.titleOffsetX",
-            "dlc_manager.config.ui.titleOffsetX"
-    );
-    private static final ConfigInteger TITLE_OFFSET_Y = new DlcConfigInteger(
-            "titleOffsetY",
-            DEFAULT_TITLE_OFFSET_Y,
-            -10000,
-            10000,
-            "dlc_manager.config.comment.ui.titleOffsetY",
-            "dlc_manager.config.ui.titleOffsetY"
-    );
-    private static final ConfigInteger TITLE_WIDTH = new DlcConfigInteger(
-            "titleWidth",
-            DEFAULT_TITLE_WIDTH,
-            0,
-            10000,
-            "dlc_manager.config.comment.ui.titleWidth",
-            "dlc_manager.config.ui.titleWidth"
-    );
-    private static final ConfigInteger TITLE_HEIGHT = new DlcConfigInteger(
-            "titleHeight",
-            DEFAULT_TITLE_HEIGHT,
-            0,
-            10000,
-            "dlc_manager.config.comment.ui.titleHeight",
-            "dlc_manager.config.ui.titleHeight"
-    );
-
-    private static final ConfigInteger MAX_CONCURRENT_DOWNLOADS = new DlcConfigInteger(
-            "maxConcurrentDownloads",
-            DEFAULT_MAX_CONCURRENT_DOWNLOADS,
-            1,
-            64,
-            "dlc_manager.config.comment.download.maxConcurrentDownloads",
-            "dlc_manager.config.download.maxConcurrentDownloads"
-    );
-    private static final ConfigInteger MAX_SEGMENTS_PER_FILE = new DlcConfigInteger(
-            "maxSegmentsPerFile",
-            DEFAULT_MAX_SEGMENTS_PER_FILE,
-            1,
-            64,
-            "dlc_manager.config.comment.download.maxSegmentsPerFile",
-            "dlc_manager.config.download.maxSegmentsPerFile"
-    );
-    private static final ConfigInteger MIN_SEGMENT_MB = new DlcConfigInteger(
-            "minSegmentMB",
-            DEFAULT_MIN_SEGMENT_MB,
-            1,
-            Integer.MAX_VALUE,
-            "dlc_manager.config.comment.download.minSegmentMB",
-            "dlc_manager.config.download.minSegmentMB"
-    );
-    private static final ConfigInteger MAX_RETRY = new DlcConfigInteger(
-            "maxRetryCount",
-            DEFAULT_MAX_RETRY,
-            1,
-            100,
-            "dlc_manager.config.comment.download.maxRetryCount",
-            "dlc_manager.config.download.maxRetryCount"
-    );
-    private static final ConfigInteger CONNECT_TIMEOUT_SECONDS = new DlcConfigInteger(
-            "connectTimeoutSeconds",
-            DEFAULT_CONNECT_TIMEOUT_SECONDS,
-            1,
-            36000,
-            "dlc_manager.config.comment.download.connectTimeoutSeconds",
-            "dlc_manager.config.download.connectTimeoutSeconds"
-    );
-    private static final ConfigInteger TASK_TIMEOUT_SECONDS = new DlcConfigInteger(
-            "taskTimeoutSeconds",
-            DEFAULT_TASK_TIMEOUT_SECONDS,
-            1,
-            36000,
-            "dlc_manager.config.comment.download.taskTimeoutSeconds",
-            "dlc_manager.config.download.taskTimeoutSeconds"
-    );
-
-    private static final Map<String, IConfigBase> PATH_KEY_MAP = Map.of(
-            "dlcRoot", DLC_ROOT,
-            "taczRoot", TACZ_ROOT,
-            "resourcepackRoot", RESOURCEPACK_ROOT,
-            "datapackRoot", DATAPACK_ROOT
-    );
-    private static final Map<String, IConfigBase> UI_KEY_MAP = Map.ofEntries(
-            Map.entry("isEnableAllButtonShown", ENABLE_ALL_BUTTON),
-            Map.entry("isConfigButtonShown", CONFIG_BUTTON),
-            Map.entry("isUButtomShown", U_BUTTON),
-            Map.entry("isUpdateManagerOn", UPDATE_MANAGER_ON),
-            Map.entry("isSelfUpdateAutoCheckOn", SELF_UPDATE_AUTO_CHECK_ON),
-            Map.entry("isPresetFuncOn", PRESET_FUNC_ON),
-            Map.entry("titleAnchor", TITLE_ANCHOR),
-            Map.entry("titleOffsetX", TITLE_OFFSET_X),
-            Map.entry("titleOffsetY", TITLE_OFFSET_Y),
-            Map.entry("titleWidth", TITLE_WIDTH),
-            Map.entry("titleHeight", TITLE_HEIGHT)
-    );
-    private static final Map<String, IConfigBase> DOWNLOAD_KEY_MAP = Map.of(
-            "maxConcurrentDownloads", MAX_CONCURRENT_DOWNLOADS,
-            "maxSegmentsPerFile", MAX_SEGMENTS_PER_FILE,
-            "minSegmentMB", MIN_SEGMENT_MB,
-            "maxRetryCount", MAX_RETRY,
-            "connectTimeoutSeconds", CONNECT_TIMEOUT_SECONDS,
-            "taskTimeoutSeconds", TASK_TIMEOUT_SECONDS
-    );
-
-    private static final List<IConfigBase> PATH_CONFIGS = List.of(
-            DLC_ROOT,
-            TACZ_ROOT,
-            RESOURCEPACK_ROOT,
-            DATAPACK_ROOT
-    );
-    private static final List<IConfigBase> UI_CONFIGS = List.of(
-            ENABLE_ALL_BUTTON,
-            CONFIG_BUTTON,
-            U_BUTTON,
-            UPDATE_MANAGER_ON,
-            SELF_UPDATE_AUTO_CHECK_ON,
-            PRESET_FUNC_ON,
-            TITLE_ANCHOR,
-            TITLE_OFFSET_X,
-            TITLE_OFFSET_Y,
-            TITLE_WIDTH,
-            TITLE_HEIGHT
-    );
-    private static final List<IConfigBase> DOWNLOAD_CONFIGS = List.of(
-            MAX_CONCURRENT_DOWNLOADS,
-            MAX_SEGMENTS_PER_FILE,
-            MIN_SEGMENT_MB,
-            MAX_RETRY,
-            CONNECT_TIMEOUT_SECONDS,
-            TASK_TIMEOUT_SECONDS
-    );
-    private static final List<IConfigBase> ALL_CONFIGS;
-
-    private static final IConfigHandler CONFIG_HANDLER = new IConfigHandler() {
-        @Override
-        public void load() {
-            loadFromDisk();
-        }
-
-        @Override
-        public void save() {
-            saveToDisk();
-        }
-
-        @Override
-        public void onConfigsChanged() {
-            // Do not auto-save; only persist when user clicks Save.
-        }
-    };
-
-    static {
-        List<IConfigBase> all = new ArrayList<>();
-        all.addAll(PATH_CONFIGS);
-        all.addAll(UI_CONFIGS);
-        all.addAll(DOWNLOAD_CONFIGS);
-        ALL_CONFIGS = Collections.unmodifiableList(all);
-    }
+    private static int maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
+    private static int maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
+    private static int minSegmentMb = DEFAULT_MIN_SEGMENT_MB;
+    private static int maxRetryCount = DEFAULT_MAX_RETRY;
+    private static int connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS;
+    private static int taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS;
 
     public static void load() {
-        if (!registered) {
-            ConfigManager.getInstance().registerConfigHandler(MOD_ID, CONFIG_HANDLER);
-            registered = true;
-        }
-        CONFIG_HANDLER.load();
-        ensureConfigFile();
+        loadClient();
     }
 
-    private static void ensureConfigFile() {
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME);
-        if (Files.exists(jsonPath)) {
-            return;
-        }
-        saveToDisk();
+    public static void loadClient() {
+        loadClientFromDisk();
+        ensureClientConfigFile();
+    }
+
+    public static void loadServer() {
+        loadServerFromDisk();
+        ensureServerConfigFile();
     }
 
     public static void save() {
-        CONFIG_HANDLER.save();
+        saveClient();
     }
 
-    public static List<IConfigBase> getAllConfigOptions() {
-        return ALL_CONFIGS;
+    public static void saveClient() {
+        saveClientToDisk();
     }
 
-    public static List<IConfigBase> getPathConfigs() {
-        return PATH_CONFIGS;
+    public static void saveServer() {
+        saveServerToDisk();
     }
 
-    public static List<IConfigBase> getUiConfigs() {
-        return UI_CONFIGS;
+    public static JsonObject buildServerConfigJson() {
+        JsonObject root = new JsonObject();
+        writeServer(root);
+        writeServerUi(root);
+        writePaths(root);
+        writeDownloads(root);
+        return root;
     }
 
-    public static List<IConfigBase> getDownloadConfigs() {
-        return DOWNLOAD_CONFIGS;
+    public static void applyServerConfigJson(JsonObject root) {
+        if (root == null) {
+            return;
+        }
+        readSection(root, "server", buildServerReaders());
+        readSection(root, "ui", buildServerUiReaders());
+        readSection(root, "paths", buildPathReaders());
+        readSection(root, "downloads", buildDownloadReaders());
     }
 
     public static Path getDlcRoot() {
@@ -296,63 +164,91 @@ public class DlcPathConfig {
     }
 
     public static String getDlcRootRaw() {
-        return stringOrDefault(DLC_ROOT.getStringValue(), DEFAULT_DLC_ROOT);
+        return stringOrDefault(dlcRoot, DEFAULT_DLC_ROOT);
     }
 
     public static String getTaczRootRaw() {
-        return stringOrDefault(TACZ_ROOT.getStringValue(), DEFAULT_TACZ_DLC_ROOT);
+        return stringOrDefault(taczRoot, DEFAULT_TACZ_DLC_ROOT);
     }
 
     public static String getResourcepackRootRaw() {
-        return stringOrDefault(RESOURCEPACK_ROOT.getStringValue(), DEFAULT_RESOURCEPACK_ROOT);
+        return stringOrDefault(resourcepackRoot, DEFAULT_RESOURCEPACK_ROOT);
     }
 
     public static String getDatapackRootRaw() {
-        return stringOrDefault(DATAPACK_ROOT.getStringValue(), DEFAULT_DATAPACK_ROOT);
+        return stringOrDefault(datapackRoot, DEFAULT_DATAPACK_ROOT);
     }
 
     public static boolean isEnableAllButtonShown() {
-        return ENABLE_ALL_BUTTON.getBooleanValue();
+        return enableAllButtonShown;
     }
 
     public static boolean isConfigButtonShown() {
-        return CONFIG_BUTTON.getBooleanValue();
+        return configButtonShown;
     }
 
     public static boolean isUButtomShown() {
-        return U_BUTTON.getBooleanValue();
+        return uButtonShown;
     }
 
     public static boolean isUpdateManagerOn() {
-        return UPDATE_MANAGER_ON.getBooleanValue();
+        return updateManagerOn;
     }
 
     public static boolean isSelfUpdateAutoCheckOn() {
-        return SELF_UPDATE_AUTO_CHECK_ON.getBooleanValue();
+        return selfUpdateAutoCheckOn;
     }
 
     public static boolean isPresetFuncOn() {
-        return PRESET_FUNC_ON.getBooleanValue();
+        return presetFuncOn;
+    }
+
+    public static boolean isServerSupportOn() {
+        return serverSupportClient;
+    }
+
+    public static boolean isServerSupportOnServer() {
+        return serverSupportServer;
+    }
+
+    public static int getServerPort() {
+        return serverPort;
+    }
+
+    public static String getServerPassword() {
+        return serverPassword;
+    }
+
+    public static String getServerRconHost() {
+        return serverRconHost;
+    }
+
+    public static int getServerRconPort() {
+        return serverRconPort;
+    }
+
+    public static String getServerRconPassword() {
+        return serverRconPassword;
     }
 
     public static String getTitleAnchor() {
-        return TITLE_ANCHOR.getStringValue();
+        return titleAnchor;
     }
 
     public static int getTitleOffsetX() {
-        return TITLE_OFFSET_X.getIntegerValue();
+        return titleOffsetX;
     }
 
     public static int getTitleOffsetY() {
-        return TITLE_OFFSET_Y.getIntegerValue();
+        return titleOffsetY;
     }
 
     public static int getTitleWidth() {
-        return TITLE_WIDTH.getIntegerValue();
+        return titleWidth;
     }
 
     public static int getTitleHeight() {
-        return TITLE_HEIGHT.getIntegerValue();
+        return titleHeight;
     }
 
     public static int[] computeTitleButtonPosition(int screenWidth, int screenHeight, int buttonWidth, int buttonHeight, int defaultX, int defaultY) {
@@ -362,7 +258,7 @@ public class DlcPathConfig {
         if (anchor == null || anchor.isBlank() || "auto".equalsIgnoreCase(anchor)) {
             return new int[] { defaultX + offsetX, defaultY + offsetY };
         }
-        String normalized = anchor.trim().toLowerCase(java.util.Locale.ROOT).replace(' ', '_');
+        String normalized = anchor.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
         int x;
         int y;
         switch (normalized) {
@@ -411,7 +307,7 @@ public class DlcPathConfig {
     }
 
     public static int getMaxConcurrentDownloads() {
-        int value = MAX_CONCURRENT_DOWNLOADS.getIntegerValue();
+        int value = maxConcurrentDownloads;
         if (value < 1) {
             return DEFAULT_MAX_CONCURRENT_DOWNLOADS;
         }
@@ -419,7 +315,7 @@ public class DlcPathConfig {
     }
 
     public static int getMaxSegmentsPerFile() {
-        int value = MAX_SEGMENTS_PER_FILE.getIntegerValue();
+        int value = maxSegmentsPerFile;
         if (value < 1) {
             return DEFAULT_MAX_SEGMENTS_PER_FILE;
         }
@@ -427,7 +323,7 @@ public class DlcPathConfig {
     }
 
     public static long getMinSegmentBytes() {
-        int value = MIN_SEGMENT_MB.getIntegerValue();
+        int value = minSegmentMb;
         if (value < 1) {
             value = DEFAULT_MIN_SEGMENT_MB;
         }
@@ -435,7 +331,7 @@ public class DlcPathConfig {
     }
 
     public static int getMaxRetryCount() {
-        int value = MAX_RETRY.getIntegerValue();
+        int value = maxRetryCount;
         if (value < 1) {
             return DEFAULT_MAX_RETRY;
         }
@@ -443,7 +339,7 @@ public class DlcPathConfig {
     }
 
     public static int getConnectTimeoutMs() {
-        int value = CONNECT_TIMEOUT_SECONDS.getIntegerValue();
+        int value = connectTimeoutSeconds;
         if (value < 1) {
             value = DEFAULT_CONNECT_TIMEOUT_SECONDS;
         }
@@ -451,84 +347,465 @@ public class DlcPathConfig {
     }
 
     public static int getTaskTimeoutMs() {
-        int value = TASK_TIMEOUT_SECONDS.getIntegerValue();
+        int value = taskTimeoutSeconds;
         if (value < 1) {
             value = DEFAULT_TASK_TIMEOUT_SECONDS;
         }
         return value * 1000;
     }
 
-
     public static void setDlcRoot(String value) {
         if (value != null) {
-            DLC_ROOT.setValueFromString(value);
+            dlcRoot = value;
         }
     }
 
     public static void setTaczRoot(String value) {
         if (value != null) {
-            TACZ_ROOT.setValueFromString(value);
+            taczRoot = value;
         }
     }
 
     public static void setResourcepackRoot(String value) {
         if (value != null) {
-            RESOURCEPACK_ROOT.setValueFromString(value);
+            resourcepackRoot = value;
         }
     }
 
     public static void setDatapackRoot(String value) {
         if (value != null) {
-            DATAPACK_ROOT.setValueFromString(value);
+            datapackRoot = value;
         }
     }
 
     public static void setEnableAllButtonShown(boolean value) {
-        ENABLE_ALL_BUTTON.setBooleanValue(value);
+        enableAllButtonShown = value;
     }
 
     public static void setConfigButtonShown(boolean value) {
-        CONFIG_BUTTON.setBooleanValue(value);
+        configButtonShown = value;
     }
 
     public static void setUButtomShown(boolean value) {
-        U_BUTTON.setBooleanValue(value);
+        uButtonShown = value;
     }
 
     public static void setUpdateManagerOn(boolean value) {
-        UPDATE_MANAGER_ON.setBooleanValue(value);
+        updateManagerOn = value;
     }
 
     public static void setSelfUpdateAutoCheckOn(boolean value) {
-        SELF_UPDATE_AUTO_CHECK_ON.setBooleanValue(value);
+        selfUpdateAutoCheckOn = value;
+    }
+
+    public static void setPresetFuncOn(boolean value) {
+        presetFuncOn = value;
+    }
+
+    public static void setServerSupportOn(boolean value) {
+        serverSupportClient = value;
+    }
+
+    public static void setServerSupportOnServer(boolean value) {
+        serverSupportServer = value;
+    }
+
+    public static void setServerPort(int value) {
+        serverPort = clampInt(value, 1, 65535, DEFAULT_SERVER_PORT);
+    }
+
+    public static void setServerPassword(String value) {
+        serverPassword = value == null ? DEFAULT_SERVER_PASSWORD : value;
+    }
+
+    public static void setServerRconHost(String value) {
+        serverRconHost = value == null ? DEFAULT_RCON_HOST : value;
+    }
+
+    public static void setServerRconPort(int value) {
+        serverRconPort = clampInt(value, 1, 65535, DEFAULT_RCON_PORT);
+    }
+
+    public static void setServerRconPassword(String value) {
+        serverRconPassword = value == null ? DEFAULT_RCON_PASSWORD : value;
+    }
+
+    public static void setTitleAnchor(String value) {
+        titleAnchor = value == null ? DEFAULT_TITLE_ANCHOR : value;
+    }
+
+    public static void setTitleOffsetX(int value) {
+        titleOffsetX = value;
+    }
+
+    public static void setTitleOffsetY(int value) {
+        titleOffsetY = value;
+    }
+
+    public static void setTitleWidth(int value) {
+        titleWidth = Math.max(0, value);
+    }
+
+    public static void setTitleHeight(int value) {
+        titleHeight = Math.max(0, value);
     }
 
     public static void setMaxConcurrentDownloads(int value) {
-        MAX_CONCURRENT_DOWNLOADS.setIntegerValue(value);
+        maxConcurrentDownloads = Math.max(1, value);
     }
 
     public static void setMaxSegmentsPerFile(int value) {
-        MAX_SEGMENTS_PER_FILE.setIntegerValue(value);
+        maxSegmentsPerFile = Math.max(1, value);
     }
 
     public static void setMinSegmentBytes(long value) {
         long mb = Math.max(1L, (value + (1024L * 1024L - 1)) / (1024L * 1024L));
         long clamped = Math.min(Integer.MAX_VALUE, mb);
-        MIN_SEGMENT_MB.setIntegerValue((int) clamped);
+        minSegmentMb = (int) clamped;
     }
 
     public static void setMaxRetryCount(int value) {
-        MAX_RETRY.setIntegerValue(value);
+        maxRetryCount = Math.max(1, value);
     }
 
     public static void setConnectTimeoutMs(int value) {
         int seconds = Math.max(1, (int) Math.ceil(value / 1000.0));
-        CONNECT_TIMEOUT_SECONDS.setIntegerValue(seconds);
+        connectTimeoutSeconds = seconds;
     }
 
     public static void setTaskTimeoutMs(int value) {
         int seconds = Math.max(1, (int) Math.ceil(value / 1000.0));
-        TASK_TIMEOUT_SECONDS.setIntegerValue(seconds);
+        taskTimeoutSeconds = seconds;
+    }
+
+    private static void resetDefaults() {
+        dlcRoot = DEFAULT_DLC_ROOT;
+        taczRoot = DEFAULT_TACZ_DLC_ROOT;
+        resourcepackRoot = DEFAULT_RESOURCEPACK_ROOT;
+        datapackRoot = DEFAULT_DATAPACK_ROOT;
+        enableAllButtonShown = DEFAULT_ENABLE_ALL_SHOWN;
+        configButtonShown = DEFAULT_CONFIG_BUTTON_SHOWN;
+        uButtonShown = DEFAULT_U_BUTTON_SHOWN;
+        updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
+        selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
+        presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+        serverSupportClient = DEFAULT_SERVER_SUPPORT;
+        serverSupportServer = DEFAULT_SERVER_SUPPORT;
+        serverPort = DEFAULT_SERVER_PORT;
+        serverPassword = DEFAULT_SERVER_PASSWORD;
+        serverRconHost = DEFAULT_RCON_HOST;
+        serverRconPort = DEFAULT_RCON_PORT;
+        serverRconPassword = DEFAULT_RCON_PASSWORD;
+        titleAnchor = DEFAULT_TITLE_ANCHOR;
+        titleOffsetX = DEFAULT_TITLE_OFFSET_X;
+        titleOffsetY = DEFAULT_TITLE_OFFSET_Y;
+        titleWidth = DEFAULT_TITLE_WIDTH;
+        titleHeight = DEFAULT_TITLE_HEIGHT;
+        maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
+        maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
+        minSegmentMb = DEFAULT_MIN_SEGMENT_MB;
+        maxRetryCount = DEFAULT_MAX_RETRY;
+        connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS;
+        taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS;
+    }
+
+    private static void loadClientFromDisk() {
+        resetDefaults();
+        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path jsonPath = configDir.resolve(CONFIG_NAME);
+        if (Files.exists(jsonPath)) {
+            loadFromJson(jsonPath);
+        }
+    }
+
+    private static void loadServerFromDisk() {
+        resetDefaults();
+        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME);
+        if (Files.exists(serverPath)) {
+            loadFromServerJson(serverPath);
+        }
+    }
+
+    private static void loadFromJson(Path jsonPath) {
+        JsonObject root = readJsonObject(jsonPath);
+        if (root == null) {
+            return;
+        }
+        readSection(root, "paths", buildPathReaders());
+        readSection(root, "ui", buildUiReaders());
+        readSection(root, "downloads", buildDownloadReaders());
+    }
+
+    private static void loadFromServerJson(Path jsonPath) {
+        JsonObject root = readJsonObject(jsonPath);
+        if (root == null) {
+            return;
+        }
+        readSection(root, "server", buildServerReaders());
+        readSection(root, "ui", buildServerUiReaders());
+        readSection(root, "paths", buildPathReaders());
+        readSection(root, "downloads", buildDownloadReaders());
+    }
+
+    private static JsonObject readJsonObject(Path path) {
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonElement element = JsonParser.parseReader(reader);
+            if (element != null && element.isJsonObject()) {
+                return element.getAsJsonObject();
+            }
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+        return null;
+    }
+
+    private static void ensureClientConfigFile() {
+        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path jsonPath = configDir.resolve(CONFIG_NAME);
+        if (Files.exists(jsonPath)) {
+            return;
+        }
+        saveClientToDisk();
+    }
+
+    private static void ensureServerConfigFile() {
+        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME);
+        if (Files.exists(serverPath)) {
+            return;
+        }
+        saveServerToDisk();
+    }
+
+    private static void saveClientToDisk() {
+        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path jsonPath = configDir.resolve(CONFIG_NAME);
+        try {
+            Files.createDirectories(configDir);
+        } catch (IOException ignored) {
+            return;
+        }
+        JsonObject root = new JsonObject();
+        writePaths(root);
+        writeUi(root);
+        writeDownloads(root);
+        writeJson(root, jsonPath);
+    }
+
+    private static void saveServerToDisk() {
+        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME);
+        try {
+            Files.createDirectories(configDir);
+        } catch (IOException ignored) {
+            return;
+        }
+        JsonObject root = new JsonObject();
+        writeServer(root);
+        writeServerUi(root);
+        writePaths(root);
+        writeDownloads(root);
+        writeJson(root, serverPath);
+    }
+
+    private static void writeJson(JsonObject root, Path path) {
+        try (Writer writer = Files.newBufferedWriter(path)) {
+            GSON.toJson(root, writer);
+        } catch (IOException ignored) {
+            // Best-effort.
+        }
+    }
+
+    private static void writePaths(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("dlcRoot", dlcRoot);
+        obj.addProperty("taczRoot", taczRoot);
+        obj.addProperty("resourcepackRoot", resourcepackRoot);
+        obj.addProperty("datapackRoot", datapackRoot);
+        root.add("paths", obj);
+    }
+
+    private static void writeUi(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("isEnableAllButtonShown", enableAllButtonShown);
+        obj.addProperty("isConfigButtonShown", configButtonShown);
+        obj.addProperty("isUButtomShown", uButtonShown);
+        obj.addProperty("isUpdateManagerOn", updateManagerOn);
+        obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
+        obj.addProperty("isPresetFuncOn", presetFuncOn);
+        obj.addProperty("serverSupport", serverSupportClient);
+        obj.addProperty("titleAnchor", titleAnchor);
+        obj.addProperty("titleOffsetX", titleOffsetX);
+        obj.addProperty("titleOffsetY", titleOffsetY);
+        obj.addProperty("titleWidth", titleWidth);
+        obj.addProperty("titleHeight", titleHeight);
+        root.add("ui", obj);
+    }
+
+    private static void writeServerUi(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("isEnableAllButtonShown", enableAllButtonShown);
+        obj.addProperty("isUpdateManagerOn", updateManagerOn);
+        obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
+        obj.addProperty("isPresetFuncOn", presetFuncOn);
+        root.add("ui", obj);
+    }
+
+    private static void writeDownloads(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("maxConcurrentDownloads", maxConcurrentDownloads);
+        obj.addProperty("maxSegmentsPerFile", maxSegmentsPerFile);
+        obj.addProperty("minSegmentMB", minSegmentMb);
+        obj.addProperty("maxRetryCount", maxRetryCount);
+        obj.addProperty("connectTimeoutSeconds", connectTimeoutSeconds);
+        obj.addProperty("taskTimeoutSeconds", taskTimeoutSeconds);
+        root.add("downloads", obj);
+    }
+
+    private static void writeServer(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("serverSupport", serverSupportServer);
+        obj.addProperty("serverPort", serverPort);
+        obj.addProperty("serverPassword", serverPassword);
+        if (!DEFAULT_RCON_HOST.equals(serverRconHost) || serverRconPort != DEFAULT_RCON_PORT || !DEFAULT_RCON_PASSWORD.equals(serverRconPassword)) {
+            obj.addProperty("rconHost", serverRconHost);
+            obj.addProperty("rconPort", serverRconPort);
+            obj.addProperty("rconPassword", serverRconPassword);
+        }
+        root.add("server", obj);
+    }
+
+    private static void readSection(JsonObject root, String section, Map<String, Consumer<JsonElement>> keyMap) {
+        if (root == null || keyMap.isEmpty()) {
+            return;
+        }
+        JsonObject obj = JsonCaseUtil.getObjectIgnoreCase(root, section);
+        if (obj == null) {
+            return;
+        }
+        for (Map.Entry<String, Consumer<JsonElement>> entry : keyMap.entrySet()) {
+            JsonElement value = JsonCaseUtil.getIgnoreCase(obj, entry.getKey());
+            if (value != null) {
+                entry.getValue().accept(value);
+            }
+        }
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildPathReaders() {
+        Map<String, Consumer<JsonElement>> map = new HashMap<>();
+        map.put("dlcRoot", value -> dlcRoot = asString(value, DEFAULT_DLC_ROOT));
+        map.put("taczRoot", value -> taczRoot = asString(value, DEFAULT_TACZ_DLC_ROOT));
+        map.put("resourcepackRoot", value -> resourcepackRoot = asString(value, DEFAULT_RESOURCEPACK_ROOT));
+        map.put("datapackRoot", value -> datapackRoot = asString(value, DEFAULT_DATAPACK_ROOT));
+        return map;
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildUiReaders() {
+        Map<String, Consumer<JsonElement>> map = new HashMap<>();
+        map.put("isEnableAllButtonShown", value -> enableAllButtonShown = asBoolean(value, DEFAULT_ENABLE_ALL_SHOWN));
+        map.put("isConfigButtonShown", value -> configButtonShown = asBoolean(value, DEFAULT_CONFIG_BUTTON_SHOWN));
+        map.put("isUButtomShown", value -> uButtonShown = asBoolean(value, DEFAULT_U_BUTTON_SHOWN));
+        map.put("isUpdateManagerOn", value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON));
+        map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
+        map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
+        map.put("serverSupport", value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT));
+        map.put("titleAnchor", value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR));
+        map.put("titleOffsetX", value -> titleOffsetX = asInt(value, DEFAULT_TITLE_OFFSET_X));
+        map.put("titleOffsetY", value -> titleOffsetY = asInt(value, DEFAULT_TITLE_OFFSET_Y));
+        map.put("titleWidth", value -> titleWidth = Math.max(0, asInt(value, DEFAULT_TITLE_WIDTH)));
+        map.put("titleHeight", value -> titleHeight = Math.max(0, asInt(value, DEFAULT_TITLE_HEIGHT)));
+        return map;
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildServerReaders() {
+        Map<String, Consumer<JsonElement>> map = new HashMap<>();
+        map.put("serverSupport", value -> serverSupportServer = asBoolean(value, DEFAULT_SERVER_SUPPORT));
+        map.put("serverPort", value -> serverPort = clampInt(asInt(value, DEFAULT_SERVER_PORT), 1, 65535, DEFAULT_SERVER_PORT));
+        map.put("serverPassword", value -> serverPassword = asString(value, DEFAULT_SERVER_PASSWORD));
+        map.put("rconHost", value -> serverRconHost = asString(value, DEFAULT_RCON_HOST));
+        map.put("rconPort", value -> serverRconPort = clampInt(asInt(value, DEFAULT_RCON_PORT), 1, 65535, DEFAULT_RCON_PORT));
+        map.put("rconPassword", value -> serverRconPassword = asString(value, DEFAULT_RCON_PASSWORD));
+        return map;
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildServerUiReaders() {
+        Map<String, Consumer<JsonElement>> map = new HashMap<>();
+        map.put("isEnableAllButtonShown", value -> enableAllButtonShown = asBoolean(value, DEFAULT_ENABLE_ALL_SHOWN));
+        map.put("isUpdateManagerOn", value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON));
+        map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
+        map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
+        return map;
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildDownloadReaders() {
+        Map<String, Consumer<JsonElement>> map = new HashMap<>();
+        map.put("maxConcurrentDownloads", value -> maxConcurrentDownloads = Math.max(1, asInt(value, DEFAULT_MAX_CONCURRENT_DOWNLOADS)));
+        map.put("maxSegmentsPerFile", value -> maxSegmentsPerFile = Math.max(1, asInt(value, DEFAULT_MAX_SEGMENTS_PER_FILE)));
+        map.put("minSegmentMB", value -> minSegmentMb = Math.max(1, asInt(value, DEFAULT_MIN_SEGMENT_MB)));
+        map.put("maxRetryCount", value -> maxRetryCount = Math.max(1, asInt(value, DEFAULT_MAX_RETRY)));
+        map.put("connectTimeoutSeconds", value -> connectTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_CONNECT_TIMEOUT_SECONDS)));
+        map.put("taskTimeoutSeconds", value -> taskTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_TASK_TIMEOUT_SECONDS)));
+        return map;
+    }
+
+    private static String stringOrDefault(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        return value;
+    }
+
+    private static int asInt(JsonElement element, int fallback) {
+        if (element == null || element.isJsonNull()) {
+            return fallback;
+        }
+        try {
+            if (element.isJsonPrimitive()) {
+                return element.getAsInt();
+            }
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        return fallback;
+    }
+
+    private static boolean asBoolean(JsonElement element, boolean fallback) {
+        if (element == null || element.isJsonNull()) {
+            return fallback;
+        }
+        try {
+            if (element.isJsonPrimitive()) {
+                return element.getAsBoolean();
+            }
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        return fallback;
+    }
+
+    private static String asString(JsonElement element, String fallback) {
+        if (element == null || element.isJsonNull()) {
+            return fallback;
+        }
+        try {
+            if (element.isJsonPrimitive()) {
+                String value = element.getAsString();
+                if (value != null) {
+                    return value;
+                }
+            }
+        } catch (Exception ignored) {
+            // Best-effort.
+        }
+        return fallback;
+    }
+
+    private static int clampInt(int value, int min, int max, int fallback) {
+        if (value < min || value > max) {
+            return fallback;
+        }
+        return value;
     }
 
     private static Path resolvePath(String value, String fallback) {
@@ -560,7 +837,7 @@ public class DlcPathConfig {
     private static List<Path> resolvePathsRelativeToDlc(String value, String fallback) {
         String raw = value == null || value.isBlank() ? fallback : value;
         String[] parts = raw.split(",");
-        java.util.LinkedHashSet<Path> paths = new java.util.LinkedHashSet<>();
+        LinkedHashSet<Path> paths = new LinkedHashSet<>();
         List<Path> dlcRoots = getDlcRoots();
         for (String part : parts) {
             String trimmed = part.trim();
@@ -572,8 +849,8 @@ public class DlcPathConfig {
                 paths.add(candidate.normalize());
             } else {
                 boolean added = false;
-                for (Path dlcRoot : dlcRoots) {
-                    Path resolved = dlcRoot.resolve(trimmed).normalize();
+                for (Path dlcRootPath : dlcRoots) {
+                    Path resolved = dlcRootPath.resolve(trimmed).normalize();
                     if (Files.exists(resolved)) {
                         paths.add(resolved);
                         added = true;
@@ -586,8 +863,8 @@ public class DlcPathConfig {
         }
         if (paths.isEmpty()) {
             boolean added = false;
-            for (Path dlcRoot : dlcRoots) {
-                Path resolved = dlcRoot.resolve(fallback).normalize();
+            for (Path dlcRootPath : dlcRoots) {
+                Path resolved = dlcRootPath.resolve(fallback).normalize();
                 if (Files.exists(resolved)) {
                     paths.add(resolved);
                     added = true;
@@ -598,143 +875,5 @@ public class DlcPathConfig {
             }
         }
         return new ArrayList<>(paths);
-    }
-
-    private static void loadFromDisk() {
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME);
-        if (Files.exists(jsonPath)) {
-            loadFromJson(jsonPath);
-            return;
-        }
-    }
-
-    private static void loadFromJson(Path jsonPath) {
-        JsonElement element = JsonUtils.parseJsonFile(jsonPath.toFile());
-        if (element == null || !element.isJsonObject()) {
-            return;
-        }
-        JsonObject root = element.getAsJsonObject();
-        readSection(root, "paths", PATH_KEY_MAP);
-        readSection(root, "ui", UI_KEY_MAP);
-        readSection(root, "downloads", DOWNLOAD_KEY_MAP);
-    }
-
-    private static void saveToDisk() {
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME);
-        try {
-            Files.createDirectories(configDir);
-        } catch (IOException ignored) {
-            return;
-        }
-        JsonObject root = new JsonObject();
-        writeSection(root, "paths", PATH_KEY_MAP);
-        writeSection(root, "ui", UI_KEY_MAP);
-        writeSection(root, "downloads", DOWNLOAD_KEY_MAP);
-        JsonUtils.writeJsonToFile(root, jsonPath.toFile());
-    }
-
-    private static class DlcConfigString extends ConfigString {
-        private final String translationKey;
-        private final String commentKey;
-
-        private DlcConfigString(String name, String defaultValue, String commentKey, String translationKey) {
-            super(name, defaultValue, "");
-            this.translationKey = translationKey;
-            this.commentKey = commentKey;
-        }
-
-        @Override
-        public String getConfigGuiDisplayName() {
-            return StringUtils.translate(this.translationKey);
-        }
-
-        @Override
-        public String getComment() {
-            if (commentKey == null || commentKey.isBlank()) {
-                return "";
-            }
-            return StringUtils.translate(commentKey);
-        }
-    }
-
-    private static class DlcConfigBoolean extends ConfigBoolean {
-        private final String translationKey;
-        private final String commentKey;
-
-        private DlcConfigBoolean(String name, boolean defaultValue, String commentKey, String translationKey) {
-            super(name, defaultValue, "", name);
-            this.translationKey = translationKey;
-            this.commentKey = commentKey;
-        }
-
-        @Override
-        public String getConfigGuiDisplayName() {
-            return StringUtils.translate(this.translationKey);
-        }
-
-        @Override
-        public String getComment() {
-            if (commentKey == null || commentKey.isBlank()) {
-                return "";
-            }
-            return StringUtils.translate(commentKey);
-        }
-    }
-
-    private static class DlcConfigInteger extends ConfigInteger {
-        private final String translationKey;
-        private final String commentKey;
-
-        private DlcConfigInteger(String name, int defaultValue, int min, int max, String commentKey, String translationKey) {
-            super(name, defaultValue, min, max, "");
-            this.translationKey = translationKey;
-            this.commentKey = commentKey;
-        }
-
-        @Override
-        public String getConfigGuiDisplayName() {
-            return StringUtils.translate(this.translationKey);
-        }
-
-        @Override
-        public String getComment() {
-            if (commentKey == null || commentKey.isBlank()) {
-                return "";
-            }
-            return StringUtils.translate(commentKey);
-        }
-    }
-
-    private static String stringOrDefault(String value, String fallback) {
-        if (value == null || value.isBlank()) {
-            return fallback;
-        }
-        return value;
-    }
-
-    private static void readSection(JsonObject root, String section, Map<String, IConfigBase> keyMap) {
-        if (root == null) {
-            return;
-        }
-        JsonObject obj = JsonCaseUtil.getObjectIgnoreCase(root, section);
-        if (obj == null) {
-            return;
-        }
-        for (Map.Entry<String, IConfigBase> entry : keyMap.entrySet()) {
-            JsonElement value = JsonCaseUtil.getIgnoreCase(obj, entry.getKey());
-            if (value != null) {
-                entry.getValue().setValueFromJsonElement(value);
-            }
-        }
-    }
-
-    private static void writeSection(JsonObject root, String section, Map<String, IConfigBase> keyMap) {
-        JsonObject obj = new JsonObject();
-        for (Map.Entry<String, IConfigBase> entry : keyMap.entrySet()) {
-            obj.add(entry.getKey(), entry.getValue().getAsJsonElement());
-        }
-        root.add(section, obj);
     }
 }

@@ -4,7 +4,7 @@ import java.nio.file.Path;
 import java.util.Optional;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.client.Minecraft;
+import net.fabricmc.api.EnvType;
 import net.minecraft.SharedConstants;
 
 public final class FabricPlatformServices implements PlatformServices.Provider {
@@ -29,9 +29,19 @@ public final class FabricPlatformServices implements PlatformServices.Provider {
 
     @Override
     public String languageCode() {
+        if (FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
+            return "en_us";
+        }
         try {
-            return Minecraft.getInstance().options.languageCode;
-        } catch (Exception ignored) {
+            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
+            Object mc = mcClass.getMethod("getInstance").invoke(null);
+            Object options = mcClass.getField("options").get(mc);
+            try {
+                return (String) options.getClass().getField("languageCode").get(options);
+            } catch (NoSuchFieldException ignored) {
+                return (String) options.getClass().getMethod("getLanguage").invoke(options);
+            }
+        } catch (Throwable ignored) {
             return "en_us";
         }
     }

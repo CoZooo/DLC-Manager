@@ -2,7 +2,12 @@ package com.cozooo.dlc_manager.world;
 
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcScanner;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.server.DlcServerDownloadService;
+import com.cozooo.dlc_manager.server.DlcServerService;
+import com.cozooo.dlc_manager.server.DlcServerUpdateNotifier;
+import com.mojang.logging.LogUtils;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
@@ -10,7 +15,9 @@ import net.minecraft.nbt.StringTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.event.server.ServerStartedEvent;
+import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,10 +28,40 @@ import java.util.Map;
 import java.util.Set;
 
 public class DlcWorldSync {
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+
     @SubscribeEvent
     public void onServerStarted(ServerStartedEvent event) {
+        DlcPathConfig.loadServer();
         MinecraftServer server = event.getServer();
         applyDatapacks(server);
+        DlcServerService.updateServerStatus(server);
+        DlcServerService.start();
+        if (server.isDedicatedServer()) {
+            startServerRequiredDownload(server);
+        }
+    }
+
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        DlcServerService.stop();
+    }
+
+    @SubscribeEvent
+    public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+            DlcServerUpdateNotifier.onPlayerJoin(player);
+        }
+    }
+
+    private void startServerRequiredDownload(MinecraftServer server) {
+        new Thread(() -> {
+            DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(DlcPathConfig.getDlcRoot());
+            if (result != null && result.didWork()) {
+                LOGGER.info("[dlc-manager] server required download applied, restarting server");
+                server.halt(false);
+            }
+        }, "dlc-manager-server-required").start();
     }
 
     private void applyDatapacks(MinecraftServer server) {

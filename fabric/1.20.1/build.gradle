@@ -47,7 +47,7 @@ dependencies {
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${fabricLoaderVersion}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabricApiVersion}"
-    modImplementation "maven.modrinth:malilib:${malilibVersion}"
+    modCompileOnly "maven.modrinth:malilib:${malilibVersion}"
     if (modmenuVersion) {
         modCompileOnly "com.terraformersmc:modmenu:${modmenuVersion}"
     }

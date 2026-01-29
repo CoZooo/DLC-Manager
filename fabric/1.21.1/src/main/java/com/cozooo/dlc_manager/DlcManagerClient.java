@@ -5,6 +5,10 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerMismatchScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -12,6 +16,10 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
+import com.cozooo.dlc_manager.client.server.DlcServerEntry;
+import com.cozooo.dlc_manager.client.server.DlcServerInfo;
+import com.cozooo.dlc_manager.client.server.DlcServerList;
+import com.cozooo.dlc_manager.client.server.DlcServerVersionUtil;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -20,14 +28,26 @@ import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.toasts.SystemToast;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
 import org.slf4j.Logger;
@@ -39,11 +59,134 @@ public class DlcManagerClient implements ClientModInitializer {
     private static volatile boolean startupCheckRunning = false;
     private static volatile boolean selfUpdatePrompted = false;
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static long lastJoinClickMs = 0L;
+    private static String lastJoinClickAddress = null;
+    private static JoinMultiplayerScreen lastJoinClickScreen = null;
+    private static final Map<JoinMultiplayerScreen, Button> JOIN_BUTTONS = new WeakHashMap<>();
+    private static final Map<JoinMultiplayerScreen, Button> JOIN_PROXIES = new WeakHashMap<>();
 
     @Override
     public void onInitializeClient() {
         DlcUpdateService.ensureUpdateDir();
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
+            ClientCommandManager.literal("dlcmanager")
+                .executes(ctx -> {
+                    openManagerFromCommand();
+                    return 1;
+                })
+                .then(ClientCommandManager.literal("selfupdate").executes(ctx -> {
+                    openSelfUpdateFromCommand();
+                    return 1;
+                }))
+                .then(ClientCommandManager.literal("updatemanager").executes(ctx -> {
+                    openUpdateManagerFromCommand();
+                    return 1;
+                }))
+                .then(ClientCommandManager.literal("update").executes(ctx -> {
+                    openUpdatePromptFromCommand();
+                    return 1;
+                }))
+                .then(ClientCommandManager.literal("server").executes(ctx -> {
+                    openServerManagerFromCommand();
+                    return 1;
+                }))
+        ));
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (screen instanceof PauseScreen) {
+                if (!canOpenServerManager()) {
+                    return;
+                }
+                if (findButtonByKey(screen, "dlc_manager.server.manage") != null) {
+                    return;
+                }
+                AbstractWidget anchor = findButtonByKey(screen, "menu.sendFeedback");
+                if (anchor == null) {
+                    anchor = findButtonByKey(screen, "menu.feedback");
+                }
+                if (anchor != null) {
+                    anchor.visible = false;
+                    anchor.active = false;
+                }
+                if (anchor == null) {
+                    anchor = findButtonByKey(screen, "menu.mods");
+                }
+                if (anchor == null) {
+                    anchor = findButtonByKey(screen, "menu.options");
+                }
+                int x = screen.width / 2 - 100;
+                int y = screen.height / 4 + 120;
+                int w = 200;
+                int h = 20;
+                if (anchor != null) {
+                    if (findButtonByKey(screen, "menu.sendFeedback") != null || findButtonByKey(screen, "menu.feedback") != null) {
+                        x = anchor.getX();
+                        y = anchor.getY();
+                        w = anchor.getWidth();
+                        h = anchor.getHeight();
+                    } else if (anchor == findButtonByKey(screen, "menu.mods")) {
+                        int gap = 4;
+                        int originalWidth = anchor.getWidth();
+                        int halfWidth = Math.max(20, (originalWidth - gap) / 2);
+                        anchor.setWidth(halfWidth);
+                        x = anchor.getX() + halfWidth + gap;
+                        y = anchor.getY();
+                        w = Math.max(20, originalWidth - halfWidth - gap);
+                        h = anchor.getHeight();
+                    } else {
+                        x = anchor.getX();
+                        y = anchor.getY() + anchor.getHeight() + 4;
+                        w = anchor.getWidth();
+                        h = anchor.getHeight();
+                    }
+                }
+                Button button = Button.builder(Component.translatable("dlc_manager.server.manage"),
+                        btn -> openServerManagerFromIngame(screen))
+                    .bounds(x, y, w, h)
+                    .build();
+                Screens.getButtons(screen).add(button);
+            }
+            if (screen instanceof JoinMultiplayerScreen joinScreen) {
+                AbstractWidget joinButton = findButtonByKey(screen, "selectServer.select");
+                if (joinButton != null && (joinButton.visible || joinButton.active)) {
+                    if (joinButton instanceof Button button) {
+                        JOIN_BUTTONS.put(joinScreen, button);
+                    }
+                    joinButton.visible = false;
+                    joinButton.active = false;
+                    Button proxy = Button.builder(Component.translatable("selectServer.select"), btn -> handleJoin(joinScreen))
+                        .bounds(joinButton.getX(), joinButton.getY(), joinButton.getWidth(), joinButton.getHeight())
+                        .build();
+                    proxy.active = true;
+                    Screens.getButtons(screen).add(proxy);
+                    JOIN_PROXIES.put(joinScreen, proxy);
+                }
+                AbstractWidget addButton = findButtonByKey(screen, "selectServer.add");
+                if (addButton instanceof Button originalAdd && (addButton.visible || addButton.active)) {
+                    addButton.visible = false;
+                    addButton.active = false;
+                    Button addProxy = Button.builder(addButton.getMessage(), btn -> originalAdd.onPress())
+                        .bounds(addButton.getX(), addButton.getY(), addButton.getWidth(), addButton.getHeight())
+                        .build();
+                    Screens.getButtons(screen).add(addProxy);
+                }
+                ScreenMouseEvents.allowMouseClick(joinScreen).register((clickedScreen, mouseX, mouseY, button) -> {
+                    if (button != 0) {
+                        return true;
+                    }
+                    return !handleJoinDoubleClick(joinScreen);
+                });
+            }
+            if (isDirectConnectScreen(screen)) {
+                AbstractWidget joinButton = findButtonByKey(screen, "selectServer.select");
+                if (joinButton instanceof Button original && (joinButton.visible || joinButton.active)) {
+                    joinButton.visible = false;
+                    joinButton.active = false;
+                    Button proxy = Button.builder(joinButton.getMessage(), btn -> handleDirectConnect(screen, original))
+                        .bounds(joinButton.getX(), joinButton.getY(), joinButton.getWidth(), joinButton.getHeight())
+                        .build();
+                    Screens.getButtons(screen).add(proxy);
+                }
+            }
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
@@ -77,6 +220,20 @@ public class DlcManagerClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            if (client.screen instanceof JoinMultiplayerScreen joinScreen) {
+                Button proxy = JOIN_PROXIES.get(joinScreen);
+                if (proxy != null) {
+                    Button original = JOIN_BUTTONS.get(joinScreen);
+                    if (original != null) {
+                        original.visible = false;
+                        original.active = false;
+                        proxy.visible = true;
+                        proxy.active = getSelectedServerData(joinScreen) != null;
+                    } else {
+                        proxy.active = getSelectedServerData(joinScreen) != null;
+                    }
+                }
+            }
             if (pendingAlignScreen != null) {
                 if (client.screen == pendingAlignScreen) {
                     alignTitleButtons(pendingAlignScreen);
@@ -255,6 +412,59 @@ public class DlcManagerClient implements ClientModInitializer {
         return null;
     }
 
+    private static boolean canOpenServerManager() {
+        if (!DlcPathConfig.isServerSupportOn()) {
+            return false;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) {
+            return false;
+        }
+        if (minecraft.hasSingleplayerServer()) {
+            return false;
+        }
+        return minecraft.player.hasPermissions(2);
+    }
+
+    private static void openManagerFromCommand() {
+        Minecraft minecraft = Minecraft.getInstance();
+        Screen parent = minecraft.screen;
+        Screen managerScreen = new DlcMaLiLibScreen(parent);
+        if (DlcRemoteManager.maybeShowFromManager(managerScreen)) {
+            return;
+        }
+        minecraft.setScreen(managerScreen);
+    }
+
+    private static void openSelfUpdateFromCommand() {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.setScreen(new DlcSelfUpdateScreen(minecraft.screen, null));
+    }
+
+    private static void openUpdateManagerFromCommand() {
+        Minecraft minecraft = Minecraft.getInstance();
+        DlcUpdateClient.openUpdateManager(minecraft.screen);
+    }
+
+    private static void openUpdatePromptFromCommand() {
+        Minecraft minecraft = Minecraft.getInstance();
+        UpdateCheckResult result = DlcUpdateService.checkForUpdates();
+        if (result == null || !result.hasUpdates()) {
+            SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                Component.translatable("dlc_manager.update.no_updates"), Component.empty());
+            return;
+        }
+        DlcUpdateClient.showPrompt(minecraft.screen, result);
+    }
+
+    private static void openServerManagerFromCommand() {
+        if (!canOpenServerManager()) {
+            return;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.setScreen(new DlcServerListScreen(minecraft.screen));
+    }
+
     private static AbstractWidget findModsButton(Screen screen) {
         AbstractWidget widget = findButtonByKey(screen, "modmenu.title");
         if (widget != null) {
@@ -265,6 +475,456 @@ public class DlcManagerClient implements ClientModInitializer {
             return widget;
         }
         return findButtonByKey(screen, "fml.menu.mods");
+    }
+
+    private static void handleJoin(JoinMultiplayerScreen screen) {
+        ServerData serverData = getSelectedServerData(screen);
+        if (serverData == null) {
+            invokeOriginalJoin(screen);
+            return;
+        }
+        DlcServerEntry entry = createEntryFromServer(serverData);
+        DlcServerVersionUtil.VersionPair serverVersion = resolveServerVersion(serverData, entry, screen);
+        if (serverVersion == null) {
+            invokeOriginalJoin(screen);
+            return;
+        }
+        DlcUpdateVersion localVersion = DlcUpdateVersion.load(DlcPaths.dlcRoot());
+        boolean mismatch = localVersion == null
+            || localVersion.getBase() == null
+            || localVersion.getDlc() == null
+            || !serverVersion.base.equals(localVersion.getBase())
+            || !serverVersion.dlc.equals(localVersion.getDlc());
+        if (!mismatch) {
+            invokeOriginalJoin(screen);
+            return;
+        }
+        Minecraft.getInstance().setScreen(new DlcServerMismatchScreen(screen, entry, serverVersion, localVersion));
+    }
+
+    private static void handleDirectConnect(Screen screen, Button originalJoinButton) {
+        String address = getDirectConnectAddress(screen);
+        if (address == null || address.isBlank()) {
+            originalJoinButton.onPress();
+            return;
+        }
+        ServerData serverData = createServerDataForAddress(address);
+        if (serverData == null) {
+            originalJoinButton.onPress();
+            return;
+        }
+        DlcServerEntry entry = createEntryFromServer(serverData);
+        pingServerForMotd(serverData, () -> {
+            DlcServerVersionUtil.VersionPair serverVersion = resolveServerVersion(serverData, entry, screen);
+            if (serverVersion == null) {
+                originalJoinButton.onPress();
+                return;
+            }
+            DlcUpdateVersion localVersion = DlcUpdateVersion.load(DlcPaths.dlcRoot());
+            boolean mismatch = localVersion == null
+                || localVersion.getBase() == null
+                || localVersion.getDlc() == null
+                || !serverVersion.base.equals(localVersion.getBase())
+                || !serverVersion.dlc.equals(localVersion.getDlc());
+            if (!mismatch) {
+                originalJoinButton.onPress();
+                return;
+            }
+            Minecraft.getInstance().setScreen(new DlcServerMismatchScreen(screen, entry, serverVersion, localVersion));
+        });
+    }
+
+    private static boolean handleJoinDoubleClick(JoinMultiplayerScreen screen) {
+        ServerData serverData = getSelectedServerData(screen);
+        if (serverData == null) {
+            return false;
+        }
+        String address = serverData.ip == null ? serverData.name : serverData.ip;
+        long now = Util.getMillis();
+        boolean isDouble = screen == lastJoinClickScreen
+            && address != null
+            && address.equals(lastJoinClickAddress)
+            && now - lastJoinClickMs <= 300L;
+        lastJoinClickMs = now;
+        lastJoinClickAddress = address;
+        lastJoinClickScreen = screen;
+        if (!isDouble) {
+            return false;
+        }
+        handleJoin(screen);
+        return true;
+    }
+
+    private static void invokeOriginalJoin(JoinMultiplayerScreen screen) {
+        Button original = JOIN_BUTTONS.get(screen);
+        if (original != null) {
+            original.onPress();
+            return;
+        }
+        joinSelectedServer(screen);
+    }
+
+    private static DlcServerVersionUtil.VersionPair resolveServerVersion(ServerData data, DlcServerEntry entry, Screen screen) {
+        if (entry != null) {
+            com.cozooo.dlc_manager.client.server.DlcServerInfo cached =
+                com.cozooo.dlc_manager.client.server.DlcServerCache.get(entry.getKey());
+            if (cached != null && cached.baseVersion != null && cached.dlcVersion != null) {
+                return new DlcServerVersionUtil.VersionPair(cached.baseVersion, cached.dlcVersion);
+            }
+        }
+        String motd = data.motd == null ? "" : data.motd.getString();
+        DlcServerVersionUtil.VersionPair version = DlcServerVersionUtil.parse(motd);
+        if (version != null) {
+            return version;
+        }
+        try {
+            String playerName = null;
+            String playerUuid = null;
+            if (Minecraft.getInstance().player != null) {
+                playerName = Minecraft.getInstance().player.getGameProfile().getName();
+                playerUuid = Minecraft.getInstance().player.getUUID().toString();
+            }
+            var info = com.cozooo.dlc_manager.client.server.DlcServerTcpClient.fetchServerInfo(entry, 1500, playerName, playerUuid);
+            if (info == null || info.baseVersion == null || info.dlcVersion == null) {
+                return null;
+            }
+            return new DlcServerVersionUtil.VersionPair(info.baseVersion, info.dlcVersion);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static String getDirectConnectAddress(Screen screen) {
+        try {
+            for (var field : screen.getClass().getDeclaredFields()) {
+                if (EditBox.class.isAssignableFrom(field.getType())) {
+                    field.setAccessible(true);
+                    Object value = field.get(screen);
+                    if (value instanceof EditBox editBox) {
+                        return editBox.getValue();
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return "";
+    }
+
+    private static void pingServerForMotd(ServerData data, Runnable onComplete) {
+        Runnable completeOnMain = () -> Minecraft.getInstance().execute(onComplete);
+        try {
+            Object pinger = getServerStatusPinger(Minecraft.getInstance());
+            if (pinger == null) {
+                completeOnMain.run();
+                return;
+            }
+            for (var method : pinger.getClass().getMethods()) {
+                if (!"pingServer".equals(method.getName())) {
+                    continue;
+                }
+                Class<?>[] params = method.getParameterTypes();
+                if (params.length < 2 || params[0] != ServerData.class) {
+                    continue;
+                }
+                if (params.length == 2 && params[1] == Runnable.class) {
+                    method.invoke(pinger, data, completeOnMain);
+                    return;
+                }
+                if (params.length == 3 && params[1] == Runnable.class && params[2] == Runnable.class) {
+                    method.invoke(pinger, data, completeOnMain, completeOnMain);
+                    return;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        completeOnMain.run();
+    }
+
+    private static Object getServerStatusPinger(Minecraft minecraft) {
+        try {
+            var method = minecraft.getClass().getMethod("getServerStatusPinger");
+            method.setAccessible(true);
+            return method.invoke(minecraft);
+        } catch (Throwable ignored) {
+        }
+        for (var field : minecraft.getClass().getDeclaredFields()) {
+            if (!field.getType().getSimpleName().contains("ServerStatusPinger")) {
+                continue;
+            }
+            try {
+                field.setAccessible(true);
+                return field.get(minecraft);
+            } catch (Throwable ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static ServerData createServerDataForAddress(String address) {
+        try {
+            for (var ctor : ServerData.class.getDeclaredConstructors()) {
+                Class<?>[] params = ctor.getParameterTypes();
+                if (params.length == 3 && params[0] == String.class && params[1] == String.class) {
+                    ctor.setAccessible(true);
+                    if (params[2] == boolean.class || params[2] == Boolean.class) {
+                        return (ServerData) ctor.newInstance(address, address, false);
+                    }
+                    if (params[2].isEnum()) {
+                        Object[] constants = params[2].getEnumConstants();
+                        Object value = constants.length > 0 ? constants[0] : null;
+                        for (Object constant : constants) {
+                            if ("OTHER".equalsIgnoreCase(constant.toString())) {
+                                value = constant;
+                                break;
+                            }
+                        }
+                        return (ServerData) ctor.newInstance(address, address, value);
+                    }
+                }
+                if (params.length == 2 && params[0] == String.class && params[1] == String.class) {
+                    ctor.setAccessible(true);
+                    return (ServerData) ctor.newInstance(address, address);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static boolean isDirectConnectScreen(Screen screen) {
+        return screen.getClass().getName().endsWith("DirectConnectScreen");
+    }
+
+    private static void joinSelectedServer(JoinMultiplayerScreen screen) {
+        try {
+            var method = screen.getClass().getDeclaredMethod("joinSelectedServer");
+            method.setAccessible(true);
+            method.invoke(screen);
+            return;
+        } catch (Throwable ignored) {
+            // Fallback below.
+        }
+        try {
+            var method = screen.getClass().getDeclaredMethod("joinSelected");
+            method.setAccessible(true);
+            method.invoke(screen);
+        } catch (Throwable ignored) {
+            // Best-effort fallback.
+        }
+    }
+
+    private static ServerData getSelectedServerData(JoinMultiplayerScreen screen) {
+        try {
+            for (var method : screen.getClass().getDeclaredMethods()) {
+                if (method.getParameterCount() == 0 && method.getReturnType() == ServerData.class) {
+                    method.setAccessible(true);
+                    return (ServerData) method.invoke(screen);
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        try {
+            Object list = findServerSelectionList(screen);
+            if (list == null) {
+                return null;
+            }
+            Object entry = getSelectedEntry(list);
+            return extractServerData(entry);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Object findServerSelectionList(JoinMultiplayerScreen screen) {
+        for (var field : screen.getClass().getDeclaredFields()) {
+            if (field.getType().getSimpleName().contains("ServerSelectionList")) {
+                try {
+                    field.setAccessible(true);
+                    return field.get(screen);
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+        try {
+            for (var child : screen.children()) {
+                if (child != null && child.getClass().getSimpleName().contains("ServerSelectionList")) {
+                    return child;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static Object getSelectedEntry(Object list) throws Exception {
+        Object entry = invokeNoArg(list, "getSelected");
+        if (entry == null) {
+            entry = invokeNoArg(list, "getSelectedEntry");
+        }
+        if (entry == null) {
+            entry = invokeNoArg(list, "getSelectedServer");
+        }
+        return unwrapOptional(entry);
+    }
+
+    private static ServerData extractServerData(Object entry) throws Exception {
+        if (entry == null) {
+            return null;
+        }
+        if (entry instanceof ServerData serverData) {
+            return serverData;
+        }
+        Object direct = invokeNoArg(entry, "getServerData");
+        if (direct instanceof ServerData serverData) {
+            return serverData;
+        }
+        for (var field : entry.getClass().getDeclaredFields()) {
+            if (field.getType() == ServerData.class) {
+                field.setAccessible(true);
+                return (ServerData) field.get(entry);
+            }
+        }
+        return null;
+    }
+
+    private static Object invokeNoArg(Object target, String name) {
+        if (target == null) {
+            return null;
+        }
+        try {
+            var method = target.getClass().getDeclaredMethod(name);
+            method.setAccessible(true);
+            return method.invoke(target);
+        } catch (Throwable ignored) {
+        }
+        try {
+            var method = target.getClass().getMethod(name);
+            method.setAccessible(true);
+            return method.invoke(target);
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static Object unwrapOptional(Object value) {
+        if (value instanceof java.util.Optional<?> optional) {
+            return optional.orElse(null);
+        }
+        return value;
+    }
+
+    private static DlcServerEntry createEntryFromServer(ServerData data) {
+        DlcServerEntry entry = new DlcServerEntry();
+        entry.name = data.name;
+        String ip = data.ip == null ? "" : data.ip;
+        String host = ip;
+        int port = DlcPathConfig.getServerPort();
+        int index = ip.lastIndexOf(':');
+        if (index > 0 && index < ip.length() - 1) {
+            host = ip.substring(0, index);
+            try {
+                port = Integer.parseInt(ip.substring(index + 1));
+            } catch (NumberFormatException ignored) {
+                port = DlcPathConfig.getServerPort();
+            }
+        }
+        entry.host = host;
+        entry.port = port;
+        entry.useTcp = true;
+        return entry;
+    }
+
+    private static String getPlayerName() {
+        if (Minecraft.getInstance().player == null) {
+            return "";
+        }
+        return Minecraft.getInstance().player.getGameProfile().getName();
+    }
+
+    private static String getPlayerUuid() {
+        if (Minecraft.getInstance().player == null) {
+            return "";
+        }
+        return Minecraft.getInstance().player.getUUID().toString();
+    }
+
+    private static void openServerManagerFromIngame(Screen parent) {
+        Minecraft minecraft = Minecraft.getInstance();
+        ServerData data = minecraft.getCurrentServer();
+        if (data == null) {
+            minecraft.setScreen(new DlcServerListScreen(parent));
+            return;
+        }
+        DlcServerEntry entry = createEntryFromServer(data);
+        if (entry == null) {
+            minecraft.setScreen(new DlcServerListScreen(parent));
+            return;
+        }
+        DlcServerList.load();
+        DlcServerEntry existing = findEntryByKey(entry.getKey());
+        if (existing != null) {
+            entry = existing;
+        }
+        if (entry.password != null && !entry.password.isBlank()) {
+            DlcServerEntry finalEntry = entry;
+            CompletableFuture
+                .supplyAsync(() -> fetchServerInfo(finalEntry))
+                .whenComplete((info, throwable) -> minecraft.execute(() -> {
+                    if (info != null) {
+                        saveEntryToList(finalEntry);
+                        com.cozooo.dlc_manager.client.server.DlcServerCache.put(finalEntry.getKey(), info);
+                        minecraft.setScreen(new DlcServerMaLiLibScreen(parent, finalEntry, info));
+                        return;
+                    }
+                    minecraft.setScreen(new DlcServerPasswordScreen(parent, finalEntry, false));
+                }));
+            return;
+        }
+        minecraft.setScreen(new DlcServerPasswordScreen(parent, entry, false));
+    }
+
+    private static DlcServerInfo fetchServerInfo(DlcServerEntry entry) {
+        try {
+            return com.cozooo.dlc_manager.client.server.DlcServerTcpClient.fetchServerInfo(entry, 5000,
+                getPlayerName(), getPlayerUuid());
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private static DlcServerEntry findEntryByKey(String key) {
+        if (key == null) {
+            return null;
+        }
+        for (DlcServerEntry entry : DlcServerList.getEntries()) {
+            if (entry != null && key.equals(entry.getKey())) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private static void saveEntryToList(DlcServerEntry entry) {
+        DlcServerList.load();
+        java.util.List<DlcServerEntry> list = new java.util.ArrayList<>(DlcServerList.getEntries());
+        boolean found = false;
+        for (int i = 0; i < list.size(); i++) {
+            DlcServerEntry existing = list.get(i);
+            if (existing != null && entry.getKey().equals(existing.getKey())) {
+                existing.password = entry.password;
+                if (entry.name != null && !entry.name.isBlank()) {
+                    existing.name = entry.name;
+                }
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            list.add(entry);
+        }
+        DlcServerList.setEntries(list);
+        DlcServerList.setLastSelectedKey(entry.getKey());
+        DlcServerList.save();
     }
 
     private static void moveBottomRow(Screen screen, int targetY) {

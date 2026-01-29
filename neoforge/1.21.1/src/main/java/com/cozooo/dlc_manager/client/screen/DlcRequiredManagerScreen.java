@@ -87,6 +87,7 @@ public class DlcRequiredManagerScreen extends Screen {
         addRenderableWidget(applyAllButton);
         addRenderableWidget(backButton);
         buildEntryButtons();
+        updateApplyAllAvailability();
     }
 
     @Override
@@ -299,10 +300,7 @@ public class DlcRequiredManagerScreen extends Screen {
             boolean shouldPrompt = didApply || DlcRequiredRuntimeState.hasPendingChanges();
             Minecraft minecraft = Minecraft.getInstance();
             minecraft.execute(() -> {
-                if (applyAllButton != null) {
-                    applyAllButton.active = true;
-                    applyAllButton.setMessage(Component.translatable("dlc_manager.required.apply_all"));
-                }
+                updateApplyAllAvailability();
                 updateEntryButtons();
                 if (shouldPrompt) {
                     minecraft.setScreen(new ConfirmScreen(accepted -> {
@@ -597,6 +595,29 @@ public class DlcRequiredManagerScreen extends Screen {
                 }
             }
         }
+        updateApplyAllAvailability();
+    }
+
+    private void updateApplyAllAvailability() {
+        if (applyAllButton == null) {
+            return;
+        }
+        if (batchInstalling || batchState.running) {
+            applyAllButton.active = false;
+            return;
+        }
+        boolean allApplied = true;
+        for (DlcRequiredEntry entry : visibleEntries) {
+            if (entry == null) {
+                continue;
+            }
+            if (!isApplied(entry)) {
+                allApplied = false;
+                break;
+            }
+        }
+        applyAllButton.active = !allApplied;
+        applyAllButton.setMessage(Component.translatable("dlc_manager.required.apply_all"));
     }
 
     private boolean isMouseOverRow(int mouseX, int mouseY, int y, int height) {
