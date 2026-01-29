@@ -328,6 +328,7 @@
   "dlc_manager.server.rcon_host": "Host",
   "dlc_manager.server.rcon_port": "Port",
   "dlc_manager.server.rcon_password": "Password",
+  "dlc_manager.server.port_invalid": "Invalid port",
   "dlc_manager.server.rcon_command": "Command",
   "dlc_manager.server.rcon_save": "Save",
   "dlc_manager.server.rcon_exec": "Run",

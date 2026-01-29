@@ -21,6 +21,7 @@ public class DlcServerPasswordScreen extends Screen {
     private final Screen parent;
     private final DlcServerEntry entry;
     private final boolean autoConnect;
+    private EditBox portField;
     private EditBox passwordField;
     private Button connectButton;
     private Button backButton;
@@ -38,9 +39,14 @@ public class DlcServerPasswordScreen extends Screen {
         int fieldWidth = Math.min(260, this.width - 40);
         int fieldHeight = 18;
         int centerX = this.width / 2;
-        int startY = this.height / 2 - 20;
+        int startY = this.height / 2 - 32;
 
-        passwordField = new EditBox(this.font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, Component.empty());
+        portField = new EditBox(this.font, centerX - fieldWidth / 2, startY, fieldWidth, fieldHeight, Component.empty());
+        portField.setValue(Integer.toString(entry.port));
+        portField.setFilter(value -> value.chars().allMatch(Character::isDigit));
+        addRenderableWidget(portField);
+
+        passwordField = new EditBox(this.font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, Component.empty());
         if (entry.password != null) {
             passwordField.setValue(entry.password);
         }
@@ -48,7 +54,7 @@ public class DlcServerPasswordScreen extends Screen {
 
         int buttonWidth = 90;
         int buttonHeight = 20;
-        int buttonY = startY + 32;
+        int buttonY = startY + 56;
         connectButton = Button.builder(Component.translatable("dlc_manager.server.connect"), btn -> startConnect())
             .bounds(centerX - buttonWidth - 6, buttonY, buttonWidth, buttonHeight)
             .build();
@@ -68,8 +74,9 @@ public class DlcServerPasswordScreen extends Screen {
         this.renderBackground(guiGraphics);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, this.height / 2 - 60, 0xFFFFFF);
-        String address = entry.getKey();
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.address", address), centerX, this.height / 2 - 40, 0xC8C8C8);
+        String address = entry.host == null ? "" : entry.host;
+        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.address", address), centerX, this.height / 2 - 48, 0xC8C8C8);
+        drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField);
         drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
         updateButtonState();
@@ -98,7 +105,12 @@ public class DlcServerPasswordScreen extends Screen {
         if (connecting) {
             return;
         }
+        int port = parsePort();
+        if (port <= 0) {
+            return;
+        }
         connecting = true;
+        entry.port = port;
         entry.password = passwordField.getValue().trim();
         updateButtonState();
         CompletableFuture
@@ -147,6 +159,7 @@ public class DlcServerPasswordScreen extends Screen {
             DlcServerEntry existing = list.get(i);
             if (existing != null && entry.getKey().equals(existing.getKey())) {
                 existing.password = entry.password;
+                existing.port = entry.port;
                 if (entry.name != null && !entry.name.isBlank()) {
                     existing.name = entry.name;
                 }
@@ -160,5 +173,28 @@ public class DlcServerPasswordScreen extends Screen {
         DlcServerList.setEntries(list);
         DlcServerList.setLastSelectedKey(entry.getKey());
         DlcServerList.save();
+    }
+
+    private int parsePort() {
+        if (portField == null) {
+            return entry.port;
+        }
+        String value = portField.getValue().trim();
+        if (value.isEmpty()) {
+            return entry.port;
+        }
+        try {
+            int port = Integer.parseInt(value);
+            if (port < 1 || port > 65535) {
+                SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                    Component.translatable("dlc_manager.server.port_invalid"), Component.empty());
+                return -1;
+            }
+            return port;
+        } catch (NumberFormatException ex) {
+            SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                Component.translatable("dlc_manager.server.port_invalid"), Component.empty());
+            return -1;
+        }
     }
 }

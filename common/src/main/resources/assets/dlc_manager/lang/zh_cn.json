@@ -328,6 +328,7 @@
   "dlc_manager.server.rcon_host": "地址",
   "dlc_manager.server.rcon_port": "端口",
   "dlc_manager.server.rcon_password": "密码",
+  "dlc_manager.server.port_invalid": "端口无效",
   "dlc_manager.server.rcon_command": "命令",
   "dlc_manager.server.rcon_save": "保存",
   "dlc_manager.server.rcon_exec": "执行",

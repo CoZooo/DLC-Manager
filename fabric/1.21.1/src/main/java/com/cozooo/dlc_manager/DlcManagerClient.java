@@ -32,18 +32,14 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
-import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
@@ -56,11 +52,6 @@ public class DlcManagerClient implements ClientModInitializer {
     private static volatile boolean startupCheckRunning = false;
     private static volatile boolean selfUpdatePrompted = false;
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static long lastJoinClickMs = 0L;
-    private static String lastJoinClickAddress = null;
-    private static JoinMultiplayerScreen lastJoinClickScreen = null;
-    private static final Map<JoinMultiplayerScreen, Button> JOIN_BUTTONS = new WeakHashMap<>();
-    private static final Map<JoinMultiplayerScreen, Button> JOIN_PROXIES = new WeakHashMap<>();
 
     @Override
     public void onInitializeClient() {
@@ -142,48 +133,6 @@ public class DlcManagerClient implements ClientModInitializer {
                     .build();
                 Screens.getButtons(screen).add(button);
             }
-            if (screen instanceof JoinMultiplayerScreen joinScreen) {
-                AbstractWidget joinButton = findButtonByKey(screen, "selectServer.select");
-                if (joinButton != null && (joinButton.visible || joinButton.active)) {
-                    if (joinButton instanceof Button button) {
-                        JOIN_BUTTONS.put(joinScreen, button);
-                    }
-                    joinButton.visible = false;
-                    joinButton.active = false;
-                    Button proxy = Button.builder(Component.translatable("selectServer.select"), btn -> handleJoin(joinScreen))
-                        .bounds(joinButton.getX(), joinButton.getY(), joinButton.getWidth(), joinButton.getHeight())
-                        .build();
-                    proxy.active = true;
-                    Screens.getButtons(screen).add(proxy);
-                    JOIN_PROXIES.put(joinScreen, proxy);
-                }
-                AbstractWidget addButton = findButtonByKey(screen, "selectServer.add");
-                if (addButton instanceof Button originalAdd && (addButton.visible || addButton.active)) {
-                    addButton.visible = false;
-                    addButton.active = false;
-                    Button addProxy = Button.builder(addButton.getMessage(), btn -> originalAdd.onPress())
-                        .bounds(addButton.getX(), addButton.getY(), addButton.getWidth(), addButton.getHeight())
-                        .build();
-                    Screens.getButtons(screen).add(addProxy);
-                }
-                ScreenMouseEvents.allowMouseClick(joinScreen).register((clickedScreen, mouseX, mouseY, button) -> {
-                    if (button != 0) {
-                        return true;
-                    }
-                    return !handleJoinDoubleClick(joinScreen);
-                });
-            }
-            if (isDirectConnectScreen(screen)) {
-                AbstractWidget joinButton = findButtonByKey(screen, "selectServer.select");
-                if (joinButton instanceof Button original && (joinButton.visible || joinButton.active)) {
-                    joinButton.visible = false;
-                    joinButton.active = false;
-                    Button proxy = Button.builder(joinButton.getMessage(), btn -> handleDirectConnect(screen, original))
-                        .bounds(joinButton.getX(), joinButton.getY(), joinButton.getWidth(), joinButton.getHeight())
-                        .build();
-                    Screens.getButtons(screen).add(proxy);
-                }
-            }
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
@@ -217,20 +166,6 @@ public class DlcManagerClient implements ClientModInitializer {
         });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (client.screen instanceof JoinMultiplayerScreen joinScreen) {
-                Button proxy = JOIN_PROXIES.get(joinScreen);
-                if (proxy != null) {
-                    Button original = JOIN_BUTTONS.get(joinScreen);
-                    if (original != null) {
-                        original.visible = false;
-                        original.active = false;
-                        proxy.visible = true;
-                        proxy.active = getSelectedServerData(joinScreen) != null;
-                    } else {
-                        proxy.active = getSelectedServerData(joinScreen) != null;
-                    }
-                }
-            }
             if (pendingAlignScreen != null) {
                 if (client.screen == pendingAlignScreen) {
                     alignTitleButtons(pendingAlignScreen);
@@ -474,165 +409,6 @@ public class DlcManagerClient implements ClientModInitializer {
         return findButtonByKey(screen, "fml.menu.mods");
     }
 
-    private static void handleJoin(JoinMultiplayerScreen screen) {
-        invokeOriginalJoin(screen);
-    }
-
-    private static void handleDirectConnect(Screen screen, Button originalJoinButton) {
-        originalJoinButton.onPress();
-    }
-
-    private static boolean handleJoinDoubleClick(JoinMultiplayerScreen screen) {
-        ServerData serverData = getSelectedServerData(screen);
-        if (serverData == null) {
-            return false;
-        }
-        String address = serverData.ip == null ? serverData.name : serverData.ip;
-        long now = Util.getMillis();
-        boolean isDouble = screen == lastJoinClickScreen
-            && address != null
-            && address.equals(lastJoinClickAddress)
-            && now - lastJoinClickMs <= 300L;
-        lastJoinClickMs = now;
-        lastJoinClickAddress = address;
-        lastJoinClickScreen = screen;
-        if (!isDouble) {
-            return false;
-        }
-        handleJoin(screen);
-        return true;
-    }
-
-    private static void invokeOriginalJoin(JoinMultiplayerScreen screen) {
-        Button original = JOIN_BUTTONS.get(screen);
-        if (original != null) {
-            original.onPress();
-            return;
-        }
-        joinSelectedServer(screen);
-    }
-
-    private static boolean isDirectConnectScreen(Screen screen) {
-        return screen.getClass().getName().endsWith("DirectConnectScreen");
-    }
-
-    private static void joinSelectedServer(JoinMultiplayerScreen screen) {
-        try {
-            var method = screen.getClass().getDeclaredMethod("joinSelectedServer");
-            method.setAccessible(true);
-            method.invoke(screen);
-            return;
-        } catch (Throwable ignored) {
-            // Fallback below.
-        }
-        try {
-            var method = screen.getClass().getDeclaredMethod("joinSelected");
-            method.setAccessible(true);
-            method.invoke(screen);
-        } catch (Throwable ignored) {
-            // Best-effort fallback.
-        }
-    }
-
-    private static ServerData getSelectedServerData(JoinMultiplayerScreen screen) {
-        try {
-            for (var method : screen.getClass().getDeclaredMethods()) {
-                if (method.getParameterCount() == 0 && method.getReturnType() == ServerData.class) {
-                    method.setAccessible(true);
-                    return (ServerData) method.invoke(screen);
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-        try {
-            Object list = findServerSelectionList(screen);
-            if (list == null) {
-                return null;
-            }
-            Object entry = getSelectedEntry(list);
-            return extractServerData(entry);
-        } catch (Throwable ignored) {
-            return null;
-        }
-    }
-
-    private static Object findServerSelectionList(JoinMultiplayerScreen screen) {
-        for (var field : screen.getClass().getDeclaredFields()) {
-            if (field.getType().getSimpleName().contains("ServerSelectionList")) {
-                try {
-                    field.setAccessible(true);
-                    return field.get(screen);
-                } catch (Throwable ignored) {
-                }
-            }
-        }
-        try {
-            for (var child : screen.children()) {
-                if (child != null && child.getClass().getSimpleName().contains("ServerSelectionList")) {
-                    return child;
-                }
-            }
-        } catch (Throwable ignored) {
-        }
-        return null;
-    }
-
-    private static Object getSelectedEntry(Object list) throws Exception {
-        Object entry = invokeNoArg(list, "getSelected");
-        if (entry == null) {
-            entry = invokeNoArg(list, "getSelectedEntry");
-        }
-        if (entry == null) {
-            entry = invokeNoArg(list, "getSelectedServer");
-        }
-        return unwrapOptional(entry);
-    }
-
-    private static ServerData extractServerData(Object entry) throws Exception {
-        if (entry == null) {
-            return null;
-        }
-        if (entry instanceof ServerData serverData) {
-            return serverData;
-        }
-        Object direct = invokeNoArg(entry, "getServerData");
-        if (direct instanceof ServerData serverData) {
-            return serverData;
-        }
-        for (var field : entry.getClass().getDeclaredFields()) {
-            if (field.getType() == ServerData.class) {
-                field.setAccessible(true);
-                return (ServerData) field.get(entry);
-            }
-        }
-        return null;
-    }
-
-    private static Object invokeNoArg(Object target, String name) {
-        if (target == null) {
-            return null;
-        }
-        try {
-            var method = target.getClass().getDeclaredMethod(name);
-            method.setAccessible(true);
-            return method.invoke(target);
-        } catch (Throwable ignored) {
-        }
-        try {
-            var method = target.getClass().getMethod(name);
-            method.setAccessible(true);
-            return method.invoke(target);
-        } catch (Throwable ignored) {
-        }
-        return null;
-    }
-
-    private static Object unwrapOptional(Object value) {
-        if (value instanceof java.util.Optional<?> optional) {
-            return optional.orElse(null);
-        }
-        return value;
-    }
 
     private static DlcServerEntry createEntryFromServer(ServerData data) {
             DlcServerEntry entry = new DlcServerEntry();

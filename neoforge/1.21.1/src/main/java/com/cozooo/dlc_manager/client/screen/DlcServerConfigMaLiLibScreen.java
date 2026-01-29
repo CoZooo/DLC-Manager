@@ -399,6 +399,9 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
                     return;
                 }
                 delegate.actionPerformedWithButton(button, mouseButton);
+                if (returnScreen instanceof DlcServerConfigMaLiLibScreen screen) {
+                    screen.initGui();
+                }
             }, title, message, yes, no));
         }
     }
