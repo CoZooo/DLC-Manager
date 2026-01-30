@@ -44,8 +44,27 @@ public final class NeoForgePlatformServices implements PlatformServices.Provider
                 return (String) options.getClass().getMethod("getLanguage").invoke(options);
             }
         } catch (Throwable ignored) {
-            return "en_us";
+            String fromOptions = readLangFromOptions();
+            return fromOptions == null ? "en_us" : fromOptions;
         }
+    }
+
+    private String readLangFromOptions() {
+        try {
+            Path options = gameDir().resolve("options.txt");
+            if (!java.nio.file.Files.exists(options)) {
+                return null;
+            }
+            for (String line : java.nio.file.Files.readAllLines(options)) {
+                if (line != null && line.startsWith("lang:")) {
+                    String value = line.substring("lang:".length()).trim();
+                    return value.isEmpty() ? null : value;
+                }
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
     }
 
     @Override
