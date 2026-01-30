@@ -312,6 +312,8 @@ public class DlcServerService {
             String reason = !passwordOk ? "password" : "op";
             response.addProperty("reason", reason);
             LOGGER.info("[dlc-manager] server manager auth failed: reason={} player={} uuid={}", reason, player, uuid);
+        } else {
+            LOGGER.info("[dlc-manager] server manager connected: player={} uuid={}", player, uuid);
         }
         writeLine(writer, response);
         return ok;

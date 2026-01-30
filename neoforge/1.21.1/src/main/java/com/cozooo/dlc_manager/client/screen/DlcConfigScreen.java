@@ -406,13 +406,16 @@ public class DlcConfigScreen extends GuiModConfigs {
             Component yes = Component.translatable("dlc_manager.config.reset_yes");
             Component no = Component.translatable("dlc_manager.config.reset_no");
             minecraft.setScreen(new ConfirmScreen(accepted -> {
-                minecraft.setScreen(returnScreen);
-                if (!accepted) {
-                    return;
-                }
-                delegate.actionPerformedWithButton(button, mouseButton);
-            }, title, message, yes, no));
-        }
+            minecraft.setScreen(returnScreen);
+            if (!accepted) {
+                return;
+            }
+            delegate.actionPerformedWithButton(button, mouseButton);
+            if (returnScreen instanceof DlcConfigScreen screen) {
+                screen.initGui();
+            }
+        }, title, message, yes, no));
+    }
     }
 
     private static class ConfirmResetListenerGeneric implements IButtonActionListener {
@@ -431,13 +434,16 @@ public class DlcConfigScreen extends GuiModConfigs {
             Component yes = Component.translatable("dlc_manager.config.reset_yes");
             Component no = Component.translatable("dlc_manager.config.reset_no");
             minecraft.setScreen(new ConfirmScreen(accepted -> {
-                minecraft.setScreen(returnScreen);
-                if (!accepted) {
-                    return;
-                }
-                delegate.actionPerformedWithButton(button, mouseButton);
-            }, title, message, yes, no));
-        }
+            minecraft.setScreen(returnScreen);
+            if (!accepted) {
+                return;
+            }
+            delegate.actionPerformedWithButton(button, mouseButton);
+            if (returnScreen instanceof DlcConfigScreen screen) {
+                screen.initGui();
+            }
+        }, title, message, yes, no));
+    }
     }
 
     private static class AnchorCycleListener implements IButtonActionListener {
