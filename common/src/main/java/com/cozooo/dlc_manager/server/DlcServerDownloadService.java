@@ -1376,7 +1376,17 @@ public final class DlcServerDownloadService {
                     if (existing == 0 && DlcPathConfig.getMaxSegmentsPerFile() > 1) {
                         DownloadProbe probe = probeDownload(candidate.url, info);
                         if (probe.supportsRanges && probe.totalBytes > 0 && probe.totalBytes >= DlcPathConfig.getMinSegmentBytes()) {
-                            downloadSegmented(candidate.url, tempFile, probe.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
+                            try {
+                                downloadSegmented(candidate.url, tempFile, probe.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
+                            } catch (SegmentDownloadException ex) {
+                                Files.deleteIfExists(tempFile);
+                                DownloadInfo retryInfo = openDownload(candidate.url, 0);
+                                if (retryInfo.responseCode >= 400) {
+                                    closeQuietly(retryInfo.connection);
+                                    throw new IOException("http " + retryInfo.responseCode, ex);
+                                }
+                                downloadToFile(retryInfo.connection, tempFile, 0, retryInfo.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
+                            }
                         } else {
                             downloadToFile(info.connection, tempFile, existing, info.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
                         }
@@ -1557,7 +1567,17 @@ public final class DlcServerDownloadService {
                     if (existing == 0 && DlcPathConfig.getMaxSegmentsPerFile() > 1) {
                         DownloadProbe probe = probeDownload(candidate.url, info);
                         if (probe.supportsRanges && probe.totalBytes > 0 && probe.totalBytes >= DlcPathConfig.getMinSegmentBytes()) {
-                            downloadSegmented(candidate.url, tempFile, probe.totalBytes, listener);
+                            try {
+                                downloadSegmented(candidate.url, tempFile, probe.totalBytes, listener);
+                            } catch (SegmentDownloadException ex) {
+                                Files.deleteIfExists(tempFile);
+                                DownloadInfo retryInfo = openDownload(candidate.url, 0);
+                                if (retryInfo.responseCode >= 400) {
+                                    closeQuietly(retryInfo.connection);
+                                    throw new IOException("http " + retryInfo.responseCode, ex);
+                                }
+                                downloadToFile(retryInfo.connection, tempFile, 0, retryInfo.totalBytes, listener);
+                            }
                         } else {
                             downloadToFile(info.connection, tempFile, existing, info.totalBytes, listener);
                         }

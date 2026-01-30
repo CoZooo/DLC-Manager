@@ -603,7 +603,17 @@ public class DlcRemoteDownloadScreen extends Screen {
                     if (existing == 0 && maxSegmentsPerFile > 1) {
                         DownloadProbe probe = probeDownload(candidate.url, downloadInfo);
                         if (probe.supportsRanges && probe.totalBytes > 0 && probe.totalBytes >= minSegmentBytes) {
-                            downloadSegmented(candidate.url, tempFile, probe.totalBytes, progressKey, attemptId);
+                            try {
+                                downloadSegmented(candidate.url, tempFile, probe.totalBytes, progressKey, attemptId);
+                            } catch (SegmentDownloadException ex) {
+                                Files.deleteIfExists(tempFile);
+                                DownloadInfo retryInfo = openDownload(candidate.url, 0);
+                                if (retryInfo.responseCode >= 400) {
+                                    closeQuietly(retryInfo.connection);
+                                    throw new IOException("http " + retryInfo.responseCode, ex);
+                                }
+                                downloadToFile(retryInfo.connection, tempFile, 0, retryInfo.totalBytes, progressKey, attemptId);
+                            }
                         } else {
                             downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes, progressKey, attemptId);
                         }
