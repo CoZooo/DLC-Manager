@@ -33,6 +33,9 @@ public class DlcListWidget extends WidgetListBase<DlcListRow, DlcListEntry> {
         if (entry.getType() == DlcListRow.RowType.GROUP_HEADER) {
             return 18;
         }
+        if (entry.getType() == DlcListRow.RowType.REDIRECT_HEADER) {
+            return 18;
+        }
         if (entry.getType() == DlcListRow.RowType.PATH_HEADER) {
             return 18;
         }

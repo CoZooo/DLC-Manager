@@ -36,12 +36,14 @@ public final class DlcRemoteLoader {
             return List.of();
         }
         Path remoteRoot = ensureRemoteRoot(dlcRoot);
+        Path redirectRoot = remoteRoot.resolve("redirect");
         if (!Files.isDirectory(remoteRoot)) {
             return List.of();
         }
         List<DlcRemoteEntry> entries = new ArrayList<>();
         try (var stream = Files.walk(remoteRoot)) {
             stream.filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> !path.normalize().startsWith(redirectRoot))
                 .filter(path -> !Json5Util.shouldSkipLegacy(path))
                 .forEach(path -> {
                     Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);

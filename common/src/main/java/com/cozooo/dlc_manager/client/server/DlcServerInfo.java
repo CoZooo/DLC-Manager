@@ -8,4 +8,5 @@ public class DlcServerInfo {
     public List<DlcServerItem> items;
     public int remoteMissing;
     public int requiredMissing;
+    public boolean hasRequired;
 }

@@ -7,7 +7,9 @@ public class DlcListRow {
     public enum RowType {
         GROUP_HEADER,
         PATH_HEADER,
-        ITEM
+        ITEM,
+        REDIRECT_HEADER,
+        REDIRECT_ITEM
     }
 
     private final RowType type;
@@ -15,27 +17,38 @@ public class DlcListRow {
     private final DlcType groupType;
     private final DlcItem item;
     private final java.util.List<DlcItem> items;
+    private final com.cozooo.dlc_manager.client.remote.DlcRedirectEntry redirectEntry;
     private final boolean rootPath;
 
-    private DlcListRow(RowType type, String label, DlcType groupType, DlcItem item, java.util.List<DlcItem> items, boolean rootPath) {
+    private DlcListRow(RowType type, String label, DlcType groupType, DlcItem item, java.util.List<DlcItem> items,
+                       com.cozooo.dlc_manager.client.remote.DlcRedirectEntry redirectEntry, boolean rootPath) {
         this.type = type;
         this.label = label;
         this.groupType = groupType;
         this.item = item;
         this.items = items;
+        this.redirectEntry = redirectEntry;
         this.rootPath = rootPath;
     }
 
     public static DlcListRow groupHeader(DlcType type) {
-        return new DlcListRow(RowType.GROUP_HEADER, null, type, null, null, false);
+        return new DlcListRow(RowType.GROUP_HEADER, null, type, null, null, null, false);
     }
 
     public static DlcListRow pathHeader(String label, java.util.List<DlcItem> items, boolean rootPath) {
-        return new DlcListRow(RowType.PATH_HEADER, label, null, null, items, rootPath);
+        return new DlcListRow(RowType.PATH_HEADER, label, null, null, items, null, rootPath);
     }
 
     public static DlcListRow item(DlcItem item) {
-        return new DlcListRow(RowType.ITEM, null, null, item, null, false);
+        return new DlcListRow(RowType.ITEM, null, null, item, null, null, false);
+    }
+
+    public static DlcListRow redirectHeader(String label) {
+        return new DlcListRow(RowType.REDIRECT_HEADER, label, null, null, null, null, false);
+    }
+
+    public static DlcListRow redirectItem(com.cozooo.dlc_manager.client.remote.DlcRedirectEntry entry) {
+        return new DlcListRow(RowType.REDIRECT_ITEM, null, null, null, null, entry, false);
     }
 
     public RowType getType() {
@@ -56,6 +69,10 @@ public class DlcListRow {
 
     public java.util.List<DlcItem> getItems() {
         return items;
+    }
+
+    public com.cozooo.dlc_manager.client.remote.DlcRedirectEntry getRedirectEntry() {
+        return redirectEntry;
     }
 
     public boolean isRootPath() {

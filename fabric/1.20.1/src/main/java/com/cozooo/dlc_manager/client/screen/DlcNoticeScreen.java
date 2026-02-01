@@ -10,6 +10,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.FormattedCharSink;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.ClickEvent;
 
@@ -32,9 +33,12 @@ import org.commonmark.node.Paragraph;
 import org.commonmark.node.SoftLineBreak;
 import org.commonmark.node.StrongEmphasis;
 import org.commonmark.node.Text;
+import org.commonmark.node.ThematicBreak;
 import org.commonmark.parser.Parser;
 
 public class DlcNoticeScreen extends Screen {
+    private static final String HEADING_MARKER = "__dlc_heading__:";
+    private static final String HR_MARKER = "__dlc_hr__";
     private final Screen parent;
     private final DlcNoticeConfig config;
     private Checkbox neverShowBox;
@@ -57,6 +61,7 @@ public class DlcNoticeScreen extends Screen {
     private int visibleHeight;
     private int totalContentHeight;
     private int lineStep;
+    private int markdownWidth;
     private int scrollbarX;
     private int scrollbarTop;
     private int scrollbarBottom;
@@ -129,10 +134,29 @@ public class DlcNoticeScreen extends Screen {
         int textY = contentTop - scrollOffset;
 
         for (FormattedCharSequence line : bodyLines) {
-            if (textY >= contentTop && textY <= contentBottom - lineStep + 1) {
-                guiGraphics.drawString(this.font, line, textX, textY, 0xE6E6E6, false);
+            if (isHrLine(line)) {
+                int y = textY + lineStep / 2;
+                int x2 = panelLeft + panelWidth - 14;
+                guiGraphics.fill(textX, y, x2, y + 1, 0xFF5A5A5A);
+                textY += lineStep;
+                continue;
             }
-            textY += lineStep;
+            float scale = getHeadingScale(line);
+            int drawHeight = getLineHeight(line, scale);
+            if (textY >= contentTop && textY <= contentBottom - drawHeight + 1) {
+                if (scale > 1.0f) {
+                    guiGraphics.pose().pushPose();
+                    guiGraphics.pose().scale(scale, scale, 1.0f);
+                    guiGraphics.drawString(this.font, line,
+                        (int) (textX / scale),
+                        (int) (textY / scale),
+                        0xFFFFFF, false);
+                    guiGraphics.pose().popPose();
+                } else {
+                    guiGraphics.drawString(this.font, line, textX, textY, 0xE6E6E6, false);
+                }
+            }
+            textY += drawHeight;
         }
 
         drawScrollBar(guiGraphics);
@@ -163,6 +187,7 @@ public class DlcNoticeScreen extends Screen {
 
         lineStep = this.font.lineHeight + 2;
         int bodyHeight = bodyLines.size() * lineStep;
+        int headingExtra = countHeadingExtra();
         panelHeight = Math.max(160, this.height - margin * 2);
 
         int titleY = panelTop + 10;
@@ -177,7 +202,7 @@ public class DlcNoticeScreen extends Screen {
         scrollbarBottom = contentBottom;
         scrollbarX = panelLeft + panelWidth - 10;
         visibleHeight = Math.max(10, contentBottom - contentTop);
-        totalContentHeight = bodyHeight;
+        totalContentHeight = bodyHeight + headingExtra;
         maxScroll = Math.max(0, totalContentHeight - visibleHeight);
         if (scrollOffset > maxScroll) {
             scrollOffset = maxScroll;
@@ -203,6 +228,7 @@ public class DlcNoticeScreen extends Screen {
         if (text == null || text.isBlank()) {
             return List.of();
         }
+        markdownWidth = maxWidth;
         Component markdown = renderMarkdown(text);
         return this.font.split(markdown, maxWidth);
     }
@@ -226,13 +252,18 @@ public class DlcNoticeScreen extends Screen {
             out.append(renderInlineChildren(node, Style.EMPTY));
             return;
         }
-        if (node instanceof Heading) {
-            out.append(renderInlineChildren(node, Style.EMPTY.withBold(true)));
+        if (node instanceof Heading heading) {
+            Style headingStyle = Style.EMPTY.withBold(true).withInsertion(HEADING_MARKER + heading.getLevel());
+            out.append(renderInlineChildren(heading, headingStyle));
             return;
         }
         if (node instanceof BlockQuote) {
             out.append(Component.literal("> ").withStyle(ChatFormatting.GRAY));
             out.append(renderInlineChildren(node, Style.EMPTY));
+            return;
+        }
+        if (node instanceof ThematicBreak) {
+            out.append(Component.literal(" ").withStyle(Style.EMPTY.withInsertion(HR_MARKER).withColor(ChatFormatting.DARK_GRAY)));
             return;
         }
         if (node instanceof BulletList) {
@@ -320,6 +351,64 @@ public class DlcNoticeScreen extends Screen {
             return Component.literal("\n").withStyle(style);
         }
         return renderInlineChildren(node, style);
+    }
+
+    private int extractHeadingLevel(FormattedCharSequence line) {
+        final int[] level = {0};
+        line.accept((index, style, codePoint) -> {
+            if (style != null) {
+                String marker = style.getInsertion();
+                if (marker != null && marker.startsWith(HEADING_MARKER)) {
+                    String raw = marker.substring(HEADING_MARKER.length());
+                    try {
+                        level[0] = Integer.parseInt(raw);
+                    } catch (NumberFormatException ignored) {
+                        level[0] = 1;
+                    }
+                    return false;
+                }
+            }
+            return true;
+        });
+        return level[0];
+    }
+
+    private float headingScaleForLevel(int level) {
+        return switch (level) {
+            case 1 -> 1.25f;
+            case 2 -> 1.15f;
+            case 3 -> 1.08f;
+            default -> 1.0f;
+        };
+    }
+
+    private float getHeadingScale(FormattedCharSequence line) {
+        int level = extractHeadingLevel(line);
+        if (level <= 0) {
+            return 1.0f;
+        }
+        float desired = headingScaleForLevel(level);
+        int width = this.font.width(line);
+        if (width <= 0 || markdownWidth <= 0) {
+            return desired;
+        }
+        float maxScale = (float) markdownWidth / (float) width;
+        return Math.min(desired, maxScale);
+    }
+
+    private int getLineHeight(FormattedCharSequence line, float scale) {
+        return lineStep + Math.round(lineStep * (scale - 1f));
+    }
+
+    private int countHeadingExtra() {
+        int extra = 0;
+        for (FormattedCharSequence line : bodyLines) {
+            float scale = getHeadingScale(line);
+            if (scale > 1.0f) {
+                extra += Math.round(lineStep * (scale - 1f));
+            }
+        }
+        return extra;
     }
 
     private Component renderTextWithFormatting(String text, Style style) {
@@ -444,6 +533,18 @@ public class DlcNoticeScreen extends Screen {
         return style;
     }
 
+    private boolean isHrLine(FormattedCharSequence line) {
+        final boolean[] match = {false};
+        line.accept((index, style, codePoint) -> {
+            if (style != null && HR_MARKER.equals(style.getInsertion())) {
+                match[0] = true;
+                return false;
+            }
+            return true;
+        });
+        return match[0];
+    }
+
     @Override
     public void onClose() {
         if (neverShowBox != null) {
@@ -469,6 +570,27 @@ public class DlcNoticeScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && isOverContent(mouseX, mouseY)) {
+            int textX = panelLeft + 14;
+            int textY = contentTop - scrollOffset;
+            for (FormattedCharSequence line : bodyLines) {
+                float scale = getHeadingScale(line);
+                int lineHeight = getLineHeight(line, scale);
+                if (mouseY >= textY && mouseY < textY + lineHeight) {
+                    int relX = (int) mouseX - textX;
+                    int maxWidth = Math.round(this.font.width(line) * scale);
+                    if (relX >= 0 && relX <= maxWidth) {
+                        int styleX = scale > 1.0f ? (int) (relX / scale) : relX;
+                        Style style = findStyleAt(line, styleX);
+                        if (style != null && handleComponentClicked(style)) {
+                            return true;
+                        }
+                    }
+                    break;
+                }
+                textY += lineHeight;
+            }
+        }
         if (button == 0 && isOverScrollbar(mouseX, mouseY)) {
             updateScrollFromDrag(mouseY);
             draggingScrollbar = true;
@@ -498,6 +620,30 @@ public class DlcNoticeScreen extends Screen {
             return true;
         }
         return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private boolean isOverContent(double mouseX, double mouseY) {
+        return mouseX >= panelLeft + 14 && mouseX <= panelLeft + panelWidth - 14
+            && mouseY >= contentTop && mouseY <= contentBottom;
+    }
+
+    private Style findStyleAt(FormattedCharSequence sequence, int x) {
+        final int[] width = {0};
+        final Style[] result = {null};
+        sequence.accept((index, style, codePoint) -> {
+            if (result[0] != null) {
+                return false;
+            }
+            String text = new String(Character.toChars(codePoint));
+            int w = this.font.width(text);
+            if (width[0] + w > x) {
+                result[0] = style;
+                return false;
+            }
+            width[0] += w;
+            return true;
+        });
+        return result[0];
     }
 
     private void drawScrollBar(GuiGraphics guiGraphics) {

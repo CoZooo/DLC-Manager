@@ -377,6 +377,7 @@ public class DlcServerService {
         response.addProperty("dlc", version.getDlc());
         response.addProperty("remoteMissing", remoteMissing);
         response.addProperty("requiredMissing", requiredMissing);
+        response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot));
         response.add("items", GSON.toJsonTree(items));
         writeLine(writer, response);
     }

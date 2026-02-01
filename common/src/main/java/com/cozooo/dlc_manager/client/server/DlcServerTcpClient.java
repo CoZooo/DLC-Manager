@@ -75,6 +75,10 @@ public class DlcServerTcpClient {
             info.dlcVersion = getString(response, "dlc");
             info.remoteMissing = getInt(response, "remoteMissing");
             info.requiredMissing = getInt(response, "requiredMissing");
+            info.hasRequired = response.has("hasRequired") && response.get("hasRequired").getAsBoolean();
+            if (!info.hasRequired && info.requiredMissing > 0) {
+                info.hasRequired = true;
+            }
             List<DlcServerItem> items = new ArrayList<>();
             if (response.has("items") && response.get("items").isJsonArray()) {
                 response.getAsJsonArray("items").forEach(element -> {

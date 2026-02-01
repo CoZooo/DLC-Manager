@@ -777,6 +777,13 @@ public final class DlcServerDownloadService {
         return missing;
     }
 
+    public static boolean hasRequiredEntries(Path dlcRoot) {
+        if (dlcRoot == null) {
+            return false;
+        }
+        return !loadRequiredEntries(dlcRoot).isEmpty();
+    }
+
     public static DownloadResult downloadMissingRemote(Path dlcRoot) {
         DownloadResult result = new DownloadResult();
         List<DlcRemoteEntry> missing = collectMissingRemote(dlcRoot);
