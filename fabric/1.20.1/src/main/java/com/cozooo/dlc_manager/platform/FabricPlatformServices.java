@@ -4,7 +4,7 @@ import java.nio.file.Path;
 import java.util.Optional;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.client.Minecraft;
+import net.fabricmc.api.EnvType;
 import net.minecraft.SharedConstants;
 
 public final class FabricPlatformServices implements PlatformServices.Provider {
@@ -29,11 +29,40 @@ public final class FabricPlatformServices implements PlatformServices.Provider {
 
     @Override
     public String languageCode() {
-        try {
-            return Minecraft.getInstance().options.languageCode;
-        } catch (Exception ignored) {
+        if (FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
             return "en_us";
         }
+        try {
+            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
+            Object mc = mcClass.getMethod("getInstance").invoke(null);
+            Object options = mcClass.getField("options").get(mc);
+            try {
+                return (String) options.getClass().getField("languageCode").get(options);
+            } catch (NoSuchFieldException ignored) {
+                return (String) options.getClass().getMethod("getLanguage").invoke(options);
+            }
+        } catch (Throwable ignored) {
+            String fromOptions = readLangFromOptions();
+            return fromOptions == null ? "en_us" : fromOptions;
+        }
+    }
+
+    private String readLangFromOptions() {
+        try {
+            Path options = gameDir().resolve("options.txt");
+            if (!java.nio.file.Files.exists(options)) {
+                return null;
+            }
+            for (String line : java.nio.file.Files.readAllLines(options)) {
+                if (line != null && line.startsWith("lang:")) {
+                    String value = line.substring("lang:".length()).trim();
+                    return value.isEmpty() ? null : value;
+                }
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
     }
 
     @Override

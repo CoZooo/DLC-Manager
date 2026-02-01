@@ -91,6 +91,9 @@ public class DlcUpdateChangelogScreen extends Screen {
     private void finish() {
         if (onDone != null) {
             onDone.run();
+            if (Minecraft.getInstance().screen == this) {
+                Minecraft.getInstance().setScreen(parent);
+            }
         } else {
             Minecraft.getInstance().setScreen(parent);
         }
@@ -99,6 +102,18 @@ public class DlcUpdateChangelogScreen extends Screen {
     @Override
     public void onClose() {
         finish();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0 && okButton != null && okButton.isMouseOver(mouseX, mouseY)) {
+            finish();
+            return true;
+        }
+        if (okButton != null && okButton.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override

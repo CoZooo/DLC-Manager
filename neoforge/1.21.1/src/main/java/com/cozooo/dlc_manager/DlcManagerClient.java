@@ -2,6 +2,8 @@ package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
@@ -11,6 +13,10 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
+import com.cozooo.dlc_manager.client.server.DlcServerEntry;
+import com.cozooo.dlc_manager.client.server.DlcServerInfo;
+import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
@@ -22,13 +28,18 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
@@ -38,6 +49,7 @@ import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import org.slf4j.Logger;
 import java.nio.file.Path;
+import java.util.concurrent.CompletableFuture;
 
 public class DlcManagerClient {
     private static volatile boolean startupCheckRunning = false;
@@ -159,6 +171,91 @@ public class DlcManagerClient {
         }
 
         @SubscribeEvent
+        public void onRegisterClientCommands(RegisterClientCommandsEvent event) {
+            event.getDispatcher().register(Commands.literal("dlcmanager")
+                .executes(ctx -> {
+                    openManagerFromCommand();
+                    return 1;
+                })
+                .then(Commands.literal("selfupdate").executes(ctx -> {
+                    openSelfUpdateFromCommand();
+                    return 1;
+                }))
+                .then(Commands.literal("updatemanager").executes(ctx -> {
+                    openUpdateManagerFromCommand();
+                    return 1;
+                }))
+                .then(Commands.literal("update").executes(ctx -> {
+                    openUpdatePromptFromCommand();
+                    return 1;
+                }))
+                .then(Commands.literal("server").executes(ctx -> {
+                    openServerManagerFromCommand();
+                    return 1;
+                }))
+            );
+        }
+
+        @SubscribeEvent
+        public void onIngameMenuInit(ScreenEvent.Init.Post event) {
+            Screen screen = event.getScreen();
+            if (!(screen instanceof PauseScreen)) {
+                return;
+            }
+            if (!canOpenServerManager()) {
+                return;
+            }
+            if (findButtonByKey(screen, "dlc_manager.server.manage") != null) {
+                return;
+            }
+            AbstractWidget anchor = findButtonByKey(screen, "menu.sendFeedback");
+            if (anchor == null) {
+                anchor = findButtonByKey(screen, "menu.feedback");
+            }
+            if (anchor != null) {
+                anchor.visible = false;
+                anchor.active = false;
+            }
+            if (anchor == null) {
+                anchor = findButtonByKey(screen, "menu.mods");
+            }
+            if (anchor == null) {
+                anchor = findButtonByKey(screen, "menu.options");
+            }
+            int x = screen.width / 2 - 100;
+            int y = screen.height / 4 + 120;
+            int w = 200;
+            int h = 20;
+            if (anchor != null) {
+                if (findButtonByKey(screen, "menu.sendFeedback") != null || findButtonByKey(screen, "menu.feedback") != null) {
+                    x = anchor.getX();
+                    y = anchor.getY();
+                    w = anchor.getWidth();
+                    h = anchor.getHeight();
+                } else if (anchor == findButtonByKey(screen, "menu.mods")) {
+                    int gap = 4;
+                    int originalWidth = anchor.getWidth();
+                    int halfWidth = Math.max(20, (originalWidth - gap) / 2);
+                    anchor.setWidth(halfWidth);
+                    x = anchor.getX() + halfWidth + gap;
+                    y = anchor.getY();
+                    w = Math.max(20, originalWidth - halfWidth - gap);
+                    h = anchor.getHeight();
+                } else {
+                    x = anchor.getX();
+                    y = anchor.getY() + anchor.getHeight() + 4;
+                    w = anchor.getWidth();
+                    h = anchor.getHeight();
+                }
+            }
+            Button button = Button.builder(Component.translatable("dlc_manager.server.manage"),
+                    btn -> openServerManagerFromIngame(screen))
+                .bounds(x, y, w, h)
+                .build();
+            event.addListener(button);
+        }
+
+        @SubscribeEvent
         public void onClientTick(ClientTickEvent.Post event) {
             if (resourcePackSynced) {
                 return;
@@ -263,6 +360,59 @@ public class DlcManagerClient {
                 java.nio.file.Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
         }
+
+        private static boolean canOpenServerManager() {
+            if (!DlcPathConfig.isServerSupportOn()) {
+                return false;
+            }
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.player == null) {
+                return false;
+            }
+            if (minecraft.hasSingleplayerServer()) {
+                return false;
+            }
+            return minecraft.player.hasPermissions(2);
+        }
+
+        private static void openManagerFromCommand() {
+            Minecraft minecraft = Minecraft.getInstance();
+            Screen parent = minecraft.screen;
+            Screen managerScreen = new DlcMaLiLibScreen(parent);
+            if (DlcRemoteManager.maybeShowFromManager(managerScreen)) {
+                return;
+            }
+            minecraft.setScreen(managerScreen);
+        }
+
+        private static void openSelfUpdateFromCommand() {
+            Minecraft minecraft = Minecraft.getInstance();
+            minecraft.setScreen(new DlcSelfUpdateScreen(minecraft.screen, null));
+        }
+
+        private static void openUpdateManagerFromCommand() {
+            Minecraft minecraft = Minecraft.getInstance();
+            DlcUpdateClient.openUpdateManager(minecraft.screen);
+        }
+
+        private static void openUpdatePromptFromCommand() {
+            Minecraft minecraft = Minecraft.getInstance();
+            UpdateCheckResult result = DlcUpdateService.checkForUpdates();
+            if (result == null || !result.hasUpdates()) {
+                SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    Component.translatable("dlc_manager.update.no_updates"), Component.empty());
+                return;
+            }
+            DlcUpdateClient.showPrompt(minecraft.screen, result);
+        }
+
+        private static void openServerManagerFromCommand() {
+            if (!canOpenServerManager()) {
+                return;
+            }
+            Minecraft minecraft = Minecraft.getInstance();
+            minecraft.setScreen(new DlcServerListScreen(minecraft.screen));
+        }
     }
 
     private static AbstractWidget findRealmsButton(Screen screen) {
@@ -315,6 +465,123 @@ public class DlcManagerClient {
         }
         return findButtonByKey(screen, "fml.menu.mods");
     }
+
+
+        private static DlcServerEntry createEntryFromServer(ServerData data) {
+            DlcServerEntry entry = new DlcServerEntry();
+            entry.name = data.name;
+            String ip = data.ip == null ? "" : data.ip;
+            String host = ip;
+            int port = DlcPathConfig.getServerPort();
+            int index = ip.lastIndexOf(':');
+            if (index > 0 && index < ip.length() - 1) {
+                if (ip.startsWith("[") && ip.contains("]")) {
+                    int end = ip.indexOf(']');
+                    if (end > 1) {
+                        host = ip.substring(1, end);
+                    }
+                } else {
+                    host = ip.substring(0, index);
+                }
+            }
+            entry.host = host;
+            entry.port = port;
+            entry.useTcp = true;
+            return entry;
+        }
+
+        private static String getPlayerName() {
+            if (Minecraft.getInstance().player == null) {
+                return "";
+            }
+            return Minecraft.getInstance().player.getGameProfile().getName();
+        }
+
+        private static String getPlayerUuid() {
+            if (Minecraft.getInstance().player == null) {
+                return "";
+            }
+            return Minecraft.getInstance().player.getUUID().toString();
+        }
+
+        private static void openServerManagerFromIngame(Screen parent) {
+            Minecraft minecraft = Minecraft.getInstance();
+            ServerData data = minecraft.getCurrentServer();
+            if (data == null) {
+                minecraft.setScreen(new DlcServerListScreen(parent));
+                return;
+            }
+            DlcServerEntry entry = createEntryFromServer(data);
+            if (entry == null) {
+                minecraft.setScreen(new DlcServerListScreen(parent));
+                return;
+            }
+            DlcServerList.load();
+            DlcServerEntry existing = findEntryByKey(entry.getKey());
+            if (existing != null) {
+                entry = existing;
+            }
+            if (entry.password != null && !entry.password.isBlank()) {
+                DlcServerEntry finalEntry = entry;
+                CompletableFuture
+                    .supplyAsync(() -> fetchServerInfo(finalEntry))
+                    .whenComplete((info, throwable) -> minecraft.execute(() -> {
+                        if (info != null) {
+                            saveEntryToList(finalEntry);
+                            com.cozooo.dlc_manager.client.server.DlcServerCache.put(finalEntry.getKey(), info);
+                            minecraft.setScreen(new DlcServerMaLiLibScreen(parent, finalEntry, info));
+                            return;
+                        }
+                        minecraft.setScreen(new DlcServerPasswordScreen(parent, finalEntry, false));
+                    }));
+                return;
+            }
+            minecraft.setScreen(new DlcServerPasswordScreen(parent, entry, false));
+        }
+
+        private static DlcServerInfo fetchServerInfo(DlcServerEntry entry) {
+            try {
+                return com.cozooo.dlc_manager.client.server.DlcServerTcpClient.fetchServerInfo(entry, 5000,
+                    getPlayerName(), getPlayerUuid());
+            } catch (Exception ignored) {
+            }
+            return null;
+        }
+
+        private static DlcServerEntry findEntryByKey(String key) {
+            if (key == null) {
+                return null;
+            }
+            for (DlcServerEntry entry : DlcServerList.getEntries()) {
+                if (entry != null && key.equals(entry.getKey())) {
+                    return entry;
+                }
+            }
+            return null;
+        }
+
+        private static void saveEntryToList(DlcServerEntry entry) {
+            DlcServerList.load();
+            java.util.List<DlcServerEntry> list = new java.util.ArrayList<>(DlcServerList.getEntries());
+            boolean found = false;
+            for (int i = 0; i < list.size(); i++) {
+                DlcServerEntry existing = list.get(i);
+                if (existing != null && entry.getKey().equals(existing.getKey())) {
+                    existing.password = entry.password;
+                    if (entry.name != null && !entry.name.isBlank()) {
+                        existing.name = entry.name;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                list.add(entry);
+            }
+            DlcServerList.setEntries(list);
+            DlcServerList.setLastSelectedKey(entry.getKey());
+            DlcServerList.save();
+        }
 
     private static void shiftButtonRow(Screen screen, int deltaY, String... keys) {
         for (String key : keys) {

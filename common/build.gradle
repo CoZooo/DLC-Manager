@@ -15,5 +15,4 @@ repositories {
 
 dependencies {
     api "com.google.code.gson:gson:2.10.1"
-    compileOnly "maven.modrinth:malilib:0.16.1"
 }

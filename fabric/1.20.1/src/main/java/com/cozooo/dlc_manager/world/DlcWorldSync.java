@@ -1,9 +1,15 @@
 package com.cozooo.dlc_manager.world;
 
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.server.DlcServerDownloadService;
+import com.cozooo.dlc_manager.server.DlcServerService;
+import com.cozooo.dlc_manager.server.DlcServerUpdateNotifier;
+import com.mojang.logging.LogUtils;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
@@ -20,8 +26,32 @@ import java.util.Map;
 import java.util.Set;
 
 public class DlcWorldSync {
+    private static final org.slf4j.Logger LOGGER = LogUtils.getLogger();
+
     public static void register() {
-        ServerLifecycleEvents.SERVER_STARTED.register(DlcWorldSync::applyDatapacks);
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            DlcPathConfig.loadServer();
+            applyDatapacks(server);
+            DlcServerService.updateServerStatus(server);
+            DlcServerService.start();
+            if (server.isDedicatedServer()) {
+                startServerRequiredDownload(server);
+            }
+        });
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> DlcServerService.stop());
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+            DlcServerUpdateNotifier.onPlayerJoin(handler.getPlayer());
+        });
+    }
+
+    private static void startServerRequiredDownload(MinecraftServer server) {
+        new Thread(() -> {
+            DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(DlcPathConfig.getDlcRoot());
+            if (result != null && result.didWork()) {
+                LOGGER.info("[dlc-manager] server required download applied, restarting server");
+                server.halt(false);
+            }
+        }, "dlc-manager-server-required").start();
     }
 
     private static void applyDatapacks(MinecraftServer server) {

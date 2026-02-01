@@ -154,6 +154,8 @@ public class DlcPresetManagerScreen extends Screen {
         DlcPresetRuntimeState.setPresetEnabled(entry.getId(), enabled);
         if (parent instanceof DlcMaLiLibScreen screen) {
             screen.refreshAfterStateChange();
+        } else if (parent instanceof DlcServerMaLiLibScreen server) {
+            server.refreshAfterPresetChange();
         }
     }
 
@@ -279,7 +281,7 @@ public class DlcPresetManagerScreen extends Screen {
 
         @Override
         protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-            DlcPresetStatus status = DlcPresetRuntimeState.getPresetStatus(presetId);
+            DlcPresetStatus status = resolvePresetStatus(presetId);
             boolean blocked = DlcPresetRuntimeState.isPresetBlocked(presetId);
             boolean hovered = this.isHoveredOrFocused();
             int x0 = getX();
@@ -310,5 +312,12 @@ public class DlcPresetManagerScreen extends Screen {
                 guiGraphics.fill(cx, cy, cx + size, cy + size, color);
             }
         }
+    }
+
+    private DlcPresetStatus resolvePresetStatus(String presetId) {
+        if (parent instanceof DlcServerMaLiLibScreen server) {
+            return server.getPresetStatus(presetId);
+        }
+        return DlcPresetRuntimeState.getPresetStatus(presetId);
     }
 }
