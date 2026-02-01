@@ -3,9 +3,9 @@ package com.cozooo.dlc_manager.client.server;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.cozooo.dlc_manager.core.Json5Util;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,26 +20,33 @@ public class DlcServerList {
     private static String lastSelectedKey;
 
     public static void load() {
-        configPath = PlatformServices.get().configDir().resolve("dlc_manager/servers.json");
+        Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
+        configPath = Json5Util.resolveConfigPath(configDir, "servers");
         entries = new ArrayList<>();
         lastSelectedKey = null;
         if (!Files.exists(configPath)) {
             return;
         }
-        try (Reader reader = Files.newBufferedReader(configPath)) {
-            DlcServerListData data = GSON.fromJson(reader, DlcServerListData.class);
-            if (data != null && data.servers != null) {
-                entries.addAll(data.servers);
-                lastSelectedKey = data.lastSelected;
+        try {
+            com.google.gson.JsonElement element = Json5Util.readElement(configPath);
+            if (element != null) {
+                DlcServerListData data = GSON.fromJson(element, DlcServerListData.class);
+                if (data != null && data.servers != null) {
+                    entries.addAll(data.servers);
+                    lastSelectedKey = data.lastSelected;
+                }
             }
-        } catch (IOException ignored) {
+        } catch (Exception ignored) {
             // Best-effort load.
         }
     }
 
     public static void save() {
         if (configPath == null) {
-            configPath = PlatformServices.get().configDir().resolve("dlc_manager/servers.json");
+            Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+            Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
+            configPath = Json5Util.resolveConfigPath(configDir, "servers");
         }
         try {
             Files.createDirectories(configPath.getParent());

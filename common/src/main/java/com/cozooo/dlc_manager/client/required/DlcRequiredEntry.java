@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.required;
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 
 import java.util.ArrayList;
@@ -37,9 +38,7 @@ public class DlcRequiredEntry {
         this.configPath = configPath;
         this.requiredDir = requiredDir;
         String name = configPath == null ? "" : configPath.getFileName().toString();
-        if (name.endsWith(".json")) {
-            name = name.substring(0, name.length() - 5);
-        }
+        name = Json5Util.stripJsonExtension(name);
         this.baseName = name;
         this.identifier = name;
     }

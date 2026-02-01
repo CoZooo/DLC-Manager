@@ -18,6 +18,7 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -1173,7 +1174,7 @@ public final class DlcServerDownloadService {
                 try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
                     for (Path path : stream) {
                         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!name.endsWith(".json")) {
+                        if (!Json5Util.isJsonLikeName(name)) {
                             return name;
                         }
                     }
@@ -1198,12 +1199,20 @@ public final class DlcServerDownloadService {
         if (!Files.isDirectory(requiredDir)) {
             return fallback;
         }
-        try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(requiredDir, "*.json")) {
+        try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(requiredDir)) {
             for (Path path : stream) {
-                if (path.getFileName() != null && "notice.json".equalsIgnoreCase(path.getFileName().toString())) {
+                if (path.getFileName() == null) {
                     continue;
                 }
-                DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(path, dlcRoot);
+                String fileName = path.getFileName().toString();
+                if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                    continue;
+                }
+                if ("notice.json".equalsIgnoreCase(fileName) || "notice.json5".equalsIgnoreCase(fileName)) {
+                    continue;
+                }
+                Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
+                DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(migrated, dlcRoot);
                 if (entry != null) {
                     fallback.add(entry);
                 }
@@ -1290,7 +1299,7 @@ public final class DlcServerDownloadService {
         if (fileName == null) {
             return false;
         }
-        return fileName.endsWith(".json");
+        return Json5Util.isJsonLikeName(fileName);
     }
 
     private static boolean isTempFileName(String fileName) {
@@ -2055,19 +2064,18 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try (java.io.Reader reader = Files.newBufferedReader(config)) {
-            JsonObject obj = PRETTY_GSON.fromJson(reader, JsonObject.class);
-            if (obj == null) {
-                return;
-            }
-            JsonObject reordered = reorderRemoteJson(obj, normalized);
-            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
-                PRETTY_GSON.toJson(reordered, writer);
-            }
-            entry.setFileNameHint(normalized);
+        Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
+        JsonObject obj = Json5Util.readObject(migrated);
+        if (obj == null) {
+            return;
+        }
+        JsonObject reordered = reorderRemoteJson(obj, normalized);
+        try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
+            PRETTY_GSON.toJson(reordered, writer);
         } catch (IOException ignored) {
             // Best-effort.
         }
+        entry.setFileNameHint(normalized);
     }
 
     private static JsonObject reorderRemoteJson(JsonObject obj, String fileNameOverride) {
@@ -2152,15 +2160,14 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try (java.io.Reader reader = Files.newBufferedReader(config)) {
-            JsonObject obj = PRETTY_GSON.fromJson(reader, JsonObject.class);
-            if (obj == null) {
-                return;
-            }
-            JsonObject ordered = reorderRequiredJson(obj, normalized);
-            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
-                PRETTY_GSON.toJson(ordered, writer);
-            }
+        Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
+        JsonObject obj = Json5Util.readObject(migrated);
+        if (obj == null) {
+            return;
+        }
+        JsonObject ordered = reorderRequiredJson(obj, normalized);
+        try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
+            PRETTY_GSON.toJson(ordered, writer);
         } catch (IOException ignored) {
             // Best-effort.
         }
@@ -2174,25 +2181,24 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try (java.io.Reader reader = Files.newBufferedReader(config)) {
-            JsonObject obj = PRETTY_GSON.fromJson(reader, JsonObject.class);
-            if (obj == null) {
-                return;
-            }
-            if (userRemoved) {
-                obj.addProperty("UserRemoved", true);
-            } else {
-                obj.remove("UserRemoved");
-                obj.remove("userRemoved");
-            }
-            JsonObject ordered = reorderRequiredJson(obj, entry.getRequiredFileName());
-            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
-                PRETTY_GSON.toJson(ordered, writer);
-            }
-            entry.setUserRemoved(userRemoved);
+        Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
+        JsonObject obj = Json5Util.readObject(migrated);
+        if (obj == null) {
+            return;
+        }
+        if (userRemoved) {
+            obj.addProperty("UserRemoved", true);
+        } else {
+            obj.remove("UserRemoved");
+            obj.remove("userRemoved");
+        }
+        JsonObject ordered = reorderRequiredJson(obj, entry.getRequiredFileName());
+        try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
+            PRETTY_GSON.toJson(ordered, writer);
         } catch (IOException ignored) {
             // Best-effort.
         }
+        entry.setUserRemoved(userRemoved);
     }
 
     private static JsonObject reorderRequiredJson(JsonObject obj, String fileNameOverride) {
@@ -2441,7 +2447,9 @@ public final class DlcServerDownloadService {
             tipObj.addProperty(e.getKey(), e.getValue());
         }
         info.add("tip", tipObj);
-        Path out = infoDir.resolve(fileName + ".json");
+        Path legacy = infoDir.resolve(fileName + Json5Util.JSON_EXTENSION);
+        Json5Util.migrateLegacy(legacy, PRETTY_GSON);
+        Path out = infoDir.resolve(fileName + Json5Util.JSON5_EXTENSION);
         try (java.io.Writer writer = Files.newBufferedWriter(out)) {
             PRETTY_GSON.toJson(info, writer);
         } catch (IOException ignored) {

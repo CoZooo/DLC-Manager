@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
@@ -14,6 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.core.Json5Util;
 
 public class DlcConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -23,16 +23,20 @@ public class DlcConfig {
     private static Map<String, DlcState> stateById = new HashMap<>();
 
     public static void load() {
-        configPath = PlatformServices.get().configDir().resolve("dlc_manager/state.json");
-        if (Files.exists(configPath)) {
-            try (Reader reader = Files.newBufferedReader(configPath)) {
-                DlcConfigData data = GSON.fromJson(reader, DlcConfigData.class);
-                if (data != null) {
-                    if (data.stateById != null) {
+        Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        Path legacy = configDir.resolve("state.json");
+        Json5Util.migrateLegacy(legacy, GSON);
+        configPath = Json5Util.resolveConfigPath(configDir, "state");
+        if (configPath != null && Files.exists(configPath)) {
+            try {
+                com.google.gson.JsonElement element = Json5Util.readElement(configPath);
+                if (element != null) {
+                    DlcConfigData data = GSON.fromJson(element, DlcConfigData.class);
+                    if (data != null && data.stateById != null) {
                         stateById = new HashMap<>(data.stateById);
                     }
                 }
-            } catch (IOException ignored) {
+            } catch (Exception ignored) {
                 stateById = new HashMap<>();
             }
         }

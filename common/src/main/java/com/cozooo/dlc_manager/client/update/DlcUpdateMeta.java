@@ -1,11 +1,11 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,49 +31,45 @@ public class DlcUpdateMeta {
         if (metaPath == null || !Files.exists(metaPath)) {
             return null;
         }
-        try (Reader reader = Files.newBufferedReader(metaPath)) {
-            JsonObject obj = GSON.fromJson(reader, JsonObject.class);
-            if (obj == null) {
-                return null;
-            }
-            DlcUpdateMeta meta = new DlcUpdateMeta();
-            meta.dlcOld = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_old");
-            meta.dlcNew = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_new");
-            meta.baseOld = JsonCaseUtil.getStringIgnoreCase(obj, "base_old");
-            meta.baseNew = JsonCaseUtil.getStringIgnoreCase(obj, "base_new");
-            meta.timestamp = JsonCaseUtil.getStringIgnoreCase(obj, "timestamp");
-            meta.hidden = JsonCaseUtil.getBooleanIgnoreCase(obj, "hidden", false);
-            JsonObject logObj = JsonCaseUtil.getObjectIgnoreCase(obj, "changelog");
-            if (logObj != null) {
-                for (var entry : logObj.entrySet()) {
-                    if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
-                        String raw = entry.getValue().getAsString();
-                        if (raw != null && !raw.isBlank()) {
-                            meta.changelog.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), raw);
-                        }
+        JsonObject obj = Json5Util.readObject(metaPath);
+        if (obj == null) {
+            return null;
+        }
+        DlcUpdateMeta meta = new DlcUpdateMeta();
+        meta.dlcOld = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_old");
+        meta.dlcNew = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_new");
+        meta.baseOld = JsonCaseUtil.getStringIgnoreCase(obj, "base_old");
+        meta.baseNew = JsonCaseUtil.getStringIgnoreCase(obj, "base_new");
+        meta.timestamp = JsonCaseUtil.getStringIgnoreCase(obj, "timestamp");
+        meta.hidden = JsonCaseUtil.getBooleanIgnoreCase(obj, "hidden", false);
+        JsonObject logObj = JsonCaseUtil.getObjectIgnoreCase(obj, "changelog");
+        if (logObj != null) {
+            for (var entry : logObj.entrySet()) {
+                if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
+                    String raw = entry.getValue().getAsString();
+                    if (raw != null && !raw.isBlank()) {
+                        meta.changelog.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), raw);
                     }
                 }
             }
-            var restoreArray = JsonCaseUtil.getArrayIgnoreCase(obj, "restore");
-            if (restoreArray != null) {
-                restoreArray.forEach(el -> {
-                    if (el != null && el.isJsonPrimitive()) {
-                        meta.restorePaths.add(el.getAsString());
-                    }
-                });
-            }
-            var createdArray = JsonCaseUtil.getArrayIgnoreCase(obj, "created");
-            if (createdArray != null) {
-                createdArray.forEach(el -> {
-                    if (el != null && el.isJsonPrimitive()) {
-                        meta.createdPaths.add(el.getAsString());
-                    }
-                });
-            }
-            return meta;
-        } catch (IOException ignored) {
-            return null;
         }
+        var restoreArray = JsonCaseUtil.getArrayIgnoreCase(obj, "restore");
+        if (restoreArray != null) {
+            restoreArray.forEach(el -> {
+                if (el != null && el.isJsonPrimitive()) {
+                    meta.restorePaths.add(el.getAsString());
+                }
+            });
+        }
+        var createdArray = JsonCaseUtil.getArrayIgnoreCase(obj, "created");
+        if (createdArray != null) {
+            createdArray.forEach(el -> {
+                if (el != null && el.isJsonPrimitive()) {
+                    meta.createdPaths.add(el.getAsString());
+                }
+            });
+        }
+        return meta;
     }
 
     public void save(Path metaPath) {

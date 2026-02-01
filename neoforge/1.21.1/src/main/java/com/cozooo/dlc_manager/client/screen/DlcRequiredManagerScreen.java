@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.core.Json5Util;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -367,7 +368,7 @@ public class DlcRequiredManagerScreen extends Screen {
                     continue;
                 }
                 String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (name.endsWith(".json")) {
+                if (Json5Util.isJsonLikeName(name)) {
                     continue;
                 }
                 return name;
@@ -495,7 +496,7 @@ public class DlcRequiredManagerScreen extends Screen {
             return true;
         }
         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-        return name.endsWith(".json");
+        return Json5Util.isJsonLikeName(name);
     }
 
     private String resolveAppliedFileName(DlcRequiredEntry entry, List<Path> targets) {
@@ -529,7 +530,7 @@ public class DlcRequiredManagerScreen extends Screen {
                 try (DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
                     for (Path path : stream) {
                         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!name.endsWith(".json")) {
+                        if (!Json5Util.isJsonLikeName(name)) {
                             return name;
                         }
                     }

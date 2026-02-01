@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
@@ -40,9 +41,11 @@ public final class DlcRemoteLoader {
         }
         List<DlcRemoteEntry> entries = new ArrayList<>();
         try (var stream = Files.walk(remoteRoot)) {
-            stream.filter(path -> path.getFileName().toString().endsWith(".json"))
+            stream.filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> !Json5Util.shouldSkipLegacy(path))
                 .forEach(path -> {
-                    DlcRemoteEntry entry = readEntry(path, dlcRoot, remoteRoot);
+                    Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
+                    DlcRemoteEntry entry = readEntry(migrated, dlcRoot, remoteRoot);
                     if (entry != null) {
                         entries.add(entry);
                     }
@@ -65,6 +68,17 @@ public final class DlcRemoteLoader {
         }
         Path resolved = configPath;
         if (!Files.exists(resolved)) {
+            if (!Json5Util.isJsonLikeName(resolved.getFileName().toString())) {
+                Path alt = Json5Util.resolveConfigPath(resolved.getParent(), resolved.getFileName().toString());
+                if (alt != null && Files.exists(alt)) {
+                    resolved = alt;
+                }
+            } else if (resolved.getFileName().toString().toLowerCase().endsWith(Json5Util.JSON_EXTENSION)) {
+                Path alt = Json5Util.toJson5Path(resolved);
+                if (alt != null && Files.exists(alt)) {
+                    resolved = alt;
+                }
+            }
             try {
                 Path normalized = resolved.normalize();
                 if (normalized.startsWith(legacyRoot.normalize())) {
@@ -78,7 +92,8 @@ public final class DlcRemoteLoader {
                 return null;
             }
         }
-        return readEntry(resolved, dlcRoot, remoteRoot);
+        Path migrated = Json5Util.migrateLegacy(resolved, PRETTY_GSON);
+        return readEntry(migrated, dlcRoot, remoteRoot);
     }
 
     private static void linkIdentifierDependencies(List<DlcRemoteEntry> entries) {
@@ -136,7 +151,7 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return null;
         }
-        String fileName = stripJson(path.getFileName().toString());
+        String fileName = Json5Util.stripJsonExtension(path.getFileName().toString());
         Path relative = remoteRoot.relativize(path);
         Path baseDir = dlcRoot.resolve(relative.getParent() == null ? "" : relative.getParent().toString());
 
@@ -150,11 +165,13 @@ public final class DlcRemoteLoader {
             entry.setFileNameHint(fileName);
         }
 
-        try (Writer writer = Files.newBufferedWriter(path)) {
+        Path outPath = Json5Util.toJson5Path(path);
+        try (Writer writer = Files.newBufferedWriter(outPath)) {
             PRETTY_GSON.toJson(normalized.ordered, writer);
         } catch (IOException ignored) {
             // Best-effort.
         }
+        entry.setConfigPath(outPath);
         return entry;
     }
 
@@ -522,16 +539,6 @@ public final class DlcRemoteLoader {
             }
         }
         return names;
-    }
-
-    private static String stripJson(String name) {
-        if (name == null) {
-            return "";
-        }
-        if (name.endsWith(".json")) {
-            return name.substring(0, name.length() - 5);
-        }
-        return name;
     }
 
     private static List<String> getDirectUrls(JsonObject obj) {

@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -1559,9 +1560,6 @@ public class DlcRemoteDownloadScreen extends Screen {
     }
 
     private String stripJson(String name) {
-        if (name != null && name.endsWith(".json")) {
-            return name.substring(0, name.length() - 5);
-        }
-        return name;
+        return Json5Util.stripJsonExtension(name);
     }
 }

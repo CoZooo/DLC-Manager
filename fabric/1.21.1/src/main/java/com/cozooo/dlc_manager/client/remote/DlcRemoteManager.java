@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.remote;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -111,7 +112,9 @@ public final class DlcRemoteManager {
             tipObj.addProperty(e.getKey(), e.getValue());
         }
         obj.add("tip", tipObj);
-        Path out = infoDir.resolve(fileName + ".json");
+        Path legacy = infoDir.resolve(fileName + Json5Util.JSON_EXTENSION);
+        Json5Util.migrateLegacy(legacy, PRETTY_GSON);
+        Path out = infoDir.resolve(fileName + Json5Util.JSON5_EXTENSION);
         try (Writer writer = Files.newBufferedWriter(out)) {
             PRETTY_GSON.toJson(obj, writer);
         } catch (IOException ignored) {
@@ -131,8 +134,8 @@ public final class DlcRemoteManager {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try (java.io.Reader reader = Files.newBufferedReader(config)) {
-            JsonObject obj = PRETTY_GSON.fromJson(reader, JsonObject.class);
+        try {
+            JsonObject obj = Json5Util.readObject(config);
             if (obj == null) {
                 return;
             }
@@ -246,7 +249,7 @@ public final class DlcRemoteManager {
         if (trimmed.isEmpty()) {
             return null;
         }
-        if (trimmed.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
+        if (Json5Util.isJsonLikeName(trimmed)) {
             return null;
         }
         return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");

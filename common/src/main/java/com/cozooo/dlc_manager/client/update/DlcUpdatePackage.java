@@ -44,9 +44,15 @@ public class DlcUpdatePackage {
 
     private static ManifestInfo readManifest(Path zipPath) {
         try (ZipFile zipFile = new ZipFile(zipPath.toFile())) {
-            ZipEntry entry = zipFile.getEntry("update.json");
+            ZipEntry entry = zipFile.getEntry("update.json5");
             if (entry == null) {
-                entry = zipFile.getEntry("./update.json");
+                entry = zipFile.getEntry("./update.json5");
+            }
+            if (entry == null) {
+                entry = zipFile.getEntry("update.json");
+                if (entry == null) {
+                    entry = zipFile.getEntry("./update.json");
+                }
             }
             if (entry == null) {
                 for (var e = zipFile.entries(); e.hasMoreElements();) {
@@ -55,7 +61,7 @@ public class DlcUpdatePackage {
                         continue;
                     }
                     String name = candidate.getName().toLowerCase(Locale.ROOT);
-                    if (name.endsWith("update.json")) {
+                    if (name.endsWith("update.json5") || name.endsWith("update.json")) {
                         entry = candidate;
                         break;
                     }
