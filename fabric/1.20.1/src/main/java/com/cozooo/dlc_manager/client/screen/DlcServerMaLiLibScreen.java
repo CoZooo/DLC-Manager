@@ -70,6 +70,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     private boolean applying;
     private int remoteMissingCount;
     private int requiredMissingCount;
+    private boolean hasRequiredEntries;
     private boolean promptedRemoteDownload;
 
     public DlcServerMaLiLibScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info) {
@@ -132,6 +133,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         baseline.clear();
         remoteMissingCount = info != null ? info.remoteMissing : 0;
         requiredMissingCount = info != null ? info.requiredMissing : 0;
+        hasRequiredEntries = info != null && info.hasRequired;
         serverBaseVersion = info != null && info.baseVersion != null ? info.baseVersion : "";
         serverDlcVersion = info != null && info.dlcVersion != null ? info.dlcVersion : "";
         if (info != null && info.items != null) {
@@ -234,6 +236,11 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         int requiredWidth = Math.max(60, StringUtils.getStringWidth(requiredLabel) + 12);
         requiredButton = new ButtonGeneric(8, 2, requiredWidth, h, requiredLabel);
         addButton(requiredButton, new SimpleButtonListener(this::openRequiredManager));
+        if (!shouldShowRequiredButton()) {
+            requiredButton.setEnabled(false);
+            requiredButton.setX(-9999);
+            requiredButton.setY(-9999);
+        }
         if (remoteMissingCount > 0) {
             String missingLabel = StringUtils.translate("dlc_manager.server.remote_missing_button");
             int missingWidth = Math.max(60, StringUtils.getStringWidth(missingLabel) + 12);
@@ -1067,20 +1074,34 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             int titleWidth = Minecraft.getInstance().font.width(title);
             guiGraphics.drawString(Minecraft.getInstance().font, version, titleX + titleWidth + 6, titleY, 0xC8C8C8, false);
         }
+        int textWidth = Minecraft.getInstance().font.width(title)
+            + (version.isBlank() ? 0 : 6 + Minecraft.getInstance().font.width(version));
+        int nextX = titleX + textWidth + 8;
+        boolean showRequired = shouldShowRequiredButton();
         if (requiredButton != null) {
-            int textWidth = Minecraft.getInstance().font.width(title)
-                + (version.isBlank() ? 0 : 6 + Minecraft.getInstance().font.width(version));
-            int nextX = titleX + textWidth + 8;
-            int maxX = this.width - 10 - requiredButton.getWidth() - (missingButton != null ? (missingButton.getWidth() + 6) : 0);
-            requiredButton.setX(Math.min(nextX, Math.max(titleX, maxX)));
-            requiredButton.setY(2);
-            if (missingButton != null) {
-                int missX = requiredButton.getX() + requiredButton.getWidth() + 6;
-                int missMax = this.width - 10 - missingButton.getWidth();
-                missingButton.setX(Math.min(missX, Math.max(titleX, missMax)));
-                missingButton.setY(2);
+            if (!showRequired) {
+                requiredButton.setEnabled(false);
+                requiredButton.setX(-9999);
+                requiredButton.setY(-9999);
+            } else {
+                requiredButton.setEnabled(true);
+                int maxX = this.width - 10 - requiredButton.getWidth() - (missingButton != null ? (missingButton.getWidth() + 6) : 0);
+                requiredButton.setX(Math.min(nextX, Math.max(titleX, maxX)));
+                requiredButton.setY(2);
             }
         }
+        if (missingButton != null) {
+            int baseX = (showRequired && requiredButton != null)
+                ? requiredButton.getX() + requiredButton.getWidth() + 6
+                : nextX;
+            int missMax = this.width - 10 - missingButton.getWidth();
+            missingButton.setX(Math.min(baseX, Math.max(titleX, missMax)));
+            missingButton.setY(2);
+        }
+    }
+
+    private boolean shouldShowRequiredButton() {
+        return hasRequiredEntries || requiredMissingCount > 0;
     }
 
     private String getFilterLabel(DlcType type) {

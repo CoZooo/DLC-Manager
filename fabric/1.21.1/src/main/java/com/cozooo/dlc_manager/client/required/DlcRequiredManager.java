@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.Json5Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -511,7 +512,7 @@ public final class DlcRequiredManager {
         try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
             for (Path path : stream) {
                 String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (!name.endsWith(".json") && !name.endsWith(".part")) {
+                if (!Json5Util.isJsonLikeName(name) && !name.endsWith(".part")) {
                     return name;
                 }
             }
@@ -536,8 +537,8 @@ public final class DlcRequiredManager {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try (java.io.Reader reader = Files.newBufferedReader(config)) {
-            com.google.gson.JsonObject obj = GSON.fromJson(reader, com.google.gson.JsonObject.class);
+        try {
+            com.google.gson.JsonObject obj = Json5Util.readObject(config);
             if (obj == null) {
                 return;
             }
@@ -563,8 +564,8 @@ public final class DlcRequiredManager {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try (java.io.Reader reader = Files.newBufferedReader(config)) {
-            com.google.gson.JsonObject obj = GSON.fromJson(reader, com.google.gson.JsonObject.class);
+        try {
+            com.google.gson.JsonObject obj = Json5Util.readObject(config);
             if (obj == null) {
                 return;
             }
@@ -586,8 +587,8 @@ public final class DlcRequiredManager {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try (java.io.Reader reader = Files.newBufferedReader(config)) {
-            com.google.gson.JsonObject obj = GSON.fromJson(reader, com.google.gson.JsonObject.class);
+        try {
+            com.google.gson.JsonObject obj = Json5Util.readObject(config);
             if (obj == null) {
                 return;
             }
@@ -725,7 +726,7 @@ public final class DlcRequiredManager {
         if (trimmed.isEmpty()) {
             return null;
         }
-        if (trimmed.toLowerCase(java.util.Locale.ROOT).endsWith(".json")) {
+        if (Json5Util.isJsonLikeName(trimmed)) {
             return null;
         }
         return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");

@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.stream.JsonReader;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.Json5Util;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -34,12 +35,20 @@ public final class DlcRequiredLoader {
         if (!Files.exists(requiredDir)) {
             return entries;
         }
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(requiredDir, "*.json")) {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(requiredDir)) {
             for (Path path : stream) {
-                if (path.getFileName() != null && "notice.json".equalsIgnoreCase(path.getFileName().toString())) {
+                if (path.getFileName() == null) {
                     continue;
                 }
-                DlcRequiredEntry entry = readEntry(path, requiredDir);
+                String fileName = path.getFileName().toString();
+                if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                    continue;
+                }
+                if ("notice.json".equalsIgnoreCase(fileName) || "notice.json5".equalsIgnoreCase(fileName)) {
+                    continue;
+                }
+                Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
+                DlcRequiredEntry entry = readEntry(migrated, requiredDir);
                 if (entry != null && entry.isInList()) {
                     entries.add(entry);
                 }
@@ -59,9 +68,19 @@ public final class DlcRequiredLoader {
             return null;
         }
         if (!Files.exists(configPath)) {
-            return null;
+            if (configPath.getFileName() != null && configPath.getFileName().toString().toLowerCase().endsWith(Json5Util.JSON_EXTENSION)) {
+                Path alt = Json5Util.toJson5Path(configPath);
+                if (alt != null && Files.exists(alt)) {
+                    configPath = alt;
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
         }
-        return readEntry(configPath, requiredDir);
+        Path migrated = Json5Util.migrateLegacy(configPath, PRETTY_GSON);
+        return readEntry(migrated, requiredDir);
     }
 
     private static DlcRequiredEntry readEntry(Path path, Path requiredDir) {
@@ -80,7 +99,8 @@ public final class DlcRequiredLoader {
         if (normalized == null) {
             return null;
         }
-        try (Writer writer = Files.newBufferedWriter(path)) {
+        Path outPath = Json5Util.toJson5Path(path);
+        try (Writer writer = Files.newBufferedWriter(outPath)) {
             PRETTY_GSON.toJson(normalized.ordered, writer);
         } catch (IOException ignored) {
             // Best-effort.

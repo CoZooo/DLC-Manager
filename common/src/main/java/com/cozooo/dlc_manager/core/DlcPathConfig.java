@@ -5,9 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,13 +17,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import com.cozooo.dlc_manager.core.Json5Util;
+
 public class DlcPathConfig {
     public static final String MOD_ID = "dlc_manager";
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String CONFIG_DIR = "dlc_manager";
-    private static final String CONFIG_NAME = "config.json";
-    private static final String CONFIG_SERVER_NAME = "config-server.json";
+    private static final String CONFIG_NAME = "config";
+    private static final String CONFIG_SERVER_NAME = "config-server";
 
     public static final String DEFAULT_DLC_ROOT = "DLC";
     public static final String DEFAULT_TACZ_DLC_ROOT = "tacz";
@@ -512,7 +512,8 @@ public class DlcPathConfig {
     private static void loadClientFromDisk() {
         resetDefaults();
         Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME);
+        Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
+        jsonPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(jsonPath)) {
             loadFromJson(jsonPath);
         }
@@ -521,14 +522,15 @@ public class DlcPathConfig {
     private static void loadServerFromDisk() {
         resetDefaults();
         Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME);
+        Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
+        serverPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(serverPath)) {
             loadFromServerJson(serverPath);
         }
     }
 
     private static void loadFromJson(Path jsonPath) {
-        JsonObject root = readJsonObject(jsonPath);
+        JsonObject root = Json5Util.readObject(jsonPath);
         if (root == null) {
             return;
         }
@@ -538,7 +540,7 @@ public class DlcPathConfig {
     }
 
     private static void loadFromServerJson(Path jsonPath) {
-        JsonObject root = readJsonObject(jsonPath);
+        JsonObject root = Json5Util.readObject(jsonPath);
         if (root == null) {
             return;
         }
@@ -548,21 +550,10 @@ public class DlcPathConfig {
         readSection(root, "downloads", buildDownloadReaders());
     }
 
-    private static JsonObject readJsonObject(Path path) {
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonElement element = JsonParser.parseReader(reader);
-            if (element != null && element.isJsonObject()) {
-                return element.getAsJsonObject();
-            }
-        } catch (IOException ignored) {
-            // Best-effort.
-        }
-        return null;
-    }
-
     private static void ensureClientConfigFile() {
         Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME);
+        Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
+        Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(jsonPath)) {
             return;
         }
@@ -571,7 +562,8 @@ public class DlcPathConfig {
 
     private static void ensureServerConfigFile() {
         Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME);
+        Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
+        Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(serverPath)) {
             return;
         }
@@ -580,7 +572,7 @@ public class DlcPathConfig {
 
     private static void saveClientToDisk() {
         Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME);
+        Path jsonPath = configDir.resolve(CONFIG_NAME + Json5Util.JSON5_EXTENSION);
         try {
             Files.createDirectories(configDir);
         } catch (IOException ignored) {
@@ -595,7 +587,7 @@ public class DlcPathConfig {
 
     private static void saveServerToDisk() {
         Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
-        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME);
+        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON5_EXTENSION);
         try {
             Files.createDirectories(configDir);
         } catch (IOException ignored) {

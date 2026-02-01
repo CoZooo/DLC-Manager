@@ -4,16 +4,14 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.stream.JsonReader;
-
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.cozooo.dlc_manager.core.Json5Util;
 
 public class DlcNoticeConfig {
     public enum ShowFrequency {
@@ -103,30 +101,23 @@ public class DlcNoticeConfig {
             return config;
         }
         config.exists = true;
-        try (Reader reader = Files.newBufferedReader(config.path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            JsonObject obj = GSON.fromJson(jsonReader, JsonObject.class);
-            if (obj == null) {
-                config.noticeEnabled = false;
-                return config;
-            }
-            config.noticeEnabled = getBoolean(obj, "isNoticeEnabled", true);
-            config.neverShow = getBoolean(obj, "neverShow", false);
-            config.showFrequency = ShowFrequency.fromString(getString(obj, "ShowFrequency"));
-            config.title.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Title")));
-            JsonObject subheadObj = JsonCaseUtil.getObjectIgnoreCase(obj, "Subhead");
-            if (subheadObj != null) {
-                config.subhead.enabled = getBoolean(subheadObj, "enabled", true);
-                config.subhead.text.values.putAll(readLocalized(subheadObj));
-            }
-            config.contents.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Contents")));
-            config.ensureDefaults();
-            return config;
-        } catch (IOException | JsonSyntaxException ignored) {
+        JsonObject obj = Json5Util.readObject(config.path);
+        if (obj == null) {
             config.noticeEnabled = false;
             return config;
         }
+        config.noticeEnabled = getBoolean(obj, "isNoticeEnabled", true);
+        config.neverShow = getBoolean(obj, "neverShow", false);
+        config.showFrequency = ShowFrequency.fromString(getString(obj, "ShowFrequency"));
+        config.title.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Title")));
+        JsonObject subheadObj = JsonCaseUtil.getObjectIgnoreCase(obj, "Subhead");
+        if (subheadObj != null) {
+            config.subhead.enabled = getBoolean(subheadObj, "enabled", true);
+            config.subhead.text.values.putAll(readLocalized(subheadObj));
+        }
+        config.contents.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Contents")));
+        config.ensureDefaults();
+        return config;
     }
 
     public void save() {
@@ -187,7 +178,9 @@ public class DlcNoticeConfig {
         if (root == null) {
             return null;
         }
-        return root.resolve("info").resolve("notice.json");
+        Path infoDir = root.resolve("info");
+        Json5Util.migrateLegacy(infoDir.resolve("notice.json"), GSON);
+        return Json5Util.resolveConfigPath(infoDir, "notice");
     }
 
     private static void ensureNoticeFiles() {
@@ -195,7 +188,9 @@ public class DlcNoticeConfig {
         if (root == null || !Files.exists(root)) {
             return;
         }
-        Path noticePath = root.resolve("info").resolve("notice.json");
+        Path infoDir = root.resolve("info");
+        Json5Util.migrateLegacy(infoDir.resolve("notice.json"), GSON);
+        Path noticePath = Json5Util.resolveConfigPath(infoDir, "notice");
         if (Files.exists(noticePath)) {
             return;
         }

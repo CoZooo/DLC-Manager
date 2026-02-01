@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -138,8 +139,8 @@ public final class DlcSelfUpdateService {
             return false;
         }
         JsonObject obj;
-        try (var reader = Files.newBufferedReader(marker)) {
-            obj = GSON.fromJson(reader, JsonObject.class);
+        try {
+            obj = Json5Util.readObject(marker);
         } catch (Exception ex) {
             return false;
         }
@@ -252,8 +253,9 @@ public final class DlcSelfUpdateService {
         if (path == null || !Files.exists(path)) {
             return null;
         }
-        try (var reader = Files.newBufferedReader(path)) {
-            SelfUpdateHistory history = GSON.fromJson(reader, SelfUpdateHistory.class);
+        try {
+            com.google.gson.JsonElement element = Json5Util.readElement(path);
+            SelfUpdateHistory history = element == null ? null : GSON.fromJson(element, SelfUpdateHistory.class);
             if (history != null && history.backupFile != null && !history.backupFile.isBlank()) {
                 Path dlcRoot = DlcPaths.dlcRoot();
                 if (dlcRoot != null && !Path.of(history.backupFile).isAbsolute()) {
@@ -331,7 +333,9 @@ public final class DlcSelfUpdateService {
         if (dlcRoot == null) {
             return null;
         }
-        return dlcRoot.resolve("update_tmp").resolve("selfupdate").resolve("self_update_history.json");
+        Path dir = dlcRoot.resolve("update_tmp").resolve("selfupdate");
+        Json5Util.migrateLegacy(dir.resolve("self_update_history.json"), GSON);
+        return dir.resolve("self_update_history" + Json5Util.JSON5_EXTENSION);
     }
 
     private static void clearPendingMarker() {
@@ -368,7 +372,9 @@ public final class DlcSelfUpdateService {
         if (configDir == null) {
             return null;
         }
-        return configDir.resolve("dlc_manager").resolve("self_update.json");
+        Path dir = configDir.resolve("dlc_manager");
+        Json5Util.migrateLegacy(dir.resolve("self_update.json"), GSON);
+        return dir.resolve("self_update" + Json5Util.JSON5_EXTENSION);
     }
 
     private static void downloadToFile(String url, Path target) throws IOException {

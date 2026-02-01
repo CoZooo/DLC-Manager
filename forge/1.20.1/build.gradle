@@ -60,6 +60,13 @@ dependencies {
     minecraft "net.minecraftforge:forge:${forgeMcVersion}-${forgeVersion}"
     implementation project(':common')
     implementation fg.deobf("curse.maven:mafglib-910766:${project.findProperty('mafglib_curse_file')}")
+    jarJar("de.marhali:json5-java:[3.0.0,)")
+    jarJar("org.commonmark:commonmark:[0.21.0,)")
+    jarJar("org.commonmark:commonmark-ext-gfm-strikethrough:[0.21.0,)")
+}
+
+jarJar {
+    enable()
 }
 
 tasks.named('processResources', ProcessResources).configure {
@@ -93,9 +100,9 @@ tasks.named('processResources', ProcessResources).configure {
 }
 
 def loaderName = project.findProperty("loader_name") ?: "forge"
+def jarBaseName = "DLC-Manager-${loaderName}-${forgeMcVersion}-${mod_version}.jar"
 
 jar {
-    archiveFileName.set("DLC-Manager-${loaderName}-${forgeMcVersion}-${mod_version}.jar")
     manifest {
         attributes([
             'Specification-Title'     : mod_name,
@@ -108,12 +115,19 @@ jar {
     }
 }
 
+tasks.named('jarJar').configure {
+    archiveFileName.set(jarBaseName)
+}
+
+tasks.named('build').configure {
+    dependsOn tasks.named('jarJar')
+}
 
 publishing {
     publications {
         mavenJava(MavenPublication) {
             artifactId = "forge-${forgeMcVersion}"
-            artifact jar
+            artifact tasks.named('jarJar')
         }
     }
     repositories {

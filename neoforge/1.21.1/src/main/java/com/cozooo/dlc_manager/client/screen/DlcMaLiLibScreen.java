@@ -8,9 +8,12 @@ import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
@@ -170,6 +173,15 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         return DlcPathConfig.isServerSupportOn();
     }
 
+    private boolean hasRequiredEntries() {
+        for (Path dlcRoot : DlcPathConfig.getDlcRoots()) {
+            if (!DlcRequiredLoader.load(dlcRoot).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean isOverButton(ButtonGeneric button, double mouseX, double mouseY) {
         if (button == null) {
             return false;
@@ -268,6 +280,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private void addRequiredButton() {
+        if (!hasRequiredEntries()) {
+            requiredButton = null;
+            return;
+        }
         String label = StringUtils.translate("dlc_manager.required.manage_button");
         int buttonWidth = Math.max(50, this.textRenderer.width(label) + 8);
         int buttonHeight = 12;
@@ -448,6 +464,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             DlcPresetRuntimeState.clearAll();
         }
 
+        if (activeFilter == null) {
+            appendRedirectRows();
+        }
+
         Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
         for (DlcType type : DlcType.values()) {
             if (type == DlcType.TACZ_PACK && !hasTaczMod) {
@@ -506,6 +526,27 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         DlcPresetRuntimeState.applyOverridesToRuntime();
         hasModChanges = computeModReloadChanges();
         updateHeaderButtonsState();
+    }
+
+    private void appendRedirectRows() {
+        List<DlcRedirectEntry> redirectEntries = new ArrayList<>();
+        for (Path dlcRoot : DlcPathConfig.getDlcRoots()) {
+            redirectEntries.addAll(DlcRedirectLoader.load(dlcRoot));
+        }
+        if (redirectEntries.isEmpty()) {
+            return;
+        }
+        String lang = Minecraft.getInstance().options.languageCode;
+        List<DlcRedirectEntry> visible = redirectEntries.stream()
+            .filter(entry -> entry != null && !entry.isHidden() && entry.isAvailableFor(lang))
+            .toList();
+        if (visible.isEmpty()) {
+            return;
+        }
+        rows.add(DlcListRow.redirectHeader(StringUtils.translate("dlc_manager.redirect.header")));
+        for (DlcRedirectEntry entry : visible) {
+            rows.add(DlcListRow.redirectItem(entry));
+        }
     }
 
     private Map<String, List<DlcItem>> groupByRelativeFolder(List<DlcItem> items) {

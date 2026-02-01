@@ -2,11 +2,11 @@ package com.cozooo.dlc_manager.client.required;
 
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 
-import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -33,21 +33,19 @@ public final class DlcRequiredNotice {
         if (dlcRoot == null) {
             return new DlcRequiredNotice(download, manage);
         }
-        Path noticePath = dlcRoot.resolve("required").resolve("notice.json");
+        Path requiredDir = dlcRoot.resolve("required");
+        Json5Util.migrateLegacy(requiredDir.resolve("notice.json"), GSON);
+        Path noticePath = Json5Util.resolveConfigPath(requiredDir, "notice");
         ensureNoticeFile(noticePath);
         if (!Files.exists(noticePath)) {
             return new DlcRequiredNotice(download, manage);
         }
-        try (Reader reader = Files.newBufferedReader(noticePath)) {
-            JsonObject obj = GSON.fromJson(reader, JsonObject.class);
-            if (obj == null) {
-                return new DlcRequiredNotice(download, manage);
-            }
-            readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "download_desc"), download);
-            readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "manage_desc"), manage);
-        } catch (Exception ignored) {
-            // Best-effort.
+        JsonObject obj = Json5Util.readObject(noticePath);
+        if (obj == null) {
+            return new DlcRequiredNotice(download, manage);
         }
+        readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "download_desc"), download);
+        readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "manage_desc"), manage);
         return new DlcRequiredNotice(download, manage);
     }
 

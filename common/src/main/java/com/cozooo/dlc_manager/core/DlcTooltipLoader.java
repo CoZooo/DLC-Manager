@@ -4,11 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.stream.JsonReader;
+import com.cozooo.dlc_manager.core.Json5Util;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -35,14 +33,16 @@ public class DlcTooltipLoader {
             return result;
         }
         try (var stream = Files.list(infoDir)) {
-            stream.filter(path -> path.getFileName().toString().endsWith(".json"))
+            stream.filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> !Json5Util.shouldSkipLegacy(path))
                 .forEach(path -> {
-            TooltipEntry entry = readEntry(path);
-            if (entry != null && entry.dlcName != null) {
-                TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField,
-                    entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.fileNames);
-                result.put(entry.dlcName, data);
-            }
+                    Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
+                    TooltipEntry entry = readEntry(migrated);
+                    if (entry != null && entry.dlcName != null) {
+                        TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField,
+                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.fileNames);
+                        result.put(entry.dlcName, data);
+                    }
                 });
         } catch (IOException ignored) {
             // Best-effort.
@@ -59,11 +59,13 @@ public class DlcTooltipLoader {
         } catch (IOException ignored) {
             return;
         }
-        Path path = infoDir.resolve(dlcName + ".json");
-        if (Files.exists(path)) {
+        Json5Util.migrateLegacy(infoDir.resolve(dlcName + Json5Util.JSON_EXTENSION), PRETTY_GSON);
+        Path path = Json5Util.resolveConfigPath(infoDir, dlcName);
+        if (path != null && Files.exists(path)) {
             updateTooltipFile(path, dlcName, type, updateExistingType);
             return;
         }
+        path = infoDir.resolve(dlcName + Json5Util.JSON5_EXTENSION);
         JsonObject obj = buildOrderedTooltipObject(
             null,
             dlcName,
@@ -85,14 +87,7 @@ public class DlcTooltipLoader {
     }
 
     private void updateTooltipFile(Path path, String dlcName, DlcType type, boolean updateExistingType) {
-        JsonObject obj;
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            obj = GSON.fromJson(jsonReader, JsonObject.class);
-        } catch (IOException | JsonSyntaxException ignored) {
-            return;
-        }
+        JsonObject obj = Json5Util.readObject(path);
         if (obj == null) {
             return;
         }
@@ -134,63 +129,57 @@ public class DlcTooltipLoader {
     }
 
     private TooltipEntry readEntry(Path path) {
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            JsonObject obj = GSON.fromJson(jsonReader, JsonObject.class);
-            if (obj == null) {
-                return null;
-            }
-            TooltipEntry entry = new TooltipEntry();
-            entry.dlcName = getString(obj, "dlc_name");
-            entry.dlcIdentifier = getString(obj, "dlc_identifier");
-            if (entry.dlcIdentifier == null || entry.dlcIdentifier.isBlank()) {
-                entry.dlcIdentifier = entry.dlcName;
-            }
-            entry.hasTypeField = JsonCaseUtil.hasIgnoreCase(obj, "type");
-            boolean legacyShown = getBoolean(obj, "isShownInList", true);
-            entry.inList = getBoolean(obj, "isInList", legacyShown);
-            entry.hidden = getBoolean(obj, "isHidden", false);
-            entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
-            entry.dependencies = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "dependencies"));
-            entry.conflicts = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
-            entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileNames"));
-            if (entry.fileNames.isEmpty()) {
-                entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileName"));
-            }
-            if (entry.fileNames.isEmpty()) {
-                entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "files"));
-            }
-            entry.displayName = readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
-            if (entry.displayName.isEmpty() && entry.dlcName != null) {
-                entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName));
-            }
-            entry.appliedTargetRaw = getString(obj, "appliedTarget");
-            String type = getString(obj, "type");
-            if (type != null) {
-                DlcType parsed = parseTypeString(type);
-                if (parsed != null) {
-                    entry.type = parsed;
-                    entry.typeValid = true;
-                }
-            }
-            JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
-            if (tipObj != null) {
-                Map<String, String> tips = new HashMap<>();
-                for (Map.Entry<String, JsonElement> e : tipObj.entrySet()) {
-                    if (e.getValue().isJsonPrimitive()) {
-                        String key = JsonCaseUtil.normalizeLangKey(e.getKey());
-                        if (key != null) {
-                            tips.put(key, e.getValue().getAsString());
-                        }
-                    }
-                }
-                entry.tip = tips;
-            }
-            return entry;
-        } catch (IOException | JsonSyntaxException ignored) {
+        JsonObject obj = Json5Util.readObject(path);
+        if (obj == null) {
             return null;
         }
+        TooltipEntry entry = new TooltipEntry();
+        entry.dlcName = getString(obj, "dlc_name");
+        entry.dlcIdentifier = getString(obj, "dlc_identifier");
+        if (entry.dlcIdentifier == null || entry.dlcIdentifier.isBlank()) {
+            entry.dlcIdentifier = entry.dlcName;
+        }
+        entry.hasTypeField = JsonCaseUtil.hasIgnoreCase(obj, "type");
+        boolean legacyShown = getBoolean(obj, "isShownInList", true);
+        entry.inList = getBoolean(obj, "isInList", legacyShown);
+        entry.hidden = getBoolean(obj, "isHidden", false);
+        entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
+        entry.dependencies = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "dependencies"));
+        entry.conflicts = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
+        entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileNames"));
+        if (entry.fileNames.isEmpty()) {
+            entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileName"));
+        }
+        if (entry.fileNames.isEmpty()) {
+            entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "files"));
+        }
+        entry.displayName = readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
+        if (entry.displayName.isEmpty() && entry.dlcName != null) {
+            entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName));
+        }
+        entry.appliedTargetRaw = getString(obj, "appliedTarget");
+        String type = getString(obj, "type");
+        if (type != null) {
+            DlcType parsed = parseTypeString(type);
+            if (parsed != null) {
+                entry.type = parsed;
+                entry.typeValid = true;
+            }
+        }
+        JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
+        if (tipObj != null) {
+            Map<String, String> tips = new HashMap<>();
+            for (Map.Entry<String, JsonElement> e : tipObj.entrySet()) {
+                if (e.getValue().isJsonPrimitive()) {
+                    String key = JsonCaseUtil.normalizeLangKey(e.getKey());
+                    if (key != null) {
+                        tips.put(key, e.getValue().getAsString());
+                    }
+                }
+            }
+            entry.tip = tips;
+        }
+        return entry;
     }
 
     private String getString(JsonObject obj, String key) {

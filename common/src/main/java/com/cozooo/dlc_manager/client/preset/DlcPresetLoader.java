@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.preset;
 
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -47,9 +48,11 @@ public final class DlcPresetLoader {
                 continue;
             }
             try (var stream = Files.walk(presetRoot)) {
-                stream.filter(path -> path.getFileName().toString().endsWith(".json"))
+                stream.filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                    .filter(path -> !Json5Util.shouldSkipLegacy(path))
                     .forEach(path -> {
-                        DlcPresetEntry entry = readEntry(path, presetRoot);
+                        Path migrated = Json5Util.migrateLegacy(path, GSON);
+                        DlcPresetEntry entry = readEntry(migrated, presetRoot);
                         if (entry != null) {
                             entries.add(entry);
                         }
@@ -161,12 +164,6 @@ public final class DlcPresetLoader {
     }
 
     private static String stripExtension(String name) {
-        if (name == null) {
-            return "";
-        }
-        if (name.toLowerCase().endsWith(".json")) {
-            return name.substring(0, name.length() - 5);
-        }
-        return name;
+        return Json5Util.stripJsonExtension(name);
     }
 }

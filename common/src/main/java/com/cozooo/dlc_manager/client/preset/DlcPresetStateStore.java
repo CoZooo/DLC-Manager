@@ -2,30 +2,28 @@ package com.cozooo.dlc_manager.client.preset;
 
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.stream.JsonReader;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 public final class DlcPresetStateStore {
-    private static final Gson GSON = new GsonBuilder().create();
     private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-    private static final String STATE_FILE_NAME = "state.json";
+    private static final String STATE_FILE_NAME = "state.json5";
 
     private DlcPresetStateStore() {
     }
 
     public static Path getStatePath() {
         Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        Json5Util.migrateLegacy(configDir.resolve("state.json"), PRETTY_GSON);
         return configDir.resolve(STATE_FILE_NAME);
     }
 
@@ -35,14 +33,7 @@ public final class DlcPresetStateStore {
         if (path == null || !Files.exists(path)) {
             return result;
         }
-        JsonObject root;
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            root = GSON.fromJson(jsonReader, JsonObject.class);
-        } catch (IOException | JsonSyntaxException ignored) {
-            return result;
-        }
+        JsonObject root = Json5Util.readObject(path);
         if (root == null) {
             return result;
         }
@@ -78,14 +69,7 @@ public final class DlcPresetStateStore {
         } catch (IOException ignored) {
             return;
         }
-        JsonObject root;
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            root = GSON.fromJson(jsonReader, JsonObject.class);
-        } catch (IOException | JsonSyntaxException ignored) {
-            root = new JsonObject();
-        }
+        JsonObject root = Json5Util.readObject(path);
         if (root == null) {
             root = new JsonObject();
         }

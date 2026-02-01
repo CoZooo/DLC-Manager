@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
@@ -25,10 +26,12 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private static final int COLOR_PATH = 0xFF9AA7B1;
     private static final int COLOR_ITEM = 0xFFE6E6E6;
     private static final int COLOR_ENABLED = 0xFF7AC37A;
+    private static final int COLOR_REDIRECT = 0xFFBFD7FF;
 
     private final DlcListRow row;
     private ButtonGeneric toggleButton;
     private ButtonGeneric groupToggleButton;
+    private ButtonGeneric redirectButton;
     private int groupToggleWidth;
     private int groupToggleHeight;
 
@@ -37,6 +40,8 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         this.row = row;
         if (row.getType() == DlcListRow.RowType.ITEM) {
             createToggleButton(width, height, row.getItem());
+        } else if (row.getType() == DlcListRow.RowType.REDIRECT_ITEM) {
+            createRedirectButton(width, height, row.getRedirectEntry());
         } else if (row.getType() == DlcListRow.RowType.PATH_HEADER && !row.isRootPath()) {
             createGroupToggleButton(width, height, row.getItems());
         }
@@ -63,11 +68,26 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         addButton(groupToggleButton, new GroupToggleListener(items));
     }
 
+    private void createRedirectButton(int width, int height, DlcRedirectEntry entry) {
+        if (entry == null) {
+            return;
+        }
+        int buttonWidth = 64;
+        int buttonHeight = 18;
+        int bx = this.x + width - buttonWidth - 6;
+        int by = this.y + (height - buttonHeight) / 2;
+        redirectButton = new ButtonGeneric(bx, by, buttonWidth, buttonHeight,
+            Component.translatable("dlc_manager.redirect.open").getString());
+        addButton(redirectButton, new RedirectListener(entry));
+    }
+
     @Override
     public void render(int mouseX, int mouseY, boolean hovered, GuiGraphics guiGraphics) {
         if (row.getType() == DlcListRow.RowType.GROUP_HEADER) {
             String label = Component.translatable(row.getGroupType().getDisplayKey()).getString();
             drawStringWithShadow(this.x + 6, this.y + 4, COLOR_GROUP, label, guiGraphics);
+        } else if (row.getType() == DlcListRow.RowType.REDIRECT_HEADER) {
+            drawStringWithShadow(this.x + 6, this.y + 4, COLOR_REDIRECT, row.getLabel(), guiGraphics);
         } else if (row.getType() == DlcListRow.RowType.PATH_HEADER) {
             drawString(this.x + 10, this.y + 4, COLOR_PATH, row.getLabel(), guiGraphics);
             if (groupToggleButton != null) {
@@ -88,6 +108,17 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                     groupToggleButton.setWidth(0);
                     groupToggleButton.setX(-10000);
                 }
+            }
+        } else if (row.getType() == DlcListRow.RowType.REDIRECT_ITEM) {
+            DlcRedirectEntry entry = row.getRedirectEntry();
+            String lang = Minecraft.getInstance().options.languageCode;
+            String label = entry == null ? "" : entry.resolveDisplayName(lang);
+            drawString(this.x + 10, this.y + 4, COLOR_ITEM, label, guiGraphics);
+            if (redirectButton != null) {
+                int bx = this.x + this.width - redirectButton.getWidth() - 6;
+                int by = this.y + (this.height - redirectButton.getHeight()) / 2;
+                redirectButton.setX(bx);
+                redirectButton.setY(by);
             }
         } else if (row.getType() == DlcListRow.RowType.ITEM) {
             DlcItem item = row.getItem();
@@ -112,19 +143,42 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
         }
         super.render(mouseX, mouseY, hovered, guiGraphics);
-        if (row.getType() == DlcListRow.RowType.ITEM && isMouseWithin(mouseX, mouseY) && !isMouseOverButton(mouseX, mouseY)) {
-            DlcItem item = row.getItem();
-            var font = Minecraft.getInstance().font;
-            int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
-            var lines = buildTooltipLines(font, item, maxWidth);
-            if (!lines.isEmpty()) {
-                DlcTooltipContext.set(lines, mouseX, mouseY);
+        if (isMouseWithin(mouseX, mouseY) && !isMouseOverButton(mouseX, mouseY)) {
+            if (row.getType() == DlcListRow.RowType.ITEM) {
+                DlcItem item = row.getItem();
+                var font = Minecraft.getInstance().font;
+                int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
+                var lines = buildTooltipLines(font, item, maxWidth);
+                if (!lines.isEmpty()) {
+                    DlcTooltipContext.set(lines, mouseX, mouseY);
+                }
+            } else if (row.getType() == DlcListRow.RowType.REDIRECT_ITEM) {
+                DlcRedirectEntry entry = row.getRedirectEntry();
+                String tip = entry == null ? null : entry.resolveTip(Minecraft.getInstance().options.languageCode);
+                if (tip != null && !tip.isBlank()) {
+                    var font = Minecraft.getInstance().font;
+                    int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
+                    java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
+                    for (String line : tip.split("\\R", -1)) {
+                        if (line.isEmpty()) {
+                            lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
+                            continue;
+                        }
+                        lines.addAll(font.split(Component.literal(line), maxWidth));
+                    }
+                    if (!lines.isEmpty()) {
+                        DlcTooltipContext.set(lines, mouseX, mouseY);
+                    }
+                }
             }
         }
     }
 
     private boolean isMouseOverButton(int mouseX, int mouseY) {
         if (toggleButton != null && isMouseOverButton(toggleButton, mouseX, mouseY)) {
+            return true;
+        }
+        if (redirectButton != null && isMouseOverButton(redirectButton, mouseX, mouseY)) {
             return true;
         }
         return groupToggleButton != null && isMouseOverButton(groupToggleButton, mouseX, mouseY);
@@ -142,6 +196,16 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         return item.isEnabled()
             ? Component.translatable("dlc_manager.toggle.on").getString()
             : Component.translatable("dlc_manager.toggle.off").getString();
+    }
+
+    private void openRedirect(DlcRedirectEntry entry) {
+        if (entry == null || entry.getRedirectUrl() == null || entry.getRedirectUrl().isBlank()) {
+            return;
+        }
+        Screen parent = Minecraft.getInstance().screen;
+        String lang = Minecraft.getInstance().options.languageCode;
+        String notice = entry.resolveNotice(lang);
+        Minecraft.getInstance().setScreen(new DlcRedirectConfirmScreen(parent, entry.getRedirectUrl(), notice));
     }
 
     private static GroupToggleState getGroupToggleState(java.util.List<DlcItem> items) {
@@ -321,6 +385,19 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             DlcRuntimeState.setOverride(item.getId(), true);
             updateToggleButtonLabel(button, item);
             item.setDirty(isDirty(item));
+        }
+    }
+
+    private class RedirectListener implements IButtonActionListener {
+        private final DlcRedirectEntry entry;
+
+        private RedirectListener(DlcRedirectEntry entry) {
+            this.entry = entry;
+        }
+
+        @Override
+        public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
+            openRedirect(entry);
         }
     }
 

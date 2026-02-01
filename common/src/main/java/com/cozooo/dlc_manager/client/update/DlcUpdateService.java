@@ -13,6 +13,7 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -141,7 +142,7 @@ public final class DlcUpdateService {
 
     public static UpdateApplyResult applyUpdate(DlcUpdatePackage pkg, DlcUpdateVersion current, boolean forceMissing) {
         if (pkg == null || pkg.getManifest() == null) {
-            return UpdateApplyResult.failed("Missing update.json");
+            return UpdateApplyResult.failed("Missing update.json5");
         }
         DlcUpdateManifest manifest = pkg.getManifest();
         DlcUpdateManifest.VersionInfo info = manifest.getVersion();
@@ -178,7 +179,8 @@ public final class DlcUpdateService {
         meta.setHidden(manifest.isHidden());
         meta.setChangelog(manifest.getChangelog());
         Path backupRoot = dlcRoot.resolve("update_tmp").resolve(info.getDlcNew() == null ? "unknown" : info.getDlcNew());
-        Path metaPath = backupRoot.resolve("meta.json");
+        Json5Util.migrateLegacy(backupRoot.resolve("meta.json"), UPDATE_GSON);
+        Path metaPath = Json5Util.resolveConfigPath(backupRoot, "meta");
 
         UpdateContext context = new UpdateContext(dlcRoot, staging, backupRoot, meta);
 
@@ -295,7 +297,9 @@ public final class DlcUpdateService {
         if (dlcRoot == null || dlcVersion == null || dlcVersion.isBlank()) {
             return null;
         }
-        Path metaPath = dlcRoot.resolve("update_tmp").resolve(dlcVersion).resolve("meta.json");
+        Path metaRoot = dlcRoot.resolve("update_tmp").resolve(dlcVersion);
+        Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
+        Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
         return DlcUpdateMeta.load(metaPath);
     }
 
@@ -1056,9 +1060,16 @@ public final class DlcUpdateService {
         if (requiredDir == null || !Files.isDirectory(requiredDir)) {
             return map;
         }
-        try (var stream = Files.newDirectoryStream(requiredDir, "*.json")) {
+        try (var stream = Files.newDirectoryStream(requiredDir)) {
             for (Path path : stream) {
-                if (path.getFileName() != null && "notice.json".equalsIgnoreCase(path.getFileName().toString())) {
+                if (path.getFileName() == null) {
+                    continue;
+                }
+                String fileName = path.getFileName().toString();
+                if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                    continue;
+                }
+                if ("notice.json".equalsIgnoreCase(fileName) || "notice.json5".equalsIgnoreCase(fileName)) {
                     continue;
                 }
                 DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(path, dlcRoot);
@@ -1782,7 +1793,7 @@ public final class DlcUpdateService {
         }
         try (var stream = Files.newDirectoryStream(requiredDir, base + ".*")) {
             for (Path file : stream) {
-                if (file != null && !file.getFileName().toString().endsWith(".json")) {
+                if (file != null && !Json5Util.isJsonLikeName(file.getFileName().toString())) {
                     return file.getFileName().toString();
                 }
             }
@@ -1815,13 +1826,13 @@ public final class DlcUpdateService {
                 if (isUnderDir(target, requiredRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, true);
-                    } else if (target.getFileName() != null && target.getFileName().toString().endsWith(".json")) {
+                    } else if (target.getFileName() != null && Json5Util.isJsonLikeName(target.getFileName().toString())) {
                         uninstallRequiredConfig(target, dlcRoot, null);
                     }
                 } else if (isUnderDir(target, remoteRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, false);
-                    } else if (target.getFileName() != null && target.getFileName().toString().endsWith(".json")) {
+                    } else if (target.getFileName() != null && Json5Util.isJsonLikeName(target.getFileName().toString())) {
                         uninstallRemoteConfig(target, dlcRoot, null);
                     }
                 }
@@ -1843,7 +1854,7 @@ public final class DlcUpdateService {
             return;
         }
         try (var stream = Files.walk(dir)) {
-            stream.filter(path -> path.getFileName() != null && path.getFileName().toString().endsWith(".json"))
+            stream.filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
                 .forEach(path -> {
                     if (required) {
                         uninstallRequiredConfig(path, dlcRoot, null);
@@ -1863,7 +1874,9 @@ public final class DlcUpdateService {
         List<DlcUpdateMeta> chain = new ArrayList<>();
         String working = currentVersion;
         for (int i = 0; i < 32; i++) {
-            Path metaPath = dlcRoot.resolve("update_tmp").resolve(working).resolve("meta.json");
+            Path metaRoot = dlcRoot.resolve("update_tmp").resolve(working);
+            Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
+            Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
             DlcUpdateMeta meta = DlcUpdateMeta.load(metaPath);
             if (meta == null || meta.getDlcOld() == null || meta.getDlcOld().isBlank()) {
                 break;
@@ -1933,15 +1946,23 @@ public final class DlcUpdateService {
         if (path == null || dlcRoot == null) {
             return false;
         }
-        Path notice = dlcRoot.resolve("info").resolve("notice.json").normalize();
-        return path.normalize().equals(notice);
+        Path infoDir = dlcRoot.resolve("info");
+        Path notice = Json5Util.resolveConfigPath(infoDir, "notice");
+        if (notice == null) {
+            return false;
+        }
+        return path.normalize().equals(notice.normalize());
     }
 
     private static boolean isVersionPath(Path path, Path dlcRoot) {
         if (path == null || dlcRoot == null) {
             return false;
         }
-        return path.normalize().equals(dlcRoot.resolve("info").resolve("version.json").normalize());
+        Path infoDir = dlcRoot.resolve("info");
+        Path json5 = infoDir.resolve("version" + Json5Util.JSON5_EXTENSION).normalize();
+        Path json = infoDir.resolve("version.json").normalize();
+        Path normalized = path.normalize();
+        return normalized.equals(json5) || normalized.equals(json);
     }
 
     private static boolean isRequiredPath(Path target, Path dlcRoot) {
@@ -2344,16 +2365,11 @@ public final class DlcUpdateService {
             if (path == null || !Files.exists(path)) {
                 return null;
             }
-            try (var reader = Files.newBufferedReader(path)) {
-                com.google.gson.JsonObject obj = new com.google.gson.GsonBuilder().setPrettyPrinting().create()
-                    .fromJson(reader, com.google.gson.JsonObject.class);
-                if (obj == null) {
-                    return null;
-                }
-                return new JsonObjectHolder(obj);
-            } catch (IOException ignored) {
+            com.google.gson.JsonObject obj = Json5Util.readObject(path);
+            if (obj == null) {
                 return null;
             }
+            return new JsonObjectHolder(obj);
         }
 
         void save(Path path) {

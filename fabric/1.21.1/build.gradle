@@ -53,6 +53,12 @@ dependencies {
     }
 
     implementation project(':common')
+    modImplementation "de.marhali:json5-java:3.0.0"
+    include "de.marhali:json5-java:3.0.0"
+    modImplementation "org.commonmark:commonmark:0.21.0"
+    include "org.commonmark:commonmark:0.21.0"
+    modImplementation "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
+    include "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
 }
 
 tasks.named('processResources', ProcessResources).configure {
