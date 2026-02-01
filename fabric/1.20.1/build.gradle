@@ -53,6 +53,8 @@ dependencies {
     }
 
     implementation project(':common')
+    modImplementation "de.marhali:json5-java:3.0.0"
+    include "de.marhali:json5-java:3.0.0"
 }
 
 tasks.named('processResources', ProcessResources).configure {
