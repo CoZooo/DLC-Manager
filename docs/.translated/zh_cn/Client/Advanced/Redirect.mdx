@@ -1,0 +1,64 @@
+# Redirect（跳转配置）
+
+本节说明 Redirect 配置的字段、用途、可填写值与展示规则，并提供完整示例。
+
+配置文件格式与通用约定（JSON5）请先阅读：
+- [Getting Started](../Basic/Getting_Started.mdx)
+
+## 目录
+- 目录：`DLC/remote/redirect/`
+- `redirect` 目录不会自动创建，需要手动创建。
+
+## 完整示例
+```json5
+{
+  available: "zh_cn",
+  DisplayName: {
+    zh_cn: "加入官方群",
+    en_us: "Join Discord"
+  },
+  RedirectUrl: "https://example.com/qq-group",
+  notice: {
+    zh_cn: "即将跳转到浏览器打开链接。\n请注意网络安全。",
+    en_us: "You are about to open a browser link.\nPlease stay safe online."
+  },
+  tip: {
+    zh_cn: "点击打开链接",
+    en_us: "Click to open"
+  }
+}
+```
+
+---
+
+## 字段说明
+
+#### `available`
+- **用途**：控制条目可见性。
+- **可填**：
+  - 空`""`： 所有语言可见。
+  - 语言代码（如 `zh_cn` / `en_us`）
+  - `hidden`（隐藏条目）
+- **说明**：目前仅支持单个语言代码，不支持多语言列表。
+
+#### `DisplayName`
+- **用途**：列表中显示的名称。
+- **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
+
+#### `RedirectUrl`
+- **用途**：跳转目标 URL。
+- **可填**：字符串。
+
+#### `notice`
+- **用途**：跳转确认页面的提示文本。
+- **可填**：多语言对象。
+
+#### `tip`
+- **用途**：鼠标提示文本。
+- **可填**：多语言对象。
+
+---
+
+## 行为说明
+- 条目显示在“全部”列表顶部。
+

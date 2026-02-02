@@ -1,0 +1,63 @@
+# Redirect
+
+This section explains Redirect config fields, purposes, allowed values, and display rules, with a complete example.
+
+For JSON5 format and conventions, please read:
+- [Getting Started](../Basic/Getting_Started.mdx)
+
+## Location
+- Directory: `DLC/remote/redirect/`
+- The `redirect` folder is **not** auto-created; create it manually.
+
+## Complete Example
+```json5
+{
+  available: "zh_cn",
+  DisplayName: {
+    zh_cn: "加入官方群",
+    en_us: "Join Discord"
+  },
+  RedirectUrl: "https://example.com/qq-group",
+  notice: {
+    zh_cn: "即将跳转到浏览器打开链接。\n请注意网络安全。",
+    en_us: "You are about to open a browser link.\nPlease stay safe online."
+  },
+  tip: {
+    zh_cn: "点击打开链接",
+    en_us: "Click to open"
+  }
+}
+```
+
+---
+
+## Field Reference
+
+#### `available`
+- **Purpose**: Control visibility.
+- **Allowed**:
+  - Empty `""`: visible for all languages.
+  - Language code (e.g., `zh_cn` / `en_us`).
+  - `hidden` (hide the entry).
+- **Note**: Only a **single** language code is supported; lists are not supported.
+
+#### `DisplayName`
+- **Purpose**: Name shown in the list.
+- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
+
+#### `RedirectUrl`
+- **Purpose**: Target URL.
+- **Allowed**: String.
+
+#### `notice`
+- **Purpose**: Confirmation text shown before redirect.
+- **Allowed**: Localized object.
+
+#### `tip`
+- **Purpose**: Tooltip text.
+- **Allowed**: Localized object.
+
+---
+
+## Behavior
+- Entries are shown at the top of the “All” list.

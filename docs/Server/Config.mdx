@@ -1,0 +1,178 @@
+# Server Config
+
+This section documents **all fields, purposes, allowed values, defaults, and fallback rules** for the server config file `config-server.json5`.
+
+For JSON5 format and conventions, please read:
+- [Getting Started](../Client/Basic/Getting_Started.mdx)
+
+## Location
+- Directory: `config/dlc_manager/`
+- File: `config-server.json5`
+
+> Note: This file is **server-only**. The client does not read local `config-server.json5`.
+
+## Complete Example
+```json5
+{
+  server: {
+    serverSupport: true,
+    serverPort: 29690,
+    serverPassword: "",
+    rconHost: "127.0.0.1",
+    rconPort: 25575,
+    rconPassword: ""
+  },
+  ui: {
+    isEnableAllButtonShown: true,
+    isUpdateManagerOn: true,
+    isSelfUpdateAutoCheckOn: true,
+    isPresetFuncOn: true
+  },
+  paths: {
+    dlcRoot: "DLC",
+    taczRoot: "tacz",
+    resourcepackRoot: "resourcepacks",
+    datapackRoot: "datapacks"
+  },
+  downloads: {
+    maxConcurrentDownloads: 5,
+    maxSegmentsPerFile: 4,
+    minSegmentMB: 20,
+    maxRetryCount: 5,
+    connectTimeoutSeconds: 10,
+    taskTimeoutSeconds: 60
+  }
+}
+```
+
+---
+
+## Field Reference
+
+### `server`
+
+#### `serverSupport`
+- **Purpose**: Enable server-side DLC Manager communication.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `serverPort`
+- **Purpose**: Server DLC Manager communication port.
+- **Allowed**: Integer, range `1~65535`.
+- **Default**: `29690`.
+- **Fallback**: Out-of-range values fall back to default.
+
+#### `serverPassword`
+- **Purpose**: Server DLC Manager password (plain text).
+- **Allowed**: String.
+- **Default**: Empty string (no password).
+
+#### `rconHost`
+- **Purpose**: RCON host (used by the server manager’s RCON features).
+- **Allowed**: String.
+- **Default**: Empty string.
+- **Optional**: If not set, the client connection page can supply it.
+
+#### `rconPort`
+- **Purpose**: RCON port.
+- **Allowed**: Integer, range `1~65535`.
+- **Default**: `25575`.
+- **Fallback**: Out-of-range values fall back to default.
+
+#### `rconPassword`
+- **Purpose**: RCON password (plain text).
+- **Allowed**: String.
+- **Default**: Empty string.
+
+> **Tip**: If `rconHost/rconPort/rconPassword` keep their defaults, the config file may omit them.
+
+---
+
+### `ui` (server manager UI toggles)
+> These options are returned by the server and control what the client-side “Server Manager” UI shows.
+
+#### `isEnableAllButtonShown`
+- **Purpose**: Show “Enable All / Disable All”.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `isUpdateManagerOn`
+- **Purpose**: Enable the server update manager.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `isSelfUpdateAutoCheckOn`
+- **Purpose**: Allow auto-check for DLC Manager updates.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `isPresetFuncOn`
+- **Purpose**: Enable presets.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+---
+
+### `paths`
+> All paths are resolved relative to the **server modpack root**.
+
+#### `dlcRoot`
+- **Purpose**: DLC root directory.
+- **Allowed**: String (relative or absolute).
+- **Default**: `"DLC"`.
+
+#### `taczRoot`
+- **Purpose**: TACZ root directory.
+- **Allowed**: String (relative or absolute).
+- **Default**: `"tacz"`.
+
+#### `resourcepackRoot`
+- **Purpose**: Resource pack directory.
+- **Allowed**: String (relative or absolute).
+- **Default**: `"resourcepacks"`.
+
+#### `datapackRoot`
+- **Purpose**: Data pack directory.
+- **Allowed**: String (relative or absolute).
+- **Default**: `"datapacks"`.
+
+---
+
+### `downloads`
+
+#### `maxConcurrentDownloads`
+- **Purpose**: Maximum concurrent download tasks.
+- **Allowed**: Integer.
+- **Default**: `5`.
+
+#### `maxSegmentsPerFile`
+- **Purpose**: Maximum segments per file.
+- **Allowed**: Integer.
+- **Default**: `4`.
+
+#### `minSegmentMB`
+- **Purpose**: Minimum segment size (MB).
+- **Allowed**: Integer.
+- **Default**: `20`.
+
+#### `maxRetryCount`
+- **Purpose**: Maximum retry count per segment.
+- **Allowed**: Integer.
+- **Default**: `5`.
+
+#### `connectTimeoutSeconds`
+- **Purpose**: Connection timeout (seconds).
+- **Allowed**: Integer.
+- **Default**: `10`.
+
+#### `taskTimeoutSeconds`
+- **Purpose**: Task timeout (seconds).
+- **Allowed**: Integer.
+- **Default**: `60`.
+
+---
+
+## Notes
+- Keys are case-insensitive.
+- Unspecified fields fall back to defaults.
+- After changing `serverPort`, clients must use the same port when connecting to the server manager.

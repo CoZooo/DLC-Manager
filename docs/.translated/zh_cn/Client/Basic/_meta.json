@@ -1,0 +1,18 @@
+{
+  "Getting_Started.mdx": {
+    "name": "开始使用",
+    "icon": null
+  },
+  "Config.mdx": {
+    "name": "客户端配置",
+    "icon": null
+  },
+  "Info.mdx": {
+    "name": "信息文件",
+    "icon": null
+  },
+  "Notice.mdx": {
+    "name": "公告",
+    "icon": null
+  }
+}

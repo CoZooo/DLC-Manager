@@ -169,9 +169,6 @@ public final class DlcRequiredLoader {
         readTips(obj, entry);
         String applied = null;
         applied = getString(obj, "appliedTarget");
-        if (applied == null || applied.isBlank()) {
-            applied = getString(obj, "appliedTaget");
-        }
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
         JsonElement depsElement = JsonCaseUtil.getIgnoreCase(obj, "dependencies");
         if (depsElement != null) {
@@ -388,7 +385,7 @@ public final class DlcRequiredLoader {
                 continue;
             }
             if ("displayName".equalsIgnoreCase(key) || "DisplayName".equalsIgnoreCase(key)
-                || "tip".equalsIgnoreCase(key) || "appliedTaget".equalsIgnoreCase(key)
+                || "tip".equalsIgnoreCase(key)
                 || "userRemoved".equalsIgnoreCase(key)) {
                 continue;
             }

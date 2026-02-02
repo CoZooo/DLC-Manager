@@ -1,0 +1,177 @@
+# Server Config（服务端配置）
+
+本节说明服务端配置文件 `config-server.json5` 的**全部字段、用途、可填写值、默认与回退规则**。
+配置文件格式与通用约定（`JSON5`）请先阅读：
+- [Getting Started](../Basic/Getting_Started.mdx)
+
+## 目录
+- 配置目录：`config/dlc_manager/`
+- 文件名：`config-server.json5`
+
+> 说明：本文件仅用于服务端配置。客户端不会读取本地的 `config-server.json5`。
+
+## 完整示例
+```json5
+{
+  server: {
+    serverSupport: true,
+    serverPort: 29690,
+    serverPassword: "",
+    rconHost: "127.0.0.1",
+    rconPort: 25575,
+    rconPassword: ""
+  },
+  ui: {
+    isEnableAllButtonShown: true,
+    isUpdateManagerOn: true,
+    isSelfUpdateAutoCheckOn: true,
+    isPresetFuncOn: true
+  },
+  paths: {
+    dlcRoot: "DLC",
+    taczRoot: "tacz",
+    resourcepackRoot: "resourcepacks",
+    datapackRoot: "datapacks"
+  },
+  downloads: {
+    maxConcurrentDownloads: 5,
+    maxSegmentsPerFile: 4,
+    minSegmentMB: 20,
+    maxRetryCount: 5,
+    connectTimeoutSeconds: 10,
+    taskTimeoutSeconds: 60
+  }
+}
+```
+
+---
+
+## 字段说明
+
+### `server`（服务端基础）
+
+#### `serverSupport`
+- **用途**：是否启用服务端 DLC 管理通信功能。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `serverPort`
+- **用途**：服务端 DLC 管理器通信端口。
+- **可填**：整数，范围 `1~65535`。
+- **默认**：`29690`。
+- **回退规则**：超出范围会回退到默认值。
+
+#### `serverPassword`
+- **用途**：服务端 DLC 管理器连接密码（明文）。
+- **可填**：字符串。
+- **默认**：空字符串（不设置密码）。
+
+#### `rconHost`
+- **用途**：RCON 连接主机地址（用于服务器管理器的 RCON 功能）。
+- **可填**：字符串。
+- **默认**：空字符串。
+- **可选写法**：未填写时可由客户端连接页手动输入。
+
+#### `rconPort`
+- **用途**：RCON 端口。
+- **可填**：整数，范围 `1~65535`。
+- **默认**：`25575`。
+- **回退规则**：超出范围会回退到默认值。
+
+#### `rconPassword`
+- **用途**：RCON 密码（明文）。
+- **可填**：字符串。
+- **默认**：空字符串。
+
+> **提示**：当 `rconHost/rconPort/rconPassword` 均保持默认值时，配置文件中可能不会写入这些字段。
+
+---
+
+### `ui`（服务端管理器界面开关）
+> 这些选项由服务端返回给客户端，用于控制“服务器管理器”界面的功能显示。
+
+#### `isEnableAllButtonShown`
+- **用途**：是否显示“全部开启/全部关闭”按钮。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `isUpdateManagerOn`
+- **用途**：是否启用“服务器更新管理器”功能。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `isSelfUpdateAutoCheckOn`
+- **用途**：是否允许自动检查 DLC 管理器更新。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `isPresetFuncOn`
+- **用途**：是否启用预设功能。
+- **可填**：布尔。
+- **默认**：`true`。
+
+---
+
+### `paths`（路径）
+> 所有路径均以**服务端整合包根目录**为基准解析。
+
+#### `dlcRoot`
+- **用途**：DLC 根目录。
+- **可填**：字符串（相对/绝对路径）。
+- **默认**：`"DLC"`。
+
+#### `taczRoot`
+- **用途**：TACZ 资源目录。
+- **可填**：字符串（相对/绝对路径）。
+- **默认**：`"tacz"`。
+
+#### `resourcepackRoot`
+- **用途**：资源包目录。
+- **可填**：字符串（相对/绝对路径）。
+- **默认**：`"resourcepacks"`。
+
+#### `datapackRoot`
+- **用途**：数据包目录。
+- **可填**：字符串（相对/绝对路径）。
+- **默认**：`"datapacks"`。
+
+---
+
+### `downloads`（下载与超时）
+
+#### `maxConcurrentDownloads`
+- **用途**：最大并发下载任务数。
+- **可填**：整数。
+- **默认**：`5`。
+
+#### `maxSegmentsPerFile`
+- **用途**：单个文件的最大分段数。
+- **可填**：整数。
+- **默认**：`4`。
+
+#### `minSegmentMB`
+- **用途**：每段下载的最小大小（MB）。
+- **可填**：整数。
+- **默认**：`20`。
+
+#### `maxRetryCount`
+- **用途**：下载重试次数上限。
+- **可填**：整数。
+- **默认**：`5`。
+
+#### `connectTimeoutSeconds`
+- **用途**：连接超时（秒）。
+- **可填**：整数。
+- **默认**：`10`。
+
+#### `taskTimeoutSeconds`
+- **用途**：单个下载任务超时（秒）。
+- **可填**：整数。
+- **默认**：`60`。
+
+---
+
+## 补充说明
+- 配置键名大小写不敏感。
+- 未填写的字段会回退到默认值。
+- 修改 `serverPort` 后，客户端连接服务器管理器时需使用相同端口。

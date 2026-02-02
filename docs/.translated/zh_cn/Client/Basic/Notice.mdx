@@ -1,0 +1,98 @@
+# 公告（notice.json5）
+
+本节说明公告配置的字段、用途、可填写值与渲染行为，并提供完整示例。
+
+配置文件格式与通用约定（JSON5）请先阅读：
+- [Getting Started](./Getting_Started.mdx)
+
+## 目录
+- 目录：`DLC/info/`
+- 文件：`notice.json5`
+
+## 完整示例
+```json5
+{
+  isNoticeEnabled: true,
+  neverShow: false,
+  ShowFrequency: "perlaunchmanager",
+  Title: {
+    zh_cn: "公告",
+    en_us: "Notice"
+  },
+  Subhead: {
+    enabled: true,
+    zh_cn: "请仔细阅读",
+    en_us: "Please read carefully"
+  },
+  Contents: {
+    zh_cn: "# 更新说明\n\n这是正文内容。",
+    en_us: "# Update Notes\n\nThis is the content."
+  }
+}
+```
+
+---
+
+## 字段说明
+
+#### `isNoticeEnabled`
+- **用途**：是否启用公告。
+- **可填**：布尔。
+
+#### `neverShow`
+- **用途**：设为 `true` 可不再显示。
+- **可填**：布尔。
+
+#### `ShowFrequency`
+- **用途**：展示频率（例如 `perlaunchmanager`）。
+- **可填**：字符串。
+  - `perlaunchgame`：每次进入游戏时在主菜单显示（DLC管理器外）。
+  - `pergamesession`：进入游戏打开 DLC 管理器时显示一次（同一次游戏进程仅显示一次）。
+  - `perlaunchmanager`：每次打开 DLC 管理器时显示。
+  - `once`：仅显示一次。
+ - **默认**：`perlaunchmanager`。
+
+#### `Title`
+- **用途**：公告标题（多语言）。
+- **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
+
+#### `Subhead`
+- **用途**：副标题。
+- **可填**：对象，包含：
+  - `enabled`（布尔）
+  - 多语言文本
+
+#### `Contents`
+- **用途**：正文内容。
+- **可填**：多语言字符串。
+- **渲染**：支持 Markdown + MC格式代码（颜色等）。
+
+---
+
+## Markdown 支持范围
+支持：
+- **粗体**、*斜体*、~~删除线~~、++下划线++
+- 列表（`-` / `*`）
+- 链接 `[文本](https://example.com)`
+- 分割线 `---`（渲染为灰色横线）
+
+同时支持 Minecraft 格式代码：
+```
+§a 绿色文本 §r 恢复默认
+```
+
+## 多行文本写法
+推荐使用 `\n` 表示换行：
+```json5
+Contents: {
+  zh_cn: "第一行\n第二行\n\n- 列表项 1\n- 列表项 2"
+}
+```
+
+---
+
+## 常见问题
+- **为什么内容解析失败？**
+  - 内容字符串中出现未转义换行或引号。
+- **为什么链接不可点击？**
+  - 仅在公告界面中支持标准 Markdown 链接格式。

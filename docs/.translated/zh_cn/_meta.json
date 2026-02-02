@@ -1,0 +1,10 @@
+{
+  "Client": {
+    "name": "客户端",
+    "icon": null
+  },
+  "Server": {
+    "name": "服务端",
+    "icon": null
+  }
+}

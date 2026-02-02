@@ -1,0 +1,98 @@
+# Notice (notice.json5)
+
+This section explains notice fields, purposes, allowed values, and rendering behavior, with a complete example.
+
+For JSON5 format and conventions, please read:
+- [Getting Started](./Getting_Started.mdx)
+
+## Location
+- Directory: `DLC/info/`
+- File: `notice.json5`
+
+## Complete Example
+```json5
+{
+  isNoticeEnabled: true,
+  neverShow: false,
+  ShowFrequency: "perlaunchmanager",
+  Title: {
+    zh_cn: "公告",
+    en_us: "Notice"
+  },
+  Subhead: {
+    enabled: true,
+    zh_cn: "请仔细阅读",
+    en_us: "Please read carefully"
+  },
+  Contents: {
+    zh_cn: "# 更新说明\n\n这是正文内容。",
+    en_us: "# Update Notes\n\nThis is the content."
+  }
+}
+```
+
+---
+
+## Field Reference
+
+#### `isNoticeEnabled`
+- **Purpose**: Enable/disable notice.
+- **Allowed**: Boolean.
+
+#### `neverShow`
+- **Purpose**: If `true`, never show again.
+- **Allowed**: Boolean.
+
+#### `ShowFrequency`
+- **Purpose**: Display frequency (e.g. `perlaunchmanager`).
+- **Allowed**: String.
+  - `perlaunchgame`: show on every game launch in the main menu (outside DLC Manager).
+  - `pergamesession`: show once when opening DLC Manager during a game session.
+  - `perlaunchmanager`: show every time DLC Manager opens.
+  - `once`: show only once.
+- **Default**: `perlaunchmanager`.
+
+#### `Title`
+- **Purpose**: Notice title (localized).
+- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
+
+#### `Subhead`
+- **Purpose**: Subtitle.
+- **Allowed**: Object containing:
+  - `enabled` (boolean)
+  - localized text
+
+#### `Contents`
+- **Purpose**: Body content.
+- **Allowed**: Localized strings.
+- **Rendering**: Markdown + MC formatting codes (colors, etc.) supported.
+
+---
+
+## Markdown Support
+Supported:
+- **Bold**, *Italic*, ~~Strikethrough~~, ++Underline++
+- Lists (`-` / `*`)
+- Links `[text](https://example.com)`
+- Horizontal rule `---` (renders as a gray line)
+
+Minecraft formatting codes are also supported:
+```
+§a green text §r reset
+```
+
+## Multi-line Text
+Use `\n` for line breaks:
+```json5
+Contents: {
+  zh_cn: "Line 1\nLine 2\n\n- Item 1\n- Item 2"
+}
+```
+
+---
+
+## FAQ
+- **Why does parsing fail?**
+  - The content string contains unescaped line breaks or quotes.
+- **Why are links not clickable?**
+  - Only standard Markdown links are clickable in the notice screen.

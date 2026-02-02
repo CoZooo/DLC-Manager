@@ -1,0 +1,22 @@
+{
+  "Remote.mdx": {
+    "name": "Remote System",
+    "icon": null
+  },
+  "Required.mdx": {
+    "name": "Required System",
+    "icon": null
+  },
+  "Preset.mdx": {
+    "name": "Preset System",
+    "icon": null
+  },
+  "Update.mdx": {
+    "name": "Update System",
+    "icon": null
+  },
+  "Redirect.mdx": {
+    "name": "Redirect Function",
+    "icon": null
+  }
+}

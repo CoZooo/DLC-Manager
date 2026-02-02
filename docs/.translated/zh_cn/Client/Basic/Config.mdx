@@ -1,0 +1,148 @@
+# 配置（Config）
+
+本节说明客户端配置文件的字段、用途、可填写值、默认与回退规则，并提供完整示例。
+
+配置文件格式与通用约定（JSON5）请先阅读：
+- [Getting Started](./Getting_Started.mdx)
+
+## 目录
+- 目录：`config/dlc_manager/`
+- 文件：`config.json5`
+
+## 完整示例
+```json5
+{
+  paths: {
+    dlcRoot: "DLC",
+    taczRoot: "tacz",
+    resourcepackRoot: "resourcepacks",
+    datapackRoot: "datapacks"
+  },
+  ui: {
+    isEnableAllButtonShown: true,
+    isConfigButtonShown: false,
+    isUButtomShown: true,
+    isUpdateManagerOn: true,
+    isSelfUpdateAutoCheckOn: true,
+    isPresetFuncOn: true,
+    serverSupport: true,
+    titleAnchor: "auto",
+    titleOffsetX: 0,
+    titleOffsetY: 0,
+    titleWidth: 0,
+    titleHeight: 0
+  },
+  downloads: {
+    maxConcurrentDownloads: 5,
+    maxSegmentsPerFile: 4,
+    minSegmentMB: 20,
+    maxRetryCount: 5,
+    connectTimeoutSeconds: 10,
+    taskTimeoutSeconds: 60
+  }
+}
+```
+
+---
+
+## 字段说明
+
+#### `paths.dlcRoot`
+- **用途**：DLC 根目录。
+- **可填**：相对或绝对路径。
+- **默认**：`"DLC"`。
+
+#### `paths.taczRoot`
+- **用途**：对应TACZ枪包在DLC目录中的文件夹名。
+- **可填**：字符串。
+- **默认**：`"tacz"` 。
+
+#### `paths.resourcepackRoot` / `paths.datapackRoot`
+- **用途**：对应分类的默认目标目录名。
+- **可填**：字符串。
+- **默认**：`"resourcepacks"` / `"datapacks"`。
+
+#### `ui.isEnableAllButtonShown`
+- **用途**：是否显示“全部开启/关闭”。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `ui.isConfigButtonShown`
+- **用途**：是否显示配置按钮。
+- **可填**：布尔。
+- **默认**：`false`。
+
+#### `ui.isUButtomShown`
+- **用途**：主菜单 U 按钮显示开关。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `ui.isUpdateManagerOn`
+- **用途**：是否启用更新管理器。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `ui.isSelfUpdateAutoCheckOn`
+- **用途**：是否自动检查 DLC 管理器更新。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `ui.isPresetFuncOn`
+- **用途**：是否启用预设功能。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `ui.serverSupport`
+- **用途**：是否显示服务器管理入口（客户端侧）。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `ui.titleAnchor`
+- **用途**：主菜单按钮锚点。
+- **可填**：
+  - `auto`
+  - `left_top`、`top`、`right_top`
+  - `left`、`center`、`right`
+  - `left_bottom`、`bottom`、`right_bottom`
+- **默认**：`"auto"`。
+
+#### `ui.titleOffsetX` / `ui.titleOffsetY`
+- **用途**：按钮位置偏移（像素）。
+- **可填**：整数。
+- **默认**：`0`。
+
+#### `ui.titleWidth` / `ui.titleHeight`
+- **用途**：按钮尺寸（像素）。
+- **可填**：整数，`0` 表示使用默认尺寸。
+- **默认**：`0`。
+
+#### `downloads.maxConcurrentDownloads`
+- **用途**：并行下载任务数。
+- **可填**：整数。
+- **默认**：`5`。
+
+#### `downloads.maxSegmentsPerFile`
+- **用途**：单文件分段数。
+- **可填**：整数。
+- **默认**：`4`。
+
+#### `downloads.minSegmentMB`
+- **用途**：分段最小大小（MB）。
+- **可填**：整数。
+- **默认**：`20`。
+
+#### `downloads.maxRetryCount`
+- **用途**：单段最大重试次数。
+- **可填**：整数。
+- **默认**：`5`。
+
+#### `downloads.connectTimeoutSeconds`
+- **用途**：连接超时（秒）。
+- **可填**：整数。
+- **默认**：`10`。
+
+#### `downloads.taskTimeoutSeconds`
+- **用途**：任务超时（秒）。
+- **可填**：整数。
+- **默认**：`60`。
+

@@ -1,0 +1,18 @@
+{
+  "Getting_Started.mdx": {
+    "name": "Getting Started",
+    "icon": null
+  },
+  "Config.mdx": {
+    "name": "Client Config",
+    "icon": null
+  },
+  "Info.mdx": {
+    "name": "Info file",
+    "icon": null
+  },
+  "Notice.mdx": {
+    "name": "Notice file",
+    "icon": null
+  }
+}

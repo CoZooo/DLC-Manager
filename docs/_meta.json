@@ -1,0 +1,10 @@
+{
+  "Client": {
+    "name": "Client",
+    "icon": null
+  },
+  "Server": {
+    "name": "Server",
+    "icon": null
+  }
+}

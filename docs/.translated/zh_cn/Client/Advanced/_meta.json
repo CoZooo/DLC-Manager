@@ -1,0 +1,22 @@
+{
+  "Remote.mdx": {
+    "name": "托管下载系统",
+    "icon": null
+  },
+  "Required.mdx": {
+    "name": "必要资源系统",
+    "icon": null
+  },
+  "Preset.mdx": {
+    "name": "预设系统",
+    "icon": null
+  },
+  "Update.mdx": {
+    "name": "更新系统",
+    "icon": null
+  },
+  "Redirect.mdx": {
+    "name": "链接跳转功能",
+    "icon": null
+  }
+}

@@ -1,0 +1,168 @@
+# Required Resources
+
+This section documents all fields, purposes, allowed values, defaults, and fallback rules for Required configs, with full field coverage and optional forms.
+
+For JSON5 format and conventions, please read:
+- [Getting Started](../Basic/Getting_Started.mdx)
+
+## Location & Scan Rules
+- Directory: `DLC/required/`
+- Only scans **top-level** files (no subdirectory recursion).
+- Only entries with `isInList = true` are added to the list and participate in loading.
+
+## Complete Example
+```json5
+{
+  curseforge_projectid: "123456",
+  curseforge_fileid: "7890123",
+  modrinth_projectid: "project-slug-or-id",
+  modrinth_versionid: "version-id-or-number",
+  directUrl: [
+    "https://example.com/mirror/requiredA.jar",
+    "https://mirror.example.net/requiredA.jar"
+  ],
+  priority: "curseforge,modrinth,directurl",
+  identifier: "ExampleRequired",
+  file_name: "example-required-1.0.0.jar",
+  appliedTarget: "mods",
+  isInList: true,
+  isHidden: false,
+  DisplayName: {
+    en_us: "Required Example",
+    zh_cn: "必要资源示例"
+  },
+  tip: {
+    en_us: "Do not remove",
+    zh_cn: "请勿删除"
+  },
+  dependencies: {
+    HelperLib: {
+      modrinth_projectid: "helperlib",
+      modrinth_versionid: "helperlib-version",
+      file_name: "helperlib.jar",
+      identifier: "HelperLib",
+      isInList: true,
+      isHidden: true
+    }
+  }
+}
+```
+
+---
+
+## Field Reference
+
+#### `curseforge_projectid`
+- **Purpose**: CurseForge project ID or slug.
+- **Allowed**: String.
+
+#### `curseforge_fileid`
+- **Purpose**: CurseForge file ID, version string, or file name.
+- **Allowed**: String.
+
+#### `modrinth_projectid`
+- **Purpose**: Modrinth project ID or slug.
+- **Allowed**: String.
+
+#### `modrinth_versionid`
+- **Purpose**: Modrinth version ID or version string.
+- **Allowed**: String.
+
+#### `directUrl`
+- **Purpose**: Direct download URL(s).
+- **Allowed**:
+  - String (single URL)
+  - Array (multi-mirror; tried in order on failure)
+
+#### `priority`
+- **Purpose**: Download priority order.
+- **Allowed**: Comma-separated string, case-insensitive.
+- **Allowed values**: `curseforge`, `modrinth`, `directurl`.
+- **Defaults / Fill-up**:
+  - If empty, default order is `curseforge,modrinth,directurl`.
+  - If only 1–2 sources are specified, the rest are appended in default order.
+
+#### `identifier`
+- **Purpose**: Logical identifier for required resources (used by prerequisites/presets/conflicts).
+- **Allowed**: String.
+- **Fallback**: If empty, falls back to the config file name (without extension).
+
+#### `file_name`
+- **Purpose**: Target file name (final name on disk).
+- **Allowed**: String.
+- **Fallback**: If empty, inferred from download URL; otherwise falls back to `identifier`.
+
+#### `DisplayName`
+- **Purpose**: Localized display name.
+- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
+- **Fallback**: If empty, `en_us` is set to a fallback name (base name first, then identifier).
+
+#### `tip`
+- **Purpose**: Localized tooltip text.
+- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
+
+#### `appliedTarget`
+- **Purpose**: Apply path; multiple targets supported.
+- **Allowed**: String (relative or absolute).
+- **Rules**:
+  - Relative paths are resolved against the **modpack root**.
+  - Comma-separated multiple targets allowed (e.g. `mods, resourcepacks`).
+
+#### `isInList`
+- **Purpose**: Whether to show in the required list.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `isHidden`
+- **Purpose**: Hide the entry (installed but no uninstall button).
+- **Allowed**: Boolean.
+- **Default**: `false`.
+
+#### `UserRemoved` (do **not** set this manually)
+- **Purpose**: User removal marker (written back only when `true`).
+- **Allowed**: Boolean.
+
+#### `dependencies` (prerequisites)
+All forms below are supported and can be mixed:
+
+1) **String** (comma-separated identifiers)
+```json5
+"LibA, LibB"
+```
+
+2) **Array**
+```json5
+["LibA", "LibB"]
+```
+
+3) **Object** (keys are aliases; values are identifiers or objects)
+```json5
+{
+  LibA: "LibA",
+  LibB: { identifier: "LibB" }
+}
+```
+
+4) **Inline required object**
+```json5
+{
+  identifier: "LibC",
+  modrinth_projectid: "xxxx",
+  modrinth_versionid: "yyyy",
+  file_name: "libc.jar"
+}
+```
+
+**Resolution behavior:**
+- All prerequisite `identifier`s are extracted as logical prerequisites.
+- Inline objects are parsed into required prerequisite entries.
+- If an inline entry has `isInList=false`, the entry is discarded but its identifier is still kept.
+
+---
+
+## Notes
+- **Display language selection**: Match client language first, then `en_us`, then any available value.
+- **SKIP / FORCE marker files** (in `DLC/required/`):
+  - `SKIP`: if present, skips the “required download prompt” (ignored if `FORCE` exists).
+  - `FORCE`: forces the prompt and hides “skip install”.
+  - If `FORCE` contains `forcerestart`, a restart is required and cannot be skipped.

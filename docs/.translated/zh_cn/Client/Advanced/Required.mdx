@@ -1,0 +1,168 @@
+# Required（必要资源）
+
+本节说明 Required 配置的字段、用途、可填写值、默认与回退规则，并提供完整字段说明与可选写法。
+
+配置文件格式与通用约定（JSON5）请先阅读：
+- [Getting Started](../Basic/Getting_Started.mdx)
+
+## 目录与扫描规则
+- 目录：`DLC/required/`
+- 仅扫描目录下的一级文件（不递归子目录）。
+- 仅当 `isInList = true` 的条目才会加入列表并参与加载。
+
+## 完整示例
+```json5
+{
+  curseforge_projectid: "123456",
+  curseforge_fileid: "7890123",
+  modrinth_projectid: "project-slug-or-id",
+  modrinth_versionid: "version-id-or-number",
+  directUrl: [
+    "https://example.com/mirror/requiredA.jar",
+    "https://mirror.example.net/requiredA.jar"
+  ],
+  priority: "curseforge,modrinth,directurl",
+  identifier: "ExampleRequired",
+  file_name: "example-required-1.0.0.jar",
+  appliedTarget: "mods",
+  isInList: true,
+  isHidden: false,
+  DisplayName: {
+    en_us: "Required Example",
+    zh_cn: "必要资源示例"
+  },
+  tip: {
+    en_us: "Do not remove",
+    zh_cn: "请勿删除"
+  },
+  dependencies: {
+    HelperLib: {
+      modrinth_projectid: "helperlib",
+      modrinth_versionid: "helperlib-version",
+      file_name: "helperlib.jar",
+      identifier: "HelperLib",
+      isInList: true,
+      isHidden: true
+    }
+  }
+}
+```
+
+---
+
+## 字段说明
+
+#### `curseforge_projectid`
+- **用途**：CurseForge 项目 ID 或 slug。
+- **可填**：字符串。
+
+#### `curseforge_fileid`
+- **用途**：CurseForge 文件 ID 或版本号字符串或文件名。
+- **可填**：字符串。
+
+#### `modrinth_projectid`
+- **用途**：Modrinth 项目 ID 或 slug。
+- **可填**：字符串。
+
+#### `modrinth_versionid`
+- **用途**：Modrinth 版本 ID 或版本号字符串。
+- **可填**：字符串。
+
+#### `directUrl`
+- **用途**：直链下载地址。
+- **可填**：
+  - 字符串（单个链接）
+  - 数组（多镜像，列表顺序即尝试顺序，在下载失败时依次尝试）
+
+#### `priority`
+- **用途**：下载顺序。
+- **可填**：逗号分隔字符串，大小写不敏感。
+- **允许的值**：`curseforge`、`modrinth`、`directurl`。
+- **默认与补齐**：
+  - 若为空，默认顺序：`curseforge,modrinth,directurl`。
+  - 若只写 1~2 个，其余源会按默认顺序补齐。
+
+#### `identifier`
+- **用途**：必要资源的逻辑标识符（前置/预设/冲突统一使用）。
+- **可填**：字符串。
+- **回退规则**：若为空，回退为配置文件名（不含扩展名）。
+
+#### `file_name`
+- **用途**：目标文件名（最终落盘名）。
+- **可填**：字符串。
+- **回退规则**：若为空，优先从下载链接推断文件名，再回退为 identifier。
+
+#### `DisplayName`
+- **用途**：多语言显示名称。
+- **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
+- **回退规则**：若为空，会自动写入 `en_us` 回退值（优先 baseName，其次 identifier）。
+
+#### `tip`
+- **用途**：多语言提示文本。
+- **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
+
+#### `appliedTarget`
+- **用途**：应用路径；可写多个目标。
+- **可填**：字符串（相对或绝对）。
+- **解析规则**：
+  - 相对路径以**整合包根目录**为基准解析。
+  - 允许逗号分隔多个目标（例如 `mods, resourcepacks`）。
+
+#### `isInList`
+- **用途**：是否加入必要资源列表。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `isHidden`
+- **用途**：是否隐藏（即安装后无卸载按钮）。
+- **可填**：布尔。
+- **默认**：`false`。
+
+#### `UserRemoved`  （请不要填写这项，默认无）
+- **用途**：用户移除标记（仅在 `true` 时写回）。
+- **可填**：布尔。
+
+#### `dependencies`（前置）
+支持以下所有形式，且可混合嵌套：
+
+1) **字符串**（逗号分隔 identifier）
+```json5
+"LibA, LibB"
+```
+
+2) **数组**
+```json5
+["LibA", "LibB"]
+```
+
+3) **对象（键为别名，值为 identifier 或对象）**
+```json5
+{
+  LibA: "LibA",
+  LibB: { identifier: "LibB" }
+}
+```
+
+4) **内联 required 配置对象**
+```json5
+{
+  identifier: "LibC",
+  modrinth_projectid: "xxxx",
+  modrinth_versionid: "yyyy",
+  file_name: "libc.jar"
+}
+```
+
+**解析行为：**
+- 会提取所有前置的 `identifier` 作为逻辑前置。
+- 内联对象会被解析为 required 前置条目。
+- 若内联条目 `isInList=false`，该 entry 会被丢弃，但 identifier 仍保留。
+
+---
+
+## 补充
+- **显示名称选择语言**：优先匹配客户端语言码，其次 `en_us`，再回退到任意值。
+- **SKIP / FORCE 标记文件**（位于 `DLC/required/`）：  
+  - `SKIP`：存在时跳过“必要资源下载提示”（若存在 `FORCE` 则无效）。  
+  - `FORCE`：强制显示下载提示，并隐藏“跳过安装”按钮。  
+  - `FORCE` 内容包含 `forcerestart` 时，会强制要求重启无法跳过。  

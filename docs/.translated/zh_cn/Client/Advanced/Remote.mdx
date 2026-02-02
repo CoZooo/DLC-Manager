@@ -1,0 +1,219 @@
+# Remote（远程 DLC 配置）
+
+本节说明 Remote 配置的字段、用途、可填写值、默认与回退规则，并提供完整字段说明与可选写法。
+
+配置文件格式与通用约定（`JSON5`）请先阅读：
+- [Getting Started](../Basic/Getting_Started.mdx)
+
+## 目录
+- 目录：`DLC/remote/`
+- 子目录可用于分类：  
+配置文件位于 `DLC/remote/<子目录>/` 时，下载的文件会存放到 `DLC/<子目录>/`。  
+示例：`DLC/remote/mods/example.json5` → 下载保存到 `DLC/mods/<file_name>`。
+
+## 完整示例
+```json5
+{
+  curseforge_projectid: "123456",
+  curseforge_fileid: "7890123",
+  modrinth_projectid: "project-slug-or-id",
+  modrinth_versionid: "version-id-or-number",
+  directUrl: [
+    "https://example.com/mirror/modA.jar",
+    "https://mirror.example.net/modA.jar"
+  ],
+  priority: "curseforge,modrinth,directurl",
+  dlc_identifier: "ExampleMod",
+  type: "mod",
+  file_name: "example-mod-1.0.0.jar",
+  appliedTarget: "mods",
+  isInList: true,
+  isHidden: false,
+  AllowEnableByAll: true,
+  dependencies: {
+    HelperLib: {
+      curseforge_projectid: "234567",
+      curseforge_fileid: "8901234",
+      modrinth_projectid: "helperlib",
+      modrinth_versionid: "helperlib-version",
+      directUrl: [
+        "https://example.com/mirror/helperlib.jar",
+        "https://mirror.example.net/helperlib.jar"
+      ],
+      priority: "modrinth",
+      dlc_identifier: "HelperLib",
+      type: "mod",
+      file_name: "helperlib-1.0.0.jar",
+      isInList: true,
+      isHidden: true,
+      AllowEnableByAll: true,
+      dependencies: "",
+      conflicts: "",
+      DisplayName: {
+        en_us: "Helper Library",
+        zh_cn: "辅助库"
+      },
+      tip: {}
+    }
+  },
+  conflicts: [
+    "ConflictMod"
+  ],
+  DisplayName: {
+    en_us: "Example Mod",
+    zh_cn: "示例模组"
+  },
+  tip: {
+    en_us: "Example tip",
+    zh_cn: "示例提示"
+  }
+}
+```
+
+---
+
+## 字段说明
+
+#### `curseforge_projectid`
+- **用途**：CurseForge 项目 ID 或 slug。
+- **可填**：字符串。
+
+#### `curseforge_fileid`
+- **用途**：CurseForge 文件 ID 或版本号字符串或文件名。
+- **可填**：字符串。
+
+#### `modrinth_projectid`
+- **用途**：Modrinth 项目 ID 或 slug。
+- **可填**：字符串。
+
+#### `modrinth_versionid`
+- **用途**：Modrinth 版本 ID 或版本号字符串。
+- **可填**：字符串。
+
+#### `directUrl`
+- **用途**：直链下载地址。
+- **可填**：
+  - 字符串（仅单个链接）
+  - 数组（多镜像，列表顺序即尝试顺序，在下载失败时依次尝试）
+
+#### `priority`
+- **用途**：下载顺序。
+- **可填**：逗号分隔字符串，大小写不敏感
+- **允许的值**：
+  - `curseforge`
+  - `modrinth`
+  - `directurl`
+- **默认与补齐**：
+  - 若为空，默认顺序：`curseforge,modrinth,directurl`
+  - 若只写 1~2 个，其余源会按默认顺序补齐（避免缺失）。
+
+#### `dlc_identifier`
+- **用途**：逻辑标识符（前置/冲突/预设统一使用）。
+- **可填**：字符串。
+- **回退规则**：若为空，回退为“名称回退值”（见下方 `file_name` 规则）。
+
+#### `file_name`
+- **用途**：目标文件名（最终落盘名）。
+- **可填**：字符串。
+- **回退规则**：
+  1) 从 `directUrl` 提取文件名；
+  2) 若仍为空，使用“名称回退值”。
+
+#### “名称回退值” （好好填`file_name`/`dlc_identifier`可以忽略此项）
+当 `file_name`/`dlc_identifier`/`DisplayName` 为空时，系统会按以下顺序回退：
+1) 配置文件名（不含扩展名）
+2) `directUrl` 文件名
+3) `modrinth_projectid`
+4) `curseforge_projectid`
+
+#### `DisplayName`
+- **用途**：多语言显示名称。
+- **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
+- **回退规则**：若为空，会自动写入 `en_us` 为“名称回退值”。
+
+#### `tip`
+- **用途**：多语言提示文本。
+- **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
+
+#### `type`
+- **用途**：决定分类与默认目标目录。
+- **可填**：
+  - `mod`
+  - `resourcepack`
+  - `datapack`
+  - `gunpack`
+  - `others`
+- **默认**：`mod`
+
+#### `appliedTarget`
+- **用途**：覆盖默认目标目录；可为具体路径。
+- **可填**：字符串（相对或绝对）。
+- **解析规则**：
+  - 相对路径以**整合包根目录**为基准解析。
+  - 若以 `/` 或 `\` 结尾，将被视为目录。
+
+> 注意：当 `type=others` 且 `appliedTarget` 为空时，条目会被强制隐藏（`isInList=false`）。
+
+#### `isInList`
+- **用途**：是否出现在 DLC 列表。（否时，不会被DLC管理器管理）
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `isHidden`
+- **用途**：是否隐藏，仅适用于库/前置等无实际意义的模组，在未被作为前置需求时自动禁用。
+- **可填**：布尔。
+- **默认**：`false`。
+
+#### `AllowEnableByAll`
+- **用途**：是否被“全部开启/一键开启”影响。
+- **可填**：布尔。
+- **默认**：`true`。
+
+#### `dependencies`
+支持以下所有形式，且可**混合嵌套**：
+
+1) **字符串**（逗号分隔 identifier）
+```json5
+"LibA, LibB"
+```
+
+2) **数组**
+```json5
+["LibA", "LibB"]
+```
+
+3) **对象（键为别名，值为 identifier 或对象）**
+```json5
+{
+  LibA: "LibA",
+  LibB: { dlc_identifier: "LibB" }
+}
+```
+
+4) **内联 Remote 配置对象**
+```json5
+{
+  dlc_identifier: "LibC",
+  modrinth_projectid: "xxxx",
+  modrinth_versionid: "yyyy",
+  file_name: "libc.jar"
+}
+```
+
+**解析行为：**
+- 会提取所有前置的 `dlc_identifier` 作为逻辑前置。
+- 若内联对象包含完整 remote 字段，会被当作远程 DLC 条目并加入前置列表。
+- 若前置仅为 identifier，也会在加载后尝试与已有条目进行“标识符链接”。
+
+#### `conflicts`
+支持字符串/数组/对象形式，以 `dlc_identifier` 作为标识查询。语法参照前置部分（除内联用法）。
+
+---
+
+## 补充
+
+- **显示名称选择语言**：
+  优先匹配客户端语言码，其次 `en_us`，再回退到任意值。
+
+- **文件名处理**：
+  目标文件名会移除 URL 查询参数，并替换非法字符为 `_`。

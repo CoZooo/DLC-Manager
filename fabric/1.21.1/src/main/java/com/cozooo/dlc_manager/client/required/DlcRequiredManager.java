@@ -637,9 +637,6 @@ public final class DlcRequiredManager {
         }
 
         String applied = getString(obj, "appliedTarget");
-        if (applied == null || applied.isBlank()) {
-            applied = getString(obj, "appliedTaget");
-        }
         ordered.addProperty("appliedTarget", applied == null ? "" : applied);
 
         ordered.addProperty("isInList", getBoolean(obj, "isInList", true));
@@ -674,7 +671,7 @@ public final class DlcRequiredManager {
             if (key == null || ordered.has(key)) {
                 continue;
             }
-            if ("appliedTaget".equals(key) || "displayName".equals(key)) {
+            if ("displayName".equals(key)) {
                 continue;
             }
             if ("UserRemoved".equals(key) || "userRemoved".equals(key)) {

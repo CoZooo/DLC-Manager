@@ -1,0 +1,147 @@
+# Config
+
+This section explains the client config file fields, purposes, allowed values, defaults, and fallback rules, and provides a complete example.
+
+For JSON5 format and conventions, please read:
+- [Getting Started](./Getting_Started.mdx)
+
+## Location
+- Directory: `config/dlc_manager/`
+- File: `config.json5`
+
+## Complete Example
+```json5
+{
+  paths: {
+    dlcRoot: "DLC",
+    taczRoot: "tacz",
+    resourcepackRoot: "resourcepacks",
+    datapackRoot: "datapacks"
+  },
+  ui: {
+    isEnableAllButtonShown: true,
+    isConfigButtonShown: false,
+    isUButtomShown: true,
+    isUpdateManagerOn: true,
+    isSelfUpdateAutoCheckOn: true,
+    isPresetFuncOn: true,
+    serverSupport: true,
+    titleAnchor: "auto",
+    titleOffsetX: 0,
+    titleOffsetY: 0,
+    titleWidth: 0,
+    titleHeight: 0
+  },
+  downloads: {
+    maxConcurrentDownloads: 5,
+    maxSegmentsPerFile: 4,
+    minSegmentMB: 20,
+    maxRetryCount: 5,
+    connectTimeoutSeconds: 10,
+    taskTimeoutSeconds: 60
+  }
+}
+```
+
+---
+
+## Field Reference
+
+#### `paths.dlcRoot`
+- **Purpose**: DLC root directory.
+- **Allowed**: Relative or absolute path.
+- **Default**: `"DLC"`.
+
+#### `paths.taczRoot`
+- **Purpose**: Folder name for TACZ packs under the DLC root.
+- **Allowed**: String.
+- **Default**: `"tacz"`.
+
+#### `paths.resourcepackRoot` / `paths.datapackRoot`
+- **Purpose**: Default target directory names for each category.
+- **Allowed**: String.
+- **Default**: `"resourcepacks"` / `"datapacks"`.
+
+#### `ui.isEnableAllButtonShown`
+- **Purpose**: Show “Enable/Disable All”.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `ui.isConfigButtonShown`
+- **Purpose**: Show the config button.
+- **Allowed**: Boolean.
+- **Default**: `false`.
+
+#### `ui.isUButtomShown`
+- **Purpose**: Toggle the “U” button on the main menu.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `ui.isUpdateManagerOn`
+- **Purpose**: Enable the update manager.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `ui.isSelfUpdateAutoCheckOn`
+- **Purpose**: Auto-check DLC Manager updates.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `ui.isPresetFuncOn`
+- **Purpose**: Enable presets.
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `ui.serverSupport`
+- **Purpose**: Show server manager entry (client-side).
+- **Allowed**: Boolean.
+- **Default**: `true`.
+
+#### `ui.titleAnchor`
+- **Purpose**: Main menu button anchor.
+- **Allowed**:
+  - `auto`
+  - `left_top`, `top`, `right_top`
+  - `left`, `center`, `right`
+  - `left_bottom`, `bottom`, `right_bottom`
+- **Default**: `"auto"`.
+
+#### `ui.titleOffsetX` / `ui.titleOffsetY`
+- **Purpose**: Button position offset (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
+
+#### `ui.titleWidth` / `ui.titleHeight`
+- **Purpose**: Button size (pixels).
+- **Allowed**: Integer; `0` means default size.
+- **Default**: `0`.
+
+#### `downloads.maxConcurrentDownloads`
+- **Purpose**: Max number of concurrent download tasks.
+- **Allowed**: Integer.
+- **Default**: `5`.
+
+#### `downloads.maxSegmentsPerFile`
+- **Purpose**: Max number of segments per file.
+- **Allowed**: Integer.
+- **Default**: `4`.
+
+#### `downloads.minSegmentMB`
+- **Purpose**: Minimum segment size (MB).
+- **Allowed**: Integer.
+- **Default**: `20`.
+
+#### `downloads.maxRetryCount`
+- **Purpose**: Max retry attempts per segment.
+- **Allowed**: Integer.
+- **Default**: `5`.
+
+#### `downloads.connectTimeoutSeconds`
+- **Purpose**: Connection timeout (seconds).
+- **Allowed**: Integer.
+- **Default**: `10`.
+
+#### `downloads.taskTimeoutSeconds`
+- **Purpose**: Task timeout (seconds).
+- **Allowed**: Integer.
+- **Default**: `60`.

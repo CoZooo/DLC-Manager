@@ -1,0 +1,62 @@
+# Preset
+
+This section explains preset fields, purposes, allowed values, and behavior, with a complete example.
+
+For JSON5 format and conventions, please read:
+- [Getting Started](../Basic/Getting_Started.mdx)
+
+## Location
+- Directory: `DLC/preset/`
+- File name does not affect display; DisplayName can override it.
+
+## Complete Example
+```json5
+{
+  DisplayName: {
+    zh_cn: "优化预设",
+    en_us: "Performance Preset"
+  },
+  tip: {
+    zh_cn: "适合低配机器",
+    en_us: "Recommended for low-end PCs"
+  },
+  enable: [
+    "Mod1",
+    "Mod2"
+  ],
+  conflicts: [
+    "Mod3"
+  ]
+}
+```
+
+---
+
+## Field Reference
+
+#### `DisplayName`
+- **Purpose**: Preset display name.
+- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
+- **Fallback**: If empty, uses the file name (without extension).
+
+#### `tip`
+- **Purpose**: Preset tooltip text.
+- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
+
+#### `enable`
+- **Purpose**: DLC list to enable (`dlc_identifier`).
+- **Allowed**: Array of **dlc_identifier**.
+
+#### `conflicts`
+- **Purpose**: DLC list that conflicts with this preset (`dlc_identifier`).
+- **Allowed**: Array of **dlc_identifier**.
+
+---
+
+## State & Storage
+- Stored at: `config/dlc_manager/state.json5`, field `presets`.
+- Status values: `On` / `Part` / `Off`.
+
+## Behavior
+- When enabled, the preset attempts to enable all DLCs in `enable`.
+- DLCs listed in `conflicts` are disabled and show conflict warnings.
