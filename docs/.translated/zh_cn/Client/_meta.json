@@ -1,4 +1,8 @@
 {
+  "Getting_Started.mdx": {
+    "name": "开始使用",
+    "icon": null
+  },
   "Basic": {
     "name": "基础用法",
     "icon": null
