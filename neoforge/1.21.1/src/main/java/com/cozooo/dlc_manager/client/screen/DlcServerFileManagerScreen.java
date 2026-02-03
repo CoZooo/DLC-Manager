@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerFileEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -240,7 +239,7 @@ public class DlcServerFileManagerScreen extends Screen {
 
     private List<DlcServerFileEntry> loadEntries(String path) {
         try {
-            return DlcServerTcpClient.listFiles(entry, 10000, path, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.listFiles(entry, 10000, path, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }
@@ -298,7 +297,7 @@ public class DlcServerFileManagerScreen extends Screen {
 
     private boolean upload(String target, Path file) {
         try {
-            return DlcServerTcpClient.uploadFile(entry, 20000, target, file, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.uploadFile(entry, 20000, target, file, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return false;
         }
@@ -366,7 +365,7 @@ public class DlcServerFileManagerScreen extends Screen {
 
     private boolean download(String remotePath, Path target) {
         try {
-            return DlcServerTcpClient.downloadFile(entry, 20000, remotePath, target, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.downloadFile(entry, 20000, remotePath, target, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return false;
         }
@@ -425,7 +424,7 @@ public class DlcServerFileManagerScreen extends Screen {
 
     private boolean delete(String path) {
         try {
-            return DlcServerTcpClient.deleteFile(entry, 15000, path, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.deleteFile(entry, 15000, path, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return false;
         }

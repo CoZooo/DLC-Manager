@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -305,7 +305,7 @@ public class DlcServerPushScreen extends Screen {
             if (files.isEmpty()) {
                 return false;
             }
-            return DlcServerTcpClient.push(entry, 20000, List.of(), files, overwriteMode ? "overwrite" : "diff",
+            return DlcServerConnection.push(entry, 20000, List.of(), files, overwriteMode ? "overwrite" : "diff",
                 getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return false;

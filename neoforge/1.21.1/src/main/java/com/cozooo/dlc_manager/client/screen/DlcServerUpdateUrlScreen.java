@@ -3,7 +3,6 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import net.minecraft.client.Minecraft;
@@ -172,7 +171,7 @@ public class DlcServerUpdateUrlScreen extends Screen {
                     });
                     return;
                 }
-                boolean imported = DlcServerTcpClient.importUpdatePackage(entry, 8000, downloaded, getPlayerName(), getPlayerUuid());
+                boolean imported = com.cozooo.dlc_manager.client.server.DlcServerConnection.importUpdatePackage(entry, 8000, downloaded, getPlayerName(), getPlayerUuid());
                 Minecraft.getInstance().execute(() -> {
                     downloading = false;
                     downloadButton.active = true;

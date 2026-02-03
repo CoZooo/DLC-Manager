@@ -214,6 +214,7 @@
   "dlc_manager.update.title": "热更新",
   "dlc_manager.update.desc": "发现可用的热更新。",
   "dlc_manager.update.changelog_title": "更新日志",
+  "dlc_manager.update.changelog_tooltip_title": "更新日志：",
   "dlc_manager.update.changelog_button": "确定",
   "dlc_manager.update.base": "底包版本：%s",
   "dlc_manager.update.current": "当前 DLC 版本：%s",

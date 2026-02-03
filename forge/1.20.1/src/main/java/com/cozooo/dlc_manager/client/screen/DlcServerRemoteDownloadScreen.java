@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
@@ -89,7 +89,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
 
     private List<DlcServerRemoteItem> fetchMissing() {
         try {
-            return DlcServerTcpClient.fetchRemoteMissingList(serverEntry, 8000, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.fetchRemoteMissingList(serverEntry, 8000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }
@@ -114,7 +114,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
     private DlcServerRemoteStatus startDownload() {
         try {
             List<String> keys = resolveSelectionKeys();
-            return DlcServerTcpClient.startRemoteDownload(serverEntry, 8000, keys, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.startRemoteDownload(serverEntry, 8000, keys, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }
@@ -174,7 +174,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
 
     private DlcServerRemoteStatus fetchStatus() {
         try {
-            return DlcServerTcpClient.fetchRemoteDownloadStatus(serverEntry, 3000, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.fetchRemoteDownloadStatus(serverEntry, 3000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }

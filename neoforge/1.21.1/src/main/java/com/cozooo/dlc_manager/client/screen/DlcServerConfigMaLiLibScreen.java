@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.config.DlcServerConfigClient;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.google.gson.JsonObject;
 import fi.dy.masa.malilib.config.IConfigBase;
@@ -20,7 +19,6 @@ import fi.dy.masa.malilib.config.gui.GuiModConfigs;
 import fi.dy.masa.malilib.config.gui.SliderCallbackDouble;
 import fi.dy.masa.malilib.config.gui.SliderCallbackInteger;
 import fi.dy.masa.malilib.gui.GuiConfigsBase;
-import fi.dy.masa.malilib.gui.GuiConfigsBase.ConfigOptionWrapper;
 import fi.dy.masa.malilib.gui.GuiTextFieldGeneric;
 import fi.dy.masa.malilib.gui.button.ButtonBase;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
@@ -181,7 +179,7 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
         String playerName = minecraft.player != null ? minecraft.player.getGameProfile().getName() : "";
         String playerUuid = minecraft.player != null ? minecraft.player.getUUID().toString() : "";
         try {
-            JsonObject json = DlcServerTcpClient.fetchServerConfig(entry, 5000, playerName, playerUuid);
+            JsonObject json = com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerConfig(entry, 5000, playerName, playerUuid);
             if (json != null) {
                 DlcServerConfigClient.loadFromJson(json);
             }
@@ -200,7 +198,7 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
         String playerUuid = minecraft.player != null ? minecraft.player.getUUID().toString() : "";
         boolean ok;
         try {
-            ok = DlcServerTcpClient.saveServerConfig(entry, 5000, json, playerName, playerUuid);
+            ok = com.cozooo.dlc_manager.client.server.DlcServerConnection.saveServerConfig(entry, 5000, json, playerName, playerUuid);
         } catch (Exception e) {
             ok = false;
         }

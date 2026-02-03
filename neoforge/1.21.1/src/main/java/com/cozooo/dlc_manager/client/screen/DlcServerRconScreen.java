@@ -3,7 +3,6 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.server.DlcServerRconInfo;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
 import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -261,7 +260,7 @@ public class DlcServerRconScreen extends Screen {
 
     private DlcServerRconInfo fetchRconInfo() {
         try {
-            return DlcServerTcpClient.fetchRconInfo(entry, 8000, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchRconInfo(entry, 8000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }

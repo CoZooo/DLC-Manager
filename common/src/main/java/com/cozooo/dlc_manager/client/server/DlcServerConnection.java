@@ -4,10 +4,6 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
-import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem;
-import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
-import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
-import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -33,7 +29,7 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-public class DlcServerTcpClient {
+public class DlcServerConnection {
     private static final Gson GSON = new GsonBuilder().create();
     private static final int CHUNK_SIZE = 64 * 1024;
 

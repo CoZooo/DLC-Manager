@@ -1,10 +1,10 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateState;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient.UpdateResponse;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection.UpdateResponse;
 import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -76,7 +76,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
         new Thread(() -> {
             DlcServerUpdateState state;
             try {
-                state = DlcServerTcpClient.fetchUpdateState(entry, 8000, getPlayerName(), getPlayerUuid());
+                state = DlcServerConnection.fetchUpdateState(entry, 8000, getPlayerName(), getPlayerUuid());
             } catch (Exception ex) {
                 state = null;
             }
@@ -306,7 +306,34 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 actionButton.setY(-10000);
             }
         }
+        renderChangelogTooltip(guiGraphics, listTop, listBottom, lineHeight, totalLines, maxVisible, mouseX, mouseY, rows);
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
+    }
+
+    private void renderChangelogTooltip(GuiGraphics guiGraphics, int listTop, int listBottom, int lineHeight,
+                                        int totalLines, int maxVisible, int mouseX, int mouseY,
+                                        List<DlcUpdateMeta> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        if (mouseY < listTop || mouseY > listBottom) {
+            return;
+        }
+        int hoverIndex = scrollIndex + Math.max(0, (mouseY - listTop) / lineHeight);
+        if (hoverIndex < scrollIndex || hoverIndex >= rows.size() || hoverIndex >= scrollIndex + maxVisible) {
+            return;
+        }
+        DlcUpdateMeta meta = rows.get(hoverIndex);
+        String lang = com.cozooo.dlc_manager.platform.PlatformServices.get().languageCode();
+        String changelog = meta == null ? "" : meta.resolveChangelog(lang);
+        if (changelog == null || changelog.isBlank()) {
+            return;
+        }
+        int maxWidth = Math.max(120, this.width - 60);
+        List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
+        lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
+        lines.addAll(this.font.split(Component.literal(changelog), maxWidth));
+        guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
     @Override
@@ -377,7 +404,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
         new Thread(() -> {
             UpdateResponse result;
             try {
-                result = DlcServerTcpClient.rollbackUpdate(entry, 8000, targetVersion, getPlayerName(), getPlayerUuid());
+                result = DlcServerConnection.rollbackUpdate(entry, 8000, targetVersion, getPlayerName(), getPlayerUuid());
             } catch (Exception ex) {
                 result = null;
             }
@@ -391,7 +418,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
         new Thread(() -> {
             UpdateResponse result;
             try {
-                result = DlcServerTcpClient.applyUpdate(entry, 8000, dlcOld, dlcNew, getPlayerName(), getPlayerUuid());
+                result = DlcServerConnection.applyUpdate(entry, 8000, dlcOld, dlcNew, getPlayerName(), getPlayerUuid());
             } catch (Exception ex) {
                 result = null;
             }
@@ -421,7 +448,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
     private void restartServer() {
         new Thread(() -> {
             try {
-                DlcServerTcpClient.restartServer(entry, 8000, getPlayerName(), getPlayerUuid());
+                DlcServerConnection.restartServer(entry, 8000, getPlayerName(), getPlayerUuid());
             } catch (Exception ignored) {
                 // Best-effort.
             }
@@ -460,7 +487,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
         new Thread(() -> {
             boolean ok;
             try {
-                ok = DlcServerTcpClient.importUpdatePackage(entry, 8000, zip, getPlayerName(), getPlayerUuid());
+                ok = DlcServerConnection.importUpdatePackage(entry, 8000, zip, getPlayerName(), getPlayerUuid());
             } catch (Exception ex) {
                 ok = false;
             }

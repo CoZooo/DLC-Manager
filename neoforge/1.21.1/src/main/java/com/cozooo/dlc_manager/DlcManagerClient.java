@@ -37,7 +37,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
@@ -541,7 +540,7 @@ public class DlcManagerClient {
 
         private static DlcServerInfo fetchServerInfo(DlcServerEntry entry) {
             try {
-                return com.cozooo.dlc_manager.client.server.DlcServerTcpClient.fetchServerInfo(entry, 5000,
+                return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerInfo(entry, 5000,
                     getPlayerName(), getPlayerUuid());
             } catch (Exception ignored) {
             }

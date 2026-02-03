@@ -5,7 +5,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredProgressItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -146,7 +146,7 @@ public class DlcServerRequiredManagerScreen extends Screen {
     private List<DlcServerRequiredItem> fetchRequiredList() {
         try {
             lastError = null;
-            return DlcServerTcpClient.fetchRequiredList(serverEntry, 8000, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.fetchRequiredList(serverEntry, 8000, getPlayerName(), getPlayerUuid());
         } catch (Exception ex) {
             lastError = ex.getMessage();
             return null;
@@ -217,7 +217,7 @@ public class DlcServerRequiredManagerScreen extends Screen {
     private DlcServerRequiredStatus startDownloadRequest(List<String> ids) {
         try {
             lastError = null;
-            return DlcServerTcpClient.startRequiredDownload(serverEntry, 8000, ids, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.startRequiredDownload(serverEntry, 8000, ids, getPlayerName(), getPlayerUuid());
         } catch (Exception ex) {
             lastError = ex.getMessage();
             return null;
@@ -229,7 +229,7 @@ public class DlcServerRequiredManagerScreen extends Screen {
         CompletableFuture
             .runAsync(() -> {
                 try {
-                    DlcServerTcpClient.uninstallRequired(serverEntry, 8000, new ArrayList<>(ids), getPlayerName(), getPlayerUuid());
+                    DlcServerConnection.uninstallRequired(serverEntry, 8000, new ArrayList<>(ids), getPlayerName(), getPlayerUuid());
                 } catch (Exception ignored) {
                     // ignore
                 }
@@ -264,7 +264,7 @@ public class DlcServerRequiredManagerScreen extends Screen {
 
     private DlcServerRequiredStatus fetchStatus() {
         try {
-            return DlcServerTcpClient.fetchRequiredDownloadStatus(serverEntry, 3000, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.fetchRequiredDownloadStatus(serverEntry, 3000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }

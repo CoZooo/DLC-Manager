@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.screen.DlcPresetManagerScreen;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -769,9 +769,9 @@ public class DlcServerManagerScreen extends Screen {
             }));
     }
 
-    private DlcServerTcpClient.ApplyResponse applyRemoteChanges(List<DlcServerItem> changes) {
+    private DlcServerConnection.ApplyResponse applyRemoteChanges(List<DlcServerItem> changes) {
         try {
-            return DlcServerTcpClient.applyChangesWithResponse(entry, 8000, changes, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.applyChangesWithResponse(entry, 8000, changes, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }
@@ -782,7 +782,7 @@ public class DlcServerManagerScreen extends Screen {
             if (result) {
                 CompletableFuture.runAsync(() -> {
                     try {
-                        DlcServerTcpClient.restartServer(entry, 8000, getPlayerName(), getPlayerUuid());
+                        DlcServerConnection.restartServer(entry, 8000, getPlayerName(), getPlayerUuid());
                     } catch (Exception ignored) {
                         // ignore
                     }
@@ -857,7 +857,7 @@ public class DlcServerManagerScreen extends Screen {
 
     private DlcServerInfo fetchInfo(DlcServerEntry entry) {
         try {
-            return DlcServerTcpClient.fetchServerInfo(entry, 5000, getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.fetchServerInfo(entry, 5000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }

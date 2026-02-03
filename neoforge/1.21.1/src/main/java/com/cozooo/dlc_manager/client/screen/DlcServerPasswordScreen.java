@@ -4,7 +4,6 @@ import com.cozooo.dlc_manager.client.server.DlcServerCache;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -131,7 +130,7 @@ public class DlcServerPasswordScreen extends Screen {
 
     private DlcServerInfo fetchInfo(DlcServerEntry entry) {
         try {
-            return DlcServerTcpClient.fetchServerInfo(entry, 5000, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerInfo(entry, 5000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
         }
         return null;

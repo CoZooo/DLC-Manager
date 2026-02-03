@@ -470,7 +470,7 @@ public class DlcManagerClient {
 
         private static DlcServerInfo fetchServerInfo(DlcServerEntry entry) {
             try {
-                return com.cozooo.dlc_manager.client.server.DlcServerTcpClient.fetchServerInfo(entry, 5000,
+                return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerInfo(entry, 5000,
                     getPlayerName(), getPlayerUuid());
             } catch (Exception ignored) {
             }

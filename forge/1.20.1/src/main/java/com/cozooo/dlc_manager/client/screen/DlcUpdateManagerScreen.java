@@ -288,7 +288,34 @@ public class DlcUpdateManagerScreen extends Screen {
                 rollback.setY(-10000);
             }
         }
+        renderChangelogTooltip(guiGraphics, listTop, listBottom, lineHeight, totalLines, maxVisible, maxScroll, mouseX, mouseY, history);
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
+    }
+
+    private void renderChangelogTooltip(GuiGraphics guiGraphics, int listTop, int listBottom, int lineHeight,
+                                        int totalLines, int maxVisible, int maxScroll,
+                                        int mouseX, int mouseY, List<DlcUpdateMeta> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        if (mouseY < listTop || mouseY > listBottom) {
+            return;
+        }
+        int hoverIndex = scrollIndex + Math.max(0, (mouseY - listTop) / lineHeight);
+        if (hoverIndex < scrollIndex || hoverIndex >= rows.size() || hoverIndex >= scrollIndex + maxVisible) {
+            return;
+        }
+        DlcUpdateMeta meta = rows.get(hoverIndex);
+        String lang = PlatformServices.get().languageCode();
+        String changelog = meta == null ? "" : meta.resolveChangelog(lang);
+        if (changelog == null || changelog.isBlank()) {
+            return;
+        }
+        int maxWidth = Math.max(120, this.width - 60);
+        List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
+        lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
+        lines.addAll(this.font.split(Component.literal(changelog), maxWidth));
+        guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
     @Override

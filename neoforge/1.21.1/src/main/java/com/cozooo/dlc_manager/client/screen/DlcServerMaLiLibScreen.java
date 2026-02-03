@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
@@ -788,9 +787,9 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             }));
     }
 
-    private DlcServerTcpClient.ApplyResponse applyRemoteChanges(List<DlcServerItem> changes) {
+    private com.cozooo.dlc_manager.client.server.DlcServerConnection.ApplyResponse applyRemoteChanges(List<DlcServerItem> changes) {
         try {
-            return DlcServerTcpClient.applyChangesWithResponse(entry, 8000, changes, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.applyChangesWithResponse(entry, 8000, changes, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }
@@ -801,7 +800,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             if (result) {
                 CompletableFuture.runAsync(() -> {
                     try {
-                        DlcServerTcpClient.restartServer(entry, 8000, getPlayerName(), getPlayerUuid());
+                        com.cozooo.dlc_manager.client.server.DlcServerConnection.restartServer(entry, 8000, getPlayerName(), getPlayerUuid());
                     } catch (Exception ignored) {
                         // ignore
                     }
@@ -998,7 +997,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
     private DlcServerInfo fetchInfo(DlcServerEntry entry) {
         try {
-            return DlcServerTcpClient.fetchServerInfo(entry, 5000, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerInfo(entry, 5000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }

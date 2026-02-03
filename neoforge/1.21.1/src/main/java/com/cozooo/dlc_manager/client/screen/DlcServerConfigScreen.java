@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerTcpClient;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.JsonElement;
@@ -279,7 +278,7 @@ public class DlcServerConfigScreen extends Screen {
 
     private JsonObject fetchConfig() {
         try {
-            return DlcServerTcpClient.fetchServerConfig(entry, 8000, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerConfig(entry, 8000, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return null;
         }
@@ -368,7 +367,7 @@ public class DlcServerConfigScreen extends Screen {
 
     private boolean submitConfig(JsonObject root) {
         try {
-            return DlcServerTcpClient.saveServerConfig(entry, 8000, root, getPlayerName(), getPlayerUuid());
+            return com.cozooo.dlc_manager.client.server.DlcServerConnection.saveServerConfig(entry, 8000, root, getPlayerName(), getPlayerUuid());
         } catch (Exception ignored) {
             return false;
         }
