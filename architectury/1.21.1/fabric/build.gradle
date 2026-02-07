@@ -1,0 +1,99 @@
+plugins {
+    id 'architectury-plugin'
+    id 'dev.architectury.loom'
+    id 'com.github.johnrengelman.shadow'
+}
+
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+sourceSets {
+    main {
+        java.srcDir '../../../fabric/1.21.1/src/main/java'
+        resources.srcDir '../../../fabric/1.21.1/src/main/resources'
+    }
+}
+
+configurations {
+    common
+    shadowCommon
+    shadowBundle
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+}
+
+dependencies {
+    compileOnly "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    compileOnly "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    compileOnly "maven.modrinth:malilib:${rootProject.malilib_version}"
+    if (rootProject.modmenu_version) {
+        compileOnly "com.terraformersmc:modmenu:${rootProject.modmenu_version}"
+    }
+    implementation "de.marhali:json5-java:3.0.0"
+    implementation "org.commonmark:commonmark:0.21.0"
+    implementation "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
+    shadowBundle "de.marhali:json5-java:3.0.0"
+    shadowBundle "org.commonmark:commonmark:0.21.0"
+    shadowBundle "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
+
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
+    shadowCommon(project(path: ':common', configuration: 'transformProductionFabric')) { transitive = false }
+}
+
+processResources {
+    def mcVersionRange = rootProject.findProperty('minecraft_version_range') ?: ">=${rootProject.minecraft_version}"
+    inputs.properties([
+        mod_id: rootProject.mod_id,
+        mod_name: rootProject.mod_name,
+        mod_version: rootProject.mod_version,
+        mod_author: rootProject.mod_author,
+        mc_version: rootProject.minecraft_version,
+        mc_version_range: mcVersionRange,
+        fabric_loader_version: rootProject.fabric_loader_version,
+        fabric_api_version: rootProject.fabric_api_version,
+        fabric_api_version_range: '0.100.0+1.21',
+        malilib_version: rootProject.malilib_version,
+        pack_format: rootProject.pack_format
+    ])
+
+    filesMatching('fabric.mod.json') {
+        expand([
+            mod_id: rootProject.mod_id,
+            mod_name: rootProject.mod_name,
+            mod_version: rootProject.mod_version,
+            mod_author: rootProject.mod_author,
+            mc_version: rootProject.minecraft_version,
+            mc_version_range: mcVersionRange,
+            fabric_loader_version: rootProject.fabric_loader_version,
+            fabric_api_version: rootProject.fabric_api_version,
+            fabric_api_version_range: '0.100.0+1.21',
+            malilib_version: rootProject.malilib_version,
+            pack_format: rootProject.pack_format
+        ])
+    }
+
+    filesMatching('pack.mcmeta') {
+        expand([pack_format: rootProject.pack_format])
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.shadowCommon, project.configurations.shadowBundle]
+    archiveClassifier = 'dev-shadow'
+    relocate 'org.commonmark', 'com.cozooo.dlc_manager.shadow.org.commonmark'
+    relocate 'de.marhali.json5', 'com.cozooo.dlc_manager.shadow.de.marhali.json5'
+}
+
+remapJar {
+    inputFile = shadowJar.archiveFile
+    dependsOn shadowJar
+    archiveFileName.set("DLC-Manager-fabric-${rootProject.minecraft_version}-${rootProject.mod_version}.jar")
+    destinationDirectory.set(rootProject.layout.projectDirectory.dir("../../output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
+}
+
+jar {
+    archiveClassifier = 'dev'
+}

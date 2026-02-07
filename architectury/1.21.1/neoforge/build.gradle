@@ -1,0 +1,92 @@
+plugins {
+    id 'architectury-plugin'
+    id 'dev.architectury.loom'
+    id 'com.github.johnrengelman.shadow'
+}
+
+architectury {
+    platformSetupLoomIde()
+    neoForge()
+}
+
+sourceSets {
+    main {
+        java.srcDir '../../../neoforge/1.21.1/src/main/java'
+        resources.srcDir '../../../neoforge/1.21.1/src/main/resources'
+    }
+}
+
+configurations {
+    common
+    shadowCommon
+    shadowBundle
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentNeoForge.extendsFrom common
+}
+
+dependencies {
+    neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
+    modCompileOnly "curse.maven:mafglib-910766:${rootProject.mafglib_curse_file}"
+    implementation "de.marhali:json5-java:3.0.0"
+    implementation "org.commonmark:commonmark:0.21.0"
+    implementation "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
+    shadowBundle "de.marhali:json5-java:3.0.0"
+    shadowBundle "org.commonmark:commonmark:0.21.0"
+    shadowBundle "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
+
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
+    shadowCommon(project(path: ':common', configuration: 'transformProductionNeoForge')) { transitive = false }
+}
+
+processResources {
+    def neoMcVersionRange = rootProject.findProperty('neoforge_minecraft_version_range') ?: "[${rootProject.minecraft_version},${rootProject.minecraft_version}]"
+    inputs.properties([
+        mod_id: rootProject.mod_id,
+        mod_name: rootProject.mod_name,
+        mod_version: rootProject.mod_version,
+        mod_author: rootProject.mod_author,
+        mc_version: rootProject.minecraft_version,
+        neoforge_loader_version_range: '[1,)',
+        neoforge_version_range: '[21.1,21.2)',
+        neoforge_minecraft_version_range: neoMcVersionRange,
+        mafglib_version_range: '[0.4.2,)',
+        pack_format: rootProject.pack_format
+    ])
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand([
+            mod_id: rootProject.mod_id,
+            mod_name: rootProject.mod_name,
+            mod_version: rootProject.mod_version,
+            mod_author: rootProject.mod_author,
+            mc_version: rootProject.minecraft_version,
+            neoforge_loader_version_range: '[1,)',
+            neoforge_version_range: '[21.1,21.2)',
+            neoforge_minecraft_version_range: neoMcVersionRange,
+            mafglib_version_range: '[0.4.2,)'
+        ])
+    }
+
+    filesMatching('pack.mcmeta') {
+        expand([pack_format: rootProject.pack_format])
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.shadowCommon, project.configurations.shadowBundle]
+    archiveClassifier = 'dev-shadow'
+    relocate 'org.commonmark', 'com.cozooo.dlc_manager.shadow.org.commonmark'
+    relocate 'de.marhali.json5', 'com.cozooo.dlc_manager.shadow.de.marhali.json5'
+}
+
+remapJar {
+    inputFile = shadowJar.archiveFile
+    dependsOn shadowJar
+    archiveFileName.set("DLC-Manager-neoforge-${rootProject.minecraft_version}-${rootProject.mod_version}.jar")
+    destinationDirectory.set(rootProject.layout.projectDirectory.dir("../../output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
+}
+
+jar {
+    archiveClassifier = 'dev'
+}

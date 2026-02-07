@@ -1,0 +1,22 @@
+plugins {
+    id 'architectury-plugin'
+    id 'dev.architectury.loom'
+}
+
+architectury {
+    common(rootProject.enabled_platforms.split(','))
+}
+
+sourceSets {
+    main {
+        java.srcDir '../../../common/src/main/java'
+        resources.srcDir '../../../common/src/main/resources'
+    }
+}
+
+dependencies {
+    implementation "com.google.code.gson:gson:2.10.1"
+    implementation "de.marhali:json5-java:3.0.0"
+    implementation "org.commonmark:commonmark:0.21.0"
+    implementation "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
+}
