@@ -12,7 +12,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -53,7 +52,6 @@ public final class DlcRemoteLoader {
                     }
                 });
         } catch (IOException ignored) {
-            // Best-effort.
         }
         linkIdentifierDependencies(entries);
         return entries;
@@ -88,7 +86,6 @@ public final class DlcRemoteLoader {
                     resolved = remoteRoot.resolve(relative);
                 }
             } catch (Exception ignored) {
-                // Best-effort.
             }
             if (!Files.exists(resolved)) {
                 return null;
@@ -171,7 +168,6 @@ public final class DlcRemoteLoader {
         try (Writer writer = Files.newBufferedWriter(outPath)) {
             PRETTY_GSON.toJson(normalized.ordered, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
         entry.setConfigPath(outPath);
         return entry;

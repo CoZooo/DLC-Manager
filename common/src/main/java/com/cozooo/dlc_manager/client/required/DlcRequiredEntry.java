@@ -1,11 +1,10 @@
 package com.cozooo.dlc_manager.client.required;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -329,7 +328,7 @@ public class DlcRequiredEntry {
         if (displayNames.isEmpty()) {
             return fallback;
         }
-        String lang = JsonCaseUtil.normalizeLangKey(PlatformServices.get().languageCode());
+        String lang = JsonCaseUtil.normalizeLangKey(CrossPlatformRuntime.languageCode());
         if (displayNames.containsKey(lang)) {
             return displayNames.get(lang);
         }

@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.preset;
 
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;

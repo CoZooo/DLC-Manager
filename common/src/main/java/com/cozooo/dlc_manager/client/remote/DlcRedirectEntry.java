@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;

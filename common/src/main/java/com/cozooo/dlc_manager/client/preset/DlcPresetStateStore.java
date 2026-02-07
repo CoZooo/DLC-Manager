@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.preset;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.core.Json5Util;
@@ -7,7 +7,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,7 +21,7 @@ public final class DlcPresetStateStore {
     }
 
     public static Path getStatePath() {
-        Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Json5Util.migrateLegacy(configDir.resolve("state.json"), PRETTY_GSON);
         return configDir.resolve(STATE_FILE_NAME);
     }

@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -40,7 +41,7 @@ public class DlcScanner {
             scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir);
         }
 
-        if (PlatformServices.get().isModLoaded("tacz")) {
+        if (CrossPlatformRuntime.isModLoaded("tacz")) {
             scanTaczRoots(grouped, tooltipLoader);
         }
 
@@ -418,14 +419,12 @@ public class DlcScanner {
                 return gameReal.relativize(pathReal).toString();
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         try {
             if (normalized.startsWith(gameDir)) {
                 return gameDir.relativize(normalized).toString();
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         return normalized.toString();
     }

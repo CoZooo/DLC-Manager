@@ -10,7 +10,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;

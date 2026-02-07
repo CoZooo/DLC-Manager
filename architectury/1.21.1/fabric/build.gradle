@@ -26,11 +26,12 @@ configurations {
 }
 
 dependencies {
-    compileOnly "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
-    compileOnly "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
-    compileOnly "maven.modrinth:malilib:${rootProject.malilib_version}"
+    modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modImplementation "dev.architectury:architectury-fabric:${rootProject.architectury_api_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    modCompileOnly "maven.modrinth:malilib:${rootProject.malilib_version}"
     if (rootProject.modmenu_version) {
-        compileOnly "com.terraformersmc:modmenu:${rootProject.modmenu_version}"
+        modCompileOnly "com.terraformersmc:modmenu:${rootProject.modmenu_version}"
     }
     implementation "de.marhali:json5-java:3.0.0"
     implementation "org.commonmark:commonmark:0.21.0"

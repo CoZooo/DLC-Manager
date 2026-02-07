@@ -9,13 +9,21 @@ architectury {
 
 sourceSets {
     main {
-        java.srcDir '../../../common/src/main/java'
-        resources.srcDir '../../../common/src/main/resources'
+        java.srcDirs = [
+            '../../../common/src/main/java',
+            '../../../common/1.20.1/src/main/java'
+        ]
+        resources.srcDirs = [
+            '../../../common/src/main/resources',
+            '../../../common/1.20.1/src/main/resources'
+        ]
     }
 }
 
 dependencies {
     modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
+    modImplementation "dev.architectury:architectury:${rootProject.architectury_api_version}"
+    modCompileOnly "maven.modrinth:malilib:${rootProject.malilib_version}"
 
     implementation "com.google.code.gson:gson:2.10.1"
     implementation "de.marhali:json5-java:3.0.0"

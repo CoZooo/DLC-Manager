@@ -3,7 +3,6 @@ package com.cozooo.dlc_manager.client.remote;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;

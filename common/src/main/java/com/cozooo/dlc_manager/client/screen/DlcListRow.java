@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcType;
 
@@ -17,11 +18,11 @@ public class DlcListRow {
     private final DlcType groupType;
     private final DlcItem item;
     private final java.util.List<DlcItem> items;
-    private final com.cozooo.dlc_manager.client.remote.DlcRedirectEntry redirectEntry;
+    private final DlcRedirectEntry redirectEntry;
     private final boolean rootPath;
 
     private DlcListRow(RowType type, String label, DlcType groupType, DlcItem item, java.util.List<DlcItem> items,
-                       com.cozooo.dlc_manager.client.remote.DlcRedirectEntry redirectEntry, boolean rootPath) {
+                       DlcRedirectEntry redirectEntry, boolean rootPath) {
         this.type = type;
         this.label = label;
         this.groupType = groupType;
@@ -47,7 +48,7 @@ public class DlcListRow {
         return new DlcListRow(RowType.REDIRECT_HEADER, label, null, null, null, null, false);
     }
 
-    public static DlcListRow redirectItem(com.cozooo.dlc_manager.client.remote.DlcRedirectEntry entry) {
+    public static DlcListRow redirectItem(DlcRedirectEntry entry) {
         return new DlcListRow(RowType.REDIRECT_ITEM, null, null, null, null, entry, false);
     }
 
@@ -71,7 +72,7 @@ public class DlcListRow {
         return items;
     }
 
-    public com.cozooo.dlc_manager.client.remote.DlcRedirectEntry getRedirectEntry() {
+    public DlcRedirectEntry getRedirectEntry() {
         return redirectEntry;
     }
 

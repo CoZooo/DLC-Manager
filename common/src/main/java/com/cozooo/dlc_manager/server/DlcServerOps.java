@@ -27,7 +27,6 @@ public final class DlcServerOps {
         try {
             Files.createDirectories(backup);
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return new ServerOpContext(root, backup, logPath, gameDir);
     }
@@ -133,7 +132,6 @@ public final class DlcServerOps {
                 try {
                     writer.close();
                 } catch (IOException ignored) {
-                    // Best-effort.
                 }
                 writer = null;
             }

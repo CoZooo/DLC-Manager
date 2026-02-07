@@ -1,13 +1,16 @@
 package com.cozooo.dlc_manager;
 
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
+import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -16,6 +19,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.core.DlcItem;
@@ -144,7 +148,7 @@ public class DlcManagerClient implements ClientModInitializer {
 
             Button button = Button.builder(Component.translatable("dlc_manager.title"), btn -> {
                 Screen managerScreen = new DlcMaLiLibScreen(screen);
-                if (DlcRemoteManager.maybeShowFromManager(managerScreen)) {
+                if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
                     return;
                 }
                 Minecraft.getInstance().setScreen(managerScreen);
@@ -212,7 +216,7 @@ public class DlcManagerClient implements ClientModInitializer {
                         if (currentDlc != null && !currentDlc.isBlank() && (shown == null || !currentDlc.equals(shown))) {
                             DlcUpdateMeta meta = DlcUpdateService.loadMetaForVersion(currentDlc);
                             if (meta != null) {
-                                changelogText = meta.resolveChangelog(PlatformServices.get().languageCode());
+                                changelogText = meta.resolveChangelog(CrossPlatformRuntime.languageCode());
                                 if (changelogText != null && !changelogText.isBlank()) {
                                     changelogVersion = currentDlc;
                                 }
@@ -270,13 +274,13 @@ public class DlcManagerClient implements ClientModInitializer {
                     }
                     if (finalHasRequired && !finalMissing.isEmpty()) {
                         DlcRequiredManager.markPrompted();
-                        Minecraft.getInstance().setScreen(new com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen(screen, finalMissing));
+                        Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(screen, finalMissing));
                         return;
                     }
                     DlcNoticeManager.showFromTitle(screen);
                 };
                 if (finalChangelog != null && !finalChangelog.isBlank() && finalChangelogVersion != null && !finalChangelogVersion.isBlank()) {
-                    Minecraft.getInstance().setScreen(new com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen(screen, finalChangelog, () -> {
+                    Minecraft.getInstance().setScreen(new DlcUpdateChangelogScreen(screen, finalChangelog, () -> {
                         Path root = DlcPaths.dlcRoot();
                         if (root != null) {
                             DlcUpdateVersion version = DlcUpdateVersion.load(root);
@@ -330,7 +334,7 @@ public class DlcManagerClient implements ClientModInitializer {
         Minecraft minecraft = Minecraft.getInstance();
         Screen parent = minecraft.screen;
         Screen managerScreen = new DlcMaLiLibScreen(parent);
-        if (DlcRemoteManager.maybeShowFromManager(managerScreen)) {
+        if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
             return;
         }
         minecraft.setScreen(managerScreen);
@@ -399,21 +403,6 @@ public class DlcManagerClient implements ClientModInitializer {
             entry.useTcp = true;
             return entry;
         }
-
-    private static String getPlayerName() {
-        if (Minecraft.getInstance().player == null) {
-            return "";
-        }
-        return Minecraft.getInstance().player.getGameProfile().getName();
-    }
-
-    private static String getPlayerUuid() {
-        if (Minecraft.getInstance().player == null) {
-            return "";
-        }
-        return Minecraft.getInstance().player.getUUID().toString();
-    }
-
     private static void openServerManagerFromIngame(Screen parent) {
         Minecraft minecraft = Minecraft.getInstance();
         ServerData data = minecraft.getCurrentServer();
@@ -451,8 +440,8 @@ public class DlcManagerClient implements ClientModInitializer {
 
     private static DlcServerInfo fetchServerInfo(DlcServerEntry entry) {
         try {
-            return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerInfo(entry, 5000,
-                getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.fetchServerInfo(entry, 5000,
+                CrossPlatformRuntime.playerName(), CrossPlatformRuntime.playerUuid());
         } catch (Exception ignored) {
         }
         return null;
@@ -636,7 +625,6 @@ public class DlcManagerClient implements ClientModInitializer {
             field.setAccessible(true);
             field.setInt(widget, height);
         } catch (Exception ignored) {
-            // Best-effort only.
         }
     }
 
@@ -677,7 +665,6 @@ public class DlcManagerClient implements ClientModInitializer {
                 minecraft.reloadResourcePacks();
             }
         } catch (Throwable ignored) {
-            // Best effort.
         }
     }
 

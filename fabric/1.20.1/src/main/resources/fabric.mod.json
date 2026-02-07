@@ -23,6 +23,7 @@
     "fabricloader": ">=${fabric_loader_version}",
     "minecraft": ">=${mc_version}",
     "fabric-api": ">=${fabric_api_version}",
+    "architectury": "*",
     "java": ">=17"
   },
   "suggests": {

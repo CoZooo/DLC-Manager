@@ -101,4 +101,44 @@ public final class NeoForgePlatformServices implements PlatformServices.Provider
             return null;
         }
     }
+
+    @Override
+    public String playerName() {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return "";
+        }
+        try {
+            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
+            Object mc = mcClass.getMethod("getInstance").invoke(null);
+            Object player = mcClass.getField("player").get(mc);
+            if (player == null) {
+                return "";
+            }
+            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
+            Object value = profile.getClass().getMethod("getName").invoke(profile);
+            return value == null ? "" : String.valueOf(value);
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    @Override
+    public String playerUuid() {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
+            return "";
+        }
+        try {
+            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
+            Object mc = mcClass.getMethod("getInstance").invoke(null);
+            Object player = mcClass.getField("player").get(mc);
+            if (player == null) {
+                return "";
+            }
+            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
+            Object id = profile.getClass().getMethod("getId").invoke(profile);
+            return id == null ? "" : String.valueOf(id);
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
 }

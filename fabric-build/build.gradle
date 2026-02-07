@@ -1,8 +1,0 @@
-subprojects {
-    group = rootProject.findProperty('mod_group') ?: 'com.cozooo'
-    version = rootProject.findProperty('mod_version') ?: '0.0.0'
-
-    tasks.withType(Jar).configureEach {
-        destinationDirectory.set(rootProject.layout.projectDirectory.dir("../output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
-    }
-}

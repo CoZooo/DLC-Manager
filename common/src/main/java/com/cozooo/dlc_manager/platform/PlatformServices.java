@@ -12,6 +12,8 @@ public final class PlatformServices {
         String mcVersion();
         String modVersion(String modId);
         Path modFilePath(String modId);
+        String playerName();
+        String playerUuid();
     }
 
     private static Provider provider;
@@ -71,6 +73,16 @@ public final class PlatformServices {
         @Override
         public Path modFilePath(String modId) {
             return null;
+        }
+
+        @Override
+        public String playerName() {
+            return "";
+        }
+
+        @Override
+        public String playerUuid() {
+            return "";
         }
     }
 }
