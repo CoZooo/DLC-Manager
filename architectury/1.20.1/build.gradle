@@ -8,41 +8,5 @@ architectury {
     minecraft = minecraft_version
 }
 
-allprojects {
-    group = mod_group
-    version = mod_version
-
-    repositories {
-        mavenCentral()
-        maven { url = 'https://maven.architectury.dev/' }
-        maven { url = 'https://maven.fabricmc.net/' }
-        maven { url = 'https://maven.minecraftforge.net/' }
-        maven { url = 'https://maven.neoforged.net/releases/' }
-        maven { url = 'https://api.modrinth.com/maven' }
-        maven { url = 'https://maven.terraformersmc.com' }
-        maven { url = 'https://cursemaven.com' }
-    }
-}
-
-subprojects {
-    apply plugin: 'dev.architectury.loom'
-
-    java {
-        toolchain {
-            languageVersion = JavaLanguageVersion.of((project.findProperty('java_version') ?: '17') as int)
-        }
-    }
-
-    tasks.withType(JavaCompile).configureEach {
-        options.release = (project.findProperty('java_version') ?: '17') as int
-    }
-
-    loom {
-        silentMojangMappingsLicense()
-    }
-
-    dependencies {
-        minecraft "com.mojang:minecraft:${minecraft_version}"
-        mappings loom.officialMojangMappings()
-    }
-}
+apply from: file('../architectury-common.gradle')
+configureArchitecturyShared(17)

@@ -1,4 +1,4 @@
-name: Gradle Package
+name: Architectury Release
 
 on:
   release:
@@ -33,13 +33,8 @@ jobs:
     - name: Resolve mod version
       run: echo "MOD_VERSION=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_ENV"
 
-    - name: Build Forge + NeoForge
+    - name: Build Architectury
       run: ./gradlew build --parallel
-
-    - name: Build Fabric
-      run: |
-        cd fabric-build
-        ./gradlew build --parallel
 
     - name: Upload output to Release
       if: ${{ github.event_name == 'release' }}
@@ -58,14 +53,6 @@ jobs:
 
     - name: Publish to GitHub Packages
       run: ./gradlew publish
-      env:
-        USERNAME: ${{ github.actor }}
-        TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Publish Fabric to GitHub Packages
-      run: |
-        cd fabric-build
-        ./gradlew publish
       env:
         USERNAME: ${{ github.actor }}
         TOKEN: ${{ secrets.GITHUB_TOKEN }}

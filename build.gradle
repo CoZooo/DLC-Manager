@@ -1,8 +1,51 @@
-subprojects {
-    group = rootProject.findProperty('mod_group') ?: 'com.cozooo'
-    version = rootProject.findProperty('mod_version') ?: '0.0.0'
+plugins {
+    id 'base'
+}
 
-    tasks.withType(Jar).configureEach {
-        destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
-    }
+tasks.register('archCheck') {
+    group = 'verification'
+    description = 'Run checks for Architectury 1.20.1 and 1.21.1.'
+
+    dependsOn(gradle.includedBuild('arch1201').task(':common:check'))
+    dependsOn(gradle.includedBuild('arch1201').task(':fabric:check'))
+    dependsOn(gradle.includedBuild('arch1201').task(':forge:check'))
+    dependsOn(gradle.includedBuild('arch1211').task(':common:check'))
+    dependsOn(gradle.includedBuild('arch1211').task(':fabric:check'))
+    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:check'))
+}
+
+tasks.register('archBuild') {
+    group = 'build'
+    description = 'Build remapped jars for all Architectury targets.'
+
+    dependsOn(gradle.includedBuild('arch1201').task(':fabric:remapJar'))
+    dependsOn(gradle.includedBuild('arch1201').task(':forge:remapJar'))
+    dependsOn(gradle.includedBuild('arch1211').task(':fabric:remapJar'))
+    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:remapJar'))
+}
+
+tasks.register('archPublish') {
+    group = 'publishing'
+    description = 'Publish all Architectury artifacts for 1.20.1 and 1.21.1.'
+
+    dependsOn(gradle.includedBuild('arch1201').task(':common:publish'))
+    dependsOn(gradle.includedBuild('arch1201').task(':fabric:publish'))
+    dependsOn(gradle.includedBuild('arch1201').task(':forge:publish'))
+    dependsOn(gradle.includedBuild('arch1211').task(':common:publish'))
+    dependsOn(gradle.includedBuild('arch1211').task(':fabric:publish'))
+    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:publish'))
+}
+
+tasks.named('check') {
+    dependsOn(tasks.named('archCheck'))
+}
+
+tasks.named('build') {
+    dependsOn(tasks.named('archBuild'))
+}
+
+tasks.register('publish') {
+    group = 'publishing'
+    description = 'Publish all Architectury artifacts.'
+    dependsOn(tasks.named('archPublish'))
 }
