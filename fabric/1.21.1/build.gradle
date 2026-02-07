@@ -6,12 +6,14 @@ plugins {
 def commonProject = project(':common')
 
 def mcVersion = project.findProperty('mc_version') ?: '1.21.1'
+def mcVersionRange = project.findProperty('mc_version_range') ?: mcVersion
 
 def loaderName = project.findProperty('loader_name') ?: 'fabric'
 
 def fabricLoaderVersion = project.findProperty('fabric_loader_version') ?: '0.15.11'
 
 def fabricApiVersion = project.findProperty('fabric_api_version') ?: '0.105.0+1.21.1'
+def fabricApiVersionRange = project.findProperty('fabric_api_version_range') ?: fabricApiVersion
 
 def malilibVersion = project.findProperty('malilib_version') ?: '0.21.1'
 
@@ -68,8 +70,10 @@ tasks.named('processResources', ProcessResources).configure {
         mod_version: mod_version,
         mod_author: mod_author,
         mc_version: mcVersion,
+        mc_version_range: mcVersionRange,
         fabric_loader_version: fabricLoaderVersion,
         fabric_api_version: fabricApiVersion,
+        fabric_api_version_range: fabricApiVersionRange,
         malilib_version: malilibVersion,
         pack_format: packFormat
     ])
@@ -80,8 +84,10 @@ tasks.named('processResources', ProcessResources).configure {
             mod_version: mod_version,
             mod_author: mod_author,
             mc_version: mcVersion,
+            mc_version_range: mcVersionRange,
             fabric_loader_version: fabricLoaderVersion,
             fabric_api_version: fabricApiVersion,
+            fabric_api_version_range: fabricApiVersionRange,
             malilib_version: malilibVersion
         ])
     }
