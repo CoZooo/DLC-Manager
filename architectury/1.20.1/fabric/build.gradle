@@ -19,6 +19,7 @@ sourceSets {
 configurations {
     common
     shadowCommon
+    obfLib
     compileClasspath.extendsFrom common
     runtimeClasspath.extendsFrom common
     developmentFabric.extendsFrom common
@@ -28,6 +29,7 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
     modImplementation "dev.architectury:architectury-fabric:${rootProject.architectury_api_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    obfLib "net.fabricmc:intermediary:${rootProject.minecraft_version}:v2"
     modCompileOnly "maven.modrinth:malilib:${rootProject.malilib_version}"
     if (rootProject.modmenu_version) {
         modCompileOnly "com.terraformersmc:modmenu:${rootProject.modmenu_version}"
@@ -94,6 +96,7 @@ tasks.register('exportObfClasspath', Sync) {
         [configurations.compileClasspath, configurations.runtimeClasspath].each { cfg ->
             jars.addAll(cfg.resolve().findAll { it.name.endsWith('.jar') })
         }
+        jars.addAll(configurations.obfLib.resolve().findAll { it.name.endsWith('.jar') })
         jars
     })
     into rootProject.layout.projectDirectory.dir("../../obf-lib/fabric-${rootProject.minecraft_version}")

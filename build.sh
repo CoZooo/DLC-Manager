@@ -22,6 +22,42 @@ run_export() {
   mkdir -p "${ROOT_DIR}/jar-obf-lib"
   mkdir -p "${RELEASE_DIR}"
 
+  copy_merged_intermediary_jar() {
+    local mcver="$1"
+    local dest_dir="$2"
+    local base="${HOME}/.gradle/caches/fabric-loom/minecraftMaven/net/minecraft"
+    local candidate=""
+
+    if [[ ! -d "${base}" ]]; then
+      return 0
+    fi
+
+    shopt -s nullglob
+    local primary=(
+      "${base}/minecraft-merged-intermediary/${mcver}-loom.mappings."*/"minecraft-merged-intermediary-${mcver}-loom.mappings."*.jar
+    )
+    local forge_variant=(
+      "${base}/forge-${mcver}-"*"-minecraft-merged-intermediary/${mcver}-loom.mappings."*/"forge-${mcver}-"*-minecraft-merged-intermediary-${mcver}-loom.mappings."*.jar
+    )
+    local neoforge_variant=(
+      "${base}/neoforge-"*"-minecraft-merged-intermediary/${mcver}-loom.mappings."*/"neoforge-"*-minecraft-merged-intermediary-${mcver}-loom.mappings."*.jar
+    )
+    shopt -u nullglob
+
+    if (( ${#primary[@]} > 0 )); then
+      candidate="${primary[$(( ${#primary[@]} - 1 ))]}"
+    elif (( ${#forge_variant[@]} > 0 )); then
+      candidate="${forge_variant[$(( ${#forge_variant[@]} - 1 ))]}"
+    elif (( ${#neoforge_variant[@]} > 0 )); then
+      candidate="${neoforge_variant[$(( ${#neoforge_variant[@]} - 1 ))]}"
+    fi
+
+    if [[ -n "${candidate}" ]]; then
+      cp -f "${candidate}" "${dest_dir}/"
+      printf "    + merged intermediary: %s\n" "$(basename "${candidate}")"
+    fi
+  }
+
   run_one() {
     local loader="$1"
     local mcver="$2"
@@ -42,6 +78,7 @@ run_export() {
     printf "==> jar-obfuscator: %s\n" "$(basename "${input_jar}")"
     rm -rf "${ROOT_DIR}/jar-obf-lib"/*
     cp -a "${ROOT_DIR}/obf-lib/${libdir}/." "${ROOT_DIR}/jar-obf-lib/"
+    copy_merged_intermediary_jar "${mcver}" "${ROOT_DIR}/jar-obf-lib"
 
     rm -f "${obf_jar}"
     (cd "${ROOT_DIR}" && java -jar jar-obfuscator.jar --jar "${input_jar}" --config config.yaml)

@@ -132,31 +132,37 @@ public class DlcNoticeScreen extends Screen {
 
         int textX = panelLeft + 14;
         int textY = contentTop - scrollOffset;
-
-        for (FormattedCharSequence line : bodyLines) {
-            if (isHrLine(line)) {
-                int y = textY + lineStep / 2;
-                int x2 = panelLeft + panelWidth - 14;
-                guiGraphics.fill(textX, y, x2, y + 1, 0xFF5A5A5A);
-                textY += lineStep;
-                continue;
-            }
-            float scale = getHeadingScale(line);
-            int drawHeight = getLineHeight(line, scale);
-            if (textY >= contentTop && textY <= contentBottom - drawHeight + 1) {
-                if (scale > 1.0f) {
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().scale(scale, scale, 1.0f);
-                    guiGraphics.drawString(this.font, line,
-                        (int) (textX / scale),
-                        (int) (textY / scale),
-                        0xFFFFFF, false);
-                    guiGraphics.pose().popPose();
-                } else {
-                    guiGraphics.drawString(this.font, line, textX, textY, 0xE6E6E6, false);
+        guiGraphics.enableScissor(panelLeft + 2, contentTop, panelLeft + panelWidth - 2, contentBottom);
+        try {
+            for (FormattedCharSequence line : bodyLines) {
+                if (isHrLine(line)) {
+                    int y = textY + lineStep / 2;
+                    if (y >= contentTop && y <= contentBottom - 1) {
+                        int x2 = panelLeft + panelWidth - 14;
+                        guiGraphics.fill(textX, y, x2, y + 1, 0xFF5A5A5A);
+                    }
+                    textY += lineStep;
+                    continue;
                 }
+                float scale = getHeadingScale(line);
+                int drawHeight = getLineHeight(line, scale);
+                if (textY >= contentTop && textY <= contentBottom - drawHeight + 1) {
+                    if (scale > 1.0f) {
+                        guiGraphics.pose().pushPose();
+                        guiGraphics.pose().scale(scale, scale, 1.0f);
+                        guiGraphics.drawString(this.font, line,
+                            (int) (textX / scale),
+                            (int) (textY / scale),
+                            0xFFFFFF, false);
+                        guiGraphics.pose().popPose();
+                    } else {
+                        guiGraphics.drawString(this.font, line, textX, textY, 0xE6E6E6, false);
+                    }
+                }
+                textY += drawHeight;
             }
-            textY += drawHeight;
+        } finally {
+            guiGraphics.disableScissor();
         }
 
         drawScrollBar(guiGraphics);

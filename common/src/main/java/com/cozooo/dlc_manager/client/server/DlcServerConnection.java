@@ -828,10 +828,13 @@ public class DlcServerConnection {
                     if (!element.isJsonObject()) {
                         return;
                     }
-                    DlcServerFileEntry entryObj = GSON.fromJson(element, DlcServerFileEntry.class);
-                    if (entryObj != null) {
-                        entries.add(entryObj);
-                    }
+                    JsonObject obj = element.getAsJsonObject();
+                    DlcServerFileEntry entryObj = new DlcServerFileEntry();
+                    entryObj.name = obj.has("name") && !obj.get("name").isJsonNull() ? obj.get("name").getAsString() : "";
+                    entryObj.dir = obj.has("dir") && !obj.get("dir").isJsonNull() && obj.get("dir").getAsBoolean();
+                    entryObj.size = obj.has("size") && !obj.get("size").isJsonNull() ? obj.get("size").getAsLong() : 0L;
+                    entryObj.modified = obj.has("modified") && !obj.get("modified").isJsonNull() ? obj.get("modified").getAsLong() : 0L;
+                    entries.add(entryObj);
                 });
             }
             return entries;

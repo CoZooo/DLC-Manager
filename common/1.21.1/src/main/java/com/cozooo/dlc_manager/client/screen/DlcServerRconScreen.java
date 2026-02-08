@@ -301,6 +301,8 @@ public class DlcServerRconScreen extends Screen {
         if (entry == null) {
             return;
         }
+        entry.rconPort = rconPort;
+        entry.rconPassword = rconPassword == null ? "" : rconPassword;
         DlcServerList.load();
         List<DlcServerEntry> list = new ArrayList<>(DlcServerList.getEntries());
         boolean updated = false;
@@ -313,8 +315,6 @@ public class DlcServerRconScreen extends Screen {
             }
         }
         if (!updated) {
-            entry.rconPort = rconPort;
-            entry.rconPassword = rconPassword == null ? "" : rconPassword;
             list.add(entry);
         }
         DlcServerList.setEntries(list);

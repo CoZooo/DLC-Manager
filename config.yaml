@@ -50,7 +50,7 @@ enablePackageName: false
 # 开启方法名混淆
 enableMethodName: true
 # 开启字段混淆
-enableFieldName: true
+enableFieldName: false
 # 开启参数名混淆
 enableParamName: true
 # 开启数字异或混淆
