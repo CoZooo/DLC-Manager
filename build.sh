@@ -52,6 +52,7 @@ run_export() {
     fi
 
     cp -f "${obf_jar}" "${release_jar}"
+    rm -f "${obf_jar}"
     rm -rf "${ROOT_DIR}/jar-obf-lib"/*
   }
 
