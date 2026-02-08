@@ -19,7 +19,6 @@ sourceSets {
 configurations {
     common
     shadowCommon
-    shadowBundle
     compileClasspath.extendsFrom common
     runtimeClasspath.extendsFrom common
     developmentFabric.extendsFrom common
@@ -33,12 +32,9 @@ dependencies {
     if (rootProject.modmenu_version) {
         modCompileOnly "com.terraformersmc:modmenu:${rootProject.modmenu_version}"
     }
-    implementation "de.marhali:json5-java:3.0.0"
-    implementation "org.commonmark:commonmark:0.21.0"
-    implementation "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
-    shadowBundle "de.marhali:json5-java:3.0.0"
-    shadowBundle "org.commonmark:commonmark:0.21.0"
-    shadowBundle "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
+    include(implementation("de.marhali:json5-java:3.0.0"))
+    include(implementation("org.commonmark:commonmark:0.21.0"))
+    include(implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"))
 
     common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
     shadowCommon(project(path: ':common', configuration: 'transformProductionFabric')) { transitive = false }
@@ -77,10 +73,8 @@ processResources {
 }
 
 shadowJar {
-    configurations = [project.configurations.shadowCommon, project.configurations.shadowBundle]
+    configurations = [project.configurations.shadowCommon]
     archiveClassifier = 'dev-shadow'
-    relocate 'org.commonmark', 'com.cozooo.dlc_manager.shadow.org.commonmark'
-    relocate 'de.marhali.json5', 'com.cozooo.dlc_manager.shadow.de.marhali.json5'
 }
 
 remapJar {
@@ -92,4 +86,15 @@ remapJar {
 
 jar {
     archiveClassifier = 'dev'
+}
+
+tasks.register('exportObfClasspath', Sync) {
+    from({
+        def jars = [] as LinkedHashSet<File>
+        [configurations.compileClasspath, configurations.runtimeClasspath].each { cfg ->
+            jars.addAll(cfg.resolve().findAll { it.name.endsWith('.jar') })
+        }
+        jars
+    })
+    into rootProject.layout.projectDirectory.dir("../../jar-obf-lib/fabric-${rootProject.minecraft_version}")
 }
