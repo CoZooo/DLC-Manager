@@ -1,4 +1,4 @@
-name: Architectury Check
+name: Gradle Check
 
 on:
   push:
