@@ -2,6 +2,165 @@ plugins {
     id 'base'
 }
 
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    yguardTool
+}
+
+dependencies {
+    yguardTool "com.yworks:yguard:4.1.1"
+}
+
+def currentModVersion = providers.gradleProperty('mod_version').get()
+
+def runYGuardObfuscation = { File inputJar, File outputJar, File libDir ->
+    if (!inputJar.exists()) {
+        throw new GradleException("Input jar not found: ${inputJar}")
+    }
+    if (!libDir.exists()) {
+        throw new GradleException("Library directory not found: ${libDir}")
+    }
+
+    outputJar.parentFile.mkdirs()
+    def renameLogDir = new File(outputJar.parentFile, 'log')
+    renameLogDir.mkdirs()
+    def renameLog = new File(renameLogDir, outputJar.name + '.yguard-map.xml')
+    def legacyRenameLog = new File(outputJar.parentFile, outputJar.name + '.yguard-map.xml')
+    if (legacyRenameLog.exists()) {
+        legacyRenameLog.delete()
+    }
+    def keptScreenClasses = []
+    def zipFile = new java.util.zip.ZipFile(inputJar)
+    try {
+        zipFile.entries().each { entry ->
+            if (entry.name.startsWith('com/cozooo/dlc_manager/client/screen/') && entry.name.endsWith('.class')) {
+                keptScreenClasses.add(entry.name.substring(0, entry.name.length() - 6).replace('/', '.'))
+            }
+        }
+    } finally {
+        zipFile.close()
+    }
+
+    ant.taskdef(
+        name: 'yguard',
+        classname: 'com.yworks.yguard.YGuardTask',
+        classpath: configurations.yguardTool.asPath
+    )
+
+    ant.yguard {
+        inoutpair(in: inputJar.absolutePath, out: outputJar.absolutePath)
+
+        externalclasses {
+            fileset(dir: libDir.absolutePath) {
+                include(name: '*.jar')
+            }
+        }
+
+        rename(logfile: renameLog.absolutePath, replaceClassNameStrings: true) {
+            adjust(replaceContent: true, replaceContentSeparator: '.', replaceName: false) {
+                include(name: 'fabric.mod.json')
+                include(name: '*.mixins.json')
+                include(name: '**/*.mixins.json')
+            }
+            keep {
+                //'class'(name: 'com.cozooo.dlc_manager.DlcManager')
+                //'class'(name: 'com.cozooo.dlc_manager.DlcManagerClient')
+                //'class'(name: 'com.cozooo.dlc_manager.client.ModMenuCompat')
+                keptScreenClasses.each { className ->
+                    'class'(name: className, methods: 'private', fields: 'private')
+                }
+                'class'(methods: 'private', fields: 'private')
+            }
+        }
+    }
+
+    logger.lifecycle("yGuard obfuscation finished: ${outputJar}")
+    logger.lifecycle("yGuard rename log: ${renameLog}")
+}
+
+tasks.register('obfuscateJarYguard') {
+    group = 'build'
+    description = 'Obfuscate one jar with yGuard. Use -PobfInput=... -PobfOutput=... -PobfLibDir=...'
+
+    doLast {
+        def inputValue = findProperty('obfInput')?.toString()
+        def outputValue = findProperty('obfOutput')?.toString()
+        def libValue = findProperty('obfLibDir')?.toString()
+
+        if (!inputValue || !outputValue || !libValue) {
+            throw new GradleException('Missing required properties: -PobfInput=... -PobfOutput=... -PobfLibDir=...')
+        }
+
+        runYGuardObfuscation(file(inputValue), file(outputValue), file(libValue))
+    }
+}
+
+tasks.register('obfuscateForge1201Yguard') {
+    group = 'build'
+    description = 'Obfuscate Forge 1.20.1 output jar with yGuard.'
+    dependsOn(tasks.named('archBuild'))
+    doLast {
+        runYGuardObfuscation(
+            file("output/${currentModVersion}/DLC-Manager-forge-1.20.1-${currentModVersion}.jar"),
+            file("output/${currentModVersion}/yGuard/DLC-Manager-forge-1.20.1-${currentModVersion}.jar"),
+            file('jar-obf-lib/forge-1.20.1')
+        )
+    }
+}
+
+tasks.register('obfuscateFabric1201Yguard') {
+    group = 'build'
+    description = 'Obfuscate Fabric 1.20.1 output jar with yGuard.'
+    dependsOn(tasks.named('archBuild'))
+    doLast {
+        runYGuardObfuscation(
+            file("output/${currentModVersion}/DLC-Manager-fabric-1.20.1-${currentModVersion}.jar"),
+            file("output/${currentModVersion}/yGuard/DLC-Manager-fabric-1.20.1-${currentModVersion}.jar"),
+            file('jar-obf-lib/fabric-1.20.1')
+        )
+    }
+}
+
+tasks.register('obfuscateFabric1211Yguard') {
+    group = 'build'
+    description = 'Obfuscate Fabric 1.21.1 output jar with yGuard.'
+    dependsOn(tasks.named('archBuild'))
+    doLast {
+        runYGuardObfuscation(
+            file("output/${currentModVersion}/DLC-Manager-fabric-1.21.1-${currentModVersion}.jar"),
+            file("output/${currentModVersion}/yGuard/DLC-Manager-fabric-1.21.1-${currentModVersion}.jar"),
+            file('jar-obf-lib/fabric-1.21.1')
+        )
+    }
+}
+
+tasks.register('obfuscateNeoForge1211Yguard') {
+    group = 'build'
+    description = 'Obfuscate NeoForge 1.21.1 output jar with yGuard.'
+    dependsOn(tasks.named('archBuild'))
+    doLast {
+        runYGuardObfuscation(
+            file("output/${currentModVersion}/DLC-Manager-neoforge-1.21.1-${currentModVersion}.jar"),
+            file("output/${currentModVersion}/yGuard/DLC-Manager-neoforge-1.21.1-${currentModVersion}.jar"),
+            file('jar-obf-lib/neoforge-1.21.1')
+        )
+    }
+}
+
+tasks.register('obfuscateAllYguard') {
+    group = 'build'
+    description = 'Obfuscate all Architectury target jars with yGuard.'
+    dependsOn(
+        tasks.named('obfuscateForge1201Yguard'),
+        tasks.named('obfuscateFabric1201Yguard'),
+        tasks.named('obfuscateFabric1211Yguard'),
+        tasks.named('obfuscateNeoForge1211Yguard')
+    )
+}
+
 tasks.register('archCheck') {
     group = 'verification'
     description = 'Run checks for Architectury 1.20.1 and 1.21.1.'
