@@ -53,3 +53,5 @@ build/
 .idea/
 output/
 test/
+jar-obf-lib/
+jar-obfuscator-temp/

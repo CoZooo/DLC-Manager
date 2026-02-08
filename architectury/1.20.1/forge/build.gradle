@@ -97,5 +97,5 @@ tasks.register('exportObfClasspath', Sync) {
         }
         jars
     })
-    into rootProject.layout.projectDirectory.dir("../../jar-obf-lib/forge-${rootProject.minecraft_version}")
+    into rootProject.layout.projectDirectory.dir("../../obf-lib/forge-${rootProject.minecraft_version}")
 }

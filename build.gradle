@@ -106,7 +106,7 @@ tasks.register('obfuscateForge1201Yguard') {
         runYGuardObfuscation(
             file("output/${currentModVersion}/DLC-Manager-forge-1.20.1-${currentModVersion}.jar"),
             file("output/${currentModVersion}/yGuard/DLC-Manager-forge-1.20.1-${currentModVersion}.jar"),
-            file('jar-obf-lib/forge-1.20.1')
+            file('obf-lib/forge-1.20.1')
         )
     }
 }
@@ -119,7 +119,7 @@ tasks.register('obfuscateFabric1201Yguard') {
         runYGuardObfuscation(
             file("output/${currentModVersion}/DLC-Manager-fabric-1.20.1-${currentModVersion}.jar"),
             file("output/${currentModVersion}/yGuard/DLC-Manager-fabric-1.20.1-${currentModVersion}.jar"),
-            file('jar-obf-lib/fabric-1.20.1')
+            file('obf-lib/fabric-1.20.1')
         )
     }
 }
@@ -132,7 +132,7 @@ tasks.register('obfuscateFabric1211Yguard') {
         runYGuardObfuscation(
             file("output/${currentModVersion}/DLC-Manager-fabric-1.21.1-${currentModVersion}.jar"),
             file("output/${currentModVersion}/yGuard/DLC-Manager-fabric-1.21.1-${currentModVersion}.jar"),
-            file('jar-obf-lib/fabric-1.21.1')
+            file('obf-lib/fabric-1.21.1')
         )
     }
 }
@@ -145,7 +145,7 @@ tasks.register('obfuscateNeoForge1211Yguard') {
         runYGuardObfuscation(
             file("output/${currentModVersion}/DLC-Manager-neoforge-1.21.1-${currentModVersion}.jar"),
             file("output/${currentModVersion}/yGuard/DLC-Manager-neoforge-1.21.1-${currentModVersion}.jar"),
-            file('jar-obf-lib/neoforge-1.21.1')
+            file('obf-lib/neoforge-1.21.1')
         )
     }
 }

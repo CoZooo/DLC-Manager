@@ -94,5 +94,5 @@ tasks.register('exportObfClasspath', Sync) {
         }
         jars
     })
-    into rootProject.layout.projectDirectory.dir("../../jar-obf-lib/neoforge-${rootProject.minecraft_version}")
+    into rootProject.layout.projectDirectory.dir("../../obf-lib/neoforge-${rootProject.minecraft_version}")
 }
