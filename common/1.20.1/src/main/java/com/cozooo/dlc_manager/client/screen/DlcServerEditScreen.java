@@ -150,7 +150,6 @@ public class DlcServerEditScreen extends Screen {
         try {
             port = Integer.parseInt(portField.getValue().trim());
         } catch (NumberFormatException ignored) {
-            // Keep default.
         }
         entry.port = port;
         if (onSave != null) {

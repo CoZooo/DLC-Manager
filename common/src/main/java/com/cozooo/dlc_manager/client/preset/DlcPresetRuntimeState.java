@@ -348,7 +348,6 @@ public final class DlcPresetRuntimeState {
         for (String identifier : desired) {
             DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
             if (item != null) {
-                // Force-enable desired items so toggling preset back on re-applies all.
                 DlcRuntimeState.setOverride(item.getId(), true);
             }
         }

@@ -135,11 +135,9 @@ public class DlcUpdatePackage {
                         }
                     }
                 } catch (IOException ignored) {
-                    // Best-effort per entry.
                 }
             }
         } catch (IOException ignored) {
-            // Best-effort extraction.
         }
         if (contentRoot != null && !contentRoot.isBlank()) {
             Path rootPath = target.resolve(contentRoot).normalize();

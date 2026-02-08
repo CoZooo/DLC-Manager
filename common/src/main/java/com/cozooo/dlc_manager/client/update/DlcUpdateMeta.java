@@ -110,7 +110,6 @@ public class DlcUpdateMeta {
                 GSON.toJson(obj, writer);
             }
         } catch (IOException ignored) {
-            // Best-effort save.
         }
     }
 

@@ -799,7 +799,6 @@ public class DlcServerConnection {
             try {
                 Files.deleteIfExists(zipPath);
             } catch (IOException ignored) {
-                // Best-effort cleanup.
             }
         }
     }

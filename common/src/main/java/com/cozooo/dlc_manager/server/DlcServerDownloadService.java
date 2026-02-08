@@ -966,7 +966,6 @@ public final class DlcServerDownloadService {
                         applied++;
                     }
                 } catch (IOException ignored) {
-                    // Best-effort per target.
                 }
             }
         }
@@ -1443,7 +1442,6 @@ public final class DlcServerDownloadService {
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         CurseForgeClient.CurseForgeFile curseFile = null;
@@ -1459,7 +1457,6 @@ public final class DlcServerDownloadService {
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         List<String> directUrls = new ArrayList<>(entry.getDirectUrls());
@@ -1632,7 +1629,6 @@ public final class DlcServerDownloadService {
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         CurseForgeClient.CurseForgeFile curseFile = null;
@@ -1648,7 +1644,6 @@ public final class DlcServerDownloadService {
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         List<String> directUrls = new ArrayList<>();
@@ -1771,7 +1766,6 @@ public final class DlcServerDownloadService {
                     Files.deleteIfExists(target);
                 }
             } catch (IOException ignored) {
-                // Best-effort cleanup.
             }
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw new DownloadCanceledException("canceled");

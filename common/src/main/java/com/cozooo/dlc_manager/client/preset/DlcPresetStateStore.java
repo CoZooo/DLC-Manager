@@ -49,7 +49,6 @@ public final class DlcPresetStateStore {
                 DlcPresetStatus status = DlcPresetStatus.fromString(raw);
                 result.put(entry.getKey(), status);
             } catch (Exception ignored) {
-                // Skip invalid entries.
             }
         }
         return result;
@@ -85,7 +84,6 @@ public final class DlcPresetStateStore {
         try {
             Files.writeString(path, PRETTY_GSON.toJson(root));
         } catch (IOException ignored) {
-            // Best-effort write.
         }
     }
 }

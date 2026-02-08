@@ -129,7 +129,6 @@ public class DlcScanner {
                 }
             });
         } catch (IOException ignored) {
-            // Best-effort scan.
         }
     }
 
@@ -401,7 +400,6 @@ public class DlcScanner {
                     }
                 });
             } catch (IOException ignored) {
-                // Best-effort TACZ scan.
             }
         }
     }

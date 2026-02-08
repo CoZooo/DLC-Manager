@@ -215,7 +215,6 @@ public final class DlcRemoteLoader {
             });
             Files.deleteIfExists(legacyRoot);
         } catch (IOException ignored) {
-            // Best-effort migration.
         }
     }
 

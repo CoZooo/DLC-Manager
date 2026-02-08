@@ -284,7 +284,6 @@ public class DlcRequiredDownloadScreen extends Screen {
             boolean hasFile = fileName != null && entry.resolveRequiredPath(fileName) != null
                 && Files.exists(entry.resolveRequiredPath(fileName)) && !isTempFileName(fileName);
             if (!hasFile && fileName == null) {
-                // fall back to base name match
                 String base = entry.getBaseName();
                 if (base != null && !base.isBlank() && entry.getRequiredDir() != null) {
                     try (var stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {

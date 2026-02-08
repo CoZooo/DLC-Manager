@@ -101,7 +101,6 @@ public class DlcServerService {
             try {
                 serverSocket.close();
             } catch (IOException ignored) {
-                // Best-effort shutdown.
             }
             serverSocket = null;
         }
@@ -140,7 +139,6 @@ public class DlcServerService {
             java.lang.reflect.Method setDescription = status.getClass().getMethod("setDescription", Component.class);
             setDescription.invoke(status, Component.literal(combined));
         } catch (Throwable ignored) {
-            // Best-effort status update.
         }
     }
 
@@ -293,7 +291,6 @@ public class DlcServerService {
                 }
             }
         } catch (IOException ignored) {
-            // Best-effort session.
         }
     }
 
@@ -806,7 +803,6 @@ public class DlcServerService {
                         writeEntry(zip, target);
                         op.log("WRITE " + target);
                     } catch (IOException ignored) {
-                        // Best-effort write.
                     }
                     zip.closeEntry();
                 }
@@ -1035,7 +1031,6 @@ public class DlcServerService {
                         }
                         zip.closeEntry();
                     } catch (IOException ignored) {
-                        // Best-effort zip.
                     }
                 });
         }

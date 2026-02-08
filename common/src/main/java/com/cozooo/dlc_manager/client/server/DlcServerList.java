@@ -37,7 +37,6 @@ public class DlcServerList {
                 }
             }
         } catch (Exception ignored) {
-            // Best-effort load.
         }
     }
 
@@ -56,7 +55,6 @@ public class DlcServerList {
                 GSON.toJson(data, writer);
             }
         } catch (IOException ignored) {
-            // Best-effort save.
         }
     }
 

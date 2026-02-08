@@ -425,7 +425,6 @@ public class DlcManagerClient implements ClientModInitializer {
             method.invoke(widget, height);
             return;
         } catch (Exception ignored) {
-            // Fall back to direct field access for 1.20.x.
         }
         try {
             java.lang.reflect.Field field = AbstractWidget.class.getDeclaredField("height");

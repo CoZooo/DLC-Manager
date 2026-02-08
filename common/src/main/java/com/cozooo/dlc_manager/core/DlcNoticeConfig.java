@@ -139,7 +139,6 @@ public class DlcNoticeConfig {
         try (Writer writer = Files.newBufferedWriter(path)) {
             GSON.toJson(obj, writer);
         } catch (IOException ignored) {
-            // Best-effort persistence.
         }
     }
 

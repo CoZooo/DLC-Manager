@@ -115,7 +115,6 @@ public class DlcApplier {
                 targets.add(target);
             }
         } catch (IOException ignored) {
-            // Best-effort copy.
         }
 
         return targets;
@@ -129,7 +128,6 @@ public class DlcApplier {
             try {
                 deleteRecursive(resolveStoredPath(pathString));
             } catch (IOException ignored) {
-                // Best-effort cleanup.
             }
         }
     }
@@ -173,7 +171,6 @@ public class DlcApplier {
             Path backupTarget = backupRoot.resolve(name);
             copyRecursive(target, backupTarget);
         } catch (IOException ignored) {
-            // Best-effort backup.
         }
     }
 
@@ -209,14 +206,12 @@ public class DlcApplier {
                 return gameReal.relativize(pathReal).toString();
             }
         } catch (Exception ignored) {
-            // Fallback to normalized comparison.
         }
         try {
             if (normalized.startsWith(gameDir)) {
                 return gameDir.relativize(normalized).toString();
             }
         } catch (Exception ignored) {
-            // Best-effort conversion.
         }
         return normalized.toString();
     }

@@ -2000,7 +2000,6 @@ public final class DlcUpdateService {
                 }
             });
         } catch (IOException ignored) {
-            // Best-effort delete.
         }
     }
 
@@ -2012,12 +2011,10 @@ public final class DlcUpdateService {
             Files.deleteIfExists(path);
             return;
         } catch (IOException ignored) {
-            // Retry below.
         }
         try {
             Files.setAttribute(path, "dos:readonly", false);
         } catch (Exception ignored) {
-            // Ignore if not supported.
         }
         try {
             java.io.File file = path.toFile();
@@ -2030,7 +2027,6 @@ public final class DlcUpdateService {
             Files.deleteIfExists(path);
             return;
         } catch (IOException ignored) {
-            // Fall back to deleteOnExit.
         }
         try {
             path.toFile().deleteOnExit();
@@ -2076,7 +2072,6 @@ public final class DlcUpdateService {
                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException ignored) {
-            // Best-effort copy.
         }
     }
 
@@ -2120,7 +2115,6 @@ public final class DlcUpdateService {
                 }
             });
         } catch (IOException ignored) {
-            // Best-effort sync.
         }
     }
 
@@ -2161,7 +2155,6 @@ public final class DlcUpdateService {
                 }
             });
         } catch (IOException ignored) {
-            // Best-effort copy.
         }
     }
 

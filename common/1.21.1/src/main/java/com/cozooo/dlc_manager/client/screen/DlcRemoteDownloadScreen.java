@@ -725,7 +725,6 @@ public class DlcRemoteDownloadScreen extends Screen {
             try {
                 Files.deleteIfExists(target);
             } catch (IOException ignored) {
-                // Best-effort cleanup.
             }
             throw new IOException("download incomplete");
         }

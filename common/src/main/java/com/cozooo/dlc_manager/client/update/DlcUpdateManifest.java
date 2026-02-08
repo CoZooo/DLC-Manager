@@ -416,7 +416,6 @@ public class DlcUpdateManifest {
                 }
                 indexes.add(num);
             } catch (NumberFormatException ignored) {
-                // Skip invalid parts.
             }
         }
         if (indexes.isEmpty()) {

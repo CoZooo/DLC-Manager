@@ -28,7 +28,6 @@ public final class DlcBootstrap {
             Class<?> client = Class.forName("com.cozooo.dlc_manager.DlcManagerClient");
             client.getMethod("init", modBusClass).invoke(null, modBus);
         } catch (Throwable ignored) {
-            // Best effort: avoid hard class-linking on dedicated server.
         }
     }
 }

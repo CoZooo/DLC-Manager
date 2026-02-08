@@ -57,7 +57,6 @@ public class DlcConfig {
                 GSON.toJson(data, writer);
             }
         } catch (IOException ignored) {
-            // Best-effort persistence.
         }
     }
 
