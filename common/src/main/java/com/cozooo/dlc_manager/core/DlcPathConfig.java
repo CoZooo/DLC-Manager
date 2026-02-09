@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.core;
 
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -16,7 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
-
 import com.cozooo.dlc_manager.core.Json5Util;
 
 public class DlcPathConfig {
@@ -511,7 +511,7 @@ public class DlcPathConfig {
 
     private static void loadClientFromDisk() {
         resetDefaults();
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
         Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
         jsonPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(jsonPath)) {
@@ -521,7 +521,7 @@ public class DlcPathConfig {
 
     private static void loadServerFromDisk() {
         resetDefaults();
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
         Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
         serverPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(serverPath)) {
@@ -551,7 +551,7 @@ public class DlcPathConfig {
     }
 
     private static void ensureClientConfigFile() {
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
         Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
         Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(jsonPath)) {
@@ -561,7 +561,7 @@ public class DlcPathConfig {
     }
 
     private static void ensureServerConfigFile() {
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
         Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
         Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(serverPath)) {
@@ -571,7 +571,7 @@ public class DlcPathConfig {
     }
 
     private static void saveClientToDisk() {
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
         Path jsonPath = configDir.resolve(CONFIG_NAME + Json5Util.JSON5_EXTENSION);
         try {
             Files.createDirectories(configDir);
@@ -586,7 +586,7 @@ public class DlcPathConfig {
     }
 
     private static void saveServerToDisk() {
-        Path configDir = PlatformServices.get().configDir().resolve(CONFIG_DIR);
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
         Path serverPath = configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON5_EXTENSION);
         try {
             Files.createDirectories(configDir);
@@ -605,7 +605,6 @@ public class DlcPathConfig {
         try (Writer writer = Files.newBufferedWriter(path)) {
             GSON.toJson(root, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -757,7 +756,6 @@ public class DlcPathConfig {
                 return element.getAsInt();
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         return fallback;
     }
@@ -771,7 +769,6 @@ public class DlcPathConfig {
                 return element.getAsBoolean();
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         return fallback;
     }
@@ -788,7 +785,6 @@ public class DlcPathConfig {
                 }
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         return fallback;
     }
@@ -804,7 +800,7 @@ public class DlcPathConfig {
         String raw = value == null || value.isBlank() ? fallback : value;
         Path path = Path.of(raw);
         if (!path.isAbsolute()) {
-            path = PlatformServices.get().gameDir().resolve(path);
+            path = CrossPlatformRuntime.gameDir().resolve(path);
         }
         return path.normalize();
     }

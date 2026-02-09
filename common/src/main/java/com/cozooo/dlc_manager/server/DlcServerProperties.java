@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.core.DlcPaths;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;

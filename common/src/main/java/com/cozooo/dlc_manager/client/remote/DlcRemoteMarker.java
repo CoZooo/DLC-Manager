@@ -30,7 +30,6 @@ public final class DlcRemoteMarker {
                 Files.createFile(marker);
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -42,7 +41,6 @@ public final class DlcRemoteMarker {
         try {
             Files.deleteIfExists(marker);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 

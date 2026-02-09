@@ -32,6 +32,13 @@ ordering="NONE"
 side="BOTH"
 
 [[dependencies.${mod_id}]]
+modId="architectury"
+mandatory=true
+versionRange="[0,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
 modId="mafglib"
 mandatory=true
 versionRange="${mafglib_version_range}"

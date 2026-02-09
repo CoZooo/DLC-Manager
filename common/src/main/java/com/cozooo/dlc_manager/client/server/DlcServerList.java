@@ -1,10 +1,9 @@
 package com.cozooo.dlc_manager.client.server;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.cozooo.dlc_manager.core.Json5Util;
-
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
@@ -20,7 +19,7 @@ public class DlcServerList {
     private static String lastSelectedKey;
 
     public static void load() {
-        Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
         configPath = Json5Util.resolveConfigPath(configDir, "servers");
         entries = new ArrayList<>();
@@ -38,13 +37,12 @@ public class DlcServerList {
                 }
             }
         } catch (Exception ignored) {
-            // Best-effort load.
         }
     }
 
     public static void save() {
         if (configPath == null) {
-            Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+            Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
             Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
             configPath = Json5Util.resolveConfigPath(configDir, "servers");
         }
@@ -57,7 +55,6 @@ public class DlcServerList {
                 GSON.toJson(data, writer);
             }
         } catch (IOException ignored) {
-            // Best-effort save.
         }
     }
 

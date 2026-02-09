@@ -59,7 +59,6 @@ public final class DlcDownloadHeaderUtil {
                 try {
                     charset = java.nio.charset.Charset.forName(charsetName);
                 } catch (Exception ignored) {
-                    // Best-effort.
                 }
             }
         }

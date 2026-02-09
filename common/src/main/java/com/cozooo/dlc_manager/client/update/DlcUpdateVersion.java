@@ -52,7 +52,6 @@ public class DlcUpdateVersion {
             }
             version.changelogShown = shown;
         } catch (Exception ignored) {
-            // Best-effort load.
         }
         if (version.base == null || version.base.isBlank()) {
             version.base = DEFAULT_VERSION;
@@ -83,7 +82,6 @@ public class DlcUpdateVersion {
                 GSON.toJson(obj, writer);
             }
         } catch (IOException ignored) {
-            // Best-effort save.
         }
     }
 
@@ -107,7 +105,6 @@ public class DlcUpdateVersion {
             try {
                 Files.move(legacyJson5, targetPath);
             } catch (IOException ignored) {
-                // Best-effort migration.
             }
             return;
         }
@@ -119,7 +116,6 @@ public class DlcUpdateVersion {
             Files.move(legacy, targetPath);
             Json5Util.migrateLegacy(targetPath, GSON);
         } catch (IOException ignored) {
-            // Best-effort migration.
         }
     }
 

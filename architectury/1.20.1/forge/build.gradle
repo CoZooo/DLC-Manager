@@ -1,0 +1,101 @@
+plugins {
+    id 'architectury-plugin'
+    id 'dev.architectury.loom'
+    id 'com.github.johnrengelman.shadow'
+}
+
+architectury {
+    platformSetupLoomIde()
+    forge()
+}
+
+sourceSets {
+    main {
+        java.srcDir '../../../forge/1.20.1/src/main/java'
+        resources.srcDir '../../../forge/1.20.1/src/main/resources'
+    }
+}
+
+loom {
+    forge {
+        convertAccessWideners = true
+    }
+}
+
+configurations {
+    common
+    shadowCommon
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentForge.extendsFrom common
+}
+
+dependencies {
+    forge "net.minecraftforge:forge:${rootProject.minecraft_version}-${rootProject.forge_version}"
+    modImplementation "dev.architectury:architectury-forge:${rootProject.architectury_api_version}"
+    modCompileOnly "curse.maven:mafglib-910766:${rootProject.mafglib_curse_file}"
+    include(implementation("de.marhali:json5-java:3.0.0"))
+    include(implementation("org.commonmark:commonmark:0.21.0"))
+    include(implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"))
+
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
+    shadowCommon(project(path: ':common', configuration: 'transformProductionForge')) { transitive = false }
+}
+
+processResources {
+    inputs.properties([
+        mod_id: rootProject.mod_id,
+        mod_name: rootProject.mod_name,
+        mod_version: rootProject.mod_version,
+        mod_author: rootProject.mod_author,
+        mc_version: rootProject.minecraft_version,
+        forge_loader_version_range: '[47,)',
+        forge_minecraft_version_range: '[1.20.1,1.20.2)',
+        mafglib_version_range: '[0.1.14,)',
+        pack_format: rootProject.pack_format
+    ])
+
+    filesMatching('META-INF/mods.toml') {
+        expand([
+            mod_id: rootProject.mod_id,
+            mod_name: rootProject.mod_name,
+            mod_version: rootProject.mod_version,
+            mod_author: rootProject.mod_author,
+            mc_version: rootProject.minecraft_version,
+            forge_loader_version_range: '[47,)',
+            forge_minecraft_version_range: '[1.20.1,1.20.2)',
+            mafglib_version_range: '[0.1.14,)'
+        ])
+    }
+
+    filesMatching('pack.mcmeta') {
+        expand([pack_format: rootProject.pack_format])
+    }
+}
+
+shadowJar {
+    configurations = [project.configurations.shadowCommon]
+    archiveClassifier = 'dev-shadow'
+}
+
+remapJar {
+    inputFile = shadowJar.archiveFile
+    dependsOn shadowJar
+    archiveFileName.set("DLC-Manager-forge-${rootProject.minecraft_version}-${rootProject.mod_version}.jar")
+    destinationDirectory.set(rootProject.layout.projectDirectory.dir("../../output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
+}
+
+jar {
+    archiveClassifier = 'dev'
+}
+
+tasks.register('exportObfClasspath', Sync) {
+    from({
+        def jars = [] as LinkedHashSet<File>
+        [configurations.compileClasspath, configurations.runtimeClasspath].each { cfg ->
+            jars.addAll(cfg.resolve().findAll { it.name.endsWith('.jar') })
+        }
+        jars
+    })
+    into rootProject.layout.projectDirectory.dir("../../obf-lib/forge-${rootProject.minecraft_version}")
+}

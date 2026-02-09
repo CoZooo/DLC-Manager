@@ -484,7 +484,6 @@ public final class DlcUpdateFilePicker {
             }
             new ProcessBuilder("xdg-open", folder.toString()).start();
         } catch (Throwable ignored) {
-            // Best-effort.
         }
     }
 

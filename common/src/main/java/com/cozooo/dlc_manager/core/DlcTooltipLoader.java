@@ -5,14 +5,12 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.cozooo.dlc_manager.core.Json5Util;
-
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 
 public class DlcTooltipLoader {
@@ -45,7 +43,6 @@ public class DlcTooltipLoader {
                     }
                 });
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return result;
     }
@@ -82,7 +79,6 @@ public class DlcTooltipLoader {
         try (Writer writer = Files.newBufferedWriter(path)) {
             PRETTY_GSON.toJson(obj, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -124,7 +120,6 @@ public class DlcTooltipLoader {
         try (Writer writer = Files.newBufferedWriter(path)) {
             PRETTY_GSON.toJson(obj, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 

@@ -1,12 +1,12 @@
 package com.cozooo.dlc_manager.core;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 
 public class DlcPaths {
     public static Path gameDir() {
-        return PlatformServices.get().gameDir();
+        return CrossPlatformRuntime.gameDir();
     }
 
     public static Path dlcRoot() {

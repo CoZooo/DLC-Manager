@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.update;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
@@ -344,7 +344,6 @@ public final class DlcUpdateService {
         try {
             Files.createDirectories(updateDir);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -391,7 +390,7 @@ public final class DlcUpdateService {
         }
     }
 
-    public static void removeSkipMarkerIfNeeded(List<Path> addedRequiredFiles) {
+    public static void removeSkipMarker(List<Path> addedRequiredFiles) {
         if (addedRequiredFiles == null || addedRequiredFiles.isEmpty()) {
             return;
         }
@@ -403,7 +402,6 @@ public final class DlcUpdateService {
         try {
             Files.deleteIfExists(skip);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -426,7 +424,6 @@ public final class DlcUpdateService {
                     }
                 });
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return dedupeUpdatePackages(packages);
     }
@@ -482,12 +479,10 @@ public final class DlcUpdateService {
                         try {
                             Files.deleteIfExists(path);
                         } catch (IOException ignored) {
-                            // Best-effort.
                         }
                     }
                 });
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -759,7 +754,7 @@ public final class DlcUpdateService {
             }
         }
         applyImplicitRemoteAndRequired(context, addedRequiredFiles, hasRemoteAdd, hasRequiredAdd);
-        removeSkipMarkerIfNeeded(addedRequiredFiles);
+        removeSkipMarker(addedRequiredFiles);
         if (!addedRequiredFiles.isEmpty()) {
             context.addedRequired = true;
         }
@@ -807,7 +802,6 @@ public final class DlcUpdateService {
                     copyRecursive(from, to);
                     deleteRecursive(from);
                 } catch (Exception ignored2) {
-                    // Best-effort.
                 }
             }
         }
@@ -871,7 +865,6 @@ public final class DlcUpdateService {
                 context.addedRemote = true;
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -1082,7 +1075,6 @@ public final class DlcUpdateService {
                 }
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return map;
     }
@@ -1255,7 +1247,6 @@ public final class DlcUpdateService {
         try (Writer writer = Files.newBufferedWriter(path)) {
             UPDATE_GSON.toJson(obj, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -1318,7 +1309,7 @@ public final class DlcUpdateService {
                 case "curseforge" -> {
                     if (curseFileId != null && !curseFileId.isBlank()) {
                         CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
-                            curseProjectId, curseFileId, PlatformServices.get().mcVersion(), PlatformServices.get().loaderName());
+                            curseProjectId, curseFileId, CrossPlatformRuntime.mcVersion(), CrossPlatformRuntime.loaderName());
                         if (file != null && file.url != null && !file.url.isBlank()) {
                             candidates.add(DownloadCandidate.fromCurseForge(file));
                         }
@@ -1327,7 +1318,7 @@ public final class DlcUpdateService {
                 case "modrinth" -> {
                     if (modrinthVersionId != null && !modrinthVersionId.isBlank()) {
                         ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(
-                            modrinthProjectId, modrinthVersionId, PlatformServices.get().mcVersion(), PlatformServices.get().loaderName());
+                            modrinthProjectId, modrinthVersionId, CrossPlatformRuntime.mcVersion(), CrossPlatformRuntime.loaderName());
                         if (version != null && version.url != null && !version.url.isBlank()) {
                             candidates.add(DownloadCandidate.fromModrinth(version));
                         }
@@ -1521,7 +1512,6 @@ public final class DlcUpdateService {
                 targets.add(target);
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return targets;
     }
@@ -1540,7 +1530,6 @@ public final class DlcUpdateService {
                 backupOrCreate(target, context);
                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException ignored) {
-                // Best-effort.
             }
         }
     }
@@ -1798,7 +1787,6 @@ public final class DlcUpdateService {
                 }
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return null;
     }
@@ -1863,7 +1851,6 @@ public final class DlcUpdateService {
                     }
                 });
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -2013,7 +2000,6 @@ public final class DlcUpdateService {
                 }
             });
         } catch (IOException ignored) {
-            // Best-effort delete.
         }
     }
 
@@ -2025,12 +2011,10 @@ public final class DlcUpdateService {
             Files.deleteIfExists(path);
             return;
         } catch (IOException ignored) {
-            // Retry below.
         }
         try {
             Files.setAttribute(path, "dos:readonly", false);
         } catch (Exception ignored) {
-            // Ignore if not supported.
         }
         try {
             java.io.File file = path.toFile();
@@ -2038,18 +2022,15 @@ public final class DlcUpdateService {
             file.setReadable(true);
             file.setExecutable(true, false);
         } catch (Exception ignored) {
-            // Best-effort.
         }
         try {
             Files.deleteIfExists(path);
             return;
         } catch (IOException ignored) {
-            // Fall back to deleteOnExit.
         }
         try {
             path.toFile().deleteOnExit();
         } catch (Exception ignored) {
-            // Best-effort.
         }
     }
 
@@ -2066,7 +2047,6 @@ public final class DlcUpdateService {
                         try {
                             Files.createDirectories(target.resolve(relative));
                         } catch (IOException ignored) {
-                            // Best-effort.
                         }
                         return FileVisitResult.CONTINUE;
                     }
@@ -2078,7 +2058,6 @@ public final class DlcUpdateService {
                             Files.createDirectories(target.resolve(relative).getParent());
                             Files.copy(file, target.resolve(relative), StandardCopyOption.REPLACE_EXISTING);
                         } catch (IOException ignored) {
-                            // Best-effort.
                         }
                         return FileVisitResult.CONTINUE;
                     }
@@ -2093,7 +2072,6 @@ public final class DlcUpdateService {
                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             }
         } catch (IOException ignored) {
-            // Best-effort copy.
         }
     }
 
@@ -2137,7 +2115,6 @@ public final class DlcUpdateService {
                 }
             });
         } catch (IOException ignored) {
-            // Best-effort sync.
         }
     }
 
@@ -2153,7 +2130,6 @@ public final class DlcUpdateService {
                     try {
                         Files.createDirectories(target.resolve(relative));
                     } catch (IOException ignored) {
-                        // Best-effort.
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -2169,7 +2145,6 @@ public final class DlcUpdateService {
                         Files.createDirectories(dest.getParent());
                         Files.copy(file, dest, StandardCopyOption.REPLACE_EXISTING);
                     } catch (IOException ignored) {
-                        // Best-effort.
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -2180,7 +2155,6 @@ public final class DlcUpdateService {
                 }
             });
         } catch (IOException ignored) {
-            // Best-effort copy.
         }
     }
 
@@ -2197,7 +2171,6 @@ public final class DlcUpdateService {
             Files.createDirectories(path.getParent());
             Files.writeString(path, content == null ? "" : content, StandardCharsets.UTF_8);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -2315,14 +2288,12 @@ public final class DlcUpdateService {
                 return gameReal.relativize(pathReal).toString().replace('\\', '/');
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         try {
             if (normalized.startsWith(gameDir)) {
                 return gameDir.relativize(normalized).toString().replace('\\', '/');
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         return normalized.toString().replace('\\', '/');
     }
@@ -2379,7 +2350,6 @@ public final class DlcUpdateService {
             try (var writer = Files.newBufferedWriter(path)) {
                 new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(obj, writer);
             } catch (IOException ignored) {
-                // Best-effort.
             }
         }
     }

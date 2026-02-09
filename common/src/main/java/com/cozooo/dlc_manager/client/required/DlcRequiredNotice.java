@@ -1,12 +1,11 @@
 package com.cozooo.dlc_manager.client.required;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -72,7 +71,7 @@ public final class DlcRequiredNotice {
         if (values == null || values.isEmpty()) {
             return "";
         }
-        String lang = JsonCaseUtil.normalizeLangKey(com.cozooo.dlc_manager.platform.PlatformServices.get().languageCode());
+        String lang = JsonCaseUtil.normalizeLangKey(CrossPlatformRuntime.languageCode());
         if (lang != null && values.containsKey(lang)) {
             return values.get(lang);
         }
@@ -102,7 +101,6 @@ public final class DlcRequiredNotice {
                 GSON.toJson(obj, writer);
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
     }
 }

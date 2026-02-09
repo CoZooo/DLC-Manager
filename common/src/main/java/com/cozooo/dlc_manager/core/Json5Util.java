@@ -12,7 +12,6 @@ import de.marhali.json5.Json5Element;
 import de.marhali.json5.Json5Null;
 import de.marhali.json5.Json5Object;
 import de.marhali.json5.Json5Primitive;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;

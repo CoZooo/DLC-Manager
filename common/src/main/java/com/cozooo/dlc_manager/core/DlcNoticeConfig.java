@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-
 import com.cozooo.dlc_manager.core.Json5Util;
 
 public class DlcNoticeConfig {
@@ -140,7 +139,6 @@ public class DlcNoticeConfig {
         try (Writer writer = Files.newBufferedWriter(path)) {
             GSON.toJson(obj, writer);
         } catch (IOException ignored) {
-            // Best-effort persistence.
         }
     }
 
@@ -214,7 +212,6 @@ public class DlcNoticeConfig {
                 GSON.toJson(obj, writer);
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 

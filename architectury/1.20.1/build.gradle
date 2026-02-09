@@ -1,0 +1,16 @@
+plugins {
+    id 'architectury-plugin' version "${architectury_plugin_version}"
+    id 'dev.architectury.loom' version "${architectury_loom_version}" apply false
+    id 'com.github.johnrengelman.shadow' version "${shadow_version}" apply false
+}
+
+architectury {
+    minecraft = minecraft_version
+}
+
+apply from: file('../architectury-common.gradle')
+configureArchitecturyShared(17)
+
+tasks.register('exportObfClasspathAll') {
+    dependsOn ':fabric:exportObfClasspath', ':forge:exportObfClasspath'
+}

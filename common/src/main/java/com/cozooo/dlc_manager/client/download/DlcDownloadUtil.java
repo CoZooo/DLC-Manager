@@ -22,7 +22,6 @@ public final class DlcDownloadUtil {
                 return sanitizeFileName(name);
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         return null;
     }

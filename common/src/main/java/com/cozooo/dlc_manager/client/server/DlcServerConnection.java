@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.server;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
@@ -9,7 +9,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -46,7 +45,7 @@ public class DlcServerConnection {
     }
 
     public static DlcServerInfo fetchServerInfo(DlcServerEntry entry, int timeoutMs) throws IOException {
-        return fetchServerInfo(entry, timeoutMs, null, null);
+        return fetchServerInfo(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static DlcServerInfo fetchServerInfo(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
@@ -93,7 +92,7 @@ public class DlcServerConnection {
     }
 
     public static boolean downloadMissingRemote(DlcServerEntry entry, int timeoutMs) throws IOException {
-        return downloadMissingRemote(entry, timeoutMs, null, null);
+        return downloadMissingRemote(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean downloadMissingRemote(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
@@ -144,6 +143,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static List<DlcServerRemoteItem> fetchRemoteMissingList(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchRemoteMissingList(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static DlcServerRemoteStatus startRemoteDownload(DlcServerEntry entry, int timeoutMs, List<String> keys, String playerName, String playerUuid)
         throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
@@ -176,6 +179,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static DlcServerRemoteStatus startRemoteDownload(DlcServerEntry entry, int timeoutMs, List<String> keys) throws IOException {
+        return startRemoteDownload(entry, timeoutMs, keys, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static DlcServerRemoteStatus fetchRemoteDownloadStatus(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid)
         throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
@@ -197,6 +204,10 @@ public class DlcServerConnection {
             }
             return null;
         }
+    }
+
+    public static DlcServerRemoteStatus fetchRemoteDownloadStatus(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchRemoteDownloadStatus(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static List<DlcServerRequiredItem> fetchRequiredList(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid)
@@ -228,6 +239,10 @@ public class DlcServerConnection {
             }
             return items;
         }
+    }
+
+    public static List<DlcServerRequiredItem> fetchRequiredList(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchRequiredList(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static DlcServerRequiredStatus startRequiredDownload(DlcServerEntry entry, int timeoutMs, List<String> ids,
@@ -262,6 +277,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static DlcServerRequiredStatus startRequiredDownload(DlcServerEntry entry, int timeoutMs, List<String> ids) throws IOException {
+        return startRequiredDownload(entry, timeoutMs, ids, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static DlcServerRequiredStatus fetchRequiredDownloadStatus(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid)
         throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
@@ -285,6 +304,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static DlcServerRequiredStatus fetchRequiredDownloadStatus(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchRequiredDownloadStatus(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static boolean cancelRequiredDownload(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid)
         throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
@@ -302,6 +325,10 @@ public class DlcServerConnection {
             }
             return response.has("canceled") && response.get("canceled").getAsBoolean();
         }
+    }
+
+    public static boolean cancelRequiredDownload(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return cancelRequiredDownload(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean uninstallRequired(DlcServerEntry entry, int timeoutMs, List<String> ids, String playerName, String playerUuid)
@@ -332,6 +359,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static boolean uninstallRequired(DlcServerEntry entry, int timeoutMs, List<String> ids) throws IOException {
+        return uninstallRequired(entry, timeoutMs, ids, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static boolean applyRequired(DlcServerEntry entry, int timeoutMs, List<String> ids, String playerName, String playerUuid)
         throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
@@ -360,8 +391,12 @@ public class DlcServerConnection {
         }
     }
 
+    public static boolean applyRequired(DlcServerEntry entry, int timeoutMs, List<String> ids) throws IOException {
+        return applyRequired(entry, timeoutMs, ids, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static boolean applyChanges(DlcServerEntry entry, int timeoutMs, List<DlcServerItem> items) throws IOException {
-        ApplyResponse response = applyChangesWithResponse(entry, timeoutMs, items, null, null);
+        ApplyResponse response = applyChangesWithResponse(entry, timeoutMs, items, currentPlayerName(), currentPlayerUuid());
         return response != null && response.ok;
     }
 
@@ -408,6 +443,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static ApplyResponse applyChangesWithResponse(DlcServerEntry entry, int timeoutMs, List<DlcServerItem> items) throws IOException {
+        return applyChangesWithResponse(entry, timeoutMs, items, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static boolean restartServer(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
@@ -421,6 +460,10 @@ public class DlcServerConnection {
             JsonObject response = readObject(reader);
             return response != null && response.has("ok") && response.get("ok").getAsBoolean();
         }
+    }
+
+    public static boolean restartServer(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return restartServer(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean downloadFile(DlcServerEntry entry, int timeoutMs, String path, Path target, String playerName, String playerUuid)
@@ -476,14 +519,17 @@ public class DlcServerConnection {
             try {
                 Files.deleteIfExists(temp);
             } catch (IOException ignored) {
-                // Best-effort.
             }
             return false;
         }
     }
 
+    public static boolean downloadFile(DlcServerEntry entry, int timeoutMs, String path, Path target) throws IOException {
+        return downloadFile(entry, timeoutMs, path, target, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static List<DlcServerUpdateInfo> fetchUpdates(DlcServerEntry entry, int timeoutMs) throws IOException {
-        return fetchUpdates(entry, timeoutMs, null, null);
+        return fetchUpdates(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static List<DlcServerUpdateInfo> fetchUpdates(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
@@ -565,6 +611,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static DlcServerUpdateState fetchUpdateState(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchUpdateState(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static UpdateResponse applyUpdate(DlcServerEntry entry, int timeoutMs, String dlcOld, String dlcNew,
         String playerName, String playerUuid) throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
@@ -603,6 +653,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static UpdateResponse applyUpdate(DlcServerEntry entry, int timeoutMs, String dlcOld, String dlcNew) throws IOException {
+        return applyUpdate(entry, timeoutMs, dlcOld, dlcNew, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static UpdateResponse rollbackUpdate(DlcServerEntry entry, int timeoutMs, String targetVersion,
         String playerName, String playerUuid) throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
@@ -624,6 +678,10 @@ public class DlcServerConnection {
             result.message = getString(resp, "message");
             return result;
         }
+    }
+
+    public static UpdateResponse rollbackUpdate(DlcServerEntry entry, int timeoutMs, String targetVersion) throws IOException {
+        return rollbackUpdate(entry, timeoutMs, targetVersion, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean importUpdatePackage(DlcServerEntry entry, int timeoutMs, Path source,
@@ -659,8 +717,12 @@ public class DlcServerConnection {
         }
     }
 
+    public static boolean importUpdatePackage(DlcServerEntry entry, int timeoutMs, Path source) throws IOException {
+        return importUpdatePackage(entry, timeoutMs, source, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static boolean applyUpdates(DlcServerEntry entry, int timeoutMs) throws IOException {
-        return applyUpdates(entry, timeoutMs, null, null);
+        return applyUpdates(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean applyUpdates(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
@@ -683,6 +745,10 @@ public class DlcServerConnection {
 
     public static boolean push(DlcServerEntry entry, int timeoutMs, List<String> targets, String mode, String playerName, String playerUuid) throws IOException {
         return push(entry, timeoutMs, targets, null, mode, playerName, playerUuid);
+    }
+
+    public static boolean push(DlcServerEntry entry, int timeoutMs, List<String> targets, String mode) throws IOException {
+        return push(entry, timeoutMs, targets, mode, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean push(DlcServerEntry entry, int timeoutMs, List<String> targets, List<String> files, String mode, String playerName, String playerUuid) throws IOException {
@@ -733,9 +799,12 @@ public class DlcServerConnection {
             try {
                 Files.deleteIfExists(zipPath);
             } catch (IOException ignored) {
-                // Best-effort cleanup.
             }
         }
+    }
+
+    public static boolean push(DlcServerEntry entry, int timeoutMs, List<String> targets, List<String> files, String mode) throws IOException {
+        return push(entry, timeoutMs, targets, files, mode, currentPlayerName(), currentPlayerUuid());
     }
 
     public static List<DlcServerFileEntry> listFiles(DlcServerEntry entry, int timeoutMs, String path, String playerName, String playerUuid) throws IOException {
@@ -759,14 +828,21 @@ public class DlcServerConnection {
                     if (!element.isJsonObject()) {
                         return;
                     }
-                    DlcServerFileEntry entryObj = GSON.fromJson(element, DlcServerFileEntry.class);
-                    if (entryObj != null) {
-                        entries.add(entryObj);
-                    }
+                    JsonObject obj = element.getAsJsonObject();
+                    DlcServerFileEntry entryObj = new DlcServerFileEntry();
+                    entryObj.name = obj.has("name") && !obj.get("name").isJsonNull() ? obj.get("name").getAsString() : "";
+                    entryObj.dir = obj.has("dir") && !obj.get("dir").isJsonNull() && obj.get("dir").getAsBoolean();
+                    entryObj.size = obj.has("size") && !obj.get("size").isJsonNull() ? obj.get("size").getAsLong() : 0L;
+                    entryObj.modified = obj.has("modified") && !obj.get("modified").isJsonNull() ? obj.get("modified").getAsLong() : 0L;
+                    entries.add(entryObj);
                 });
             }
             return entries;
         }
+    }
+
+    public static List<DlcServerFileEntry> listFiles(DlcServerEntry entry, int timeoutMs, String path) throws IOException {
+        return listFiles(entry, timeoutMs, path, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean deleteFile(DlcServerEntry entry, int timeoutMs, String path, String playerName, String playerUuid) throws IOException {
@@ -783,6 +859,10 @@ public class DlcServerConnection {
             JsonObject resp = readObject(reader);
             return resp != null && resp.has("ok") && resp.get("ok").getAsBoolean();
         }
+    }
+
+    public static boolean deleteFile(DlcServerEntry entry, int timeoutMs, String path) throws IOException {
+        return deleteFile(entry, timeoutMs, path, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean uploadFile(DlcServerEntry entry, int timeoutMs, String targetPath, Path source, String playerName, String playerUuid) throws IOException {
@@ -827,6 +907,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static boolean uploadFile(DlcServerEntry entry, int timeoutMs, String targetPath, Path source) throws IOException {
+        return uploadFile(entry, timeoutMs, targetPath, source, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static DlcServerRconConfig fetchRconConfig(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
@@ -847,6 +931,10 @@ public class DlcServerConnection {
             config.password = getString(resp, "password");
             return config;
         }
+    }
+
+    public static DlcServerRconConfig fetchRconConfig(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchRconConfig(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
     public static DlcServerRconInfo fetchRconInfo(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
@@ -871,6 +959,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static DlcServerRconInfo fetchRconInfo(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchRconInfo(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static boolean saveRconConfig(DlcServerEntry entry, int timeoutMs, DlcServerRconConfig config, String playerName, String playerUuid) throws IOException {
         if (config == null) {
             return false;
@@ -890,6 +982,10 @@ public class DlcServerConnection {
             JsonObject resp = readObject(reader);
             return resp != null && resp.has("ok") && resp.get("ok").getAsBoolean();
         }
+    }
+
+    public static boolean saveRconConfig(DlcServerEntry entry, int timeoutMs, DlcServerRconConfig config) throws IOException {
+        return saveRconConfig(entry, timeoutMs, config, currentPlayerName(), currentPlayerUuid());
     }
 
     public static String execRcon(DlcServerEntry entry, int timeoutMs, String command, String playerName, String playerUuid) throws IOException {
@@ -914,6 +1010,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static String execRcon(DlcServerEntry entry, int timeoutMs, String command) throws IOException {
+        return execRcon(entry, timeoutMs, command, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static JsonObject fetchServerConfig(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
@@ -935,6 +1035,10 @@ public class DlcServerConnection {
         }
     }
 
+    public static JsonObject fetchServerConfig(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchServerConfig(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
     public static boolean saveServerConfig(DlcServerEntry entry, int timeoutMs, JsonObject config, String playerName, String playerUuid) throws IOException {
         if (config == null) {
             return false;
@@ -952,6 +1056,10 @@ public class DlcServerConnection {
             JsonObject resp = readObject(reader);
             return resp != null && resp.has("ok") && resp.get("ok").getAsBoolean();
         }
+    }
+
+    public static boolean saveServerConfig(DlcServerEntry entry, int timeoutMs, JsonObject config) throws IOException {
+        return saveServerConfig(entry, timeoutMs, config, currentPlayerName(), currentPlayerUuid());
     }
 
     private static Socket openSocket(DlcServerEntry entry, int timeoutMs) throws IOException {
@@ -994,10 +1102,18 @@ public class DlcServerConnection {
         if (obj == null) {
             return;
         }
-        String lang = PlatformServices.get().languageCode();
+        String lang = CrossPlatformRuntime.languageCode();
         if (lang != null && !lang.isBlank()) {
             obj.addProperty("lang", lang);
         }
+    }
+
+    private static String currentPlayerName() {
+        return CrossPlatformRuntime.playerName();
+    }
+
+    private static String currentPlayerUuid() {
+        return CrossPlatformRuntime.playerUuid();
     }
 
     private static JsonObject readObject(BufferedReader reader) throws IOException {
@@ -1065,7 +1181,7 @@ public class DlcServerConnection {
         boolean includeDlc = includeAll || (hasTargets && targets.stream().anyMatch(value -> "dlc".equalsIgnoreCase(value)));
         boolean includeConfig = includeAll || (hasTargets && targets.stream().anyMatch(value -> "config".equalsIgnoreCase(value)));
         Path dlcRoot = DlcPathConfig.getDlcRoot();
-        Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Path gameDir = DlcPaths.gameDir();
         Path tempDir = dlcRoot.resolve("update_tmp").resolve("server_ops");
         Files.createDirectories(tempDir);
@@ -1113,7 +1229,6 @@ public class DlcServerConnection {
                     }
                     out.closeEntry();
                 } catch (IOException ignored) {
-                    // Best-effort.
                 }
             });
         }

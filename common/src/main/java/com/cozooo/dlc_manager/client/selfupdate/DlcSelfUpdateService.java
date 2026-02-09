@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.selfupdate;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -9,7 +9,6 @@ import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -33,9 +32,9 @@ public final class DlcSelfUpdateService {
     }
 
     public static SelfUpdateResult checkForUpdate() {
-        String loader = PlatformServices.get().loaderName();
-        String mcVersion = PlatformServices.get().mcVersion();
-        String currentVersion = PlatformServices.get().modVersion(MOD_ID);
+        String loader = CrossPlatformRuntime.loaderName();
+        String mcVersion = CrossPlatformRuntime.mcVersion();
+        String currentVersion = CrossPlatformRuntime.modVersion(MOD_ID);
         if (loader == null || loader.isBlank() || mcVersion == null || mcVersion.isBlank()) {
             return SelfUpdateResult.none(currentVersion);
         }
@@ -99,7 +98,7 @@ public final class DlcSelfUpdateService {
             }
             return DownloadResult.failed("download_failed");
         }
-        Path modFilePath = PlatformServices.get().modFilePath(MOD_ID);
+        Path modFilePath = CrossPlatformRuntime.modFilePath(MOD_ID);
         if (modFilePath == null || !Files.exists(modFilePath) || Files.isDirectory(modFilePath)) {
             try {
                 Files.deleteIfExists(targetFile);
@@ -194,7 +193,7 @@ public final class DlcSelfUpdateService {
         if (!Files.exists(backup)) {
             return false;
         }
-        Path current = PlatformServices.get().modFilePath(MOD_ID);
+        Path current = CrossPlatformRuntime.modFilePath(MOD_ID);
         if (current == null || !Files.exists(current)) {
             return false;
         }
@@ -368,7 +367,7 @@ public final class DlcSelfUpdateService {
     }
 
     private static Path getMarkerPath() {
-        Path configDir = PlatformServices.get().configDir();
+        Path configDir = CrossPlatformRuntime.configDir();
         if (configDir == null) {
             return null;
         }

@@ -27,7 +27,6 @@ public final class DlcServerOps {
         try {
             Files.createDirectories(backup);
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return new ServerOpContext(root, backup, logPath, gameDir);
     }
@@ -63,7 +62,6 @@ public final class DlcServerOps {
                 writer.newLine();
                 writer.flush();
             } catch (IOException ignored) {
-                // Best-effort logging.
             }
         }
 
@@ -84,7 +82,6 @@ public final class DlcServerOps {
                 }
                 log("BACKUP " + target);
             } catch (IOException ignored) {
-                // Best-effort backup.
             }
         }
 
@@ -108,7 +105,6 @@ public final class DlcServerOps {
                 });
                 log("DELETE " + target);
             } catch (IOException ignored) {
-                // Best-effort delete.
             }
         }
 
@@ -133,7 +129,6 @@ public final class DlcServerOps {
                 try {
                     writer.close();
                 } catch (IOException ignored) {
-                    // Best-effort.
                 }
                 writer = null;
             }

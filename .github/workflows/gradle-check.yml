@@ -29,10 +29,5 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Check Forge + NeoForge
+    - name: Run check pipeline
       run: ./gradlew check --parallel
-
-    - name: Check Fabric
-      run: |
-        cd fabric-build
-        ./gradlew check --parallel

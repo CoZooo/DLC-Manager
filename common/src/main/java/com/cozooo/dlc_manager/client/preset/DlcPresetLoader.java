@@ -10,7 +10,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -58,7 +57,6 @@ public final class DlcPresetLoader {
                         }
                     });
             } catch (IOException ignored) {
-                // Best-effort load.
             }
         }
         entries.sort((a, b) -> a.getFileName().compareToIgnoreCase(b.getFileName()));
@@ -74,7 +72,6 @@ public final class DlcPresetLoader {
             try {
                 Files.createDirectories(presetRoot);
             } catch (IOException ignored) {
-                // Best-effort create.
             }
         }
         return presetRoot;
@@ -121,7 +118,6 @@ public final class DlcPresetLoader {
                     }
                 }
             } catch (Exception ignored) {
-                // Skip invalid entries.
             }
         }
         return map;
@@ -145,7 +141,6 @@ public final class DlcPresetLoader {
                     }
                 }
             } catch (Exception ignored) {
-                // Skip invalid values.
             }
         }
         return result;

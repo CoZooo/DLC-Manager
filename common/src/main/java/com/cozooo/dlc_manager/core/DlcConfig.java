@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.core;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -23,7 +23,7 @@ public class DlcConfig {
     private static Map<String, DlcState> stateById = new HashMap<>();
 
     public static void load() {
-        Path configDir = PlatformServices.get().configDir().resolve("dlc_manager");
+        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Path legacy = configDir.resolve("state.json");
         Json5Util.migrateLegacy(legacy, GSON);
         configPath = Json5Util.resolveConfigPath(configDir, "state");
@@ -57,7 +57,6 @@ public class DlcConfig {
                 GSON.toJson(data, writer);
             }
         } catch (IOException ignored) {
-            // Best-effort persistence.
         }
     }
 
@@ -91,7 +90,6 @@ public class DlcConfig {
         try {
             gameReal = gameDir.toRealPath();
         } catch (Exception ignored) {
-            // Best-effort.
         }
         boolean changed = false;
         for (DlcState state : stateById.values()) {
@@ -117,7 +115,6 @@ public class DlcConfig {
                                 converted = true;
                             }
                         } catch (Exception ignored) {
-                            // Best-effort.
                         }
                     }
                     if (!converted && normalized.startsWith(gameDir)) {
@@ -149,7 +146,6 @@ public class DlcConfig {
         try {
             gameReal = gameDir.toRealPath();
         } catch (Exception ignored) {
-            // Best-effort.
         }
         boolean changed = false;
         Map<String, DlcState> migrated = new HashMap<>();
@@ -247,7 +243,6 @@ public class DlcConfig {
                         return prefix + relative + suffix;
                     }
                 } catch (Exception ignored) {
-                    // Best-effort.
                 }
             }
             if (normalized.startsWith(gameDir)) {
@@ -255,7 +250,6 @@ public class DlcConfig {
                 return prefix + relative + suffix;
             }
         } catch (Exception ignored) {
-            // Best-effort.
         }
         return key;
     }

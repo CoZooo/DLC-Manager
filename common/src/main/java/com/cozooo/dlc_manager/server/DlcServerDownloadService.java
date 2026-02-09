@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.server;
-
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
@@ -26,7 +26,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
-
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -750,7 +749,7 @@ public final class DlcServerDownloadService {
     private static String normalizeLang(String langOverride) {
         String lang = langOverride;
         if (lang == null || lang.isBlank()) {
-            lang = PlatformServices.get().languageCode();
+            lang = CrossPlatformRuntime.languageCode();
         }
         return JsonCaseUtil.normalizeLangKey(lang);
     }
@@ -819,7 +818,6 @@ public final class DlcServerDownloadService {
         try {
             Files.createDirectories(dlcRoot);
         } catch (IOException ignored) {
-            // Best-effort.
         }
         List<DlcRequiredEntry> entries = DlcRequiredLoader.load(dlcRoot);
         if (entries == null || entries.isEmpty()) {
@@ -968,7 +966,6 @@ public final class DlcServerDownloadService {
                         applied++;
                     }
                 } catch (IOException ignored) {
-                    // Best-effort per target.
                 }
             }
         }
@@ -1000,7 +997,6 @@ public final class DlcServerDownloadService {
                     applied = true;
                 }
             } catch (IOException ignored) {
-                // Best-effort.
             }
         }
         return applied;
@@ -1144,7 +1140,6 @@ public final class DlcServerDownloadService {
                 try {
                     Files.deleteIfExists(targetFile);
                 } catch (IOException ignored) {
-                    // Best-effort.
                 }
             }
         }
@@ -1186,7 +1181,6 @@ public final class DlcServerDownloadService {
                         }
                     }
                 } catch (IOException ignored) {
-                    // Best-effort.
                 }
             }
         }
@@ -1225,7 +1219,6 @@ public final class DlcServerDownloadService {
                 }
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return fallback;
     }
@@ -1297,7 +1290,6 @@ public final class DlcServerDownloadService {
                 return name;
             }
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return null;
     }
@@ -1444,13 +1436,12 @@ public final class DlcServerDownloadService {
                 version = ModrinthClient.fetchVersionByIdOrVersion(
                     entry.getModrinthProjectId(),
                     versionId,
-                    PlatformServices.get().mcVersion(),
-                    PlatformServices.get().loaderName()
+                    CrossPlatformRuntime.mcVersion(),
+                    CrossPlatformRuntime.loaderName()
                 );
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         CurseForgeClient.CurseForgeFile curseFile = null;
@@ -1460,13 +1451,12 @@ public final class DlcServerDownloadService {
                 curseFile = CurseForgeClient.fetchFileByIdOrVersion(
                     entry.getCurseforgeProjectId(),
                     curseFileId,
-                    PlatformServices.get().mcVersion(),
-                    PlatformServices.get().loaderName()
+                    CrossPlatformRuntime.mcVersion(),
+                    CrossPlatformRuntime.loaderName()
                 );
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         List<String> directUrls = new ArrayList<>(entry.getDirectUrls());
@@ -1633,13 +1623,12 @@ public final class DlcServerDownloadService {
                 version = ModrinthClient.fetchVersionByIdOrVersion(
                     entry.getModrinthProjectId(),
                     versionId,
-                    PlatformServices.get().mcVersion(),
-                    PlatformServices.get().loaderName()
+                    CrossPlatformRuntime.mcVersion(),
+                    CrossPlatformRuntime.loaderName()
                 );
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         CurseForgeClient.CurseForgeFile curseFile = null;
@@ -1649,13 +1638,12 @@ public final class DlcServerDownloadService {
                 curseFile = CurseForgeClient.fetchFileByIdOrVersion(
                     entry.getCurseforgeProjectId(),
                     curseFileId,
-                    PlatformServices.get().mcVersion(),
-                    PlatformServices.get().loaderName()
+                    CrossPlatformRuntime.mcVersion(),
+                    CrossPlatformRuntime.loaderName()
                 );
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } catch (IOException ignored) {
-                // Best effort: allow fallback sources.
             }
         }
         List<String> directUrls = new ArrayList<>();
@@ -1778,7 +1766,6 @@ public final class DlcServerDownloadService {
                     Files.deleteIfExists(target);
                 }
             } catch (IOException ignored) {
-                // Best-effort cleanup.
             }
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw new DownloadCanceledException("canceled");
@@ -1809,7 +1796,6 @@ public final class DlcServerDownloadService {
                 return new DownloadProbe(total, true);
             }
         } catch (Exception ignored) {
-            // Best-effort.
         } finally {
             closeQuietly(connection);
         }
@@ -1832,12 +1818,10 @@ public final class DlcServerDownloadService {
                         total = Long.parseLong(totalStr);
                         supports = total > 0;
                     } catch (NumberFormatException ignored) {
-                        // ignore
                     }
                 }
             }
         } catch (Exception ignored) {
-            // Best-effort.
         } finally {
             closeQuietly(rangeConn);
         }
@@ -2001,7 +1985,6 @@ public final class DlcServerDownloadService {
             try {
                 connection.disconnect();
             } catch (Exception ignored) {
-                // Best-effort.
             }
         }
     }
@@ -2080,7 +2063,6 @@ public final class DlcServerDownloadService {
         try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
             PRETTY_GSON.toJson(reordered, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
         entry.setFileNameHint(normalized);
     }
@@ -2176,7 +2158,6 @@ public final class DlcServerDownloadService {
         try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
             PRETTY_GSON.toJson(ordered, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 
@@ -2203,7 +2184,6 @@ public final class DlcServerDownloadService {
         try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
             PRETTY_GSON.toJson(ordered, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
         entry.setUserRemoved(userRemoved);
     }
@@ -2460,7 +2440,6 @@ public final class DlcServerDownloadService {
         try (java.io.Writer writer = Files.newBufferedWriter(out)) {
             PRETTY_GSON.toJson(info, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
     }
 

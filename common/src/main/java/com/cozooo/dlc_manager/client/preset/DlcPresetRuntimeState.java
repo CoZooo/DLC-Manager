@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.preset;
 
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -349,7 +348,6 @@ public final class DlcPresetRuntimeState {
         for (String identifier : desired) {
             DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
             if (item != null) {
-                // Force-enable desired items so toggling preset back on re-applies all.
                 DlcRuntimeState.setOverride(item.getId(), true);
             }
         }

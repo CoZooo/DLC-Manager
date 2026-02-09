@@ -9,7 +9,6 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.stream.JsonReader;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -54,7 +53,6 @@ public final class DlcRequiredLoader {
                 }
             }
         } catch (IOException ignored) {
-            // Best effort.
         }
         return entries;
     }
@@ -103,7 +101,6 @@ public final class DlcRequiredLoader {
         try (Writer writer = Files.newBufferedWriter(outPath)) {
             PRETTY_GSON.toJson(normalized.ordered, writer);
         } catch (IOException ignored) {
-            // Best-effort.
         }
         return normalized.entry;
     }

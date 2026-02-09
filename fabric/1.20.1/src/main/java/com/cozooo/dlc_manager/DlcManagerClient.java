@@ -1,29 +1,16 @@
 package com.cozooo.dlc_manager;
 
-import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.client.DlcClientRuntime;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
-import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
-import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
-import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
-import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
-import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
-import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
-import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
-import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
-import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
-import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DlcScanner;
-import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -31,16 +18,13 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
-import java.util.concurrent.CompletableFuture;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
 import org.slf4j.Logger;
@@ -144,7 +128,7 @@ public class DlcManagerClient implements ClientModInitializer {
 
             Button button = Button.builder(Component.translatable("dlc_manager.title"), btn -> {
                 Screen managerScreen = new DlcMaLiLibScreen(screen);
-                if (DlcRemoteManager.maybeShowFromManager(managerScreen)) {
+                if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
                     return;
                 }
                 Minecraft.getInstance().setScreen(managerScreen);
@@ -185,111 +169,7 @@ public class DlcManagerClient implements ClientModInitializer {
     }
 
     private static void runStartupChecksAsync(Screen screen) {
-        if (startupCheckRunning) {
-            return;
-        }
-        startupCheckRunning = true;
-        new Thread(() -> {
-            LOGGER.info("[dlc-manager] startup check begin");
-            long startAt = System.currentTimeMillis();
-            UpdateCheckResult updateResult = null;
-            boolean hasUpdate = false;
-            boolean hasRequired = false;
-            java.util.List<DlcRequiredEntry> missing = java.util.List.of();
-            DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = null;
-            boolean hasSelfUpdate = false;
-            boolean updateManagerOn = DlcPathConfig.isUpdateManagerOn();
-            boolean selfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn();
-            String changelogText = "";
-            String changelogVersion = null;
-            if (updateManagerOn) {
-                Path dlcRoot = DlcPaths.dlcRoot();
-                if (dlcRoot != null) {
-                    DlcUpdateVersion currentVersion = DlcUpdateVersion.load(dlcRoot);
-                    if (currentVersion != null) {
-                        String currentDlc = currentVersion.getDlc();
-                        String shown = currentVersion.getChangelogShown();
-                        if (currentDlc != null && !currentDlc.isBlank() && (shown == null || !currentDlc.equals(shown))) {
-                            DlcUpdateMeta meta = DlcUpdateService.loadMetaForVersion(currentDlc);
-                            if (meta != null) {
-                                changelogText = meta.resolveChangelog(PlatformServices.get().languageCode());
-                                if (changelogText != null && !changelogText.isBlank()) {
-                                    changelogVersion = currentDlc;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if (updateManagerOn && !DlcUpdateClient.isPrompted()) {
-                long updateAt = System.currentTimeMillis();
-                updateResult = DlcUpdateService.checkForUpdates();
-                hasUpdate = updateResult != null && updateResult.hasUpdates();
-                int updateCount = updateResult == null || updateResult.getUpdates() == null ? 0 : updateResult.getUpdates().size();
-                LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, took={}ms", hasUpdate, updateCount, System.currentTimeMillis() - updateAt);
-            }
-            if (selfUpdateAutoCheckOn && !selfUpdatePrompted) {
-                long selfAt = System.currentTimeMillis();
-                selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
-                hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate;
-                LOGGER.info("[dlc-manager] self update check done: hasUpdate={}, took={}ms", hasSelfUpdate, System.currentTimeMillis() - selfAt);
-            }
-            if (!hasUpdate) {
-                if (!DlcRequiredManager.hasSkipMarker()) {
-                    long requiredAt = System.currentTimeMillis();
-                    hasRequired = DlcRequiredManager.hasMissingDownloadsForPrompt();
-                    if (hasRequired) {
-                        missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
-                    }
-                    LOGGER.info("[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms", hasRequired, missing.size(), System.currentTimeMillis() - requiredAt);
-                }
-            }
-            final boolean finalHasUpdate = hasUpdate;
-            final UpdateCheckResult finalUpdateResult = updateResult;
-            final boolean finalHasRequired = hasRequired;
-            final java.util.List<DlcRequiredEntry> finalMissing = missing;
-            final String finalChangelog = changelogText;
-            final String finalChangelogVersion = changelogVersion;
-            final boolean finalHasSelfUpdate = hasSelfUpdate;
-            final DlcSelfUpdateService.SelfUpdateResult finalSelfUpdateResult = selfUpdateResult;
-            Minecraft.getInstance().execute(() -> {
-                startupCheckRunning = false;
-                LOGGER.info("[dlc-manager] startup check finished in {}ms", System.currentTimeMillis() - startAt);
-                if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
-                    return;
-                }
-                Runnable continueFlow = () -> {
-                    if (finalHasSelfUpdate && finalSelfUpdateResult != null && !selfUpdatePrompted) {
-                        selfUpdatePrompted = true;
-                        Minecraft.getInstance().setScreen(new DlcSelfUpdateScreen(screen, finalSelfUpdateResult));
-                        return;
-                    }
-                    if (finalHasUpdate && finalUpdateResult != null) {
-                        DlcUpdateClient.showPrompt(screen, finalUpdateResult);
-                        return;
-                    }
-                    if (finalHasRequired && !finalMissing.isEmpty()) {
-                        DlcRequiredManager.markPrompted();
-                        Minecraft.getInstance().setScreen(new com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen(screen, finalMissing));
-                        return;
-                    }
-                    DlcNoticeManager.showFromTitle(screen);
-                };
-                if (finalChangelog != null && !finalChangelog.isBlank() && finalChangelogVersion != null && !finalChangelogVersion.isBlank()) {
-                    Minecraft.getInstance().setScreen(new com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen(screen, finalChangelog, () -> {
-                        Path root = DlcPaths.dlcRoot();
-                        if (root != null) {
-                            DlcUpdateVersion version = DlcUpdateVersion.load(root);
-                            version.setChangelogShown(finalChangelogVersion);
-                            version.save(root);
-                        }
-                        continueFlow.run();
-                    }));
-                    return;
-                }
-                continueFlow.run();
-            });
-        }, "dlc-startup-check").start();
+        DlcClientRuntime.runStartupChecksAsync(screen);
     }
 
     private static boolean isRealmsButton(AbstractWidget widget) {
@@ -300,69 +180,31 @@ public class DlcManagerClient implements ClientModInitializer {
     }
 
     private static AbstractWidget findButtonByKey(Screen screen, String key) {
-        for (var child : screen.children()) {
-            if (child instanceof AbstractWidget widget) {
-                if (widget.getMessage().getContents() instanceof TranslatableContents contents) {
-                    if (key.equals(contents.getKey())) {
-                        return widget;
-                    }
-                }
-            }
-        }
-        return null;
+        return DlcClientRuntime.findButtonByKey(screen, key);
     }
 
     private static boolean canOpenServerManager() {
-        if (!DlcPathConfig.isServerSupportOn()) {
-            return false;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) {
-            return false;
-        }
-        if (minecraft.hasSingleplayerServer()) {
-            return false;
-        }
-        return minecraft.player.hasPermissions(2);
+        return DlcClientRuntime.canOpenServerManager();
     }
 
     private static void openManagerFromCommand() {
-        Minecraft minecraft = Minecraft.getInstance();
-        Screen parent = minecraft.screen;
-        Screen managerScreen = new DlcMaLiLibScreen(parent);
-        if (DlcRemoteManager.maybeShowFromManager(managerScreen)) {
-            return;
-        }
-        minecraft.setScreen(managerScreen);
+        DlcClientRuntime.openManagerFromCommand();
     }
 
     private static void openSelfUpdateFromCommand() {
-        Minecraft minecraft = Minecraft.getInstance();
-        minecraft.setScreen(new DlcSelfUpdateScreen(minecraft.screen, null));
+        DlcClientRuntime.openSelfUpdateFromCommand();
     }
 
     private static void openUpdateManagerFromCommand() {
-        Minecraft minecraft = Minecraft.getInstance();
-        DlcUpdateClient.openUpdateManager(minecraft.screen);
+        DlcClientRuntime.openUpdateManagerFromCommand();
     }
 
     private static void openUpdatePromptFromCommand() {
-        Minecraft minecraft = Minecraft.getInstance();
-        UpdateCheckResult result = DlcUpdateService.checkForUpdates();
-        if (result == null || !result.hasUpdates()) {
-            SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
-                Component.translatable("dlc_manager.update.no_updates"), Component.empty());
-            return;
-        }
-        DlcUpdateClient.showPrompt(minecraft.screen, result);
+        DlcClientRuntime.openUpdatePromptFromCommand();
     }
 
     private static void openServerManagerFromCommand() {
-        if (!canOpenServerManager()) {
-            return;
-        }
-        Minecraft minecraft = Minecraft.getInstance();
-        minecraft.setScreen(new DlcServerListScreen(minecraft.screen));
+        DlcClientRuntime.openServerManagerFromCommand();
     }
 
     private static AbstractWidget findModsButton(Screen screen) {
@@ -399,60 +241,14 @@ public class DlcManagerClient implements ClientModInitializer {
             entry.useTcp = true;
             return entry;
         }
-
-    private static String getPlayerName() {
-        if (Minecraft.getInstance().player == null) {
-            return "";
-        }
-        return Minecraft.getInstance().player.getGameProfile().getName();
-    }
-
-    private static String getPlayerUuid() {
-        if (Minecraft.getInstance().player == null) {
-            return "";
-        }
-        return Minecraft.getInstance().player.getUUID().toString();
-    }
-
     private static void openServerManagerFromIngame(Screen parent) {
-        Minecraft minecraft = Minecraft.getInstance();
-        ServerData data = minecraft.getCurrentServer();
-        if (data == null) {
-            minecraft.setScreen(new DlcServerListScreen(parent));
-            return;
-        }
-        DlcServerEntry entry = createEntryFromServer(data);
-        if (entry == null) {
-            minecraft.setScreen(new DlcServerListScreen(parent));
-            return;
-        }
-        DlcServerList.load();
-        DlcServerEntry existing = findEntryByKey(entry.getKey());
-        if (existing != null) {
-            entry = existing;
-        }
-        if (entry.password != null && !entry.password.isBlank()) {
-            DlcServerEntry finalEntry = entry;
-            CompletableFuture
-                .supplyAsync(() -> fetchServerInfo(finalEntry))
-                .whenComplete((info, throwable) -> minecraft.execute(() -> {
-                    if (info != null) {
-                        saveEntryToList(finalEntry);
-                        com.cozooo.dlc_manager.client.server.DlcServerCache.put(finalEntry.getKey(), info);
-                        minecraft.setScreen(new DlcServerMaLiLibScreen(parent, finalEntry, info));
-                        return;
-                    }
-                    minecraft.setScreen(new DlcServerPasswordScreen(parent, finalEntry, false));
-                }));
-            return;
-        }
-        minecraft.setScreen(new DlcServerPasswordScreen(parent, entry, false));
+        DlcClientRuntime.openServerManagerFromIngame(parent);
     }
 
     private static DlcServerInfo fetchServerInfo(DlcServerEntry entry) {
         try {
-            return com.cozooo.dlc_manager.client.server.DlcServerConnection.fetchServerInfo(entry, 5000,
-                getPlayerName(), getPlayerUuid());
+            return DlcServerConnection.fetchServerInfo(entry, 5000,
+                CrossPlatformRuntime.playerName(), CrossPlatformRuntime.playerUuid());
         } catch (Exception ignored) {
         }
         return null;
@@ -629,56 +425,17 @@ public class DlcManagerClient implements ClientModInitializer {
             method.invoke(widget, height);
             return;
         } catch (Exception ignored) {
-            // Fall back to direct field access for 1.20.x.
         }
         try {
             java.lang.reflect.Field field = AbstractWidget.class.getDeclaredField("height");
             field.setAccessible(true);
             field.setInt(widget, height);
         } catch (Exception ignored) {
-            // Best-effort only.
         }
     }
 
     private static void syncEnabledResourcePacks() {
-        Minecraft minecraft = Minecraft.getInstance();
-        PackRepository repo = minecraft.getResourcePackRepository();
-        try {
-            repo.reload();
-            java.util.Set<String> selected = new java.util.LinkedHashSet<>(repo.getSelectedIds());
-            java.util.Set<String> originalSelected = new java.util.LinkedHashSet<>(selected);
-            boolean modified = false;
-            var grouped = new DlcScanner().scan();
-            for (DlcItem item : grouped.getOrDefault(DlcType.RESOURCE_PACK, java.util.List.of())) {
-                if (!item.isEnabled()) {
-                    continue;
-                }
-                String fileName = item.getSourcePath().getFileName().toString();
-                String packId = resolvePackId(repo, fileName);
-                if (packId == null) {
-                    java.nio.file.Path target = minecraft.getResourcePackDirectory().resolve(fileName);
-                    copyRecursive(item.getSourcePath(), target);
-                    repo.reload();
-                    packId = resolvePackId(repo, fileName);
-                    modified = true;
-                }
-                if (packId != null) {
-                    if (!isPackSelected(repo, selected, fileName)) {
-                        if (selected.add(packId)) {
-                            modified = true;
-                        }
-                    }
-                }
-            }
-            if (modified || !selected.equals(originalSelected)) {
-                repo.setSelected(selected);
-                minecraft.options.resourcePacks = new java.util.ArrayList<>(selected);
-                minecraft.options.save();
-                minecraft.reloadResourcePacks();
-            }
-        } catch (Throwable ignored) {
-            // Best effort.
-        }
+        DlcClientRuntime.syncEnabledResourcePacks();
     }
 
     private static String resolvePackId(PackRepository repo, String fileName) {

@@ -1,0 +1,87 @@
+ext.configureArchitecturyShared = { int defaultJavaVersion ->
+    allprojects {
+        group = mod_group
+        version = mod_version
+
+        repositories {
+            mavenCentral()
+            maven {
+                name = 'ParchmentMC'
+                url = 'https://maven.parchmentmc.org'
+            }
+            maven { url = 'https://maven.architectury.dev/' }
+            maven { url = 'https://maven.fabricmc.net/' }
+            maven { url = 'https://maven.minecraftforge.net/' }
+            maven { url = 'https://maven.neoforged.net/releases/' }
+            maven { url = 'https://api.modrinth.com/maven' }
+            maven { url = 'https://maven.terraformersmc.com' }
+            maven { url = 'https://cursemaven.com' }
+        }
+    }
+
+    subprojects {
+        apply plugin: 'dev.architectury.loom'
+        apply plugin: 'maven-publish'
+
+        def javaVersion = (project.findProperty('java_version') ?: String.valueOf(defaultJavaVersion)) as int
+        def useParchment = (project.findProperty('use_parchment') ?: 'false').toString().toBoolean()
+        def parchmentVersion = (project.findProperty('parchment_mappings_version') ?: '').toString().trim()
+
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(javaVersion)
+            }
+        }
+
+        tasks.withType(JavaCompile).configureEach {
+            options.release = javaVersion
+        }
+
+        loom {
+            silentMojangMappingsLicense()
+        }
+
+        dependencies {
+            minecraft "com.mojang:minecraft:${minecraft_version}"
+            if (useParchment && !parchmentVersion.isEmpty()) {
+                mappings loom.layered {
+                    officialMojangMappings()
+                    parchment("org.parchmentmc.data:parchment-${minecraft_version}:${parchmentVersion}@zip")
+                }
+            } else {
+                mappings loom.officialMojangMappings()
+            }
+        }
+
+        publishing {
+            publications {
+                mavenJava(MavenPublication) {
+                    def javaComponent = components.findByName('java')
+                    if (javaComponent != null) {
+                        from javaComponent
+                    }
+
+                    groupId = rootProject.mod_group
+                    artifactId = "${rootProject.mod_id}-${project.name}-${rootProject.minecraft_version}"
+                    version = rootProject.mod_version
+                }
+            }
+
+            repositories {
+                def ghRepo = System.getenv('GITHUB_REPOSITORY')
+                def username = System.getenv('USERNAME')
+                def token = System.getenv('TOKEN')
+                if (ghRepo && username && token) {
+                    maven {
+                        name = 'GitHubPackages'
+                        url = uri("https://maven.pkg.github.com/${ghRepo}")
+                        credentials {
+                            this.username = username
+                            this.password = token
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
