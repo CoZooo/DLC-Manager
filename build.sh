@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_VERSION="$(grep -E '^mod_version=' "${ROOT_DIR}/gradle.properties" | cut -d= -f2)"
-MODE="${1:-export}"
+MODE="${1:-build}"
 RELEASE_DIR="${ROOT_DIR}/output/${MOD_VERSION}/release"
 
 run_export() {
@@ -144,4 +144,9 @@ printf "==> Run tasks: %s\n" "${TASKS[*]}"
 "${ROOT_DIR}/gradlew" "${TASKS[@]}" --parallel
 
 printf "==> Done. Output in: %s/output/%s\n" "$ROOT_DIR" "$MOD_VERSION"
-printf "==> yGuard output: %s/output/%s/yGuard\n" "$ROOT_DIR" "$MOD_VERSION"
+for task in "${TASKS[@]}"; do
+  if [[ "${task}" == "obfuscateAllYguard" ]]; then
+    printf "==> yGuard output: %s/output/%s/yGuard\n" "$ROOT_DIR" "$MOD_VERSION"
+    break
+  fi
+done
