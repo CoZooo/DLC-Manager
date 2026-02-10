@@ -62,7 +62,7 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
                     }
 
                     groupId = rootProject.mod_group
-                    artifactId = "${rootProject.mod_id}-${project.name}-${rootProject.minecraft_version}"
+                    artifactId = "${project.name}-${rootProject.minecraft_version}"
                     version = rootProject.mod_version
                 }
             }
