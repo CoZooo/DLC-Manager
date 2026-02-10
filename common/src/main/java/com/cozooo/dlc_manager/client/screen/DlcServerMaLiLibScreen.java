@@ -16,6 +16,7 @@ import fi.dy.masa.malilib.gui.button.IButtonActionListener;
 import fi.dy.masa.malilib.util.StringUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -37,6 +38,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     private static final Set<String> REMOTE_PROMPTED = new HashSet<>();
     private final Screen parent;
     private final DlcServerEntry entry;
+    private final boolean openedFromIngame;
     private final List<DlcServerListRow> rows = new ArrayList<>();
     private final List<DlcServerItem> items = new ArrayList<>();
     private final Map<String, DlcServerItem> itemsByIdentifier = new LinkedHashMap<>();
@@ -74,9 +76,14 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     private boolean promptedRemoteDownload;
 
     public DlcServerMaLiLibScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info) {
+        this(parent, entry, info, parent instanceof PauseScreen);
+    }
+
+    public DlcServerMaLiLibScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info, boolean openedFromIngame) {
         super(10, 34);
         this.parent = parent;
         this.entry = entry;
+        this.openedFromIngame = openedFromIngame;
         setTitle("");
         setParent(parent);
         setListPosition(18, 34);
@@ -349,7 +356,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     }
 
     private void openServerTools() {
-        Minecraft.getInstance().setScreen(new DlcServerManagerScreen(this, entry, buildInfoSnapshot(), DlcServerManagerScreen.Tab.SERVERS));
+        Minecraft.getInstance().setScreen(new DlcServerManagerScreen(this, entry, buildInfoSnapshot(), DlcServerManagerScreen.Tab.SERVERS, openedFromIngame));
     }
 
     private void openRequiredManager() {
@@ -364,6 +371,10 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         }
         if (parent != null) {
             Minecraft.getInstance().setScreen(parent);
+            return;
+        }
+        if (openedFromIngame) {
+            Minecraft.getInstance().setScreen(null);
             return;
         }
         Minecraft.getInstance().setScreen(new DlcServerListScreen(null));

@@ -62,6 +62,7 @@ public class DlcServerManagerScreen extends Screen {
 
     private final Screen parent;
     private final DlcServerEntry entry;
+    private final boolean openedFromIngame;
     private final Map<String, Boolean> baseline = new HashMap<>();
     private List<DlcServerItem> items = new ArrayList<>();
     private final List<DisplayEntry> displayEntries = new ArrayList<>();
@@ -84,6 +85,7 @@ public class DlcServerManagerScreen extends Screen {
     private Button rconButton;
     private Button filesButton;
     private Button updateManagerButton;
+    private Button returnToGameButton;
     private volatile boolean connecting;
 
     private int lastMouseX;
@@ -103,13 +105,18 @@ public class DlcServerManagerScreen extends Screen {
     private String serverDlcVersion = "";
 
     public DlcServerManagerScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info) {
-        this(parent, entry, info, null);
+        this(parent, entry, info, null, false);
     }
 
     public DlcServerManagerScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info, Tab startTab) {
+        this(parent, entry, info, startTab, false);
+    }
+
+    public DlcServerManagerScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info, Tab startTab, boolean openedFromIngame) {
         super(Component.translatable("dlc_manager.server.title"));
         this.parent = parent;
         this.entry = entry;
+        this.openedFromIngame = openedFromIngame;
         if (startTab != null) {
             this.activeTab = startTab;
         }
@@ -230,7 +237,7 @@ public class DlcServerManagerScreen extends Screen {
                 rootParent = root;
             }
         }
-        Minecraft.getInstance().setScreen(new DlcServerMaLiLibScreen(rootParent, entry, buildInfoSnapshot()));
+        Minecraft.getInstance().setScreen(new DlcServerMaLiLibScreen(rootParent, entry, buildInfoSnapshot(), openedFromIngame));
     }
 
     private DlcServerInfo buildInfoSnapshot() {
@@ -316,6 +323,12 @@ public class DlcServerManagerScreen extends Screen {
         addRenderableWidget(rconButton);
         addRenderableWidget(filesButton);
         addRenderableWidget(updateManagerButton);
+        if (openedFromIngame) {
+            returnToGameButton = Button.builder(Component.translatable("menu.returnToGame"), btn -> Minecraft.getInstance().setScreen(null))
+                .bounds(centerX - buttonWidth / 2, this.height - 22, buttonWidth, buttonHeight)
+                .build();
+            addRenderableWidget(returnToGameButton);
+        }
     }
 
     @Override
@@ -850,7 +863,7 @@ public class DlcServerManagerScreen extends Screen {
                     return;
                 }
                 DlcServerCache.put(target.getKey(), info);
-                Minecraft.getInstance().setScreen(new DlcServerManagerScreen(this, target, info));
+                Minecraft.getInstance().setScreen(new DlcServerManagerScreen(this, target, info, null, openedFromIngame));
             }));
     }
 

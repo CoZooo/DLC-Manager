@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DlcApplier {
+    private static final String CONFIG_MISSING_MARKER = "__dlc_config_missing__";
+
     public static ApplyResult apply(List<DlcItem> items, ApplyMode mode) {
         List<String> messages = new ArrayList<>();
         boolean requiresRestart = false;
@@ -26,11 +28,11 @@ public class DlcApplier {
                 if (!wasEnabled) {
                     messages.add("Enabled " + item.getName());
                 }
-                List<Path> targets = applyItem(item, wasEnabled);
-                if (!targets.isEmpty()) {
+                List<Path> statePaths = applyItem(item, wasEnabled);
+                if (!statePaths.isEmpty()) {
                     DlcConfig.DlcState state = new DlcConfig.DlcState();
                     state.enabled = true;
-                    state.appliedTargets = targets.stream()
+                    state.appliedTargets = statePaths.stream()
                         .map(DlcApplier::toGameRelativePath)
                         .toList();
                     DlcConfig.setState(item.getId(), state);
@@ -41,7 +43,7 @@ public class DlcApplier {
             } else {
                 if (wasEnabled) {
                     messages.add("Disabled " + item.getName());
-                    removeItem(previous);
+                    removeItem(item, previous);
                 }
                 DlcConfig.DlcState state = new DlcConfig.DlcState();
                 state.enabled = false;
@@ -56,20 +58,23 @@ public class DlcApplier {
     }
 
     private static List<Path> applyItem(DlcItem item, boolean wasEnabled) {
-        List<Path> targets = new ArrayList<>();
+        List<Path> statePaths = new ArrayList<>();
         try {
             if (item.getType() == DlcType.UNKNOWN) {
                 Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
                 if (target == null) {
-                    return targets;
+                    return statePaths;
                 }
                 List<Path> sources = item.getSourcePaths();
                 if (sources.isEmpty()) {
-                    return targets;
+                    return statePaths;
                 }
                 boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, sources.get(0));
                 if (!dirTarget && sources.size() > 1) {
-                    return targets;
+                    return statePaths;
+                }
+                if (DlcConfigDlcSupport.isConfigType(item)) {
+                    return applyConfigItem(item, sources, target, dirTarget, wasEnabled);
                 }
                 if (dirTarget) {
                     Files.createDirectories(target);
@@ -82,7 +87,7 @@ public class DlcApplier {
                             backupExisting(resolved);
                         }
                         copyRecursive(source, resolved);
-                        targets.add(resolved);
+                        statePaths.add(resolved);
                     }
                 } else {
                     Path parent = target.getParent();
@@ -94,9 +99,9 @@ public class DlcApplier {
                         backupExisting(target);
                     }
                     copyRecursive(source, target);
-                    targets.add(target);
+                    statePaths.add(target);
                 }
-                return targets;
+                return statePaths;
             }
             List<Path> targetDirs = switch (item.getType()) {
                 case MOD -> List.of(DlcPaths.modsDir());
@@ -112,16 +117,66 @@ public class DlcApplier {
                     backupExisting(target);
                 }
                 copyRecursive(item.getSourcePath(), target);
-                targets.add(target);
+                statePaths.add(target);
             }
         } catch (IOException ignored) {
         }
 
-        return targets;
+        return statePaths;
     }
 
-    private static void removeItem(DlcConfig.DlcState previous) {
+    private static List<Path> applyConfigItem(DlcItem item, List<Path> sources, Path targetRoot, boolean dirTarget, boolean wasEnabled) throws IOException {
+        List<Path> statePaths = new ArrayList<>();
+        if (dirTarget) {
+            Files.createDirectories(targetRoot);
+            for (Path source : sources) {
+                if (source == null) {
+                    continue;
+                }
+                Path target = targetRoot.resolve(source.getFileName().toString());
+                Path statePath = backupConfigTarget(target, !wasEnabled);
+                copyRecursive(source, target);
+                statePaths.add(statePath);
+            }
+            return statePaths;
+        }
+        Path parent = targetRoot.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Path source = sources.get(0);
+        Path statePath = backupConfigTarget(targetRoot, !wasEnabled);
+        copyRecursive(source, targetRoot);
+        statePaths.add(statePath);
+        return statePaths;
+    }
+
+    private static Path backupConfigTarget(Path target, boolean shouldCreate) throws IOException {
+        Path backupPath = DlcConfigDlcSupport.backupPathForTarget(target);
+        Path markerPath = DlcConfigDlcSupport.missingMarkerPath(backupPath);
+        if (shouldCreate) {
+            deleteRecursiveIfExists(backupPath);
+            deleteRecursiveIfExists(markerPath);
+            Files.createDirectories(DlcConfigDlcSupport.backupRoot());
+            if (Files.exists(target)) {
+                copyRecursive(target, backupPath);
+                return backupPath;
+            }
+            Files.writeString(markerPath, CONFIG_MISSING_MARKER);
+            return markerPath;
+        }
+        if (Files.exists(markerPath)) {
+            return markerPath;
+        }
+        return backupPath;
+    }
+
+    private static void removeItem(DlcItem item, DlcConfig.DlcState previous) {
         if (previous == null || previous.appliedTargets == null) {
+            return;
+        }
+        if (DlcConfigDlcSupport.isConfigType(item)) {
+            restoreConfigItem(item, previous);
             return;
         }
         for (String pathString : previous.appliedTargets) {
@@ -130,6 +185,87 @@ public class DlcApplier {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    private static void restoreConfigItem(DlcItem item, DlcConfig.DlcState previous) {
+        List<Path> targets = resolveConfigTargets(item);
+        List<String> stored = previous.appliedTargets == null ? List.of() : previous.appliedTargets;
+        for (int i = 0; i < targets.size(); i++) {
+            Path target = targets.get(i);
+            Path fallbackBackup = DlcConfigDlcSupport.backupPathForTarget(target);
+            Path fallbackMarker = DlcConfigDlcSupport.missingMarkerPath(fallbackBackup);
+            Path statePath = i < stored.size() ? resolveStoredPath(stored.get(i)) : null;
+            if (statePath == null || statePath.toString().isBlank()) {
+                statePath = Files.exists(fallbackMarker) ? fallbackMarker : fallbackBackup;
+            }
+            Path backupPath = statePath;
+            Path markerPath = statePath;
+            if (Files.exists(statePath) && statePath.getFileName() != null
+                && statePath.getFileName().toString().endsWith(".missing")) {
+                backupPath = fallbackBackup;
+            } else if (statePath.equals(fallbackBackup)) {
+                markerPath = fallbackMarker;
+            } else {
+                markerPath = DlcConfigDlcSupport.missingMarkerPath(statePath);
+            }
+            try {
+                if (isMissingMarker(statePath) || isMissingMarker(markerPath)) {
+                    deleteRecursiveIfExists(target);
+                } else if (Files.exists(backupPath)) {
+                    copyRecursive(backupPath, target);
+                } else {
+                    deleteRecursiveIfExists(target);
+                }
+                deleteRecursiveIfExists(backupPath);
+                deleteRecursiveIfExists(markerPath);
+            } catch (IOException ignored) {
+            }
+        }
+    }
+
+    private static boolean isMissingMarker(Path path) {
+        if (path == null || !Files.isRegularFile(path)) {
+            return false;
+        }
+        String name = path.getFileName() == null ? "" : path.getFileName().toString();
+        if (name.endsWith(".missing")) {
+            return true;
+        }
+        try {
+            return CONFIG_MISSING_MARKER.equals(Files.readString(path).trim());
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    private static List<Path> resolveConfigTargets(DlcItem item) {
+        List<Path> targets = new ArrayList<>();
+        if (item == null) {
+            return targets;
+        }
+        Path targetRoot = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
+        if (targetRoot == null) {
+            return targets;
+        }
+        List<Path> sources = item.getSourcePaths();
+        if (sources.isEmpty()) {
+            return targets;
+        }
+        boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), targetRoot, sources.get(0));
+        if (!dirTarget && sources.size() > 1) {
+            return targets;
+        }
+        if (dirTarget) {
+            for (Path source : sources) {
+                if (source == null) {
+                    continue;
+                }
+                targets.add(targetRoot.resolve(source.getFileName().toString()));
+            }
+        } else {
+            targets.add(targetRoot);
+        }
+        return targets;
     }
 
     private static void copyRecursive(Path source, Path target) throws IOException {
@@ -172,6 +308,13 @@ public class DlcApplier {
             copyRecursive(target, backupTarget);
         } catch (IOException ignored) {
         }
+    }
+
+    private static void deleteRecursiveIfExists(Path path) throws IOException {
+        if (path == null || !Files.exists(path)) {
+            return;
+        }
+        deleteRecursive(path);
     }
 
     private static void deleteRecursive(Path path) throws IOException {

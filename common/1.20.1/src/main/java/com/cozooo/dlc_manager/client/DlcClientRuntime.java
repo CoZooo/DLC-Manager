@@ -9,6 +9,7 @@ import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
@@ -116,8 +117,7 @@ public final class DlcClientRuntime {
         if (!canOpenServerManager()) {
             return;
         }
-        Minecraft minecraft = Minecraft.getInstance();
-        minecraft.setScreen(new DlcServerListScreen(minecraft.screen));
+        openServerManagerFromIngame(null);
     }
 
     public static void openServerManagerFromIngame(Screen parent) {
@@ -145,14 +145,14 @@ public final class DlcClientRuntime {
                     if (info != null) {
                         saveEntryToList(finalEntry);
                         DlcServerCache.put(finalEntry.getKey(), info);
-                        minecraft.setScreen(new DlcServerMaLiLibScreen(parent, finalEntry, info));
+                        minecraft.setScreen(new DlcServerManagerScreen(parent, finalEntry, info, DlcServerManagerScreen.Tab.SERVERS, true));
                         return;
                     }
-                    minecraft.setScreen(new DlcServerPasswordScreen(parent, finalEntry, false));
+                    minecraft.setScreen(new DlcServerPasswordScreen(parent, finalEntry, false, true));
                 }));
             return;
         }
-        minecraft.setScreen(new DlcServerPasswordScreen(parent, entry, false));
+        minecraft.setScreen(new DlcServerPasswordScreen(parent, entry, false, true));
     }
 
     public static void runStartupChecksAsync(Screen screen) {
@@ -329,12 +329,31 @@ public final class DlcClientRuntime {
             return DlcServerConnection.fetchServerInfo(
                 entry,
                 5000,
-                CrossPlatformRuntime.playerName(),
-                CrossPlatformRuntime.playerUuid()
+                currentPlayerName(),
+                currentPlayerUuid()
             );
         } catch (Exception ignored) {
         }
         return null;
+    }
+
+    private static String currentPlayerName() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null && minecraft.player.getGameProfile() != null) {
+            String name = minecraft.player.getGameProfile().getName();
+            if (name != null && !name.isBlank()) {
+                return name;
+            }
+        }
+        return CrossPlatformRuntime.playerName();
+    }
+
+    private static String currentPlayerUuid() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null && minecraft.player.getGameProfile() != null && minecraft.player.getGameProfile().getId() != null) {
+            return minecraft.player.getGameProfile().getId().toString();
+        }
+        return CrossPlatformRuntime.playerUuid();
     }
 
     private static DlcServerEntry findEntryByKey(String key) {

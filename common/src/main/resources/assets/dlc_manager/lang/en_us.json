@@ -288,6 +288,8 @@
   "dlc_manager.server.update_checking": "Checking...",
   "dlc_manager.server.update_failed": "Update check failed.",
   "dlc_manager.server.update_empty": "No updates.",
+  "dlc_manager.server.update_push": "Push Update",
+  "dlc_manager.server.update_push_failed": "Failed to push update package.",
   "dlc_manager.server.mismatch_title": "Server DLC Mismatch",
   "dlc_manager.server.mismatch_server": "Server: %s",
   "dlc_manager.server.mismatch_local": "Local: %s",

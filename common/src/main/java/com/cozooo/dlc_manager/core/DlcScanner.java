@@ -124,6 +124,10 @@ public class DlcScanner {
                     if (name.endsWith(".zip")) {
                         DlcType type = classifyZip(file);
                         addItem(grouped, root, file, type != null ? type : DlcType.UNKNOWN, tooltips, tooltipLoader, infoDir);
+                        return FileVisitResult.CONTINUE;
+                    }
+                    if (tooltips != null && tooltips.containsKey(name)) {
+                        addItem(grouped, root, file, DlcType.UNKNOWN, tooltips, tooltipLoader, infoDir);
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -220,10 +224,11 @@ public class DlcScanner {
             identifier = name;
         }
         String appliedTargetRaw = tooltipData != null ? tooltipData.getAppliedTargetRaw() : null;
+        boolean configType = tooltipData != null && tooltipData.isConfigType();
         if (effectiveType == DlcType.UNKNOWN && (appliedTargetRaw == null || appliedTargetRaw.isBlank())) {
             return;
         }
-        boolean enabled = isEnabledInTargets(name, fileNames, effectiveType, appliedTargetRaw, source);
+        boolean enabled = isEnabledInTargets(name, fileNames, effectiveType, appliedTargetRaw, source, configType);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
         boolean inList = tooltipData == null || tooltipData.isInList();
         boolean hidden = tooltipData != null && tooltipData.isHidden();
@@ -248,8 +253,8 @@ public class DlcScanner {
             }
         }
         DlcItem item = sources.isEmpty()
-            ? new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden)
-            : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden);
+            ? new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType)
+            : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;
@@ -257,7 +262,7 @@ public class DlcScanner {
         }
     }
 
-    private boolean isEnabledInTargets(String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source) {
+    private boolean isEnabledInTargets(String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {
         if (type == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
             if (target == null) {
@@ -274,7 +279,11 @@ public class DlcScanner {
                     }
                     String normalized = entry.replace('\\', '/');
                     Path check = dirTarget ? target.resolve(normalized) : target;
-                    if (!Files.exists(check)) {
+                    if (configType) {
+                        if (!DlcConfigDlcSupport.hasBackupForTarget(check)) {
+                            return false;
+                        }
+                    } else if (!Files.exists(check)) {
                         return false;
                     }
                     if (!dirTarget) {
@@ -284,9 +293,10 @@ public class DlcScanner {
                 return true;
             }
             if (dirTarget) {
-                return Files.exists(target.resolve(fileName));
+                Path check = target.resolve(fileName);
+                return configType ? DlcConfigDlcSupport.hasBackupForTarget(check) : Files.exists(check);
             }
-            return Files.exists(target);
+            return configType ? DlcConfigDlcSupport.hasBackupForTarget(target) : Files.exists(target);
         }
         List<Path> targetDirs = switch (type) {
             case MOD -> List.of(DlcPaths.modsDir());

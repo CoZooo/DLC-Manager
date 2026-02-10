@@ -21,6 +21,7 @@ public class DlcTooltipLoader {
         "resourcepack", DlcType.RESOURCE_PACK,
         "datapack", DlcType.DATA_PACK,
         "gunpack", DlcType.TACZ_PACK,
+        "config", DlcType.UNKNOWN,
         "others", DlcType.UNKNOWN
     );
 
@@ -37,7 +38,7 @@ public class DlcTooltipLoader {
                     Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
                     TooltipEntry entry = readEntry(migrated);
                     if (entry != null && entry.dlcName != null) {
-                        TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField,
+                        TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
                             entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.fileNames);
                         result.put(entry.dlcName, data);
                     }
@@ -62,6 +63,11 @@ public class DlcTooltipLoader {
             updateTooltipFile(path, dlcName, type, updateExistingType);
             return;
         }
+        Path existingByDlcName = findExistingTooltipByDlcName(infoDir, dlcName);
+        if (existingByDlcName != null) {
+            updateTooltipFile(existingByDlcName, dlcName, type, updateExistingType);
+            return;
+        }
         path = infoDir.resolve(dlcName + Json5Util.JSON5_EXTENSION);
         JsonObject obj = buildOrderedTooltipObject(
             null,
@@ -69,6 +75,7 @@ public class DlcTooltipLoader {
             dlcName,
             buildDefaultDisplayName(dlcName),
             toTypeString(type),
+            null,
             true,
             false,
             true,
@@ -79,6 +86,26 @@ public class DlcTooltipLoader {
         try (Writer writer = Files.newBufferedWriter(path)) {
             PRETTY_GSON.toJson(obj, writer);
         } catch (IOException ignored) {
+        }
+    }
+
+    private Path findExistingTooltipByDlcName(Path infoDir, String dlcName) {
+        if (infoDir == null || dlcName == null || dlcName.isBlank() || !Files.isDirectory(infoDir)) {
+            return null;
+        }
+        try (var stream = Files.list(infoDir)) {
+            return stream
+                .filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> !Json5Util.shouldSkipLegacy(path))
+                .map(path -> Json5Util.migrateLegacy(path, PRETTY_GSON))
+                .filter(path -> {
+                    TooltipEntry entry = readEntry(path);
+                    return entry != null && dlcName.equals(entry.dlcName);
+                })
+                .findFirst()
+                .orElse(null);
+        } catch (IOException ignored) {
+            return null;
         }
     }
 
@@ -115,8 +142,10 @@ public class DlcTooltipLoader {
         if (tip == null) {
             tip = new JsonObject();
         }
+        String appliedTarget = getString(obj, "appliedTarget");
 
-        obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, inList, hidden, allowEnableByAll, dependencies, conflicts, tip);
+        obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget,
+            inList, hidden, allowEnableByAll, dependencies, conflicts, tip);
         try (Writer writer = Files.newBufferedWriter(path)) {
             PRETTY_GSON.toJson(obj, writer);
         } catch (IOException ignored) {
@@ -159,6 +188,7 @@ public class DlcTooltipLoader {
             if (parsed != null) {
                 entry.type = parsed;
                 entry.typeValid = true;
+                entry.configType = "config".equalsIgnoreCase(type.trim());
             }
         }
         JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
@@ -193,12 +223,16 @@ public class DlcTooltipLoader {
     }
 
     private JsonObject buildOrderedTooltipObject(JsonObject source, String dlcName, String dlcIdentifier, JsonObject displayName, String type,
+        String appliedTarget,
         boolean inList, boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, JsonObject tip) {
         JsonObject ordered = new JsonObject();
         ordered.addProperty("dlc_name", dlcName);
         ordered.addProperty("dlc_identifier", dlcIdentifier == null ? dlcName : dlcIdentifier);
         ordered.add("DisplayName", displayName == null ? buildDefaultDisplayName(dlcName) : displayName);
         ordered.addProperty("type", type);
+        if (appliedTarget != null && !appliedTarget.isBlank()) {
+            ordered.addProperty("appliedTarget", appliedTarget);
+        }
         ordered.addProperty("isInList", inList);
         ordered.addProperty("isHidden", hidden);
         ordered.addProperty("AllowEnableByAll", allowEnableByAll);
@@ -347,6 +381,7 @@ public class DlcTooltipLoader {
         DlcType type;
         boolean typeValid;
         boolean hasTypeField;
+        boolean configType;
         boolean inList = true;
         boolean hidden = false;
         boolean allowEnableByAll = true;
@@ -361,6 +396,7 @@ public class DlcTooltipLoader {
         private final DlcType type;
         private final boolean typeValid;
         private final boolean hasTypeField;
+        private final boolean configType;
         private final boolean inList;
         private final boolean hidden;
         private final boolean allowEnableByAll;
@@ -369,7 +405,7 @@ public class DlcTooltipLoader {
         private final String appliedTargetRaw;
         private final java.util.List<String> fileNames;
 
-        public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField,
+        public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField, boolean configType,
             boolean inList, boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
             String appliedTargetRaw, java.util.List<String> fileNames) {
             this.identifier = identifier;
@@ -378,6 +414,7 @@ public class DlcTooltipLoader {
             this.type = type;
             this.typeValid = typeValid;
             this.hasTypeField = hasTypeField;
+            this.configType = configType;
             this.inList = inList;
             this.hidden = hidden;
             this.allowEnableByAll = allowEnableByAll;
@@ -409,6 +446,10 @@ public class DlcTooltipLoader {
 
         public boolean hasTypeField() {
             return hasTypeField;
+        }
+
+        public boolean isConfigType() {
+            return configType;
         }
 
         public boolean isInList() {

@@ -20,11 +20,18 @@ public class DlcItem {
     private final java.util.List<String> conflicts;
     private final boolean allowEnableByAll;
     private final boolean hidden;
+    private final boolean configType;
     private boolean dirty;
 
     public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, String appliedTargetRaw, boolean enabled, java.util.Map<String, String> tooltips,
         java.util.Map<String, String> displayNames, java.util.List<String> dependencies, java.util.List<String> conflicts,
         boolean allowEnableByAll, boolean hidden) {
+        this(id, identifier, name, type, sourcePath, appliedTargetRaw, enabled, tooltips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, false);
+    }
+
+    public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, String appliedTargetRaw, boolean enabled, java.util.Map<String, String> tooltips,
+        java.util.Map<String, String> displayNames, java.util.List<String> dependencies, java.util.List<String> conflicts,
+        boolean allowEnableByAll, boolean hidden, boolean configType) {
         this.id = id;
         this.identifier = identifier;
         this.name = name;
@@ -39,11 +46,18 @@ public class DlcItem {
         this.conflicts = conflicts == null ? java.util.List.of() : conflicts;
         this.allowEnableByAll = allowEnableByAll;
         this.hidden = hidden;
+        this.configType = configType;
     }
 
     public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, List<Path> sourcePaths, String appliedTargetRaw,
         boolean enabled, java.util.Map<String, String> tooltips, java.util.Map<String, String> displayNames,
         java.util.List<String> dependencies, java.util.List<String> conflicts, boolean allowEnableByAll, boolean hidden) {
+        this(id, identifier, name, type, sourcePath, sourcePaths, appliedTargetRaw, enabled, tooltips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, false);
+    }
+
+    public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, List<Path> sourcePaths, String appliedTargetRaw,
+        boolean enabled, java.util.Map<String, String> tooltips, java.util.Map<String, String> displayNames,
+        java.util.List<String> dependencies, java.util.List<String> conflicts, boolean allowEnableByAll, boolean hidden, boolean configType) {
         this.id = id;
         this.identifier = identifier;
         this.name = name;
@@ -62,6 +76,7 @@ public class DlcItem {
         this.conflicts = conflicts == null ? java.util.List.of() : conflicts;
         this.allowEnableByAll = allowEnableByAll;
         this.hidden = hidden;
+        this.configType = configType;
     }
 
     public String getId() {
@@ -126,6 +141,10 @@ public class DlcItem {
 
     public boolean isHidden() {
         return hidden;
+    }
+
+    public boolean isConfigType() {
+        return configType;
     }
 
     public boolean isDirty() {
