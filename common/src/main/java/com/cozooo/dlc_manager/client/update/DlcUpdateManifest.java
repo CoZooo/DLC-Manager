@@ -102,7 +102,11 @@ public class DlcUpdateManifest {
         }
         info.base = getString(obj, "base");
         info.baseNew = getString(obj, "base_new");
-        info.dlcOld = getString(obj, "dlc_old");
+        String dlc = getString(obj, "dlc");
+        if (dlc == null || dlc.isBlank()) {
+            dlc = getString(obj, "dlc_old");
+        }
+        info.dlcOld = dlc;
         info.dlcNew = getString(obj, "dlc_new");
         return info;
     }

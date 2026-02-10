@@ -21,6 +21,7 @@ public class DlcServerPasswordScreen extends Screen {
     private final Screen parent;
     private final DlcServerEntry entry;
     private final boolean autoConnect;
+    private final boolean openServerManagerOnSuccess;
     private EditBox portField;
     private EditBox passwordField;
     private Button connectButton;
@@ -28,10 +29,15 @@ public class DlcServerPasswordScreen extends Screen {
     private boolean connecting;
 
     public DlcServerPasswordScreen(Screen parent, DlcServerEntry entry, boolean autoConnect) {
+        this(parent, entry, autoConnect, false);
+    }
+
+    public DlcServerPasswordScreen(Screen parent, DlcServerEntry entry, boolean autoConnect, boolean openServerManagerOnSuccess) {
         super(Component.translatable("dlc_manager.server.password_title"));
         this.parent = parent;
         this.entry = entry;
         this.autoConnect = autoConnect;
+        this.openServerManagerOnSuccess = openServerManagerOnSuccess;
     }
 
     @Override
@@ -125,7 +131,11 @@ public class DlcServerPasswordScreen extends Screen {
                 }
                 saveEntry(entry);
                 DlcServerCache.put(entry.getKey(), info);
-                Minecraft.getInstance().setScreen(new DlcServerMaLiLibScreen(parent, entry, info));
+                if (openServerManagerOnSuccess) {
+                    Minecraft.getInstance().setScreen(new DlcServerManagerScreen(parent, entry, info, DlcServerManagerScreen.Tab.SERVERS, true));
+                } else {
+                    Minecraft.getInstance().setScreen(new DlcServerMaLiLibScreen(parent, entry, info));
+                }
             }));
     }
 

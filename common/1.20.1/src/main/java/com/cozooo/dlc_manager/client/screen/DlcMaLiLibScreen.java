@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.core.ApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
@@ -857,7 +858,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private String getBackButtonLabel() {
-        boolean hasChanges = computeApplyChanges() || computeModReloadChanges() || computeNonModReloadChanges() || hasPresetChanges();
+        boolean hasChanges = computeApplyChanges() || hasPresetChanges();
         return hasChanges
             ? StringUtils.translate("dlc_manager.back_discard")
             : StringUtils.translate("dlc_manager.back");
@@ -868,7 +869,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             return;
         }
         backButton.setDisplayString(getBackButtonLabel());
-        backButton.setEnabled(!DlcRequiredRuntimeState.hasPendingChanges());
+        backButton.setEnabled(true);
     }
 
     private boolean computeModReloadChanges() {
@@ -918,7 +919,14 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
             boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, item.getSourcePath());
             if (dirTarget) {
-                return java.nio.file.Files.exists(target.resolve(name));
+                Path resolved = target.resolve(name);
+                if (item.isConfigType()) {
+                    return DlcConfigDlcSupport.hasBackupForTarget(resolved);
+                }
+                return java.nio.file.Files.exists(resolved);
+            }
+            if (item.isConfigType()) {
+                return DlcConfigDlcSupport.hasBackupForTarget(target);
             }
             return java.nio.file.Files.exists(target);
         }

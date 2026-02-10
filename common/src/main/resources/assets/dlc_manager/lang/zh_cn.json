@@ -288,6 +288,8 @@
   "dlc_manager.server.update_checking": "正在检查...",
   "dlc_manager.server.update_failed": "检查失败。",
   "dlc_manager.server.update_empty": "没有更新。",
+  "dlc_manager.server.update_push": "推送更新",
+  "dlc_manager.server.update_push_failed": "更新包推送失败。",
   "dlc_manager.server.mismatch_title": "服务端 DLC 不一致",
   "dlc_manager.server.mismatch_server": "服务端：%s",
   "dlc_manager.server.mismatch_local": "本地：%s",

@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
@@ -684,6 +686,21 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     }
 
     private static boolean isEnabledInTargets(DlcItem item) {
+        DlcConfig.DlcState state = DlcConfig.getState(item.getId());
+        if (state != null && state.enabled && state.appliedTargets != null && !state.appliedTargets.isEmpty()) {
+            for (String raw : state.appliedTargets) {
+                if (raw == null || raw.isBlank()) {
+                    continue;
+                }
+                Path path = Path.of(raw);
+                if (!path.isAbsolute()) {
+                    path = DlcPaths.gameDir().resolve(path);
+                }
+                if (java.nio.file.Files.exists(path)) {
+                    return true;
+                }
+            }
+        }
         String name = item.getSourcePath().getFileName().toString();
         if (item.getType() == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
@@ -692,7 +709,14 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
             boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, item.getSourcePath());
             if (dirTarget) {
-                return java.nio.file.Files.exists(target.resolve(name));
+                Path resolved = target.resolve(name);
+                if (item.isConfigType()) {
+                    return DlcConfigDlcSupport.hasBackupForTarget(resolved);
+                }
+                return java.nio.file.Files.exists(resolved);
+            }
+            if (item.isConfigType()) {
+                return DlcConfigDlcSupport.hasBackupForTarget(target);
             }
             return java.nio.file.Files.exists(target);
         }

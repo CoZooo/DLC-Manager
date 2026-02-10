@@ -1,7 +1,8 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
@@ -17,6 +18,8 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +28,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
     private final Screen parent;
     private final DlcServerEntry entry;
     private Button importButton;
+    private Button pushUpdateButton;
     private Button urlButton;
     private Button backButton;
     private int scrollIndex;
@@ -111,16 +115,20 @@ public class DlcServerUpdateManagerScreen extends Screen {
 
     private void buildWidgets() {
         clearWidgets();
-        int buttonWidth = 140;
+        int buttonWidth = 110;
         int buttonHeight = 20;
         int y = this.height - 40;
         int spacing = 10;
-        int totalWidth = buttonWidth * 3 + spacing * 2;
+        int totalWidth = buttonWidth * 4 + spacing * 3;
         int startX = Math.max(20, (this.width - totalWidth) / 2);
         importButton = Button.builder(Component.translatable("dlc_manager.update.import"), btn -> importUpdate())
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
-        int urlX = startX + buttonWidth + spacing;
+        int pushX = startX + buttonWidth + spacing;
+        pushUpdateButton = Button.builder(Component.translatable("dlc_manager.server.update_push"), btn -> pushUpdates())
+            .bounds(pushX, y, buttonWidth, buttonHeight)
+            .build();
+        int urlX = pushX + buttonWidth + spacing;
         urlButton = Button.builder(Component.translatable("dlc_manager.update.import_url"),
                 btn -> Minecraft.getInstance().setScreen(new DlcServerUpdateUrlScreen(this, entry)))
             .bounds(urlX, y, buttonWidth, buttonHeight)
@@ -130,6 +138,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
             .bounds(backX, y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(importButton);
+        addRenderableWidget(pushUpdateButton);
         addRenderableWidget(urlButton);
         addRenderableWidget(backButton);
 
@@ -384,7 +393,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
     private void handleUpdateResult(UpdateResponse result) {
         setApplying(false);
         if (result == null || !result.ok) {
-            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")));
             return;
         }
         Component title = Component.translatable("dlc_manager.update.manager_title");
@@ -419,6 +428,9 @@ public class DlcServerUpdateManagerScreen extends Screen {
         }
         if (urlButton != null) {
             urlButton.active = !value;
+        }
+        if (pushUpdateButton != null) {
+            pushUpdateButton.active = !value;
         }
         if (backButton != null) {
             backButton.active = !value;
@@ -455,6 +467,47 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 }
             });
         }, "dlc-server-update-import").start();
+    }
+
+    private void pushUpdates() {
+        if (applying || loading) {
+            return;
+        }
+        Path updateDir = DlcPathConfig.getDlcRoot().resolve("update");
+        if (!Files.isDirectory(updateDir)) {
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")));
+            return;
+        }
+        Path gameDir = DlcPaths.gameDir();
+        if (!updateDir.startsWith(gameDir)) {
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")));
+            return;
+        }
+        String relative = gameDir.relativize(updateDir).toString().replace('\\', '/');
+        if (relative.isBlank()) {
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
+            return;
+        }
+
+        setApplying(true);
+        new Thread(() -> {
+            boolean ok;
+            try {
+                ok = DlcServerConnection.push(entry, 20000, List.of(), List.of(relative), "overwrite");
+            } catch (IOException ex) {
+                ok = false;
+            }
+            boolean success = ok;
+            Minecraft.getInstance().execute(() -> {
+                setApplying(false);
+                if (!success) {
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")));
+                } else {
+                    refreshData();
+                    Minecraft.getInstance().setScreen(this);
+                }
+            });
+        }, "dlc-server-update-push").start();
     }
 
     private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {

@@ -84,16 +84,22 @@ public final class DlcUpdateService {
         }
         String base = safeVersion(current.getBase());
         String targetOld = safeVersion(dlcOld);
-        String targetNew = safeVersion(dlcNew);
+        String targetNew = optionalVersion(dlcNew);
+        if (targetNew == null) {
+            targetNew = targetOld;
+        }
         for (DlcUpdatePackage pkg : packages) {
             if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
                 continue;
             }
             DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-            if (!base.equals(safeVersion(info.getBase()))) {
+            if (!hasVersionTransition(info)) {
                 continue;
             }
-            if (targetOld.equals(safeVersion(info.getDlcOld())) && targetNew.equals(safeVersion(info.getDlcNew()))) {
+            if (!base.equals(sourceBaseVersion(info))) {
+                continue;
+            }
+            if (targetOld.equals(sourceDlcVersion(info)) && targetNew.equals(targetDlcVersion(info))) {
                 return pkg;
             }
         }
@@ -168,8 +174,8 @@ public final class DlcUpdateService {
         }
 
         DlcUpdateMeta meta = new DlcUpdateMeta();
-        meta.setDlcOld(info.getDlcOld());
-        meta.setDlcNew(info.getDlcNew());
+        meta.setDlcOld(sourceDlcVersion(info));
+        meta.setDlcNew(targetDlcVersion(info));
         meta.setBaseOld(safeVersion(current.getBase()));
         String baseNew = optionalVersion(info.getBaseNew());
         if (baseNew != null) {
@@ -178,7 +184,7 @@ public final class DlcUpdateService {
         meta.setTimestamp(Long.toString(System.currentTimeMillis()));
         meta.setHidden(manifest.isHidden());
         meta.setChangelog(manifest.getChangelog());
-        Path backupRoot = dlcRoot.resolve("update_tmp").resolve(info.getDlcNew() == null ? "unknown" : info.getDlcNew());
+        Path backupRoot = dlcRoot.resolve("update_tmp").resolve(targetDlcVersion(info));
         Json5Util.migrateLegacy(backupRoot.resolve("meta.json"), UPDATE_GSON);
         Path metaPath = Json5Util.resolveConfigPath(backupRoot, "meta");
 
@@ -198,7 +204,7 @@ public final class DlcUpdateService {
                 nextBase = baseNew;
             }
             updated.setBase(nextBase);
-            updated.setDlc(safeVersion(info.getDlcNew()));
+            updated.setDlc(targetDlcVersion(info));
             updated.setRollbackFrom(null);
             updated.setChangelogShown(null);
             updated.save(dlcRoot);
@@ -321,7 +327,7 @@ public final class DlcUpdateService {
                 builder.append("\n\n");
             }
             if (info != null) {
-                builder.append(safeVersion(info.getDlcOld())).append(" -> ").append(safeVersion(info.getDlcNew())).append("\n");
+                builder.append(sourceDlcVersion(info)).append(" -> ").append(targetDlcVersion(info)).append("\n");
             }
             builder.append(text.trim());
         }
@@ -361,8 +367,9 @@ public final class DlcUpdateService {
         }
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
         DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-        return safeVersion(current.getBase()).equals(safeVersion(info.getBase()))
-            && safeVersion(current.getDlc()).equals(safeVersion(info.getDlcOld()));
+        return hasVersionTransition(info)
+            && safeVersion(current.getBase()).equals(sourceBaseVersion(info))
+            && safeVersion(current.getDlc()).equals(sourceDlcVersion(info));
     }
 
     public static boolean importUpdatePackage(Path zipPath) {
@@ -439,7 +446,7 @@ public final class DlcUpdateService {
                 continue;
             }
             DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-            String key = safeVersion(info.getBase()) + "|" + safeVersion(info.getDlcOld()) + "|" + safeVersion(info.getDlcNew());
+            String key = sourceBaseVersion(info) + "|" + targetBaseVersion(info) + "|" + sourceDlcVersion(info) + "|" + targetDlcVersion(info);
             long modified = getLastModifiedMillis(pkg.getArchivePath());
             Long existing = times.get(key);
             if (existing == null || modified >= existing) {
@@ -490,9 +497,10 @@ public final class DlcUpdateService {
         if (left == null || right == null) {
             return false;
         }
-        return safeVersion(left.getBase()).equals(safeVersion(right.getBase()))
-            && safeVersion(left.getDlcOld()).equals(safeVersion(right.getDlcOld()))
-            && safeVersion(left.getDlcNew()).equals(safeVersion(right.getDlcNew()));
+        return sourceBaseVersion(left).equals(sourceBaseVersion(right))
+            && targetBaseVersion(left).equals(targetBaseVersion(right))
+            && sourceDlcVersion(left).equals(sourceDlcVersion(right))
+            && targetDlcVersion(left).equals(targetDlcVersion(right));
     }
 
     private static List<DlcUpdatePackage> resolveUpdateChain(DlcUpdateVersion version, List<DlcUpdatePackage> packages,
@@ -503,7 +511,7 @@ public final class DlcUpdateService {
         if (!ignoreRollback && version.getRollbackFrom() != null && !version.getRollbackFrom().isBlank()) {
             boolean hasNewer = packages.stream().anyMatch(pkg -> {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-                return info != null && version.getRollbackFrom().equals(info.getDlcOld());
+                return info != null && version.getRollbackFrom().equals(sourceDlcVersion(info));
             });
             if (!hasNewer) {
                 return List.of();
@@ -511,7 +519,8 @@ public final class DlcUpdateService {
         }
         List<DlcUpdatePackage> remaining = new ArrayList<>(packages);
         List<DlcUpdatePackage> chain = new ArrayList<>();
-        String current = version.getDlc();
+        String currentBase = safeVersion(version.getBase());
+        String currentDlc = safeVersion(version.getDlc());
         while (true) {
             List<DlcUpdatePackage> candidates = new ArrayList<>();
             for (DlcUpdatePackage pkg : remaining) {
@@ -519,21 +528,25 @@ public final class DlcUpdateService {
                 if (info == null) {
                     continue;
                 }
-                if (!safeVersion(version.getBase()).equals(safeVersion(info.getBase()))) {
+                if (!hasVersionTransition(info)) {
                     continue;
                 }
-                if (safeVersion(current).equals(safeVersion(info.getDlcOld()))) {
+                if (currentBase.equals(sourceBaseVersion(info)) && currentDlc.equals(sourceDlcVersion(info))) {
                     candidates.add(pkg);
                 }
             }
             if (candidates.isEmpty()) {
                 break;
             }
-            candidates.sort(Comparator.comparing(pkg -> safeVersion(pkg.getManifest().getVersion().getDlcNew()), DlcUpdateService::compareVersion));
+            candidates.sort(Comparator
+                .comparing((DlcUpdatePackage pkg) -> targetBaseVersion(pkg.getManifest().getVersion()), DlcUpdateService::compareVersion)
+                .thenComparing(pkg -> targetDlcVersion(pkg.getManifest().getVersion()), DlcUpdateService::compareVersion));
             DlcUpdatePackage chosen = candidates.get(0);
             chain.add(chosen);
             remaining.remove(chosen);
-            current = chosen.getManifest().getVersion().getDlcNew();
+            DlcUpdateManifest.VersionInfo info = chosen.getManifest().getVersion();
+            currentBase = targetBaseVersion(info);
+            currentDlc = targetDlcVersion(info);
         }
         return chain;
     }
@@ -547,29 +560,30 @@ public final class DlcUpdateService {
         if (target.isEmpty()) {
             return List.of();
         }
-        String start = safeVersion(version.getDlc());
-        if (start.equals(target)) {
+        String startBase = safeVersion(version.getBase());
+        String startDlc = safeVersion(version.getDlc());
+        if (startDlc.equals(target)) {
             return List.of();
         }
         if (!ignoreRollback && version.getRollbackFrom() != null && !version.getRollbackFrom().isBlank()) {
             boolean hasNewer = packages.stream().anyMatch(pkg -> {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-                return info != null && version.getRollbackFrom().equals(info.getDlcOld());
+                return info != null && version.getRollbackFrom().equals(sourceDlcVersion(info));
             });
             if (!hasNewer) {
                 return List.of();
             }
         }
         List<DlcUpdatePackage> filtered = new ArrayList<>();
-        String base = safeVersion(version.getBase());
         for (DlcUpdatePackage pkg : packages) {
             if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
                 continue;
             }
             DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-            if (base.equals(safeVersion(info.getBase()))) {
-                filtered.add(pkg);
+            if (!hasVersionTransition(info)) {
+                continue;
             }
+            filtered.add(pkg);
         }
         if (filtered.isEmpty()) {
             return List.of();
@@ -577,32 +591,34 @@ public final class DlcUpdateService {
         java.util.Map<String, List<DlcUpdatePackage>> byOld = new java.util.HashMap<>();
         for (DlcUpdatePackage pkg : filtered) {
             DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-            String oldV = safeVersion(info.getDlcOld());
-            byOld.computeIfAbsent(oldV, k -> new ArrayList<>()).add(pkg);
+            String oldState = stateKey(sourceBaseVersion(info), sourceDlcVersion(info));
+            byOld.computeIfAbsent(oldState, k -> new ArrayList<>()).add(pkg);
         }
         java.util.ArrayDeque<PathNode> queue = new java.util.ArrayDeque<>();
         java.util.Set<String> visited = new java.util.HashSet<>();
-        queue.add(new PathNode(start, new ArrayList<>()));
-        visited.add(start);
+        queue.add(new PathNode(startBase, startDlc, new ArrayList<>()));
+        visited.add(stateKey(startBase, startDlc));
         while (!queue.isEmpty()) {
             PathNode node = queue.poll();
-            if (node.version.equals(target)) {
+            if (node.dlc.equals(target)) {
                 return node.path;
             }
-            List<DlcUpdatePackage> nextPkgs = byOld.get(node.version);
+            List<DlcUpdatePackage> nextPkgs = byOld.get(stateKey(node.base, node.dlc));
             if (nextPkgs == null || nextPkgs.isEmpty()) {
                 continue;
             }
             for (DlcUpdatePackage pkg : nextPkgs) {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-                String next = safeVersion(info.getDlcNew());
-                if (visited.contains(next)) {
+                String nextBase = targetBaseVersion(info);
+                String nextDlc = targetDlcVersion(info);
+                String nextState = stateKey(nextBase, nextDlc);
+                if (visited.contains(nextState)) {
                     continue;
                 }
                 List<DlcUpdatePackage> nextPath = new ArrayList<>(node.path);
                 nextPath.add(pkg);
-                visited.add(next);
-                queue.add(new PathNode(next, nextPath));
+                visited.add(nextState);
+                queue.add(new PathNode(nextBase, nextDlc, nextPath));
             }
         }
         return List.of();
@@ -614,8 +630,11 @@ public final class DlcUpdateService {
             return List.of();
         }
         String targetOld = safeVersion(targetDlcOld);
-        String targetNew = safeVersion(targetDlcNew);
-        if (targetOld.isEmpty() || targetNew.isEmpty()) {
+        String targetNew = optionalVersion(targetDlcNew);
+        if (targetNew == null) {
+            targetNew = targetOld;
+        }
+        if (targetOld.isEmpty()) {
             return List.of();
         }
         DlcUpdatePackage targetPkg = null;
@@ -625,10 +644,13 @@ public final class DlcUpdateService {
                 continue;
             }
             DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-            if (!base.equals(safeVersion(info.getBase()))) {
+            if (!hasVersionTransition(info)) {
                 continue;
             }
-            if (targetOld.equals(safeVersion(info.getDlcOld())) && targetNew.equals(safeVersion(info.getDlcNew()))) {
+            if (!base.equals(sourceBaseVersion(info))) {
+                continue;
+            }
+            if (targetOld.equals(sourceDlcVersion(info)) && targetNew.equals(targetDlcVersion(info))) {
                 targetPkg = pkg;
                 break;
             }
@@ -636,8 +658,9 @@ public final class DlcUpdateService {
         if (targetPkg == null) {
             return List.of();
         }
-        String current = safeVersion(version.getDlc());
-        if (current.equals(targetOld)) {
+        String currentBase = safeVersion(version.getBase());
+        String currentDlc = safeVersion(version.getDlc());
+        if (currentDlc.equals(targetOld) && currentBase.equals(sourceBaseVersion(targetPkg.getManifest().getVersion()))) {
             return List.of(targetPkg);
         }
         List<DlcUpdatePackage> prefix = resolveUpdateChainTo(version, packages, targetOld, ignoreRollback);
@@ -650,11 +673,13 @@ public final class DlcUpdateService {
     }
 
     private static final class PathNode {
-        private final String version;
+        private final String base;
+        private final String dlc;
         private final List<DlcUpdatePackage> path;
 
-        private PathNode(String version, List<DlcUpdatePackage> path) {
-            this.version = version;
+        private PathNode(String base, String dlc, List<DlcUpdatePackage> path) {
+            this.base = base;
+            this.dlc = dlc;
             this.path = path;
         }
     }
@@ -663,10 +688,13 @@ public final class DlcUpdateService {
         if (current == null || info == null) {
             return false;
         }
+        if (!hasVersionTransition(info)) {
+            return false;
+        }
         String base = safeVersion(current.getBase());
         String dlc = safeVersion(current.getDlc());
-        return base.equals(safeVersion(info.getBase()))
-            && dlc.equals(safeVersion(info.getDlcOld()));
+        return base.equals(sourceBaseVersion(info))
+            && dlc.equals(sourceDlcVersion(info));
     }
 
     private static List<String> findMissingModifyTargets(DlcUpdateManifest manifest, Path gameDir) {
@@ -2227,6 +2255,42 @@ public final class DlcUpdateService {
 
     private static String safeVersion(String value) {
         return value == null || value.isBlank() ? "1.0.0" : value.trim();
+    }
+
+    private static String sourceBaseVersion(DlcUpdateManifest.VersionInfo info) {
+        return info == null ? safeVersion(null) : safeVersion(info.getBase());
+    }
+
+    private static String targetBaseVersion(DlcUpdateManifest.VersionInfo info) {
+        if (info == null) {
+            return safeVersion(null);
+        }
+        String target = optionalVersion(info.getBaseNew());
+        return target == null ? sourceBaseVersion(info) : target;
+    }
+
+    private static String sourceDlcVersion(DlcUpdateManifest.VersionInfo info) {
+        return info == null ? safeVersion(null) : safeVersion(info.getDlcOld());
+    }
+
+    private static String targetDlcVersion(DlcUpdateManifest.VersionInfo info) {
+        if (info == null) {
+            return safeVersion(null);
+        }
+        String target = optionalVersion(info.getDlcNew());
+        return target == null ? sourceDlcVersion(info) : target;
+    }
+
+    private static boolean hasVersionTransition(DlcUpdateManifest.VersionInfo info) {
+        if (info == null) {
+            return false;
+        }
+        return !sourceBaseVersion(info).equals(targetBaseVersion(info))
+            || !sourceDlcVersion(info).equals(targetDlcVersion(info));
+    }
+
+    private static String stateKey(String base, String dlc) {
+        return safeVersion(base) + "|" + safeVersion(dlc);
     }
 
     private static String optionalVersion(String value) {
