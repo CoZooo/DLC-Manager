@@ -370,22 +370,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 return;
             }
 
-            ConflictCheck conflicts = getConflicts(item);
-            if (!conflicts.items.isEmpty()) {
-                showConflictPrompt(item, conflicts, button);
-                return;
-            }
-
-            DependencyCheck dependencies = getMissingDependencies(item);
-            if (!dependencies.names.isEmpty()) {
-                showDependencyPrompt(item, dependencies, button);
-                return;
-            }
-
-            item.setEnabled(true);
-            DlcRuntimeState.setOverride(item.getId(), true);
-            updateToggleButtonLabel(button, item);
-            item.setDirty(isDirty(item));
+            requestEnable(item, button);
         }
     }
 
@@ -432,16 +417,11 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                     .toList();
                 DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);
                 if (!conflicts.getLines().isEmpty()) {
-                    showBatchConflictPrompt(conflicts.getLines());
+                    java.util.List<DlcItem> filteredTargets = filterConflictTargets(targets, conflicts);
+                    showBatchConflictPrompt(conflicts.getLines(), () -> continueBatchEnable(filteredTargets));
                     return;
                 }
-                DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
-                if (!deps.getLines().isEmpty()) {
-                    Component scopeLabel = Component.translatable("dlc_manager.scope.group");
-                    showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel);
-                    return;
-                }
-                enableItems(targets, true);
+                continueBatchEnable(targets);
             } else {
                 disableItemsWithDependents(items);
             }
@@ -451,6 +431,26 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 generic.setEnabled(state.enabled);
             }
         }
+    }
+
+    private static void continueBatchEnable(java.util.List<DlcItem> targets) {
+        if (targets == null || targets.isEmpty()) {
+            return;
+        }
+        DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
+        if (!deps.getLines().isEmpty()) {
+            Component scopeLabel = Component.translatable("dlc_manager.scope.group");
+            showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel);
+            return;
+        }
+        java.util.List<DlcItem> alarmItems = targets.stream()
+            .filter(DlcItem::isAlarm)
+            .toList();
+        if (!alarmItems.isEmpty()) {
+            showBatchAlarmPrompt(alarmItems, () -> enableItems(targets, true));
+            return;
+        }
+        enableItems(targets, true);
     }
 
     private static boolean isDirty(DlcItem item) {
@@ -463,6 +463,126 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 ? Component.translatable("dlc_manager.toggle.on").getString()
                 : Component.translatable("dlc_manager.toggle.off").getString());
         }
+    }
+
+    private static void requestEnable(DlcItem item, fi.dy.masa.malilib.gui.button.ButtonBase button) {
+        if (item == null) {
+            return;
+        }
+        if (item.isAlarm()) {
+            Screen returnScreen = Minecraft.getInstance().screen;
+            String tip = resolveLocalized(item.getTooltips());
+            Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(returnScreen, tip, () -> {
+                attemptEnable(item, button);
+                if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                    screen.refreshAfterStateChange();
+                }
+            }));
+            return;
+        }
+        attemptEnable(item, button);
+    }
+
+    private static void attemptEnable(DlcItem item, fi.dy.masa.malilib.gui.button.ButtonBase button) {
+        ConflictCheck conflicts = getConflicts(item);
+        if (!conflicts.items.isEmpty()) {
+            showConflictPrompt(item, conflicts, button);
+            return;
+        }
+
+        DependencyCheck dependencies = getMissingDependencies(item);
+        if (!dependencies.names.isEmpty()) {
+            showDependencyPrompt(item, dependencies, button);
+            return;
+        }
+
+        item.setEnabled(true);
+        DlcRuntimeState.setOverride(item.getId(), true);
+        updateToggleButtonLabel(button, item);
+        item.setDirty(isDirty(item));
+    }
+
+    private static String resolveLocalized(java.util.Map<String, String> values) {
+        if (values == null || values.isEmpty()) {
+            return "";
+        }
+        String lang = Minecraft.getInstance().options.languageCode;
+        if (values.containsKey(lang)) {
+            return values.get(lang);
+        }
+        if (values.containsKey("en_us")) {
+            return values.get("en_us");
+        }
+        return values.values().stream().findFirst().orElse("");
+    }
+
+    private static void showBatchAlarmPrompt(java.util.List<DlcItem> alarmItems, Runnable onConfirm) {
+        Screen returnScreen = Minecraft.getInstance().screen;
+        String tip = buildBatchAlarmTip(alarmItems);
+        Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(returnScreen, tip, () -> {
+            if (onConfirm != null) {
+                onConfirm.run();
+            }
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
+        }));
+    }
+
+    private static String buildBatchAlarmTip(java.util.List<DlcItem> alarmItems) {
+        if (alarmItems == null || alarmItems.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (DlcItem item : alarmItems) {
+            if (item == null) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("\n\n");
+            }
+            sb.append(DlcDisplayNameUtil.resolveDisplayName(item));
+            String tip = resolveLocalized(item.getTooltips());
+            if (tip != null && !tip.isBlank()) {
+                sb.append("\n").append(tip);
+            }
+        }
+        return sb.toString();
+    }
+
+    private static java.util.List<DlcItem> filterConflictTargets(java.util.List<DlcItem> targets, DlcRuntimeState.ConflictBatchResult conflicts) {
+        if (targets == null || targets.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.Set<String> targetIds = new java.util.HashSet<>();
+        for (DlcItem item : targets) {
+            if (item != null && item.getIdentifier() != null && !item.getIdentifier().isBlank()) {
+                targetIds.add(item.getIdentifier());
+            }
+        }
+        if (targetIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        if (conflicts == null || conflicts.getLines().isEmpty()) {
+            return targets;
+        }
+        java.util.Set<String> skipped = new java.util.HashSet<>();
+        for (DlcRuntimeState.ConflictLine line : conflicts.getLines()) {
+            String left = line.getLeftName();
+            String right = line.getRightName();
+            if (left != null && targetIds.contains(left)) {
+                skipped.add(left);
+            }
+            if (right != null && targetIds.contains(right)) {
+                skipped.add(right);
+            }
+        }
+        if (skipped.isEmpty()) {
+            return targets;
+        }
+        return targets.stream()
+            .filter(item -> item != null && (item.getIdentifier() == null || !skipped.contains(item.getIdentifier())))
+            .toList();
     }
 
     private static DependencyCheck getMissingDependencies(DlcItem item) {
@@ -547,7 +667,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         enableItems(hiddenDeps, false);
     }
 
-    private static void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {
+    private static void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines, Runnable onSkipConfirm) {
         java.util.List<Component> components = new java.util.ArrayList<>();
         for (DlcRuntimeState.ConflictLine line : lines) {
             components.add(buildConflictLine(
@@ -561,7 +681,19 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.RED);
-        Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(returnScreen, title, message,
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(returnScreen);
+            if (!accepted) {
+                return;
+            }
+            if (onSkipConfirm != null) {
+                onSkipConfirm.run();
+            }
+            if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                screen.refreshAfterStateChange();
+            }
+        }, title, message,
+            Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
             Component.translatable("dlc_manager.confirm_no")));
     }
 

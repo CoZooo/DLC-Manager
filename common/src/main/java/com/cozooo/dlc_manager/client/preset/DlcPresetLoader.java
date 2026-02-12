@@ -94,10 +94,11 @@ public final class DlcPresetLoader {
         Map<String, String> tip = readLangMap(JsonCaseUtil.getObjectIgnoreCase(obj, "tip"));
         List<String> enable = readStringArray(JsonCaseUtil.getArrayIgnoreCase(obj, "enable"));
         List<String> conflicts = readStringArray(JsonCaseUtil.getArrayIgnoreCase(obj, "conflicts"));
+        boolean alarm = JsonCaseUtil.getBooleanIgnoreCase(obj, "alarm", false);
 
         String fileName = stripExtension(path.getFileName().toString());
         String id = buildId(path, presetRoot);
-        return new DlcPresetEntry(id, fileName, path, displayName, tip, enable, conflicts, DlcPresetStatus.OFF);
+        return new DlcPresetEntry(id, fileName, path, displayName, tip, enable, conflicts, alarm, DlcPresetStatus.OFF);
     }
 
     private static Map<String, String> readLangMap(JsonObject obj) {

@@ -32,6 +32,7 @@ public class DlcRemoteEntry {
     private List<String> conflictNames = List.of();
     private Map<String, String> displayNames = Map.of();
     private Map<String, String> tips = Map.of();
+    private boolean alarm;
     private List<DlcRemoteEntry> remoteDependencies = List.of();
 
     public DlcRemoteEntry(Path configPath, Path dlcRoot, Path baseDir, String fileNameHint) {
@@ -293,6 +294,14 @@ public class DlcRemoteEntry {
 
     public void setTips(Map<String, String> tips) {
         this.tips = tips == null ? Map.of() : tips;
+    }
+
+    public boolean isAlarm() {
+        return alarm;
+    }
+
+    public void setAlarm(boolean alarm) {
+        this.alarm = alarm;
     }
 
     public List<DlcRemoteEntry> getRemoteDependencies() {

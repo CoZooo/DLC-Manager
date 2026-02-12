@@ -150,6 +150,15 @@ public class DlcPresetManagerScreen extends Screen {
             return;
         }
         boolean enabled = !DlcPresetRuntimeState.isPresetEnabled(entry.getId());
+        if (enabled && entry.isAlarm()) {
+            String tip = entry.resolveTip(Minecraft.getInstance().options.languageCode);
+            Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, tip, () -> applyPresetEnabledState(entry, true)));
+            return;
+        }
+        applyPresetEnabledState(entry, enabled);
+    }
+
+    private void applyPresetEnabledState(DlcPresetEntry entry, boolean enabled) {
         DlcPresetRuntimeState.setPresetEnabled(entry.getId(), enabled);
         if (parent instanceof DlcMaLiLibScreen screen) {
             screen.refreshAfterStateChange();

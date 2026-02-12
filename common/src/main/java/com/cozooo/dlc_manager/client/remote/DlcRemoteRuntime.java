@@ -105,6 +105,7 @@ public final class DlcRemoteRuntime {
         obj.addProperty("AllowEnableByAll", entry.isAllowEnableByAll());
         obj.addProperty("dependencies", String.join(",", entry.getResolvedDependencyNames()));
         obj.addProperty("conflicts", String.join(",", entry.getConflictNames()));
+        obj.addProperty("alarm", entry.isAlarm());
         JsonObject tipObj = new JsonObject();
         for (var e : entry.getTips().entrySet()) {
             tipObj.addProperty(e.getKey(), e.getValue());
@@ -199,6 +200,7 @@ public final class DlcRemoteRuntime {
             display.addProperty("en_us", "");
         }
         ordered.add("DisplayName", display);
+        ordered.addProperty("alarm", getBoolean(obj, "alarm", false));
 
         JsonObject tip = obj.has("tip") && obj.get("tip").isJsonObject()
             ? obj.getAsJsonObject("tip")

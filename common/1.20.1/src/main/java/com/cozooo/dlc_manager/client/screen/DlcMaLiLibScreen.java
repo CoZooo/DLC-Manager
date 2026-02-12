@@ -1468,7 +1468,22 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private void handleBatchEnable(java.util.List<DlcItem> targets, Component scopeLabel) {
         DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);
         if (!conflicts.getLines().isEmpty()) {
-            showBatchConflictPrompt(conflicts.getLines());
+            java.util.List<DlcItem> filteredTargets = filterConflictTargets(targets, conflicts);
+            showBatchConflictSkipPrompt(conflicts.getLines(), () -> {
+                if (filteredTargets.isEmpty()) {
+                    updateModeAvailability();
+                    return;
+                }
+                continueBatchEnable(filteredTargets, scopeLabel);
+            });
+            return;
+        }
+        continueBatchEnable(targets, scopeLabel);
+    }
+
+    private void continueBatchEnable(java.util.List<DlcItem> targets, Component scopeLabel) {
+        if (targets == null || targets.isEmpty()) {
+            updateModeAvailability();
             return;
         }
         DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
@@ -1476,8 +1491,114 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets, scopeLabel);
             return;
         }
+        java.util.List<DlcItem> alarmItems = targets.stream()
+            .filter(DlcItem::isAlarm)
+            .toList();
+        if (!alarmItems.isEmpty()) {
+            rememberListScroll();
+            String tip = buildBatchAlarmTip(alarmItems);
+            Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, tip, () -> {
+                enableItems(targets, true);
+                refreshAfterStateChange();
+            }));
+            return;
+        }
         enableItems(targets, true);
         updateModeAvailability();
+    }
+
+    private java.util.List<DlcItem> filterConflictTargets(java.util.List<DlcItem> targets, DlcRuntimeState.ConflictBatchResult conflicts) {
+        if (targets == null || targets.isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.Set<String> targetIds = new java.util.HashSet<>();
+        for (DlcItem item : targets) {
+            if (item != null && item.getIdentifier() != null && !item.getIdentifier().isBlank()) {
+                targetIds.add(item.getIdentifier());
+            }
+        }
+        if (targetIds.isEmpty()) {
+            return java.util.List.of();
+        }
+        if (conflicts == null || conflicts.getLines().isEmpty()) {
+            return targets;
+        }
+        java.util.Set<String> skipped = new java.util.HashSet<>();
+        for (DlcRuntimeState.ConflictLine line : conflicts.getLines()) {
+            String left = line.getLeftName();
+            String right = line.getRightName();
+            if (left != null && targetIds.contains(left)) {
+                skipped.add(left);
+            }
+            if (right != null && targetIds.contains(right)) {
+                skipped.add(right);
+            }
+        }
+        if (skipped.isEmpty()) {
+            return targets;
+        }
+        return targets.stream()
+            .filter(item -> item != null && (item.getIdentifier() == null || !skipped.contains(item.getIdentifier())))
+            .toList();
+    }
+
+    private void showBatchConflictSkipPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines, Runnable onSkipConfirm) {
+        java.util.List<Component> components = new java.util.ArrayList<>();
+        for (DlcRuntimeState.ConflictLine line : lines) {
+            components.add(buildConflictLine(
+                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
+                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
+        }
+        Component message = joinLines(components);
+        Component title = Component.translatable("dlc_manager.batch.conflicts_title")
+            .withStyle(net.minecraft.ChatFormatting.DARK_RED);
+        rememberListScroll();
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (!accepted) {
+                return;
+            }
+            if (onSkipConfirm != null) {
+                onSkipConfirm.run();
+            }
+        }, title, message,
+            Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
+            Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private String buildBatchAlarmTip(java.util.List<DlcItem> alarmItems) {
+        if (alarmItems == null || alarmItems.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        String lang = Minecraft.getInstance().options.languageCode;
+        for (DlcItem item : alarmItems) {
+            if (item == null) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("\n\n");
+            }
+            sb.append(DlcDisplayNameUtil.resolveDisplayName(item));
+            String tip = resolveAlarmTip(item, lang);
+            if (tip != null && !tip.isBlank()) {
+                sb.append("\n").append(tip);
+            }
+        }
+        return sb.toString();
+    }
+
+    private String resolveAlarmTip(DlcItem item, String lang) {
+        if (item == null || item.getTooltips().isEmpty()) {
+            return "";
+        }
+        if (item.getTooltips().containsKey(lang)) {
+            return item.getTooltips().get(lang);
+        }
+        if (item.getTooltips().containsKey("en_us")) {
+            return item.getTooltips().get("en_us");
+        }
+        return item.getTooltips().values().stream().findFirst().orElse("");
     }
 
     private void enableItems(java.util.Collection<DlcItem> items, boolean enabled) {

@@ -241,6 +241,7 @@ public class DlcScanner {
         }
         java.util.List<String> dependencies = tooltipData != null ? tooltipData.getDependencies() : java.util.List.of();
         java.util.List<String> conflicts = tooltipData != null ? tooltipData.getConflicts() : java.util.List.of();
+        boolean alarm = tooltipData != null && tooltipData.isAlarm();
         boolean allowEnableByAll = tooltipData == null || tooltipData.AllowEnableByAll();
         List<Path> sources = new java.util.ArrayList<>();
         if (!fileNames.isEmpty() && effectiveType == DlcType.UNKNOWN) {
@@ -253,8 +254,8 @@ public class DlcScanner {
             }
         }
         DlcItem item = sources.isEmpty()
-            ? new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType)
-            : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType);
+            ? new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType, alarm)
+            : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType, alarm);
         grouped.get(effectiveType).add(item);
         if (tooltipLoader != null && infoDir != null) {
             boolean updateType = !typeValid || !hadTypeField;

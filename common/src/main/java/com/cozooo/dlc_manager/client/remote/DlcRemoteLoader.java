@@ -275,6 +275,7 @@ public final class DlcRemoteLoader {
         boolean inList = getBoolean(obj, "isInList", legacyShown);
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
+        boolean alarm = getBoolean(obj, "alarm", false);
         if (type == DlcType.UNKNOWN && (appliedTarget == null || appliedTarget.isBlank())) {
             inList = false;
         }
@@ -311,6 +312,7 @@ public final class DlcRemoteLoader {
         ordered.add("dependencies", deps.element);
         ordered.add("conflicts", conflicts.element);
         ordered.add("DisplayName", displayObj);
+        ordered.addProperty("alarm", alarm);
         ordered.add("tip", tipObj);
 
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
@@ -363,6 +365,7 @@ public final class DlcRemoteLoader {
         entry.setRemoteDependencies(deps.entries);
         entry.setDisplayNames(readLocalized(displayObj));
         entry.setTips(readLocalized(tipObj));
+        entry.setAlarm(alarm);
 
         return new NormalizedRemote(entry, ordered);
     }
@@ -638,7 +641,8 @@ public final class DlcRemoteLoader {
             || JsonCaseUtil.hasIgnoreCase(obj, "isHidden")
             || JsonCaseUtil.hasIgnoreCase(obj, "AllowEnableByAll")
             || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
-            || JsonCaseUtil.hasIgnoreCase(obj, "conflicts");
+            || JsonCaseUtil.hasIgnoreCase(obj, "conflicts")
+            || JsonCaseUtil.hasIgnoreCase(obj, "alarm");
     }
 
     private static String getString(JsonObject obj, String key) {
