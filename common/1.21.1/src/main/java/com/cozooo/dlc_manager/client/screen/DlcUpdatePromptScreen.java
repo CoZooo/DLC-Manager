@@ -8,29 +8,39 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.FormattedCharSequence;
 import java.util.List;
+import java.util.ArrayList;
 
 public class DlcUpdatePromptScreen extends Screen {
     private final Screen parent;
     private final UpdateCheckResult result;
     private final boolean forceUpdate;
+    private final boolean allowSkipThisUpdate;
     private Button applyButton;
+    private Button skipThisUpdateButton;
     private Button cancelButton;
     private int scrollIndex;
     private boolean applying;
     private String statusText;
 
     public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result) {
+        this(parent, result, false);
+    }
+
+    public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result, boolean allowSkipThisUpdate) {
         super(Component.translatable("dlc_manager.update.title"));
         this.parent = parent;
         this.result = result;
         this.forceUpdate = hasHiddenUpdates(result);
+        this.allowSkipThisUpdate = allowSkipThisUpdate;
     }
 
     @Override
@@ -43,7 +53,25 @@ public class DlcUpdatePromptScreen extends Screen {
                 .bounds(this.width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(applyButton);
+            skipThisUpdateButton = null;
             cancelButton = null;
+        } else if (allowSkipThisUpdate) {
+            int spacing = 6;
+            int skipButtonWidth = 108;
+            int totalWidth = buttonWidth + skipButtonWidth + buttonWidth + spacing * 2;
+            int startX = this.width / 2 - totalWidth / 2;
+            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+                .bounds(startX, y, buttonWidth, buttonHeight)
+                .build();
+            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), button -> skipThisUpdate())
+                .bounds(startX + buttonWidth + spacing, y, skipButtonWidth, buttonHeight)
+                .build();
+            cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+                .bounds(startX + buttonWidth + spacing + skipButtonWidth + spacing, y, buttonWidth, buttonHeight)
+                .build();
+            addRenderableWidget(applyButton);
+            addRenderableWidget(skipThisUpdateButton);
+            addRenderableWidget(cancelButton);
         } else {
             applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
@@ -51,9 +79,17 @@ public class DlcUpdatePromptScreen extends Screen {
             cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
                 .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
                 .build();
+            skipThisUpdateButton = null;
             addRenderableWidget(applyButton);
             addRenderableWidget(cancelButton);
         }
+    }
+
+    private void skipThisUpdate() {
+        if (result != null && result.hasUpdates()) {
+            DlcUpdateService.skipPromptForUpdate(result);
+        }
+        Minecraft.getInstance().setScreen(parent);
     }
 
     private void confirmApply() {
@@ -77,6 +113,9 @@ public class DlcUpdatePromptScreen extends Screen {
         if (cancelButton != null) {
             cancelButton.active = !applying;
         }
+        if (skipThisUpdateButton != null) {
+            skipThisUpdateButton.active = !applying;
+        }
         int centerX = this.width / 2;
         int y = 20;
         int titleX = (this.width - this.font.width(getTitle())) / 2;
@@ -98,24 +137,46 @@ public class DlcUpdatePromptScreen extends Screen {
     }
 
     private void drawUpdateList(GuiGraphics guiGraphics, int startY) {
-        List<DlcUpdatePackage> updates = result.getUpdates();
+        List<FormattedCharSequence> lines = buildUpdateLines();
         int listTop = startY;
         int listBottom = this.height - 70;
         int lineHeight = 12;
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = updates.size();
+        int totalLines = lines.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
         if (scrollIndex > maxScroll) {
             scrollIndex = maxScroll;
         }
         int y = listTop;
         for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            DlcUpdatePackage pkg = updates.get(i);
-            String line = formatUpdateLine(pkg);
-            guiGraphics.drawString(this.font, "- " + line, 24, y, 0xE6E6E6, false);
+            guiGraphics.drawString(this.font, lines.get(i), 24, y, 0xE6E6E6, false);
             y += lineHeight;
         }
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
+    }
+
+    private List<FormattedCharSequence> buildUpdateLines() {
+        List<FormattedCharSequence> lines = new ArrayList<>();
+        List<DlcUpdatePackage> updates = result == null ? List.of() : result.getUpdates();
+        if (updates == null || updates.isEmpty()) {
+            return lines;
+        }
+        String lang = CrossPlatformRuntime.languageCode();
+        int maxWidth = Math.max(120, this.width - 56);
+        for (DlcUpdatePackage pkg : updates) {
+            String updateLine = "- " + formatUpdateLine(pkg);
+            lines.addAll(this.font.split(Component.literal(updateLine), maxWidth));
+            String changelog = "";
+            if (pkg != null && pkg.getManifest() != null) {
+                changelog = pkg.getManifest().resolveChangelog(lang);
+            }
+            if (changelog != null && !changelog.isBlank()) {
+                lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
+                lines.addAll(this.font.split(Component.literal(changelog), maxWidth));
+            }
+            lines.add(FormattedCharSequence.EMPTY);
+        }
+        return lines;
     }
 
     private String formatUpdateLine(DlcUpdatePackage pkg) {
@@ -152,7 +213,7 @@ public class DlcUpdatePromptScreen extends Screen {
         int listTop = 20 + 16 + 14 + 12;
         int listBottom = this.height - 70;
         int lineHeight = 12;
-        int totalLines = result.getUpdates().size();
+        int totalLines = buildUpdateLines().size();
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int maxScroll = Math.max(0, totalLines - maxVisible);
         if (maxScroll > 0) {
@@ -198,6 +259,9 @@ public class DlcUpdatePromptScreen extends Screen {
         }
         if (cancelButton != null) {
             cancelButton.active = false;
+        }
+        if (skipThisUpdateButton != null) {
+            skipThisUpdateButton.active = false;
         }
         new Thread(() -> {
             UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing);

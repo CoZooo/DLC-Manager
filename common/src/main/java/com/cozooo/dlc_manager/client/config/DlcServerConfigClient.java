@@ -17,6 +17,10 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort");
     private static final ConfigString SERVER_PASSWORD = new DlcConfigString("serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword");
+    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL,
+        "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
+    private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
+        "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
 
     private static final ConfigBoolean UI_ENABLE_ALL = new DlcConfigBoolean("isEnableAllButtonShown", DlcPathConfig.DEFAULT_ENABLE_ALL_SHOWN,
         "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown");
@@ -52,7 +56,9 @@ public final class DlcServerConfigClient {
     private static final List<IConfigBase> SERVER_CONFIGS = List.of(
         SERVER_SUPPORT,
         SERVER_PORT,
-        SERVER_PASSWORD
+        SERVER_PASSWORD,
+        MODPACK_URL,
+        UPDATE_GITHUB_REPO
     );
 
     private static final List<IConfigBase> UI_CONFIGS = List.of(
@@ -105,6 +111,8 @@ public final class DlcServerConfigClient {
         SERVER_SUPPORT.setBooleanValue(getBoolean(server, "serverSupport", SERVER_SUPPORT.getBooleanValue()));
         SERVER_PORT.setIntegerValue(getInt(server, "serverPort", SERVER_PORT.getIntegerValue()));
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.getStringValue()));
+        MODPACK_URL.setValueFromString(getString(server, "modpackUrl", MODPACK_URL.getStringValue()));
+        UPDATE_GITHUB_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GITHUB_REPO.getStringValue()));
 
         JsonObject ui = asObject(root, "ui");
         UI_ENABLE_ALL.setBooleanValue(getBoolean(ui, "isEnableAllButtonShown", UI_ENABLE_ALL.getBooleanValue()));
@@ -133,6 +141,8 @@ public final class DlcServerConfigClient {
         server.addProperty("serverSupport", SERVER_SUPPORT.getBooleanValue());
         server.addProperty("serverPort", SERVER_PORT.getIntegerValue());
         server.addProperty("serverPassword", SERVER_PASSWORD.getStringValue());
+        server.addProperty("modpackUrl", MODPACK_URL.getStringValue());
+        server.addProperty("updateGithubRepo", UPDATE_GITHUB_REPO.getStringValue());
         root.add("server", server);
 
         JsonObject ui = new JsonObject();

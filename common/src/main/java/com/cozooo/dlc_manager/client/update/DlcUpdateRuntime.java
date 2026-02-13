@@ -42,6 +42,9 @@ public final class DlcUpdateRuntime {
         if (!result.hasUpdates()) {
             return null;
         }
+        if (DlcUpdateService.isPromptSkippedForUpdate(result)) {
+            return null;
+        }
         promptedThisSession = true;
         return result;
     }

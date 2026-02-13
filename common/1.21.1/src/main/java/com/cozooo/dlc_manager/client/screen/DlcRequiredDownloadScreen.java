@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
@@ -22,15 +23,12 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -55,8 +53,6 @@ public class DlcRequiredDownloadScreen extends Screen {
     private final boolean forceRestartRequired;
     private boolean updatePackageRequired;
     private final int maxConcurrentDownloads;
-    private final int maxSegmentsPerFile;
-    private final long minSegmentBytes;
     private final int maxRetry;
     private final int connectTimeoutMs;
     private final int taskTimeoutMs;
@@ -90,8 +86,6 @@ public class DlcRequiredDownloadScreen extends Screen {
         this.forceRequired = DlcRequiredManager.hasForceMarker();
         this.forceRestartRequired = DlcRequiredManager.hasForceRestartMarker();
         this.maxConcurrentDownloads = Math.max(1, DlcPathConfig.getMaxConcurrentDownloads());
-        this.maxSegmentsPerFile = Math.max(1, DlcPathConfig.getMaxSegmentsPerFile());
-        this.minSegmentBytes = Math.max(1L, DlcPathConfig.getMinSegmentBytes());
         this.maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
         this.connectTimeoutMs = Math.max(1, DlcPathConfig.getConnectTimeoutMs());
         this.taskTimeoutMs = Math.max(1, DlcPathConfig.getTaskTimeoutMs());
@@ -606,7 +600,6 @@ public class DlcRequiredDownloadScreen extends Screen {
         try {
             List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
             IOException lastError = null;
-            Path lastTempFile = null;
             int attemptId = 0;
             boolean canceled = false;
             for (int candidateIndex = 0; candidateIndex < candidates.size(); candidateIndex++) {
@@ -618,82 +611,64 @@ public class DlcRequiredDownloadScreen extends Screen {
                         attemptByKey.put(progressKey, attemptId);
                         markDownloadStart(progressKey);
                         String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
-                    if (fileName == null && candidate.fileNameOverride != null) {
-                        fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
-                    }
-                    if (fileName == null) {
-                        fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(candidate.url));
-                    }
-                    DownloadInfo downloadInfo = openDownload(candidate.url, 0);
-                    if (fileName == null) {
-                        fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
-                    }
-                    if (fileName == null) {
-                        fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
-                    }
-                    Path target = entry.resolveRequiredPath(fileName);
-                    if (target == null) {
-                        closeQuietly(downloadInfo.connection);
-                        throw new IOException("invalid target path");
-                    }
-                    Files.createDirectories(target.getParent());
-                    if (Files.exists(target)) {
-                        closeQuietly(downloadInfo.connection);
-                        entry.setResolvedFileName(fileName);
-                        setEntryProgress(progressKey, attemptId, 1f);
-                        return;
-                    }
-                    Path tempFile = target.getParent().resolve(fileName + ".part");
-                    lastTempFile = tempFile;
-                    long existing = Files.exists(tempFile) ? Files.size(tempFile) : 0L;
-                    closeQuietly(downloadInfo.connection);
-                    checkCanceled();
-                    if (existing > 0) {
-                        downloadInfo = openDownload(candidate.url, existing);
-                        if (downloadInfo.responseCode != HttpURLConnection.HTTP_PARTIAL) {
-                            closeQuietly(downloadInfo.connection);
-                            existing = 0L;
-                            Files.deleteIfExists(tempFile);
-                            downloadInfo = openDownload(candidate.url, 0);
+                        if (fileName == null && candidate.fileNameOverride != null) {
+                            fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
                         }
-                    } else {
-                        downloadInfo = openDownload(candidate.url, 0);
-                    }
-                    if (downloadInfo.responseCode >= 400) {
+                        if (fileName == null) {
+                            fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(candidate.url));
+                        }
+                        DownloadInfo downloadInfo = openDownload(candidate.url, 0);
+                        if (fileName == null) {
+                            fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                        }
                         closeQuietly(downloadInfo.connection);
-                        throw new IOException("http " + downloadInfo.responseCode);
-                    }
-                    if (existing == 0 && maxSegmentsPerFile > 1) {
-                        DownloadProbe probe = probeDownload(candidate.url, downloadInfo);
-                        if (probe.supportsRanges && probe.totalBytes > 0 && probe.totalBytes >= minSegmentBytes) {
-                            try {
-                                downloadSegmented(candidate.url, tempFile, probe.totalBytes, progressKey, attemptId);
-                            } catch (SegmentDownloadException ex) {
-                                Files.deleteIfExists(tempFile);
-                                DownloadInfo retryInfo = openDownload(candidate.url, 0);
-                                if (retryInfo.responseCode >= 400) {
-                                    closeQuietly(retryInfo.connection);
-                                    throw new IOException("http " + retryInfo.responseCode, ex);
+                        if (fileName == null) {
+                            fileName = DlcDownloadService.suggestFileName(candidate.url);
+                        }
+                        if (fileName == null) {
+                            fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
+                        }
+                        Path target = entry.resolveRequiredPath(fileName);
+                        if (target == null) {
+                            throw new IOException("invalid target path");
+                        }
+                        Files.createDirectories(target.getParent());
+                        if (Files.exists(target)) {
+                            entry.setResolvedFileName(fileName);
+                            setEntryProgress(progressKey, attemptId, 1f);
+                            return;
+                        }
+                        final int currentAttemptId = attemptId;
+                        Path downloaded = DlcDownloadService.download(candidate.url, target.getParent(), fileName,
+                            (done, total) -> {
+                                if (total > 0) {
+                                    setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
                                 }
-                                downloadToFile(retryInfo.connection, tempFile, 0, retryInfo.totalBytes, progressKey, attemptId);
-                            }
-                        } else {
-                            downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes, progressKey, attemptId);
-                        }
-                    } else {
-                        downloadToFile(downloadInfo.connection, tempFile, existing, downloadInfo.totalBytes, progressKey, attemptId);
-                    }
-                    checkCanceled();
-                    if (downloadInfo.totalBytes <= 0 && Files.size(tempFile) <= 0) {
-                        throw new IOException("download empty");
-                    }
-                    verifyDownloadedFile(tempFile, candidate, downloadInfo);
-                    Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
-                    downloadedAny = true;
-                    setEntryProgress(progressKey, attemptId, 1f);
-                    entry.setResolvedFileName(fileName);
-                    DlcRequiredManager.updateFileNameKey(entry, fileName);
+                            },
+                            () -> cancelRequested || isSwitchRequested(progressKey));
+                        Path resolved = downloaded.equals(target)
+                            ? downloaded
+                            : Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING);
+                        verifyDownloadedFile(resolved, candidate, downloadInfo);
+                        downloadedAny = true;
+                        setEntryProgress(progressKey, currentAttemptId, 1f);
+                        entry.setResolvedFileName(fileName);
+                        DlcRequiredManager.updateFileNameKey(entry, fileName);
                         return;
+                    } catch (DlcDownloadService.DownloadCanceledException ex) {
+                        if (isSwitchRequested(progressKey)) {
+                            lastError = new DownloadSwitchException("switch");
+                            clearSwitchRequest(progressKey);
+                            if (candidateIndex < candidates.size() - 1) {
+                                if (!canceled) {
+                                    setEntryProgress(progressKey, attemptId, 0f);
+                                }
+                                break;
+                            }
+                            continue;
+                        }
+                        canceled = true;
+                        throw new DownloadCanceledException("canceled");
                     } catch (DownloadCanceledException ex) {
                         canceled = true;
                         throw ex;
@@ -714,7 +689,7 @@ public class DlcRequiredDownloadScreen extends Screen {
                             throw (DownloadCanceledException) ex.getCause();
                         }
                         lastError = ex;
-                        if (ex instanceof SegmentDownloadException) {
+                        if (ex instanceof DlcDownloadService.SegmentDownloadException) {
                             if (!canceled) {
                                 setEntryProgress(progressKey, attemptId, 0f);
                             }
@@ -730,12 +705,6 @@ public class DlcRequiredDownloadScreen extends Screen {
             }
             if (cancelRequested || canceled) {
                 throw new DownloadCanceledException("canceled");
-            }
-            if (lastTempFile != null) {
-                try {
-                    Files.deleteIfExists(lastTempFile);
-                } catch (IOException ignored) {
-                }
             }
             if (attemptId > 0) {
                 setEntryProgress(progressKey, attemptId, 0f);
@@ -1287,217 +1256,6 @@ public class DlcRequiredDownloadScreen extends Screen {
         guiGraphics.fill(x, y, x + filled, y + height, fg);
     }
 
-    private void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes, String progressKey, int attemptId) throws IOException {
-        if (connection == null) {
-            throw new IOException("missing download url");
-        }
-        long total = totalBytes > 0 ? totalBytes : connection.getContentLengthLong();
-        if (total > 0 && offset > 0) {
-            setEntryProgress(progressKey, attemptId, Math.min(1f, (float) offset / (float) total));
-        }
-        long read = offset;
-        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-             OutputStream out = Files.newOutputStream(target,
-                 StandardOpenOption.CREATE,
-                 StandardOpenOption.WRITE,
-                 offset > 0 ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING)) {
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = in.read(buffer)) >= 0) {
-                checkCanceled();
-                if (isSwitchRequested(progressKey)) {
-                    throw new DownloadSwitchException("switch");
-                }
-                out.write(buffer, 0, len);
-                read += len;
-                if (total > 0) {
-                    setEntryProgress(progressKey, attemptId, Math.min(1f, (float) read / (float) total));
-                }
-            }
-        } finally {
-            connection.disconnect();
-        }
-        if (total > 0 && read < total) {
-            throw new IOException("download incomplete");
-        }
-        setEntryProgress(progressKey, attemptId, total > 0 ? Math.min(1f, (float) read / (float) total) : 1f);
-    }
-
-    private DownloadProbe probeDownload(String url, DownloadInfo existingInfo) throws IOException {
-        long total = existingInfo != null ? existingInfo.totalBytes : -1L;
-        boolean supports = false;
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setInstanceFollowRedirects(true);
-            connection.setRequestMethod("HEAD");
-            connection.setConnectTimeout(connectTimeoutMs);
-            connection.setReadTimeout(taskTimeoutMs);
-            connection.setRequestProperty("User-Agent", "DLC-Manager");
-            connection.connect();
-            String accept = connection.getHeaderField("Accept-Ranges");
-            supports = accept != null && accept.toLowerCase(java.util.Locale.ROOT).contains("bytes");
-            long length = connection.getContentLengthLong();
-            if (length > 0) {
-                total = length;
-            }
-            if (supports && total > 0) {
-                return new DownloadProbe(total, true);
-            }
-        } catch (Exception ignored) {
-        } finally {
-            closeQuietly(connection);
-        }
-        HttpURLConnection rangeConn = null;
-        try {
-            rangeConn = (HttpURLConnection) new URL(url).openConnection();
-            rangeConn.setInstanceFollowRedirects(true);
-            rangeConn.setConnectTimeout(connectTimeoutMs);
-            rangeConn.setReadTimeout(taskTimeoutMs);
-            rangeConn.setRequestProperty("User-Agent", "DLC-Manager");
-            rangeConn.setRequestProperty("Range", "bytes=0-0");
-            rangeConn.connect();
-            int code = rangeConn.getResponseCode();
-            String contentRange = rangeConn.getHeaderField("Content-Range");
-            long parsed = parseTotalBytes(contentRange);
-            if (code == HttpURLConnection.HTTP_PARTIAL && parsed > 0) {
-                return new DownloadProbe(parsed, true);
-            }
-            if (total <= 0) {
-                long length = rangeConn.getContentLengthLong();
-                if (length > 0) {
-                    total = length;
-                }
-            }
-        } finally {
-            closeQuietly(rangeConn);
-        }
-        return new DownloadProbe(total, false);
-    }
-
-    private long parseTotalBytes(String contentRange) {
-        if (contentRange == null || contentRange.isBlank()) {
-            return -1L;
-        }
-        int slash = contentRange.lastIndexOf('/');
-        if (slash < 0 || slash + 1 >= contentRange.length()) {
-            return -1L;
-        }
-        try {
-            return Long.parseLong(contentRange.substring(slash + 1).trim());
-        } catch (NumberFormatException ignored) {
-            return -1L;
-        }
-    }
-
-    private static class SegmentDownloadException extends IOException {
-        private SegmentDownloadException(String message) {
-            super(message);
-        }
-
-        private SegmentDownloadException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    private void downloadSegmented(String url, Path tempFile, long totalBytes, String progressKey, int attemptId) throws IOException {
-        checkCanceled();
-        int segments = Math.max(1, Math.min(maxSegmentsPerFile, (int) Math.min(Integer.MAX_VALUE, totalBytes)));
-        long segmentSize = Math.max(1L, totalBytes / segments);
-        java.util.concurrent.atomic.AtomicLong readBytes = new java.util.concurrent.atomic.AtomicLong(0L);
-        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(tempFile.toFile(), "rw")) {
-            raf.setLength(totalBytes);
-        }
-        ExecutorService executor = Executors.newFixedThreadPool(segments);
-        List<Future<?>> futures = new ArrayList<>();
-        for (int i = 0; i < segments; i++) {
-            long start = i * segmentSize;
-            long end = (i == segments - 1) ? totalBytes - 1 : (start + segmentSize - 1);
-            long segmentTotal = end - start + 1;
-            futures.add(executor.submit(() -> {
-                long segmentRead = 0L;
-                int attempts = 0;
-                IOException lastError = null;
-                while (segmentRead < segmentTotal) {
-                    if (cancelRequested) {
-                        throw new SegmentDownloadException("canceled", new DownloadCanceledException("canceled"));
-                    }
-                    if (isSwitchRequested(progressKey)) {
-                        throw new SegmentDownloadException("switch", new DownloadSwitchException("switch"));
-                    }
-                    if (Thread.currentThread().isInterrupted()) {
-                        throw new SegmentDownloadException("interrupted");
-                    }
-                    attempts++;
-                    if (attempts > maxRetry) {
-                        throw new SegmentDownloadException("segment retry exceeded", lastError);
-                    }
-                    HttpURLConnection connection = null;
-                    try {
-                        connection = (HttpURLConnection) new URL(url).openConnection();
-                        connection.setInstanceFollowRedirects(true);
-                        connection.setConnectTimeout(connectTimeoutMs);
-                        connection.setReadTimeout(taskTimeoutMs);
-                        connection.setRequestProperty("User-Agent", "DLC-Manager");
-                        long rangeStart = start + segmentRead;
-                        connection.setRequestProperty("Range", "bytes=" + rangeStart + "-" + end);
-                        connection.connect();
-                        int code = connection.getResponseCode();
-                        if (code != HttpURLConnection.HTTP_PARTIAL) {
-                            throw new IOException("range not supported");
-                        }
-                        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-                             java.io.RandomAccessFile raf = new java.io.RandomAccessFile(tempFile.toFile(), "rw")) {
-                            raf.seek(rangeStart);
-                            byte[] buffer = new byte[8192];
-                            int len;
-                            while ((len = in.read(buffer)) >= 0) {
-                                if (cancelRequested) {
-                                    throw new IOException("canceled");
-                                }
-                                if (isSwitchRequested(progressKey)) {
-                                    throw new DownloadSwitchException("switch");
-                                }
-                                if (Thread.currentThread().isInterrupted()) {
-                                    throw new IOException("interrupted");
-                                }
-                                raf.write(buffer, 0, len);
-                                segmentRead += len;
-                                long totalRead = readBytes.addAndGet(len);
-                                setEntryProgress(progressKey, attemptId, Math.min(1f, (float) totalRead / (float) totalBytes));
-                            }
-                        }
-                    } catch (IOException ex) {
-                        lastError = ex;
-                        continue;
-                    } finally {
-                        closeQuietly(connection);
-                    }
-                }
-                return null;
-            }));
-        }
-        executor.shutdown();
-        for (Future<?> future : futures) {
-            try {
-                future.get();
-            } catch (Exception e) {
-                for (Future<?> pending : futures) {
-                    pending.cancel(true);
-                }
-                Throwable cause = e.getCause();
-                if (cause instanceof SegmentDownloadException) {
-                    throw (SegmentDownloadException) cause;
-                }
-                throw new SegmentDownloadException("segment failed", e);
-            }
-            if (cancelRequested) {
-                throw new SegmentDownloadException("canceled", new DownloadCanceledException("canceled"));
-            }
-        }
-        setEntryProgress(progressKey, attemptId, 1f);
-    }
-
     private void checkCanceled() throws DownloadCanceledException {
         if (cancelRequested) {
             throw new DownloadCanceledException("canceled");
@@ -1646,12 +1404,12 @@ public class DlcRequiredDownloadScreen extends Screen {
         ModrinthClient.ModrinthVersion version = null;
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
-            version = ModrinthClient.fetchVersion(versionId);
+            version = fetchModrinthVersion(entry);
         }
         CurseForgeClient.CurseForgeFile curseFile = null;
         String curseFileId = entry.getCurseforgeFileId();
         if (curseFileId != null && !curseFileId.isBlank()) {
-            curseFile = CurseForgeClient.fetchFile(entry.getCurseforgeProjectId(), curseFileId);
+            curseFile = fetchCurseForgeFile(entry);
         }
         List<String> directUrls = new ArrayList<>();
         for (String url : entry.getDirectUrls()) {
@@ -1832,16 +1590,6 @@ public class DlcRequiredDownloadScreen extends Screen {
             this.success = success;
             this.canceled = canceled;
             this.error = error;
-        }
-    }
-
-    private static final class DownloadProbe {
-        private final long totalBytes;
-        private final boolean supportsRanges;
-
-        private DownloadProbe(long totalBytes, boolean supportsRanges) {
-            this.totalBytes = totalBytes;
-            this.supportsRanges = supportsRanges;
         }
     }
 

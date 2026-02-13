@@ -175,6 +175,7 @@ public final class DlcPresetRuntimeState {
     }
 
     public static void clearAll() {
+        rollbackLastAppliedToBaseline();
         PRESETS_BY_ID.clear();
         ENABLED_PRESETS.clear();
         LAST_APPLIED_IDENTIFIERS.clear();
@@ -320,7 +321,8 @@ public final class DlcPresetRuntimeState {
     }
 
     private static void applyOverrides() {
-        Set<String> desired = new LinkedHashSet<>();
+        Set<String> desiredEnable = new LinkedHashSet<>();
+        Set<String> desiredDisable = new LinkedHashSet<>();
         for (String presetId : ENABLED_PRESETS) {
             DlcPresetEntry preset = PRESETS_BY_ID.get(presetId);
             if (preset == null) {
@@ -334,31 +336,69 @@ public final class DlcPresetRuntimeState {
                 if (partial) {
                     DlcItem item = DlcRuntimeState.getItemByIdentifier(enable);
                     if (item != null && item.isEnabled()) {
-                        desired.add(enable);
+                        desiredEnable.add(enable);
                     }
                 } else {
-                    desired.add(enable);
+                    desiredEnable.add(enable);
                 }
             }
+            for (String conflict : preset.getConflicts()) {
+                if (conflict == null || conflict.isBlank()) {
+                    continue;
+                }
+                desiredDisable.add(conflict);
+            }
         }
+        desiredEnable.removeAll(desiredDisable);
 
         Set<String> toDisable = new LinkedHashSet<>(LAST_APPLIED_IDENTIFIERS);
-        toDisable.removeAll(desired);
+        Set<String> desiredAll = new LinkedHashSet<>(desiredEnable);
+        desiredAll.addAll(desiredDisable);
+        toDisable.removeAll(desiredAll);
 
-        for (String identifier : desired) {
+        for (String identifier : desiredEnable) {
             DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
             if (item != null) {
                 DlcRuntimeState.setOverride(item.getId(), true);
             }
         }
-        for (String identifier : toDisable) {
+        for (String identifier : desiredDisable) {
             DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
             if (item != null) {
                 DlcRuntimeState.setOverride(item.getId(), false);
             }
         }
+        for (String identifier : toDisable) {
+            DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
+            if (item != null) {
+                Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());
+                if (baseline != null) {
+                    DlcRuntimeState.setOverride(item.getId(), baseline);
+                } else {
+                    DlcRuntimeState.clearOverride(item.getId());
+                }
+            }
+        }
 
         LAST_APPLIED_IDENTIFIERS.clear();
-        LAST_APPLIED_IDENTIFIERS.addAll(desired);
+        LAST_APPLIED_IDENTIFIERS.addAll(desiredAll);
+    }
+
+    private static void rollbackLastAppliedToBaseline() {
+        if (LAST_APPLIED_IDENTIFIERS.isEmpty()) {
+            return;
+        }
+        for (String identifier : LAST_APPLIED_IDENTIFIERS) {
+            DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
+            if (item == null) {
+                continue;
+            }
+            Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());
+            if (baseline != null) {
+                DlcRuntimeState.setOverride(item.getId(), baseline);
+            } else {
+                DlcRuntimeState.clearOverride(item.getId());
+            }
+        }
     }
 }

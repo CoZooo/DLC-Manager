@@ -100,6 +100,7 @@ public class DlcUpdateManifest {
         if (obj == null) {
             return info;
         }
+        info.platform = normalizePlatform(getString(obj, "platform"));
         info.base = getString(obj, "base");
         info.baseNew = getString(obj, "base_new");
         String dlc = getString(obj, "dlc");
@@ -459,11 +460,27 @@ public class DlcUpdateManifest {
         return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
     }
 
+    private static String normalizePlatform(String value) {
+        if (value == null) {
+            return "universal";
+        }
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        if ("client".equals(normalized) || "server".equals(normalized) || "universal".equals(normalized)) {
+            return normalized;
+        }
+        return "universal";
+    }
+
     public static class VersionInfo {
+        private String platform = "universal";
         private String base;
         private String baseNew;
         private String dlcOld;
         private String dlcNew;
+
+        public String getPlatform() {
+            return platform == null || platform.isBlank() ? "universal" : platform;
+        }
 
         public String getBase() {
             return base;

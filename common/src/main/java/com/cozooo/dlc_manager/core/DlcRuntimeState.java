@@ -112,6 +112,13 @@ public final class DlcRuntimeState {
         return baseline != enabled;
     }
 
+    public static Boolean getBaselineEnabled(String id) {
+        if (id == null) {
+            return null;
+        }
+        return BASELINE_ENABLED.get(id);
+    }
+
     public static void setOverride(String id, boolean enabled) {
         if (id == null) {
             return;

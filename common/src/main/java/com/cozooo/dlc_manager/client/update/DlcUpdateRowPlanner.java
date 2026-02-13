@@ -92,6 +92,7 @@ public final class DlcUpdateRowPlanner {
                 DlcUpdateMeta meta = new DlcUpdateMeta();
                 meta.setDlcOld(pkg.getManifest().getVersion().getDlcOld());
                 meta.setDlcNew(pkg.getManifest().getVersion().getDlcNew());
+                meta.setChangelog(pkg.getManifest().getChangelog());
                 rows.add(new UpdateRow(meta, Action.UPDATE, Type.UPDATE, meta.getDlcOld(), meta.getDlcNew()));
                 hasVisibleUpdates = true;
             }
@@ -125,6 +126,7 @@ public final class DlcUpdateRowPlanner {
                 DlcUpdateMeta meta = new DlcUpdateMeta();
                 meta.setDlcOld(info.dlcOld);
                 meta.setDlcNew(info.dlcNew);
+                meta.setChangelog(info.changelog);
                 rows.add(new UpdateRow(meta, Action.UPDATE, Type.UPDATE, info.dlcOld, info.dlcNew));
                 hasVisibleUpdates = true;
             }

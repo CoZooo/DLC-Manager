@@ -14,6 +14,7 @@ public final class DlcPresetEntry {
     private final Map<String, String> tip;
     private final List<String> enable;
     private final List<String> conflicts;
+    private final boolean alarm;
     private DlcPresetStatus status;
 
     DlcPresetEntry(String id,
@@ -23,6 +24,7 @@ public final class DlcPresetEntry {
                    Map<String, String> tip,
                    List<String> enable,
                    List<String> conflicts,
+                   boolean alarm,
                    DlcPresetStatus status) {
         this.id = id;
         this.fileName = fileName;
@@ -31,6 +33,7 @@ public final class DlcPresetEntry {
         this.tip = tip == null ? Collections.emptyMap() : tip;
         this.enable = enable == null ? List.of() : List.copyOf(enable);
         this.conflicts = conflicts == null ? List.of() : List.copyOf(conflicts);
+        this.alarm = alarm;
         this.status = status == null ? DlcPresetStatus.OFF : status;
     }
 
@@ -56,6 +59,10 @@ public final class DlcPresetEntry {
 
     public DlcPresetStatus getStatus() {
         return status;
+    }
+
+    public boolean isAlarm() {
+        return alarm;
     }
 
     void setStatus(DlcPresetStatus status) {

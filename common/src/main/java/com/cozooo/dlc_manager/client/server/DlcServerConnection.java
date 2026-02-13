@@ -71,6 +71,8 @@ public class DlcServerConnection {
             info.remoteMissing = getInt(response, "remoteMissing");
             info.requiredMissing = getInt(response, "requiredMissing");
             info.hasRequired = response.has("hasRequired") && response.get("hasRequired").getAsBoolean();
+            info.modpackUrl = getString(response, "modpackUrl");
+            info.updateGithubRepo = getString(response, "updateGithubRepo");
             if (!info.hasRequired && info.requiredMissing > 0) {
                 info.hasRequired = true;
             }
@@ -583,6 +585,8 @@ public class DlcServerConnection {
             state.baseVersion = getString(response, "base");
             state.dlcVersion = getString(response, "dlc");
             state.rollbackFrom = getString(response, "rollbackFrom");
+            state.modpackUrl = getString(response, "modpackUrl");
+            state.updateGithubRepo = getString(response, "updateGithubRepo");
             List<DlcUpdateMeta> history = new ArrayList<>();
             if (response.has("history") && response.get("history").isJsonArray()) {
                 response.getAsJsonArray("history").forEach(element -> {
@@ -719,6 +723,33 @@ public class DlcServerConnection {
 
     public static boolean importUpdatePackage(DlcServerEntry entry, int timeoutMs, Path source) throws IOException {
         return importUpdatePackage(entry, timeoutMs, source, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static boolean importUpdatePackageFromUrl(DlcServerEntry entry, int timeoutMs, String url, String fileName,
+        String playerName, String playerUuid) throws IOException {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return false;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", "update_import_url");
+            req.addProperty("url", url);
+            if (fileName != null && !fileName.isBlank()) {
+                req.addProperty("fileName", fileName);
+            }
+            writeLine(writer, req);
+            JsonObject resp = readObject(reader);
+            return resp != null && resp.has("ok") && resp.get("ok").getAsBoolean();
+        }
+    }
+
+    public static boolean importUpdatePackageFromUrl(DlcServerEntry entry, int timeoutMs, String url, String fileName) throws IOException {
+        return importUpdatePackageFromUrl(entry, timeoutMs, url, fileName, currentPlayerName(), currentPlayerUuid());
     }
 
     public static boolean applyUpdates(DlcServerEntry entry, int timeoutMs) throws IOException {

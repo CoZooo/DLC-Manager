@@ -438,6 +438,18 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             updateApplyState();
             return;
         }
+        if (item.alarm) {
+            String tip = getTooltipText(item);
+            Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, tip, () -> continueEnableWithChecks(item)));
+            return;
+        }
+        continueEnableWithChecks(item);
+    }
+
+    private void continueEnableWithChecks(DlcServerItem item) {
+        if (item == null) {
+            return;
+        }
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
             Component message = Component.translatable("dlc_manager.dependency.prompt", String.join(", ", deps.missingNames));

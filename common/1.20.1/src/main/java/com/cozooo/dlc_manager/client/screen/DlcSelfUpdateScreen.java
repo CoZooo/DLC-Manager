@@ -12,8 +12,10 @@ import net.minecraft.network.chat.Component;
 
 public class DlcSelfUpdateScreen extends Screen {
     private final Screen parent;
+    private final boolean showSkipThisUpdateButton;
     private SelfUpdateResult result;
     private Button downloadButton;
+    private Button skipThisUpdateButton;
     private Button backButton;
     private boolean checking;
     private boolean downloading;
@@ -21,23 +23,42 @@ public class DlcSelfUpdateScreen extends Screen {
     private String errorText;
 
     public DlcSelfUpdateScreen(Screen parent, SelfUpdateResult preset) {
+        this(parent, preset, false);
+    }
+
+    public DlcSelfUpdateScreen(Screen parent, SelfUpdateResult preset, boolean showSkipThisUpdateButton) {
         super(Component.translatable("dlc_manager.self_update.title"));
         this.parent = parent;
         this.result = preset;
+        this.showSkipThisUpdateButton = showSkipThisUpdateButton;
     }
 
     @Override
     protected void init() {
-        int buttonWidth = 140;
+        int buttonWidth = showSkipThisUpdateButton ? 110 : 140;
         int buttonHeight = 20;
+        int gap = 6;
         int y = this.height - 40;
+        int buttonCount = showSkipThisUpdateButton ? 3 : 2;
+        int totalWidth = buttonWidth * buttonCount + gap * (buttonCount - 1);
+        int startX = this.width / 2 - totalWidth / 2;
         downloadButton = Button.builder(Component.translatable("dlc_manager.self_update.download"), btn -> startDownload())
-            .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
+            .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
+        if (showSkipThisUpdateButton) {
+            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), btn -> skipThisUpdate())
+                .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
+                .build();
+        } else {
+            skipThisUpdateButton = null;
+        }
         backButton = Button.builder(Component.translatable("dlc_manager.self_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
-            .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
+            .bounds(startX + (buttonWidth + gap) * (buttonCount - 1), y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(downloadButton);
+        if (skipThisUpdateButton != null) {
+            addRenderableWidget(skipThisUpdateButton);
+        }
         addRenderableWidget(backButton);
         updateButtons();
         if (result == null) {
@@ -134,11 +155,22 @@ public class DlcSelfUpdateScreen extends Screen {
             Component.translatable("dlc_manager.restart_later")));
     }
 
+    private void skipThisUpdate() {
+        if (result != null && result.hasUpdate) {
+            DlcSelfUpdateService.skipPromptForUpdate(result);
+        }
+        Minecraft.getInstance().setScreen(parent);
+    }
+
     private void updateButtons() {
         if (downloadButton != null) {
             boolean enabled = !checking && !downloading && result != null && result.hasUpdate;
             downloadButton.active = enabled;
             downloadButton.visible = true;
+        }
+        if (skipThisUpdateButton != null) {
+            skipThisUpdateButton.active = !downloading && !checking && result != null && result.hasUpdate;
+            skipThisUpdateButton.visible = true;
         }
         if (backButton != null) {
             backButton.active = !downloading && !checking;

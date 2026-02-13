@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdateManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdatePromptScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
@@ -16,7 +15,7 @@ public final class DlcUpdateClient {
         if (result == null) {
             return false;
         }
-        showPrompt(parent, result);
+        showPrompt(parent, result, true);
         return true;
     }
 
@@ -29,14 +28,12 @@ public final class DlcUpdateClient {
     }
 
     public static void showPrompt(Screen parent, UpdateCheckResult result) {
+        showPrompt(parent, result, false);
+    }
+
+    public static void showPrompt(Screen parent, UpdateCheckResult result, boolean allowSkipThisUpdate) {
         DlcUpdateRuntime.markPrompted();
-        String changelog = DlcUpdateRuntime.buildLocalizedChangelog(result);
-        if (changelog != null && !changelog.isBlank()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateChangelogScreen(parent, changelog, () ->
-                Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, result))));
-            return;
-        }
-        Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, result));
+        Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, result, allowSkipThisUpdate));
     }
 
     public static void openUpdateManager(Screen parent) {

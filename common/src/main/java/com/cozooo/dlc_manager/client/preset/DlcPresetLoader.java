@@ -23,6 +23,7 @@ import java.util.Set;
 
 public final class DlcPresetLoader {
     private static final Gson GSON = new GsonBuilder().create();
+    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private DlcPresetLoader() {
     }
@@ -50,7 +51,7 @@ public final class DlcPresetLoader {
                 stream.filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
                     .filter(path -> !Json5Util.shouldSkipLegacy(path))
                     .forEach(path -> {
-                        Path migrated = Json5Util.migrateLegacy(path, GSON);
+                        Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
                         DlcPresetEntry entry = readEntry(migrated, presetRoot);
                         if (entry != null) {
                             entries.add(entry);
@@ -89,15 +90,17 @@ public final class DlcPresetLoader {
         if (obj == null) {
             return null;
         }
+        // ensurePrettyJson5(path, obj);
 
         Map<String, String> displayName = readLangMap(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
         Map<String, String> tip = readLangMap(JsonCaseUtil.getObjectIgnoreCase(obj, "tip"));
         List<String> enable = readStringArray(JsonCaseUtil.getArrayIgnoreCase(obj, "enable"));
         List<String> conflicts = readStringArray(JsonCaseUtil.getArrayIgnoreCase(obj, "conflicts"));
+        boolean alarm = JsonCaseUtil.getBooleanIgnoreCase(obj, "alarm", false);
 
         String fileName = stripExtension(path.getFileName().toString());
         String id = buildId(path, presetRoot);
-        return new DlcPresetEntry(id, fileName, path, displayName, tip, enable, conflicts, DlcPresetStatus.OFF);
+        return new DlcPresetEntry(id, fileName, path, displayName, tip, enable, conflicts, alarm, DlcPresetStatus.OFF);
     }
 
     private static Map<String, String> readLangMap(JsonObject obj) {
@@ -160,5 +163,26 @@ public final class DlcPresetLoader {
 
     private static String stripExtension(String name) {
         return Json5Util.stripJsonExtension(name);
+    }
+
+    private static void ensurePrettyJson5(Path path, JsonObject obj) {
+        if (path == null || obj == null || path.getFileName() == null) {
+            return;
+        }
+        String name = path.getFileName().toString().toLowerCase();
+        if (!name.endsWith(Json5Util.JSON5_EXTENSION)) {
+            return;
+        }
+        try {
+            String raw = Files.readString(path);
+            if (raw.indexOf('\n') >= 0 || raw.indexOf('\r') >= 0) {
+                return;
+            }
+            String pretty = PRETTY_GSON.toJson(obj);
+            if (!pretty.equals(raw)) {
+                Files.writeString(path, pretty);
+            }
+        } catch (IOException ignored) {
+        }
     }
 }

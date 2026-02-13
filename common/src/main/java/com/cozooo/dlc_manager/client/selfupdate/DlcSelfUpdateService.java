@@ -2,16 +2,18 @@ package com.cozooo.dlc_manager.client.selfupdate;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
+import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.file.Files;
@@ -24,7 +26,7 @@ import java.util.regex.Pattern;
 public final class DlcSelfUpdateService {
     public static final String MOD_ID = "dlc_manager";
     public static final String PROJECT_ID = "1424546";
-    private static final Gson GSON = new Gson();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Pattern VERSION_PATTERN_3 = Pattern.compile("(\\d+\\.\\d+\\.\\d+)");
     private static final Pattern VERSION_PATTERN_2 = Pattern.compile("(\\d+\\.\\d+)");
 
@@ -128,8 +130,45 @@ public final class DlcSelfUpdateService {
             }
             return DownloadResult.failed("download_failed");
         }
+        clearSkipPromptMarker();
         clearPendingMarker();
         return DownloadResult.success(finalFile);
+    }
+
+    public static void skipPromptForUpdate(SelfUpdateResult result) {
+        if (result == null || !result.hasUpdate) {
+            return;
+        }
+        try {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("fileId", result.fileId == null ? "" : result.fileId);
+            obj.addProperty("latestVersion", result.latestVersion == null ? "" : result.latestVersion);
+            obj.addProperty("fileName", result.fileName == null ? "" : result.fileName);
+            obj.addProperty("skippedAt", Instant.now().toString());
+            DlcUpdateSkipStore.writeSection(DlcUpdateSkipStore.SECTION_SELF_UPDATE, obj);
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static boolean isPromptSkippedForUpdate(SelfUpdateResult result) {
+        if (result == null || !result.hasUpdate) {
+            return false;
+        }
+        JsonObject obj = DlcUpdateSkipStore.readSection(DlcUpdateSkipStore.SECTION_SELF_UPDATE);
+        if (obj == null) {
+            return false;
+        }
+        String skippedFileId = readString(obj, "fileId");
+        String skippedLatest = readString(obj, "latestVersion");
+        String skippedFileName = readString(obj, "fileName");
+
+        if (!skippedFileId.isBlank() && result.fileId != null && !result.fileId.isBlank() && skippedFileId.equals(result.fileId)) {
+            return true;
+        }
+        if (!skippedLatest.isBlank() && result.latestVersion != null && !result.latestVersion.isBlank() && skippedLatest.equals(result.latestVersion)) {
+            return true;
+        }
+        return !skippedFileName.isBlank() && result.fileName != null && !result.fileName.isBlank() && skippedFileName.equals(result.fileName);
     }
 
     public static boolean applyPendingUpdate() {
@@ -344,6 +383,10 @@ public final class DlcSelfUpdateService {
         }
     }
 
+    private static void clearSkipPromptMarker() {
+        DlcUpdateSkipStore.removeSection(DlcUpdateSkipStore.SECTION_SELF_UPDATE);
+    }
+
     private static SaveResult savePendingUpdate(Path pendingFile, Path targetFile, SelfUpdateResult result) {
         Path marker = getMarkerPath();
         if (marker == null) {
@@ -376,21 +419,42 @@ public final class DlcSelfUpdateService {
         return dir.resolve("self_update" + Json5Util.JSON5_EXTENSION);
     }
 
+    private static String readString(JsonObject obj, String key) {
+        if (obj == null || key == null || key.isBlank() || !obj.has(key) || obj.get(key).isJsonNull()) {
+            return "";
+        }
+        try {
+            String value = obj.get(key).getAsString();
+            return value == null ? "" : value;
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     private static void downloadToFile(String url, Path target) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-        connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
-        connection.connect();
-        try (InputStream in = connection.getInputStream();
-             OutputStream out = Files.newOutputStream(target)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, read);
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(20000);
+            connection.setReadTimeout(180000);
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            if (connection.getResponseCode() >= 400) {
+                throw new IOException("http " + connection.getResponseCode());
+            }
+            try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+                 OutputStream out = Files.newOutputStream(target)) {
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = in.read(buffer)) >= 0) {
+                    out.write(buffer, 0, len);
+                }
             }
         } finally {
-            connection.disconnect();
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 

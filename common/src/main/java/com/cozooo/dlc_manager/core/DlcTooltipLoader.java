@@ -39,7 +39,7 @@ public class DlcTooltipLoader {
                     TooltipEntry entry = readEntry(migrated);
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
-                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.fileNames);
+                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.fileNames, entry.alarm);
                         result.put(entry.dlcName, data);
                     }
                 });
@@ -81,6 +81,7 @@ public class DlcTooltipLoader {
             true,
             new com.google.gson.JsonPrimitive(""),
             new com.google.gson.JsonPrimitive(""),
+            false,
             new JsonObject()
         );
         try (Writer writer = Files.newBufferedWriter(path)) {
@@ -138,6 +139,7 @@ public class DlcTooltipLoader {
         JsonElement conflicts = isValidDependencyElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts"))
             ? JsonCaseUtil.getIgnoreCase(obj, "conflicts")
             : new com.google.gson.JsonPrimitive("");
+        boolean alarm = getBoolean(obj, "alarm", false);
         JsonObject tip = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
         if (tip == null) {
             tip = new JsonObject();
@@ -145,7 +147,7 @@ public class DlcTooltipLoader {
         String appliedTarget = getString(obj, "appliedTarget");
 
         obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget,
-            inList, hidden, allowEnableByAll, dependencies, conflicts, tip);
+            inList, hidden, allowEnableByAll, dependencies, conflicts, alarm, tip);
         try (Writer writer = Files.newBufferedWriter(path)) {
             PRETTY_GSON.toJson(obj, writer);
         } catch (IOException ignored) {
@@ -170,6 +172,7 @@ public class DlcTooltipLoader {
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         entry.dependencies = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "dependencies"));
         entry.conflicts = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
+        entry.alarm = getBoolean(obj, "alarm", false);
         entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileNames"));
         if (entry.fileNames.isEmpty()) {
             entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileName"));
@@ -224,7 +227,7 @@ public class DlcTooltipLoader {
 
     private JsonObject buildOrderedTooltipObject(JsonObject source, String dlcName, String dlcIdentifier, JsonObject displayName, String type,
         String appliedTarget,
-        boolean inList, boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, JsonObject tip) {
+        boolean inList, boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, boolean alarm, JsonObject tip) {
         JsonObject ordered = new JsonObject();
         ordered.addProperty("dlc_name", dlcName);
         ordered.addProperty("dlc_identifier", dlcIdentifier == null ? dlcName : dlcIdentifier);
@@ -238,6 +241,7 @@ public class DlcTooltipLoader {
         ordered.addProperty("AllowEnableByAll", allowEnableByAll);
         ordered.add("dependencies", dependencies == null ? new com.google.gson.JsonPrimitive("") : dependencies);
         ordered.add("conflicts", conflicts == null ? new com.google.gson.JsonPrimitive("") : conflicts);
+        ordered.addProperty("alarm", alarm);
         ordered.add("tip", tip == null ? new JsonObject() : tip);
         if (source != null) {
             for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
@@ -387,6 +391,7 @@ public class DlcTooltipLoader {
         boolean allowEnableByAll = true;
         String appliedTargetRaw;
         java.util.List<String> fileNames = java.util.List.of();
+        boolean alarm;
     }
 
     public static class TooltipData {
@@ -404,10 +409,11 @@ public class DlcTooltipLoader {
         private final java.util.List<String> conflicts;
         private final String appliedTargetRaw;
         private final java.util.List<String> fileNames;
+        private final boolean alarm;
 
         public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField, boolean configType,
             boolean inList, boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
-            String appliedTargetRaw, java.util.List<String> fileNames) {
+            String appliedTargetRaw, java.util.List<String> fileNames, boolean alarm) {
             this.identifier = identifier;
             this.tips = tips == null ? Map.of() : tips;
             this.displayName = displayName == null ? Map.of() : displayName;
@@ -422,6 +428,7 @@ public class DlcTooltipLoader {
             this.conflicts = conflicts == null ? java.util.List.of() : conflicts;
             this.appliedTargetRaw = appliedTargetRaw;
             this.fileNames = fileNames == null ? java.util.List.of() : fileNames;
+            this.alarm = alarm;
         }
 
         public Map<String, String> getTips() {
@@ -478,6 +485,10 @@ public class DlcTooltipLoader {
 
         public java.util.List<String> getFileNames() {
             return fileNames;
+        }
+
+        public boolean isAlarm() {
+            return alarm;
         }
     }
 

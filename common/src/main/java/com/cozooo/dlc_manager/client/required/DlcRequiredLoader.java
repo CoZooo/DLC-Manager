@@ -97,11 +97,11 @@ public final class DlcRequiredLoader {
         if (normalized == null) {
             return null;
         }
-        Path outPath = Json5Util.toJson5Path(path);
-        try (Writer writer = Files.newBufferedWriter(outPath)) {
-            PRETTY_GSON.toJson(normalized.ordered, writer);
-        } catch (IOException ignored) {
-        }
+        // Path outPath = Json5Util.toJson5Path(path);
+        // try (Writer writer = Files.newBufferedWriter(outPath)) {
+        //     PRETTY_GSON.toJson(normalized.ordered, writer);
+        // } catch (IOException ignored) {
+        // }
         return normalized.entry;
     }
 

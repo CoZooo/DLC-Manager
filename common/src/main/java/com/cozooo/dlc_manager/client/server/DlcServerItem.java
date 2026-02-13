@@ -15,4 +15,5 @@ public class DlcServerItem {
     public List<String> dependencies;
     public List<String> conflicts;
     public boolean allowEnableByAll;
+    public boolean alarm;
 }
