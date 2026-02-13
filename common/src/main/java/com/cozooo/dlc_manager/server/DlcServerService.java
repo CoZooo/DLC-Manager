@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
@@ -247,6 +248,8 @@ public class DlcServerService {
                     handleUpdateRollback(request, writer);
                 } else if ("update_import".equals(type)) {
                     handleUpdateImport(request, writer);
+                } else if ("update_import_url".equals(type)) {
+                    handleUpdateImportUrl(request, writer);
                 } else if ("set".equals(type)) {
                     handleSet(request, overrides, writer);
                 } else if ("apply".equals(type)) {
@@ -359,6 +362,7 @@ public class DlcServerService {
                 serverItem.dependencies = item.getDependencies();
                 serverItem.conflicts = item.getConflicts();
                 serverItem.allowEnableByAll = item.AllowEnableByAll();
+                serverItem.alarm = item.isAlarm();
                 serverItem.path = resolveGroupLabel(item);
                 items.add(serverItem);
             }
@@ -374,6 +378,8 @@ public class DlcServerService {
         response.addProperty("remoteMissing", remoteMissing);
         response.addProperty("requiredMissing", requiredMissing);
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot));
+        response.addProperty("modpackUrl", DlcPathConfig.getServerModpackUrl());
+        response.addProperty("updateGithubRepo", DlcPathConfig.getServerUpdateGithubRepoUrl());
         response.add("items", GSON.toJsonTree(items));
         writeLine(writer, response);
     }
@@ -588,6 +594,7 @@ public class DlcServerService {
                     row.dlcOld = info.getDlcOld();
                     row.dlcNew = info.getDlcNew();
                     row.hidden = pkg.getManifest().isHidden();
+                    row.changelog = pkg.getManifest().getChangelog();
                     updates.add(row);
                 }
             }
@@ -597,6 +604,8 @@ public class DlcServerService {
         response.addProperty("ok", true);
         response.addProperty("base", base == null ? "" : base);
         response.addProperty("dlc", dlc == null ? "" : dlc);
+        response.addProperty("modpackUrl", DlcPathConfig.getServerModpackUrl());
+        response.addProperty("updateGithubRepo", DlcPathConfig.getServerUpdateGithubRepoUrl());
         if (rollbackFrom != null && !rollbackFrom.isBlank()) {
             response.addProperty("rollbackFrom", rollbackFrom);
         }
@@ -623,6 +632,7 @@ public class DlcServerService {
                 info.baseNew = version.getBaseNew();
                 info.dlcOld = version.getDlcOld();
                 info.dlcNew = version.getDlcNew();
+                info.changelog = pkg.getManifest().getChangelog();
                 updates.add(info);
             }
         }
@@ -673,6 +683,38 @@ public class DlcServerService {
         JsonObject response = new JsonObject();
         response.addProperty("type", "update_import");
         response.addProperty("ok", ok);
+        writeLine(writer, response);
+    }
+
+    private static void handleUpdateImportUrl(JsonObject request, BufferedWriter writer) throws IOException {
+        String url = request.has("url") ? request.get("url").getAsString() : "";
+        String fileName = request.has("fileName") ? request.get("fileName").getAsString() : "";
+        boolean ok = false;
+        String message = "";
+        if (url == null || url.isBlank()) {
+            message = "missing_url";
+        } else {
+            Path updateDir = DlcUpdateService.getUpdateDir();
+            if (updateDir == null) {
+                message = "missing_dlc_root";
+            } else {
+                try {
+                    Path downloaded = DlcDownloadService.download(url, updateDir, fileName, null, null);
+                    ok = DlcUpdateService.importUpdatePackage(downloaded);
+                    if (!ok) {
+                        message = "import_failed";
+                    }
+                } catch (DlcDownloadService.DownloadCanceledException ex) {
+                    message = "canceled";
+                } catch (Exception ex) {
+                    message = ex.getMessage() == null ? "download_failed" : ex.getMessage();
+                }
+            }
+        }
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "update_import_url");
+        response.addProperty("ok", ok);
+        response.addProperty("message", message);
         writeLine(writer, response);
     }
 

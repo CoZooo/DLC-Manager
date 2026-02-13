@@ -1,18 +1,21 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.required.DlcRequiredDependency;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
+import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.Json5Util;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -30,10 +33,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.io.BufferedInputStream;
-import java.io.OutputStream;
 import java.nio.file.StandardCopyOption;
 
 public class DlcRequiredManagerScreen extends Screen {
@@ -274,6 +273,11 @@ public class DlcRequiredManagerScreen extends Screen {
         if (batchInstalling) {
             return;
         }
+        List<DlcRequiredEntry> targets = DlcRequiredManager.collectDependencies(visibleEntries);
+        if (targets.isEmpty()) {
+            showRequiredErrorToast("no_installable_entries");
+            return;
+        }
         batchInstalling = true;
         if (applyAllButton != null) {
             applyAllButton.active = false;
@@ -284,12 +288,13 @@ public class DlcRequiredManagerScreen extends Screen {
         batchState.failed = false;
         batchState.progress = 0f;
         batchState.error = null;
-        List<DlcRequiredEntry> targets = DlcRequiredManager.collectDependencies(visibleEntries);
         INSTALL_EXECUTOR.submit(() -> {
             boolean didApply = false;
             try {
                 didApply = installEntries(targets, batchState);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                batchState.failed = true;
+                batchState.error = e.getMessage();
             }
             batchInstalling = false;
             batchState.running = false;
@@ -299,6 +304,10 @@ public class DlcRequiredManagerScreen extends Screen {
             minecraft.execute(() -> {
                 updateApplyAllAvailability();
                 updateEntryButtons();
+                if (batchState.failed) {
+                    showRequiredErrorToast(batchState.error);
+                    return;
+                }
                 if (shouldPrompt) {
                     minecraft.setScreen(new ConfirmScreen(accepted -> {
                         if (accepted) {
@@ -660,6 +669,17 @@ public class DlcRequiredManagerScreen extends Screen {
         guiGraphics.drawString(this.font, label, textX, textY, 0xFFFFFF, false);
     }
 
+    private void showRequiredErrorToast(String reason) {
+        String safeReason = reason == null || reason.isBlank() ? "unknown" : reason;
+        Minecraft minecraft = Minecraft.getInstance();
+        SystemToast.addOrUpdate(
+            minecraft.getToasts(),
+            SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+            Component.translatable("dlc_manager.required.manage_title"),
+            Component.translatable("dlc_manager.required.error", safeReason)
+        );
+    }
+
     private void startInstall(DlcRequiredEntry entry, boolean promptRestart) {
         if (entry == null || entry.getIdentifier() == null) {
             return;
@@ -690,6 +710,10 @@ public class DlcRequiredManagerScreen extends Screen {
             Minecraft minecraft = Minecraft.getInstance();
             minecraft.execute(() -> {
                 updateEntryButtons();
+                if (state.failed) {
+                    showRequiredErrorToast(state.error);
+                    return;
+                }
                 if (shouldPrompt) {
                     minecraft.setScreen(new ConfirmScreen(accepted -> {
                         if (accepted) {
@@ -760,34 +784,45 @@ public class DlcRequiredManagerScreen extends Screen {
         IOException lastError = null;
         for (DownloadCandidate candidate : candidates) {
             try {
-                DownloadInfo downloadInfo = openDownload(candidate.url);
                 String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
                 if (fileName == null && candidate.fileNameOverride != null) {
                     fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
                 }
                 if (fileName == null) {
-                    fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                    try {
+                        fileName = DlcDownloadService.suggestFileName(candidate.url);
+                    } catch (IOException ignored) {
+                    }
                 }
                 if (fileName == null) {
                     fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
                 }
                 Path target = entry.resolveRequiredPath(fileName);
                 if (target == null) {
-                    closeQuietly(downloadInfo.connection);
                     throw new IOException("invalid target path");
                 }
                 Files.createDirectories(target.getParent());
                 if (Files.exists(target)) {
-                    closeQuietly(downloadInfo.connection);
                     entry.setResolvedFileName(fileName);
                     DlcRequiredManager.ensureFileNameKey(entry, fileName);
                     return;
                 }
-                Path tempFile = Files.createTempFile(target.getParent(), "dlc-required", ".tmp");
-                downloadToFile(downloadInfo.connection, tempFile, state, stepIndex, totalSteps);
-                Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
-                entry.setResolvedFileName(fileName);
-                DlcRequiredManager.updateFileNameKey(entry, fileName);
+                Path downloaded = DlcDownloadService.download(
+                    candidate.url,
+                    target.getParent(),
+                    fileName,
+                    (done, total) -> {
+                        if (total > 0) {
+                            float fraction = Math.min(1f, (float) done / (float) total);
+                            updateProgress(state, stepIndex, fraction, totalSteps);
+                        }
+                    },
+                    null
+                );
+                String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
+                entry.setResolvedFileName(actualName);
+                DlcRequiredManager.updateFileNameKey(entry, actualName);
+                updateProgress(state, stepIndex + 1, 0f, totalSteps);
                 return;
             } catch (IOException ex) {
                 lastError = ex;
@@ -840,27 +875,6 @@ public class DlcRequiredManagerScreen extends Screen {
         state.progress = Math.max(0f, Math.min(1f, progress));
     }
 
-    private String resolveDownloadUrl(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        if (entry == null) {
-            return null;
-        }
-        String versionId = entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
-            if (version != null) {
-                if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                    entry.setResolvedFileName(version.fileName);
-                }
-                return version.url;
-            }
-        }
-        String directUrl = entry.getDirectUrl();
-        if (directUrl != null && !directUrl.isBlank()) {
-            return directUrl;
-        }
-        return null;
-    }
-
     private String resolveFileName(DlcRequiredEntry entry) {
         if (entry == null) {
             return null;
@@ -868,9 +882,29 @@ public class DlcRequiredManagerScreen extends Screen {
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
             try {
-                ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
+                ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(
+                    entry.getModrinthProjectId(),
+                    versionId,
+                    CrossPlatformRuntime.mcVersion(),
+                    CrossPlatformRuntime.loaderName()
+                );
                 if (version != null && version.fileName != null && !version.fileName.isBlank()) {
                     return version.fileName;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        String curseFileId = entry.getCurseforgeFileId();
+        if (curseFileId != null && !curseFileId.isBlank()) {
+            try {
+                CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
+                    entry.getCurseforgeProjectId(),
+                    curseFileId,
+                    CrossPlatformRuntime.mcVersion(),
+                    CrossPlatformRuntime.loaderName()
+                );
+                if (file != null && file.fileName != null && !file.fileName.isBlank()) {
+                    return file.fileName;
                 }
             } catch (Exception ignored) {
             }
@@ -885,29 +919,6 @@ public class DlcRequiredManagerScreen extends Screen {
         return null;
     }
 
-    private void downloadToFile(HttpURLConnection connection, Path target, InstallState state, int stepIndex, int totalSteps) throws IOException {
-        if (connection == null) {
-            throw new IOException("missing download url");
-        }
-        int total = connection.getContentLength();
-        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-             OutputStream out = Files.newOutputStream(target)) {
-            byte[] buffer = new byte[8192];
-            int len;
-            int read = 0;
-            while ((len = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, len);
-                read += len;
-                if (total > 0) {
-                    updateProgress(state, stepIndex, (float) read / (float) total, totalSteps);
-                }
-            }
-        } finally {
-            connection.disconnect();
-        }
-        updateProgress(state, stepIndex + 1, 0f, totalSteps);
-    }
-
     private List<DownloadCandidate> buildDownloadCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
         List<DownloadCandidate> candidates = new ArrayList<>();
         if (entry == null) {
@@ -916,7 +927,22 @@ public class DlcRequiredManagerScreen extends Screen {
         ModrinthClient.ModrinthVersion version = null;
         String versionId = entry.getModrinthVersionId();
         if (versionId != null && !versionId.isBlank()) {
-            version = ModrinthClient.fetchVersion(versionId);
+            version = ModrinthClient.fetchVersionByIdOrVersion(
+                entry.getModrinthProjectId(),
+                versionId,
+                CrossPlatformRuntime.mcVersion(),
+                CrossPlatformRuntime.loaderName()
+            );
+        }
+        CurseForgeClient.CurseForgeFile curseFile = null;
+        String curseFileId = entry.getCurseforgeFileId();
+        if (curseFileId != null && !curseFileId.isBlank()) {
+            curseFile = CurseForgeClient.fetchFileByIdOrVersion(
+                entry.getCurseforgeProjectId(),
+                curseFileId,
+                CrossPlatformRuntime.mcVersion(),
+                CrossPlatformRuntime.loaderName()
+            );
         }
         List<String> directUrls = new ArrayList<>();
         for (String url : entry.getDirectUrls()) {
@@ -927,19 +953,20 @@ public class DlcRequiredManagerScreen extends Screen {
         if (directUrls.isEmpty() && entry.getDirectUrl() != null && !entry.getDirectUrl().isBlank()) {
             directUrls.add(entry.getDirectUrl());
         }
-        if (entry.isDirectUrlPriority()) {
-            for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null));
-            }
-            if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName));
-            }
-        } else {
-            if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName));
-            }
-            for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null));
+        List<String> order = entry.getDownloadPriorityList();
+        for (String source : order) {
+            if ("directurl".equals(source)) {
+                for (String url : directUrls) {
+                    candidates.add(new DownloadCandidate(url, null));
+                }
+            } else if ("curseforge".equals(source)) {
+                if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
+                    candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName));
+                }
+            } else if ("modrinth".equals(source)) {
+                if (version != null && version.url != null && !version.url.isBlank()) {
+                    candidates.add(new DownloadCandidate(version.url, version.fileName));
+                }
             }
         }
         return candidates;
@@ -952,39 +979,6 @@ public class DlcRequiredManagerScreen extends Screen {
         private DownloadCandidate(String url, String fileNameOverride) {
             this.url = url;
             this.fileNameOverride = fileNameOverride;
-        }
-    }
-
-    private DownloadInfo openDownload(String url) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(180000);
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
-        connection.connect();
-        String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
-        if (fileName == null || fileName.isBlank()) {
-            fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.getURL().toString());
-        }
-        return new DownloadInfo(connection, fileName);
-    }
-
-    private void closeQuietly(HttpURLConnection connection) {
-        if (connection != null) {
-            try {
-                connection.disconnect();
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    private static final class DownloadInfo {
-        private final HttpURLConnection connection;
-        private final String fileName;
-
-        private DownloadInfo(HttpURLConnection connection, String fileName) {
-            this.connection = connection;
-            this.fileName = fileName;
         }
     }
 

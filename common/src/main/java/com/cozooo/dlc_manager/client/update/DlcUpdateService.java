@@ -1,12 +1,16 @@
 package com.cozooo.dlc_manager.client.update;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
+import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -21,8 +25,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.HttpURLConnection;
@@ -33,17 +35,21 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.FileVisitResult;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 public final class DlcUpdateService {
     private static final Gson UPDATE_GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final String PLATFORM_CLIENT = "client";
+    private static final String PLATFORM_SERVER = "server";
+    private static final String PLATFORM_UNIVERSAL = "universal";
 
     private DlcUpdateService() {
     }
@@ -206,12 +212,13 @@ public final class DlcUpdateService {
             updated.setBase(nextBase);
             updated.setDlc(targetDlcVersion(info));
             updated.setRollbackFrom(null);
-            updated.setChangelogShown(null);
+            updated.setChangelogShown(sourceDlcVersion(info));
             updated.save(dlcRoot);
 
             if (context.addedRemote) {
                 DlcRemoteMarker.clearPartMarker(dlcRoot);
             }
+            refreshPresetRuntimeState();
 
             pkg.cleanupStaging();
             return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote);
@@ -368,6 +375,7 @@ public final class DlcUpdateService {
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
         DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
         return hasVersionTransition(info)
+            && isPlatformCompatible(info)
             && safeVersion(current.getBase()).equals(sourceBaseVersion(info))
             && safeVersion(current.getDlc()).equals(sourceDlcVersion(info));
     }
@@ -426,7 +434,7 @@ public final class DlcUpdateService {
                 .filter(path -> path.getFileName() != null && path.getFileName().toString().toLowerCase().endsWith(".zip"))
                 .forEach(path -> {
                     DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(path);
-                    if (pkg != null) {
+                    if (pkg != null && isPackageCompatible(pkg)) {
                         packages.add(pkg);
                     }
                 });
@@ -446,7 +454,7 @@ public final class DlcUpdateService {
                 continue;
             }
             DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-            String key = sourceBaseVersion(info) + "|" + targetBaseVersion(info) + "|" + sourceDlcVersion(info) + "|" + targetDlcVersion(info);
+            String key = versionPlatform(info) + "|" + sourceBaseVersion(info) + "|" + targetBaseVersion(info) + "|" + sourceDlcVersion(info) + "|" + targetDlcVersion(info);
             long modified = getLastModifiedMillis(pkg.getArchivePath());
             Long existing = times.get(key);
             if (existing == null || modified >= existing) {
@@ -500,7 +508,8 @@ public final class DlcUpdateService {
         return sourceBaseVersion(left).equals(sourceBaseVersion(right))
             && targetBaseVersion(left).equals(targetBaseVersion(right))
             && sourceDlcVersion(left).equals(sourceDlcVersion(right))
-            && targetDlcVersion(left).equals(targetDlcVersion(right));
+            && targetDlcVersion(left).equals(targetDlcVersion(right))
+            && versionPlatform(left).equals(versionPlatform(right));
     }
 
     private static List<DlcUpdatePackage> resolveUpdateChain(DlcUpdateVersion version, List<DlcUpdatePackage> packages,
@@ -689,6 +698,9 @@ public final class DlcUpdateService {
             return false;
         }
         if (!hasVersionTransition(info)) {
+            return false;
+        }
+        if (!isPlatformCompatible(info)) {
             return false;
         }
         String base = safeVersion(current.getBase());
@@ -1442,38 +1454,13 @@ public final class DlcUpdateService {
     }
 
     private static void downloadToFile(String url, Path target) throws IOException {
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setInstanceFollowRedirects(true);
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
-            connection.setRequestProperty("User-Agent", "DLC-Manager");
-            connection.connect();
-            int code = connection.getResponseCode();
-            if (code >= 400) {
-                throw new IOException("http " + code);
-            }
-            long total = connection.getContentLengthLong();
-            long read = 0L;
-            try (InputStream in = connection.getInputStream();
-                 OutputStream out = Files.newOutputStream(target,
-                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-                byte[] buffer = new byte[8192];
-                int len;
-                while ((len = in.read(buffer)) >= 0) {
-                    out.write(buffer, 0, len);
-                    read += len;
-                }
-            }
-            if (total > 0 && read < total) {
-                Files.deleteIfExists(target);
-                throw new IOException("download incomplete");
-            }
-        } finally {
-            if (connection != null) {
-                connection.disconnect();
-            }
+        Path parent = target.getParent();
+        if (parent == null) {
+            throw new IOException("invalid target path");
+        }
+        Path downloaded = DlcDownloadService.download(url, parent, target.getFileName().toString(), null, null);
+        if (!downloaded.equals(target)) {
+            Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -1694,6 +1681,14 @@ public final class DlcUpdateService {
             uninstallRemoteConfig(normalized, dlcRoot, context);
             return;
         }
+        if (isUnderDir(normalized, dlcRoot.resolve("preset"))) {
+            if (Files.isDirectory(normalized)) {
+                uninstallPresetConfigsInDir(normalized, dlcRoot);
+            } else if (normalized.getFileName() != null && Json5Util.isJsonLikeName(normalized.getFileName().toString())) {
+                uninstallPresetConfig(normalized, dlcRoot);
+            }
+            return;
+        }
         if (isUnderDir(normalized, dlcRoot.resolve("info"))) {
             return;
         }
@@ -1744,6 +1739,55 @@ public final class DlcUpdateService {
             context.addedRemote = true;
         }
         uninstallDlcPath(target, dlcRoot, context);
+    }
+
+    private static void uninstallPresetConfig(Path configPath, Path dlcRoot) {
+        if (configPath == null || dlcRoot == null || !Files.exists(configPath)) {
+            return;
+        }
+        if (configPath.getFileName() == null || !Json5Util.isJsonLikeName(configPath.getFileName().toString())) {
+            return;
+        }
+        String presetId = resolvePresetId(configPath, dlcRoot);
+        if (presetId == null || presetId.isBlank()) {
+            return;
+        }
+        if (!CrossPlatformRuntime.isDedicatedServer()) {
+            DlcPresetRuntimeState.setPresetEnabled(presetId, false);
+        }
+        Map<String, DlcPresetStatus> statuses = new LinkedHashMap<>(DlcPresetStateStore.loadPresetStatus());
+        if (statuses.remove(presetId) != null) {
+            DlcPresetStateStore.savePresetStatus(statuses);
+        }
+    }
+
+    private static void uninstallPresetConfigsInDir(Path dir, Path dlcRoot) {
+        if (dir == null || dlcRoot == null || !Files.isDirectory(dir)) {
+            return;
+        }
+        try (var stream = Files.walk(dir)) {
+            stream.filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .forEach(path -> uninstallPresetConfig(path, dlcRoot));
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static String resolvePresetId(Path configPath, Path dlcRoot) {
+        if (configPath == null || dlcRoot == null) {
+            return null;
+        }
+        Path presetRoot = dlcRoot.resolve("preset").normalize();
+        Path normalized = configPath.normalize();
+        String fallback = Json5Util.stripJsonExtension(configPath.getFileName().toString());
+        if (!normalized.startsWith(presetRoot)) {
+            return fallback;
+        }
+        try {
+            String relative = presetRoot.relativize(normalized).toString().replace('\\', '/');
+            return Json5Util.stripJsonExtension(relative);
+        } catch (Exception ignored) {
+            return fallback;
+        }
     }
 
     private static void uninstallDlcPath(Path target, Path dlcRoot, UpdateContext context) {
@@ -1992,6 +2036,16 @@ public final class DlcUpdateService {
             return false;
         }
         return isUnderDir(target, dlcRoot.resolve("remote"));
+    }
+
+    private static void refreshPresetRuntimeState() {
+        if (CrossPlatformRuntime.isDedicatedServer()) {
+            return;
+        }
+        try {
+            DlcPresetRuntimeState.reload();
+        } catch (Throwable ignored) {
+        }
     }
 
     private static void resetNoticeNeverShow(Path noticePath) {
@@ -2259,6 +2313,44 @@ public final class DlcUpdateService {
 
     private static String sourceBaseVersion(DlcUpdateManifest.VersionInfo info) {
         return info == null ? safeVersion(null) : safeVersion(info.getBase());
+    }
+
+    private static String versionPlatform(DlcUpdateManifest.VersionInfo info) {
+        if (info == null) {
+            return PLATFORM_UNIVERSAL;
+        }
+        String raw = info.getPlatform();
+        if (raw == null || raw.isBlank()) {
+            return PLATFORM_UNIVERSAL;
+        }
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        if (PLATFORM_CLIENT.equals(normalized) || PLATFORM_SERVER.equals(normalized) || PLATFORM_UNIVERSAL.equals(normalized)) {
+            return normalized;
+        }
+        return PLATFORM_UNIVERSAL;
+    }
+
+    private static boolean isPlatformCompatible(DlcUpdateManifest.VersionInfo info) {
+        return isPlatformCompatible(versionPlatform(info));
+    }
+
+    private static boolean isPackageCompatible(DlcUpdatePackage pkg) {
+        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            return false;
+        }
+        return isPlatformCompatible(pkg.getManifest().getVersion());
+    }
+
+    private static boolean isPlatformCompatible(String platform) {
+        String normalized = platform == null || platform.isBlank() ? PLATFORM_UNIVERSAL : platform.trim().toLowerCase(Locale.ROOT);
+        if (PLATFORM_UNIVERSAL.equals(normalized)) {
+            return true;
+        }
+        boolean dedicated = CrossPlatformRuntime.isDedicatedServer();
+        if (dedicated) {
+            return PLATFORM_SERVER.equals(normalized);
+        }
+        return PLATFORM_CLIENT.equals(normalized);
     }
 
     private static String targetBaseVersion(DlcUpdateManifest.VersionInfo info) {

@@ -7,4 +7,5 @@ public class DlcServerUpdateInfo {
     public String dlcOld;
     public String dlcNew;
     public boolean hidden;
+    public java.util.Map<String, String> changelog;
 }

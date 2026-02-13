@@ -1,8 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
-import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
@@ -18,6 +16,8 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -112,9 +112,9 @@ public class DlcUpdateManagerScreen extends Screen {
             Minecraft.getInstance().setScreen(new DlcUpdateUrlScreen(this));
         }).bounds(urlX, y, buttonWidth, buttonHeight).build();
         int selfX = urlX + buttonWidth + spacing;
-        selfUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.button"), button -> {
-            Minecraft.getInstance().setScreen(new DlcSelfUpdateScreen(this, null));
-        }).bounds(selfX, y, buttonWidth, buttonHeight).build();
+        selfUpdateButton = Button.builder(Component.translatable("dlc_manager.pack_update.check_button"), button -> checkPackUpdate())
+            .bounds(selfX, y, buttonWidth, buttonHeight).build();
+        selfUpdateButton.active = hasPackUpdateRepoConfigured();
         int backX = selfX + buttonWidth + spacing;
         backButton = Button.builder(Component.translatable("gui.back"), button -> Minecraft.getInstance().setScreen(parent))
             .bounds(backX, y, buttonWidth, buttonHeight)
@@ -383,16 +383,12 @@ public class DlcUpdateManagerScreen extends Screen {
         String changelog = DlcUpdateService.buildChangelogText(
             DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true),
             CrossPlatformRuntime.languageCode());
-        if (changelog != null && !changelog.isBlank()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateChangelogScreen(this, changelog, () -> confirmReupdateNow(dlcOld, dlcNew)));
-            return;
-        }
-        confirmReupdateNow(dlcOld, dlcNew);
+        confirmReupdateNow(dlcOld, dlcNew, changelog);
     }
 
-    private void confirmReupdateNow(String dlcOld, String dlcNew) {
+    private void confirmReupdateNow(String dlcOld, String dlcNew, String changelog) {
         Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+        Component message = buildReupdateMessage(dlcOld, dlcNew, changelog);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 startReupdate(dlcOld, dlcNew);
@@ -400,6 +396,19 @@ public class DlcUpdateManagerScreen extends Screen {
                 Minecraft.getInstance().setScreen(this);
             }
         }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private Component buildReupdateMessage(String dlcOld, String dlcNew, String changelog) {
+        Component base = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+        if (changelog == null || changelog.isBlank()) {
+            return base;
+        }
+        return Component.empty()
+            .append(base)
+            .append("\n\n")
+            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
+            .append("\n")
+            .append(Component.literal(changelog));
     }
 
     private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {
@@ -495,6 +504,54 @@ public class DlcUpdateManagerScreen extends Screen {
         } else {
             refreshData();
         }
+    }
+
+    private void checkPackUpdate() {
+        String repoUrl = DlcPathConfig.getUpdateGithubRepoUrl();
+        if (repoUrl == null || repoUrl.isBlank()) {
+            return;
+        }
+        if (selfUpdateButton != null) {
+            selfUpdateButton.active = false;
+        }
+        String base = (baseVersion == null || baseVersion.isBlank()) ? "1.0.0" : baseVersion;
+        String dlc = (currentVersion == null || currentVersion.isBlank()) ? "1.0.0" : currentVersion;
+        new Thread(() -> {
+            DlcPackReleaseUpdateService.CheckResult result;
+            try {
+                result = DlcPackReleaseUpdateService.checkForUpdates(
+                    DlcPathConfig.getModpackUrl(),
+                    repoUrl,
+                    base,
+                    dlc,
+                    DlcPackReleaseUpdateService.Side.CLIENT
+                );
+            } catch (Exception ex) {
+                result = null;
+            }
+            DlcPackReleaseUpdateService.CheckResult finalResult = result;
+            Minecraft.getInstance().execute(() -> {
+                if (selfUpdateButton != null) {
+                    selfUpdateButton.active = true;
+                }
+                if (finalResult != null && finalResult.hasUpdate()) {
+                    Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(this, finalResult));
+                    return;
+                }
+                if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {
+                    showToast(Component.translatable("dlc_manager.update.manager_title"),
+                        Component.translatable("dlc_manager.pack_update.check_failed", finalResult.error));
+                    return;
+                }
+                showToast(Component.translatable("dlc_manager.update.manager_title"),
+                    Component.translatable("dlc_manager.pack_update.no_updates"));
+            });
+        }, "dlc-pack-update-check-manual").start();
+    }
+
+    private boolean hasPackUpdateRepoConfigured() {
+        String repoUrl = DlcPathConfig.getUpdateGithubRepoUrl();
+        return repoUrl != null && !repoUrl.isBlank();
     }
 
     private void showToast(Component title, Component desc) {

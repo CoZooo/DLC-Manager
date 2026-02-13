@@ -4,13 +4,12 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -377,20 +376,29 @@ public final class DlcSelfUpdateService {
     }
 
     private static void downloadToFile(String url, Path target) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-        connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
-        connection.connect();
-        try (InputStream in = connection.getInputStream();
-             OutputStream out = Files.newOutputStream(target)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, read);
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(20000);
+            connection.setReadTimeout(180000);
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            if (connection.getResponseCode() >= 400) {
+                throw new IOException("http " + connection.getResponseCode());
+            }
+            try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+                 OutputStream out = Files.newOutputStream(target)) {
+                byte[] buffer = new byte[8192];
+                int len;
+                while ((len = in.read(buffer)) >= 0) {
+                    out.write(buffer, 0, len);
+                }
             }
         } finally {
-            connection.disconnect();
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 

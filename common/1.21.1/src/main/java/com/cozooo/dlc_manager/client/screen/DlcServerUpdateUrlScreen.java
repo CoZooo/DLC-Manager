@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
@@ -14,14 +13,9 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
+import java.util.Locale;
 
 public class DlcServerUpdateUrlScreen extends Screen {
     private final Screen parent;
@@ -213,47 +207,22 @@ public class DlcServerUpdateUrlScreen extends Screen {
             throw new IOException("missing dlc root");
         }
         Files.createDirectories(updateDir);
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(30000);
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
-        connection.connect();
-        int response = connection.getResponseCode();
-        if (response >= 400) {
-            throw new IOException("http " + response);
-        }
-        String fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection));
-        if (fileName == null) {
+        String fileName = DlcDownloadService.suggestFileName(url);
+        if (fileName == null || fileName.isBlank()) {
             fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(url));
         }
-        if (fileName == null || !fileName.toLowerCase().endsWith(".zip")) {
-            fileName = (fileName == null ? "update" : fileName) + ".zip";
+        if (fileName == null || fileName.isBlank()) {
+            fileName = "update.zip";
+        } else if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            fileName = fileName + ".zip";
         }
-        Path target = updateDir.resolve(fileName);
-        Path temp = updateDir.resolve(fileName + ".part");
-        totalBytes = connection.getContentLengthLong();
+        totalBytes = 0L;
         downloadedBytes = 0L;
-        try (InputStream in = connection.getInputStream();
-             OutputStream out = Files.newOutputStream(temp, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, read);
-                downloadedBytes += read;
-                if (totalBytes > 0) {
-                    progress = downloadedBytes / (float) totalBytes;
-                }
-            }
-        } finally {
-            connection.disconnect();
-        }
-        if (totalBytes > 0 && downloadedBytes < totalBytes) {
-            Files.deleteIfExists(temp);
-            throw new IOException("download incomplete");
-        }
-        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-        return target;
+        return DlcDownloadService.download(url, updateDir, fileName, (done, total) -> {
+            downloadedBytes = done;
+            totalBytes = total;
+            progress = total > 0 ? (done / (float) total) : 0f;
+        }, null);
     }
     private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
         int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));

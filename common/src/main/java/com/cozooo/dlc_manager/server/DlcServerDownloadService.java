@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.server;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
@@ -26,15 +26,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,7 +42,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1339,75 +1333,44 @@ public final class DlcServerDownloadService {
             for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
                 try {
                     checkRequiredCanceled();
-                    DownloadInfo info = openDownload(candidate.url, 0);
-                    String headerName = DlcDownloadUtil.sanitizeFileName(info.fileName);
                     String fileName = candidate.fileNameOverride;
                     if (fileName == null || fileName.isBlank()) {
                         fileName = entry.getRequiredFileName();
                     }
-                    if (!DlcDownloadUtil.isLikelyFileName(fileName) && headerName != null) {
-                        fileName = headerName;
+                    if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
+                        try {
+                            String suggested = DlcDownloadService.suggestFileName(candidate.url);
+                            if (suggested != null && !suggested.isBlank()) {
+                                fileName = suggested;
+                            }
+                        } catch (IOException ignored) {
+                        }
                     }
                     fileName = finalizeFileName(fileName, entry, candidate.url);
                     Path target = entry.resolveRequiredPath(fileName);
                     if (target == null) {
-                        closeQuietly(info.connection);
                         throw new IOException("invalid target path");
                     }
                     Files.createDirectories(target.getParent());
                     if (Files.exists(target)) {
-                        closeQuietly(info.connection);
                         return fileName;
                     }
-                    Path tempFile = target.getParent().resolve(fileName + ".part");
-                    long existing = Files.exists(tempFile) ? Files.size(tempFile) : 0L;
-                    if (existing > 0 && listener != null) {
-                        listener.onProgress(existing, info.totalBytes);
-                    }
-                    closeQuietly(info.connection);
-                    if (existing > 0) {
-                        info = openDownload(candidate.url, existing);
-                        if (info.responseCode != HttpURLConnection.HTTP_PARTIAL) {
-                            closeQuietly(info.connection);
-                            existing = 0L;
-                            Files.deleteIfExists(tempFile);
-                            info = openDownload(candidate.url, 0);
-                        }
-                    } else {
-                        info = openDownload(candidate.url, 0);
-                    }
-                    checkRequiredCanceled();
-                    if (info.responseCode >= 400) {
-                        closeQuietly(info.connection);
-                        throw new IOException("http " + info.responseCode);
-                    }
-                    if (existing == 0 && DlcPathConfig.getMaxSegmentsPerFile() > 1) {
-                        DownloadProbe probe = probeDownload(candidate.url, info);
-                        if (probe.supportsRanges && probe.totalBytes > 0 && probe.totalBytes >= DlcPathConfig.getMinSegmentBytes()) {
-                            try {
-                                downloadSegmented(candidate.url, tempFile, probe.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
-                            } catch (SegmentDownloadException ex) {
-                                Files.deleteIfExists(tempFile);
-                                DownloadInfo retryInfo = openDownload(candidate.url, 0);
-                                if (retryInfo.responseCode >= 400) {
-                                    closeQuietly(retryInfo.connection);
-                                    throw new IOException("http " + retryInfo.responseCode, ex);
-                                }
-                                downloadToFile(retryInfo.connection, tempFile, 0, retryInfo.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
+                    Path downloaded = DlcDownloadService.download(
+                        candidate.url,
+                        target.getParent(),
+                        fileName,
+                        (downloadedBytes, totalBytes) -> {
+                            if (listener != null) {
+                                listener.onProgress(downloadedBytes, totalBytes);
                             }
-                        } else {
-                            downloadToFile(info.connection, tempFile, existing, info.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
-                        }
-                    } else {
-                        downloadToFile(info.connection, tempFile, existing, info.totalBytes, listener, DlcServerDownloadService::isRequiredCanceled);
-                    }
+                        },
+                        () -> requiredCancelRequested || isRequiredCanceled()
+                    );
                     checkRequiredCanceled();
-                    if (info.totalBytes <= 0 && Files.size(tempFile) <= 0) {
-                        throw new IOException("download empty");
-                    }
-                    verifyDownloadedFile(tempFile, candidate, info);
-                    Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
-                    return fileName;
+                    verifyDownloadedFile(downloaded, candidate);
+                    return downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
+                } catch (DlcDownloadService.DownloadCanceledException ex) {
+                    throw new DownloadCanceledException("canceled");
                 } catch (DownloadCanceledException ex) {
                     throw ex;
                 } catch (IOException ex) {
@@ -1522,81 +1485,49 @@ public final class DlcServerDownloadService {
         for (DownloadCandidate candidate : candidates) {
             for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
                 try {
-                    DownloadInfo info = openDownload(candidate.url, 0);
-                    String headerName = DlcDownloadUtil.sanitizeFileName(info.fileName);
                     String fileName = candidate.fileNameOverride;
                     boolean fileNameExplicit = entry.isFileNameExplicit()
                         && fileName != null && !fileName.isBlank();
                     if (fileName == null || fileName.isBlank()) {
                         fileName = entry.getFileNameHint();
                     }
+                    String suggestedName = null;
+                    try {
+                        suggestedName = DlcDownloadService.suggestFileName(candidate.url);
+                    } catch (IOException ignored) {
+                    }
                     if (!fileNameExplicit) {
-                        if (candidate.direct && headerName != null) {
-                            fileName = headerName;
+                        if (candidate.direct && suggestedName != null && !suggestedName.isBlank()) {
+                            fileName = suggestedName;
                         }
-                        if (!DlcDownloadUtil.isLikelyFileName(fileName) && headerName != null) {
-                            fileName = headerName;
+                        if (!DlcDownloadUtil.isLikelyFileName(fileName) && suggestedName != null && !suggestedName.isBlank()) {
+                            fileName = suggestedName;
                         }
                     }
                     fileName = finalizeFileName(fileName, entry, candidate.url);
                     Path target = entry.resolveTargetPath(fileName);
                     if (target == null) {
-                        closeQuietly(info.connection);
                         throw new IOException("invalid target path");
                     }
                     Files.createDirectories(target.getParent());
                     if (Files.exists(target)) {
-                        closeQuietly(info.connection);
                         return fileName;
                     }
-                    Path tempFile = target.getParent().resolve(fileName + ".part");
-                    long existing = Files.exists(tempFile) ? Files.size(tempFile) : 0L;
-                    if (existing > 0 && listener != null) {
-                        listener.onProgress(existing, info.totalBytes);
-                    }
-                    closeQuietly(info.connection);
-                    if (existing > 0) {
-                        info = openDownload(candidate.url, existing);
-                        if (info.responseCode != HttpURLConnection.HTTP_PARTIAL) {
-                            closeQuietly(info.connection);
-                            existing = 0L;
-                            Files.deleteIfExists(tempFile);
-                            info = openDownload(candidate.url, 0);
-                        }
-                    } else {
-                        info = openDownload(candidate.url, 0);
-                    }
-                    if (info.responseCode >= 400) {
-                        closeQuietly(info.connection);
-                        throw new IOException("http " + info.responseCode);
-                    }
-                    if (existing == 0 && DlcPathConfig.getMaxSegmentsPerFile() > 1) {
-                        DownloadProbe probe = probeDownload(candidate.url, info);
-                        if (probe.supportsRanges && probe.totalBytes > 0 && probe.totalBytes >= DlcPathConfig.getMinSegmentBytes()) {
-                            try {
-                                downloadSegmented(candidate.url, tempFile, probe.totalBytes, listener);
-                            } catch (SegmentDownloadException ex) {
-                                Files.deleteIfExists(tempFile);
-                                DownloadInfo retryInfo = openDownload(candidate.url, 0);
-                                if (retryInfo.responseCode >= 400) {
-                                    closeQuietly(retryInfo.connection);
-                                    throw new IOException("http " + retryInfo.responseCode, ex);
-                                }
-                                downloadToFile(retryInfo.connection, tempFile, 0, retryInfo.totalBytes, listener);
+                    Path downloaded = DlcDownloadService.download(
+                        candidate.url,
+                        target.getParent(),
+                        fileName,
+                        (downloadedBytes, totalBytes) -> {
+                            if (listener != null) {
+                                listener.onProgress(downloadedBytes, totalBytes);
                             }
-                        } else {
-                            downloadToFile(info.connection, tempFile, existing, info.totalBytes, listener);
-                        }
-                    } else {
-                        downloadToFile(info.connection, tempFile, existing, info.totalBytes, listener);
-                    }
-                    if (info.totalBytes <= 0 && Files.size(tempFile) <= 0) {
-                        throw new IOException("download empty");
-                    }
-                    verifyDownloadedFile(tempFile, candidate, info);
-                    Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
-                    entry.setFileNameHint(fileName);
-                    return fileName;
+                        },
+                        null
+                    );
+                    verifyDownloadedFile(downloaded, candidate);
+                    String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
+                    entry.setFileNameHint(actualName);
+                    return actualName;
                 } catch (IOException ex) {
                     lastError = ex;
                     if (attempt >= DlcPathConfig.getMaxRetryCount()) {
@@ -1700,230 +1631,6 @@ public final class DlcServerDownloadService {
         return candidates;
     }
 
-    private static DownloadInfo openDownload(String url, long offset) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-        connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
-        if (offset > 0) {
-            connection.setRequestProperty("Range", "bytes=" + offset + "-");
-        }
-        connection.connect();
-        int code = connection.getResponseCode();
-        long contentLength = connection.getContentLengthLong();
-        long total = contentLength > 0 ? contentLength + Math.max(0, offset) : -1L;
-        String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
-        if (fileName == null || fileName.isBlank()) {
-            fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.getURL().toString());
-        }
-        String contentMd5 = connection.getHeaderField("Content-MD5");
-        return new DownloadInfo(connection, fileName, code, total, contentMd5);
-    }
-
-    private static void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes) throws IOException {
-        downloadToFile(connection, target, offset, totalBytes, null);
-    }
-
-    private static void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes, ProgressListener listener)
-        throws IOException {
-        downloadToFile(connection, target, offset, totalBytes, listener, null);
-    }
-
-    private static void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes,
-                                       ProgressListener listener, CancelChecker cancelChecker) throws IOException {
-        if (connection == null) {
-            throw new IOException("missing download url");
-        }
-        long total = totalBytes > 0 ? totalBytes : connection.getContentLengthLong();
-        long read = offset;
-        if (listener != null) {
-            listener.onProgress(read, total);
-        }
-        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-             OutputStream out = Files.newOutputStream(target,
-                 StandardOpenOption.CREATE,
-                 StandardOpenOption.WRITE,
-                 offset > 0 ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING)) {
-            byte[] buffer = new byte[8192];
-            int len;
-            while ((len = in.read(buffer)) >= 0) {
-                if (cancelChecker != null && cancelChecker.isCanceled()) {
-                    throw new DownloadCanceledException("canceled");
-                }
-                out.write(buffer, 0, len);
-                read += len;
-                if (listener != null) {
-                    listener.onProgress(read, total);
-                }
-            }
-        } finally {
-            connection.disconnect();
-        }
-        if (total > 0 && read < total) {
-            try {
-                if (cancelChecker == null || !cancelChecker.isCanceled()) {
-                    Files.deleteIfExists(target);
-                }
-            } catch (IOException ignored) {
-            }
-            if (cancelChecker != null && cancelChecker.isCanceled()) {
-                throw new DownloadCanceledException("canceled");
-            }
-            throw new IOException("download incomplete");
-        }
-    }
-
-    private static DownloadProbe probeDownload(String url, DownloadInfo existingInfo) throws IOException {
-        long total = existingInfo != null ? existingInfo.totalBytes : -1L;
-        boolean supports = false;
-        HttpURLConnection connection = null;
-        try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
-            connection.setInstanceFollowRedirects(true);
-            connection.setRequestMethod("HEAD");
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
-            connection.setRequestProperty("User-Agent", "DLC-Manager");
-            connection.connect();
-            String accept = connection.getHeaderField("Accept-Ranges");
-            supports = accept != null && accept.toLowerCase(Locale.ROOT).contains("bytes");
-            long length = connection.getContentLengthLong();
-            if (length > 0) {
-                total = length;
-            }
-            if (supports && total > 0) {
-                return new DownloadProbe(total, true);
-            }
-        } catch (Exception ignored) {
-        } finally {
-            closeQuietly(connection);
-        }
-        HttpURLConnection rangeConn = null;
-        try {
-            rangeConn = (HttpURLConnection) new URL(url).openConnection();
-            rangeConn.setInstanceFollowRedirects(true);
-            rangeConn.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            rangeConn.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
-            rangeConn.setRequestProperty("User-Agent", "DLC-Manager");
-            rangeConn.setRequestProperty("Range", "bytes=0-0");
-            rangeConn.connect();
-            int code = rangeConn.getResponseCode();
-            if (code == HttpURLConnection.HTTP_PARTIAL) {
-                String range = rangeConn.getHeaderField("Content-Range");
-                if (range != null && range.contains("/")) {
-                    String[] parts = range.split("/");
-                    String totalStr = parts[parts.length - 1];
-                    try {
-                        total = Long.parseLong(totalStr);
-                        supports = total > 0;
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        } finally {
-            closeQuietly(rangeConn);
-        }
-        return new DownloadProbe(total, supports);
-    }
-
-    private static void downloadSegmented(String url, Path tempFile, long totalBytes) throws IOException {
-        downloadSegmented(url, tempFile, totalBytes, null);
-    }
-
-    private static void downloadSegmented(String url, Path tempFile, long totalBytes, ProgressListener listener) throws IOException {
-        downloadSegmented(url, tempFile, totalBytes, listener, null);
-    }
-
-    private static void downloadSegmented(String url, Path tempFile, long totalBytes, ProgressListener listener,
-                                          CancelChecker cancelChecker) throws IOException {
-        int maxSegments = Math.max(1, DlcPathConfig.getMaxSegmentsPerFile());
-        int segments = Math.max(1, Math.min(maxSegments, (int) Math.min(Integer.MAX_VALUE, totalBytes)));
-        long segmentSize = Math.max(1L, totalBytes / segments);
-        try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(tempFile.toFile(), "rw")) {
-            raf.setLength(totalBytes);
-        }
-        ExecutorService executor = Executors.newFixedThreadPool(segments);
-        List<Future<?>> futures = new ArrayList<>();
-        AtomicLong totalRead = new AtomicLong(0L);
-        for (int i = 0; i < segments; i++) {
-            long start = i * segmentSize;
-            long end = (i == segments - 1) ? totalBytes - 1 : (start + segmentSize - 1);
-            long segmentTotal = end - start + 1;
-            futures.add(executor.submit(() -> {
-                long segmentRead = 0L;
-                int attempts = 0;
-                IOException lastError = null;
-                while (segmentRead < segmentTotal) {
-                    attempts++;
-                    if (attempts > DlcPathConfig.getMaxRetryCount()) {
-                        throw new SegmentDownloadException("segment retry exceeded", lastError);
-                    }
-                    if (cancelChecker != null && cancelChecker.isCanceled()) {
-                        throw new DownloadCanceledException("canceled");
-                    }
-                    HttpURLConnection connection = null;
-                    try {
-                        connection = (HttpURLConnection) new URL(url).openConnection();
-                        connection.setInstanceFollowRedirects(true);
-                        connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-                        connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
-                        connection.setRequestProperty("User-Agent", "DLC-Manager");
-                        long rangeStart = start + segmentRead;
-                        connection.setRequestProperty("Range", "bytes=" + rangeStart + "-" + end);
-                        connection.connect();
-                        int code = connection.getResponseCode();
-                        if (code != HttpURLConnection.HTTP_PARTIAL) {
-                            throw new IOException("range not supported");
-                        }
-                        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-                             java.io.RandomAccessFile raf = new java.io.RandomAccessFile(tempFile.toFile(), "rw")) {
-                            raf.seek(rangeStart);
-                            byte[] buffer = new byte[8192];
-                            int len;
-                            while ((len = in.read(buffer)) >= 0) {
-                                if (cancelChecker != null && cancelChecker.isCanceled()) {
-                                    throw new DownloadCanceledException("canceled");
-                                }
-                                raf.write(buffer, 0, len);
-                                segmentRead += len;
-                                if (listener != null) {
-                                    long total = totalRead.addAndGet(len);
-                                    listener.onProgress(total, totalBytes);
-                                }
-                            }
-                        }
-                    } catch (IOException ex) {
-                        lastError = ex;
-                        continue;
-                    } finally {
-                        closeQuietly(connection);
-                    }
-                }
-                return null;
-            }));
-        }
-        executor.shutdown();
-        for (Future<?> future : futures) {
-            try {
-                future.get();
-            } catch (Exception e) {
-                for (Future<?> pending : futures) {
-                    pending.cancel(true);
-                }
-                Throwable cause = e.getCause();
-                if (cause instanceof DownloadCanceledException) {
-                    throw (DownloadCanceledException) cause;
-                }
-                if (cause instanceof SegmentDownloadException) {
-                    throw (SegmentDownloadException) cause;
-                }
-                throw new SegmentDownloadException("segment failed", e);
-            }
-        }
-    }
-
     private static void checkRequiredCanceled() throws DownloadCanceledException {
         if (requiredCancelRequested || isRequiredCanceled()) {
             throw new DownloadCanceledException("canceled");
@@ -1934,24 +1641,13 @@ public final class DlcServerDownloadService {
         return requiredSession != null && requiredSession.cancelRequested.get();
     }
 
-    private static void verifyDownloadedFile(Path tempFile, DownloadCandidate candidate, DownloadInfo info) throws IOException {
+    private static void verifyDownloadedFile(Path tempFile, DownloadCandidate candidate) throws IOException {
         String hashType = candidate == null ? null : candidate.hashType;
         String hashValue = candidate == null ? null : candidate.hashValue;
         if (hashType != null && hashValue != null && !hashValue.isBlank()) {
             String algorithm = mapHashAlgorithm(hashType);
             String actual = DlcDownloadUtil.computeHashHex(tempFile, algorithm);
             if (actual == null || !actual.equalsIgnoreCase(DlcDownloadUtil.normalizeHash(hashValue))) {
-                Files.deleteIfExists(tempFile);
-                throw new IOException("hash mismatch");
-            }
-            return;
-        }
-        if (info != null && info.contentMd5 != null && !info.contentMd5.isBlank()) {
-            String expected = DlcDownloadUtil.normalizeHash(info.contentMd5);
-            String actualHex = DlcDownloadUtil.computeHashHex(tempFile, "MD5");
-            String actualBase64 = DlcDownloadUtil.computeMd5Base64(tempFile);
-            if (actualHex == null || actualBase64 == null
-                || (!expected.equalsIgnoreCase(actualHex) && !expected.equalsIgnoreCase(actualBase64))) {
                 Files.deleteIfExists(tempFile);
                 throw new IOException("hash mismatch");
             }
@@ -1978,19 +1674,6 @@ public final class DlcServerDownloadService {
             case "md5" -> "MD5";
             default -> hashType;
         };
-    }
-
-    private static void closeQuietly(HttpURLConnection connection) {
-        if (connection != null) {
-            try {
-                connection.disconnect();
-            } catch (Exception ignored) {
-            }
-        }
-    }
-
-    private interface CancelChecker {
-        boolean isCanceled();
     }
 
     private static final class DownloadCanceledException extends IOException {
@@ -2120,6 +1803,7 @@ public final class DlcServerDownloadService {
             }
         }
         ordered.add("DisplayName", display);
+        ordered.addProperty("alarm", getBoolean(obj, "alarm", false));
         JsonObject tipObj = new JsonObject();
         JsonElement tip = JsonCaseUtil.getIgnoreCase(obj, "tip");
         if (tip != null) {
@@ -2414,6 +2098,11 @@ public final class DlcServerDownloadService {
         } else {
             info.addProperty("conflicts", String.join(",", entry.getConflictNames()));
         }
+        boolean alarm = entry.isAlarm();
+        if (configObj != null && JsonCaseUtil.hasIgnoreCase(configObj, "alarm")) {
+            alarm = JsonCaseUtil.getBooleanIgnoreCase(configObj, "alarm", alarm);
+        }
+        info.addProperty("alarm", alarm);
 
         Map<String, String> tips = new HashMap<>();
         if (configObj != null) {
@@ -2461,39 +2150,4 @@ public final class DlcServerDownloadService {
         }
     }
 
-    private static final class DownloadInfo {
-        private final HttpURLConnection connection;
-        private final String fileName;
-        private final int responseCode;
-        private final long totalBytes;
-        private final String contentMd5;
-
-        private DownloadInfo(HttpURLConnection connection, String fileName, int responseCode, long totalBytes, String contentMd5) {
-            this.connection = connection;
-            this.fileName = fileName;
-            this.responseCode = responseCode;
-            this.totalBytes = totalBytes;
-            this.contentMd5 = contentMd5;
-        }
-    }
-
-    private static final class DownloadProbe {
-        private final long totalBytes;
-        private final boolean supportsRanges;
-
-        private DownloadProbe(long totalBytes, boolean supportsRanges) {
-            this.totalBytes = totalBytes;
-            this.supportsRanges = supportsRanges;
-        }
-    }
-
-    private static final class SegmentDownloadException extends IOException {
-        private SegmentDownloadException(String message) {
-            super(message);
-        }
-
-        private SegmentDownloadException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
 }

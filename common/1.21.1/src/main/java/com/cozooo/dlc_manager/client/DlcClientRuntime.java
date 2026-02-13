@@ -11,6 +11,7 @@ import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
+import com.cozooo.dlc_manager.client.screen.DlcPackReleaseUpdateScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
@@ -18,6 +19,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -40,11 +42,17 @@ import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
 import org.slf4j.Logger;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
 public final class DlcClientRuntime {
     private static volatile boolean startupCheckRunning = false;
+    private static volatile boolean startupChecksCompleted = false;
     private static volatile boolean selfUpdatePrompted = false;
     private static final Logger LOGGER = LogUtils.getLogger();
 
@@ -156,10 +164,11 @@ public final class DlcClientRuntime {
     }
 
     public static void runStartupChecksAsync(Screen screen) {
-        if (startupCheckRunning) {
+        if (startupCheckRunning || startupChecksCompleted) {
             return;
         }
         startupCheckRunning = true;
+        startupChecksCompleted = true;
         new Thread(() -> {
             LOGGER.info("[dlc-manager] startup check begin");
             long startAt = System.currentTimeMillis();
@@ -167,23 +176,40 @@ public final class DlcClientRuntime {
             boolean hasUpdate = false;
             boolean hasRequired = false;
             java.util.List<DlcRequiredEntry> missing = java.util.List.of();
-            DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = null;
-            boolean hasSelfUpdate = false;
             boolean updateManagerOn = DlcPathConfig.isUpdateManagerOn();
             boolean selfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn();
             String changelogText = "";
             String changelogVersion = null;
+            String currentBaseVersion = "1.0.0";
+            String currentDlcVersion = "1.0.0";
+            Path dlcRoot = DlcPaths.dlcRoot();
+            if (dlcRoot != null) {
+                DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+                if (version != null) {
+                    if (version.getBase() != null && !version.getBase().isBlank()) {
+                        currentBaseVersion = version.getBase();
+                    }
+                    if (version.getDlc() != null && !version.getDlc().isBlank()) {
+                        currentDlcVersion = version.getDlc();
+                    }
+                }
+            }
+            String repoUrl = DlcPathConfig.getUpdateGithubRepoUrl();
+            if (repoUrl != null && !repoUrl.isBlank()) {
+                runPackUpdateCheckAsync(screen, repoUrl, currentBaseVersion, currentDlcVersion);
+            }
             if (updateManagerOn) {
-                Path dlcRoot = DlcPaths.dlcRoot();
                 if (dlcRoot != null) {
                     DlcUpdateVersion currentVersion = DlcUpdateVersion.load(dlcRoot);
                     if (currentVersion != null) {
                         String currentDlc = currentVersion.getDlc();
                         String shown = currentVersion.getChangelogShown();
-                        if (currentDlc != null && !currentDlc.isBlank() && (shown == null || !currentDlc.equals(shown))) {
-                            DlcUpdateMeta meta = DlcUpdateService.loadMetaForVersion(currentDlc);
-                            if (meta != null) {
-                                changelogText = meta.resolveChangelog(CrossPlatformRuntime.languageCode());
+                        if (currentDlc != null && !currentDlc.isBlank()
+                            && shown != null && !shown.isBlank()
+                            && !currentDlc.equals(shown)) {
+                            List<DlcUpdateMeta> pending = collectPendingChangelogMeta(shown, currentDlc);
+                            if (!pending.isEmpty()) {
+                                changelogText = buildPendingChangelogText(pending, CrossPlatformRuntime.languageCode());
                                 if (changelogText != null && !changelogText.isBlank()) {
                                     changelogVersion = currentDlc;
                                 }
@@ -200,10 +226,7 @@ public final class DlcClientRuntime {
                 LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, took={}ms", hasUpdate, updateCount, System.currentTimeMillis() - updateAt);
             }
             if (selfUpdateAutoCheckOn && !selfUpdatePrompted) {
-                long selfAt = System.currentTimeMillis();
-                selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
-                hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate;
-                LOGGER.info("[dlc-manager] self update check done: hasUpdate={}, took={}ms", hasSelfUpdate, System.currentTimeMillis() - selfAt);
+                runSelfUpdateCheckAsync(screen);
             }
             if (!hasUpdate) {
                 if (!DlcRequiredManager.hasSkipMarker()) {
@@ -221,8 +244,6 @@ public final class DlcClientRuntime {
             java.util.List<DlcRequiredEntry> finalMissing = missing;
             String finalChangelog = changelogText;
             String finalChangelogVersion = changelogVersion;
-            boolean finalHasSelfUpdate = hasSelfUpdate;
-            DlcSelfUpdateService.SelfUpdateResult finalSelfUpdateResult = selfUpdateResult;
             Minecraft.getInstance().execute(() -> {
                 startupCheckRunning = false;
                 LOGGER.info("[dlc-manager] startup check finished in {}ms", System.currentTimeMillis() - startAt);
@@ -230,11 +251,6 @@ public final class DlcClientRuntime {
                     return;
                 }
                 Runnable continueFlow = () -> {
-                    if (finalHasSelfUpdate && finalSelfUpdateResult != null && !selfUpdatePrompted) {
-                        selfUpdatePrompted = true;
-                        Minecraft.getInstance().setScreen(new DlcSelfUpdateScreen(screen, finalSelfUpdateResult));
-                        return;
-                    }
                     if (finalHasUpdate && finalUpdateResult != null) {
                         DlcUpdateClient.showPrompt(screen, finalUpdateResult);
                         return;
@@ -261,6 +277,118 @@ public final class DlcClientRuntime {
                 continueFlow.run();
             });
         }, "dlc-startup-check").start();
+    }
+
+    private static void runPackUpdateCheckAsync(Screen screen, String repoUrl, String currentBaseVersion, String currentDlcVersion) {
+        new Thread(() -> {
+            long packAt = System.currentTimeMillis();
+            DlcPackReleaseUpdateService.CheckResult packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
+                DlcPathConfig.getModpackUrl(),
+                repoUrl,
+                currentBaseVersion,
+                currentDlcVersion,
+                DlcPackReleaseUpdateService.Side.CLIENT
+            );
+            boolean hasPackUpdate = packUpdateResult != null && packUpdateResult.hasUpdate();
+            boolean alreadyDownloaded = hasPackUpdate && DlcPackReleaseUpdateService.hasDownloadedClientPackages(packUpdateResult);
+            LOGGER.info("[dlc-manager] pack update check done: hasUpdate={}, alreadyDownloaded={}, took={}ms",
+                hasPackUpdate, alreadyDownloaded, System.currentTimeMillis() - packAt);
+            if (!hasPackUpdate || alreadyDownloaded) {
+                return;
+            }
+            Minecraft.getInstance().execute(() -> {
+                if (startupCheckRunning) {
+                    return;
+                }
+                if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                    return;
+                }
+                Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(screen, packUpdateResult));
+            });
+        }, "dlc-pack-update-check").start();
+    }
+
+    private static void runSelfUpdateCheckAsync(Screen screen) {
+        new Thread(() -> {
+            long selfAt = System.currentTimeMillis();
+            DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
+            boolean hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate;
+            LOGGER.info("[dlc-manager] self update check done: hasUpdate={}, took={}ms", hasSelfUpdate, System.currentTimeMillis() - selfAt);
+            if (!hasSelfUpdate) {
+                return;
+            }
+            Minecraft.getInstance().execute(() -> {
+                if (startupCheckRunning || selfUpdatePrompted) {
+                    return;
+                }
+                if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                    return;
+                }
+                selfUpdatePrompted = true;
+                Minecraft.getInstance().setScreen(new DlcSelfUpdateScreen(screen, selfUpdateResult));
+            });
+        }, "dlc-self-update-check").start();
+    }
+
+    private static List<DlcUpdateMeta> collectPendingChangelogMeta(String shownVersion, String currentVersion) {
+        if (shownVersion == null || shownVersion.isBlank() || currentVersion == null || currentVersion.isBlank()
+            || shownVersion.equals(currentVersion)) {
+            return List.of();
+        }
+        List<DlcUpdateMeta> reverse = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        String cursor = currentVersion;
+        while (cursor != null && !cursor.isBlank() && !cursor.equals(shownVersion) && visited.add(cursor)) {
+            DlcUpdateMeta meta = DlcUpdateService.loadMetaForVersion(cursor);
+            if (meta == null) {
+                break;
+            }
+            String oldVersion = meta.getDlcOld();
+            String newVersion = meta.getDlcNew();
+            if (oldVersion == null || oldVersion.isBlank() || newVersion == null || newVersion.isBlank()) {
+                break;
+            }
+            if (!cursor.equals(newVersion)) {
+                break;
+            }
+            reverse.add(meta);
+            cursor = oldVersion;
+        }
+        if (reverse.isEmpty()) {
+            return List.of();
+        }
+        Collections.reverse(reverse);
+        return reverse;
+    }
+
+    private static String buildPendingChangelogText(List<DlcUpdateMeta> metas, String lang) {
+        if (metas == null || metas.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        for (DlcUpdateMeta meta : metas) {
+            if (meta == null) {
+                continue;
+            }
+            String log = meta.resolveChangelog(lang);
+            if (log == null || log.isBlank()) {
+                continue;
+            }
+            if (!builder.isEmpty()) {
+                builder.append("\n\n");
+            }
+            builder
+                .append(safeVersion(meta.getDlcOld()))
+                .append(" -> ")
+                .append(safeVersion(meta.getDlcNew()))
+                .append("\n")
+                .append(log.trim());
+        }
+        return builder.toString();
+    }
+
+    private static String safeVersion(String value) {
+        return value == null || value.isBlank() ? "1.0.0" : value;
     }
 
     public static void syncEnabledResourcePacks() {

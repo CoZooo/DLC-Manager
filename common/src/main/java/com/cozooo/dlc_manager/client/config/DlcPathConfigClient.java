@@ -21,6 +21,8 @@ public final class DlcPathConfigClient {
     private static final ConfigBoolean SELF_UPDATE_AUTO_CHECK_ON = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DlcPathConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON, "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
     private static final ConfigBoolean PRESET_FUNC_ON = new DlcConfigBoolean("isPresetFuncOn", DlcPathConfig.DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
     private static final ConfigBoolean SERVER_SUPPORT_CLIENT = new DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
+    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
+    private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
     private static final ConfigString TITLE_ANCHOR = new DlcConfigString("titleAnchor", DlcPathConfig.DEFAULT_TITLE_ANCHOR, "dlc_manager.config.comment.ui.titleAnchor", "dlc_manager.config.ui.titleAnchor");
     private static final ConfigInteger TITLE_OFFSET_X = new DlcConfigInteger("titleOffsetX", DlcPathConfig.DEFAULT_TITLE_OFFSET_X, -10000, 10000, "dlc_manager.config.comment.ui.titleOffsetX", "dlc_manager.config.ui.titleOffsetX");
     private static final ConfigInteger TITLE_OFFSET_Y = new DlcConfigInteger("titleOffsetY", DlcPathConfig.DEFAULT_TITLE_OFFSET_Y, -10000, 10000, "dlc_manager.config.comment.ui.titleOffsetY", "dlc_manager.config.ui.titleOffsetY");
@@ -49,6 +51,8 @@ public final class DlcPathConfigClient {
             SELF_UPDATE_AUTO_CHECK_ON,
             PRESET_FUNC_ON,
             SERVER_SUPPORT_CLIENT,
+            MODPACK_URL,
+            UPDATE_GITHUB_REPO,
             TITLE_ANCHOR,
             TITLE_OFFSET_X,
             TITLE_OFFSET_Y,
@@ -93,6 +97,8 @@ public final class DlcPathConfigClient {
         SELF_UPDATE_AUTO_CHECK_ON.setBooleanValue(DlcPathConfig.isSelfUpdateAutoCheckOn());
         PRESET_FUNC_ON.setBooleanValue(DlcPathConfig.isPresetFuncOn());
         SERVER_SUPPORT_CLIENT.setBooleanValue(DlcPathConfig.isServerSupportOn());
+        MODPACK_URL.setValueFromString(DlcPathConfig.getModpackUrl());
+        UPDATE_GITHUB_REPO.setValueFromString(DlcPathConfig.getUpdateGithubRepoUrl());
         TITLE_ANCHOR.setValueFromString(DlcPathConfig.getTitleAnchor());
         TITLE_OFFSET_X.setIntegerValue(DlcPathConfig.getTitleOffsetX());
         TITLE_OFFSET_Y.setIntegerValue(DlcPathConfig.getTitleOffsetY());
@@ -120,6 +126,8 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setSelfUpdateAutoCheckOn(SELF_UPDATE_AUTO_CHECK_ON.getBooleanValue());
         DlcPathConfig.setPresetFuncOn(PRESET_FUNC_ON.getBooleanValue());
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());
+        DlcPathConfig.setModpackUrl(MODPACK_URL.getStringValue());
+        DlcPathConfig.setUpdateGithubRepoUrl(UPDATE_GITHUB_REPO.getStringValue());
         DlcPathConfig.setTitleAnchor(TITLE_ANCHOR.getStringValue());
         DlcPathConfig.setTitleOffsetX(TITLE_OFFSET_X.getIntegerValue());
         DlcPathConfig.setTitleOffsetY(TITLE_OFFSET_Y.getIntegerValue());

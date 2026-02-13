@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -21,14 +21,9 @@ import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
+import java.util.Locale;
 
 public class DlcUpdateUrlScreen extends Screen {
     private final Screen parent;
@@ -229,63 +224,34 @@ public class DlcUpdateUrlScreen extends Screen {
             throw new IOException("missing dlc root");
         }
         Files.createDirectories(updateDir);
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(30000);
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
-        connection.connect();
-        int response = connection.getResponseCode();
-        if (response >= 400) {
-            throw new IOException("http " + response);
-        }
-        String fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection));
-        if (fileName == null) {
+        String fileName = DlcDownloadService.suggestFileName(url);
+        if (fileName == null || fileName.isBlank()) {
             fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(url));
         }
-        if (fileName == null || !fileName.toLowerCase().endsWith(".zip")) {
-            fileName = (fileName == null ? "update" : fileName) + ".zip";
+        if (fileName == null || fileName.isBlank()) {
+            fileName = "update.zip";
+        } else if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            fileName = fileName + ".zip";
         }
-        Path target = updateDir.resolve(fileName);
-        Path temp = updateDir.resolve(fileName + ".part");
-        totalBytes = connection.getContentLengthLong();
+        totalBytes = 0L;
         downloadedBytes = 0L;
-        try (InputStream in = connection.getInputStream();
-             OutputStream out = Files.newOutputStream(temp, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) >= 0) {
-                out.write(buffer, 0, read);
-                downloadedBytes += read;
-                if (totalBytes > 0) {
-                    progress = downloadedBytes / (float) totalBytes;
-                }
-            }
-        } finally {
-            connection.disconnect();
-        }
-        if (totalBytes > 0 && downloadedBytes < totalBytes) {
-            Files.deleteIfExists(temp);
-            throw new IOException("download incomplete");
-        }
-        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-        return target;
+        return DlcDownloadService.download(url, updateDir, fileName, (done, total) -> {
+            downloadedBytes = done;
+            totalBytes = total;
+            progress = total > 0 ? (done / (float) total) : 0f;
+        }, null);
     }
 
     private void confirmReupdate(String dlcOld, String dlcNew) {
         String changelog = DlcUpdateService.buildChangelogText(
             DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true),
             CrossPlatformRuntime.languageCode());
-        if (changelog != null && !changelog.isBlank()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateChangelogScreen(this, changelog, () -> confirmReupdateNow(dlcOld, dlcNew)));
-            return;
-        }
-        confirmReupdateNow(dlcOld, dlcNew);
+        confirmReupdateNow(dlcOld, dlcNew, changelog);
     }
 
-    private void confirmReupdateNow(String dlcOld, String dlcNew) {
+    private void confirmReupdateNow(String dlcOld, String dlcNew, String changelog) {
         Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+        Component message = buildReupdateMessage(dlcOld, dlcNew, changelog);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 startReupdate(dlcOld, dlcNew);
@@ -293,6 +259,19 @@ public class DlcUpdateUrlScreen extends Screen {
                 Minecraft.getInstance().setScreen(parent);
             }
         }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+    }
+
+    private Component buildReupdateMessage(String dlcOld, String dlcNew, String changelog) {
+        Component base = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+        if (changelog == null || changelog.isBlank()) {
+            return base;
+        }
+        return Component.empty()
+            .append(base)
+            .append("\n\n")
+            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
+            .append("\n")
+            .append(Component.literal(changelog));
     }
 
     private void startReupdate(String dlcOld, String dlcNew) {

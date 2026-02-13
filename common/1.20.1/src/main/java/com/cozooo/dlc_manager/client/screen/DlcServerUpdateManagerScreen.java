@@ -10,11 +10,13 @@ import com.cozooo.dlc_manager.client.server.DlcServerUpdateState;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection.UpdateResponse;
 import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -23,13 +25,16 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DlcServerUpdateManagerScreen extends Screen {
+    private static final AtomicBoolean PACK_RELEASE_CHECKED_ONCE = new AtomicBoolean(false);
     private final Screen parent;
     private final DlcServerEntry entry;
     private Button importButton;
     private Button pushUpdateButton;
     private Button urlButton;
+    private Button packUpdateCheckButton;
     private Button backButton;
     private int scrollIndex;
     private List<DlcUpdateMeta> rows = List.of();
@@ -45,6 +50,8 @@ public class DlcServerUpdateManagerScreen extends Screen {
     private boolean loading;
     private boolean loadFailed;
     private boolean applying;
+    private String packUpdateRepoUrl = "";
+    private String packModpackUrl = "";
 
     public DlcServerUpdateManagerScreen(Screen parent, DlcServerEntry entry) {
         super(Component.translatable("dlc_manager.update.manager_title"));
@@ -68,12 +75,29 @@ public class DlcServerUpdateManagerScreen extends Screen {
         buildWidgets();
         new Thread(() -> {
             DlcServerUpdateState state;
+            boolean shouldCheckPackUpdate = false;
+            DlcPackReleaseUpdateService.CheckResult packUpdateResult = null;
             try {
                 state = DlcServerConnection.fetchUpdateState(entry, 8000);
             } catch (Exception ex) {
                 state = null;
             }
+            if (state != null) {
+                shouldCheckPackUpdate = PACK_RELEASE_CHECKED_ONCE.compareAndSet(false, true);
+            }
+            if (state != null && shouldCheckPackUpdate
+                && state.updateGithubRepo != null && !state.updateGithubRepo.isBlank()) {
+                packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
+                    state.modpackUrl,
+                    state.updateGithubRepo,
+                    state.baseVersion,
+                    state.dlcVersion,
+                    DlcPackReleaseUpdateService.Side.SERVER
+                );
+            }
             DlcServerUpdateState finalState = state;
+            boolean finalShouldCheckPackUpdate = shouldCheckPackUpdate;
+            DlcPackReleaseUpdateService.CheckResult finalPackUpdateResult = packUpdateResult;
             Minecraft.getInstance().execute(() -> {
                 loading = false;
                 if (finalState == null) {
@@ -84,10 +108,17 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 loadFailed = false;
                 baseVersion = finalState.baseVersion == null ? "" : finalState.baseVersion;
                 currentVersion = finalState.dlcVersion == null ? "" : finalState.dlcVersion;
+                packUpdateRepoUrl = finalState.updateGithubRepo == null ? "" : finalState.updateGithubRepo.trim();
+                packModpackUrl = finalState.modpackUrl == null ? "" : finalState.modpackUrl.trim();
                 rollbackFrom = finalState.rollbackFrom;
                 rolledBackMode = rollbackFrom != null && !rollbackFrom.isBlank() && !rollbackFrom.equals(currentVersion);
                 buildRows(finalState);
                 buildWidgets();
+                if (finalShouldCheckPackUpdate
+                    && finalPackUpdateResult != null
+                    && finalPackUpdateResult.hasUpdate()) {
+                    Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(this, finalPackUpdateResult, entry));
+                }
             });
         }, "dlc-server-update-refresh").start();
     }
@@ -115,12 +146,15 @@ public class DlcServerUpdateManagerScreen extends Screen {
 
     private void buildWidgets() {
         clearWidgets();
-        int buttonWidth = 110;
+        int buttonCount = 5;
+        int margin = 12;
+        int spacing = 8;
+        int availableWidth = Math.max(200, this.width - margin * 2);
+        int buttonWidth = Math.min(110, Math.max(40, (availableWidth - spacing * (buttonCount - 1)) / buttonCount));
         int buttonHeight = 20;
         int y = this.height - 40;
-        int spacing = 10;
-        int totalWidth = buttonWidth * 4 + spacing * 3;
-        int startX = Math.max(20, (this.width - totalWidth) / 2);
+        int totalWidth = buttonWidth * buttonCount + spacing * (buttonCount - 1);
+        int startX = Math.max(margin, (this.width - totalWidth) / 2);
         importButton = Button.builder(Component.translatable("dlc_manager.update.import"), btn -> importUpdate())
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
@@ -133,13 +167,19 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 btn -> Minecraft.getInstance().setScreen(new DlcServerUpdateUrlScreen(this, entry)))
             .bounds(urlX, y, buttonWidth, buttonHeight)
             .build();
-        int backX = urlX + buttonWidth + spacing;
+        int packCheckX = urlX + buttonWidth + spacing;
+        packUpdateCheckButton = Button.builder(Component.translatable("dlc_manager.pack_update.check_button"), btn -> checkPackUpdate())
+            .bounds(packCheckX, y, buttonWidth, buttonHeight)
+            .build();
+        packUpdateCheckButton.active = !packUpdateRepoUrl.isBlank();
+        int backX = packCheckX + buttonWidth + spacing;
         backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(backX, y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(importButton);
         addRenderableWidget(pushUpdateButton);
         addRenderableWidget(urlButton);
+        addRenderableWidget(packUpdateCheckButton);
         addRenderableWidget(backButton);
 
         actionButtons.clear();
@@ -467,6 +507,53 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 }
             });
         }, "dlc-server-update-import").start();
+    }
+
+    private void checkPackUpdate() {
+        if (packUpdateRepoUrl == null || packUpdateRepoUrl.isBlank()) {
+            return;
+        }
+        if (packUpdateCheckButton != null) {
+            packUpdateCheckButton.active = false;
+        }
+        String base = (baseVersion == null || baseVersion.isBlank()) ? "1.0.0" : baseVersion;
+        String dlc = (currentVersion == null || currentVersion.isBlank()) ? "1.0.0" : currentVersion;
+        new Thread(() -> {
+            DlcPackReleaseUpdateService.CheckResult result;
+            try {
+                result = DlcPackReleaseUpdateService.checkForUpdates(
+                    packModpackUrl,
+                    packUpdateRepoUrl,
+                    base,
+                    dlc,
+                    DlcPackReleaseUpdateService.Side.SERVER
+                );
+            } catch (Exception ex) {
+                result = null;
+            }
+            DlcPackReleaseUpdateService.CheckResult finalResult = result;
+            Minecraft.getInstance().execute(() -> {
+                if (packUpdateCheckButton != null) {
+                    packUpdateCheckButton.active = !packUpdateRepoUrl.isBlank();
+                }
+                if (finalResult != null && finalResult.hasUpdate()) {
+                    Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(this, finalResult, entry));
+                    return;
+                }
+                if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {
+                    showToast(Component.translatable("dlc_manager.update.manager_title"),
+                        Component.translatable("dlc_manager.pack_update.check_failed", finalResult.error));
+                    return;
+                }
+                showToast(Component.translatable("dlc_manager.update.manager_title"),
+                    Component.translatable("dlc_manager.pack_update.no_updates"));
+            });
+        }, "dlc-server-pack-update-check-manual").start();
+    }
+
+    private void showToast(Component title, Component desc) {
+        Minecraft minecraft = Minecraft.getInstance();
+        SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION, title, desc);
     }
 
     private void pushUpdates() {

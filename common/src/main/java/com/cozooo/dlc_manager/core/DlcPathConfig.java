@@ -54,6 +54,8 @@ public class DlcPathConfig {
     public static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
     public static final int DEFAULT_TITLE_WIDTH = 0;
     public static final int DEFAULT_TITLE_HEIGHT = 0;
+    public static final String DEFAULT_MODPACK_URL = "";
+    public static final String DEFAULT_UPDATE_GITHUB_REPO_URL = "";
 
     private static String dlcRoot = DEFAULT_DLC_ROOT;
     private static String taczRoot = DEFAULT_TACZ_DLC_ROOT;
@@ -78,6 +80,10 @@ public class DlcPathConfig {
     private static int titleOffsetY = DEFAULT_TITLE_OFFSET_Y;
     private static int titleWidth = DEFAULT_TITLE_WIDTH;
     private static int titleHeight = DEFAULT_TITLE_HEIGHT;
+    private static String modpackUrlClient = DEFAULT_MODPACK_URL;
+    private static String updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL;
+    private static String modpackUrlServer = DEFAULT_MODPACK_URL;
+    private static String updateGithubRepoServer = DEFAULT_UPDATE_GITHUB_REPO_URL;
 
     private static int maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
     private static int maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
@@ -249,6 +255,22 @@ public class DlcPathConfig {
 
     public static int getTitleHeight() {
         return titleHeight;
+    }
+
+    public static String getModpackUrl() {
+        return modpackUrlClient == null ? DEFAULT_MODPACK_URL : modpackUrlClient;
+    }
+
+    public static String getUpdateGithubRepoUrl() {
+        return updateGithubRepoClient == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : updateGithubRepoClient;
+    }
+
+    public static String getServerModpackUrl() {
+        return modpackUrlServer == null ? DEFAULT_MODPACK_URL : modpackUrlServer;
+    }
+
+    public static String getServerUpdateGithubRepoUrl() {
+        return updateGithubRepoServer == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : updateGithubRepoServer;
     }
 
     public static int[] computeTitleButtonPosition(int screenWidth, int screenHeight, int buttonWidth, int buttonHeight, int defaultX, int defaultY) {
@@ -450,6 +472,22 @@ public class DlcPathConfig {
         titleHeight = Math.max(0, value);
     }
 
+    public static void setModpackUrl(String value) {
+        modpackUrlClient = value == null ? DEFAULT_MODPACK_URL : value;
+    }
+
+    public static void setUpdateGithubRepoUrl(String value) {
+        updateGithubRepoClient = value == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : value;
+    }
+
+    public static void setServerModpackUrl(String value) {
+        modpackUrlServer = value == null ? DEFAULT_MODPACK_URL : value;
+    }
+
+    public static void setServerUpdateGithubRepoUrl(String value) {
+        updateGithubRepoServer = value == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : value;
+    }
+
     public static void setMaxConcurrentDownloads(int value) {
         maxConcurrentDownloads = Math.max(1, value);
     }
@@ -501,6 +539,10 @@ public class DlcPathConfig {
         titleOffsetY = DEFAULT_TITLE_OFFSET_Y;
         titleWidth = DEFAULT_TITLE_WIDTH;
         titleHeight = DEFAULT_TITLE_HEIGHT;
+        modpackUrlClient = DEFAULT_MODPACK_URL;
+        updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL;
+        modpackUrlServer = DEFAULT_MODPACK_URL;
+        updateGithubRepoServer = DEFAULT_UPDATE_GITHUB_REPO_URL;
         maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS;
         maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE;
         minSegmentMb = DEFAULT_MIN_SEGMENT_MB;
@@ -631,6 +673,8 @@ public class DlcPathConfig {
         obj.addProperty("titleOffsetY", titleOffsetY);
         obj.addProperty("titleWidth", titleWidth);
         obj.addProperty("titleHeight", titleHeight);
+        obj.addProperty("modpackUrl", modpackUrlClient);
+        obj.addProperty("updateGithubRepo", updateGithubRepoClient);
         root.add("ui", obj);
     }
 
@@ -659,6 +703,8 @@ public class DlcPathConfig {
         obj.addProperty("serverSupport", serverSupportServer);
         obj.addProperty("serverPort", serverPort);
         obj.addProperty("serverPassword", serverPassword);
+        obj.addProperty("modpackUrl", modpackUrlServer);
+        obj.addProperty("updateGithubRepo", updateGithubRepoServer);
         if (!DEFAULT_RCON_HOST.equals(serverRconHost) || serverRconPort != DEFAULT_RCON_PORT || !DEFAULT_RCON_PASSWORD.equals(serverRconPassword)) {
             obj.addProperty("rconHost", serverRconHost);
             obj.addProperty("rconPort", serverRconPort);
@@ -706,6 +752,8 @@ public class DlcPathConfig {
         map.put("titleOffsetY", value -> titleOffsetY = asInt(value, DEFAULT_TITLE_OFFSET_Y));
         map.put("titleWidth", value -> titleWidth = Math.max(0, asInt(value, DEFAULT_TITLE_WIDTH)));
         map.put("titleHeight", value -> titleHeight = Math.max(0, asInt(value, DEFAULT_TITLE_HEIGHT)));
+        map.put("modpackUrl", value -> modpackUrlClient = asString(value, DEFAULT_MODPACK_URL));
+        map.put("updateGithubRepo", value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL));
         return map;
     }
 
@@ -714,6 +762,8 @@ public class DlcPathConfig {
         map.put("serverSupport", value -> serverSupportServer = asBoolean(value, DEFAULT_SERVER_SUPPORT));
         map.put("serverPort", value -> serverPort = clampInt(asInt(value, DEFAULT_SERVER_PORT), 1, 65535, DEFAULT_SERVER_PORT));
         map.put("serverPassword", value -> serverPassword = asString(value, DEFAULT_SERVER_PASSWORD));
+        map.put("modpackUrl", value -> modpackUrlServer = asString(value, DEFAULT_MODPACK_URL));
+        map.put("updateGithubRepo", value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL));
         map.put("rconHost", value -> serverRconHost = asString(value, DEFAULT_RCON_HOST));
         map.put("rconPort", value -> serverRconPort = clampInt(asInt(value, DEFAULT_RCON_PORT), 1, 65535, DEFAULT_RCON_PORT));
         map.put("rconPassword", value -> serverRconPassword = asString(value, DEFAULT_RCON_PASSWORD));

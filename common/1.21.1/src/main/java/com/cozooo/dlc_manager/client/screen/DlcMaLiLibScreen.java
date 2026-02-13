@@ -93,7 +93,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         this.userSelectedApplyMode = false;
         setTitle(StringUtils.translate("dlc_manager.title"));
         setParent(parent);
-        setListPosition(18, 34);
+        setListPosition(18, 42);
     }
 
     @Override
