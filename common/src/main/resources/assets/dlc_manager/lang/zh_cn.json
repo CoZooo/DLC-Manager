@@ -432,7 +432,7 @@
   "dlc_manager.self_update.checking": "正在检查更新...",
   "dlc_manager.self_update.none": "没有可用的模组更新。",
   "dlc_manager.self_update.download": "下载更新",
-  "dlc_manager.self_update.skip_this_update": "跳过本次更新",
+  "dlc_manager.self_update.skip_this_update": "不再提示本次更新",
   "dlc_manager.self_update.skip": "跳过",
   "dlc_manager.self_update.downloading": "正在下载更新...",
   "dlc_manager.self_update.failed": "下载更新失败。",

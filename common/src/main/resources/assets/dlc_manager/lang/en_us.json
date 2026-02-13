@@ -432,7 +432,7 @@
   "dlc_manager.self_update.checking": "Checking for updates...",
   "dlc_manager.self_update.none": "No mod update available.",
   "dlc_manager.self_update.download": "Download Update",
-  "dlc_manager.self_update.skip_this_update": "Skip This Update",
+  "dlc_manager.self_update.skip_this_update": "Do Not Remind for This Update",
   "dlc_manager.self_update.skip": "Skip",
   "dlc_manager.self_update.downloading": "Downloading update...",
   "dlc_manager.self_update.failed": "Update download failed.",
