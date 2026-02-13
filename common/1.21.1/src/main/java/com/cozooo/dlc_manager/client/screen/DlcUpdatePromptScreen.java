@@ -23,17 +23,24 @@ public class DlcUpdatePromptScreen extends Screen {
     private final Screen parent;
     private final UpdateCheckResult result;
     private final boolean forceUpdate;
+    private final boolean allowSkipThisUpdate;
     private Button applyButton;
+    private Button skipThisUpdateButton;
     private Button cancelButton;
     private int scrollIndex;
     private boolean applying;
     private String statusText;
 
     public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result) {
+        this(parent, result, false);
+    }
+
+    public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result, boolean allowSkipThisUpdate) {
         super(Component.translatable("dlc_manager.update.title"));
         this.parent = parent;
         this.result = result;
         this.forceUpdate = hasHiddenUpdates(result);
+        this.allowSkipThisUpdate = allowSkipThisUpdate;
     }
 
     @Override
@@ -46,7 +53,25 @@ public class DlcUpdatePromptScreen extends Screen {
                 .bounds(this.width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
                 .build();
             addRenderableWidget(applyButton);
+            skipThisUpdateButton = null;
             cancelButton = null;
+        } else if (allowSkipThisUpdate) {
+            int spacing = 6;
+            int skipButtonWidth = 108;
+            int totalWidth = buttonWidth + skipButtonWidth + buttonWidth + spacing * 2;
+            int startX = this.width / 2 - totalWidth / 2;
+            applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
+                .bounds(startX, y, buttonWidth, buttonHeight)
+                .build();
+            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), button -> skipThisUpdate())
+                .bounds(startX + buttonWidth + spacing, y, skipButtonWidth, buttonHeight)
+                .build();
+            cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
+                .bounds(startX + buttonWidth + spacing + skipButtonWidth + spacing, y, buttonWidth, buttonHeight)
+                .build();
+            addRenderableWidget(applyButton);
+            addRenderableWidget(skipThisUpdateButton);
+            addRenderableWidget(cancelButton);
         } else {
             applyButton = Button.builder(Component.translatable("dlc_manager.update.apply"), button -> confirmApply())
                 .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
@@ -54,9 +79,17 @@ public class DlcUpdatePromptScreen extends Screen {
             cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
                 .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
                 .build();
+            skipThisUpdateButton = null;
             addRenderableWidget(applyButton);
             addRenderableWidget(cancelButton);
         }
+    }
+
+    private void skipThisUpdate() {
+        if (result != null && result.hasUpdates()) {
+            DlcUpdateService.skipPromptForUpdate(result);
+        }
+        Minecraft.getInstance().setScreen(parent);
     }
 
     private void confirmApply() {
@@ -79,6 +112,9 @@ public class DlcUpdatePromptScreen extends Screen {
         }
         if (cancelButton != null) {
             cancelButton.active = !applying;
+        }
+        if (skipThisUpdateButton != null) {
+            skipThisUpdateButton.active = !applying;
         }
         int centerX = this.width / 2;
         int y = 20;
@@ -223,6 +259,9 @@ public class DlcUpdatePromptScreen extends Screen {
         }
         if (cancelButton != null) {
             cancelButton.active = false;
+        }
+        if (skipThisUpdateButton != null) {
+            skipThisUpdateButton.active = false;
         }
         new Thread(() -> {
             UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing);

@@ -36,6 +36,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.FileVisitResult;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -149,6 +150,7 @@ public final class DlcUpdateService {
             addedRemote = addedRemote || result.addedRemote;
             current = DlcUpdateVersion.load(dlcRoot);
         }
+        clearUpdatePromptSkipMarker();
         return UpdateApplyResult.success("OK", addedRequired, addedRemote);
     }
 
@@ -418,6 +420,74 @@ public final class DlcUpdateService {
             Files.deleteIfExists(skip);
         } catch (IOException ignored) {
         }
+    }
+
+    public static void skipPromptForUpdate(UpdateCheckResult result) {
+        UpdatePromptSpan span = resolveUpdatePromptSpan(result);
+        if (span == null) {
+            return;
+        }
+        try {
+            JsonObject obj = new JsonObject();
+            obj.addProperty("fromBase", span.fromBase);
+            obj.addProperty("fromDlc", span.fromDlc);
+            obj.addProperty("toBase", span.toBase);
+            obj.addProperty("toDlc", span.toDlc);
+            obj.addProperty("skippedAt", Instant.now().toString());
+            DlcUpdateSkipStore.writeSection(DlcUpdateSkipStore.SECTION_HOT_UPDATE, obj);
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static boolean isPromptSkippedForUpdate(UpdateCheckResult result) {
+        UpdatePromptSpan span = resolveUpdatePromptSpan(result);
+        if (span == null) {
+            return false;
+        }
+        JsonObject obj = DlcUpdateSkipStore.readSection(DlcUpdateSkipStore.SECTION_HOT_UPDATE);
+        if (obj == null) {
+            return false;
+        }
+        String fromBase = safeVersion(readJsonString(obj, "fromBase"));
+        String fromDlc = safeVersion(readJsonString(obj, "fromDlc"));
+        String toBase = safeVersion(readJsonString(obj, "toBase"));
+        String toDlc = safeVersion(readJsonString(obj, "toDlc"));
+        return span.fromBase.equals(fromBase)
+            && span.fromDlc.equals(fromDlc)
+            && span.toBase.equals(toBase)
+            && span.toDlc.equals(toDlc);
+    }
+
+    private static UpdatePromptSpan resolveUpdatePromptSpan(UpdateCheckResult result) {
+        if (result == null || !result.hasUpdates() || result.getCurrent() == null) {
+            return null;
+        }
+        List<DlcUpdatePackage> updates = result.getUpdates();
+        if (updates == null || updates.isEmpty()) {
+            return null;
+        }
+        DlcUpdateManifest.VersionInfo tail = null;
+        for (int i = updates.size() - 1; i >= 0; i--) {
+            DlcUpdatePackage pkg = updates.get(i);
+            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+                continue;
+            }
+            tail = pkg.getManifest().getVersion();
+            break;
+        }
+        if (tail == null) {
+            return null;
+        }
+        UpdatePromptSpan span = new UpdatePromptSpan();
+        span.fromBase = safeVersion(result.getCurrent().getBase());
+        span.fromDlc = safeVersion(result.getCurrent().getDlc());
+        span.toBase = targetBaseVersion(tail);
+        span.toDlc = targetDlcVersion(tail);
+        return span;
+    }
+
+    private static void clearUpdatePromptSkipMarker() {
+        DlcUpdateSkipStore.removeSection(DlcUpdateSkipStore.SECTION_HOT_UPDATE);
     }
 
     private static List<DlcUpdatePackage> scanUpdatePackages(Path dlcRoot) {
@@ -2248,6 +2318,18 @@ public final class DlcUpdateService {
         }
     }
 
+    private static String readJsonString(JsonObject obj, String key) {
+        if (obj == null || key == null || key.isBlank() || !obj.has(key) || obj.get(key).isJsonNull()) {
+            return "";
+        }
+        try {
+            String value = obj.get(key).getAsString();
+            return value == null ? "" : value;
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
     private static void writeString(Path path, String content) {
         try {
             Files.createDirectories(path.getParent());
@@ -2391,6 +2473,13 @@ public final class DlcUpdateService {
         }
         String trimmed = value.trim();
         return trimmed.isBlank() ? null : trimmed;
+    }
+
+    private static final class UpdatePromptSpan {
+        private String fromBase;
+        private String fromDlc;
+        private String toBase;
+        private String toDlc;
     }
 
     private static int compareVersion(String a, String b) {

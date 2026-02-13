@@ -12,6 +12,7 @@ import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
 import com.cozooo.dlc_manager.client.screen.DlcPackReleaseUpdateScreen;
+import com.cozooo.dlc_manager.client.screen.DlcUpdatePromptScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
@@ -174,6 +175,10 @@ public final class DlcClientRuntime {
             long startAt = System.currentTimeMillis();
             UpdateCheckResult updateResult = null;
             boolean hasUpdate = false;
+            DlcPackReleaseUpdateService.CheckResult packUpdateResult = null;
+            boolean hasPackUpdate = false;
+            DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = null;
+            boolean hasSelfUpdate = false;
             boolean hasRequired = false;
             java.util.List<DlcRequiredEntry> missing = java.util.List.of();
             boolean updateManagerOn = DlcPathConfig.isUpdateManagerOn();
@@ -196,7 +201,23 @@ public final class DlcClientRuntime {
             }
             String repoUrl = DlcPathConfig.getUpdateGithubRepoUrl();
             if (repoUrl != null && !repoUrl.isBlank()) {
-                runPackUpdateCheckAsync(screen, repoUrl, currentBaseVersion, currentDlcVersion);
+                long packAt = System.currentTimeMillis();
+                packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
+                    DlcPathConfig.getModpackUrl(),
+                    repoUrl,
+                    currentBaseVersion,
+                    currentDlcVersion,
+                    DlcPackReleaseUpdateService.Side.CLIENT
+                );
+                boolean promptSkipped = packUpdateResult != null
+                    && packUpdateResult.hasUpdate()
+                    && DlcPackReleaseUpdateService.isPromptSkippedForUpdate(packUpdateResult, DlcPackReleaseUpdateService.Side.CLIENT);
+                boolean alreadyDownloaded = packUpdateResult != null
+                    && packUpdateResult.hasUpdate()
+                    && DlcPackReleaseUpdateService.hasDownloadedClientPackages(packUpdateResult);
+                hasPackUpdate = packUpdateResult != null && packUpdateResult.hasUpdate() && !alreadyDownloaded && !promptSkipped;
+                LOGGER.info("[dlc-manager] pack update check done: hasUpdate={}, alreadyDownloaded={}, promptSkipped={}, took={}ms",
+                    hasPackUpdate, alreadyDownloaded, promptSkipped, System.currentTimeMillis() - packAt);
             }
             if (updateManagerOn) {
                 if (dlcRoot != null) {
@@ -221,12 +242,23 @@ public final class DlcClientRuntime {
             if (updateManagerOn && !DlcUpdateClient.isPrompted()) {
                 long updateAt = System.currentTimeMillis();
                 updateResult = DlcUpdateService.checkForUpdates();
-                hasUpdate = updateResult != null && updateResult.hasUpdates();
+                boolean promptSkipped = updateResult != null
+                    && updateResult.hasUpdates()
+                    && DlcUpdateService.isPromptSkippedForUpdate(updateResult);
+                hasUpdate = updateResult != null && updateResult.hasUpdates() && !promptSkipped;
                 int updateCount = updateResult == null || updateResult.getUpdates() == null ? 0 : updateResult.getUpdates().size();
-                LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, took={}ms", hasUpdate, updateCount, System.currentTimeMillis() - updateAt);
+                LOGGER.info("[dlc-manager] update check done: hasUpdate={}, count={}, promptSkipped={}, took={}ms",
+                    hasUpdate, updateCount, promptSkipped, System.currentTimeMillis() - updateAt);
             }
             if (selfUpdateAutoCheckOn && !selfUpdatePrompted) {
-                runSelfUpdateCheckAsync(screen);
+                long selfAt = System.currentTimeMillis();
+                selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
+                boolean promptSkipped = selfUpdateResult != null
+                    && selfUpdateResult.hasUpdate
+                    && DlcSelfUpdateService.isPromptSkippedForUpdate(selfUpdateResult);
+                hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate && !promptSkipped;
+                LOGGER.info("[dlc-manager] self update check done: hasUpdate={}, promptSkipped={}, took={}ms",
+                    hasSelfUpdate, promptSkipped, System.currentTimeMillis() - selfAt);
             }
             if (!hasUpdate) {
                 if (!DlcRequiredManager.hasSkipMarker()) {
@@ -240,6 +272,10 @@ public final class DlcClientRuntime {
             }
             boolean finalHasUpdate = hasUpdate;
             UpdateCheckResult finalUpdateResult = updateResult;
+            boolean finalHasPackUpdate = hasPackUpdate;
+            DlcPackReleaseUpdateService.CheckResult finalPackUpdateResult = packUpdateResult;
+            boolean finalHasSelfUpdate = hasSelfUpdate;
+            DlcSelfUpdateService.SelfUpdateResult finalSelfUpdateResult = selfUpdateResult;
             boolean finalHasRequired = hasRequired;
             java.util.List<DlcRequiredEntry> finalMissing = missing;
             String finalChangelog = changelogText;
@@ -250,84 +286,117 @@ public final class DlcClientRuntime {
                 if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                     return;
                 }
-                Runnable continueFlow = () -> {
-                    if (finalHasUpdate && finalUpdateResult != null) {
-                        DlcUpdateClient.showPrompt(screen, finalUpdateResult);
-                        return;
-                    }
-                    if (finalHasRequired && !finalMissing.isEmpty()) {
-                        DlcRequiredManager.markPrompted();
-                        Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(screen, finalMissing));
-                        return;
-                    }
+                Runnable flow = () -> {
                     DlcNoticeManager.showFromTitle(screen);
                 };
-                if (finalChangelog != null && !finalChangelog.isBlank() && finalChangelogVersion != null && !finalChangelogVersion.isBlank()) {
-                    Minecraft.getInstance().setScreen(new DlcUpdateChangelogScreen(screen, finalChangelog, () -> {
-                        Path root = DlcPaths.dlcRoot();
-                        if (root != null) {
-                            DlcUpdateVersion version = DlcUpdateVersion.load(root);
-                            version.setChangelogShown(finalChangelogVersion);
-                            version.save(root);
-                        }
-                        continueFlow.run();
-                    }));
-                    return;
+                if (finalHasRequired && !finalMissing.isEmpty()) {
+                    flow = wrapRequiredPrompt(screen, finalMissing, flow);
                 }
-                continueFlow.run();
+                if (finalHasUpdate && finalUpdateResult != null) {
+                    flow = wrapUpdatePrompt(screen, finalUpdateResult, flow);
+                }
+                if (finalChangelog != null && !finalChangelog.isBlank() && finalChangelogVersion != null && !finalChangelogVersion.isBlank()) {
+                    flow = wrapChangelogPrompt(screen, finalChangelog, finalChangelogVersion, flow);
+                }
+                if (finalHasPackUpdate && finalPackUpdateResult != null) {
+                    flow = wrapPackUpdatePrompt(screen, finalPackUpdateResult, flow);
+                }
+                if (finalHasSelfUpdate && finalSelfUpdateResult != null && !selfUpdatePrompted) {
+                    flow = wrapSelfUpdatePrompt(screen, finalSelfUpdateResult, flow);
+                }
+                flow.run();
             });
         }, "dlc-startup-check").start();
     }
 
-    private static void runPackUpdateCheckAsync(Screen screen, String repoUrl, String currentBaseVersion, String currentDlcVersion) {
-        new Thread(() -> {
-            long packAt = System.currentTimeMillis();
-            DlcPackReleaseUpdateService.CheckResult packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
-                DlcPathConfig.getModpackUrl(),
-                repoUrl,
-                currentBaseVersion,
-                currentDlcVersion,
-                DlcPackReleaseUpdateService.Side.CLIENT
-            );
-            boolean hasPackUpdate = packUpdateResult != null && packUpdateResult.hasUpdate();
-            boolean alreadyDownloaded = hasPackUpdate && DlcPackReleaseUpdateService.hasDownloadedClientPackages(packUpdateResult);
-            LOGGER.info("[dlc-manager] pack update check done: hasUpdate={}, alreadyDownloaded={}, took={}ms",
-                hasPackUpdate, alreadyDownloaded, System.currentTimeMillis() - packAt);
-            if (!hasPackUpdate || alreadyDownloaded) {
+    private static Runnable wrapSelfUpdatePrompt(Screen fallback, DlcSelfUpdateService.SelfUpdateResult result, Runnable next) {
+        return () -> {
+            if (result == null || !result.hasUpdate) {
+                next.run();
                 return;
             }
-            Minecraft.getInstance().execute(() -> {
-                if (startupCheckRunning) {
-                    return;
-                }
-                if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
-                    return;
-                }
-                Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(screen, packUpdateResult));
-            });
-        }, "dlc-pack-update-check").start();
+            selfUpdatePrompted = true;
+            Screen continuation = createContinuationScreen(fallback, next);
+            Minecraft.getInstance().setScreen(new DlcSelfUpdateScreen(continuation, result, true));
+        };
     }
 
-    private static void runSelfUpdateCheckAsync(Screen screen) {
-        new Thread(() -> {
-            long selfAt = System.currentTimeMillis();
-            DlcSelfUpdateService.SelfUpdateResult selfUpdateResult = DlcSelfUpdateService.checkForUpdate();
-            boolean hasSelfUpdate = selfUpdateResult != null && selfUpdateResult.hasUpdate;
-            LOGGER.info("[dlc-manager] self update check done: hasUpdate={}, took={}ms", hasSelfUpdate, System.currentTimeMillis() - selfAt);
-            if (!hasSelfUpdate) {
+    private static Runnable wrapPackUpdatePrompt(Screen fallback, DlcPackReleaseUpdateService.CheckResult result, Runnable next) {
+        return () -> {
+            if (result == null || !result.hasUpdate()) {
+                next.run();
                 return;
             }
-            Minecraft.getInstance().execute(() -> {
-                if (startupCheckRunning || selfUpdatePrompted) {
+            Screen continuation = createContinuationScreen(fallback, next);
+            Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(continuation, result, true));
+        };
+    }
+
+    private static Runnable wrapChangelogPrompt(Screen fallback, String changelog, String changelogVersion, Runnable next) {
+        return () -> {
+            if (changelog == null || changelog.isBlank() || changelogVersion == null || changelogVersion.isBlank()) {
+                next.run();
+                return;
+            }
+            Screen continuation = createContinuationScreen(fallback, next);
+            Minecraft.getInstance().setScreen(new DlcUpdateChangelogScreen(continuation, changelog, () -> {
+                Path root = DlcPaths.dlcRoot();
+                if (root != null) {
+                    DlcUpdateVersion version = DlcUpdateVersion.load(root);
+                    version.setChangelogShown(changelogVersion);
+                    version.save(root);
+                }
+                Minecraft.getInstance().setScreen(continuation);
+            }));
+        };
+    }
+
+    private static Runnable wrapUpdatePrompt(Screen fallback, UpdateCheckResult result, Runnable next) {
+        return () -> {
+            if (result == null || !result.hasUpdates()) {
+                next.run();
+                return;
+            }
+            DlcUpdateClient.markPrompted();
+            Screen continuation = createContinuationScreen(fallback, next);
+            Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(continuation, result, true));
+        };
+    }
+
+    private static Runnable wrapRequiredPrompt(Screen fallback, List<DlcRequiredEntry> missing, Runnable next) {
+        return () -> {
+            if (missing == null || missing.isEmpty()) {
+                next.run();
+                return;
+            }
+            DlcRequiredManager.markPrompted();
+            Screen continuation = createContinuationScreen(fallback, next);
+            Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(continuation, missing));
+        };
+    }
+
+    private static Screen createContinuationScreen(Screen fallback, Runnable next) {
+        return new Screen(Component.empty()) {
+            private boolean started;
+
+            @Override
+            protected void init() {
+                if (started) {
                     return;
                 }
-                if (!(Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
-                    return;
+                started = true;
+                Minecraft minecraft = Minecraft.getInstance();
+                next.run();
+                if (minecraft.screen == this) {
+                    minecraft.setScreen(fallback);
                 }
-                selfUpdatePrompted = true;
-                Minecraft.getInstance().setScreen(new DlcSelfUpdateScreen(screen, selfUpdateResult));
-            });
-        }, "dlc-self-update-check").start();
+            }
+
+            @Override
+            public boolean shouldCloseOnEsc() {
+                return false;
+            }
+        };
     }
 
     private static List<DlcUpdateMeta> collectPendingChangelogMeta(String shownVersion, String currentVersion) {

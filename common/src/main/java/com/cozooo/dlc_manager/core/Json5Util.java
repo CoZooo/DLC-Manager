@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.stream.JsonReader;
 import de.marhali.json5.Json5;
 import de.marhali.json5.Json5Array;
 import de.marhali.json5.Json5Element;
@@ -14,6 +15,7 @@ import de.marhali.json5.Json5Object;
 import de.marhali.json5.Json5Primitive;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.StringReader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +24,7 @@ public final class Json5Util {
     public static final String JSON5_EXTENSION = ".json5";
     public static final String JSON_EXTENSION = ".json";
     private static final Json5 JSON5 = new Json5();
+    private static final Gson LENIENT_GSON = new Gson();
 
     private Json5Util() {
     }
@@ -82,12 +85,107 @@ public final class Json5Util {
         if (path == null || !Files.exists(path)) {
             return null;
         }
-        try (Reader reader = Files.newBufferedReader(path)) {
+        String content;
+        try {
+            content = Files.readString(path);
+        } catch (IOException ignored) {
+            return null;
+        }
+        JsonElement parsed = readElementJson5(content);
+        if (parsed != null) {
+            return parsed;
+        }
+        parsed = readElementLenient(content);
+        if (parsed != null) {
+            return parsed;
+        }
+        String normalized = normalizeBareMultilineStrings(content);
+        if (normalized.equals(content)) {
+            return null;
+        }
+        parsed = readElementJson5(normalized);
+        if (parsed != null) {
+            return parsed;
+        }
+        return readElementLenient(normalized);
+    }
+
+    private static JsonElement readElementJson5(String content) {
+        if (content == null) {
+            return null;
+        }
+        try (Reader reader = new StringReader(content)) {
             Json5Element element = JSON5.parse(reader);
             return toGson(element);
         } catch (IOException | RuntimeException ignored) {
             return null;
         }
+    }
+
+    private static JsonElement readElementLenient(String content) {
+        if (content == null) {
+            return null;
+        }
+        try (Reader reader = new StringReader(content)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            return LENIENT_GSON.fromJson(jsonReader, JsonElement.class);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String normalizeBareMultilineStrings(String content) {
+        if (content == null || content.isEmpty()) {
+            return "";
+        }
+        StringBuilder out = new StringBuilder(content.length() + 32);
+        boolean inString = false;
+        char quote = 0;
+        boolean escaping = false;
+
+        for (int i = 0; i < content.length(); i++) {
+            char c = content.charAt(i);
+            if (!inString) {
+                if (c == '"' || c == '\'') {
+                    inString = true;
+                    quote = c;
+                    escaping = false;
+                }
+                out.append(c);
+                continue;
+            }
+
+            if (escaping) {
+                out.append(c);
+                escaping = false;
+                continue;
+            }
+            if (c == '\\') {
+                out.append(c);
+                escaping = true;
+                continue;
+            }
+            if (c == quote) {
+                out.append(c);
+                inString = false;
+                quote = 0;
+                continue;
+            }
+            if (c == '\r') {
+                out.append("\\n");
+                if (i + 1 < content.length() && content.charAt(i + 1) == '\n') {
+                    i++;
+                }
+                continue;
+            }
+            if (c == '\n') {
+                out.append("\\n");
+                continue;
+            }
+            out.append(c);
+        }
+        return out.toString();
     }
 
     public static JsonObject readObject(Path path) {

@@ -15,6 +15,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,6 +28,7 @@ import java.util.regex.Pattern;
 public final class DlcPackReleaseUpdateService {
     private static final Pattern GITHUB_REPO_PATTERN = Pattern.compile("github\\.com[:/]+([^/]+)/([^/#?]+)", Pattern.CASE_INSENSITIVE);
     private static final String DEFAULT_VERSION = "1.0.0";
+    private static final String UNIVERSAL_PREFIX = "Universal_";
 
     private DlcPackReleaseUpdateService() {
     }
@@ -45,8 +47,6 @@ public final class DlcPackReleaseUpdateService {
             return assetPrefix;
         }
     }
-
-    private static final String UNIVERSAL_PREFIX = "Universal_";
 
     @FunctionalInterface
     public interface ProgressListener {
@@ -257,6 +257,51 @@ public final class DlcPackReleaseUpdateService {
         return result;
     }
 
+    public static void skipPromptForUpdate(CheckResult result, Side side) {
+        PromptSpan span = resolvePromptSpan(result, side);
+        if (span == null) {
+            return;
+        }
+        try {
+            JsonObject root = DlcUpdateSkipStore.readSection(DlcUpdateSkipStore.SECTION_PACK_UPDATE);
+            if (root == null) {
+                root = new JsonObject();
+            }
+            JsonObject section = new JsonObject();
+            section.addProperty("repoUrl", span.repoUrl);
+            section.addProperty("fromBase", span.fromBase);
+            section.addProperty("fromDlc", span.fromDlc);
+            section.addProperty("toBase", span.toBase);
+            section.addProperty("toDlc", span.toDlc);
+            section.addProperty("skippedAt", Instant.now().toString());
+            root.add(span.sideKey, section);
+            DlcUpdateSkipStore.writeSection(DlcUpdateSkipStore.SECTION_PACK_UPDATE, root);
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static boolean isPromptSkippedForUpdate(CheckResult result, Side side) {
+        PromptSpan span = resolvePromptSpan(result, side);
+        if (span == null) {
+            return false;
+        }
+        JsonObject root = DlcUpdateSkipStore.readSection(DlcUpdateSkipStore.SECTION_PACK_UPDATE);
+        if (root == null || !root.has(span.sideKey) || !root.get(span.sideKey).isJsonObject()) {
+            return false;
+        }
+        JsonObject section = root.getAsJsonObject(span.sideKey);
+        String repoUrl = normalizeString(getString(section, "repoUrl"));
+        String fromBase = safeVersion(getString(section, "fromBase"));
+        String fromDlc = safeVersion(getString(section, "fromDlc"));
+        String toBase = safeVersion(getString(section, "toBase"));
+        String toDlc = safeVersion(getString(section, "toDlc"));
+        return span.repoUrl.equals(repoUrl)
+            && span.fromBase.equals(fromBase)
+            && span.fromDlc.equals(fromDlc)
+            && span.toBase.equals(toBase)
+            && span.toDlc.equals(toDlc);
+    }
+
     public static DownloadResult downloadClientPackages(CheckResult result, ProgressListener progress, CancelChecker cancelChecker) {
         if (result == null || !result.hasUpdate()) {
             return DownloadResult.failed("no_update");
@@ -291,6 +336,7 @@ public final class DlcPackReleaseUpdateService {
                 return DownloadResult.failed(ex.getMessage() == null ? "download_failed" : ex.getMessage());
             }
         }
+        clearSkipPromptMarker(Side.CLIENT);
         return DownloadResult.success(downloaded);
     }
 
@@ -346,6 +392,7 @@ public final class DlcPackReleaseUpdateService {
                 return DownloadResult.failed(ex.getMessage() == null ? "download_failed" : ex.getMessage());
             }
         }
+        clearSkipPromptMarker(Side.SERVER);
         return DownloadResult.success(List.of());
     }
 
@@ -553,6 +600,40 @@ public final class DlcPackReleaseUpdateService {
         return normalized;
     }
 
+    private static PromptSpan resolvePromptSpan(CheckResult result, Side side) {
+        if (result == null || !result.hasUpdate()) {
+            return null;
+        }
+        PromptSpan span = new PromptSpan();
+        span.sideKey = normalizeSideKey(side);
+        span.repoUrl = normalizeString(result.repoUrl);
+        span.fromBase = safeVersion(result.currentBase);
+        span.fromDlc = safeVersion(result.currentDlc);
+        span.toBase = safeVersion(result.targetBase);
+        span.toDlc = safeVersion(result.targetDlc);
+        return span;
+    }
+
+    private static String normalizeSideKey(Side side) {
+        return side == Side.SERVER ? "server" : "client";
+    }
+
+    private static void clearSkipPromptMarker(Side side) {
+        try {
+            JsonObject root = DlcUpdateSkipStore.readSection(DlcUpdateSkipStore.SECTION_PACK_UPDATE);
+            if (root == null) {
+                return;
+            }
+            root.remove(normalizeSideKey(side));
+            if (root.entrySet().isEmpty()) {
+                DlcUpdateSkipStore.removeSection(DlcUpdateSkipStore.SECTION_PACK_UPDATE);
+                return;
+            }
+            DlcUpdateSkipStore.writeSection(DlcUpdateSkipStore.SECTION_PACK_UPDATE, root);
+        } catch (Exception ignored) {
+        }
+    }
+
     private static String safeVersion(String value) {
         if (value == null) {
             return DEFAULT_VERSION;
@@ -629,5 +710,14 @@ public final class DlcPackReleaseUpdateService {
             this.name = name == null ? "" : name;
             this.url = url == null ? "" : url;
         }
+    }
+
+    private static final class PromptSpan {
+        private String sideKey;
+        private String repoUrl;
+        private String fromBase;
+        private String fromDlc;
+        private String toBase;
+        private String toDlc;
     }
 }

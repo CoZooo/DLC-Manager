@@ -257,10 +257,10 @@ public class DlcScanner {
             ? new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType, alarm)
             : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType, alarm);
         grouped.get(effectiveType).add(item);
-        if (tooltipLoader != null && infoDir != null) {
-            boolean updateType = !typeValid || !hadTypeField;
-            tooltipLoader.ensureTooltipFile(infoDir, name, effectiveType, updateType);
-        }
+        // if (tooltipLoader != null && infoDir != null) {
+        //     boolean updateType = !typeValid || !hadTypeField;
+        //     tooltipLoader.ensureTooltipFile(infoDir, name, effectiveType, updateType);
+        // }
     }
 
     private boolean isEnabledInTargets(String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {

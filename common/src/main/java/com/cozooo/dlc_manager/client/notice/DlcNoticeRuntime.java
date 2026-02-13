@@ -44,7 +44,7 @@ public final class DlcNoticeRuntime {
                 return null;
             }
             config.setNeverShow(true);
-            config.save();
+            // config.save();
             return config;
         }
         return null;

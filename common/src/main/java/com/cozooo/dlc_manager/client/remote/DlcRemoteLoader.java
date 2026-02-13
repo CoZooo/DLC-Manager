@@ -164,12 +164,12 @@ public final class DlcRemoteLoader {
             entry.setFileNameHint(fileName);
         }
 
-        Path outPath = Json5Util.toJson5Path(path);
-        try (Writer writer = Files.newBufferedWriter(outPath)) {
-            PRETTY_GSON.toJson(normalized.ordered, writer);
-        } catch (IOException ignored) {
-        }
-        entry.setConfigPath(outPath);
+        // Path outPath = Json5Util.toJson5Path(path);
+        // try (Writer writer = Files.newBufferedWriter(outPath)) {
+        //     PRETTY_GSON.toJson(normalized.ordered, writer);
+        // } catch (IOException ignored) {
+        // }
+        // entry.setConfigPath(outPath);
         return entry;
     }
 

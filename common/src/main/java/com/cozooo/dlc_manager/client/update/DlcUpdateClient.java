@@ -15,7 +15,7 @@ public final class DlcUpdateClient {
         if (result == null) {
             return false;
         }
-        showPrompt(parent, result);
+        showPrompt(parent, result, true);
         return true;
     }
 
@@ -28,8 +28,12 @@ public final class DlcUpdateClient {
     }
 
     public static void showPrompt(Screen parent, UpdateCheckResult result) {
+        showPrompt(parent, result, false);
+    }
+
+    public static void showPrompt(Screen parent, UpdateCheckResult result, boolean allowSkipThisUpdate) {
         DlcUpdateRuntime.markPrompted();
-        Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, result));
+        Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, result, allowSkipThisUpdate));
     }
 
     public static void openUpdateManager(Screen parent) {

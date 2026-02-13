@@ -23,8 +23,10 @@ public class DlcPackReleaseUpdateScreen extends Screen {
     private final CheckResult checkResult;
     private final DlcServerEntry serverEntry;
     private final Side side;
+    private final boolean allowSkipThisUpdate;
     private Button openButton;
     private Button downloadButton;
+    private Button skipThisUpdateButton;
     private Button skipButton;
     private volatile boolean downloading;
     private volatile float progress;
@@ -33,23 +35,34 @@ public class DlcPackReleaseUpdateScreen extends Screen {
     private final AtomicBoolean cancelRequested = new AtomicBoolean(false);
 
     public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult) {
-        this(parent, checkResult, null);
+        this(parent, checkResult, null, false);
+    }
+
+    public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult, boolean allowSkipThisUpdate) {
+        this(parent, checkResult, null, allowSkipThisUpdate);
     }
 
     public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry) {
+        this(parent, checkResult, serverEntry, false);
+    }
+
+    public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry, boolean allowSkipThisUpdate) {
         super(Component.translatable("dlc_manager.pack_update.title"));
         this.parent = parent;
         this.checkResult = checkResult == null ? new CheckResult() : checkResult;
         this.serverEntry = serverEntry;
         this.side = serverEntry == null ? Side.CLIENT : Side.SERVER;
+        this.allowSkipThisUpdate = allowSkipThisUpdate;
     }
 
     @Override
     protected void init() {
-        int buttonWidth = 120;
+        boolean showSkipThis = allowSkipThisUpdate && side == Side.CLIENT;
+        int buttonWidth = showSkipThis ? 100 : 120;
         int buttonHeight = 20;
-        int spacing = 8;
-        int totalWidth = buttonWidth * 3 + spacing * 2;
+        int spacing = 6;
+        int buttonCount = showSkipThis ? 4 : 3;
+        int totalWidth = buttonWidth * buttonCount + spacing * (buttonCount - 1);
         int startX = this.width / 2 - totalWidth / 2;
         int y = this.height - 40;
         openButton = Button.builder(Component.translatable("dlc_manager.pack_update.open_modpack"), btn -> openModpackUrl())
@@ -58,13 +71,32 @@ public class DlcPackReleaseUpdateScreen extends Screen {
         downloadButton = Button.builder(Component.translatable("dlc_manager.pack_update.download"), btn -> onDownloadButton())
             .bounds(startX + buttonWidth + spacing, y, buttonWidth, buttonHeight)
             .build();
-        skipButton = Button.builder(Component.translatable("dlc_manager.pack_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
-            .bounds(startX + (buttonWidth + spacing) * 2, y, buttonWidth, buttonHeight)
-            .build();
+        int thirdX = startX + (buttonWidth + spacing) * 2;
+        if (showSkipThis) {
+            skipThisUpdateButton = Button.builder(Component.translatable("dlc_manager.self_update.skip_this_update"), btn -> skipThisUpdate())
+                .bounds(thirdX, y, buttonWidth, buttonHeight)
+                .build();
+            skipButton = Button.builder(Component.translatable("dlc_manager.pack_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
+                .bounds(startX + (buttonWidth + spacing) * 3, y, buttonWidth, buttonHeight)
+                .build();
+        } else {
+            skipThisUpdateButton = null;
+            skipButton = Button.builder(Component.translatable("dlc_manager.pack_update.skip"), btn -> Minecraft.getInstance().setScreen(parent))
+                .bounds(thirdX, y, buttonWidth, buttonHeight)
+                .build();
+        }
         addRenderableWidget(openButton);
         addRenderableWidget(downloadButton);
+        if (skipThisUpdateButton != null) {
+            addRenderableWidget(skipThisUpdateButton);
+        }
         addRenderableWidget(skipButton);
         updateButtons();
+    }
+
+    private void skipThisUpdate() {
+        DlcPackReleaseUpdateService.skipPromptForUpdate(checkResult, side);
+        Minecraft.getInstance().setScreen(parent);
     }
 
     @Override
@@ -254,6 +286,9 @@ public class DlcPackReleaseUpdateScreen extends Screen {
         }
         if (skipButton != null) {
             skipButton.active = !downloading;
+        }
+        if (skipThisUpdateButton != null) {
+            skipThisUpdateButton.active = !downloading;
         }
     }
 
