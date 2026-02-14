@@ -7,11 +7,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.stream.JsonReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,9 +30,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class DlcPackReleaseUpdateService {
-    private static final Pattern GITHUB_REPO_PATTERN = Pattern.compile("github\\.com[:/]+([^/]+)/([^/#?]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SSH_REPO_PATTERN = Pattern.compile("^git@([^:]+):(.+?)(?:\\.git)?/?$", Pattern.CASE_INSENSITIVE);
     private static final String DEFAULT_VERSION = "1.0.0";
     private static final String UNIVERSAL_PREFIX = "Universal_";
+    private static final String[] VERSION_PAIR_DELIMITERS = new String[] {"+", "_", "@", "~", "-", " "};
 
     private DlcPackReleaseUpdateService() {
     }
@@ -449,19 +454,36 @@ public final class DlcPackReleaseUpdateService {
     }
 
     private static AssetChoice resolvePreferredAsset(JsonObject release, Side side, String base, String dlc) {
-        String suffix = safeVersion(base) + "+" + safeVersion(dlc) + ".zip";
-        String universalName = UNIVERSAL_PREFIX + suffix;
-        String sideName = (side == null ? "" : side.assetPrefix()) + suffix;
-        String fallbackName = sideName.isBlank() ? universalName : sideName;
-        String universalUrl = findAssetUrl(release, universalName);
-        if (!universalUrl.isBlank()) {
-            return new AssetChoice(universalName, universalUrl);
+        List<String> universalNames = buildAssetNameCandidates(UNIVERSAL_PREFIX, base, dlc);
+        String sidePrefix = side == null ? "" : side.assetPrefix();
+        List<String> sideNames = buildAssetNameCandidates(sidePrefix, base, dlc);
+        for (String name : universalNames) {
+            String url = findAssetUrl(release, name);
+            if (!url.isBlank()) {
+                return new AssetChoice(name, url);
+            }
         }
-        String sideUrl = findAssetUrl(release, sideName);
-        if (!sideUrl.isBlank()) {
-            return new AssetChoice(sideName, sideUrl);
+        for (String name : sideNames) {
+            String url = findAssetUrl(release, name);
+            if (!url.isBlank()) {
+                return new AssetChoice(name, url);
+            }
         }
+        String fallbackName = !sideNames.isEmpty()
+            ? sideNames.get(0)
+            : (universalNames.isEmpty() ? "" : universalNames.get(0));
         return new AssetChoice(fallbackName, "");
+    }
+
+    private static List<String> buildAssetNameCandidates(String prefix, String base, String dlc) {
+        String namePrefix = prefix == null ? "" : prefix;
+        String safeBase = safeVersion(base);
+        String safeDlc = safeVersion(dlc);
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (String delimiter : VERSION_PAIR_DELIMITERS) {
+            names.add(namePrefix + safeBase + delimiter + safeDlc + ".zip");
+        }
+        return new ArrayList<>(names);
     }
 
     private static int assetPriority(String assetName) {
@@ -478,25 +500,98 @@ public final class DlcPackReleaseUpdateService {
         if (release == null || expectedName == null || expectedName.isBlank()) {
             return "";
         }
-        if (!release.has("assets") || !release.get("assets").isJsonArray()) {
+        if (!release.has("assets") || release.get("assets").isJsonNull()) {
             return "";
         }
-        JsonArray assets = release.getAsJsonArray("assets");
-        for (JsonElement element : assets) {
-            if (element == null || !element.isJsonObject()) {
-                continue;
+        JsonElement assetsElement = release.get("assets");
+        if (assetsElement.isJsonArray()) {
+            JsonArray assets = assetsElement.getAsJsonArray();
+            for (JsonElement element : assets) {
+                if (element == null || !element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject asset = element.getAsJsonObject();
+                String name = getString(asset, "name");
+                String download = getString(asset, "browser_download_url");
+                String altDownload = getString(asset, "url");
+                if (!assetMatchesExpected(name, download, altDownload, expectedName)) {
+                    continue;
+                }
+                if (!download.isBlank()) {
+                    return download;
+                }
+                if (!altDownload.isBlank()) {
+                    return altDownload;
+                }
             }
-            JsonObject asset = element.getAsJsonObject();
-            String name = getString(asset, "name");
-            if (!name.equalsIgnoreCase(expectedName)) {
-                continue;
+            return "";
+        }
+        if (assetsElement.isJsonObject()) {
+            JsonObject assetsObj = assetsElement.getAsJsonObject();
+            if (!assetsObj.has("links") || !assetsObj.get("links").isJsonArray()) {
+                return "";
             }
-            String download = getString(asset, "browser_download_url");
-            if (!download.isBlank()) {
-                return download;
+            JsonArray links = assetsObj.getAsJsonArray("links");
+            for (JsonElement element : links) {
+                if (element == null || !element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject link = element.getAsJsonObject();
+                String name = getString(link, "name");
+                String direct = getString(link, "direct_asset_url");
+                String url = getString(link, "url");
+                if (!assetMatchesExpected(name, direct, url, expectedName)) {
+                    continue;
+                }
+                if (!direct.isBlank()) {
+                    return direct;
+                }
+                if (!url.isBlank()) {
+                    return url;
+                }
             }
         }
         return "";
+    }
+
+    private static boolean assetMatchesExpected(String name, String primaryUrl, String secondaryUrl, String expectedName) {
+        if (expectedName == null || expectedName.isBlank()) {
+            return false;
+        }
+        if (name != null && name.equalsIgnoreCase(expectedName)) {
+            return true;
+        }
+        String fromPrimary = extractFileNameFromUrl(primaryUrl);
+        if (!fromPrimary.isBlank() && fromPrimary.equalsIgnoreCase(expectedName)) {
+            return true;
+        }
+        String fromSecondary = extractFileNameFromUrl(secondaryUrl);
+        return !fromSecondary.isBlank() && fromSecondary.equalsIgnoreCase(expectedName);
+    }
+
+    private static String extractFileNameFromUrl(String url) {
+        if (url == null || url.isBlank()) {
+            return "";
+        }
+        try {
+            URI uri = URI.create(url.trim());
+            String path = uri.getPath();
+            if (path == null || path.isBlank()) {
+                return "";
+            }
+            int slash = path.lastIndexOf('/');
+            if (slash >= 0 && slash + 1 < path.length()) {
+                return path.substring(slash + 1).trim();
+            }
+            return path.trim();
+        } catch (Exception ignored) {
+            String normalized = url.trim();
+            int slash = normalized.lastIndexOf('/');
+            if (slash >= 0 && slash + 1 < normalized.length()) {
+                return normalized.substring(slash + 1).trim();
+            }
+            return "";
+        }
     }
 
     private static ParsedTag parseTag(String tag) {
@@ -528,7 +623,7 @@ public final class DlcPackReleaseUpdateService {
         if (trimmed.isBlank()) {
             return null;
         }
-        String[] parts = trimmed.split("\\+", 2);
+        String[] parts = splitVersionPair(trimmed);
         if (parts.length != 2) {
             return null;
         }
@@ -543,30 +638,153 @@ public final class DlcPackReleaseUpdateService {
         return pair;
     }
 
+    private static String[] splitVersionPair(String value) {
+        if (value == null) {
+            return new String[0];
+        }
+        for (String delimiter : VERSION_PAIR_DELIMITERS) {
+            int idx = value.indexOf(delimiter);
+            if (idx <= 0 || idx >= value.length() - 1) {
+                continue;
+            }
+            String left = value.substring(0, idx).trim();
+            String right = value.substring(idx + delimiter.length()).trim();
+            if (!left.isBlank() && !right.isBlank()) {
+                return new String[] {left, right};
+            }
+        }
+        String[] whitespaceParts = value.trim().split("\\s+");
+        if (whitespaceParts.length == 2) {
+            String left = whitespaceParts[0].trim();
+            String right = whitespaceParts[1].trim();
+            if (!left.isBlank() && !right.isBlank()) {
+                return new String[] {left, right};
+            }
+        }
+        return new String[0];
+    }
+
     private static JsonArray fetchReleases(RepoCoordinates repo) throws IOException {
-        String api = "https://api.github.com/repos/" + repo.owner + "/" + repo.repo + "/releases?per_page=100";
+        List<ApiEndpoint> endpoints = buildReleaseApiEndpoints(repo);
+        IOException lastException = null;
+        for (ApiEndpoint endpoint : endpoints) {
+            try {
+                return fetchReleasesFromEndpoint(endpoint);
+            } catch (IOException ex) {
+                lastException = ex;
+            }
+        }
+        if (lastException != null) {
+            throw lastException;
+        }
+        throw new IOException("release_fetch_failed");
+    }
+
+    private static JsonArray fetchReleasesFromEndpoint(ApiEndpoint endpoint) throws IOException {
+        String api = endpoint.url;
         HttpURLConnection connection = (HttpURLConnection) new URL(api).openConnection();
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
-        connection.setRequestProperty("Accept", "application/vnd.github+json");
+        if (endpoint.accept != null && !endpoint.accept.isBlank()) {
+            connection.setRequestProperty("Accept", endpoint.accept);
+        }
         connection.connect();
         try {
             int code = connection.getResponseCode();
-            if (code >= 400) {
-                throw new IOException("http " + code);
-            }
-            try (InputStream in = connection.getInputStream();
-                 InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-                JsonElement element = JsonParser.parseReader(reader);
-                if (element == null || !element.isJsonArray()) {
-                    return new JsonArray();
+            InputStream payloadStream = code >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            String payload = "";
+            if (payloadStream != null) {
+                try (InputStream in = payloadStream;
+                     InputStreamReader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                    char[] buffer = new char[2048];
+                    StringBuilder sb = new StringBuilder();
+                    int read;
+                    while ((read = reader.read(buffer)) != -1) {
+                        sb.append(buffer, 0, read);
+                    }
+                    payload = sb.toString();
                 }
-                return element.getAsJsonArray();
             }
+            if (code >= 400) {
+                throw new IOException("http " + code + " @ " + api);
+            }
+            JsonArray releases = parseReleaseArray(payload, api);
+            if (releases != null) {
+                return releases;
+            }
+            throw new IOException("invalid_release_response @ " + api);
         } finally {
             connection.disconnect();
         }
+    }
+
+    private static JsonArray parseReleaseArray(String payload, String api) throws IOException {
+        if (payload == null) {
+            return new JsonArray();
+        }
+        String text = stripJsonPrefix(payload);
+        if (text.isBlank()) {
+            return new JsonArray();
+        }
+        try {
+            JsonReader jsonReader = new JsonReader(new StringReader(text));
+            jsonReader.setLenient(true);
+            JsonElement element = JsonParser.parseReader(jsonReader);
+            if (element == null || element.isJsonNull()) {
+                return new JsonArray();
+            }
+            if (element.isJsonArray()) {
+                return element.getAsJsonArray();
+            }
+            if (element.isJsonObject()) {
+                JsonArray wrapped = unwrapReleaseArray(element.getAsJsonObject());
+                if (wrapped != null) {
+                    return wrapped;
+                }
+            }
+        } catch (Exception ex) {
+            throw new IOException("malformed_release_json @ " + api, ex);
+        }
+        return null;
+    }
+
+    private static String stripJsonPrefix(String payload) {
+        String text = payload;
+        if (!text.isEmpty() && text.charAt(0) == '\uFEFF') {
+            text = text.substring(1);
+        }
+        text = text.trim();
+        if (text.startsWith(")]}'")) {
+            int newline = text.indexOf('\n');
+            if (newline >= 0 && newline + 1 < text.length()) {
+                text = text.substring(newline + 1).trim();
+            }
+        }
+        return text;
+    }
+
+    private static JsonArray unwrapReleaseArray(JsonObject obj) {
+        if (obj == null) {
+            return null;
+        }
+        String[] keys = new String[] {"data", "list", "items", "releases", "records"};
+        for (String key : keys) {
+            if (!obj.has(key) || obj.get(key).isJsonNull()) {
+                continue;
+            }
+            JsonElement candidate = obj.get(key);
+            if (candidate.isJsonArray()) {
+                return candidate.getAsJsonArray();
+            }
+            if (candidate.isJsonObject()) {
+                JsonArray nested = unwrapReleaseArray(candidate.getAsJsonObject());
+                if (nested != null) {
+                    return nested;
+                }
+            }
+        }
+        return null;
     }
 
     private static RepoCoordinates parseRepoCoordinates(String url) {
@@ -574,19 +792,180 @@ public final class DlcPackReleaseUpdateService {
             return null;
         }
         String normalized = url.trim();
-        Matcher matcher = GITHUB_REPO_PATTERN.matcher(normalized);
-        if (!matcher.find()) {
+        Matcher sshMatcher = SSH_REPO_PATTERN.matcher(normalized);
+        if (sshMatcher.matches()) {
+            String host = normalizeHost(sshMatcher.group(1));
+            Provider provider = detectProvider(host);
+            RepoPath repoPath = parseRepoPathSegments(sshMatcher.group(2), provider);
+            if (host.isBlank() || repoPath == null) {
+                return null;
+            }
+            RepoCoordinates coordinates = new RepoCoordinates();
+            coordinates.host = host;
+            coordinates.owner = repoPath.owner;
+            coordinates.repo = repoPath.repo;
+            coordinates.namespacePath = repoPath.namespacePath;
+            coordinates.provider = provider;
+            return coordinates;
+        }
+        URI uri = parseRepoUri(normalized);
+        if (uri == null || uri.getHost() == null || uri.getHost().isBlank()) {
             return null;
         }
-        String owner = normalizeRepoPart(matcher.group(1));
-        String repo = normalizeRepoPart(matcher.group(2));
-        if (owner.isBlank() || repo.isBlank()) {
+        String host = normalizeHost(uri.getHost());
+        Provider provider = detectProvider(host);
+        String rawPath = uri.getPath();
+        if (rawPath == null || rawPath.isBlank()) {
+            return null;
+        }
+        RepoPath repoPath = parseRepoPathSegments(rawPath, provider);
+        if (repoPath == null) {
             return null;
         }
         RepoCoordinates coordinates = new RepoCoordinates();
-        coordinates.owner = owner;
-        coordinates.repo = repo;
+        coordinates.host = host;
+        coordinates.owner = repoPath.owner;
+        coordinates.repo = repoPath.repo;
+        coordinates.namespacePath = repoPath.namespacePath;
+        coordinates.provider = provider;
         return coordinates;
+    }
+
+    private static URI parseRepoUri(String value) {
+        try {
+            if (value.startsWith("http://") || value.startsWith("https://")) {
+                return URI.create(value);
+            }
+            return URI.create("https://" + value);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String normalizeHost(String host) {
+        if (host == null) {
+            return "";
+        }
+        return host.trim().toLowerCase();
+    }
+
+    private static Provider detectProvider(String host) {
+        if (host.endsWith("github.com")) {
+            return Provider.GITHUB;
+        }
+        if (host.endsWith("gitee.com")) {
+            return Provider.GITEE;
+        }
+        if (host.endsWith("gitlab.com") || host.contains("gitlab")) {
+            return Provider.GITLAB;
+        }
+        return Provider.GENERIC;
+    }
+
+    private static List<ApiEndpoint> buildReleaseApiEndpoints(RepoCoordinates repo) {
+        if (repo == null || repo.owner == null || repo.repo == null) {
+            return List.of();
+        }
+        String owner = repo.owner;
+        String project = repo.repo;
+        String host = repo.host;
+        String namespacePath = repo.namespacePath == null || repo.namespacePath.isBlank()
+            ? owner + "/" + project
+            : repo.namespacePath;
+        String projectPath = urlEncode(namespacePath);
+        List<ApiEndpoint> endpoints = new ArrayList<>();
+        switch (repo.provider) {
+            case GITHUB -> endpoints.add(new ApiEndpoint(
+                "https://api.github.com/repos/" + owner + "/" + project + "/releases?per_page=100",
+                "application/vnd.github+json"));
+            case GITEE -> endpoints.add(new ApiEndpoint(
+                "https://gitee.com/api/v5/repos/" + owner + "/" + project + "/releases?per_page=100",
+                "application/json"));
+            case GITLAB -> endpoints.add(new ApiEndpoint(
+                "https://" + host + "/api/v4/projects/" + projectPath + "/releases?per_page=100",
+                "application/json"));
+            case GENERIC -> {
+                endpoints.add(new ApiEndpoint(
+                    "https://" + host + "/api/v5/repos/" + owner + "/" + project + "/releases?per_page=100",
+                    "application/json"));
+                endpoints.add(new ApiEndpoint(
+                    "https://api." + host + "/repos/" + owner + "/" + project + "/releases?per_page=100",
+                    "application/json"));
+                endpoints.add(new ApiEndpoint(
+                    "https://" + host + "/api/v4/projects/" + projectPath + "/releases?per_page=100",
+                    "application/json"));
+            }
+        }
+        return endpoints;
+    }
+
+    private static RepoPath parseRepoPathSegments(String rawPath, Provider provider) {
+        if (rawPath == null || rawPath.isBlank()) {
+            return null;
+        }
+        String[] segments = rawPath.split("/");
+        List<String> parts = new ArrayList<>();
+        for (String segment : segments) {
+            String trimmed = normalizeRepoPart(segment);
+            if (!trimmed.isBlank()) {
+                parts.add(trimmed);
+            }
+        }
+        if (parts.size() < 2) {
+            return null;
+        }
+        List<String> repoParts = new ArrayList<>(parts);
+        if (provider == Provider.GITLAB || provider == Provider.GENERIC) {
+            int routeMarker = repoParts.indexOf("-");
+            if (routeMarker >= 2) {
+                repoParts = new ArrayList<>(repoParts.subList(0, routeMarker));
+            } else {
+                while (repoParts.size() > 2) {
+                    String tail = repoParts.get(repoParts.size() - 1).toLowerCase();
+                    if (isKnownRepoRouteSegment(tail)) {
+                        repoParts.remove(repoParts.size() - 1);
+                        continue;
+                    }
+                    break;
+                }
+            }
+        } else {
+            repoParts = new ArrayList<>(repoParts.subList(0, 2));
+        }
+        if (repoParts.size() < 2) {
+            return null;
+        }
+        RepoPath repoPath = new RepoPath();
+        repoPath.owner = normalizeRepoPart(repoParts.get(0));
+        repoPath.repo = normalizeRepoPart(repoParts.get(repoParts.size() - 1));
+        repoPath.namespacePath = String.join("/", repoParts);
+        if (repoPath.owner.isBlank() || repoPath.repo.isBlank() || repoPath.namespacePath.isBlank()) {
+            return null;
+        }
+        return repoPath;
+    }
+
+    private static boolean isKnownRepoRouteSegment(String tail) {
+        return "releases".equals(tail)
+            || "tags".equals(tail)
+            || "issues".equals(tail)
+            || "merge_requests".equals(tail)
+            || "wikis".equals(tail)
+            || "blob".equals(tail)
+            || "tree".equals(tail)
+            || "raw".equals(tail)
+            || "commit".equals(tail)
+            || "commits".equals(tail)
+            || "pipelines".equals(tail)
+            || "activity".equals(tail);
+    }
+
+    private static String urlEncode(String value) {
+        try {
+            return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+        } catch (Exception ignored) {
+            return value;
+        }
     }
 
     private static String normalizeRepoPart(String value) {
@@ -664,11 +1043,14 @@ public final class DlcPackReleaseUpdateService {
         if (release == null) {
             return "";
         }
-        String body = getString(release, "body");
-        if (body.isBlank()) {
-            return "";
+        String[] keys = new String[] {"body", "description", "release_notes", "notes"};
+        for (String key : keys) {
+            String value = getString(release, key);
+            if (!value.isBlank()) {
+                return value;
+            }
         }
-        return body;
+        return "";
     }
 
     private static String getString(JsonObject obj, String key) {
@@ -686,8 +1068,34 @@ public final class DlcPackReleaseUpdateService {
     }
 
     private static final class RepoCoordinates {
+        private String host;
         private String owner;
         private String repo;
+        private String namespacePath;
+        private Provider provider;
+    }
+
+    private enum Provider {
+        GITHUB,
+        GITEE,
+        GITLAB,
+        GENERIC
+    }
+
+    private static final class ApiEndpoint {
+        private final String url;
+        private final String accept;
+
+        private ApiEndpoint(String url, String accept) {
+            this.url = url;
+            this.accept = accept;
+        }
+    }
+
+    private static final class RepoPath {
+        private String owner;
+        private String repo;
+        private String namespacePath;
     }
 
     private static final class ParsedTag {
