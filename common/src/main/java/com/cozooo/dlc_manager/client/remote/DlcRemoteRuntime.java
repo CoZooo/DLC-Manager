@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -80,12 +81,12 @@ public final class DlcRemoteRuntime {
             return;
         }
         JsonObject obj = new JsonObject();
-        obj.addProperty("dlc_name", fileName);
+        obj.addProperty("file_name", fileName);
         String identifier = entry.getDlcIdentifier();
         if (identifier == null || identifier.isBlank()) {
             identifier = fileName;
         }
-        obj.addProperty("dlc_identifier", identifier);
+        obj.addProperty("identifier", identifier);
         JsonObject displayObj = new JsonObject();
         displayObj.addProperty("en_us", fileName);
         for (var e : entry.getDisplayNames().entrySet()) {
@@ -164,7 +165,7 @@ public final class DlcRemoteRuntime {
         }
         ordered.addProperty("priority", priority);
 
-        ordered.addProperty("dlc_identifier", getString(obj, "dlc_identifier"));
+        ordered.addProperty("identifier", getIdentifier(obj));
 
         String type = getString(obj, "type");
         if (type == null || type.isBlank()) {
@@ -178,7 +179,7 @@ public final class DlcRemoteRuntime {
 
         String fileName = fileNameOverride;
         if (fileName == null || fileName.isBlank()) {
-            fileName = getString(obj, "file_name");
+            fileName = getFileName(obj);
         }
         if (fileName != null && !fileName.isBlank()) {
             ordered.addProperty("file_name", fileName);
@@ -189,9 +190,9 @@ public final class DlcRemoteRuntime {
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
 
         JsonElement deps = obj.get("dependencies");
-        ordered.add("dependencies", deps == null ? new com.google.gson.JsonPrimitive("") : deps);
+        ordered.add("dependencies", normalizeRelationElement(deps));
         JsonElement conflicts = obj.get("conflicts");
-        ordered.add("conflicts", conflicts == null ? new com.google.gson.JsonPrimitive("") : conflicts);
+        ordered.add("conflicts", normalizeRelationElement(conflicts));
 
         JsonObject display = obj.has("DisplayName") && obj.get("DisplayName").isJsonObject()
             ? obj.getAsJsonObject("DisplayName")
@@ -212,6 +213,9 @@ public final class DlcRemoteRuntime {
             if (key == null || ordered.has(key)) {
                 continue;
             }
+            if ("dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)) {
+                continue;
+            }
             ordered.add(key, entry.getValue());
         }
         return ordered;
@@ -222,6 +226,57 @@ public final class DlcRemoteRuntime {
             return "";
         }
         return obj.get(key).getAsString();
+    }
+
+    private static String getIdentifier(JsonObject obj) {
+        String identifier = getString(obj, "identifier");
+        if (identifier == null || identifier.isBlank()) {
+            identifier = getString(obj, "dlc_identifier");
+        }
+        return identifier;
+    }
+
+    private static String getFileName(JsonObject obj) {
+        String fileName = getString(obj, "file_name");
+        if (fileName == null || fileName.isBlank()) {
+            fileName = getString(obj, "dlc_name");
+        }
+        return fileName;
+    }
+
+    private static JsonElement normalizeRelationElement(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return new com.google.gson.JsonPrimitive("");
+        }
+        if (element.isJsonPrimitive()) {
+            return element.deepCopy();
+        }
+        if (element.isJsonArray()) {
+            JsonArray array = new JsonArray();
+            for (JsonElement child : element.getAsJsonArray()) {
+                array.add(normalizeRelationElement(child));
+            }
+            return array;
+        }
+        JsonObject obj = element.getAsJsonObject();
+        JsonObject normalized = new JsonObject();
+        for (var entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            String targetKey = key;
+            if ("dlc_identifier".equalsIgnoreCase(key)) {
+                targetKey = "identifier";
+            } else if ("dlc_name".equalsIgnoreCase(key)) {
+                targetKey = "file_name";
+            }
+            if (normalized.has(targetKey)) {
+                continue;
+            }
+            normalized.add(targetKey, normalizeRelationElement(entry.getValue()));
+        }
+        return normalized;
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {

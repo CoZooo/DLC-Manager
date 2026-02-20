@@ -9,7 +9,9 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import com.cozooo.dlc_manager.core.Json5Util;
 
 public class DlcNoticeConfig {
@@ -86,6 +88,9 @@ public class DlcNoticeConfig {
     private final LocalizedText title = new LocalizedText();
     private final Subhead subhead = new Subhead();
     private final LocalizedText contents = new LocalizedText();
+    private final LocalizedText contentUrls = new LocalizedText();
+    private transient final Set<String> contentUrlLoaded = new HashSet<>();
+    private transient final Map<String, String> contentUrlText = new HashMap<>();
 
     public static DlcNoticeConfig load() {
         DlcNoticeConfig config = new DlcNoticeConfig();
@@ -114,6 +119,7 @@ public class DlcNoticeConfig {
             config.subhead.enabled = getBoolean(subheadObj, "enabled", true);
             config.subhead.text.values.putAll(readLocalized(subheadObj));
         }
+        config.contentUrls.values.putAll(readLocalizedUrlValues(JsonCaseUtil.getIgnoreCase(obj, "ContentUrl")));
         config.contents.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Contents")));
         config.ensureDefaults();
         return config;
@@ -135,6 +141,9 @@ public class DlcNoticeConfig {
             subheadObj.add(entry.getKey(), entry.getValue());
         }
         obj.add("Subhead", subheadObj);
+        if (!contentUrls.values.isEmpty()) {
+            obj.add("ContentUrl", writeLocalized(contentUrls));
+        }
         obj.add("Contents", writeLocalized(contents));
         try (Writer writer = Files.newBufferedWriter(path)) {
             GSON.toJson(obj, writer);
@@ -169,6 +178,25 @@ public class DlcNoticeConfig {
 
     public LocalizedText getContents() {
         return contents;
+    }
+
+    public String getContentUrl() {
+        return getContentUrl(null);
+    }
+
+    public String getContentUrl(String lang) {
+        return normalizeUrl(contentUrls.resolve(lang));
+    }
+
+    public String resolveContents(String lang) {
+        String contentUrl = getContentUrl(lang);
+        if (contentUrl != null && !contentUrl.isBlank()) {
+            String remote = fetchContentUrlText(contentUrl);
+            if (remote != null && !remote.isBlank()) {
+                return remote;
+            }
+        }
+        return contents.resolve(lang);
     }
 
     private static Path resolveNoticePath() {
@@ -228,6 +256,33 @@ public class DlcNoticeConfig {
         return values;
     }
 
+    private static Map<String, String> readLocalizedUrlValues(JsonElement element) {
+        Map<String, String> values = new HashMap<>();
+        if (element == null) {
+            return values;
+        }
+        if (element.isJsonPrimitive()) {
+            String url = normalizeUrl(element.getAsString());
+            if (!url.isBlank()) {
+                values.put("en_us", url);
+            }
+            return values;
+        }
+        if (!element.isJsonObject()) {
+            return values;
+        }
+        JsonObject obj = element.getAsJsonObject();
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            if (entry.getValue().isJsonPrimitive()) {
+                String url = normalizeUrl(entry.getValue().getAsString());
+                if (!url.isBlank()) {
+                    values.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), url);
+                }
+            }
+        }
+        return values;
+    }
+
     private static JsonObject writeLocalized(LocalizedText text) {
         JsonObject obj = new JsonObject();
         for (Map.Entry<String, String> entry : text.getValues().entrySet()) {
@@ -242,6 +297,52 @@ public class DlcNoticeConfig {
 
     private static String getString(JsonObject obj, String key) {
         return JsonCaseUtil.getStringIgnoreCase(obj, key);
+    }
+
+    private synchronized String fetchContentUrlText(String contentUrl) {
+        String normalizedUrl = normalizeUrl(contentUrl);
+        if (normalizedUrl.isBlank()) {
+            return null;
+        }
+        if (contentUrlLoaded.contains(normalizedUrl)) {
+            return contentUrlText.get(normalizedUrl);
+        }
+        contentUrlLoaded.add(normalizedUrl);
+        java.net.HttpURLConnection connection = null;
+        try {
+            java.net.URL url = new java.net.URL(normalizedUrl);
+            connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setConnectTimeout(3000);
+            connection.setReadTimeout(5000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent", "DLC-Manager-Notice/1.0");
+            int code = connection.getResponseCode();
+            if (code >= 200 && code < 300) {
+                try (java.io.InputStream in = connection.getInputStream()) {
+                    byte[] bytes = in.readAllBytes();
+                    String text = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                    if (text.startsWith("\uFEFF")) {
+                        text = text.substring(1);
+                    }
+                    contentUrlText.put(normalizedUrl, text);
+                    return text;
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+        contentUrlText.put(normalizedUrl, null);
+        return null;
+    }
+
+    private static String normalizeUrl(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        return raw.trim();
     }
 
     private void ensureDefaults() {

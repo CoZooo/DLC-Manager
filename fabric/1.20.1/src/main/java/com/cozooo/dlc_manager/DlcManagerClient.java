@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -137,6 +138,17 @@ public class DlcManagerClient implements ClientModInitializer {
                 btn -> DlcUpdateClient.openUpdateManager(screen))
                 .bounds(x + w + 4, y, 20, h)
                 .build();
+            int noticeWidth = Math.max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8);
+            int noticeHeight = 20;
+            int noticeDefaultX = screen.width - noticeWidth - 8;
+            int noticeDefaultY = screen.height - noticeHeight - 8;
+            int[] noticePos = DlcPathConfig.computeNoticeButtonPosition(
+                screen.width, screen.height, noticeWidth, noticeHeight, noticeDefaultX, noticeDefaultY
+            );
+            Button noticeButton = Button.builder(Component.translatable("dlc_manager.notice"),
+                    btn -> DlcClientRuntime.openNoticeFromTitle(screen))
+                .bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight)
+                .build();
 
             if (!hasDlcButton(screen)) {
                 Screens.getButtons(screen).add(button);
@@ -144,6 +156,20 @@ public class DlcManagerClient implements ClientModInitializer {
             if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()
                 && findButtonByKey(screen, "dlc_manager.update.import_icon") == null) {
                 Screens.getButtons(screen).add(updateButton);
+            }
+            if (DlcClientRuntime.shouldShowMainMenuNoticeButton()
+                && findButtonByKey(screen, "dlc_manager.notice") == null) {
+                Screens.getButtons(screen).add(noticeButton);
+            }
+            if (DlcClientRuntime.shouldShowMainMenuNoticePanel()) {
+                ScreenEvents.afterRender(screen).register((currentScreen, guiGraphics, mouseX, mouseY, delta) ->
+                    DlcClientRuntime.renderTitleNoticePanel(currentScreen, guiGraphics, mouseX, mouseY));
+                ScreenMouseEvents.allowMouseClick(screen).register((currentScreen, mouseX, mouseY, mouseButton) ->
+                    !DlcClientRuntime.handleTitleNoticePanelClick(currentScreen, mouseX, mouseY, mouseButton));
+                ScreenMouseEvents.allowMouseScroll(screen).register((currentScreen, mouseX, mouseY, horizontalAmount, verticalAmount) ->
+                    !DlcClientRuntime.handleTitleNoticePanelScroll(currentScreen, mouseX, mouseY, horizontalAmount, verticalAmount));
+                ScreenMouseEvents.allowMouseRelease(screen).register((currentScreen, mouseX, mouseY, mouseButton) ->
+                    !DlcClientRuntime.handleTitleNoticePanelRelease(currentScreen, mouseX, mouseY, mouseButton));
             }
             alignTitleButtons(screen);
             pendingAlignScreen = screen;
@@ -359,35 +385,31 @@ public class DlcManagerClient implements ClientModInitializer {
                 rowY = anchor.getY();
             }
         }
-        int desiredW = DlcPathConfig.getTitleWidth();
-        int desiredH = DlcPathConfig.getTitleHeight();
-        int buttonW = desiredW > 0 ? desiredW : rowW;
-        int buttonH = desiredH > 0 ? desiredH : rowH;
-        int[] pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, buttonW, buttonH, rowX, rowY);
+        int[] pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, rowW, rowH, rowX, rowY);
         rowX = pos[0];
         rowY = pos[1];
-        if (desiredH > 0) {
-            rowH = buttonH;
-            rowStep = rowH + 4;
-        }
 
         if (modsWidget != null) {
             int gap = 4;
             int halfWidth = Math.max(40, (rowW - gap) / 2);
             int iconGap = 4;
             int iconWidth = 20;
+            boolean autoUpdatePos = DlcPathConfig.isTitleUpdateAnchorAuto();
             modsWidget.setX(rowX);
             modsWidget.setY(rowY);
             modsWidget.setWidth(halfWidth);
             setWidgetHeight(modsWidget, rowH);
             int dlcX = rowX + halfWidth + gap;
-            int dlcWidth = desiredW > 0 ? desiredW : halfWidth;
+            int dlcWidth = halfWidth;
             if (updateWidget != null) {
-                int baseWidth = desiredW > 0 ? desiredW : halfWidth;
-                dlcWidth = Math.max(40, baseWidth - iconWidth - iconGap);
+                if (autoUpdatePos) {
+                    dlcWidth = Math.max(40, halfWidth - iconWidth - iconGap);
+                }
+                int defaultUpdateX = autoUpdatePos ? dlcX + dlcWidth + iconGap : dlcX + halfWidth + iconGap;
+                int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
-                updateWidget.setX(dlcX + dlcWidth + iconGap);
-                updateWidget.setY(rowY);
+                updateWidget.setX(updatePos[0]);
+                updateWidget.setY(updatePos[1]);
                 setWidgetHeight(updateWidget, rowH);
             }
             dlcWidget.setX(dlcX);
@@ -400,13 +422,17 @@ public class DlcManagerClient implements ClientModInitializer {
         } else {
             int iconGap = 4;
             int iconWidth = 20;
-            int dlcWidth = desiredW > 0 ? desiredW : rowW;
+            boolean autoUpdatePos = DlcPathConfig.isTitleUpdateAnchorAuto();
+            int dlcWidth = rowW;
             if (updateWidget != null) {
-                int baseWidth = desiredW > 0 ? desiredW : rowW;
-                dlcWidth = Math.max(40, baseWidth - iconWidth - iconGap);
+                if (autoUpdatePos) {
+                    dlcWidth = Math.max(40, rowW - iconWidth - iconGap);
+                }
+                int defaultUpdateX = autoUpdatePos ? rowX + dlcWidth + iconGap : rowX + rowW + iconGap;
+                int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
-                updateWidget.setX(rowX + dlcWidth + iconGap);
-                updateWidget.setY(rowY);
+                updateWidget.setX(updatePos[0]);
+                updateWidget.setY(updatePos[1]);
                 setWidgetHeight(updateWidget, rowH);
             }
             dlcWidget.setX(rowX);

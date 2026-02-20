@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeMarkdownRenderer;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
@@ -27,20 +28,26 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcNoticeConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.mojang.logging.LogUtils;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.contents.TranslatableContents;
 import net.minecraft.server.packs.repository.PackRepository;
+import net.minecraft.util.FormattedCharSequence;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -55,6 +62,17 @@ public final class DlcClientRuntime {
     private static volatile boolean startupCheckRunning = false;
     private static volatile boolean startupChecksCompleted = false;
     private static volatile boolean selfUpdatePrompted = false;
+    private static String titleNoticeLang = "";
+    private static String titleNoticeTitle = "";
+    private static String titleNoticeSubhead = "";
+    private static boolean titleNoticeSubheadEnabled = false;
+    private static String titleNoticeText = "";
+    private static boolean titleNoticeLoading = false;
+    private static int titleNoticeScrollOffset = 0;
+    private static boolean titleNoticeDraggingScrollbar = false;
+    private static int titleNoticeDragStartY = 0;
+    private static int titleNoticeDragStartScroll = 0;
+    private static CompletableFuture<String> titleNoticeFuture;
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private DlcClientRuntime() {
@@ -71,6 +89,469 @@ public final class DlcClientRuntime {
             }
         }
         return null;
+    }
+
+    public static boolean shouldShowMainMenuNoticeButton() {
+        return DlcPathConfig.isNoticeDisplayModeMainMenuButton() && DlcNoticeManager.isNoticeEnabled();
+    }
+
+    public static boolean shouldShowMainMenuNoticePanel() {
+        return DlcPathConfig.isNoticeDisplayModeMainMenuPanel()
+            && DlcNoticeManager.isNoticeEnabled()
+            && DlcPathConfig.getNoticePanelWidth() > 0
+            && DlcPathConfig.getNoticePanelHeight() > 0;
+    }
+
+    public static void openNoticeFromTitle(Screen parent) {
+        DlcNoticeManager.forceShow(parent);
+    }
+
+    public static void renderTitleNoticePanel(Screen screen, GuiGraphics guiGraphics) {
+        renderTitleNoticePanel(screen, guiGraphics, Integer.MIN_VALUE, Integer.MIN_VALUE);
+    }
+
+    public static void renderTitleNoticePanel(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        if (!shouldShowMainMenuNoticePanel() || screen == null || guiGraphics == null) {
+            titleNoticeDraggingScrollbar = false;
+            return;
+        }
+        DlcNoticeConfig config = DlcNoticeConfig.load();
+        if (!config.isNoticeEnabled()) {
+            titleNoticeDraggingScrollbar = false;
+            return;
+        }
+        TitleNoticePanelLayout layout = buildTitleNoticePanelLayout(screen, config);
+        if (layout == null) {
+            titleNoticeDraggingScrollbar = false;
+            return;
+        }
+        clampTitleNoticeScroll(layout.maxScroll);
+        if (titleNoticeDraggingScrollbar && mouseY != Integer.MIN_VALUE && layout.maxScroll > 0) {
+            int trackHeight = Math.max(1, (layout.scrollbarBottom - layout.scrollbarTop) - layout.scrollbarHeight);
+            int delta = mouseY - titleNoticeDragStartY;
+            int next = titleNoticeDragStartScroll + (int) Math.round(delta * (layout.maxScroll / (double) trackHeight));
+            titleNoticeScrollOffset = Math.max(0, Math.min(layout.maxScroll, next));
+        }
+
+        guiGraphics.fill(layout.x, layout.y, layout.right, layout.bottom, 0xCC101215);
+        guiGraphics.fill(layout.x, layout.y, layout.right, layout.y + 1, 0xFF2A2F36);
+        guiGraphics.fill(layout.x, layout.bottom - 1, layout.right, layout.bottom, 0xFF2A2F36);
+        guiGraphics.fill(layout.x, layout.y, layout.x + 1, layout.bottom, 0xFF2A2F36);
+        guiGraphics.fill(layout.right - 1, layout.y, layout.right, layout.bottom, 0xFF2A2F36);
+
+        int titleY = layout.y + layout.padding;
+        guiGraphics.drawCenteredString(
+            Minecraft.getInstance().font,
+            layout.title,
+            layout.x + (layout.right - layout.x) / 2,
+            titleY,
+            0xFFFFFF
+        );
+        if (!layout.subheadLines.isEmpty()) {
+            int subheadY = titleY + Minecraft.getInstance().font.lineHeight + 2;
+            for (FormattedCharSequence subheadLine : layout.subheadLines) {
+                int subheadWidth = Minecraft.getInstance().font.width(subheadLine);
+                int subheadX = layout.x + ((layout.right - layout.x) - subheadWidth) / 2;
+                if (subheadX < layout.textX) {
+                    subheadX = layout.textX;
+                }
+                guiGraphics.drawString(Minecraft.getInstance().font, subheadLine, subheadX, subheadY, 0xBFC7D5, false);
+                subheadY += layout.lineStep;
+            }
+        }
+
+        int drawY = layout.textTop - titleNoticeScrollOffset;
+        guiGraphics.enableScissor(layout.x + 1, layout.textTop, layout.right - 1, layout.textBottom);
+        try {
+            for (FormattedCharSequence line : layout.bodyLines) {
+                if (DlcNoticeMarkdownRenderer.isHrLine(line)) {
+                    int hrY = drawY + layout.lineStep / 2;
+                    if (hrY >= layout.textTop && hrY <= layout.textBottom - 1) {
+                        guiGraphics.fill(layout.textX, hrY, layout.textRight, hrY + 1, 0xFF5A5A5A);
+                    }
+                    drawY += layout.lineStep;
+                    continue;
+                }
+                float scale = DlcNoticeMarkdownRenderer.getHeadingScale(Minecraft.getInstance().font, line, layout.textWidth);
+                int lineHeight = DlcNoticeMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, layout.lineStep, layout.textWidth);
+                if (drawY > layout.textBottom - lineHeight) {
+                    break;
+                }
+                if (drawY + lineHeight <= layout.textTop) {
+                    drawY += lineHeight;
+                    continue;
+                }
+                if (scale > 1.0f) {
+                    guiGraphics.pose().pushPose();
+                    guiGraphics.pose().scale(scale, scale, 1.0f);
+                    guiGraphics.drawString(
+                        Minecraft.getInstance().font,
+                        line,
+                        (int) (layout.textX / scale),
+                        (int) (drawY / scale),
+                        0xFFFFFF,
+                        false
+                    );
+                    guiGraphics.pose().popPose();
+                } else {
+                    guiGraphics.drawString(Minecraft.getInstance().font, line, layout.textX, drawY, 0xE6E6E6, false);
+                }
+                drawY += lineHeight;
+            }
+        } finally {
+            guiGraphics.disableScissor();
+        }
+        drawTitleNoticeScrollbar(guiGraphics, layout);
+    }
+
+    public static boolean handleTitleNoticePanelClick(Screen screen, double mouseX, double mouseY, int button) {
+        if (button != 0 || !shouldShowMainMenuNoticePanel() || screen == null) {
+            return false;
+        }
+        DlcNoticeConfig config = DlcNoticeConfig.load();
+        if (!config.isNoticeEnabled()) {
+            return false;
+        }
+        TitleNoticePanelLayout layout = buildTitleNoticePanelLayout(screen, config);
+        if (layout == null) {
+            return false;
+        }
+        clampTitleNoticeScroll(layout.maxScroll);
+        if (!layout.contains(mouseX, mouseY)) {
+            return false;
+        }
+        if (layout.isOverScrollbar(mouseX, mouseY)) {
+            updateTitleNoticeScrollFromTrack(layout, mouseY);
+            titleNoticeDraggingScrollbar = true;
+            titleNoticeDragStartY = (int) mouseY;
+            titleNoticeDragStartScroll = titleNoticeScrollOffset;
+            return true;
+        }
+        if (layout.isOverContent(mouseX, mouseY)) {
+            int drawY = layout.textTop - titleNoticeScrollOffset;
+            for (FormattedCharSequence line : layout.bodyLines) {
+                if (DlcNoticeMarkdownRenderer.isHrLine(line)) {
+                    drawY += layout.lineStep;
+                    continue;
+                }
+                float scale = DlcNoticeMarkdownRenderer.getHeadingScale(Minecraft.getInstance().font, line, layout.textWidth);
+                int lineHeight = DlcNoticeMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, layout.lineStep, layout.textWidth);
+                if (drawY > layout.textBottom - lineHeight) {
+                    break;
+                }
+                if (mouseY >= drawY && mouseY < drawY + lineHeight) {
+                    int relX = (int) mouseX - layout.textX;
+                    int maxWidth = Math.round(Minecraft.getInstance().font.width(line) * scale);
+                    if (relX >= 0 && relX <= maxWidth) {
+                        int styleX = scale > 1.0f ? (int) (relX / scale) : relX;
+                        Style style = findStyleAt(line, styleX);
+                        if (style != null) {
+                            ClickEvent click = style.getClickEvent();
+                            if (click != null && click.getAction() == ClickEvent.Action.OPEN_URL && click.getValue() != null && !click.getValue().isBlank()) {
+                                Util.getPlatform().openUri(click.getValue());
+                            }
+                        }
+                    }
+                    return true;
+                }
+                drawY += lineHeight;
+            }
+        }
+        return true;
+    }
+
+    public static boolean handleTitleNoticePanelScroll(Screen screen, double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (!shouldShowMainMenuNoticePanel() || screen == null) {
+            return false;
+        }
+        DlcNoticeConfig config = DlcNoticeConfig.load();
+        if (!config.isNoticeEnabled()) {
+            return false;
+        }
+        TitleNoticePanelLayout layout = buildTitleNoticePanelLayout(screen, config);
+        if (layout == null || !layout.contains(mouseX, mouseY)) {
+            return false;
+        }
+        clampTitleNoticeScroll(layout.maxScroll);
+        if (layout.maxScroll > 0 && verticalAmount != 0.0D) {
+            titleNoticeScrollOffset -= (int) Math.round(verticalAmount * layout.lineStep);
+            clampTitleNoticeScroll(layout.maxScroll);
+        }
+        return true;
+    }
+
+    public static boolean handleTitleNoticePanelDrag(Screen screen, double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (button != 0 || !titleNoticeDraggingScrollbar || !shouldShowMainMenuNoticePanel() || screen == null) {
+            return false;
+        }
+        DlcNoticeConfig config = DlcNoticeConfig.load();
+        if (!config.isNoticeEnabled()) {
+            titleNoticeDraggingScrollbar = false;
+            return false;
+        }
+        TitleNoticePanelLayout layout = buildTitleNoticePanelLayout(screen, config);
+        if (layout == null || layout.maxScroll <= 0) {
+            titleNoticeDraggingScrollbar = false;
+            return false;
+        }
+        int trackHeight = Math.max(1, (layout.scrollbarBottom - layout.scrollbarTop) - layout.scrollbarHeight);
+        int delta = (int) mouseY - titleNoticeDragStartY;
+        int next = titleNoticeDragStartScroll + (int) Math.round(delta * (layout.maxScroll / (double) trackHeight));
+        titleNoticeScrollOffset = Math.max(0, Math.min(layout.maxScroll, next));
+        return true;
+    }
+
+    public static boolean handleTitleNoticePanelRelease(Screen screen, double mouseX, double mouseY, int button) {
+        if (button != 0) {
+            return false;
+        }
+        if (titleNoticeDraggingScrollbar) {
+            titleNoticeDraggingScrollbar = false;
+            return true;
+        }
+        return false;
+    }
+
+    private static TitleNoticePanelLayout buildTitleNoticePanelLayout(Screen screen, DlcNoticeConfig config) {
+        String lang = Minecraft.getInstance().options.languageCode;
+        updateTitleNoticeText(config, lang);
+        String title = titleNoticeTitle;
+        if (title == null || title.isBlank()) {
+            title = Component.translatable("dlc_manager.notice_title").getString();
+        }
+        String body = titleNoticeText;
+        if (body == null || body.isBlank()) {
+            body = titleNoticeLoading
+                ? Component.translatable("dlc_manager.notice.loading").getString()
+                : config.getContents().resolve(lang);
+        }
+        String subhead = titleNoticeSubhead;
+        boolean subheadEnabled = titleNoticeSubheadEnabled;
+
+        int panelWidth = Math.max(120, DlcPathConfig.getNoticePanelWidth());
+        int panelHeight = Math.max(60, DlcPathConfig.getNoticePanelHeight());
+        panelWidth = Math.min(panelWidth, Math.max(120, screen.width - 8));
+        panelHeight = Math.min(panelHeight, Math.max(60, screen.height - 8));
+        int[] pos = DlcPathConfig.computeNoticePanelPosition(screen.width, screen.height, panelWidth, panelHeight, 0, 0);
+        int x = pos[0];
+        int y = pos[1];
+        int maxX = Math.max(0, screen.width - panelWidth);
+        int maxY = Math.max(0, screen.height - panelHeight);
+        if (x < 0) {
+            x = 0;
+        } else if (x > maxX) {
+            x = maxX;
+        }
+        if (y < 0) {
+            y = 0;
+        } else if (y > maxY) {
+            y = maxY;
+        }
+
+        int right = x + panelWidth;
+        int bottom = y + panelHeight;
+        int padding = 6;
+        int lineStep = Minecraft.getInstance().font.lineHeight + 2;
+        int titleY = y + padding;
+        int contentTop = titleY + Minecraft.getInstance().font.lineHeight + 4;
+        List<FormattedCharSequence> subheadLines = List.of();
+        if (subheadEnabled && subhead != null && !subhead.isBlank()) {
+            subheadLines = wrapMultiline(subhead, Math.max(40, panelWidth - padding * 2));
+            if (!subheadLines.isEmpty()) {
+                contentTop += subheadLines.size() * lineStep + 2;
+            }
+        }
+        int contentBottom = bottom - padding;
+        int visibleHeight = Math.max(10, contentBottom - contentTop);
+        int textX = x + padding;
+        int scrollbarGap = 4;
+        int scrollbarWidth = 4;
+        int textRightNoBar = right - padding;
+        int textWidthNoBar = Math.max(20, textRightNoBar - textX);
+
+        List<FormattedCharSequence> bodyLines = DlcNoticeMarkdownRenderer.wrapMarkdown(Minecraft.getInstance().font, body, textWidthNoBar);
+        int totalContentHeight = computeTotalLineHeight(bodyLines, lineStep, textWidthNoBar);
+        int maxScroll = Math.max(0, totalContentHeight - visibleHeight);
+        int textRight = textRightNoBar;
+        int textWidth = textWidthNoBar;
+        int scrollbarX = textRight - scrollbarWidth;
+
+        if (maxScroll > 0) {
+            textRight = Math.max(textX + 20, right - padding - scrollbarWidth - scrollbarGap);
+            textWidth = Math.max(20, textRight - textX);
+            bodyLines = DlcNoticeMarkdownRenderer.wrapMarkdown(Minecraft.getInstance().font, body, textWidth);
+            totalContentHeight = computeTotalLineHeight(bodyLines, lineStep, textWidth);
+            maxScroll = Math.max(0, totalContentHeight - visibleHeight);
+            scrollbarX = textRight + scrollbarGap;
+        }
+
+        int scrollbarHeight = Math.max(12, visibleHeight * visibleHeight / Math.max(1, totalContentHeight));
+        if (scrollbarHeight > visibleHeight) {
+            scrollbarHeight = visibleHeight;
+        }
+
+        return new TitleNoticePanelLayout(
+            x, y, right, bottom, padding,
+            textX, textRight, contentTop, contentBottom, textWidth,
+            lineStep, visibleHeight, totalContentHeight, maxScroll,
+            scrollbarX, contentTop, contentBottom, scrollbarWidth, scrollbarHeight,
+            title, subheadLines, bodyLines
+        );
+    }
+
+    private static void drawTitleNoticeScrollbar(GuiGraphics guiGraphics, TitleNoticePanelLayout layout) {
+        if (layout.maxScroll <= 0 || layout.visibleHeight <= 0) {
+            return;
+        }
+        int barY = layout.scrollbarYForScroll(titleNoticeScrollOffset);
+        guiGraphics.fill(layout.scrollbarX, layout.scrollbarTop, layout.scrollbarX + layout.scrollbarWidth, layout.scrollbarBottom, 0xFF2B2B2B);
+        guiGraphics.fill(layout.scrollbarX, barY, layout.scrollbarX + layout.scrollbarWidth, barY + layout.scrollbarHeight, 0xFF6B6B6B);
+    }
+
+    private static void updateTitleNoticeScrollFromTrack(TitleNoticePanelLayout layout, double mouseY) {
+        if (layout.maxScroll <= 0 || layout.visibleHeight <= 0) {
+            titleNoticeScrollOffset = 0;
+            return;
+        }
+        int maxTrack = Math.max(1, layout.visibleHeight - layout.scrollbarHeight);
+        int barCenter = (int) mouseY - layout.scrollbarTop - (layout.scrollbarHeight / 2);
+        int next = (int) Math.round((barCenter / (double) maxTrack) * layout.maxScroll);
+        titleNoticeScrollOffset = Math.max(0, Math.min(layout.maxScroll, next));
+    }
+
+    private static void clampTitleNoticeScroll(int maxScroll) {
+        if (titleNoticeScrollOffset < 0) {
+            titleNoticeScrollOffset = 0;
+        } else if (titleNoticeScrollOffset > maxScroll) {
+            titleNoticeScrollOffset = maxScroll;
+        }
+    }
+
+    private static int computeTotalLineHeight(List<FormattedCharSequence> lines, int lineStep, int textWidth) {
+        int total = 0;
+        for (FormattedCharSequence line : lines) {
+            if (DlcNoticeMarkdownRenderer.isHrLine(line)) {
+                total += lineStep;
+            } else {
+                total += DlcNoticeMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, lineStep, textWidth);
+            }
+        }
+        return total;
+    }
+
+    private static List<FormattedCharSequence> wrapMultiline(String text, int maxWidth) {
+        List<FormattedCharSequence> lines = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            return lines;
+        }
+        for (String line : text.split("\\R", -1)) {
+            if (line.isEmpty()) {
+                lines.add(FormattedCharSequence.EMPTY);
+            } else {
+                lines.addAll(Minecraft.getInstance().font.split(Component.literal(line), maxWidth));
+            }
+        }
+        return lines;
+    }
+
+    private static final class TitleNoticePanelLayout {
+        private final int x;
+        private final int y;
+        private final int right;
+        private final int bottom;
+        private final int padding;
+        private final int textX;
+        private final int textRight;
+        private final int textTop;
+        private final int textBottom;
+        private final int textWidth;
+        private final int lineStep;
+        private final int visibleHeight;
+        private final int totalContentHeight;
+        private final int maxScroll;
+        private final int scrollbarX;
+        private final int scrollbarTop;
+        private final int scrollbarBottom;
+        private final int scrollbarWidth;
+        private final int scrollbarHeight;
+        private final String title;
+        private final List<FormattedCharSequence> subheadLines;
+        private final List<FormattedCharSequence> bodyLines;
+
+        private TitleNoticePanelLayout(
+            int x, int y, int right, int bottom, int padding,
+            int textX, int textRight, int textTop, int textBottom, int textWidth,
+            int lineStep, int visibleHeight, int totalContentHeight, int maxScroll,
+            int scrollbarX, int scrollbarTop, int scrollbarBottom, int scrollbarWidth, int scrollbarHeight,
+            String title, List<FormattedCharSequence> subheadLines, List<FormattedCharSequence> bodyLines
+        ) {
+            this.x = x;
+            this.y = y;
+            this.right = right;
+            this.bottom = bottom;
+            this.padding = padding;
+            this.textX = textX;
+            this.textRight = textRight;
+            this.textTop = textTop;
+            this.textBottom = textBottom;
+            this.textWidth = textWidth;
+            this.lineStep = lineStep;
+            this.visibleHeight = visibleHeight;
+            this.totalContentHeight = totalContentHeight;
+            this.maxScroll = maxScroll;
+            this.scrollbarX = scrollbarX;
+            this.scrollbarTop = scrollbarTop;
+            this.scrollbarBottom = scrollbarBottom;
+            this.scrollbarWidth = scrollbarWidth;
+            this.scrollbarHeight = scrollbarHeight;
+            this.title = title;
+            this.subheadLines = subheadLines;
+            this.bodyLines = bodyLines;
+        }
+
+        private boolean contains(double mouseX, double mouseY) {
+            return mouseX >= x && mouseX <= right && mouseY >= y && mouseY <= bottom;
+        }
+
+        private boolean isOverContent(double mouseX, double mouseY) {
+            return mouseX >= textX && mouseX <= textRight
+                && mouseY >= textTop && mouseY <= textBottom;
+        }
+
+        private boolean isOverScrollbar(double mouseX, double mouseY) {
+            if (maxScroll <= 0) {
+                return false;
+            }
+            return mouseX >= scrollbarX - 2 && mouseX <= scrollbarX + scrollbarWidth + 2
+                && mouseY >= scrollbarTop && mouseY <= scrollbarBottom;
+        }
+
+        private int scrollbarYForScroll(int scrollOffset) {
+            if (maxScroll <= 0) {
+                return scrollbarTop;
+            }
+            int maxTrack = Math.max(1, visibleHeight - scrollbarHeight);
+            return scrollbarTop + (int) ((scrollOffset / (float) maxScroll) * maxTrack);
+        }
+    }
+
+    private static Style findStyleAt(FormattedCharSequence sequence, int x) {
+        final int[] width = {0};
+        final Style[] result = {null};
+        sequence.accept((index, style, codePoint) -> {
+            if (result[0] != null) {
+                return false;
+            }
+            String text = new String(Character.toChars(codePoint));
+            int w = Minecraft.getInstance().font.width(text);
+            if (width[0] + w > x) {
+                result[0] = style;
+                return false;
+            }
+            width[0] += w;
+            return true;
+        });
+        return result[0];
     }
 
     public static boolean canOpenServerManager() {
@@ -532,6 +1013,43 @@ public final class DlcClientRuntime {
         } catch (Exception ignored) {
         }
         return null;
+    }
+
+    private static void updateTitleNoticeText(DlcNoticeConfig config, String lang) {
+        String langKey = lang == null ? "" : lang;
+        if (!langKey.equals(titleNoticeLang)) {
+            titleNoticeLang = langKey;
+            titleNoticeTitle = config.getTitle().resolve(langKey);
+            titleNoticeSubheadEnabled = config.getSubhead().enabled;
+            titleNoticeSubhead = config.getSubhead().text.resolve(langKey);
+            titleNoticeText = "";
+            titleNoticeLoading = false;
+            titleNoticeFuture = null;
+            titleNoticeScrollOffset = 0;
+            titleNoticeDraggingScrollbar = false;
+            String url = config.getContentUrl(langKey);
+            if (url == null || url.isBlank()) {
+                titleNoticeText = config.getContents().resolve(langKey);
+            } else {
+                titleNoticeLoading = true;
+                String fallback = config.getContents().resolve(langKey);
+                titleNoticeFuture = CompletableFuture.supplyAsync(() -> {
+                    String remote = config.resolveContents(langKey);
+                    return remote == null || remote.isBlank() ? fallback : remote;
+                });
+            }
+        }
+        if (titleNoticeLoading && titleNoticeFuture != null && titleNoticeFuture.isDone()) {
+            String fallback = config.getContents().resolve(titleNoticeLang);
+            try {
+                String resolved = titleNoticeFuture.getNow(fallback);
+                titleNoticeText = resolved == null || resolved.isBlank() ? fallback : resolved;
+            } catch (Exception ignored) {
+                titleNoticeText = fallback;
+            }
+            titleNoticeLoading = false;
+            titleNoticeFuture = null;
+        }
     }
 
     private static String currentPlayerName() {

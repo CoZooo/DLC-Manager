@@ -163,13 +163,12 @@ public final class DlcRemoteLoader {
         if (entry.getFileNameHint() == null || entry.getFileNameHint().isBlank()) {
             entry.setFileNameHint(fileName);
         }
-
-        // Path outPath = Json5Util.toJson5Path(path);
-        // try (Writer writer = Files.newBufferedWriter(outPath)) {
-        //     PRETTY_GSON.toJson(normalized.ordered, writer);
-        // } catch (IOException ignored) {
-        // }
-        // entry.setConfigPath(outPath);
+        if (needsKeyMigration(obj)) {
+            try (Writer writer = Files.newBufferedWriter(path)) {
+                PRETTY_GSON.toJson(normalized.ordered, writer);
+            } catch (IOException ignored) {
+            }
+        }
         return entry;
     }
 
@@ -229,7 +228,7 @@ public final class DlcRemoteLoader {
         String curseProjectId = getString(obj, "curseforge_projectid");
         String curseFileId = getString(obj, "curseforge_fileid");
         String priority = getString(obj, "priority");
-        String identifier = getString(obj, "dlc_identifier");
+        String identifier = null;
         String fileName = getString(obj, "file_name");
         String appliedTarget = getString(obj, "appliedTarget");
         if (appliedTarget != null) {
@@ -246,6 +245,7 @@ public final class DlcRemoteLoader {
                 nameFallback = curseProjectId;
             }
         }
+        identifier = resolveIdentifier(obj, nameFallback);
         if (fileName == null || fileName.isBlank()) {
             if (directUrl != null && !directUrl.isBlank()) {
                 fileName = extractFileName(directUrl);
@@ -298,7 +298,7 @@ public final class DlcRemoteLoader {
             ordered.addProperty("directUrl", directUrl == null ? "" : directUrl);
         }
         ordered.addProperty("priority", priority == null || priority.isBlank() ? "curseforge" : priority);
-        ordered.addProperty("dlc_identifier", identifier);
+        ordered.addProperty("identifier", identifier);
         ordered.addProperty("type", DlcTooltipLoader.toTypeString(type));
         if (appliedTarget != null && !appliedTarget.isBlank()) {
             ordered.addProperty("appliedTarget", appliedTarget);
@@ -322,6 +322,7 @@ public final class DlcRemoteLoader {
             }
             if ("platform".equalsIgnoreCase(key) || "projectid".equalsIgnoreCase(key) || "version".equalsIgnoreCase(key)
                 || "modid".equalsIgnoreCase(key) || "dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)
+                || "identifier".equalsIgnoreCase(key)
                 || "isShownInList".equalsIgnoreCase(key)) {
                 continue;
             }
@@ -348,7 +349,7 @@ public final class DlcRemoteLoader {
         entry.setCurseforgeProjectId(ordered.get("curseforge_projectid").getAsString());
         entry.setCurseforgeFileId(ordered.get("curseforge_fileid").getAsString());
         entry.setDownloadPriority(ordered.get("priority").getAsString());
-        entry.setDlcIdentifier(ordered.get("dlc_identifier").getAsString());
+        entry.setDlcIdentifier(ordered.get("identifier").getAsString());
         String resolvedFileName = fileName;
         if (resolvedFileName == null || resolvedFileName.isBlank()) {
             resolvedFileName = nameFallback;
@@ -407,7 +408,7 @@ public final class DlcRemoteLoader {
             if (isIdentifierOnlyObject(obj)) {
                 String identifier = resolveIdentifier(obj, null);
                 JsonObject ordered = new JsonObject();
-                ordered.addProperty("dlc_identifier", identifier == null ? "" : identifier);
+                ordered.addProperty("identifier", identifier == null ? "" : identifier);
                 result.element = ordered;
                 if (identifier != null && !identifier.isBlank()) {
                     result.names.add(identifier);
@@ -442,7 +443,7 @@ public final class DlcRemoteLoader {
                             continue;
                         }
                         JsonObject childOrdered = new JsonObject();
-                        childOrdered.addProperty("dlc_identifier", raw);
+                        childOrdered.addProperty("identifier", raw);
                         ordered.add(key, childOrdered);
                         result.names.add(raw);
                     } else {
@@ -455,7 +456,7 @@ public final class DlcRemoteLoader {
                     if (isIdentifierOnlyObject(childObj)) {
                         String identifier = resolveIdentifier(childObj, key);
                         JsonObject childOrdered = new JsonObject();
-                        childOrdered.addProperty("dlc_identifier", identifier == null ? "" : identifier);
+                        childOrdered.addProperty("identifier", identifier == null ? "" : identifier);
                         ordered.add(key, childOrdered);
                         if (identifier != null && !identifier.isBlank()) {
                             result.names.add(identifier);
@@ -512,13 +513,7 @@ public final class DlcRemoteLoader {
             return result;
         }
         if (element.isJsonObject()) {
-            String name = getString(element.getAsJsonObject(), "dlc_identifier");
-            if (name == null || name.isBlank()) {
-                name = getString(element.getAsJsonObject(), "dlc_name");
-            }
-            if (name == null || name.isBlank()) {
-                name = getString(element.getAsJsonObject(), "name");
-            }
+            String name = resolveIdentifier(element.getAsJsonObject(), null);
             result.element = new com.google.gson.JsonPrimitive(name == null ? "" : name);
             result.names.addAll(splitNames(name));
             return result;
@@ -589,7 +584,9 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return false;
         }
-        boolean hasIdentifier = JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
+        boolean hasIdentifier = JsonCaseUtil.hasIgnoreCase(obj, "identifier")
+            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
+            || JsonCaseUtil.hasIgnoreCase(obj, "file_name")
             || JsonCaseUtil.hasIgnoreCase(obj, "dlc_name")
             || JsonCaseUtil.hasIgnoreCase(obj, "name");
         if (!hasIdentifier) {
@@ -597,7 +594,9 @@ public final class DlcRemoteLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             String key = entry.getKey();
-            if ("dlc_identifier".equalsIgnoreCase(key) || "dlc_name".equalsIgnoreCase(key) || "name".equalsIgnoreCase(key)) {
+            if ("identifier".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)
+                || "file_name".equalsIgnoreCase(key)
+                || "dlc_name".equalsIgnoreCase(key) || "name".equalsIgnoreCase(key)) {
                 continue;
             }
             return false;
@@ -609,7 +608,13 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return fallback;
         }
-        String identifier = getString(obj, "dlc_identifier");
+        String identifier = getString(obj, "identifier");
+        if (identifier == null || identifier.isBlank()) {
+            identifier = getString(obj, "dlc_identifier");
+        }
+        if (identifier == null || identifier.isBlank()) {
+            identifier = getString(obj, "file_name");
+        }
         if (identifier == null || identifier.isBlank()) {
             identifier = getString(obj, "dlc_name");
         }
@@ -631,6 +636,7 @@ public final class DlcRemoteLoader {
             || JsonCaseUtil.hasIgnoreCase(obj, "modrinth_versionid")
             || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_projectid")
             || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_fileid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "identifier")
             || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
             || JsonCaseUtil.hasIgnoreCase(obj, "file_name")
             || JsonCaseUtil.hasIgnoreCase(obj, "type")
@@ -643,6 +649,16 @@ public final class DlcRemoteLoader {
             || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
             || JsonCaseUtil.hasIgnoreCase(obj, "conflicts")
             || JsonCaseUtil.hasIgnoreCase(obj, "alarm");
+    }
+
+    private static boolean needsKeyMigration(JsonObject obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (JsonCaseUtil.hasIgnoreCase(obj, "dlc_name") || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")) {
+            return true;
+        }
+        return !JsonCaseUtil.hasIgnoreCase(obj, "file_name") || !JsonCaseUtil.hasIgnoreCase(obj, "identifier");
     }
 
     private static String getString(JsonObject obj, String key) {

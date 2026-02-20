@@ -44,7 +44,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     private ButtonGeneric saveButton;
     private ButtonGeneric cancelButton;
     private ButtonGeneric checkUpdateButton;
-    private static final String[] TITLE_ANCHOR_VALUES = new String[] {
+    private static final String[] ANCHOR_VALUES_WITH_AUTO = new String[] {
             "auto",
             "top_left",
             "top",
@@ -55,6 +55,22 @@ public class DlcConfigScreen extends GuiModConfigs {
             "bottom_left",
             "bottom",
             "bottom_right"
+    };
+    private static final String[] ANCHOR_VALUES = new String[] {
+            "top_left",
+            "top",
+            "top_right",
+            "left",
+            "center",
+            "right",
+            "bottom_left",
+            "bottom",
+            "bottom_right"
+    };
+    private static final String[] NOTICE_DISPLAY_MODE_VALUES = new String[] {
+            "manager_button",
+            "main_menu_button",
+            "main_menu_panel"
     };
 
     public DlcConfigScreen(Screen parent) {
@@ -191,8 +207,56 @@ public class DlcConfigScreen extends GuiModConfigs {
         this.mc.setScreen(new DlcConfigScreen(this.getParent(), tab));
     }
 
-    private static boolean isTitleAnchorConfig(IConfigBase config) {
-        return config != null && "titleAnchor".equals(config.getName());
+    private static boolean isAnchorConfig(IConfigBase config) {
+        if (config == null) {
+            return false;
+        }
+        String name = config.getName();
+        return "titleAnchor".equals(name)
+            || "titleUpdateAnchor".equals(name)
+            || "noticeButtonAnchor".equals(name)
+            || "noticePanelAnchor".equals(name);
+    }
+
+    private static String[] anchorValuesForConfig(String configName) {
+        if ("titleAnchor".equals(configName) || "titleUpdateAnchor".equals(configName)) {
+            return ANCHOR_VALUES_WITH_AUTO;
+        }
+        return ANCHOR_VALUES;
+    }
+
+    private static boolean isNoticeDisplayModeConfig(IConfigBase config) {
+        return config != null && "noticeDisplayMode".equals(config.getName());
+    }
+
+    private static String normalizeNoticeDisplayMode(String value) {
+        if (value == null || value.isBlank()) {
+            return NOTICE_DISPLAY_MODE_VALUES[0];
+        }
+        String normalized = value.trim().toLowerCase().replace(' ', '_').replace('-', '_');
+        for (String option : NOTICE_DISPLAY_MODE_VALUES) {
+            if (option.equals(normalized)) {
+                return option;
+            }
+        }
+        return NOTICE_DISPLAY_MODE_VALUES[0];
+    }
+
+    private static String nextNoticeDisplayMode(String value) {
+        String normalized = normalizeNoticeDisplayMode(value);
+        for (int i = 0; i < NOTICE_DISPLAY_MODE_VALUES.length; i++) {
+            if (NOTICE_DISPLAY_MODE_VALUES[i].equals(normalized)) {
+                return NOTICE_DISPLAY_MODE_VALUES[(i + 1) % NOTICE_DISPLAY_MODE_VALUES.length];
+            }
+        }
+        return NOTICE_DISPLAY_MODE_VALUES[0];
+    }
+
+    private static String noticeDisplayModeLabel(String value) {
+        String normalized = normalizeNoticeDisplayMode(value);
+        String key = "dlc_manager.config.ui.noticeDisplayMode." + normalized;
+        String label = StringUtils.translate(key);
+        return label.equals(key) ? normalized : label;
     }
 
     private static String normalizeAnchorValue(String value) {
@@ -213,25 +277,39 @@ public class DlcConfigScreen extends GuiModConfigs {
         };
     }
 
-    private static int indexOfAnchorValue(String value) {
+    private static int indexOfAnchorValue(String value, String[] values) {
         String normalized = normalizeAnchorValue(value);
-        for (int i = 0; i < TITLE_ANCHOR_VALUES.length; i++) {
-            if (TITLE_ANCHOR_VALUES[i].equals(normalized)) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(normalized)) {
                 return i;
             }
         }
         return 0;
     }
 
-    private static String nextAnchorValue(String value) {
-        int index = indexOfAnchorValue(value);
-        int nextIndex = (index + 1) % TITLE_ANCHOR_VALUES.length;
-        return TITLE_ANCHOR_VALUES[nextIndex];
+    private static String nextAnchorValue(String configName, String value) {
+        String[] values = anchorValuesForConfig(configName);
+        int index = indexOfAnchorValue(value, values);
+        int nextIndex = (index + 1) % values.length;
+        return values[nextIndex];
     }
 
-    private static String anchorDisplay(String value) {
+    private static String anchorTranslationPrefix(String configName) {
+        if ("noticeButtonAnchor".equals(configName)) {
+            return "dlc_manager.config.ui.noticeButtonAnchor.";
+        }
+        if ("noticePanelAnchor".equals(configName)) {
+            return "dlc_manager.config.ui.noticePanelAnchor.";
+        }
+        if ("titleUpdateAnchor".equals(configName)) {
+            return "dlc_manager.config.ui.titleUpdateAnchor.";
+        }
+        return "dlc_manager.config.ui.titleAnchor.";
+    }
+
+    private static String anchorDisplay(String configName, String value) {
         String normalized = normalizeAnchorValue(value);
-        String key = "dlc_manager.config.ui.titleAnchor." + normalized;
+        String key = anchorTranslationPrefix(configName) + normalized;
         String label = StringUtils.translate(key);
         return label.equals(key) ? normalized : label;
     }
@@ -343,8 +421,15 @@ public class DlcConfigScreen extends GuiModConfigs {
 
         @Override
         protected void addConfigTextFieldEntry(int x, int y, int resetButtonX, int width, int height, IConfigValue config) {
-            if (isTitleAnchorConfig(config)) {
-                ButtonGeneric anchorButton = new ButtonGeneric(x, y, width, height, anchorDisplay(config.getStringValue()));
+            if (isNoticeDisplayModeConfig(config)) {
+                ButtonGeneric modeButton = new ButtonGeneric(x, y, width, height, noticeDisplayModeLabel(config.getStringValue()));
+                ButtonGeneric resetButton = createResetButton(resetButtonX, y, config);
+                this.addButton(modeButton, new NoticeDisplayModeCycleListener(config, modeButton, resetButton));
+                this.addButton(resetButton, new ConfirmResetListenerGeneric(new NoticeDisplayModeResetListener(config, modeButton, resetButton)));
+                return;
+            }
+            if (isAnchorConfig(config)) {
+                ButtonGeneric anchorButton = new ButtonGeneric(x, y, width, height, anchorDisplay(config.getName(), config.getStringValue()));
                 ButtonGeneric resetButton = createResetButton(resetButtonX, y, config);
                 this.addButton(anchorButton, new AnchorCycleListener(config, anchorButton, resetButton));
                 this.addButton(resetButton, new ConfirmResetListenerGeneric(new AnchorResetListener(config, anchorButton, resetButton)));
@@ -446,6 +531,45 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
     }
 
+    private static class NoticeDisplayModeCycleListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric modeButton;
+        private final ButtonGeneric resetButton;
+
+        private NoticeDisplayModeCycleListener(IConfigValue config, ButtonGeneric modeButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.modeButton = modeButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            String nextValue = nextNoticeDisplayMode(config.getStringValue());
+            config.setValueFromString(nextValue);
+            modeButton.setDisplayString(noticeDisplayModeLabel(nextValue));
+            resetButton.setEnabled(config.isModified());
+        }
+    }
+
+    private static class NoticeDisplayModeResetListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric modeButton;
+        private final ButtonGeneric resetButton;
+
+        private NoticeDisplayModeResetListener(IConfigValue config, ButtonGeneric modeButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.modeButton = modeButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            config.resetToDefault();
+            modeButton.setDisplayString(noticeDisplayModeLabel(config.getStringValue()));
+            resetButton.setEnabled(config.isModified());
+        }
+    }
+
     private static class AnchorCycleListener implements IButtonActionListener {
         private final IConfigValue config;
         private final ButtonGeneric anchorButton;
@@ -459,9 +583,9 @@ public class DlcConfigScreen extends GuiModConfigs {
 
         @Override
         public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
-            String nextValue = nextAnchorValue(config.getStringValue());
+            String nextValue = nextAnchorValue(config.getName(), config.getStringValue());
             config.setValueFromString(nextValue);
-            anchorButton.setDisplayString(anchorDisplay(nextValue));
+            anchorButton.setDisplayString(anchorDisplay(config.getName(), nextValue));
             resetButton.setEnabled(config.isModified());
         }
     }
@@ -480,7 +604,7 @@ public class DlcConfigScreen extends GuiModConfigs {
         @Override
         public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
             config.resetToDefault();
-            anchorButton.setDisplayString(anchorDisplay(config.getStringValue()));
+            anchorButton.setDisplayString(anchorDisplay(config.getName(), config.getStringValue()));
             resetButton.setEnabled(config.isModified());
         }
     }

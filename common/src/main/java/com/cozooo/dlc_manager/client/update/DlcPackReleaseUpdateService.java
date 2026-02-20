@@ -187,6 +187,49 @@ public final class DlcPackReleaseUpdateService {
         if (side == null || result.repoUrl.isBlank()) {
             return result;
         }
+        List<String> repoUrls = splitRepoUrls(result.repoUrl);
+        String lastError = null;
+        CheckResult firstSuccessfulNoUpdate = null;
+        boolean hasValidRepo = false;
+        for (String repoUrl : repoUrls) {
+            CheckResult single = checkSingleRepo(result, repoUrl, side);
+            if (single == null) {
+                continue;
+            }
+            if (single.error != null && !single.error.isBlank()) {
+                lastError = single.error;
+                continue;
+            }
+            hasValidRepo = true;
+            if (single.hasUpdate()) {
+                return single;
+            }
+            if (firstSuccessfulNoUpdate == null) {
+                firstSuccessfulNoUpdate = single;
+            }
+        }
+        if (firstSuccessfulNoUpdate != null) {
+            return firstSuccessfulNoUpdate;
+        }
+        if (!hasValidRepo) {
+            result.error = lastError == null || lastError.isBlank() ? "invalid_repo_url" : lastError;
+        } else if (lastError != null && !lastError.isBlank()) {
+            result.error = lastError;
+        }
+        return result;
+    }
+
+    private static CheckResult checkSingleRepo(CheckResult base, String repoUrl, Side side) {
+        if (base == null || repoUrl == null || repoUrl.isBlank()) {
+            return null;
+        }
+        CheckResult result = new CheckResult();
+        result.modpackUrl = base.modpackUrl;
+        result.repoUrl = normalizeString(repoUrl);
+        result.currentBase = safeVersion(base.currentBase);
+        result.currentDlc = safeVersion(base.currentDlc);
+        result.targetBase = result.currentBase;
+        result.targetDlc = result.currentDlc;
         RepoCoordinates repo = parseRepoCoordinates(result.repoUrl);
         if (repo == null) {
             result.error = "invalid_repo_url";
@@ -260,6 +303,23 @@ public final class DlcPackReleaseUpdateService {
             result.targetDlc = safeVersion(tail.newDlc);
         }
         return result;
+    }
+
+    private static List<String> splitRepoUrls(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        List<String> urls = new ArrayList<>();
+        for (String part : raw.split(",")) {
+            if (part == null) {
+                continue;
+            }
+            String trimmed = part.trim();
+            if (!trimmed.isBlank()) {
+                urls.add(trimmed);
+            }
+        }
+        return urls;
     }
 
     public static void skipPromptForUpdate(CheckResult result, Side side) {

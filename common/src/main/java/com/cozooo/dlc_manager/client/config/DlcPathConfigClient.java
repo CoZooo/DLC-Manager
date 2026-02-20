@@ -23,11 +23,21 @@ public final class DlcPathConfigClient {
     private static final ConfigBoolean SERVER_SUPPORT_CLIENT = new DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
     private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
     private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
+    private static final ConfigString NOTICE_DISPLAY_MODE = new DlcConfigString("noticeDisplayMode", DlcPathConfig.DEFAULT_NOTICE_DISPLAY_MODE, "dlc_manager.config.comment.ui.noticeDisplayMode", "dlc_manager.config.ui.noticeDisplayMode");
+    private static final ConfigString NOTICE_BUTTON_ANCHOR = new DlcConfigString("noticeButtonAnchor", DlcPathConfig.DEFAULT_NOTICE_BUTTON_ANCHOR, "dlc_manager.config.comment.ui.noticeButtonAnchor", "dlc_manager.config.ui.noticeButtonAnchor");
+    private static final ConfigInteger NOTICE_BUTTON_OFFSET_X = new DlcConfigInteger("noticeButtonOffsetX", DlcPathConfig.DEFAULT_NOTICE_BUTTON_OFFSET_X, -DlcPathConfig.MAX_NOTICE_OFFSET, DlcPathConfig.MAX_NOTICE_OFFSET, "dlc_manager.config.comment.ui.noticeButtonOffsetX", "dlc_manager.config.ui.noticeButtonOffsetX");
+    private static final ConfigInteger NOTICE_BUTTON_OFFSET_Y = new DlcConfigInteger("noticeButtonOffsetY", DlcPathConfig.DEFAULT_NOTICE_BUTTON_OFFSET_Y, -DlcPathConfig.MAX_NOTICE_OFFSET, DlcPathConfig.MAX_NOTICE_OFFSET, "dlc_manager.config.comment.ui.noticeButtonOffsetY", "dlc_manager.config.ui.noticeButtonOffsetY");
+    private static final ConfigString NOTICE_PANEL_ANCHOR = new DlcConfigString("noticePanelAnchor", DlcPathConfig.DEFAULT_NOTICE_PANEL_ANCHOR, "dlc_manager.config.comment.ui.noticePanelAnchor", "dlc_manager.config.ui.noticePanelAnchor");
+    private static final ConfigInteger NOTICE_PANEL_OFFSET_X = new DlcConfigInteger("noticePanelOffsetX", DlcPathConfig.DEFAULT_NOTICE_PANEL_OFFSET_X, -DlcPathConfig.MAX_NOTICE_OFFSET, DlcPathConfig.MAX_NOTICE_OFFSET, "dlc_manager.config.comment.ui.noticePanelOffsetX", "dlc_manager.config.ui.noticePanelOffsetX");
+    private static final ConfigInteger NOTICE_PANEL_OFFSET_Y = new DlcConfigInteger("noticePanelOffsetY", DlcPathConfig.DEFAULT_NOTICE_PANEL_OFFSET_Y, -DlcPathConfig.MAX_NOTICE_OFFSET, DlcPathConfig.MAX_NOTICE_OFFSET, "dlc_manager.config.comment.ui.noticePanelOffsetY", "dlc_manager.config.ui.noticePanelOffsetY");
+    private static final ConfigInteger NOTICE_PANEL_WIDTH = new DlcConfigInteger("noticePanelWidth", DlcPathConfig.DEFAULT_NOTICE_PANEL_WIDTH, 0, DlcPathConfig.MAX_NOTICE_PANEL_SIZE, "dlc_manager.config.comment.ui.noticePanelWidth", "dlc_manager.config.ui.noticePanelWidth");
+    private static final ConfigInteger NOTICE_PANEL_HEIGHT = new DlcConfigInteger("noticePanelHeight", DlcPathConfig.DEFAULT_NOTICE_PANEL_HEIGHT, 0, DlcPathConfig.MAX_NOTICE_PANEL_SIZE, "dlc_manager.config.comment.ui.noticePanelHeight", "dlc_manager.config.ui.noticePanelHeight");
     private static final ConfigString TITLE_ANCHOR = new DlcConfigString("titleAnchor", DlcPathConfig.DEFAULT_TITLE_ANCHOR, "dlc_manager.config.comment.ui.titleAnchor", "dlc_manager.config.ui.titleAnchor");
     private static final ConfigInteger TITLE_OFFSET_X = new DlcConfigInteger("titleOffsetX", DlcPathConfig.DEFAULT_TITLE_OFFSET_X, -10000, 10000, "dlc_manager.config.comment.ui.titleOffsetX", "dlc_manager.config.ui.titleOffsetX");
     private static final ConfigInteger TITLE_OFFSET_Y = new DlcConfigInteger("titleOffsetY", DlcPathConfig.DEFAULT_TITLE_OFFSET_Y, -10000, 10000, "dlc_manager.config.comment.ui.titleOffsetY", "dlc_manager.config.ui.titleOffsetY");
-    private static final ConfigInteger TITLE_WIDTH = new DlcConfigInteger("titleWidth", DlcPathConfig.DEFAULT_TITLE_WIDTH, 0, 10000, "dlc_manager.config.comment.ui.titleWidth", "dlc_manager.config.ui.titleWidth");
-    private static final ConfigInteger TITLE_HEIGHT = new DlcConfigInteger("titleHeight", DlcPathConfig.DEFAULT_TITLE_HEIGHT, 0, 10000, "dlc_manager.config.comment.ui.titleHeight", "dlc_manager.config.ui.titleHeight");
+    private static final ConfigString TITLE_UPDATE_ANCHOR = new DlcConfigString("titleUpdateAnchor", DlcPathConfig.DEFAULT_TITLE_UPDATE_ANCHOR, "dlc_manager.config.comment.ui.titleUpdateAnchor", "dlc_manager.config.ui.titleUpdateAnchor");
+    private static final ConfigInteger TITLE_UPDATE_OFFSET_X = new DlcConfigInteger("titleUpdateOffsetX", DlcPathConfig.DEFAULT_TITLE_UPDATE_OFFSET_X, -10000, 10000, "dlc_manager.config.comment.ui.titleUpdateOffsetX", "dlc_manager.config.ui.titleUpdateOffsetX");
+    private static final ConfigInteger TITLE_UPDATE_OFFSET_Y = new DlcConfigInteger("titleUpdateOffsetY", DlcPathConfig.DEFAULT_TITLE_UPDATE_OFFSET_Y, -10000, 10000, "dlc_manager.config.comment.ui.titleUpdateOffsetY", "dlc_manager.config.ui.titleUpdateOffsetY");
 
     private static final ConfigInteger MAX_CONCURRENT_DOWNLOADS = new DlcConfigInteger("maxConcurrentDownloads", DlcPathConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads");
     private static final ConfigInteger MAX_SEGMENTS_PER_FILE = new DlcConfigInteger("maxSegmentsPerFile", DlcPathConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile");
@@ -53,11 +63,21 @@ public final class DlcPathConfigClient {
             SERVER_SUPPORT_CLIENT,
             MODPACK_URL,
             UPDATE_GITHUB_REPO,
+            NOTICE_DISPLAY_MODE,
+            NOTICE_BUTTON_ANCHOR,
+            NOTICE_BUTTON_OFFSET_X,
+            NOTICE_BUTTON_OFFSET_Y,
+            NOTICE_PANEL_ANCHOR,
+            NOTICE_PANEL_OFFSET_X,
+            NOTICE_PANEL_OFFSET_Y,
+            NOTICE_PANEL_WIDTH,
+            NOTICE_PANEL_HEIGHT,
             TITLE_ANCHOR,
             TITLE_OFFSET_X,
             TITLE_OFFSET_Y,
-            TITLE_WIDTH,
-            TITLE_HEIGHT
+            TITLE_UPDATE_ANCHOR,
+            TITLE_UPDATE_OFFSET_X,
+            TITLE_UPDATE_OFFSET_Y
     );
 
     private static final List<IConfigBase> DOWNLOAD_CONFIGS = List.of(
@@ -99,11 +119,21 @@ public final class DlcPathConfigClient {
         SERVER_SUPPORT_CLIENT.setBooleanValue(DlcPathConfig.isServerSupportOn());
         MODPACK_URL.setValueFromString(DlcPathConfig.getModpackUrl());
         UPDATE_GITHUB_REPO.setValueFromString(DlcPathConfig.getUpdateGithubRepoUrl());
+        NOTICE_DISPLAY_MODE.setValueFromString(DlcPathConfig.getNoticeDisplayMode());
+        NOTICE_BUTTON_ANCHOR.setValueFromString(DlcPathConfig.getNoticeButtonAnchor());
+        NOTICE_BUTTON_OFFSET_X.setIntegerValue(DlcPathConfig.getNoticeButtonOffsetX());
+        NOTICE_BUTTON_OFFSET_Y.setIntegerValue(DlcPathConfig.getNoticeButtonOffsetY());
+        NOTICE_PANEL_ANCHOR.setValueFromString(DlcPathConfig.getNoticePanelAnchor());
+        NOTICE_PANEL_OFFSET_X.setIntegerValue(DlcPathConfig.getNoticePanelOffsetX());
+        NOTICE_PANEL_OFFSET_Y.setIntegerValue(DlcPathConfig.getNoticePanelOffsetY());
+        NOTICE_PANEL_WIDTH.setIntegerValue(DlcPathConfig.getNoticePanelWidth());
+        NOTICE_PANEL_HEIGHT.setIntegerValue(DlcPathConfig.getNoticePanelHeight());
         TITLE_ANCHOR.setValueFromString(DlcPathConfig.getTitleAnchor());
         TITLE_OFFSET_X.setIntegerValue(DlcPathConfig.getTitleOffsetX());
         TITLE_OFFSET_Y.setIntegerValue(DlcPathConfig.getTitleOffsetY());
-        TITLE_WIDTH.setIntegerValue(DlcPathConfig.getTitleWidth());
-        TITLE_HEIGHT.setIntegerValue(DlcPathConfig.getTitleHeight());
+        TITLE_UPDATE_ANCHOR.setValueFromString(DlcPathConfig.getTitleUpdateAnchor());
+        TITLE_UPDATE_OFFSET_X.setIntegerValue(DlcPathConfig.getTitleUpdateOffsetX());
+        TITLE_UPDATE_OFFSET_Y.setIntegerValue(DlcPathConfig.getTitleUpdateOffsetY());
 
         MAX_CONCURRENT_DOWNLOADS.setIntegerValue(DlcPathConfig.getMaxConcurrentDownloads());
         MAX_SEGMENTS_PER_FILE.setIntegerValue(DlcPathConfig.getMaxSegmentsPerFile());
@@ -128,11 +158,21 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());
         DlcPathConfig.setModpackUrl(MODPACK_URL.getStringValue());
         DlcPathConfig.setUpdateGithubRepoUrl(UPDATE_GITHUB_REPO.getStringValue());
+        DlcPathConfig.setNoticeDisplayMode(NOTICE_DISPLAY_MODE.getStringValue());
+        DlcPathConfig.setNoticeButtonAnchor(NOTICE_BUTTON_ANCHOR.getStringValue());
+        DlcPathConfig.setNoticeButtonOffsetX(NOTICE_BUTTON_OFFSET_X.getIntegerValue());
+        DlcPathConfig.setNoticeButtonOffsetY(NOTICE_BUTTON_OFFSET_Y.getIntegerValue());
+        DlcPathConfig.setNoticePanelAnchor(NOTICE_PANEL_ANCHOR.getStringValue());
+        DlcPathConfig.setNoticePanelOffsetX(NOTICE_PANEL_OFFSET_X.getIntegerValue());
+        DlcPathConfig.setNoticePanelOffsetY(NOTICE_PANEL_OFFSET_Y.getIntegerValue());
+        DlcPathConfig.setNoticePanelWidth(NOTICE_PANEL_WIDTH.getIntegerValue());
+        DlcPathConfig.setNoticePanelHeight(NOTICE_PANEL_HEIGHT.getIntegerValue());
         DlcPathConfig.setTitleAnchor(TITLE_ANCHOR.getStringValue());
         DlcPathConfig.setTitleOffsetX(TITLE_OFFSET_X.getIntegerValue());
         DlcPathConfig.setTitleOffsetY(TITLE_OFFSET_Y.getIntegerValue());
-        DlcPathConfig.setTitleWidth(TITLE_WIDTH.getIntegerValue());
-        DlcPathConfig.setTitleHeight(TITLE_HEIGHT.getIntegerValue());
+        DlcPathConfig.setTitleUpdateAnchor(TITLE_UPDATE_ANCHOR.getStringValue());
+        DlcPathConfig.setTitleUpdateOffsetX(TITLE_UPDATE_OFFSET_X.getIntegerValue());
+        DlcPathConfig.setTitleUpdateOffsetY(TITLE_UPDATE_OFFSET_Y.getIntegerValue());
 
         DlcPathConfig.setMaxConcurrentDownloads(MAX_CONCURRENT_DOWNLOADS.getIntegerValue());
         DlcPathConfig.setMaxSegmentsPerFile(MAX_SEGMENTS_PER_FILE.getIntegerValue());
