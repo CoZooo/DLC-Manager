@@ -93,10 +93,10 @@ public class DlcConfigScreen extends GuiModConfigs {
         int gap = 4;
         int listY = y + height + 10;
         this.setListPosition(10, listY);
-        this.maxLabelWidth = Math.min(150, this.width / 5);
         int browserWidth = this.getBrowserWidth();
+        this.maxLabelWidth = computeDynamicLabelWidth(this.currentTab, browserWidth);
         int available = browserWidth - this.maxLabelWidth - 80;
-        int configWidth = Math.max(110, Math.min(260, available));
+        int configWidth = Math.max(110, Math.min(320, available));
         this.setConfigWidth(configWidth);
         super.initGui();
         x = addTabButton(Tab.PATHS, x, y, height);
@@ -105,19 +105,24 @@ public class DlcConfigScreen extends GuiModConfigs {
         x += gap;
         addTabButton(Tab.DOWNLOADS, x, y, height);
 
-        int buttonWidth = 80;
+        String checkLabel = StringUtils.translate("dlc_manager.config.check_update");
+        String saveLabel = StringUtils.translate("dlc_manager.config.save");
+        String cancelLabel = StringUtils.translate("dlc_manager.config.cancel");
+        int checkWidth = Math.max(110, this.getStringWidth(checkLabel) + 16);
+        int saveWidth = Math.max(80, this.getStringWidth(saveLabel) + 16);
+        int cancelWidth = Math.max(80, this.getStringWidth(cancelLabel) + 16);
         int buttonHeight = 20;
         int buttonY = this.height - 28;
         int centerX = this.width / 2;
         int spacing = 10;
-        int totalWidth = buttonWidth * 3 + spacing * 2;
+        int totalWidth = checkWidth + saveWidth + cancelWidth + spacing * 2;
         int startX = centerX - totalWidth / 2;
         int checkX = startX;
-        int saveX = startX + buttonWidth + spacing;
-        int cancelX = saveX + buttonWidth + spacing;
-        this.checkUpdateButton = new ButtonGeneric(checkX, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.config.check_update"));
-        this.saveButton = new ButtonGeneric(saveX, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.config.save"));
-        this.cancelButton = new ButtonGeneric(cancelX, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.config.cancel"));
+        int saveX = startX + checkWidth + spacing;
+        int cancelX = saveX + saveWidth + spacing;
+        this.checkUpdateButton = new ButtonGeneric(checkX, buttonY, checkWidth, buttonHeight, checkLabel);
+        this.saveButton = new ButtonGeneric(saveX, buttonY, saveWidth, buttonHeight, saveLabel);
+        this.cancelButton = new ButtonGeneric(cancelX, buttonY, cancelWidth, buttonHeight, cancelLabel);
         this.addButton(this.checkUpdateButton, new CheckUpdateButtonListener());
         this.addButton(this.saveButton, new SaveButtonListener());
         this.addButton(this.cancelButton, new CancelButtonListener());
@@ -179,12 +184,33 @@ public class DlcConfigScreen extends GuiModConfigs {
 
     private static List<ConfigOptionWrapper> buildOptions(Tab tab) {
         DlcPathConfigClient.syncFromConfig();
-        List<IConfigBase> configs = switch (tab) {
+        List<IConfigBase> configs = getConfigsForTab(tab);
+        return new ArrayList<>(ConfigOptionWrapper.createFor(configs));
+    }
+
+    private static List<IConfigBase> getConfigsForTab(Tab tab) {
+        return switch (tab) {
             case UI -> DlcPathConfigClient.getUiConfigs();
             case DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs();
             case PATHS -> DlcPathConfigClient.getPathConfigs();
         };
-        return new ArrayList<>(ConfigOptionWrapper.createFor(configs));
+    }
+
+    private int computeDynamicLabelWidth(Tab tab, int browserWidth) {
+        int longest = 0;
+        for (IConfigBase config : getConfigsForTab(tab)) {
+            if (config == null) {
+                continue;
+            }
+            String label = config.getConfigGuiDisplayName();
+            if (label == null || label.isBlank()) {
+                label = config.getName();
+            }
+            longest = Math.max(longest, this.getStringWidth(label));
+        }
+        int desired = longest + 14;
+        int maxByLayout = Math.max(60, browserWidth - 80 - 110);
+        return Math.max(60, Math.min(desired, maxByLayout));
     }
 
     private class TabButtonListener implements IButtonActionListener {

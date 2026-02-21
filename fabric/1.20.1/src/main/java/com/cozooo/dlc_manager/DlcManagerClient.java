@@ -394,7 +394,6 @@ public class DlcManagerClient implements ClientModInitializer {
             int halfWidth = Math.max(40, (rowW - gap) / 2);
             int iconGap = 4;
             int iconWidth = 20;
-            boolean autoUpdatePos = DlcPathConfig.isTitleUpdateAnchorAuto();
             modsWidget.setX(rowX);
             modsWidget.setY(rowY);
             modsWidget.setWidth(halfWidth);
@@ -402,10 +401,7 @@ public class DlcManagerClient implements ClientModInitializer {
             int dlcX = rowX + halfWidth + gap;
             int dlcWidth = halfWidth;
             if (updateWidget != null) {
-                if (autoUpdatePos) {
-                    dlcWidth = Math.max(40, halfWidth - iconWidth - iconGap);
-                }
-                int defaultUpdateX = autoUpdatePos ? dlcX + dlcWidth + iconGap : dlcX + halfWidth + iconGap;
+                int defaultUpdateX = dlcX + dlcWidth + iconGap;
                 int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);
@@ -422,13 +418,9 @@ public class DlcManagerClient implements ClientModInitializer {
         } else {
             int iconGap = 4;
             int iconWidth = 20;
-            boolean autoUpdatePos = DlcPathConfig.isTitleUpdateAnchorAuto();
             int dlcWidth = rowW;
             if (updateWidget != null) {
-                if (autoUpdatePos) {
-                    dlcWidth = Math.max(40, rowW - iconWidth - iconGap);
-                }
-                int defaultUpdateX = autoUpdatePos ? rowX + dlcWidth + iconGap : rowX + rowW + iconGap;
+                int defaultUpdateX = rowX + dlcWidth + iconGap;
                 int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);

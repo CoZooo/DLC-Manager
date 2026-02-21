@@ -100,14 +100,13 @@ public class DlcServerRconQuickScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 16, 0xFFFFFF);
         if (statusText != null && !statusText.isBlank()) {
             guiGraphics.drawCenteredString(this.font, statusText, this.width / 2, this.height - 52, 0xC8C8C8);
         }
         drawSeparators(guiGraphics);
         drawScrollbar(guiGraphics);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override

@@ -44,13 +44,12 @@ public class DlcUpdateChangelogScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int y = 20;
         int titleX = (this.width - this.font.width(getTitle())) / 2;
         guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
         y += 18;
         drawLines(guiGraphics, y);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawLines(GuiGraphics guiGraphics, int startY) {

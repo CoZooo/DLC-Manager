@@ -217,7 +217,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -237,7 +237,6 @@ public class DlcServerUpdateManagerScreen extends Screen {
             y += 12;
         }
         drawHistoryList(guiGraphics, y, mouseX, mouseY);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawHistoryList(GuiGraphics guiGraphics, int startY, int mouseX, int mouseY) {

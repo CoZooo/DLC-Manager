@@ -125,7 +125,7 @@ public class DlcRequiredDownloadScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -220,7 +220,6 @@ public class DlcRequiredDownloadScreen extends Screen {
             guiGraphics.drawCenteredString(this.font, errorText, centerX, y, 0xFF6B6B);
         }
 
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -815,14 +814,13 @@ public class DlcRequiredDownloadScreen extends Screen {
 
                 @Override
                 public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-                    this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+                    super.render(guiGraphics, mouseX, mouseY, partialTick);
                     int centerX = this.width / 2;
                     int y = 40;
                     int titleX = (this.width - this.font.width(getTitle())) / 2;
                     guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
                     y += 20;
                     guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.required.restart_prompt"), centerX, y, 0xC8C8C8);
-                    super.render(guiGraphics, mouseX, mouseY, partialTick);
                 }
 
                 @Override

@@ -79,14 +79,13 @@ public class DlcServerEditScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, this.height / 2 - 90, 0xFFFFFF);
         drawFieldLabel(guiGraphics, "dlc_manager.server.name", nameField);
         drawFieldLabel(guiGraphics, "dlc_manager.server.host", hostField);
         drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField);
         drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
         updateSaveButtonState();
     }
 

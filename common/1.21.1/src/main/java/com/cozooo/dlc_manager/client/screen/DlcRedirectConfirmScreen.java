@@ -86,7 +86,7 @@ public class DlcRedirectConfirmScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int y = textTop;
         int centerX = this.width / 2;
         Component header = Component.translatable("dlc_manager.redirect.header").withStyle(net.minecraft.ChatFormatting.BOLD);
@@ -116,6 +116,5 @@ public class DlcRedirectConfirmScreen extends Screen {
                 y += font.lineHeight + 2;
             }
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 }

@@ -36,7 +36,7 @@ public class DlcSingleButtonScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 20, 0xFFFFFF);
         if (lines != null) {
             int y = 50;
@@ -45,7 +45,6 @@ public class DlcSingleButtonScreen extends Screen {
                 y += this.font.lineHeight + 2;
             }
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
 }
