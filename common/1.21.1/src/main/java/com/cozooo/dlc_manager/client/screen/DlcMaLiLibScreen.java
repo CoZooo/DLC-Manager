@@ -657,7 +657,11 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         boolean modReloadNeeded = computeModReloadChanges();
         boolean otherReloadNeeded = computeNonModReloadChanges();
         boolean requiredPending = DlcRequiredRuntimeState.hasPendingChanges();
+        boolean presetChanged = DlcPathConfig.isPresetFuncOn() && hasPresetChanges();
         if (!applyNeeded && !modReloadNeeded && !otherReloadNeeded) {
+            if (presetChanged) {
+                DlcPresetRuntimeState.syncStatusFromRuntime();
+            }
             if (requiredPending) {
                 minecraft.setScreen(new ConfirmScreen(accepted -> {
                     if (accepted) {
@@ -677,9 +681,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         if (applyNeeded) {
             DlcApplier.apply(allItems, applyMode);
             updateResourcePackSelection();
-            if (DlcPathConfig.isPresetFuncOn()) {
-                DlcPresetRuntimeState.syncStatusFromRuntime();
-            }
+        }
+        if (DlcPathConfig.isPresetFuncOn() && (presetChanged || applyNeeded)) {
+            DlcPresetRuntimeState.syncStatusFromRuntime();
         }
 
         if (!modReloadNeeded && !otherReloadNeeded) {
