@@ -402,6 +402,9 @@ public class DlcManagerClient implements ClientModInitializer {
             int dlcWidth = halfWidth;
             if (updateWidget != null) {
                 int defaultUpdateX = dlcX + dlcWidth + iconGap;
+                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                    defaultUpdateX = dlcX - iconGap - iconWidth;
+                }
                 int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);
@@ -421,6 +424,9 @@ public class DlcManagerClient implements ClientModInitializer {
             int dlcWidth = rowW;
             if (updateWidget != null) {
                 int defaultUpdateX = rowX + dlcWidth + iconGap;
+                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                    defaultUpdateX = rowX - iconGap - iconWidth;
+                }
                 int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);

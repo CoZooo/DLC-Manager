@@ -372,6 +372,20 @@ public class DlcPathConfig {
         return anchor == null || anchor.isBlank() || "auto".equalsIgnoreCase(anchor);
     }
 
+    public static boolean shouldPlaceTitleUpdateButtonLeftOfTitle() {
+        if (!isTitleUpdateAnchorAuto()) {
+            return false;
+        }
+        String anchor = getTitleAnchor();
+        if (anchor == null) {
+            return false;
+        }
+        String normalized = anchor.trim().toLowerCase(Locale.ROOT);
+        return "top_right".equals(normalized)
+            || "right".equals(normalized)
+            || "bottom_right".equals(normalized);
+    }
+
     private static int[] computeAnchoredPosition(String anchor, int offsetX, int offsetY,
                                                  int screenWidth, int screenHeight,
                                                  int buttonWidth, int buttonHeight,

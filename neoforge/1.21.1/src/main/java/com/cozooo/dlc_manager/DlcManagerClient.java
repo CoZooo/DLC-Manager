@@ -128,6 +128,9 @@ public class DlcManagerClient {
             event.addListener(button);
             int iconSize = Math.min(20, h);
             int iconX = button.getX() + button.getWidth() + 4;
+            if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                iconX = button.getX() - iconSize - 4;
+            }
             int iconY = button.getY();
             int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconSize, h, iconX, iconY);
             Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"), btn -> DlcUpdateClient.openUpdateManager(screen))
