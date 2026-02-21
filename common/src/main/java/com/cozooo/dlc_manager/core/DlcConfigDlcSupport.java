@@ -17,7 +17,7 @@ public final class DlcConfigDlcSupport {
     public static Path backupRoot() {
         List<Path> roots = DlcPathConfig.getDlcRoots();
         Path base = roots.isEmpty() ? DlcPaths.gameDir() : roots.get(0);
-        return base.resolve("update_tmp").resolve("config_backup");
+        return DlcTmpPaths.resolve(base, "config_backup");
     }
 
     public static Path backupPathForTarget(Path target) {
@@ -51,4 +51,3 @@ public final class DlcConfigDlcSupport {
         return cleaned.isBlank() ? "target" : cleaned;
     }
 }
-

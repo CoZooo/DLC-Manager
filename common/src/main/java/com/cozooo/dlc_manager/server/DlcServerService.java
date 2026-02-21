@@ -17,6 +17,7 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcScanner;
+import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -738,7 +739,7 @@ public class DlcServerService {
             });
         }
         Path dlcRoot = DlcPathConfig.getDlcRoot();
-        Path tempDir = dlcRoot.resolve("update_tmp").resolve("server_ops");
+        Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");
         try {
             Files.createDirectories(tempDir);
         } catch (IOException ignored) {
@@ -927,7 +928,7 @@ public class DlcServerService {
             return null;
         }
         Path dlcRoot = DlcPathConfig.getDlcRoot();
-        Path tempDir = dlcRoot.resolve("update_tmp").resolve("server_ops");
+        Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");
         try {
             Files.createDirectories(tempDir);
         } catch (IOException ignored) {
@@ -1001,7 +1002,7 @@ public class DlcServerService {
         Path sendFile = target;
         Path tempZip = null;
         if (isDir) {
-            Path tempDir = dlcRoot.resolve("update_tmp").resolve("server_ops");
+            Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");
             try {
                 Files.createDirectories(tempDir);
             } catch (IOException ignored) {

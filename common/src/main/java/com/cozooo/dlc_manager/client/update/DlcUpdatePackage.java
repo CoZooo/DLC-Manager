@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -98,7 +99,7 @@ public class DlcUpdatePackage {
         if (dlcRoot == null) {
             return null;
         }
-        Path stagingBase = dlcRoot.resolve("update_tmp").resolve("_staging");
+        Path stagingBase = DlcTmpPaths.resolve(dlcRoot, "_staging");
         String safeName = name == null ? "update" : name.replaceAll("[^a-zA-Z0-9._-]", "_");
         Path target = stagingBase.resolve(safeName + "-" + System.currentTimeMillis());
         try {

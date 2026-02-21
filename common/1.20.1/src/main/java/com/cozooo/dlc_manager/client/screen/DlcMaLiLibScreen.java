@@ -232,7 +232,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private void addNoticeButton() {
-        if (!DlcNoticeManager.isNoticeEnabled()) {
+        if (!DlcPathConfig.isNoticeDisplayModeManagerButton() || !DlcNoticeManager.isNoticeEnabled()) {
             noticeButton = null;
             return;
         }

@@ -296,10 +296,10 @@ public class DlcApplier {
         }
         Path backupRoot = null;
         if (!DlcPathConfig.getDlcRoots().isEmpty()) {
-            backupRoot = DlcPathConfig.getDlcRoots().get(0).resolve("update_tmp").resolve("backup");
+            backupRoot = DlcTmpPaths.resolve(DlcPathConfig.getDlcRoots().get(0), "backup");
         }
         if (backupRoot == null) {
-            backupRoot = DlcPaths.gameDir().resolve("update_tmp").resolve("backup");
+            backupRoot = DlcTmpPaths.resolve(DlcPaths.gameDir(), "backup");
         }
         try {
             Files.createDirectories(backupRoot);

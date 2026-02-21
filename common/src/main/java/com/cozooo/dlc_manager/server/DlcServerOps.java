@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -21,7 +22,7 @@ public final class DlcServerOps {
     public static ServerOpContext begin(Path dlcRoot, Path gameDir, String name) {
         String stamp = LocalDateTime.now().format(STAMP_FORMAT);
         String safeName = name == null || name.isBlank() ? "op" : name.replaceAll("[^a-zA-Z0-9_-]", "_");
-        Path root = dlcRoot.resolve("update_tmp").resolve("server_ops").resolve(stamp + "_" + safeName);
+        Path root = DlcTmpPaths.resolve(dlcRoot, "server_ops", stamp + "_" + safeName);
         Path backup = root.resolve("backup");
         Path logPath = root.resolve("log.txt");
         try {

@@ -118,14 +118,6 @@ public class DlcManagerClient {
                     }
                 }
             }
-            int desiredW = DlcPathConfig.getTitleWidth();
-            int desiredH = DlcPathConfig.getTitleHeight();
-            if (desiredW > 0) {
-                w = desiredW;
-            }
-            if (desiredH > 0) {
-                h = desiredH;
-            }
             button.setWidth(w);
             button.setHeight(h);
             int[] pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, w, h, x, y);
@@ -137,13 +129,96 @@ public class DlcManagerClient {
             int iconSize = Math.min(20, h);
             int iconX = button.getX() + button.getWidth() + 4;
             int iconY = button.getY();
+            int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconSize, h, iconX, iconY);
             Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"), btn -> DlcUpdateClient.openUpdateManager(screen))
-                .bounds(iconX, iconY, iconSize, h)
+                .bounds(updatePos[0], updatePos[1], iconSize, h)
+                .build();
+            int noticeWidth = Math.max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8);
+            int noticeHeight = 20;
+            int noticeDefaultX = screen.width - noticeWidth - 8;
+            int noticeDefaultY = screen.height - noticeHeight - 8;
+            int[] noticePos = DlcPathConfig.computeNoticeButtonPosition(
+                screen.width, screen.height, noticeWidth, noticeHeight, noticeDefaultX, noticeDefaultY
+            );
+            Button noticeButton = Button.builder(Component.translatable("dlc_manager.notice"),
+                    btn -> DlcClientRuntime.openNoticeFromTitle(screen))
+                .bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight)
                 .build();
             if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()) {
                 event.addListener(updateButton);
             }
+            if (DlcClientRuntime.shouldShowMainMenuNoticeButton()
+                && findButtonByKey(screen, "dlc_manager.notice") == null) {
+                event.addListener(noticeButton);
+            }
             runStartupChecksAsync(screen);
+        }
+
+        @SubscribeEvent
+        public void onTitleScreenRender(ScreenEvent.Render.Post event) {
+            Screen screen = event.getScreen();
+            if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                return;
+            }
+            DlcClientRuntime.renderTitleNoticePanel(screen, event.getGuiGraphics());
+        }
+
+        @SubscribeEvent
+        public void onTitleScreenMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
+            Screen screen = event.getScreen();
+            if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                return;
+            }
+            if (DlcClientRuntime.handleTitleNoticePanelClick(
+                screen, event.getMouseX(), event.getMouseY(), event.getButton()
+            )) {
+                event.setCanceled(true);
+            }
+        }
+
+        @SubscribeEvent
+        public void onTitleScreenMouseReleased(ScreenEvent.MouseButtonReleased.Pre event) {
+            Screen screen = event.getScreen();
+            if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                return;
+            }
+            double mouseX = readEventDouble(event, "getMouseX");
+            double mouseY = readEventDouble(event, "getMouseY");
+            int button = readEventInt(event, "getButton");
+            if (DlcClientRuntime.handleTitleNoticePanelRelease(screen, mouseX, mouseY, button)) {
+                event.setCanceled(true);
+            }
+        }
+
+        @SubscribeEvent
+        public void onTitleScreenMouseDragged(ScreenEvent.MouseDragged.Pre event) {
+            Screen screen = event.getScreen();
+            if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                return;
+            }
+            double mouseX = readEventDouble(event, "getMouseX");
+            double mouseY = readEventDouble(event, "getMouseY");
+            int button = readEventInt(event, "getMouseButton", "getButton");
+            double dragX = readEventDouble(event, "getDragX");
+            double dragY = readEventDouble(event, "getDragY");
+            if (DlcClientRuntime.handleTitleNoticePanelDrag(screen, mouseX, mouseY, button, dragX, dragY)) {
+                event.setCanceled(true);
+            }
+        }
+
+        @SubscribeEvent
+        public void onTitleScreenMouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
+            Screen screen = event.getScreen();
+            if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+                return;
+            }
+            double mouseX = readEventDouble(event, "getMouseX");
+            double mouseY = readEventDouble(event, "getMouseY");
+            double horizontal = readEventDouble(event, "getScrollDeltaX", "getHorizontalScrollDelta");
+            double vertical = readEventDouble(event, "getScrollDeltaY", "getScrollDelta");
+            if (DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, horizontal, vertical)) {
+                event.setCanceled(true);
+            }
         }
 
         @SubscribeEvent
@@ -246,6 +321,32 @@ public class DlcManagerClient {
 
         private static void syncEnabledResourcePacks() {
             DlcClientRuntime.syncEnabledResourcePacks();
+        }
+
+        private static double readEventDouble(Object event, String... methodNames) {
+            for (String methodName : methodNames) {
+                try {
+                    Object value = event.getClass().getMethod(methodName).invoke(event);
+                    if (value instanceof Number number) {
+                        return number.doubleValue();
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                }
+            }
+            return 0.0D;
+        }
+
+        private static int readEventInt(Object event, String... methodNames) {
+            for (String methodName : methodNames) {
+                try {
+                    Object value = event.getClass().getMethod(methodName).invoke(event);
+                    if (value instanceof Number number) {
+                        return number.intValue();
+                    }
+                } catch (ReflectiveOperationException ignored) {
+                }
+            }
+            return 0;
         }
 
         private static boolean canOpenServerManager() {

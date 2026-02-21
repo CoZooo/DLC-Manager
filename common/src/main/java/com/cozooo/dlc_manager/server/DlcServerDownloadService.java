@@ -22,8 +22,10 @@ import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 import java.io.IOException;
@@ -1764,7 +1766,7 @@ public final class DlcServerDownloadService {
             ordered.add("directUrl", directUrl);
         }
         ordered.addProperty("priority", getString(obj, "priority"));
-        ordered.addProperty("dlc_identifier", getString(obj, "dlc_identifier"));
+        ordered.addProperty("identifier", getIdentifier(obj));
         ordered.addProperty("type", getString(obj, "type"));
         String fileName = fileNameOverride == null || fileNameOverride.isBlank()
             ? getString(obj, "file_name")
@@ -1781,13 +1783,13 @@ public final class DlcServerDownloadService {
         if (deps == null || deps.isJsonNull()) {
             ordered.addProperty("dependencies", "");
         } else {
-            ordered.add("dependencies", deps);
+            ordered.add("dependencies", normalizeRelationElement(deps));
         }
         JsonElement conflicts = JsonCaseUtil.getIgnoreCase(obj, "conflicts");
         if (conflicts == null || conflicts.isJsonNull()) {
             ordered.addProperty("conflicts", "");
         } else {
-            ordered.add("conflicts", conflicts);
+            ordered.add("conflicts", normalizeRelationElement(conflicts));
         }
         JsonObject display = new JsonObject();
         JsonElement displayObj = JsonCaseUtil.getIgnoreCase(obj, "DisplayName");
@@ -1932,6 +1934,49 @@ public final class DlcServerDownloadService {
         return element.getAsString();
     }
 
+    private static String getIdentifier(JsonObject obj) {
+        String identifier = getString(obj, "identifier");
+        if (identifier == null || identifier.isBlank()) {
+            identifier = getString(obj, "dlc_identifier");
+        }
+        return identifier;
+    }
+
+    private static JsonElement normalizeRelationElement(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return new JsonPrimitive("");
+        }
+        if (element.isJsonPrimitive()) {
+            return element.deepCopy();
+        }
+        if (element.isJsonArray()) {
+            JsonArray array = new JsonArray();
+            for (JsonElement child : element.getAsJsonArray()) {
+                array.add(normalizeRelationElement(child));
+            }
+            return array;
+        }
+        JsonObject obj = element.getAsJsonObject();
+        JsonObject normalized = new JsonObject();
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            String targetKey = key;
+            if ("dlc_identifier".equalsIgnoreCase(key)) {
+                targetKey = "identifier";
+            } else if ("dlc_name".equalsIgnoreCase(key)) {
+                targetKey = "file_name";
+            }
+            if (normalized.has(targetKey)) {
+                continue;
+            }
+            normalized.add(targetKey, normalizeRelationElement(entry.getValue()));
+        }
+        return normalized;
+    }
+
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
         if (obj == null || key == null) {
             return fallback;
@@ -2031,13 +2076,16 @@ public final class DlcServerDownloadService {
         }
         JsonObject configObj = readConfigObject(entry.getConfigPath());
         JsonObject info = new JsonObject();
-        info.addProperty("dlc_name", fileName);
+        info.addProperty("file_name", fileName);
 
         String identifier = null;
         if (configObj != null) {
-            identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "dlc_identifier");
+            identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "identifier");
             if (identifier == null || identifier.isBlank()) {
-                identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "identifier");
+                identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "dlc_identifier");
+            }
+            if (identifier == null || identifier.isBlank()) {
+                identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "file_name");
             }
             if (identifier == null || identifier.isBlank()) {
                 identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "dlc_name");
@@ -2052,7 +2100,7 @@ public final class DlcServerDownloadService {
         if (identifier == null || identifier.isBlank()) {
             identifier = fileName;
         }
-        info.addProperty("dlc_identifier", identifier);
+        info.addProperty("identifier", identifier);
 
         Map<String, String> displayNames = new HashMap<>();
         if (configObj != null) {
@@ -2088,13 +2136,13 @@ public final class DlcServerDownloadService {
 
         JsonElement deps = configObj == null ? null : JsonCaseUtil.getIgnoreCase(configObj, "dependencies");
         if (deps != null && !deps.isJsonNull()) {
-            info.add("dependencies", deps);
+            info.add("dependencies", normalizeRelationElement(deps));
         } else {
             info.addProperty("dependencies", String.join(",", entry.getResolvedDependencyNames()));
         }
         JsonElement conflicts = configObj == null ? null : JsonCaseUtil.getIgnoreCase(configObj, "conflicts");
         if (conflicts != null && !conflicts.isJsonNull()) {
-            info.add("conflicts", conflicts);
+            info.add("conflicts", normalizeRelationElement(conflicts));
         } else {
             info.addProperty("conflicts", String.join(",", entry.getConflictNames()));
         }

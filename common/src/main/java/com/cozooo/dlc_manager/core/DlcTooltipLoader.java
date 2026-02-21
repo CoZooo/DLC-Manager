@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.core;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.cozooo.dlc_manager.core.Json5Util;
@@ -121,7 +122,7 @@ public class DlcTooltipLoader {
         if (displayName.entrySet().isEmpty()) {
             displayName = buildDefaultDisplayName(dlcName);
         }
-        String identifier = getString(obj, "dlc_identifier");
+        String identifier = getIdentifier(obj);
         if (identifier == null || identifier.isBlank()) {
             identifier = dlcName;
         }
@@ -133,12 +134,8 @@ public class DlcTooltipLoader {
         boolean inList = getBoolean(obj, "isInList", legacyShown);
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
-        JsonElement dependencies = isValidDependencyElement(JsonCaseUtil.getIgnoreCase(obj, "dependencies"))
-            ? JsonCaseUtil.getIgnoreCase(obj, "dependencies")
-            : new com.google.gson.JsonPrimitive("");
-        JsonElement conflicts = isValidDependencyElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts"))
-            ? JsonCaseUtil.getIgnoreCase(obj, "conflicts")
-            : new com.google.gson.JsonPrimitive("");
+        JsonElement dependencies = normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "dependencies"));
+        JsonElement conflicts = normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
         boolean alarm = getBoolean(obj, "alarm", false);
         JsonObject tip = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
         if (tip == null) {
@@ -160,8 +157,8 @@ public class DlcTooltipLoader {
             return null;
         }
         TooltipEntry entry = new TooltipEntry();
-        entry.dlcName = getString(obj, "dlc_name");
-        entry.dlcIdentifier = getString(obj, "dlc_identifier");
+        entry.dlcName = getFileName(obj);
+        entry.dlcIdentifier = getIdentifier(obj);
         if (entry.dlcIdentifier == null || entry.dlcIdentifier.isBlank()) {
             entry.dlcIdentifier = entry.dlcName;
         }
@@ -207,11 +204,40 @@ public class DlcTooltipLoader {
             }
             entry.tip = tips;
         }
+        if (needsKeyMigration(obj)) {
+            JsonObject migrated = buildOrderedTooltipObject(obj, entry.dlcName, entry.dlcIdentifier,
+                sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName")),
+                DlcTooltipLoader.toTypeString(entry.type == null ? DlcType.UNKNOWN : entry.type),
+                entry.appliedTargetRaw, entry.inList, entry.hidden, entry.allowEnableByAll,
+                normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "dependencies")),
+                normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts")),
+                entry.alarm, JsonCaseUtil.getObjectIgnoreCase(obj, "tip"));
+            try (Writer writer = Files.newBufferedWriter(path)) {
+                PRETTY_GSON.toJson(migrated, writer);
+            } catch (IOException ignored) {
+            }
+        }
         return entry;
     }
 
     private String getString(JsonObject obj, String key) {
         return JsonCaseUtil.getStringIgnoreCase(obj, key);
+    }
+
+    private String getIdentifier(JsonObject obj) {
+        String identifier = getString(obj, "identifier");
+        if (identifier == null || identifier.isBlank()) {
+            identifier = getString(obj, "dlc_identifier");
+        }
+        return identifier;
+    }
+
+    private String getFileName(JsonObject obj) {
+        String fileName = getString(obj, "file_name");
+        if (fileName == null || fileName.isBlank()) {
+            fileName = getString(obj, "dlc_name");
+        }
+        return fileName;
     }
 
     private boolean getBoolean(JsonObject obj, String key, boolean fallback) {
@@ -225,12 +251,101 @@ public class DlcTooltipLoader {
         return element.isJsonPrimitive() || element.isJsonArray() || element.isJsonObject();
     }
 
+    private boolean needsKeyMigration(JsonObject obj) {
+        if (obj == null) {
+            return false;
+        }
+        if (JsonCaseUtil.hasIgnoreCase(obj, "dlc_name") || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")) {
+            return true;
+        }
+        return !JsonCaseUtil.hasIgnoreCase(obj, "file_name") || !JsonCaseUtil.hasIgnoreCase(obj, "identifier");
+    }
+
+    private JsonElement normalizeRelationElement(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return new com.google.gson.JsonPrimitive("");
+        }
+        if (element.isJsonPrimitive()) {
+            return element.deepCopy();
+        }
+        if (element.isJsonArray()) {
+            JsonArray array = new JsonArray();
+            for (JsonElement child : element.getAsJsonArray()) {
+                array.add(normalizeRelationElement(child));
+            }
+            return array;
+        }
+        JsonObject obj = element.getAsJsonObject();
+        if (isIdentifierOnlyRelationObject(obj)) {
+            JsonObject normalized = new JsonObject();
+            String identifier = resolveRelationIdentifier(obj);
+            normalized.addProperty("identifier", identifier == null ? "" : identifier);
+            return normalized;
+        }
+        JsonObject normalized = new JsonObject();
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            String targetKey = key;
+            if (isIdentifierAlias(key)) {
+                targetKey = "identifier";
+            } else if (isFileNameAlias(key)) {
+                targetKey = "file_name";
+            }
+            if (normalized.has(targetKey)) {
+                continue;
+            }
+            normalized.add(targetKey, normalizeRelationElement(entry.getValue()));
+        }
+        return normalized;
+    }
+
+    private boolean isIdentifierOnlyRelationObject(JsonObject obj) {
+        if (obj == null || obj.entrySet().isEmpty()) {
+            return false;
+        }
+        boolean hasIdField = false;
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            if (isIdentifierAlias(key) || isFileNameAlias(key) || "name".equalsIgnoreCase(key)) {
+                hasIdField = true;
+                continue;
+            }
+            return false;
+        }
+        return hasIdField;
+    }
+
+    private String resolveRelationIdentifier(JsonObject obj) {
+        String identifier = getIdentifier(obj);
+        if (identifier == null || identifier.isBlank()) {
+            identifier = getFileName(obj);
+        }
+        if (identifier == null || identifier.isBlank()) {
+            identifier = getString(obj, "name");
+        }
+        return identifier;
+    }
+
+    private boolean isIdentifierAlias(String key) {
+        return "identifier".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key);
+    }
+
+    private boolean isFileNameAlias(String key) {
+        return "file_name".equalsIgnoreCase(key) || "dlc_name".equalsIgnoreCase(key);
+    }
+
     private JsonObject buildOrderedTooltipObject(JsonObject source, String dlcName, String dlcIdentifier, JsonObject displayName, String type,
         String appliedTarget,
         boolean inList, boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, boolean alarm, JsonObject tip) {
         JsonObject ordered = new JsonObject();
-        ordered.addProperty("dlc_name", dlcName);
-        ordered.addProperty("dlc_identifier", dlcIdentifier == null ? dlcName : dlcIdentifier);
+        ordered.addProperty("file_name", dlcName);
+        ordered.addProperty("identifier", dlcIdentifier == null ? dlcName : dlcIdentifier);
         ordered.add("DisplayName", displayName == null ? buildDefaultDisplayName(dlcName) : displayName);
         ordered.addProperty("type", type);
         if (appliedTarget != null && !appliedTarget.isBlank()) {
@@ -247,6 +362,9 @@ public class DlcTooltipLoader {
             for (Map.Entry<String, JsonElement> entry : source.entrySet()) {
                 String key = entry.getKey();
                 if (key == null || ordered.has(key)) {
+                    continue;
+                }
+                if ("dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)) {
                     continue;
                 }
                 ordered.add(key, entry.getValue());
@@ -357,7 +475,10 @@ public class DlcTooltipLoader {
         }
         if (element.isJsonObject()) {
             JsonObject obj = element.getAsJsonObject();
-            String name = getString(obj, "dlc_identifier");
+            String name = getIdentifier(obj);
+            if (name == null || name.isBlank()) {
+                name = getString(obj, "file_name");
+            }
             if (name == null || name.isBlank()) {
                 name = getString(obj, "dlc_name");
             }

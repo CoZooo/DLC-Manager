@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
@@ -83,7 +84,7 @@ public final class DlcSelfUpdateService {
             }
         } catch (IOException ignored) {
         }
-        Path updateDir = dlcRoot.resolve("update_tmp").resolve("selfupdate");
+        Path updateDir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
         Path tempFile = updateDir.resolve(fileName + ".part");
         Path targetFile = updateDir.resolve(fileName);
         try {
@@ -205,7 +206,7 @@ public final class DlcSelfUpdateService {
                 }
             } catch (IOException ignored) {
             }
-            Path backupDir = dlcRoot.resolve("update_tmp").resolve("selfupdate");
+            Path backupDir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
             Files.createDirectories(backupDir);
             if (Files.exists(target)) {
                 String backupName = target.getFileName().toString() + "." + System.currentTimeMillis() + ".bak";
@@ -244,7 +245,7 @@ public final class DlcSelfUpdateService {
             if (!Files.exists(dlcRoot)) {
                 Files.createDirectories(dlcRoot);
             }
-            Path backupDir = dlcRoot.resolve("update_tmp").resolve("selfupdate");
+            Path backupDir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
             Files.createDirectories(backupDir);
             Path modsDir = current.getParent();
             if (modsDir == null) {
@@ -325,7 +326,7 @@ public final class DlcSelfUpdateService {
         if (!Files.exists(dlcRoot)) {
             Files.createDirectories(dlcRoot);
         }
-        Path backupDir = dlcRoot.resolve("update_tmp").resolve("selfupdate");
+        Path backupDir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
         Files.createDirectories(backupDir);
         Path backupPath = null;
         if (Files.exists(currentModFile)) {
@@ -371,7 +372,7 @@ public final class DlcSelfUpdateService {
         if (dlcRoot == null) {
             return null;
         }
-        Path dir = dlcRoot.resolve("update_tmp").resolve("selfupdate");
+        Path dir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
         Json5Util.migrateLegacy(dir.resolve("self_update_history.json"), GSON);
         return dir.resolve("self_update_history" + Json5Util.JSON5_EXTENSION);
     }
