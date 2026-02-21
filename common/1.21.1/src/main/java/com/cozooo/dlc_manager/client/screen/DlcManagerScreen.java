@@ -49,7 +49,7 @@ public class DlcManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int panelLeft = 24;
         int panelRight = width - 24;
         int panelTop = 16;
@@ -63,7 +63,6 @@ public class DlcManagerScreen extends Screen {
         guiGraphics.fill(panelLeft, panelTop, panelLeft + 2, panelBottom, panelBorder);
         guiGraphics.fill(panelRight - 1, panelTop, panelRight, panelBottom, panelBorder);
         guiGraphics.fill(panelLeft, panelTop, panelLeft + 120, panelTop + 2, accent);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(font, title, width / 2, 22, 0xFFFFFF);
     }
 

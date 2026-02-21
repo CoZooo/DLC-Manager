@@ -73,13 +73,12 @@ public class DlcServerUpdateUrlScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = this.height / 2 - 80;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
         y += 18;
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.url_prompt"), centerX, y, 0xC8C8C8);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         if (downloading) {
             int barY = this.height / 2 + 60;

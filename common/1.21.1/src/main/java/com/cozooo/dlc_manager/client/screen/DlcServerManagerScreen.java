@@ -335,7 +335,7 @@ public class DlcServerManagerScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.lastMouseX = mouseX;
         this.lastMouseY = mouseY;
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         drawPanel(guiGraphics);
         int panelLeft = panelLeft();
         guiGraphics.drawString(this.font, getTitle(), 8, 6, 0xFFFFFF, false);
@@ -347,7 +347,6 @@ public class DlcServerManagerScreen extends Screen {
         } else {
             renderServerTab(guiGraphics);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawPanel(GuiGraphics guiGraphics) {

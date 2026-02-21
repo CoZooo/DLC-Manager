@@ -47,7 +47,7 @@ public class DlcUpdateMissingScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         int titleX = (this.width - this.font.width(getTitle())) / 2;
@@ -56,7 +56,6 @@ public class DlcUpdateMissingScreen extends Screen {
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.missing_desc"), centerX, y, 0xE6E6E6);
         y += 12;
         drawMissingList(guiGraphics, y);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawMissingList(GuiGraphics guiGraphics, int startY) {

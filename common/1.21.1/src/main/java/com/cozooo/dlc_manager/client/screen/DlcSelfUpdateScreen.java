@@ -68,7 +68,7 @@ public class DlcSelfUpdateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 30;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -99,7 +99,6 @@ public class DlcSelfUpdateScreen extends Screen {
                 Component.translatable("dlc_manager.self_update.none"),
                 centerX, y, 0xC8C8C8);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void startCheck() {

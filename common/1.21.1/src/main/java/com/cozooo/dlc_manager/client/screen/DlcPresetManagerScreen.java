@@ -47,7 +47,7 @@ public class DlcPresetManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -96,7 +96,6 @@ public class DlcPresetManagerScreen extends Screen {
         }
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
 
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override

@@ -77,14 +77,13 @@ public class DlcServerPasswordScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, this.height / 2 - 60, 0xFFFFFF);
         String address = entry.host == null ? "" : entry.host;
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.address", address), centerX, this.height / 2 - 48, 0xC8C8C8);
         drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField);
         drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
         updateButtonState();
     }
 

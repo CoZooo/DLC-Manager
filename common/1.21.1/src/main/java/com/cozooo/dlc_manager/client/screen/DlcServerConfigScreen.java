@@ -228,12 +228,11 @@ public class DlcServerConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 16, 0xFFFFFF);
         for (LabelEntry entry : labels) {
             guiGraphics.drawString(this.font, entry.label, labelX, entry.y + 6, 0xC8C8C8, false);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void addLabel(String key, int y) {

@@ -77,10 +77,10 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
         int gap = 4;
         int listY = y + height + 10;
         this.setListPosition(10, listY);
-        this.maxLabelWidth = Math.min(150, this.width / 5);
         int browserWidth = this.getBrowserWidth();
+        this.maxLabelWidth = computeDynamicLabelWidth(this.currentTab, browserWidth);
         int available = browserWidth - this.maxLabelWidth - 80;
-        int configWidth = Math.max(110, Math.min(260, available));
+        int configWidth = Math.max(110, Math.min(320, available));
         this.setConfigWidth(configWidth);
         super.initGui();
 
@@ -166,13 +166,34 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
     }
 
     private static List<ConfigOptionWrapper> buildOptions(Tab tab) {
-        List<IConfigBase> configs = switch (tab) {
+        List<IConfigBase> configs = getConfigsForTab(tab);
+        return new ArrayList<>(ConfigOptionWrapper.createFor(configs));
+    }
+
+    private static List<IConfigBase> getConfigsForTab(Tab tab) {
+        return switch (tab) {
             case SERVER -> DlcServerConfigClient.getServerConfigs();
             case UI -> DlcServerConfigClient.getUiConfigs();
             case PATHS -> DlcServerConfigClient.getPathConfigs();
             case DOWNLOADS -> DlcServerConfigClient.getDownloadConfigs();
         };
-        return new ArrayList<>(ConfigOptionWrapper.createFor(configs));
+    }
+
+    private int computeDynamicLabelWidth(Tab tab, int browserWidth) {
+        int longest = 0;
+        for (IConfigBase config : getConfigsForTab(tab)) {
+            if (config == null) {
+                continue;
+            }
+            String label = config.getConfigGuiDisplayName();
+            if (label == null || label.isBlank()) {
+                label = config.getName();
+            }
+            longest = Math.max(longest, this.getStringWidth(label));
+        }
+        int desired = longest + 14;
+        int maxByLayout = Math.max(60, browserWidth - 80 - 110);
+        return Math.max(60, Math.min(desired, maxByLayout));
     }
 
     private void loadFromServer() {

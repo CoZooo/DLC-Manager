@@ -93,7 +93,7 @@ public class DlcServerListScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 20, 0xFFFFFF);
         int listTop = 50;
@@ -133,7 +133,6 @@ public class DlcServerListScreen extends Screen {
         if (connecting) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.connecting"), centerX, listBottom + 4, 0xC8C8C8);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override

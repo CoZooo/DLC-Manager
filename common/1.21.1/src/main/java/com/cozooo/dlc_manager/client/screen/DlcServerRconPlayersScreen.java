@@ -87,13 +87,12 @@ public class DlcServerRconPlayersScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 12, 0xFFFFFF);
         if (!statusText.isBlank()) {
             guiGraphics.drawString(this.font, statusText, listLeft, 48, 0xC8C8C8, false);
         }
         drawList(guiGraphics);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawList(GuiGraphics guiGraphics) {

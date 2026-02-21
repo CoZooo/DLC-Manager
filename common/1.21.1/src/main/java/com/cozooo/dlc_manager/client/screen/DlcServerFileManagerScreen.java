@@ -101,7 +101,7 @@ public class DlcServerFileManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 16, 0xFFFFFF);
         guiGraphics.drawString(this.font, Component.translatable("dlc_manager.server.files_path"), pathField.getX(), pathField.getY() - 10, 0xC8C8C8, false);
@@ -109,7 +109,6 @@ public class DlcServerFileManagerScreen extends Screen {
         if (loading) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.files_loading"), centerX, this.height - 62, 0xC8C8C8);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void renderList(GuiGraphics guiGraphics) {

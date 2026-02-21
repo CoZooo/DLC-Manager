@@ -106,7 +106,7 @@ public class DlcUpdatePromptScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         if (applyButton != null) {
             applyButton.active = !applying;
         }
@@ -133,7 +133,6 @@ public class DlcUpdatePromptScreen extends Screen {
             y += 12;
         }
         drawUpdateList(guiGraphics, y);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawUpdateList(GuiGraphics guiGraphics, int startY) {

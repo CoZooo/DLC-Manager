@@ -201,7 +201,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -268,7 +268,6 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
         }
 
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private String resolveDisplayName(DlcServerRemoteItem item) {

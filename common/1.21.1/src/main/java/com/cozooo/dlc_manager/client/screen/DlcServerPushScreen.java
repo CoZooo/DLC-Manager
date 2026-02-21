@@ -103,7 +103,7 @@ public class DlcServerPushScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 20, 0xFFFFFF);
         guiGraphics.drawString(this.font,
@@ -143,7 +143,6 @@ public class DlcServerPushScreen extends Screen {
             String text = statusText == null ? "" : statusText;
             guiGraphics.drawCenteredString(this.font, text, centerX, this.height - 48, 0xC8C8C8);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
