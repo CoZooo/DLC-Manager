@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.server;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
@@ -1214,12 +1215,12 @@ public class DlcServerConnection {
         Path dlcRoot = DlcPathConfig.getDlcRoot();
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Path gameDir = DlcPaths.gameDir();
-        Path tempDir = dlcRoot.resolve("update_tmp").resolve("server_ops");
+        Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");
         Files.createDirectories(tempDir);
         Path zipPath = tempDir.resolve("push_" + System.currentTimeMillis() + ".zip");
         try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zipPath))) {
             if (includeDlc && Files.exists(dlcRoot)) {
-                zipDirectory(dlcRoot, out, "dlc/", "update_tmp");
+                zipDirectory(dlcRoot, out, "dlc/", DlcTmpPaths.TMP_DIR);
             }
             if (includeConfig && Files.exists(configDir)) {
                 zipDirectory(configDir, out, "config/", null);
@@ -1244,7 +1245,9 @@ public class DlcServerConnection {
                     }
                     if (skipDirName != null && relative.getNameCount() > 0) {
                         String first = relative.getName(0).toString();
-                        if (skipDirName.equalsIgnoreCase(first)) {
+                        if (skipDirName.equalsIgnoreCase(first)
+                            || DlcTmpPaths.TMP_DIR.equalsIgnoreCase(first)
+                            || DlcTmpPaths.LEGACY_TMP_DIR.equalsIgnoreCase(first)) {
                             return;
                         }
                     }

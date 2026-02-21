@@ -55,7 +55,8 @@ public class DlcScanner {
         Path localRemoteDir = root.resolve("remote");
         Path localPresetDir = root.resolve("preset");
         Path localUpdateDir = root.resolve("update");
-        Path localUpdateTmpDir = root.resolve("update_tmp");
+        Path localTmpDir = DlcTmpPaths.root(root);
+        Path localLegacyTmpDir = DlcTmpPaths.legacyRoot(root);
         Map<String, String> groupedOwners = buildGroupedOwners(tooltips);
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
@@ -76,7 +77,7 @@ public class DlcScanner {
                     if (isUnderPresetDir(dir, localPresetDir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
-                    if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localUpdateTmpDir)) {
+                    if (isUnderUpdateDir(dir, localUpdateDir) || isUnderUpdateDir(dir, localTmpDir) || isUnderUpdateDir(dir, localLegacyTmpDir)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     if (isUnderTaczRoot(dir, taczRoots)) {
@@ -105,7 +106,7 @@ public class DlcScanner {
                     if (isUnderPresetDir(file, localPresetDir)) {
                         return FileVisitResult.CONTINUE;
                     }
-                    if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localUpdateTmpDir)) {
+                    if (isUnderUpdateDir(file, localUpdateDir) || isUnderUpdateDir(file, localTmpDir) || isUnderUpdateDir(file, localLegacyTmpDir)) {
                         return FileVisitResult.CONTINUE;
                     }
                     if (isUnderTaczRoot(file, taczRoots)) {

@@ -16,6 +16,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -192,7 +193,7 @@ public final class DlcUpdateService {
         meta.setTimestamp(Long.toString(System.currentTimeMillis()));
         meta.setHidden(manifest.isHidden());
         meta.setChangelog(manifest.getChangelog());
-        Path backupRoot = dlcRoot.resolve("update_tmp").resolve(targetDlcVersion(info));
+        Path backupRoot = DlcTmpPaths.resolve(dlcRoot, targetDlcVersion(info));
         Json5Util.migrateLegacy(backupRoot.resolve("meta.json"), UPDATE_GSON);
         Path metaPath = Json5Util.resolveConfigPath(backupRoot, "meta");
 
@@ -268,7 +269,7 @@ public final class DlcUpdateService {
             if (!working.equals(meta.getDlcNew())) {
                 continue;
             }
-            Path backupRoot = dlcRoot.resolve("update_tmp").resolve(meta.getDlcNew());
+            Path backupRoot = DlcTmpPaths.resolve(dlcRoot, meta.getDlcNew());
             UpdateContext context = new UpdateContext(dlcRoot, null, backupRoot, meta);
             rollbackUpdate(context);
             working = meta.getDlcOld();
@@ -312,7 +313,7 @@ public final class DlcUpdateService {
         if (dlcRoot == null || dlcVersion == null || dlcVersion.isBlank()) {
             return null;
         }
-        Path metaRoot = dlcRoot.resolve("update_tmp").resolve(dlcVersion);
+        Path metaRoot = DlcTmpPaths.resolve(dlcRoot, dlcVersion);
         Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
         Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
         return DlcUpdateMeta.load(metaPath);
@@ -2003,7 +2004,7 @@ public final class DlcUpdateService {
         List<DlcUpdateMeta> chain = new ArrayList<>();
         String working = currentVersion;
         for (int i = 0; i < 32; i++) {
-            Path metaRoot = dlcRoot.resolve("update_tmp").resolve(working);
+            Path metaRoot = DlcTmpPaths.resolve(dlcRoot, working);
             Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
             Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
             DlcUpdateMeta meta = DlcUpdateMeta.load(metaPath);
