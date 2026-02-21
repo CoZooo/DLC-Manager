@@ -874,7 +874,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private boolean computeModReloadChanges() {
         for (DlcItem item : allItems) {
-            if (item.getType() != DlcType.MOD) {
+            if (item.getType() != DlcType.MOD && !DlcConfigDlcSupport.isConfigType(item)) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -886,7 +886,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private boolean computeNonModReloadChanges() {
         for (DlcItem item : allItems) {
-            if (item.getType() == DlcType.MOD) {
+            if (item.getType() == DlcType.MOD || DlcConfigDlcSupport.isConfigType(item)) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -981,7 +981,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
             return "";
         }
-        if (item.getType() == DlcType.MOD) {
+        if (item.getType() == DlcType.MOD || DlcConfigDlcSupport.isConfigType(item)) {
             return StringUtils.translate("dlc_manager.pending.restart");
         }
         return StringUtils.translate("dlc_manager.pending.reload");

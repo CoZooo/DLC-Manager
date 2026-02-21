@@ -711,13 +711,24 @@ public class DlcPathConfig {
     }
 
     private static void loadServerFromDisk() {
-        resetDefaults();
+        resetServerDefaults();
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
         Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
         serverPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
         if (Files.exists(serverPath)) {
             loadFromServerJson(serverPath);
         }
+    }
+
+    private static void resetServerDefaults() {
+        serverSupportServer = DEFAULT_SERVER_SUPPORT;
+        serverPort = DEFAULT_SERVER_PORT;
+        serverPassword = DEFAULT_SERVER_PASSWORD;
+        serverRconHost = DEFAULT_RCON_HOST;
+        serverRconPort = DEFAULT_RCON_PORT;
+        serverRconPassword = DEFAULT_RCON_PASSWORD;
+        modpackUrlServer = DEFAULT_MODPACK_URL;
+        updateGithubRepoServer = DEFAULT_UPDATE_GITHUB_REPO_URL;
     }
 
     private static void loadFromJson(Path jsonPath) {

@@ -32,11 +32,11 @@ public final class DlcWorldSync {
 
     public static void register() {
         LifecycleEvent.SERVER_STARTED.register(server -> {
-            DlcPathConfig.loadServer();
             applyDatapacks(server);
-            DlcServerService.updateServerStatus(server);
-            DlcServerService.start();
             if (server.isDedicatedServer()) {
+                DlcPathConfig.loadServer();
+                DlcServerService.updateServerStatus(server);
+                DlcServerService.start();
                 startServerRequiredDownload(server);
             }
         });

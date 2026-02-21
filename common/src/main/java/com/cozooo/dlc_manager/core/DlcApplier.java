@@ -23,6 +23,9 @@ public class DlcApplier {
         for (DlcItem item : items) {
             DlcConfig.DlcState previous = DlcConfig.getState(item.getId());
             boolean wasEnabled = previous != null && previous.enabled;
+            if (item.isEnabled() != wasEnabled && requiresRestartOnToggle(item)) {
+                requiresRestart = true;
+            }
 
             if (item.isEnabled()) {
                 if (!wasEnabled) {
@@ -36,9 +39,6 @@ public class DlcApplier {
                         .map(DlcApplier::toGameRelativePath)
                         .toList();
                     DlcConfig.setState(item.getId(), state);
-                }
-                if (item.getType() == DlcType.MOD || item.getType() == DlcType.TACZ_PACK) {
-                    requiresRestart = true;
                 }
             } else {
                 if (wasEnabled) {
@@ -55,6 +55,12 @@ public class DlcApplier {
         DlcConfig.save();
 
         return new ApplyResult(messages, requiresRestart, attemptedHotReload);
+    }
+
+    private static boolean requiresRestartOnToggle(DlcItem item) {
+        return item.getType() == DlcType.MOD
+            || item.getType() == DlcType.TACZ_PACK
+            || DlcConfigDlcSupport.isConfigType(item);
     }
 
     private static List<Path> applyItem(DlcItem item, boolean wasEnabled) {
