@@ -1,4 +1,5 @@
 package com.cozooo.dlc_manager.client.preset;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -15,15 +16,16 @@ import java.util.Map;
 
 public final class DlcPresetStateStore {
     private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-    private static final String STATE_FILE_NAME = "state.json5";
+    private static final String STATE_BASE_NAME = "state";
 
     private DlcPresetStateStore() {
     }
 
     public static Path getStatePath() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        Json5Util.migrateLegacy(configDir.resolve("state.json"), PRETTY_GSON);
-        return configDir.resolve(STATE_FILE_NAME);
+        Json5Util.migrateLegacy(configDir.resolve(STATE_BASE_NAME + Json5Util.JSON_EXTENSION), PRETTY_GSON);
+        Path path = Json5Util.resolveConfigPath(configDir, STATE_BASE_NAME);
+        return Json5Util.migrateLegacy(path, PRETTY_GSON);
     }
 
     public static Map<String, DlcPresetStatus> loadPresetStatus() {
@@ -32,7 +34,7 @@ public final class DlcPresetStateStore {
         if (path == null || !Files.exists(path)) {
             return result;
         }
-        JsonObject root = Json5Util.readObject(path);
+        JsonObject root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
         if (root == null) {
             return result;
         }
@@ -67,7 +69,7 @@ public final class DlcPresetStateStore {
         } catch (IOException ignored) {
             return;
         }
-        JsonObject root = Json5Util.readObject(path);
+        JsonObject root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
         if (root == null) {
             root = new JsonObject();
         }
@@ -81,9 +83,6 @@ public final class DlcPresetStateStore {
         }
         JsonCaseUtil.removeIgnoreCase(root, "presets");
         root.add("presets", presets);
-        try {
-            Files.writeString(path, PRETTY_GSON.toJson(root));
-        } catch (IOException ignored) {
-        }
+        DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
     }
 }

@@ -1,11 +1,11 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -48,10 +48,10 @@ public final class DlcUpdateSkipStore {
     }
 
     private static JsonObject readStoreLocked() {
-        Path storePath = resolveJson5Path(STORE_BASENAME);
+        Path storePath = resolveStorePath(STORE_BASENAME);
         JsonObject root = null;
         if (storePath != null && Files.exists(storePath)) {
-            root = Json5Util.readObject(storePath);
+            root = DcConfigIO.read(storePath, DcConfigIO.Layout.GENERIC);
         }
         if (root == null) {
             root = new JsonObject();
@@ -60,26 +60,21 @@ public final class DlcUpdateSkipStore {
     }
 
     private static void writeStoreLocked(JsonObject root) {
-        Path storePath = resolveJson5Path(STORE_BASENAME);
+        Path storePath = resolveStorePath(STORE_BASENAME);
         if (storePath == null) {
             return;
         }
-        try {
-            Files.createDirectories(storePath.getParent());
-            try (Writer writer = Files.newBufferedWriter(storePath)) {
-                GSON.toJson(root == null ? new JsonObject() : root, writer);
-            }
-        } catch (Exception ignored) {
-        }
+        DcConfigIO.write(storePath, root == null ? new JsonObject() : root, DcConfigIO.Layout.GENERIC);
     }
 
-    private static Path resolveJson5Path(String baseName) {
+    private static Path resolveStorePath(String baseName) {
         Path configDir = CrossPlatformRuntime.configDir();
         if (configDir == null) {
             return null;
         }
         Path dir = configDir.resolve("dlc_manager");
         Json5Util.migrateLegacy(dir.resolve(baseName + Json5Util.JSON_EXTENSION), GSON);
-        return dir.resolve(baseName + Json5Util.JSON5_EXTENSION);
+        Path path = Json5Util.resolveConfigPath(dir, baseName);
+        return Json5Util.migrateLegacy(path, GSON);
     }
 }

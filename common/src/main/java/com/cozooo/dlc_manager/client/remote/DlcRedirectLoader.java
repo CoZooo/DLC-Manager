@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.remote;
 
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
@@ -45,7 +46,7 @@ public final class DlcRedirectLoader {
     }
 
     private static DlcRedirectEntry readEntry(Path path) {
-        JsonObject obj = Json5Util.readObject(path);
+        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }

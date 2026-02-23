@@ -2,6 +2,8 @@ package com.cozooo.dlc_manager.client.required;
 
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.Json5Util;
 import java.nio.file.Files;
@@ -526,14 +528,12 @@ public final class DlcRequiredRuntime {
             return;
         }
         try {
-            com.google.gson.JsonObject obj = Json5Util.readObject(config);
+            com.google.gson.JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
             if (obj == null) {
                 return;
             }
             com.google.gson.JsonObject reordered = reorderRequiredJson(obj, fileName);
-            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
-                GSON.toJson(reordered, writer);
-            }
+            writeRequiredConfig(config, reordered);
             entry.setRequiredFileName(fileName);
         } catch (Exception ignored) {
         }
@@ -552,14 +552,12 @@ public final class DlcRequiredRuntime {
             return;
         }
         try {
-            com.google.gson.JsonObject obj = Json5Util.readObject(config);
+            com.google.gson.JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
             if (obj == null) {
                 return;
             }
             com.google.gson.JsonObject reordered = reorderRequiredJson(obj, fileName);
-            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
-                GSON.toJson(reordered, writer);
-            }
+            writeRequiredConfig(config, reordered);
             entry.setRequiredFileName(fileName);
         } catch (Exception ignored) {
         }
@@ -574,7 +572,7 @@ public final class DlcRequiredRuntime {
             return;
         }
         try {
-            com.google.gson.JsonObject obj = Json5Util.readObject(config);
+            com.google.gson.JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
             if (obj == null) {
                 return;
             }
@@ -585,12 +583,30 @@ public final class DlcRequiredRuntime {
                 obj.remove("userRemoved");
             }
             com.google.gson.JsonObject reordered = reorderRequiredJson(obj, entry.getRequiredFileName());
-            try (java.io.Writer writer = Files.newBufferedWriter(config)) {
-                GSON.toJson(reordered, writer);
-            }
+            writeRequiredConfig(config, reordered);
             entry.setUserRemoved(userRemoved);
         } catch (Exception ignored) {
         }
+    }
+
+    private static Path writeRequiredConfig(Path config, com.google.gson.JsonObject ordered) {
+        if (config == null || ordered == null) {
+            return null;
+        }
+        Path target = Json5Util.toDcPath(config);
+        if (target == null) {
+            return null;
+        }
+        if (!DcFormatUtil.write(target, ordered)) {
+            return null;
+        }
+        if (!target.equals(config)) {
+            try {
+                Files.deleteIfExists(config);
+            } catch (Exception ignored) {
+            }
+        }
+        return target;
     }
 
     private static com.google.gson.JsonObject reorderRequiredJson(com.google.gson.JsonObject obj, String fileNameOverride) {

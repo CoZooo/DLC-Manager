@@ -1,11 +1,11 @@
 package com.cozooo.dlc_manager.client.server;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.cozooo.dlc_manager.core.Json5Util;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,15 +22,16 @@ public class DlcServerList {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
         configPath = Json5Util.resolveConfigPath(configDir, "servers");
+        configPath = Json5Util.migrateLegacy(configPath, GSON);
         entries = new ArrayList<>();
         lastSelectedKey = null;
         if (!Files.exists(configPath)) {
             return;
         }
         try {
-            com.google.gson.JsonElement element = Json5Util.readElement(configPath);
-            if (element != null) {
-                DlcServerListData data = GSON.fromJson(element, DlcServerListData.class);
+            com.google.gson.JsonObject root = DcConfigIO.read(configPath, DcConfigIO.Layout.GENERIC);
+            if (root != null) {
+                DlcServerListData data = GSON.fromJson(root, DlcServerListData.class);
                 if (data != null && data.servers != null) {
                     entries.addAll(data.servers);
                     lastSelectedKey = data.lastSelected;
@@ -45,15 +46,15 @@ public class DlcServerList {
             Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
             Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
             configPath = Json5Util.resolveConfigPath(configDir, "servers");
+            configPath = Json5Util.migrateLegacy(configPath, GSON);
         }
         try {
             Files.createDirectories(configPath.getParent());
-            try (Writer writer = Files.newBufferedWriter(configPath)) {
-                DlcServerListData data = new DlcServerListData();
-                data.servers = entries;
-                data.lastSelected = lastSelectedKey;
-                GSON.toJson(data, writer);
-            }
+            DlcServerListData data = new DlcServerListData();
+            data.servers = entries;
+            data.lastSelected = lastSelectedKey;
+            com.google.gson.JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
+            DcConfigIO.write(configPath, root, DcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }

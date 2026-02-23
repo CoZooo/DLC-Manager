@@ -7,7 +7,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -121,11 +120,13 @@ public class DlcPathConfig {
     public static void loadClient() {
         loadClientFromDisk();
         ensureClientConfigFile();
+        migrateKnownConfigsToDc();
     }
 
     public static void loadServer() {
         loadServerFromDisk();
         ensureServerConfigFile();
+        migrateKnownConfigsToDc();
     }
 
     public static void save() {
@@ -717,8 +718,7 @@ public class DlcPathConfig {
     private static void loadClientFromDisk() {
         resetDefaults();
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
-        jsonPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path jsonPath = resolveManagerConfigPath(configDir, CONFIG_NAME);
         if (Files.exists(jsonPath)) {
             loadFromJson(jsonPath);
         }
@@ -727,8 +727,7 @@ public class DlcPathConfig {
     private static void loadServerFromDisk() {
         resetServerDefaults();
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
-        serverPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path serverPath = resolveManagerConfigPath(configDir, CONFIG_SERVER_NAME);
         if (Files.exists(serverPath)) {
             loadFromServerJson(serverPath);
         }
@@ -746,7 +745,7 @@ public class DlcPathConfig {
     }
 
     private static void loadFromJson(Path jsonPath) {
-        JsonObject root = Json5Util.readObject(jsonPath);
+        JsonObject root = DcConfigIO.read(jsonPath, DcConfigIO.Layout.GENERIC);
         if (root == null) {
             return;
         }
@@ -756,7 +755,7 @@ public class DlcPathConfig {
     }
 
     private static void loadFromServerJson(Path jsonPath) {
-        JsonObject root = Json5Util.readObject(jsonPath);
+        JsonObject root = DcConfigIO.read(jsonPath, DcConfigIO.Layout.GENERIC);
         if (root == null) {
             return;
         }
@@ -768,8 +767,7 @@ public class DlcPathConfig {
 
     private static void ensureClientConfigFile() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
-        Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path jsonPath = resolveManagerConfigPath(configDir, CONFIG_NAME);
         if (Files.exists(jsonPath)) {
             return;
         }
@@ -778,8 +776,7 @@ public class DlcPathConfig {
 
     private static void ensureServerConfigFile() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
-        Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path serverPath = resolveManagerConfigPath(configDir, CONFIG_SERVER_NAME);
         if (Files.exists(serverPath)) {
             return;
         }
@@ -788,7 +785,7 @@ public class DlcPathConfig {
 
     private static void saveClientToDisk() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME + Json5Util.JSON5_EXTENSION);
+        Path jsonPath = managerConfigPath(configDir, CONFIG_NAME);
         try {
             Files.createDirectories(configDir);
         } catch (IOException ignored) {
@@ -803,7 +800,7 @@ public class DlcPathConfig {
 
     private static void saveServerToDisk() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON5_EXTENSION);
+        Path serverPath = managerConfigPath(configDir, CONFIG_SERVER_NAME);
         try {
             Files.createDirectories(configDir);
         } catch (IOException ignored) {
@@ -818,8 +815,46 @@ public class DlcPathConfig {
     }
 
     private static void writeJson(JsonObject root, Path path) {
-        try (Writer writer = Files.newBufferedWriter(path)) {
-            GSON.toJson(root, writer);
+        DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
+    }
+
+    private static Path resolveManagerConfigPath(Path configDir, String baseName) {
+        if (configDir == null || baseName == null || baseName.isBlank()) {
+            return null;
+        }
+        migrateManagerLegacyJson(configDir, baseName);
+        Path path = managerConfigPath(configDir, baseName);
+        if (Files.exists(path)) {
+            return path;
+        }
+        return path;
+    }
+
+    private static Path managerConfigPath(Path configDir, String baseName) {
+        return configDir.resolve(baseName + Json5Util.DC_EXTENSION);
+    }
+
+    private static void migrateManagerLegacyJson(Path configDir, String baseName) {
+        Path dcPath = managerConfigPath(configDir, baseName);
+        if (dcPath == null || Files.exists(dcPath)) {
+            return;
+        }
+        Path legacyJson5 = configDir.resolve(baseName + Json5Util.JSON5_EXTENSION);
+        Path legacyJson = configDir.resolve(baseName + Json5Util.JSON_EXTENSION);
+        Path source = Files.exists(legacyJson5) ? legacyJson5 : (Files.exists(legacyJson) ? legacyJson : null);
+        if (source == null) {
+            return;
+        }
+        JsonObject root = DcConfigIO.read(source, DcConfigIO.Layout.GENERIC);
+        if (root == null) {
+            return;
+        }
+        if (!DcConfigIO.write(dcPath, root, DcConfigIO.Layout.GENERIC)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(legacyJson5);
+            Files.deleteIfExists(legacyJson);
         } catch (IOException ignored) {
         }
     }
@@ -1120,5 +1155,144 @@ public class DlcPathConfig {
             }
         }
         return new ArrayList<>(paths);
+    }
+
+    private static void migrateKnownConfigsToDc() {
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        migrateLocalConfigDirToDc(configDir);
+        for (Path dlcRootPath : getDlcRoots()) {
+            migrateDlcConfigTreeToDc(dlcRootPath);
+        }
+    }
+
+    private static void migrateLocalConfigDirToDc(Path configDir) {
+        if (configDir == null || !Files.isDirectory(configDir)) {
+            return;
+        }
+        try (var stream = Files.walk(configDir)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> !isManagerConfigFile(path))
+                .forEach(path -> {
+                    Path migrated = Json5Util.migrateLegacy(path, GSON);
+                    Json5Util.normalizeLegacyKeys(migrated, GSON);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static boolean isManagerConfigFile(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return false;
+        }
+        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        return CONFIG_NAME.equalsIgnoreCase(base) || CONFIG_SERVER_NAME.equalsIgnoreCase(base);
+    }
+
+    private static void migrateDlcConfigTreeToDc(Path dlcRootPath) {
+        if (dlcRootPath == null || !Files.isDirectory(dlcRootPath)) {
+            return;
+        }
+        List<String> configDirs = List.of("info", "remote", "required", "preset", "tmp", "update");
+        for (String dirName : configDirs) {
+            Path target = dlcRootPath.resolve(dirName);
+            if ("remote".equals(dirName)) {
+                migrateRemoteConfigsToDc(target);
+            } else {
+                migrateTreeConfigsToDc(target);
+            }
+        }
+    }
+
+    private static void migrateTreeConfigsToDc(Path root) {
+        if (root == null || !Files.isDirectory(root)) {
+            return;
+        }
+        try (var stream = Files.walk(root)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .forEach(path -> {
+                    Path migrated = Json5Util.migrateLegacy(path, GSON);
+                    Json5Util.normalizeLegacyKeys(migrated, GSON);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void migrateRemoteConfigsToDc(Path remoteRoot) {
+        if (remoteRoot == null || !Files.isDirectory(remoteRoot)) {
+            return;
+        }
+        Path redirectRoot = remoteRoot.resolve("redirect").normalize();
+        try (var stream = Files.walk(remoteRoot)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .forEach(path -> {
+                    Path normalized = path.normalize();
+                    if (normalized.startsWith(redirectRoot)) {
+                        Path migrated = Json5Util.migrateLegacy(path, GSON);
+                        Json5Util.normalizeLegacyKeys(migrated, GSON);
+                        return;
+                    }
+                    migrateRemoteEntryConfig(path);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void migrateRemoteEntryConfig(Path path) {
+        if (path == null || !Files.exists(path) || path.getFileName() == null) {
+            return;
+        }
+        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (lower.endsWith(Json5Util.JSON_EXTENSION) || lower.endsWith(Json5Util.JSON5_EXTENSION)) {
+            JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+            if (obj == null) {
+                return;
+            }
+            JsonObject normalized = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
+            Path out = Json5Util.toDcPath(path);
+            if (DcFormatUtil.write(out, normalized)) {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            }
+            return;
+        }
+        if (lower.endsWith(Json5Util.DC_EXTENSION)) {
+            JsonObject obj = readRemoteDcObject(path);
+            if (obj == null) {
+                return;
+            }
+            JsonObject normalized = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
+            DcFormatUtil.write(path, normalized);
+        }
+    }
+
+    private static JsonObject readRemoteDcObject(Path path) {
+        if (path == null || !Files.exists(path)) {
+            return null;
+        }
+        String content;
+        try {
+            content = Files.readString(path);
+        } catch (IOException ignored) {
+            return null;
+        }
+        if (content != null) {
+            String trimmed = content.stripLeading();
+            if (trimmed.startsWith("{")) {
+                JsonElement parsed = Json5Util.readElement(path);
+                if (parsed != null && parsed.isJsonObject()) {
+                    return parsed.getAsJsonObject();
+                }
+                return null;
+            }
+        }
+        return DcFormatUtil.read(path);
     }
 }

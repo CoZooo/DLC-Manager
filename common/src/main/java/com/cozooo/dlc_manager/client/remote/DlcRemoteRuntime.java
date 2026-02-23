@@ -1,24 +1,22 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.Json5Util;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 public final class DlcRemoteRuntime {
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
     private static boolean promptedThisSession = false;
 
     private DlcRemoteRuntime() {
@@ -112,13 +110,8 @@ public final class DlcRemoteRuntime {
             tipObj.addProperty(e.getKey(), e.getValue());
         }
         obj.add("tip", tipObj);
-        Path legacy = infoDir.resolve(fileName + Json5Util.JSON_EXTENSION);
-        Json5Util.migrateLegacy(legacy, PRETTY_GSON);
-        Path out = infoDir.resolve(fileName + Json5Util.JSON5_EXTENSION);
-        try (Writer writer = Files.newBufferedWriter(out)) {
-            PRETTY_GSON.toJson(obj, writer);
-        } catch (IOException ignored) {
-        }
+        Path out = Json5Util.resolveConfigPath(infoDir, fileName);
+        DcConfigIO.write(out, obj, DcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     public static void updateFileNameKey(DlcRemoteEntry entry, String fileName) {
@@ -133,18 +126,22 @@ public final class DlcRemoteRuntime {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try {
-            JsonObject obj = Json5Util.readObject(config);
-            if (obj == null) {
-                return;
-            }
-            JsonObject reordered = reorderRemoteJson(obj, normalized);
-            try (Writer writer = Files.newBufferedWriter(config)) {
-                PRETTY_GSON.toJson(reordered, writer);
-            }
-            entry.setFileNameHint(normalized);
-        } catch (IOException ignored) {
+        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+        if (obj == null) {
+            return;
         }
+        JsonObject reordered = reorderRemoteJson(obj, normalized);
+        Path target = Json5Util.toDcPath(config);
+        if (target != null && DcFormatUtil.write(target, reordered)) {
+            if (!target.equals(config)) {
+                try {
+                    Files.deleteIfExists(config);
+                } catch (IOException ignored) {
+                }
+            }
+            entry.setConfigPath(target);
+        }
+        entry.setFileNameHint(normalized);
     }
 
     private static JsonObject reorderRemoteJson(JsonObject obj, String fileNameOverride) {

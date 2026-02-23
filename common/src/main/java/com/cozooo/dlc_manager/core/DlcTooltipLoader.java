@@ -7,7 +7,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.cozooo.dlc_manager.core.Json5Util;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -34,6 +33,7 @@ public class DlcTooltipLoader {
         }
         try (var stream = Files.list(infoDir)) {
             stream.filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> !isInfoMetaFile(path))
                 .filter(path -> !Json5Util.shouldSkipLegacy(path))
                 .forEach(path -> {
                     Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
@@ -49,6 +49,14 @@ public class DlcTooltipLoader {
         return result;
     }
 
+    private boolean isInfoMetaFile(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return false;
+        }
+        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        return "version".equalsIgnoreCase(base);
+    }
+
     public void ensureTooltipFile(Path infoDir, String dlcName, DlcType type, boolean updateExistingType) {
         if (dlcName == null || dlcName.isBlank()) {
             return;
@@ -61,6 +69,7 @@ public class DlcTooltipLoader {
         Json5Util.migrateLegacy(infoDir.resolve(dlcName + Json5Util.JSON_EXTENSION), PRETTY_GSON);
         Path path = Json5Util.resolveConfigPath(infoDir, dlcName);
         if (path != null && Files.exists(path)) {
+            path = Json5Util.migrateLegacy(path, PRETTY_GSON);
             updateTooltipFile(path, dlcName, type, updateExistingType);
             return;
         }
@@ -69,7 +78,7 @@ public class DlcTooltipLoader {
             updateTooltipFile(existingByDlcName, dlcName, type, updateExistingType);
             return;
         }
-        path = infoDir.resolve(dlcName + Json5Util.JSON5_EXTENSION);
+        path = Json5Util.resolveConfigPath(infoDir, dlcName);
         JsonObject obj = buildOrderedTooltipObject(
             null,
             dlcName,
@@ -85,10 +94,7 @@ public class DlcTooltipLoader {
             false,
             new JsonObject()
         );
-        try (Writer writer = Files.newBufferedWriter(path)) {
-            PRETTY_GSON.toJson(obj, writer);
-        } catch (IOException ignored) {
-        }
+        writeTooltipObject(path, obj);
     }
 
     private Path findExistingTooltipByDlcName(Path infoDir, String dlcName) {
@@ -112,7 +118,7 @@ public class DlcTooltipLoader {
     }
 
     private void updateTooltipFile(Path path, String dlcName, DlcType type, boolean updateExistingType) {
-        JsonObject obj = Json5Util.readObject(path);
+        JsonObject obj = readTooltipObject(path);
         if (obj == null) {
             return;
         }
@@ -145,19 +151,25 @@ public class DlcTooltipLoader {
 
         obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget,
             inList, hidden, allowEnableByAll, dependencies, conflicts, alarm, tip);
-        try (Writer writer = Files.newBufferedWriter(path)) {
-            PRETTY_GSON.toJson(obj, writer);
-        } catch (IOException ignored) {
-        }
+        writeTooltipObject(path, obj);
     }
 
     private TooltipEntry readEntry(Path path) {
-        JsonObject obj = Json5Util.readObject(path);
+        JsonObject obj = readTooltipObject(path);
         if (obj == null) {
+            return null;
+        }
+        if (!isTooltipConfigObject(obj)) {
             return null;
         }
         TooltipEntry entry = new TooltipEntry();
         entry.dlcName = getFileName(obj);
+        if ((entry.dlcName == null || entry.dlcName.isBlank()) && path != null && path.getFileName() != null) {
+            entry.dlcName = Json5Util.stripJsonExtension(path.getFileName().toString());
+        }
+        if (entry.dlcName == null || entry.dlcName.isBlank()) {
+            return null;
+        }
         entry.dlcIdentifier = getIdentifier(obj);
         if (entry.dlcIdentifier == null || entry.dlcIdentifier.isBlank()) {
             entry.dlcIdentifier = entry.dlcName;
@@ -204,7 +216,8 @@ public class DlcTooltipLoader {
             }
             entry.tip = tips;
         }
-        if (needsKeyMigration(obj)) {
+        if ((needsKeyMigration(obj) || needsDcLayoutMigration(path) || hasLegacyDownloadKeys(obj))
+            && entry.dlcName != null && !entry.dlcName.isBlank()) {
             JsonObject migrated = buildOrderedTooltipObject(obj, entry.dlcName, entry.dlcIdentifier,
                 sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName")),
                 DlcTooltipLoader.toTypeString(entry.type == null ? DlcType.UNKNOWN : entry.type),
@@ -212,12 +225,57 @@ public class DlcTooltipLoader {
                 normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "dependencies")),
                 normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts")),
                 entry.alarm, JsonCaseUtil.getObjectIgnoreCase(obj, "tip"));
-            try (Writer writer = Files.newBufferedWriter(path)) {
-                PRETTY_GSON.toJson(migrated, writer);
-            } catch (IOException ignored) {
-            }
+            writeTooltipObject(path, migrated);
         }
         return entry;
+    }
+
+    private boolean isTooltipConfigObject(JsonObject obj) {
+        if (obj == null) {
+            return false;
+        }
+        return JsonCaseUtil.hasIgnoreCase(obj, "file_name")
+            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_name")
+            || JsonCaseUtil.hasIgnoreCase(obj, "identifier")
+            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
+            || JsonCaseUtil.hasIgnoreCase(obj, "type")
+            || JsonCaseUtil.hasIgnoreCase(obj, "appliedTarget")
+            || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
+            || JsonCaseUtil.hasIgnoreCase(obj, "conflicts")
+            || JsonCaseUtil.hasIgnoreCase(obj, "isInList")
+            || JsonCaseUtil.hasIgnoreCase(obj, "isShownInList")
+            || JsonCaseUtil.hasIgnoreCase(obj, "isHidden")
+            || JsonCaseUtil.hasIgnoreCase(obj, "AllowEnableByAll")
+            || JsonCaseUtil.hasIgnoreCase(obj, "alarm");
+    }
+
+    private JsonObject readTooltipObject(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return null;
+        }
+        return DcConfigIO.read(path, DcConfigIO.Layout.DLC_STRUCTURED);
+    }
+
+    private void writeTooltipObject(Path path, JsonObject obj) {
+        if (path == null) {
+            return;
+        }
+        DcConfigIO.write(path, obj, DcConfigIO.Layout.DLC_STRUCTURED);
+    }
+
+    private boolean needsDcLayoutMigration(Path path) {
+        if (path == null || path.getFileName() == null || !DcFormatUtil.isDcName(path.getFileName().toString())) {
+            return false;
+        }
+        try {
+            String text = Files.readString(path);
+            if (text == null || text.isBlank()) {
+                return false;
+            }
+            return !text.contains("[basic]");
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 
     private String getString(JsonObject obj, String key) {
@@ -259,6 +317,18 @@ public class DlcTooltipLoader {
             return true;
         }
         return !JsonCaseUtil.hasIgnoreCase(obj, "file_name") || !JsonCaseUtil.hasIgnoreCase(obj, "identifier");
+    }
+
+    private boolean hasLegacyDownloadKeys(JsonObject obj) {
+        if (obj == null) {
+            return false;
+        }
+        return JsonCaseUtil.hasIgnoreCase(obj, "modrinth_projectid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "modrinth_versionid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_projectid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_fileid")
+            || JsonCaseUtil.hasIgnoreCase(obj, "directUrl")
+            || JsonCaseUtil.hasIgnoreCase(obj, "priority");
     }
 
     private JsonElement normalizeRelationElement(JsonElement element) {
@@ -365,6 +435,14 @@ public class DlcTooltipLoader {
                     continue;
                 }
                 if ("dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)) {
+                    continue;
+                }
+                if ("modrinth_projectid".equalsIgnoreCase(key)
+                    || "modrinth_versionid".equalsIgnoreCase(key)
+                    || "curseforge_projectid".equalsIgnoreCase(key)
+                    || "curseforge_fileid".equalsIgnoreCase(key)
+                    || "directUrl".equalsIgnoreCase(key)
+                    || "priority".equalsIgnoreCase(key)) {
                     continue;
                 }
                 ordered.add(key, entry.getValue());

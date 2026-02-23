@@ -1,10 +1,10 @@
 package com.cozooo.dlc_manager.core;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
-import java.io.Writer;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,11 +27,12 @@ public class DlcConfig {
         Path legacy = configDir.resolve("state.json");
         Json5Util.migrateLegacy(legacy, GSON);
         configPath = Json5Util.resolveConfigPath(configDir, "state");
+        configPath = Json5Util.migrateLegacy(configPath, GSON);
         if (configPath != null && Files.exists(configPath)) {
             try {
-                com.google.gson.JsonElement element = Json5Util.readElement(configPath);
-                if (element != null) {
-                    DlcConfigData data = GSON.fromJson(element, DlcConfigData.class);
+                com.google.gson.JsonObject root = DcConfigIO.read(configPath, DcConfigIO.Layout.GENERIC);
+                if (root != null) {
+                    DlcConfigData data = GSON.fromJson(root, DlcConfigData.class);
                     if (data != null && data.stateById != null) {
                         stateById = new HashMap<>(data.stateById);
                     }
@@ -51,11 +52,10 @@ public class DlcConfig {
     public static void save() {
         try {
             Files.createDirectories(configPath.getParent());
-            try (Writer writer = Files.newBufferedWriter(configPath)) {
-                DlcConfigData data = new DlcConfigData();
-                data.stateById = stateById;
-                GSON.toJson(data, writer);
-            }
+            DlcConfigData data = new DlcConfigData();
+            data.stateById = stateById;
+            com.google.gson.JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
+            DcConfigIO.write(configPath, root, DcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }

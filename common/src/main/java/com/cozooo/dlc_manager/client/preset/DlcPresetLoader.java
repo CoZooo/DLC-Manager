@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.preset;
 
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
@@ -8,10 +9,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
-import com.google.gson.stream.JsonReader;
 import java.io.IOException;
-import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,7 +20,6 @@ import java.util.Map;
 import java.util.Set;
 
 public final class DlcPresetLoader {
-    private static final Gson GSON = new GsonBuilder().create();
     private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private DlcPresetLoader() {
@@ -79,18 +76,10 @@ public final class DlcPresetLoader {
     }
 
     private static DlcPresetEntry readEntry(Path path, Path presetRoot) {
-        JsonObject obj;
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            obj = GSON.fromJson(jsonReader, JsonObject.class);
-        } catch (IOException | JsonSyntaxException ignored) {
-            return null;
-        }
+        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }
-        // ensurePrettyJson5(path, obj);
 
         Map<String, String> displayName = readLangMap(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
         Map<String, String> tip = readLangMap(JsonCaseUtil.getObjectIgnoreCase(obj, "tip"));

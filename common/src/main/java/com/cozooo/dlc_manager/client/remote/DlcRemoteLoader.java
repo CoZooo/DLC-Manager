@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
@@ -14,18 +15,17 @@ import com.google.gson.JsonSyntaxException;
 import com.google.gson.stream.JsonReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
 public final class DlcRemoteLoader {
     private static final Gson GSON = new GsonBuilder().create();
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
 
     private DlcRemoteLoader() {
     }
@@ -40,18 +40,27 @@ public final class DlcRemoteLoader {
             return List.of();
         }
         List<DlcRemoteEntry> entries = new ArrayList<>();
+        Map<String, Path> selectedFiles = new LinkedHashMap<>();
         try (var stream = Files.walk(remoteRoot)) {
-            stream.filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+            stream.filter(Files::isRegularFile)
+                .filter(path -> isRemoteConfigName(path.getFileName().toString()))
                 .filter(path -> !path.normalize().startsWith(redirectRoot))
-                .filter(path -> !Json5Util.shouldSkipLegacy(path))
+                .filter(path -> !shouldSkipFile(path))
                 .forEach(path -> {
-                    Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
-                    DlcRemoteEntry entry = readEntry(migrated, dlcRoot, remoteRoot);
-                    if (entry != null) {
-                        entries.add(entry);
+                    String rel = remoteRoot.relativize(path).toString().replace('\\', '/');
+                    String key = DcFormatUtil.stripConfigExtension(rel);
+                    Path current = selectedFiles.get(key);
+                    if (current == null || configPriority(path) > configPriority(current)) {
+                        selectedFiles.put(key, path);
                     }
                 });
         } catch (IOException ignored) {
+        }
+        for (Path candidate : selectedFiles.values()) {
+            DlcRemoteEntry entry = readEntry(candidate, dlcRoot, remoteRoot);
+            if (entry != null) {
+                entries.add(entry);
+            }
         }
         linkIdentifierDependencies(entries);
         return entries;
@@ -68,16 +77,9 @@ public final class DlcRemoteLoader {
         }
         Path resolved = configPath;
         if (!Files.exists(resolved)) {
-            if (!Json5Util.isJsonLikeName(resolved.getFileName().toString())) {
-                Path alt = Json5Util.resolveConfigPath(resolved.getParent(), resolved.getFileName().toString());
-                if (alt != null && Files.exists(alt)) {
-                    resolved = alt;
-                }
-            } else if (resolved.getFileName().toString().toLowerCase().endsWith(Json5Util.JSON_EXTENSION)) {
-                Path alt = Json5Util.toJson5Path(resolved);
-                if (alt != null && Files.exists(alt)) {
-                    resolved = alt;
-                }
+            Path alt = resolveConfigPathWithDc(resolved);
+            if (alt != null && Files.exists(alt)) {
+                resolved = alt;
             }
             try {
                 Path normalized = resolved.normalize();
@@ -91,8 +93,11 @@ public final class DlcRemoteLoader {
                 return null;
             }
         }
-        Path migrated = Json5Util.migrateLegacy(resolved, PRETTY_GSON);
-        return readEntry(migrated, dlcRoot, remoteRoot);
+        Path dcAlt = DcFormatUtil.toDcPath(resolved);
+        if (dcAlt != null && Files.exists(dcAlt)) {
+            resolved = dcAlt;
+        }
+        return readEntry(resolved, dlcRoot, remoteRoot);
     }
 
     private static void linkIdentifierDependencies(List<DlcRemoteEntry> entries) {
@@ -139,18 +144,11 @@ public final class DlcRemoteLoader {
     }
 
     private static DlcRemoteEntry readEntry(Path path, Path dlcRoot, Path remoteRoot) {
-        JsonObject obj;
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            obj = GSON.fromJson(jsonReader, JsonObject.class);
-        } catch (IOException | JsonSyntaxException ignored) {
-            return null;
-        }
+        JsonObject obj = readConfigObject(path);
         if (obj == null) {
             return null;
         }
-        String fileName = Json5Util.stripJsonExtension(path.getFileName().toString());
+        String fileName = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
         Path relative = remoteRoot.relativize(path);
         Path baseDir = dlcRoot.resolve(relative.getParent() == null ? "" : relative.getParent().toString());
 
@@ -159,17 +157,118 @@ public final class DlcRemoteLoader {
             return null;
         }
         DlcRemoteEntry entry = normalized.entry;
-        entry.setConfigPath(path);
+        Path finalPath = path;
         if (entry.getFileNameHint() == null || entry.getFileNameHint().isBlank()) {
             entry.setFileNameHint(fileName);
         }
-        if (needsKeyMigration(obj)) {
-            try (Writer writer = Files.newBufferedWriter(path)) {
-                PRETTY_GSON.toJson(normalized.ordered, writer);
-            } catch (IOException ignored) {
+        boolean isDc = DcFormatUtil.isDcName(path.getFileName().toString());
+        if (isDc) {
+            if (needsKeyMigration(obj)) {
+                DcFormatUtil.write(path, normalized.ordered);
+            }
+        } else {
+            Path dcPath = DcFormatUtil.toDcPath(path);
+            boolean migratedToDc = dcPath != null && DcFormatUtil.write(dcPath, normalized.ordered);
+            if (migratedToDc) {
+                finalPath = dcPath;
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
             }
         }
+        entry.setConfigPath(finalPath);
         return entry;
+    }
+
+    private static JsonObject readConfigObject(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return null;
+        }
+        String name = path.getFileName().toString();
+        if (DcFormatUtil.isDcName(name)) {
+            return DcFormatUtil.read(path);
+        }
+        try (Reader reader = Files.newBufferedReader(path)) {
+            JsonReader jsonReader = new JsonReader(reader);
+            jsonReader.setLenient(true);
+            return GSON.fromJson(jsonReader, JsonObject.class);
+        } catch (IOException | JsonSyntaxException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isRemoteConfigName(String fileName) {
+        return Json5Util.isJsonLikeName(fileName) || DcFormatUtil.isDcName(fileName);
+    }
+
+    private static boolean shouldSkipFile(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return true;
+        }
+        String name = path.getFileName().toString();
+        if (DcFormatUtil.isDcName(name)) {
+            return false;
+        }
+        return Json5Util.shouldSkipLegacy(path);
+    }
+
+    private static int configPriority(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return 0;
+        }
+        String name = path.getFileName().toString().toLowerCase();
+        if (name.endsWith(DcFormatUtil.DC_EXTENSION)) {
+            return 3;
+        }
+        if (name.endsWith(Json5Util.JSON5_EXTENSION)) {
+            return 2;
+        }
+        if (name.endsWith(Json5Util.JSON_EXTENSION)) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private static Path resolveConfigPathWithDc(Path path) {
+        if (path == null) {
+            return null;
+        }
+        if (path.getFileName() == null) {
+            return path;
+        }
+        String name = path.getFileName().toString();
+        if (DcFormatUtil.isDcName(name) || Json5Util.isJsonLikeName(name)) {
+            Path dc = DcFormatUtil.toDcPath(path);
+            if (dc != null && Files.exists(dc)) {
+                return dc;
+            }
+            if (Json5Util.isJsonLikeName(name)) {
+                Path json5 = Json5Util.toJson5Path(path);
+                if (json5 != null && Files.exists(json5)) {
+                    return json5;
+                }
+            }
+            return path;
+        }
+        Path dir = path.getParent();
+        String base = name;
+        if (dir == null) {
+            return null;
+        }
+        Path dc = dir.resolve(base + DcFormatUtil.DC_EXTENSION);
+        if (Files.exists(dc)) {
+            return dc;
+        }
+        Path json5 = dir.resolve(base + Json5Util.JSON5_EXTENSION);
+        if (Files.exists(json5)) {
+            return json5;
+        }
+        Path json = dir.resolve(base + Json5Util.JSON_EXTENSION);
+        if (Files.exists(json)) {
+            return json;
+        }
+        return dc;
     }
 
     private static Path ensureRemoteRoot(Path dlcRoot) {
