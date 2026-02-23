@@ -124,7 +124,7 @@ public class DlcTooltipLoader {
         }
         boolean legacyShown = getBoolean(obj, "isShownInList", true);
         JsonCaseUtil.removeIgnoreCase(obj, "isShownInList");
-        JsonObject displayName = sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
+        JsonObject displayName = localizedObjectFromAny(obj, "DisplayName");
         if (displayName.entrySet().isEmpty()) {
             displayName = buildDefaultDisplayName(dlcName);
         }
@@ -143,10 +143,7 @@ public class DlcTooltipLoader {
         JsonElement dependencies = normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "dependencies"));
         JsonElement conflicts = normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
         boolean alarm = getBoolean(obj, "alarm", false);
-        JsonObject tip = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
-        if (tip == null) {
-            tip = new JsonObject();
-        }
+        JsonObject tip = localizedObjectFromAny(obj, "tip");
         String appliedTarget = getString(obj, "appliedTarget");
 
         obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget,
@@ -189,7 +186,7 @@ public class DlcTooltipLoader {
         if (entry.fileNames.isEmpty()) {
             entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "files"));
         }
-        entry.displayName = readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
+        entry.displayName = readLocalized(localizedObjectFromAny(obj, "DisplayName"));
         if (entry.displayName.isEmpty() && entry.dlcName != null) {
             entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName));
         }
@@ -203,8 +200,8 @@ public class DlcTooltipLoader {
                 entry.configType = "config".equalsIgnoreCase(type.trim());
             }
         }
-        JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
-        if (tipObj != null) {
+        JsonObject tipObj = localizedObjectFromAny(obj, "tip");
+        if (tipObj != null && !tipObj.entrySet().isEmpty()) {
             Map<String, String> tips = new HashMap<>();
             for (Map.Entry<String, JsonElement> e : tipObj.entrySet()) {
                 if (e.getValue().isJsonPrimitive()) {
@@ -215,17 +212,6 @@ public class DlcTooltipLoader {
                 }
             }
             entry.tip = tips;
-        }
-        if ((needsKeyMigration(obj) || needsDcLayoutMigration(path) || hasLegacyDownloadKeys(obj))
-            && entry.dlcName != null && !entry.dlcName.isBlank()) {
-            JsonObject migrated = buildOrderedTooltipObject(obj, entry.dlcName, entry.dlcIdentifier,
-                sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName")),
-                DlcTooltipLoader.toTypeString(entry.type == null ? DlcType.UNKNOWN : entry.type),
-                entry.appliedTargetRaw, entry.inList, entry.hidden, entry.allowEnableByAll,
-                normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "dependencies")),
-                normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts")),
-                entry.alarm, JsonCaseUtil.getObjectIgnoreCase(obj, "tip"));
-            writeTooltipObject(path, migrated);
         }
         return entry;
     }
@@ -238,6 +224,8 @@ public class DlcTooltipLoader {
             || JsonCaseUtil.hasIgnoreCase(obj, "dlc_name")
             || JsonCaseUtil.hasIgnoreCase(obj, "identifier")
             || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
+            || JsonCaseUtil.hasIgnoreCase(obj, "DisplayName")
+            || JsonCaseUtil.hasIgnoreCase(obj, "tip")
             || JsonCaseUtil.hasIgnoreCase(obj, "type")
             || JsonCaseUtil.hasIgnoreCase(obj, "appliedTarget")
             || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
@@ -416,7 +404,11 @@ public class DlcTooltipLoader {
         JsonObject ordered = new JsonObject();
         ordered.addProperty("file_name", dlcName);
         ordered.addProperty("identifier", dlcIdentifier == null ? dlcName : dlcIdentifier);
-        ordered.add("DisplayName", displayName == null ? buildDefaultDisplayName(dlcName) : displayName);
+        JsonObject normalizedDisplay = displayName;
+        if (normalizedDisplay == null || normalizedDisplay.entrySet().isEmpty()) {
+            normalizedDisplay = buildDefaultDisplayName(dlcName);
+        }
+        ordered.add("DisplayName", normalizedDisplay);
         ordered.addProperty("type", type);
         if (appliedTarget != null && !appliedTarget.isBlank()) {
             ordered.addProperty("appliedTarget", appliedTarget);
@@ -489,6 +481,18 @@ public class DlcTooltipLoader {
             }
         }
         return result;
+    }
+
+    private JsonObject localizedObjectFromAny(JsonObject obj, String key) {
+        JsonObject localized = sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, key));
+        if (!localized.entrySet().isEmpty()) {
+            return localized;
+        }
+        String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+        if (single != null && !single.isBlank()) {
+            localized.addProperty("en_us", single);
+        }
+        return localized;
     }
 
     private java.util.List<String> parseDependencyNames(JsonElement element) {

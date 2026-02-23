@@ -36,6 +36,7 @@ public class DlcPathConfig {
     public static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
     public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
     public static final boolean DEFAULT_PRESET_FUNC_ON = true;
+    public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
     public static final boolean DEFAULT_SERVER_SUPPORT = true;
     public static final int DEFAULT_SERVER_PORT = 29690;
     public static final String DEFAULT_SERVER_PASSWORD = "";
@@ -79,6 +80,7 @@ public class DlcPathConfig {
     private static boolean updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
     private static boolean selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
     private static boolean presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+    private static boolean showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
     private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
     private static boolean serverSupportServer = DEFAULT_SERVER_SUPPORT;
     private static int serverPort = DEFAULT_SERVER_PORT;
@@ -230,6 +232,10 @@ public class DlcPathConfig {
 
     public static boolean isPresetFuncOn() {
         return presetFuncOn;
+    }
+
+    public static boolean isShowOnFirstRun() {
+        return showOnFirstRun;
     }
 
     public static boolean isServerSupportOn() {
@@ -538,6 +544,10 @@ public class DlcPathConfig {
         presetFuncOn = value;
     }
 
+    public static void setShowOnFirstRun(boolean value) {
+        showOnFirstRun = value;
+    }
+
     public static void setServerSupportOn(boolean value) {
         serverSupportClient = value;
     }
@@ -681,6 +691,7 @@ public class DlcPathConfig {
         updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
         selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
         presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+        showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
         serverSupportClient = DEFAULT_SERVER_SUPPORT;
         serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
@@ -876,6 +887,7 @@ public class DlcPathConfig {
         obj.addProperty("isUpdateManagerOn", updateManagerOn);
         obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
         obj.addProperty("isPresetFuncOn", presetFuncOn);
+        obj.addProperty("ShowOnFirstRun", showOnFirstRun);
         obj.addProperty("serverSupport", serverSupportClient);
         obj.addProperty("titleAnchor", titleAnchor);
         obj.addProperty("titleOffsetX", titleOffsetX);
@@ -965,6 +977,7 @@ public class DlcPathConfig {
         map.put("isUpdateManagerOn", value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON));
         map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
         map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
+        map.put("ShowOnFirstRun", value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN));
         map.put("serverSupport", value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT));
         map.put("titleAnchor", value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR));
         map.put("titleOffsetX", value -> titleOffsetX = asInt(value, DEFAULT_TITLE_OFFSET_X));
@@ -1197,7 +1210,9 @@ public class DlcPathConfig {
         List<String> configDirs = List.of("info", "remote", "required", "preset", "tmp", "update");
         for (String dirName : configDirs) {
             Path target = dlcRootPath.resolve(dirName);
-            if ("remote".equals(dirName)) {
+            if ("info".equals(dirName)) {
+                migrateInfoConfigsToDc(target);
+            } else if ("remote".equals(dirName)) {
                 migrateRemoteConfigsToDc(target);
             } else {
                 migrateTreeConfigsToDc(target);
@@ -1219,6 +1234,128 @@ public class DlcPathConfig {
                 });
         } catch (IOException ignored) {
         }
+    }
+
+    private static void migrateInfoConfigsToDc(Path infoRoot) {
+        if (infoRoot == null || !Files.isDirectory(infoRoot)) {
+            return;
+        }
+        try (var stream = Files.walk(infoRoot)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .forEach(path -> {
+                    String baseName = Json5Util.stripJsonExtension(path.getFileName().toString());
+                    if ("version".equalsIgnoreCase(baseName) || "notice".equalsIgnoreCase(baseName)) {
+                        Path migrated = Json5Util.migrateLegacy(path, GSON);
+                        Json5Util.normalizeLegacyKeys(migrated, GSON);
+                        return;
+                    }
+                    migrateInfoEntryConfig(path);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void migrateInfoEntryConfig(Path path) {
+        if (path == null || !Files.exists(path) || path.getFileName() == null) {
+            return;
+        }
+        Path migrated = Json5Util.migrateLegacy(path, GSON);
+        Json5Util.normalizeLegacyKeys(migrated, GSON);
+        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
+        if (obj == null) {
+            return;
+        }
+        JsonObject normalizedElement = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
+        String fallbackName = Json5Util.stripJsonExtension(migrated.getFileName().toString());
+        JsonObject normalized = normalizeInfoEntry(normalizedElement, fallbackName);
+        DcConfigIO.write(migrated, normalized, DcConfigIO.Layout.DLC_STRUCTURED);
+    }
+
+    private static JsonObject normalizeInfoEntry(JsonObject input, String fallbackName) {
+        JsonObject out = new JsonObject();
+        if (input != null) {
+            for (Map.Entry<String, JsonElement> entry : input.entrySet()) {
+                String key = entry.getKey();
+                if (key == null || key.isBlank()) {
+                    continue;
+                }
+                if ("isShownInList".equalsIgnoreCase(key)) {
+                    continue;
+                }
+                out.add(key, entry.getValue());
+            }
+        }
+
+        String fileName = JsonCaseUtil.getStringIgnoreCase(out, "file_name");
+        if (fileName == null || fileName.isBlank()) {
+            fileName = fallbackName == null ? "" : fallbackName;
+            JsonCaseUtil.removeIgnoreCase(out, "file_name");
+            out.addProperty("file_name", fileName);
+        }
+
+        String identifier = JsonCaseUtil.getStringIgnoreCase(out, "identifier");
+        if (identifier == null || identifier.isBlank()) {
+            identifier = fileName;
+            JsonCaseUtil.removeIgnoreCase(out, "identifier");
+            out.addProperty("identifier", identifier == null ? "" : identifier);
+        }
+
+        if (!JsonCaseUtil.hasIgnoreCase(out, "type")) {
+            out.addProperty("type", "others");
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "isInList")) {
+            boolean legacyShown = JsonCaseUtil.getBooleanIgnoreCase(input, "isShownInList", true);
+            out.addProperty("isInList", legacyShown);
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "isHidden")) {
+            out.addProperty("isHidden", false);
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "AllowEnableByAll")) {
+            out.addProperty("AllowEnableByAll", true);
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "dependencies")) {
+            out.addProperty("dependencies", "");
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "conflicts")) {
+            out.addProperty("conflicts", "");
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "alarm")) {
+            out.addProperty("alarm", false);
+        }
+
+        normalizeLocalizedField(out, "DisplayName", fileName);
+        normalizeLocalizedField(out, "tip", null);
+        return out;
+    }
+
+    private static void normalizeLocalizedField(JsonObject obj, String key, String defaultEnUs) {
+        JsonObject localized = new JsonObject();
+        JsonObject fromObject = JsonCaseUtil.getObjectIgnoreCase(obj, key);
+        if (fromObject != null) {
+            for (Map.Entry<String, JsonElement> entry : fromObject.entrySet()) {
+                JsonElement value = entry.getValue();
+                if (value == null || !value.isJsonPrimitive()) {
+                    continue;
+                }
+                String lang = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                if (lang == null || lang.isBlank()) {
+                    continue;
+                }
+                localized.addProperty(lang, value.getAsString());
+            }
+        } else {
+            String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+            if (single != null && !single.isBlank()) {
+                localized.addProperty("en_us", single);
+            }
+        }
+        if (localized.entrySet().isEmpty() && defaultEnUs != null && !defaultEnUs.isBlank()) {
+            localized.addProperty("en_us", defaultEnUs);
+        }
+        JsonCaseUtil.removeIgnoreCase(obj, key);
+        obj.add(key, localized);
     }
 
     private static void migrateRemoteConfigsToDc(Path remoteRoot) {

@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -14,7 +15,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class DlcRemoteRuntime {
     private static boolean promptedThisSession = false;
@@ -85,9 +88,12 @@ public final class DlcRemoteRuntime {
             identifier = fileName;
         }
         obj.addProperty("identifier", identifier);
+        Map<String, String> displayNames = resolveDisplayNames(entry);
+        if (displayNames.isEmpty()) {
+            displayNames.put("en_us", fileName);
+        }
         JsonObject displayObj = new JsonObject();
-        displayObj.addProperty("en_us", fileName);
-        for (var e : entry.getDisplayNames().entrySet()) {
+        for (var e : displayNames.entrySet()) {
             displayObj.addProperty(e.getKey(), e.getValue());
         }
         obj.add("DisplayName", displayObj);
@@ -105,8 +111,9 @@ public final class DlcRemoteRuntime {
         obj.addProperty("dependencies", String.join(",", entry.getResolvedDependencyNames()));
         obj.addProperty("conflicts", String.join(",", entry.getConflictNames()));
         obj.addProperty("alarm", entry.isAlarm());
+        Map<String, String> tips = resolveTips(entry);
         JsonObject tipObj = new JsonObject();
-        for (var e : entry.getTips().entrySet()) {
+        for (var e : tips.entrySet()) {
             tipObj.addProperty(e.getKey(), e.getValue());
         }
         obj.add("tip", tipObj);
@@ -274,6 +281,60 @@ public final class DlcRemoteRuntime {
             normalized.add(targetKey, normalizeRelationElement(entry.getValue()));
         }
         return normalized;
+    }
+
+    private static Map<String, String> resolveDisplayNames(DlcRemoteEntry entry) {
+        Map<String, String> values = new HashMap<>();
+        if (entry != null && entry.getDisplayNames() != null) {
+            values.putAll(entry.getDisplayNames());
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
+        JsonObject obj = entry == null ? null : DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED);
+        values.putAll(readLocalizedAny(obj, "DisplayName"));
+        return values;
+    }
+
+    private static Map<String, String> resolveTips(DlcRemoteEntry entry) {
+        Map<String, String> values = new HashMap<>();
+        if (entry != null && entry.getTips() != null) {
+            values.putAll(entry.getTips());
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
+        JsonObject obj = entry == null ? null : DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED);
+        values.putAll(readLocalizedAny(obj, "tip"));
+        return values;
+    }
+
+    private static Map<String, String> readLocalizedAny(JsonObject obj, String key) {
+        Map<String, String> values = new HashMap<>();
+        if (obj == null || key == null || key.isBlank()) {
+            return values;
+        }
+        JsonObject object = JsonCaseUtil.getObjectIgnoreCase(obj, key);
+        if (object != null) {
+            for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+                if (entry.getValue() == null || !entry.getValue().isJsonPrimitive()) {
+                    continue;
+                }
+                String lang = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                if (lang == null) {
+                    continue;
+                }
+                values.put(lang, entry.getValue().getAsString());
+            }
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
+        String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+        if (single != null && !single.isBlank()) {
+            values.put("en_us", single);
+        }
+        return values;
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {

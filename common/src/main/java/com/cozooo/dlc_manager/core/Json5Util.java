@@ -113,8 +113,12 @@ public final class Json5Util {
             return null;
         }
         if (path.getFileName() != null && path.getFileName().toString().toLowerCase().endsWith(DC_EXTENSION)) {
+            JsonObject dc = DcFormatUtil.readGenericText(content);
+            if (dc != null && !dc.entrySet().isEmpty()) {
+                return dc;
+            }
             String trimmed = content == null ? "" : content.stripLeading();
-            if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+            if (isLikelyJsonContent(trimmed)) {
                 JsonElement jsonLike = readElementJson5(content);
                 if (jsonLike != null) {
                     return jsonLike;
@@ -124,8 +128,7 @@ public final class Json5Util {
                     return jsonLike;
                 }
             }
-            JsonObject dc = DcFormatUtil.readGenericText(content);
-            if (dc != null && !dc.entrySet().isEmpty()) {
+            if (dc != null) {
                 return dc;
             }
         }
@@ -293,7 +296,7 @@ public final class Json5Util {
             return;
         }
         String trimmed = content.stripLeading();
-        if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+        if (!isLikelyJsonContent(trimmed)) {
             return;
         }
         JsonElement parsed = readElementJson5(content);
@@ -467,6 +470,32 @@ public final class Json5Util {
             Files.deleteIfExists(original);
         } catch (IOException ignored) {
         }
+    }
+
+    private static boolean isLikelyJsonContent(String trimmed) {
+        if (trimmed == null || trimmed.isBlank()) {
+            return false;
+        }
+        if (trimmed.startsWith("{")) {
+            return true;
+        }
+        if (!trimmed.startsWith("[")) {
+            return false;
+        }
+        int i = 1;
+        while (i < trimmed.length() && Character.isWhitespace(trimmed.charAt(i))) {
+            i++;
+        }
+        if (i >= trimmed.length()) {
+            return false;
+        }
+        char c = trimmed.charAt(i);
+        if (c == '"' || c == '\'' || c == '{' || c == '[' || c == ']' || c == '-' || Character.isDigit(c)) {
+            return true;
+        }
+        return trimmed.startsWith("true", i)
+            || trimmed.startsWith("false", i)
+            || trimmed.startsWith("null", i);
     }
 
     private static JsonElement toGson(Json5Element element) {

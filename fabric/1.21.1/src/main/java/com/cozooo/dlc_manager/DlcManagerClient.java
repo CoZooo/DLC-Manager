@@ -164,6 +164,7 @@ public class DlcManagerClient implements ClientModInitializer {
             }
             alignTitleButtons(screen);
             pendingAlignScreen = screen;
+            DlcClientRuntime.maybeOpenManagerOnFirstRun(screen);
             runStartupChecksAsync(screen);
         });
 

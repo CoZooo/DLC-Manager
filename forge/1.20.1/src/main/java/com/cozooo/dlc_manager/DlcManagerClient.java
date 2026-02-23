@@ -130,6 +130,7 @@ public class DlcManagerClient {
                 && findButtonByKey(screen, "dlc_manager.notice") == null) {
                 event.addListener(noticeButton);
             }
+            DlcClientRuntime.maybeOpenManagerOnFirstRun(screen);
             DlcClientRuntime.runStartupChecksAsync(screen);
         }
 
