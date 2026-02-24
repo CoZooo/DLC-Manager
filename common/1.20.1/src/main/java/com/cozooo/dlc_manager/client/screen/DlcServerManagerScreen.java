@@ -20,9 +20,11 @@ import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,7 +38,6 @@ public class DlcServerManagerScreen extends Screen {
     private static final int TAB_HEIGHT = 20;
 
     public enum Tab {
-        DLC,
         SERVERS
     }
 
@@ -172,11 +173,7 @@ public class DlcServerManagerScreen extends Screen {
     private void rebuildUi() {
         clearWidgets();
         initTabs();
-        if (activeTab == Tab.DLC) {
-            initDlcTab();
-        } else {
-            initServerTab();
-        }
+        initServerTab();
     }
 
     private void initTabs() {
@@ -215,10 +212,6 @@ public class DlcServerManagerScreen extends Screen {
     }
 
     private void openTab(Tab tab) {
-        if (tab == Tab.DLC) {
-            openDlcPage();
-            return;
-        }
         if (activeTab == tab) {
             return;
         }
@@ -342,11 +335,7 @@ public class DlcServerManagerScreen extends Screen {
         if (headerLine != null) {
             guiGraphics.drawString(this.font, headerLine, 8, 16, 0xC8C8C8, false);
         }
-        if (activeTab == Tab.DLC) {
-            renderDlcTab(guiGraphics);
-        } else {
-            renderServerTab(guiGraphics);
-        }
+        renderServerTab(guiGraphics);
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
@@ -409,69 +398,21 @@ public class DlcServerManagerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int listTop = listTop();
-        int listBottom = listBottom();
-        if (activeTab == Tab.DLC) {
-            int maxVisible = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
-            int maxScroll = Math.max(0, displayEntries.size() - maxVisible);
-            if (startDlcScrollDrag(mouseX, mouseY, listTop, listBottom, displayEntries.size(), maxVisible, maxScroll)) {
-                return true;
-            }
-            if (mouseY >= listTop && mouseY <= listBottom) {
-                int index = (int) ((mouseY - listTop) / ROW_HEIGHT) + scrollIndex;
-                if (index >= 0 && index < displayEntries.size()) {
-                    DisplayEntry entry = displayEntries.get(index);
-                    if (!entry.header && entry.item != null) {
-                        if (isToggleClick(mouseX, mouseY, rowYForIndex(index, listTop))) {
-                            entry.item.enabled = !entry.item.enabled;
-                            updateApplyState();
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (activeTab == Tab.DLC && draggingDlcScroll) {
-            int listTop = listTop();
-            int listBottom = listBottom();
-            int maxVisible = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
-            int maxScroll = Math.max(0, displayEntries.size() - maxVisible);
-            updateDlcScrollFromDrag(mouseY, listTop, listBottom, displayEntries.size(), maxVisible, maxScroll);
-            return true;
-        }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (draggingDlcScroll) {
-            draggingDlcScroll = false;
-            return true;
-        }
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        int listTop = listTop();
-        int listBottom = listBottom();
-        if (mouseY < listTop || mouseY > listBottom) {
-            return super.mouseScrolled(mouseX, mouseY, delta);
-        }
-        if (activeTab == Tab.DLC) {
-            int maxVisible = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
-            int maxScroll = Math.max(0, displayEntries.size() - maxVisible);
-            if (maxScroll > 0) {
-                int step = delta > 0 ? -1 : 1;
-                scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
-                return true;
-            }
-        }
         return super.mouseScrolled(mouseX, mouseY, delta);
     }
 
@@ -602,9 +543,6 @@ public class DlcServerManagerScreen extends Screen {
     }
 
     private int listTop() {
-        if (activeTab == Tab.DLC) {
-            return filterTabsY() + FILTER_TAB_HEIGHT + 8;
-        }
         return panelTop() + 6;
     }
 
@@ -708,37 +646,95 @@ public class DlcServerManagerScreen extends Screen {
             }
         }
         Set<String> enableIds = new HashSet<>();
-        Set<String> conflictIds = new HashSet<>();
+        Set<String> conflictIds = new LinkedHashSet<>();
         for (String id : enabledPresets) {
             DlcPresetEntry entry = byId.get(id);
             if (entry == null) {
                 continue;
             }
             for (String enable : entry.getEnable()) {
-                if (enable != null && !enable.isBlank()) {
-                    enableIds.add(enable.trim().toLowerCase(java.util.Locale.ROOT));
+                String normalized = normalizeServerIdentifier(enable);
+                if (!normalized.isBlank()) {
+                    enableIds.add(normalized);
                 }
             }
             for (String conflict : entry.getConflicts()) {
-                if (conflict != null && !conflict.isBlank()) {
-                    conflictIds.add(conflict.trim().toLowerCase(java.util.Locale.ROOT));
+                String normalized = normalizeServerIdentifier(conflict);
+                if (!normalized.isBlank()) {
+                    conflictIds.add(normalized);
                 }
             }
         }
+        Set<String> expandedConflictIds = expandConflictIdentifiers(conflictIds);
         for (DlcServerItem item : items) {
             if (item == null || item.identifier == null) {
                 continue;
             }
-            String key = item.identifier.trim().toLowerCase(java.util.Locale.ROOT);
+            String key = normalizeServerIdentifier(item.identifier);
             if (enableIds.contains(key)) {
                 item.enabled = true;
             }
-            if (conflictIds.contains(key)) {
+            if (expandedConflictIds.contains(key)) {
                 item.enabled = false;
             }
         }
         rebuildDisplayEntries();
         updateApplyState();
+    }
+
+    private Set<String> expandConflictIdentifiers(Set<String> conflictIds) {
+        Set<String> expanded = new LinkedHashSet<>();
+        if (conflictIds == null || conflictIds.isEmpty()) {
+            return expanded;
+        }
+        ArrayDeque<String> queue = new ArrayDeque<>();
+        for (String id : conflictIds) {
+            String normalized = normalizeServerIdentifier(id);
+            if (normalized.isBlank()) {
+                continue;
+            }
+            if (expanded.add(normalized)) {
+                queue.add(normalized);
+            }
+        }
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            for (String dependent : collectDependentIdentifiers(current)) {
+                if (!dependent.isBlank() && expanded.add(dependent)) {
+                    queue.add(dependent);
+                }
+            }
+        }
+        return expanded;
+    }
+
+    private Set<String> collectDependentIdentifiers(String targetIdentifier) {
+        Set<String> dependents = new LinkedHashSet<>();
+        if (targetIdentifier == null || targetIdentifier.isBlank()) {
+            return dependents;
+        }
+        for (DlcServerItem item : items) {
+            if (item == null || item.identifier == null || item.dependencies == null || item.dependencies.isEmpty()) {
+                continue;
+            }
+            for (String dep : item.dependencies) {
+                if (normalizeServerIdentifier(dep).equals(targetIdentifier)) {
+                    String identifier = normalizeServerIdentifier(item.identifier);
+                    if (!identifier.isBlank()) {
+                        dependents.add(identifier);
+                    }
+                    break;
+                }
+            }
+        }
+        return dependents;
+    }
+
+    private static String normalizeServerIdentifier(String identifier) {
+        if (identifier == null) {
+            return "";
+        }
+        return identifier.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private void applyChanges() {

@@ -349,6 +349,7 @@ public final class DlcPresetRuntimeState {
                 desiredDisable.add(conflict);
             }
         }
+        desiredDisable = expandDisabledByDependents(desiredDisable);
         desiredEnable.removeAll(desiredDisable);
 
         Set<String> toDisable = new LinkedHashSet<>(LAST_APPLIED_IDENTIFIERS);
@@ -382,6 +383,39 @@ public final class DlcPresetRuntimeState {
 
         LAST_APPLIED_IDENTIFIERS.clear();
         LAST_APPLIED_IDENTIFIERS.addAll(desiredAll);
+    }
+
+    private static Set<String> expandDisabledByDependents(Set<String> disabledIdentifiers) {
+        Set<String> expanded = new LinkedHashSet<>();
+        if (disabledIdentifiers == null || disabledIdentifiers.isEmpty()) {
+            return expanded;
+        }
+        java.util.ArrayDeque<DlcItem> queue = new java.util.ArrayDeque<>();
+        for (String identifier : disabledIdentifiers) {
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            expanded.add(identifier);
+            DlcItem root = DlcRuntimeState.getItemByIdentifier(identifier);
+            if (root != null) {
+                queue.add(root);
+            }
+        }
+        while (!queue.isEmpty()) {
+            DlcItem current = queue.poll();
+            if (current == null || current.getIdentifier() == null || current.getIdentifier().isBlank()) {
+                continue;
+            }
+            for (DlcItem dependent : DlcRuntimeState.getDependents(current.getIdentifier())) {
+                if (dependent == null || dependent.getIdentifier() == null || dependent.getIdentifier().isBlank()) {
+                    continue;
+                }
+                if (expanded.add(dependent.getIdentifier())) {
+                    queue.add(dependent);
+                }
+            }
+        }
+        return expanded;
     }
 
     private static void rollbackLastAppliedToBaseline() {
