@@ -1,0 +1,41 @@
+{
+  "DC DLC Template": {
+    "prefix": "dc-dlc",
+    "body": [
+      "[download]",
+      "modrinth_projectid = \"\"",
+      "modrinth_versionid = \"\"",
+      "curseforge_projectid = \"\"",
+      "curseforge_fileid = \"\"",
+      "directUrl = \"\"",
+      "priority = \"modrinth\"",
+      "",
+      "[basic]",
+      "identifier = \"${1:example}\"",
+      "type = \"mod\"",
+      "file_name = \"${2:example.jar}\"",
+      "isInList = true",
+      "isHidden = false",
+      "AllowEnableByAll = true",
+      "dependencies = \"\"",
+      "conflicts = \"\"",
+      "alarm = false",
+      "",
+      "[DisplayName]",
+      "en_us = \"${3:Example}\"",
+      "",
+      "[tip]",
+      "en_us = \"${4:Description}\""
+    ],
+    "description": "DLC .dc template"
+  },
+  "DC Multiline String": {
+    "prefix": "dc-ml",
+    "body": [
+      "\"\"\"${1:text}",
+      "${2:next line}",
+      "\"\"\""
+    ],
+    "description": "Triple-quoted multiline string"
+  }
+}

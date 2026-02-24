@@ -1,0 +1,44 @@
+plugins {
+    id "java"
+    id "org.jetbrains.intellij" version "1.17.4"
+}
+
+group = "com.cozooo.dlc_manager"
+version = "1.0.0"
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+intellij {
+    version.set("2023.3.8")
+    type.set("IC")
+    plugins.set([])
+    updateSinceUntilBuild.set(false)
+}
+
+tasks {
+    patchPluginXml {
+        sinceBuild.set("0")
+        untilBuild.set("999.*")
+        changeNotes.set(
+            """
+            Initial support for .dc files:
+            <ul>
+              <li>Syntax highlighting</li>
+              <li>Basic completion</li>
+              <li>Basic syntax inspection</li>
+            </ul>
+            """.trim()
+        )
+    }
+
+    buildPlugin {
+        destinationDirectory.set(file("${rootDir}/.."))
+    }
+}

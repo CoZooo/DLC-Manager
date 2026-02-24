@@ -1,0 +1,45 @@
+{
+  "name": "dc-language-tools",
+  "displayName": "DC Language Tools",
+  "description": "Syntax highlighting, diagnostics, and completion for .dc files",
+  "version": "1.0.0",
+  "publisher": "cozooo",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:dc"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "dc",
+        "aliases": [
+          "DC",
+          "dc"
+        ],
+        "extensions": [
+          ".dc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dc",
+        "scopeName": "source.dc",
+        "path": "./syntaxes/dc.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "dc",
+        "path": "./snippets/dc.json"
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+name: DCQuickLook
+options:
+  minimumXcodeGenVersion: 2.38.0
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+targets:
+  DCQuickLookHost:
+    type: application
+    platform: macOS
+    sources:
+      - HostApp/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cozooo.dlc.quicklook.host
+        INFOPLIST_FILE: HostApp/Info.plist
+        CODE_SIGN_ENTITLEMENTS: HostApp/HostApp.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - target: DCQuickLookExtension
+        embed: true
+
+  DCQuickLookExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - Extension/Sources
+      - Shared/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cozooo.dlc.quicklook.host.extension
+        INFOPLIST_FILE: Extension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Extension/Extension.entitlements
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - framework: AppKit.framework
+      - framework: QuickLookUI.framework

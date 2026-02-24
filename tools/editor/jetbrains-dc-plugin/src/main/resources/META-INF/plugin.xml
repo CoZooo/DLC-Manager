@@ -1,0 +1,46 @@
+<idea-plugin>
+    <id>com.cozooo.dlc_manager.dc</id>
+    <name>DC Language Support</name>
+    <vendor email="dev@cozooo.com">CoZooo</vendor>
+
+    <description><![CDATA[
+    Support for <code>.dc</code> files:
+    <ul>
+      <li>syntax highlighting</li>
+      <li>basic key/section completion</li>
+      <li>basic syntax inspection</li>
+    </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType
+                name="DC"
+                language="DC"
+                implementationClass="com.cozooo.dlc_manager.dc.DCFileType"
+                fieldName="INSTANCE"
+                extensions="dc"/>
+        <lang.parserDefinition
+                language="DC"
+                implementationClass="com.cozooo.dlc_manager.dc.DCParserDefinition"/>
+        <lang.syntaxHighlighterFactory
+                language="DC"
+                implementationClass="com.cozooo.dlc_manager.dc.DCSyntaxHighlighterFactory"/>
+        <colorSettingsPage
+                language="DC"
+                implementationClass="com.cozooo.dlc_manager.dc.DCColorSettingsPage"/>
+        <completion.contributor
+                language="DC"
+                implementationClass="com.cozooo.dlc_manager.dc.DCCompletionContributor"/>
+        <localInspection
+                language="DC"
+                shortName="DCBasicSyntax"
+                displayName="DC basic syntax check"
+                groupName="DC"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.cozooo.dlc_manager.dc.DCBasicSyntaxInspection"/>
+        <postStartupActivity implementation="com.cozooo.dlc_manager.dc.DCAutoCorrectStartupActivity"/>
+    </extensions>
+</idea-plugin>

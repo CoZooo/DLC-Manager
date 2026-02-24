@@ -1,0 +1,121 @@
+{
+  "name": "DC",
+  "scopeName": "source.dc",
+  "patterns": [
+    {
+      "include": "#comment"
+    },
+    {
+      "include": "#section"
+    },
+    {
+      "include": "#tripleString"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#keyValue"
+    },
+    {
+      "include": "#boolean"
+    },
+    {
+      "include": "#number"
+    }
+  ],
+  "repository": {
+    "comment": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.dc",
+          "match": "#.*$"
+        },
+        {
+          "name": "comment.line.double-slash.dc",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "section": {
+      "patterns": [
+        {
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.section.begin.dc"
+            },
+            "2": {
+              "name": "punctuation.definition.section.begin.dc"
+            },
+            "3": {
+              "name": "punctuation.definition.section.end.dc"
+            }
+          },
+          "match": "^\\s*(\\[)\\s*([^\\]]+?)\\s*(\\])\\s*$"
+        }
+      ]
+    },
+    "tripleString": {
+      "name": "string.quoted.multi.dc",
+      "begin": "\"\"\"",
+      "end": "\"\"\""
+    },
+    "string": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.dc",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.dc",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "keyValue": {
+      "patterns": [
+        {
+          "captures": {
+            "1": {
+              "name": "entity.name.type.property.dc"
+            },
+            "2": {
+              "name": "keyword.operator.assignment.dc"
+            }
+          },
+          "match": "^\\s*([A-Za-z_][A-Za-z0-9_\\-.]*)\\s*([=:])"
+        },
+        {
+          "captures": {
+            "1": {
+              "name": "entity.name.type.property.dc"
+            },
+            "2": {
+              "name": "keyword.operator.assignment.dc"
+            }
+          },
+          "match": "^\\s*(\"[^\"]+\")\\s*([=:])"
+        }
+      ]
+    },
+    "boolean": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.dc",
+          "match": "\\b(true|false)\\b"
+        }
+      ]
+    },
+    "number": {
+      "patterns": [
+        {
+          "name": "constant.numeric.dc",
+          "match": "\\b-?\\d+(\\.\\d+)?\\b"
+        }
+      ]
+    }
+  }
+}

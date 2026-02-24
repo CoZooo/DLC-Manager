@@ -1,0 +1,466 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 63;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		15AD44EE9AC944428DA7EB41 /* DCQuickLookHostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E0EBAFD268D95A1736392B /* DCQuickLookHostApp.swift */; };
+		1AD9CB77D0F19E649456221D /* QuickLookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40E4719184BFBE0AEAF3289F /* QuickLookUI.framework */; };
+		322D9B51CA5C89A2066AAE9F /* PreviewViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C5395D3CEBD82FFAA7B8830 /* PreviewViewController.swift */; };
+		43C465BF704A773B247FEAC1 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A195322A1703A40DE63F82D /* AppKit.framework */; };
+		57A9CABF11FD60103964988E /* DCHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5728118D3F3B1CAE02F6608 /* DCHighlighter.swift */; };
+		87D4C9A026AC93F6DB04116E /* DCQuickLookExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F63E7B6749819CBF6B19046D /* DCQuickLookExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		8AB3E5E84FCA1C600253376F /* DCTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68325F79C34BA8AE8404AA59 /* DCTheme.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6581881A68FA80C0AAE3A909 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B637DA18EEE51C5D82B4CE5F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 56195463A0F2F6BC6D423EA3;
+			remoteInfo = DCQuickLookExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BBC5F5D3042CEE1749779FDD /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				87D4C9A026AC93F6DB04116E /* DCQuickLookExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		40E4719184BFBE0AEAF3289F /* QuickLookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = QuickLookUI.framework; sourceTree = "<group>"; };
+		68325F79C34BA8AE8404AA59 /* DCTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCTheme.swift; sourceTree = "<group>"; };
+		6A94BD3654C35C8C12643A63 /* DCQuickLookHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DCQuickLookHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		8A195322A1703A40DE63F82D /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = AppKit.framework; sourceTree = "<group>"; };
+		8C5395D3CEBD82FFAA7B8830 /* PreviewViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewViewController.swift; sourceTree = "<group>"; };
+		B7E0EBAFD268D95A1736392B /* DCQuickLookHostApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCQuickLookHostApp.swift; sourceTree = "<group>"; };
+		C5728118D3F3B1CAE02F6608 /* DCHighlighter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DCHighlighter.swift; sourceTree = "<group>"; };
+		F63E7B6749819CBF6B19046D /* DCQuickLookExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DCQuickLookExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		EC9064581E3DA85E52AD29C7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				43C465BF704A773B247FEAC1 /* AppKit.framework in Frameworks */,
+				1AD9CB77D0F19E649456221D /* QuickLookUI.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2189B8833F9F1B4790EC6AE6 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				8C5395D3CEBD82FFAA7B8830 /* PreviewViewController.swift */,
+			);
+			name = Sources;
+			path = Extension/Sources;
+			sourceTree = "<group>";
+		};
+		8916A77860299CA613D90D9F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8A195322A1703A40DE63F82D /* AppKit.framework */,
+				40E4719184BFBE0AEAF3289F /* QuickLookUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		8F234D247BB98DF10B4B9A62 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F63E7B6749819CBF6B19046D /* DCQuickLookExtension.appex */,
+				6A94BD3654C35C8C12643A63 /* DCQuickLookHost.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		938D6EF942790058A8AEB378 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				C5728118D3F3B1CAE02F6608 /* DCHighlighter.swift */,
+				68325F79C34BA8AE8404AA59 /* DCTheme.swift */,
+			);
+			name = Sources;
+			path = Shared/Sources;
+			sourceTree = "<group>";
+		};
+		9643FD69E38ECBDF0EDA9AC2 = {
+			isa = PBXGroup;
+			children = (
+				2189B8833F9F1B4790EC6AE6 /* Sources */,
+				9C7AB3BFA15EEF263DFBACD6 /* Sources */,
+				938D6EF942790058A8AEB378 /* Sources */,
+				8916A77860299CA613D90D9F /* Frameworks */,
+				8F234D247BB98DF10B4B9A62 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		9C7AB3BFA15EEF263DFBACD6 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				B7E0EBAFD268D95A1736392B /* DCQuickLookHostApp.swift */,
+			);
+			name = Sources;
+			path = HostApp/Sources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		56195463A0F2F6BC6D423EA3 /* DCQuickLookExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A18EB66009F982C72082B45 /* Build configuration list for PBXNativeTarget "DCQuickLookExtension" */;
+			buildPhases = (
+				ADA963ACA3A890E921BC3125 /* Sources */,
+				EC9064581E3DA85E52AD29C7 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DCQuickLookExtension;
+			packageProductDependencies = (
+			);
+			productName = DCQuickLookExtension;
+			productReference = F63E7B6749819CBF6B19046D /* DCQuickLookExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		9B1DB1B7FDE74FF2D69596EC /* DCQuickLookHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2C866901276F6643F08AC7A7 /* Build configuration list for PBXNativeTarget "DCQuickLookHost" */;
+			buildPhases = (
+				F639913190F71BC14F9D4E03 /* Sources */,
+				BBC5F5D3042CEE1749779FDD /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F004E0EC50153BA5F4B9C93A /* PBXTargetDependency */,
+			);
+			name = DCQuickLookHost;
+			packageProductDependencies = (
+			);
+			productName = DCQuickLookHost;
+			productReference = 6A94BD3654C35C8C12643A63 /* DCQuickLookHost.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B637DA18EEE51C5D82B4CE5F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					56195463A0F2F6BC6D423EA3 = {
+						ProvisioningStyle = Automatic;
+					};
+					9B1DB1B7FDE74FF2D69596EC = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = F331B4AE0DDBA1F042132817 /* Build configuration list for PBXProject "DCQuickLook" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 9643FD69E38ECBDF0EDA9AC2;
+			minimizedProjectReferenceProxies = 1;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				56195463A0F2F6BC6D423EA3 /* DCQuickLookExtension */,
+				9B1DB1B7FDE74FF2D69596EC /* DCQuickLookHost */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		ADA963ACA3A890E921BC3125 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				57A9CABF11FD60103964988E /* DCHighlighter.swift in Sources */,
+				8AB3E5E84FCA1C600253376F /* DCTheme.swift in Sources */,
+				322D9B51CA5C89A2066AAE9F /* PreviewViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F639913190F71BC14F9D4E03 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15AD44EE9AC944428DA7EB41 /* DCQuickLookHostApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		F004E0EC50153BA5F4B9C93A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 56195463A0F2F6BC6D423EA3 /* DCQuickLookExtension */;
+			targetProxy = 6581881A68FA80C0AAE3A909 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		867F27C293D12A13C8A525DA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A72107650C1DF8A0751FC681 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AE3814C0F27CBFB4390AC67B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HostApp/HostApp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = XT25742G34;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = HostApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cozooo.dlc.quicklook.host;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		BA883E1B82D202201DFEC9BF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Extension/Extension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = XT25742G34;
+				ENABLE_HARDENED_RUNTIME = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = Extension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cozooo.dlc.quicklook.host.extension;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		D4AF3F3AA58FFFCD2E1C0929 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Extension/Extension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = XT25742G34;
+				ENABLE_HARDENED_RUNTIME = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = Extension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cozooo.dlc.quicklook.host.extension;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		E7971C39D7E74FB79CA53E54 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = HostApp/HostApp.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = XT25742G34;
+				ENABLE_HARDENED_RUNTIME = YES;
+				INFOPLIST_FILE = HostApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cozooo.dlc.quicklook.host;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2A18EB66009F982C72082B45 /* Build configuration list for PBXNativeTarget "DCQuickLookExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA883E1B82D202201DFEC9BF /* Debug */,
+				D4AF3F3AA58FFFCD2E1C0929 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		2C866901276F6643F08AC7A7 /* Build configuration list for PBXNativeTarget "DCQuickLookHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E7971C39D7E74FB79CA53E54 /* Debug */,
+				AE3814C0F27CBFB4390AC67B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F331B4AE0DDBA1F042132817 /* Build configuration list for PBXProject "DCQuickLook" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A72107650C1DF8A0751FC681 /* Debug */,
+				867F27C293D12A13C8A525DA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B637DA18EEE51C5D82B4CE5F /* Project object */;
+}
