@@ -72,7 +72,7 @@ zh_cn = "示例提示"
 
 ## Field Reference
 
-#### `download` table
+#### `[download]` table
 - `curseforge_projectid`: CurseForge project ID or slug.
 - `curseforge_fileid`: CurseForge file ID / version string / file name.
 - `modrinth_projectid`: Modrinth project ID or slug.
@@ -103,6 +103,13 @@ zh_cn = "示例提示"
 - **Purpose**: List visibility and batch-enable behavior.
 - **Default**: `true`, `false`, `true`.
 
+#### `basic.conflicts`
+- **Allowed**: string or array of identifiers.
+
+#### `basic.alarm`
+- **Purpose**: Show alarm confirmation screen before enabling.
+- **Allowed**: Boolean.
+
 #### `basic.dependencies`
 - **Allowed**:
   - string (`"LibA,LibB"`)
@@ -113,15 +120,11 @@ zh_cn = "示例提示"
 - **Syntax**:
   - `identifier:` or `[identifier]`
 
-#### `basic.conflicts`
-- **Allowed**: string or array of identifiers.
+#### `[DisplayName]` table
+- Localized display name table, typically `en_us` and `zh_cn`.
 
-#### `basic.alarm`
-- **Purpose**: Show alarm confirmation screen before enabling.
-- **Allowed**: Boolean.
-
-#### `DisplayName` / `tip`
-- Localized text tables, typically `en_us` and `zh_cn`.
+#### `[tip]` table
+- Localized tooltip text table, typically `en_us` and `zh_cn`.
 
 ## Notes
 - If `type = "others"` and `appliedTarget` is empty, the entry is forced out of list display.

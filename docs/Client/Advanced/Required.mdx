@@ -64,7 +64,7 @@ zh_cn = "请勿删除"
 
 ## Field Reference
 
-#### `download` table
+#### `[download]` table
 - `curseforge_projectid`, `curseforge_fileid`
 - `modrinth_projectid`, `modrinth_versionid`
 - `directUrl`: string or string array
@@ -98,8 +98,11 @@ zh_cn = "请勿删除"
 - **Syntax**:
   - `identifier:` or `[identifier]`
 
-#### `DisplayName` / `tip`
-- Localized text tables (`en_us`, `zh_cn`, etc.).
+#### `[DisplayName]` table
+- Localized display name table (`en_us`, `zh_cn`, etc.).
+
+#### `[tip]` table
+- Localized tooltip text table (`en_us`, `zh_cn`, etc.).
 
 #### `UserRemoved`
 - Internal marker key written by runtime when user removes an entry manually.

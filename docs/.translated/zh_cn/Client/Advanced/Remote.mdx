@@ -72,7 +72,7 @@ zh_cn = "示例提示"
 
 ## 字段说明
 
-#### `download` 表
+#### `[download]` 表
 - `curseforge_projectid`：CurseForge 项目 ID 或 slug。
 - `curseforge_fileid`：CurseForge 文件 ID / 版本字符串 / 文件名。
 - `modrinth_projectid`：Modrinth 项目 ID 或 slug。
@@ -103,6 +103,13 @@ zh_cn = "示例提示"
 - **用途**：列表显示与批量启用行为控制。
 - **默认**：`true`、`false`、`true`。
 
+#### `basic.conflicts`
+- **可填**：字符串或 identifier 数组。
+
+#### `basic.alarm`
+- **用途**：启用前显示警告确认页。
+- **可填**：布尔。
+
 #### `basic.dependencies`
 - **可填**：
   - 字符串（如 `"LibA,LibB"`）
@@ -113,15 +120,11 @@ zh_cn = "示例提示"
 - **语法**：
   - `identifier:` 或 `[identifier]`
 
-#### `basic.conflicts`
-- **可填**：字符串或 identifier 数组。
+#### `[DisplayName]` 表
+- 多语言显示名文本表，通常为 `en_us` 与 `zh_cn`。
 
-#### `basic.alarm`
-- **用途**：启用前显示警告确认页。
-- **可填**：布尔。
-
-#### `DisplayName` / `tip`
-- 多语言文本表，通常为 `en_us` 与 `zh_cn`。
+#### `[tip]` 表
+- 多语言提示文本表，通常为 `en_us` 与 `zh_cn`。
 
 ## 补充说明
 - 当 `type = "others"` 且 `appliedTarget` 为空时，该项会被强制不在列表展示。
