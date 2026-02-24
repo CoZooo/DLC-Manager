@@ -37,6 +37,7 @@ public class DlcPathConfig {
     public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
     public static final boolean DEFAULT_PRESET_FUNC_ON = true;
     public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
+    public static final int DEFAULT_ALARM_WAITING_TIME = 0;
     public static final boolean DEFAULT_SERVER_SUPPORT = true;
     public static final int DEFAULT_SERVER_PORT = 29690;
     public static final String DEFAULT_SERVER_PASSWORD = "";
@@ -81,6 +82,7 @@ public class DlcPathConfig {
     private static boolean selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
     private static boolean presetFuncOn = DEFAULT_PRESET_FUNC_ON;
     private static boolean showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
+    private static int alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
     private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
     private static boolean serverSupportServer = DEFAULT_SERVER_SUPPORT;
     private static int serverPort = DEFAULT_SERVER_PORT;
@@ -236,6 +238,10 @@ public class DlcPathConfig {
 
     public static boolean isShowOnFirstRun() {
         return showOnFirstRun;
+    }
+
+    public static int getAlarmWaitingTime() {
+        return alarmWaitingTime;
     }
 
     public static boolean isServerSupportOn() {
@@ -548,6 +554,10 @@ public class DlcPathConfig {
         showOnFirstRun = value;
     }
 
+    public static void setAlarmWaitingTime(int value) {
+        alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME);
+    }
+
     public static void setServerSupportOn(boolean value) {
         serverSupportClient = value;
     }
@@ -692,6 +702,7 @@ public class DlcPathConfig {
         selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
         presetFuncOn = DEFAULT_PRESET_FUNC_ON;
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
+        alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
         serverSupportClient = DEFAULT_SERVER_SUPPORT;
         serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
@@ -888,6 +899,7 @@ public class DlcPathConfig {
         obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
         obj.addProperty("isPresetFuncOn", presetFuncOn);
         obj.addProperty("ShowOnFirstRun", showOnFirstRun);
+        obj.addProperty("WaitingTime", alarmWaitingTime);
         obj.addProperty("serverSupport", serverSupportClient);
         obj.addProperty("titleAnchor", titleAnchor);
         obj.addProperty("titleOffsetX", titleOffsetX);
@@ -915,6 +927,7 @@ public class DlcPathConfig {
         obj.addProperty("isUpdateManagerOn", updateManagerOn);
         obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
         obj.addProperty("isPresetFuncOn", presetFuncOn);
+        obj.addProperty("WaitingTime", alarmWaitingTime);
         root.add("ui", obj);
     }
 
@@ -978,6 +991,7 @@ public class DlcPathConfig {
         map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
         map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
         map.put("ShowOnFirstRun", value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN));
+        map.put("WaitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
         map.put("serverSupport", value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT));
         map.put("titleAnchor", value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR));
         map.put("titleOffsetX", value -> titleOffsetX = asInt(value, DEFAULT_TITLE_OFFSET_X));
@@ -1018,6 +1032,7 @@ public class DlcPathConfig {
         map.put("isUpdateManagerOn", value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON));
         map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
         map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
+        map.put("WaitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
         return map;
     }
 

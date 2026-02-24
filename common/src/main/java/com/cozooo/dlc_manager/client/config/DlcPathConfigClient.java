@@ -21,6 +21,7 @@ public final class DlcPathConfigClient {
     private static final ConfigBoolean SELF_UPDATE_AUTO_CHECK_ON = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DlcPathConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON, "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
     private static final ConfigBoolean PRESET_FUNC_ON = new DlcConfigBoolean("isPresetFuncOn", DlcPathConfig.DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
     private static final ConfigBoolean SHOW_ON_FIRST_RUN = new DlcConfigBoolean("ShowOnFirstRun", DlcPathConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun");
+    private static final ConfigInteger ALARM_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
     private static final ConfigBoolean SERVER_SUPPORT_CLIENT = new DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
     private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
     private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
@@ -62,6 +63,7 @@ public final class DlcPathConfigClient {
             SELF_UPDATE_AUTO_CHECK_ON,
             PRESET_FUNC_ON,
             SHOW_ON_FIRST_RUN,
+            ALARM_WAITING_TIME,
             SERVER_SUPPORT_CLIENT,
             MODPACK_URL,
             UPDATE_GITHUB_REPO,
@@ -119,6 +121,7 @@ public final class DlcPathConfigClient {
         SELF_UPDATE_AUTO_CHECK_ON.setBooleanValue(DlcPathConfig.isSelfUpdateAutoCheckOn());
         PRESET_FUNC_ON.setBooleanValue(DlcPathConfig.isPresetFuncOn());
         SHOW_ON_FIRST_RUN.setBooleanValue(DlcPathConfig.isShowOnFirstRun());
+        ALARM_WAITING_TIME.setIntegerValue(DlcPathConfig.getAlarmWaitingTime());
         SERVER_SUPPORT_CLIENT.setBooleanValue(DlcPathConfig.isServerSupportOn());
         MODPACK_URL.setValueFromString(DlcPathConfig.getModpackUrl());
         UPDATE_GITHUB_REPO.setValueFromString(DlcPathConfig.getUpdateGithubRepoUrl());
@@ -159,6 +162,7 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setSelfUpdateAutoCheckOn(SELF_UPDATE_AUTO_CHECK_ON.getBooleanValue());
         DlcPathConfig.setPresetFuncOn(PRESET_FUNC_ON.getBooleanValue());
         DlcPathConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.getBooleanValue());
+        DlcPathConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.getIntegerValue());
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());
         DlcPathConfig.setModpackUrl(MODPACK_URL.getStringValue());
         DlcPathConfig.setUpdateGithubRepoUrl(UPDATE_GITHUB_REPO.getStringValue());

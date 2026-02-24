@@ -30,6 +30,8 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
     private static final ConfigBoolean UI_PRESET = new DlcConfigBoolean("isPresetFuncOn", DlcPathConfig.DEFAULT_PRESET_FUNC_ON,
         "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
+    private static final ConfigInteger UI_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
+        "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
 
     private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DlcPathConfig.DEFAULT_DLC_ROOT,
         "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
@@ -65,7 +67,8 @@ public final class DlcServerConfigClient {
         UI_ENABLE_ALL,
         UI_UPDATE_MANAGER,
         UI_SELF_UPDATE,
-        UI_PRESET
+        UI_PRESET,
+        UI_WAITING_TIME
     );
 
     private static final List<IConfigBase> PATH_CONFIGS = List.of(
@@ -119,6 +122,7 @@ public final class DlcServerConfigClient {
         UI_UPDATE_MANAGER.setBooleanValue(getBoolean(ui, "isUpdateManagerOn", UI_UPDATE_MANAGER.getBooleanValue()));
         UI_SELF_UPDATE.setBooleanValue(getBoolean(ui, "isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.getBooleanValue()));
         UI_PRESET.setBooleanValue(getBoolean(ui, "isPresetFuncOn", UI_PRESET.getBooleanValue()));
+        UI_WAITING_TIME.setIntegerValue(getInt(ui, "WaitingTime", UI_WAITING_TIME.getIntegerValue()));
 
         JsonObject paths = asObject(root, "paths");
         DLC_ROOT.setValueFromString(getString(paths, "dlcRoot", DLC_ROOT.getStringValue()));
@@ -150,6 +154,7 @@ public final class DlcServerConfigClient {
         ui.addProperty("isUpdateManagerOn", UI_UPDATE_MANAGER.getBooleanValue());
         ui.addProperty("isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.getBooleanValue());
         ui.addProperty("isPresetFuncOn", UI_PRESET.getBooleanValue());
+        ui.addProperty("WaitingTime", UI_WAITING_TIME.getIntegerValue());
         root.add("ui", ui);
 
         JsonObject paths = new JsonObject();
