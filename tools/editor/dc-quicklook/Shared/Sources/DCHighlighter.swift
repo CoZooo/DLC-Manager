@@ -4,6 +4,7 @@ enum DCHighlighter {
     private static let sectionRegex = try! NSRegularExpression(pattern: #"^\s*\[[^\]]+\]\s*$"#)
     private static let keyValueRegex = try! NSRegularExpression(pattern: #"^\s*("[^"]+"|[A-Za-z_][A-Za-z0-9_.-]*)\s*([=:])"#)
     private static let stringRegex = try! NSRegularExpression(pattern: #""(?:\\.|[^"\\])*""#)
+    private static let tripleQuoteRegex = try! NSRegularExpression(pattern: "\"\"\"")
     private static let numberRegex = try! NSRegularExpression(pattern: #"\b-?\d+(\.\d+)?\b"#)
     private static let boolRegex = try! NSRegularExpression(pattern: #"\b(true|false)\b"#)
 
@@ -21,6 +22,7 @@ enum DCHighlighter {
         var lineEnd = 0
         var contentEnd = 0
         var index = 0
+        var tripleQuoteOpen = false
 
         if nsSource.length == 0 {
             return result
@@ -30,20 +32,30 @@ enum DCHighlighter {
             nsSource.getLineStart(&lineStart, end: &lineEnd, contentsEnd: &contentEnd, for: NSRange(location: index, length: 0))
             let range = NSRange(location: lineStart, length: contentEnd - lineStart)
             let line = nsSource.substring(with: range)
-            styleLine(line, in: range, target: result)
+            styleLine(line, in: range, target: result, tripleQuoteOpen: &tripleQuoteOpen)
             index = lineEnd
         }
 
         return result
     }
 
-    private static func styleLine(_ line: String, in lineRange: NSRange, target: NSMutableAttributedString) {
+    private static func styleLine(
+        _ line: String,
+        in lineRange: NSRange,
+        target: NSMutableAttributedString,
+        tripleQuoteOpen: inout Bool
+    ) {
+        let tripleStringRanges = tripleStringSegments(in: line, isOpen: &tripleQuoteOpen)
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty {
+            if !tripleStringRanges.isEmpty {
+                applyColorRanges(tripleStringRanges, color: DCTheme.stringColor, baseOffset: lineRange.location, target: target)
+            }
             return
         }
 
-        if trimmed.hasPrefix("#") || trimmed.hasPrefix("//") {
+        let lineCoveredByTriple = tripleStringRanges.contains { $0.location == 0 && $0.length == (line as NSString).length }
+        if !lineCoveredByTriple && (trimmed.hasPrefix("#") || trimmed.hasPrefix("//")) {
             target.addAttribute(.foregroundColor, value: DCTheme.commentColor, range: lineRange)
             return
         }
@@ -56,24 +68,25 @@ enum DCHighlighter {
             return
         }
 
-        if line.contains("\"\"\"") {
-            target.addAttribute(.foregroundColor, value: DCTheme.stringColor, range: lineRange)
-            return
-        }
-
         if let match = keyValueRegex.firstMatch(in: line, options: [], range: fullRange) {
             let keyRange = match.range(at: 1)
             let opRange = match.range(at: 2)
-            if keyRange.location != NSNotFound {
+            if keyRange.location != NSNotFound && !tripleStringRanges.contains(where: { rangesOverlap($0, keyRange) }) {
                 target.addAttribute(.foregroundColor, value: DCTheme.keyColor, range: shifted(keyRange, by: lineRange.location))
             }
-            if opRange.location != NSNotFound {
+            if opRange.location != NSNotFound && !tripleStringRanges.contains(where: { rangesOverlap($0, opRange) }) {
                 target.addAttribute(.foregroundColor, value: DCTheme.operatorColor, range: shifted(opRange, by: lineRange.location))
             }
         }
 
-        let stringRanges = ranges(for: stringRegex, in: line)
-        highlightRegex(stringRegex, color: DCTheme.stringColor, line: line, baseOffset: lineRange.location, target: target)
+        var stringRanges = tripleStringRanges
+        let normalStringRanges = ranges(for: stringRegex, in: line).filter { normalRange in
+            !tripleStringRanges.contains(where: { rangesOverlap($0, normalRange) })
+        }
+        stringRanges.append(contentsOf: normalStringRanges)
+
+        applyColorRanges(tripleStringRanges, color: DCTheme.stringColor, baseOffset: lineRange.location, target: target)
+        applyColorRanges(normalStringRanges, color: DCTheme.stringColor, baseOffset: lineRange.location, target: target)
         highlightRegex(
             boolRegex,
             color: DCTheme.boolColor,
@@ -90,6 +103,57 @@ enum DCHighlighter {
             target: target,
             excluding: stringRanges
         )
+    }
+
+    private static func tripleStringSegments(in line: String, isOpen: inout Bool) -> [NSRange] {
+        let nsLine = line as NSString
+        let fullRange = NSRange(location: 0, length: nsLine.length)
+        let matches = tripleQuoteRegex.matches(in: line, options: [], range: fullRange)
+
+        if matches.isEmpty {
+            if isOpen {
+                return [NSRange(location: 0, length: nsLine.length)]
+            }
+            return []
+        }
+
+        var result: [NSRange] = []
+        var cursor = 0
+        var open = isOpen
+
+        for match in matches {
+            let qRange = match.range
+            guard qRange.location != NSNotFound else { continue }
+
+            if open {
+                let len = max(0, (qRange.location + qRange.length) - cursor)
+                result.append(NSRange(location: cursor, length: len))
+                open = false
+                cursor = qRange.location + qRange.length
+            } else {
+                open = true
+                cursor = qRange.location
+            }
+        }
+
+        if open {
+            let tailLen = max(0, nsLine.length - cursor)
+            result.append(NSRange(location: cursor, length: tailLen))
+        }
+
+        isOpen = open
+        return result
+    }
+
+    private static func applyColorRanges(
+        _ ranges: [NSRange],
+        color: NSColor,
+        baseOffset: Int,
+        target: NSMutableAttributedString
+    ) {
+        for range in ranges where range.location != NSNotFound && range.length > 0 {
+            target.addAttribute(.foregroundColor, value: color, range: shifted(range, by: baseOffset))
+        }
     }
 
     private static func highlightRegex(
