@@ -2,7 +2,7 @@
 
 This section explains Redirect config fields, purposes, allowed values, and display rules, with a complete example.
 
-For JSON5 format and conventions, please read:
+For `dc` format conventions, please read:
 - [Getting Started](../Getting_Started.mdx)
 
 ## Location
@@ -10,23 +10,23 @@ For JSON5 format and conventions, please read:
 - The `redirect` folder is **not** auto-created; create it manually.
 
 ## Complete Example
-```json5
-{
-  available: "zh_cn",
-  DisplayName: {
-    zh_cn: "加入官方群",
-    en_us: "Join Discord"
-  },
-  RedirectUrl: "https://example.com/qq-group",
-  notice: {
-    zh_cn: "即将跳转到浏览器打开链接。\n请注意网络安全。",
-    en_us: "You are about to open a browser link.\nPlease stay safe online."
-  },
-  tip: {
-    zh_cn: "点击打开链接",
-    en_us: "Click to open"
-  }
-}
+```dc
+available = "zh_cn"
+RedirectUrl = "https://example.com/qq-group"
+
+[DisplayName]
+zh_cn = "加入官方群"
+en_us = "Join Discord"
+
+[notice]
+zh_cn = """即将跳转到浏览器打开链接。
+请注意网络安全。"""
+en_us = """You are about to open a browser link.
+Please stay safe online."""
+
+[tip]
+zh_cn = "点击打开链接"
+en_us = "Click to open"
 ```
 
 ---

@@ -1,6 +1,6 @@
 # Getting Started
 
-This section introduces the core capabilities and directory layout of DLC Manager, and explains the common JSON5 conventions used by configuration files.
+This section introduces the core capabilities and directory layout of DLC Manager, and explains the common `dc` conventions used by configuration files.
 
 ## This Wiki only support Version 3.1.0 and above of DLC Manager.
 
@@ -20,11 +20,21 @@ DLC/
   remote/redirect/      # Redirect configs (optional, not auto-created)
 ```
 
-## Config Format (JSON5)
-- `.json5` is the default config file extension.
-- Keys are case-insensitive (e.g., `DisplayName` and `displayname` are equivalent).
-- JSON5 supports comments, trailing commas, and single quotes; backtick strings are **not** supported.
-- For multi-line text, use `\n`, or string concatenation/arrays (see Notice/Tip sections).
+## Config Format (DC)
+- `.dc` is the default config file extension for DLC content configs.
+- Most configs are table-based (TOML-like), for example `[basic]`, `[DisplayName]`, `[tip]`.
+- Keys are case-insensitive while loading.
+- Multi-line strings are supported with triple quotes:
+
+```dc
+en_us = """Line 1
+Line 2
+"""
+```
+
+- DLC Manager runtime config files are also `dc`:
+  - `config/dlc_manager/config.dc` (client)
+  - `config/dlc_manager/config-server.dc` (server)
 
 ## Quick Start (Basic Usage)
 1) Create `DLC/` under the modpack root (or set `dlcRoot` in config).
@@ -32,16 +42,16 @@ DLC/
 3) Enter the game and open DLC Manager to apply and manage content.
 
 ## Key Concepts
-- **dlc_identifier / identifier**: The primary logical identifier used by prerequisites, presets, and conflicts. Keep it stable.
+- **identifier**: The primary logical identifier used by prerequisites, presets, and conflicts. Keep it stable.
 - **file_name**: The actual file name on disk; can differ from display name.
 - **DisplayName / tip**: Localized display text.
 - **appliedTarget**: Target directory (e.g., `mods`, `resourcepacks`, `datapacks`, `tacz`) that determines the application location.
 
 ## FAQ
 - **Why doesn’t a config take effect?**
-  - Ensure the file extension is `.json5`.
+  - Ensure the file extension is `.dc`.
   - Ensure the config is in the correct folder (`DLC/remote`, `DLC/required`, etc.).
-  - Ensure `dlc_identifier/identifier` is not empty.
+  - Ensure `identifier` is not empty.
 - **Why doesn’t the display name match my config?**
   - If DisplayName is missing or the language does not match, it falls back to the file name.
 

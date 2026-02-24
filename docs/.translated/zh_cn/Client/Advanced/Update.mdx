@@ -1,197 +1,134 @@
-# Update（更新包）
+# Update（热更新包）
 
-本节说明更新包配置的字段、用途、可填写值、默认与回退规则，并提供完整示例与执行规则。
+本节说明 `update.dc` 的字段、用途、取值规则与执行行为。
 
-配置文件格式与通用约定（JSON5）请先阅读：
-- [Getting Started](../Getting_Started.mdx)
+`dc` 格式与通用约定请先阅读：
+- [开始使用](../Getting_Started.mdx)
 
 ## 目录与包结构
 - 目录：`DLC/update/`
-- 更新包为 `.zip` 文件。
-- `update.json5` 可放在 ZIP 内任意目录（建议第一层目录）。
-  - 系统会自动搜索并读取。
-  - `update.json5` 所在目录即 **内容根目录**（content root），`file.add` 的源路径相对该目录。
-- 解包临时目录：`DLC/update_tmp/_staging/`（自动创建）。
-- 备份与回溯数据：`DLC/update_tmp/<dlc_new>/meta.json5`。
-- 解包时会忽略 `__MACOSX/`、`._*` 与 `.DS_Store`。
+- 更新包格式：`.zip`
+- 清单文件：`update.dc`（建议放在 ZIP 根目录，也支持子目录）
+- `update.dc` 所在目录即更新内容根目录
+- 临时目录：`DLC/tmp/_staging/`
+- 备份/回滚元数据：`DLC/tmp/<dlc_new>/meta.dc`
+- 运行时版本文件：`DLC/info/version.dc`
 
 ## 完整示例
-```json5
-{
-  version: {
-    base: "1.0.0",
-    base_new: "1.0.0",
-    dlc_old: "1.0.0",
-    dlc_new: "1.0.1"
-  },
-  isHidden: false,
-  file: {
-    del: [
-      "mods/old.jar"
-    ],
-    add: {
-      "mods/new.jar": {
-        appliedTarget: "mods/",
-        override: "true"
-      },
-      "config/": {
-        appliedTarget: "config/",
-        override: "all"
-      }
-    },
-    move: {
-      "config/old.json": "config/new.json"
-    },
-    modify: {
-      "config/example.json": {
-        find: "\"enabled\": false",
-        replace: "\"enabled\": true",
-        which: "last"
-      }
-    }
-  },
-  update: {
-    remote: {
-      "ExampleMod": {
-        modrinth: "version-id-or-number"
-      }
-    },
-    required: {
-      "ExampleRequired": {
-        curseforge: "fileid-or-version"
-      }
-    }
-  },
-  changelog: {
-    zh_cn: "将 DLC 版本更新至 1.0.1",
-    en_us: "Updated DLC version to 1.0.1"
-  }
-}
-```
+```dc
+isHidden = false
 
----
+[version]
+platform = "universal"   # client / server / universal
+base = "1.0.0"
+base_new = "1.0.1"       # 可选
+dlc = "1.0.0"            # 旧键 dlc_old 仍可读取
+dlc_new = "1.0.2"        # 可选
+
+[changelog]
+en_us = """Update notes line 1
+line 2"""
+zh_cn = """更新说明第1行
+第2行"""
+
+[file]
+  [del]
+  "mods/old-mod.jar",
+  "config/old.toml"
+
+  [add]
+    "mods/new-mod.jar":
+      appliedTarget = "mods/new-mod.jar"
+      override = true
+
+    "config/":
+      appliedTarget = "config/"
+      override = "all"
+
+  [move]
+  "config/a.toml" = "config/legacy/a.toml"
+
+  [modify]
+    "config/example.toml":
+      find = "old_value"
+      replace = "new_value"
+      which = "all"
+
+[update]
+  [remote]
+    "mod1":
+      curseforge = "1234567"
+      modrinth = "AbCdEf12"
+
+  [required]
+    "mod2":
+      curseforge = "7654321"
+      modrinth = "ZyXwVu98"
+```
 
 ## 字段说明
 
-#### `version`
-- **用途**：版本约束与范围。
-- **可填**：对象。
-  - `base`：底包版本（必须匹配当前版本）。
-  - `base_new`：更新后底包版本（可选）。
-  - `dlc_old` / `dlc_new`：DLC 版本范围（必须匹配当前版本）。
-
 #### `isHidden`
-- **用途**：是否在更新列表中隐藏（即不允许回溯）。
+- **用途**：在更新管理器中隐藏该更新包。
 - **可填**：布尔。
 
-#### `file`
-- **用途**：文件层面的删除、添加、移动、内容替换。
+#### `version`
+- `platform`：`client` / `server` / `universal`（默认 `universal`）
+- `base`：原底包版本（必填）
+- `base_new`：新底包版本（可选）
+- `dlc`：原 DLC 版本（用于匹配）
+- `dlc_new`：新 DLC 版本（可选）
 
-##### `file.del`
-- **用途**：删除文件/目录。
-- **可填**：字符串或数组（路径相对整合包根目录）。
-- **行为**：删除前会备份；删除 `DLC/required` 或 `DLC/remote` 下的配置会触发卸载逻辑。
-
-##### `file.add`
-- **用途**：从更新包中添加文件或目录。
-- **可填**：对象（`源路径 -> AddEntry`）。
-  - **源路径**：更新包内容根目录下的相对路径。
-  - **AddEntry**：
-    - `appliedTarget`：应用目标路径（相对或绝对）。**必填**。
-    - `override`：覆盖模式（详见“覆盖模式”）。
-  - **目录判断**：源路径以 `/` 结尾或源本身为目录时视为目录。
-
-##### `file.move`
-- **用途**：移动/重命名。
-- **可填**：对象（`from -> to`）。
-- **行为**：若 `to` 以 `/` 结尾，视为目录；会先备份再移动。
-
-##### `file.modify`
-- **用途**：在目标文件中替换文本。
-- **可填**：对象或数组：
-  - **对象**：`path -> ModifyEntry` 或 `path -> [ModifyEntry...]`
-  - **数组**：每项为 `{ path, find, replace, which }`
-
-**ModifyEntry**：
-- `path`：目标文件路径（相对整合包根目录）。
-- `find`：要查找的文本。
-- `replace`：替换文本。
-- `which`：替换位置（可选）。
-  - `all`：全部替换（默认）。
-  - `last` / `-1`：仅替换最后一个。
-  - 数字或逗号列表（**1 基索引**），如 `1` / `1,3`。
-  - 数组形式：`[1, 3, -1]`（-1 表示最后一个）。
-
-> **提示**：若 `find` 包含多组 JSON 键值，系统会尝试使用“最后一组键值”作为匹配片段，以降低误替换。
-
-#### `update`
-- **用途**：按 `dlc_identifier` 更新 Remote / Required 配置并下载新版本。
-- **可填**：对象，包含 `remote` / `required`。
-
-##### `update.remote` / `update.required`
-- **键**：`dlc_identifier`。
-- **值**：更新来源对象：
-  - `curseforge`：文件 ID / 版本号字符串。
-  - `modrinth`：版本 ID / 版本号字符串。
-
-> 注意：当前仅支持 `curseforge` / `modrinth`，不支持 `directUrl` 作为更新来源。
+> 仅当至少一侧发生变化（`base -> base_new` 或 `dlc -> dlc_new`）时，该更新包才会生效。
 
 #### `changelog`
 - **用途**：更新日志。
 - **可填**：
-  - 多语言对象 `{ zh_cn: "...", en_us: "..." }`
-  - 或字符串（仅单语言显示）
+  - 多语言表（`en_us`、`zh_cn` 等）
+  - 单字符串
 
----
+#### `file.del`
+- **用途**：删除文件/目录。
+- **可填**：字符串数组。
 
-## 覆盖模式（override）
-`file.add` 支持的覆盖策略：
-- `true`（默认）：覆盖已存在的文件。
-- `false`：不覆盖已存在的文件。
-- `all`：**目录同步**，会先删除目标目录中多余的文件/目录，再复制源内容。
-- `none`：若目标已存在则完全跳过。
+#### `file.add`
+- **用途**：从更新包内容根目录添加文件/目录。
+- **结构**：`"<source>": { appliedTarget, override }`
+- `appliedTarget`：目标路径（必填）
+- `override`：`true` / `false` / `all` / `none`
 
-`override` 可写为布尔或字符串，大小写不敏感。
+#### `file.move`
+- **用途**：移动/重命名文件。
+- **结构**：`"<from>" = "<to>"`
 
----
+#### `file.modify`
+- **用途**：文本内替换。
+- **键**：
+  - `find`
+  - `replace`
+  - `which`（`all`、`last`、`-1`、索引、索引数组）
 
-## 执行顺序与规则
+#### `update.remote` / `update.required`
+- **用途**：按 identifier 更新 remote/required 配置中的平台 ID。
+- **键**：条目 identifier。
+- **值键**：
+  - `curseforge`
+  - `modrinth`
 
-### 执行顺序
-1) `file.del`
-2) `file.move`
-3) `file.add`
-4) `file.modify`
-5) `update.remote` / `update.required`
+## 执行规则
+- 执行顺序：
+  1. `file.del`
+  2. `file.move`
+  3. `file.add`
+  4. `file.modify`
+  5. `update.remote` / `update.required`
+- 版本匹配基于 `DLC/info/version.dc`。
+- 若更新包包含 `remote/` 或 `required/`，且未在 `file.add` 显式映射，会按默认规则隐式复制。
+- 添加 required 资源时会清理 `DLC/required/SKIP`。
 
-### 版本匹配
-更新包仅在以下条件成立时可应用：
-- `version.base` == 当前底包版本
-- `version.dlc_old` == 当前 DLC 版本
-
-否则该包不会被应用。
-
-### 更新链选择
-- 系统会在同一 `base` 下按 `dlc_old -> dlc_new` 选择可用更新链。
-- 若同一节点存在多个候选，优先选择 **更小的 `dlc_new`** 版本进行递进更新。
-- 若上次执行过回溯，且 `rollback_from` 仍存在，默认只允许从该版本继续更新（除非忽略回溯）。
-
-### 隐式 Remote / Required 拷贝
-- 若更新包内容根目录包含 `remote/` 或 `required/` 文件夹，且 `file.add` 中**没有显式声明这些路径**，系统会自动将其拷贝到 `DLC/remote` / `DLC/required`。
-
-### Required 跳过标记清除
-- 若更新包添加了必要资源，会自动清除 `DLC/required/SKIP` 标记，避免继续跳过提示。
-
-### 更新 Remote / Required 行为
-- 更新会写回对应配置文件的 `curseforge_fileid` / `modrinth_versionid`。
-- 会自动下载新文件。
-- 若条目当前已启用/已应用，会更新并重新应用；未启用时只更新配置与下载文件。
-
----
-
-## 版本记录与回溯
-- 当前版本记录位于：`DLC/info/version.json5`。
-- 每次更新会在 `DLC/update_tmp/<dlc_new>/meta.json5` 记录：
-  - `restore`：需要回溯恢复的路径
-  - `created`：本次新增路径
-- 回溯将按 `meta.json5` 记录进行恢复与清理。
+## 回滚
+- 每次更新的元数据记录在 `DLC/tmp/<dlc_new>/meta.dc`。
+- 回滚依赖：
+  - `restore` 路径
+  - `created` 路径
+  - 元数据中的 changelog 快照

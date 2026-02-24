@@ -1,54 +1,55 @@
 # Server Config（服务端配置）
 
-本节说明服务端配置文件 `config-server.json5` 的**全部字段、用途、可填写值、默认与回退规则**。
-配置文件格式与通用约定（`JSON5`）请先阅读：
-- [Getting Started](../Basic/Getting_Started.mdx)
+本节说明服务端配置文件 `config-server.dc` 的字段、用途、可填写值、默认值与回退规则。
+
+`dc` 格式通用约定请先阅读：
+- [开始使用](../Client/Getting_Started.mdx)
 
 ## 目录
 - 配置目录：`config/dlc_manager/`
-- 文件名：`config-server.json5`
+- 文件名：`config-server.dc`
 
-> 说明：本文件仅用于服务端配置。客户端不会读取本地的 `config-server.json5`。
+> 说明：本文件仅用于服务端配置。
 
 ## 完整示例
-```json5
-{
-  server: {
-    serverSupport: true,
-    serverPort: 29690,
-    serverPassword: "",
-    rconHost: "127.0.0.1",
-    rconPort: 25575,
-    rconPassword: ""
-  },
-  ui: {
-    isEnableAllButtonShown: true,
-    isUpdateManagerOn: true,
-    isSelfUpdateAutoCheckOn: true,
-    isPresetFuncOn: true
-  },
-  paths: {
-    dlcRoot: "DLC",
-    taczRoot: "tacz",
-    resourcepackRoot: "resourcepacks",
-    datapackRoot: "datapacks"
-  },
-  downloads: {
-    maxConcurrentDownloads: 5,
-    maxSegmentsPerFile: 4,
-    minSegmentMB: 20,
-    maxRetryCount: 5,
-    connectTimeoutSeconds: 10,
-    taskTimeoutSeconds: 60
-  }
-}
+```dc
+[server]
+serverSupport = true
+serverPort = 29690
+serverPassword = ""
+modpackUrl = ""
+updateGithubRepo = ""
+rconHost = ""
+rconPort = 25575
+rconPassword = ""
+
+[ui]
+isEnableAllButtonShown = true
+isUpdateManagerOn = true
+isSelfUpdateAutoCheckOn = true
+isPresetFuncOn = true
+WaitingTime = 0
+
+[paths]
+dlcRoot = "DLC"
+taczRoot = "tacz"
+resourcepackRoot = "resourcepacks"
+datapackRoot = "datapacks"
+
+[downloads]
+maxConcurrentDownloads = 5
+maxSegmentsPerFile = 4
+minSegmentMB = 20
+maxRetryCount = 5
+connectTimeoutSeconds = 10
+taskTimeoutSeconds = 60
 ```
 
 ---
 
 ## 字段说明
 
-### `server`（服务端基础）
+### `server`
 
 #### `serverSupport`
 - **用途**：是否启用服务端 DLC 管理通信功能。
@@ -59,36 +60,43 @@
 - **用途**：服务端 DLC 管理器通信端口。
 - **可填**：整数，范围 `1~65535`。
 - **默认**：`29690`。
-- **回退规则**：超出范围会回退到默认值。
+- **回退规则**：超出范围回退默认值。
 
 #### `serverPassword`
 - **用途**：服务端 DLC 管理器连接密码（明文）。
 - **可填**：字符串。
 - **默认**：空字符串（不设置密码）。
 
+#### `modpackUrl`
+- **用途**：整合包主页链接（用于更新界面跳转）。
+- **可填**：字符串 URL。
+- **默认**：空。
+
+#### `updateGithubRepo`
+- **用途**：整合包版本仓库地址（用于检测整合包更新）。
+- **可填**：字符串 URL，支持逗号分隔多个仓库。
+- **默认**：空。
+
 #### `rconHost`
-- **用途**：RCON 连接主机地址（用于服务器管理器的 RCON 功能）。
+- **用途**：RCON 主机地址（用于服务器管理器的 RCON 功能）。
 - **可填**：字符串。
 - **默认**：空字符串。
-- **可选写法**：未填写时可由客户端连接页手动输入。
 
 #### `rconPort`
 - **用途**：RCON 端口。
 - **可填**：整数，范围 `1~65535`。
 - **默认**：`25575`。
-- **回退规则**：超出范围会回退到默认值。
+- **回退规则**：超出范围回退默认值。
 
 #### `rconPassword`
 - **用途**：RCON 密码（明文）。
 - **可填**：字符串。
 - **默认**：空字符串。
 
-> **提示**：当 `rconHost/rconPort/rconPassword` 均保持默认值时，配置文件中可能不会写入这些字段。
-
 ---
 
 ### `ui`（服务端管理器界面开关）
-> 这些选项由服务端返回给客户端，用于控制“服务器管理器”界面的功能显示。
+> 这些选项由服务端返回给客户端，用于控制“服务器管理器”界面显示。
 
 #### `isEnableAllButtonShown`
 - **用途**：是否显示“全部开启/全部关闭”按钮。
@@ -96,7 +104,7 @@
 - **默认**：`true`。
 
 #### `isUpdateManagerOn`
-- **用途**：是否启用“服务器更新管理器”功能。
+- **用途**：是否启用服务器更新管理器。
 - **可填**：布尔。
 - **默认**：`true`。
 
@@ -110,10 +118,15 @@
 - **可填**：布尔。
 - **默认**：`true`。
 
+#### `WaitingTime`
+- **用途**：警告页勾选前等待时间（秒）。
+- **可填**：整数 `0~10`。
+- **默认**：`0`。
+
 ---
 
-### `paths`（路径）
-> 所有路径均以**服务端整合包根目录**为基准解析。
+### `paths`
+> 所有路径均以服务端整合包根目录为基准解析。
 
 #### `dlcRoot`
 - **用途**：DLC 根目录。
@@ -137,7 +150,7 @@
 
 ---
 
-### `downloads`（下载与超时）
+### `downloads`
 
 #### `maxConcurrentDownloads`
 - **用途**：最大并发下载任务数。
@@ -145,12 +158,12 @@
 - **默认**：`5`。
 
 #### `maxSegmentsPerFile`
-- **用途**：单个文件的最大分段数。
+- **用途**：单个文件最大分段数。
 - **可填**：整数。
 - **默认**：`4`。
 
 #### `minSegmentMB`
-- **用途**：每段下载的最小大小（MB）。
+- **用途**：每段下载最小大小（MB）。
 - **可填**：整数。
 - **默认**：`20`。
 
@@ -165,7 +178,7 @@
 - **默认**：`10`。
 
 #### `taskTimeoutSeconds`
-- **用途**：单个下载任务超时（秒）。
+- **用途**：下载任务超时（秒）。
 - **可填**：整数。
 - **默认**：`60`。
 
@@ -173,5 +186,5 @@
 
 ## 补充说明
 - 配置键名大小写不敏感。
-- 未填写的字段会回退到默认值。
-- 修改 `serverPort` 后，客户端连接服务器管理器时需使用相同端口。
+- 未填写字段会回退默认值。
+- 修改 `serverPort` 后，客户端连接服务器管理器时需要使用同一端口。

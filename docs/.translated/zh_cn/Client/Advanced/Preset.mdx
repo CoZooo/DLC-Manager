@@ -1,33 +1,32 @@
 # Preset（预设）
 
-本节说明预设配置的字段、用途、可填写值与行为规则，并提供完整示例。
+本节说明预设配置字段、用途、可填写值与行为。
 
-配置文件格式与通用约定（JSON5）请先阅读：
-- [Getting Started](../Getting_Started.mdx)
+`dc` 格式与通用约定请先阅读：
+- [开始使用](../Getting_Started.mdx)
 
-## 目录
+## 位置
 - 目录：`DLC/preset/`
-- 文件名不影响显示，DisplayName 可覆盖。
+- 文件名不影响显示，可由 `DisplayName` 覆盖。
 
 ## 完整示例
-```json5
-{
-  DisplayName: {
-    zh_cn: "优化预设",
-    en_us: "Performance Preset"
-  },
-  tip: {
-    zh_cn: "适合低配机器",
-    en_us: "Recommended for low-end PCs"
-  },
-  enable: [
-    "Mod1",
-    "Mod2"
-  ],
-  conflicts: [
-    "Mod3"
-  ]
-}
+```dc
+[DisplayName]
+zh_cn = "优化预设"
+en_us = "Performance Preset"
+
+[tip]
+zh_cn = "适合低配机器"
+en_us = "Recommended for low-end PCs"
+
+enable = [
+  "Mod1",
+  "Mod2"
+]
+conflicts = [
+  "Mod3"
+]
+alarm = false
 ```
 
 ---
@@ -37,26 +36,31 @@
 #### `DisplayName`
 - **用途**：预设显示名称。
 - **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
-- **回退规则**：若为空，显示配置文件名（不含扩展名）。
+- **回退**：为空时使用文件名（不含扩展名）。
 
 #### `tip`
 - **用途**：预设提示文本。
 - **可填**：对象 `{ zh_cn: "...", en_us: "..." }`。
 
 #### `enable`
-- **用途**：预设启用的 DLC 列表。（`dlc_identifier`）
-- **可填**：数组，元素为 **dlc_identifier**。
+- **用途**：启用的 DLC 列表（按 `identifier`）。
+- **可填**：identifier 数组。
 
 #### `conflicts`
-- **用途**：与该预设冲突的 DLC 列表。（`dlc_identifier`）
-- **可填**：数组，元素为 **dlc_identifier**。
+- **用途**：与该预设冲突的 DLC 列表（按 `identifier`）。
+- **可填**：identifier 数组。
+
+#### `alarm`
+- **用途**：启用预设前是否显示警告确认页。
+- **可填**：布尔。
 
 ---
 
 ## 状态与存储
-- 状态写入：`config/dlc_manager/state.json5` 的 `presets` 字段。
+- 存储位置：`config/dlc_manager/state.dc` 的 `presets` 字段。
 - 状态值：`On` / `Part` / `Off`。
 
 ## 行为说明
-- 预设启用后，会尝试开启 `enable` 中的 DLC。
-- `conflicts` 中的 DLC 会被禁用，并显示冲突提示。
+- 启用预设时，会尝试启用 `enable` 中的全部 DLC。
+- `conflicts` 中的 DLC 会自动禁用，并显示冲突提示。
+- 冲突处理支持级联关闭依赖该冲突项的 DLC。

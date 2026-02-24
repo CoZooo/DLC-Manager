@@ -1,34 +1,40 @@
-# Notice (notice.json5)
+# Notice (notice.dc)
 
 This section explains notice fields, purposes, allowed values, and rendering behavior, with a complete example.
 
-For JSON5 format and conventions, please read:
+For `dc` format and conventions, please read:
 - [Getting Started](../Getting_Started.mdx)
 
 ## Location
 - Directory: `DLC/info/`
-- File: `notice.json5`
+- File: `notice.dc`
 
 ## Complete Example
-```json5
-{
-  isNoticeEnabled: true,
-  neverShow: false,
-  ShowFrequency: "perlaunchmanager",
-  Title: {
-    zh_cn: "公告",
-    en_us: "Notice"
-  },
-  Subhead: {
-    enabled: true,
-    zh_cn: "请仔细阅读",
-    en_us: "Please read carefully"
-  },
-  Contents: {
-    zh_cn: "# 更新说明\n\n这是正文内容。",
-    en_us: "# Update Notes\n\nThis is the content."
-  }
-}
+```dc
+isNoticeEnabled = true
+neverShow = false
+ShowFrequency = "perlaunchmanager"
+
+[Title]
+zh_cn = "公告"
+en_us = "Notice"
+
+[Subhead]
+enabled = true
+zh_cn = "请仔细阅读"
+en_us = "Please read carefully"
+
+[ContentUrl]
+en_us = "https://example.com/notice-en.md"
+zh_cn = "https://example.com/notice-zh.md"
+
+[Contents]
+en_us = """# Update Notes
+
+This is fallback content when ContentUrl is unavailable."""
+zh_cn = """# 更新说明
+
+这是 ContentUrl 不可用时显示的回退内容。"""
 ```
 
 ---
@@ -67,6 +73,16 @@ For JSON5 format and conventions, please read:
 - **Allowed**: Localized strings.
 - **Rendering**: Markdown + MC formatting codes (colors, etc.) supported.
 
+#### `ContentUrl`
+- **Purpose**: Online content URL (higher priority than `Contents`).
+- **Allowed**:
+  - Single string URL
+  - Localized object (same shape as `Contents`)
+- **Behavior**:
+  - If `ContentUrl` is configured and fetch succeeds, remote text is rendered.
+  - If fetch fails, fallback to `Contents`.
+  - Fetch timeout: connect `3s`, read `5s`.
+
 ---
 
 ## Markdown Support
@@ -82,11 +98,14 @@ Minecraft formatting codes are also supported:
 ```
 
 ## Multi-line Text
-Use `\n` for line breaks:
-```json5
-Contents: {
-  zh_cn: "Line 1\nLine 2\n\n- Item 1\n- Item 2"
-}
+Use triple-quoted strings:
+```dc
+[Contents]
+zh_cn = """Line 1
+Line 2
+
+- Item 1
+- Item 2"""
 ```
 
 ---

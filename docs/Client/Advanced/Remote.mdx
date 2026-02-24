@@ -1,219 +1,125 @@
 # Remote
 
-This section documents **all fields, purposes, allowed values, defaults, and fallback rules** for Remote configs, and provides full field coverage with optional forms.
+This section documents all Remote config fields, purposes, allowed values, defaults, and fallback behavior.
 
-For JSON5 format and conventions, please read:
+For `dc` format conventions, please read:
 - [Getting Started](../Getting_Started.mdx)
 
 ## Location
 - Directory: `DLC/remote/`
-- Subdirectories can be used for categorization:
-  - If the config is located at `DLC/remote/<subdir>/`, downloaded files are saved under `DLC/<subdir>/`.
-  - Example: `DLC/remote/mods/example.json5` → downloaded to `DLC/mods/<file_name>`.
+- Subdirectories are used as categories:
+  - If a config is in `DLC/remote/<subdir>/`, downloaded files are placed under `DLC/<subdir>/`.
+  - Example: `DLC/remote/mods/example.dc` -> `DLC/mods/<file_name>`.
 
 ## Complete Example
-```json5
-{
-  curseforge_projectid: "123456",
-  curseforge_fileid: "7890123",
-  modrinth_projectid: "project-slug-or-id",
-  modrinth_versionid: "version-id-or-number",
-  directUrl: [
-    "https://example.com/mirror/modA.jar",
-    "https://mirror.example.net/modA.jar"
-  ],
-  priority: "curseforge,modrinth,directurl",
-  dlc_identifier: "ExampleMod",
-  type: "mod",
-  file_name: "example-mod-1.0.0.jar",
-  appliedTarget: "mods",
-  isInList: true,
-  isHidden: false,
-  AllowEnableByAll: true,
-  dependencies: {
-    HelperLib: {
-      curseforge_projectid: "234567",
-      curseforge_fileid: "8901234",
-      modrinth_projectid: "helperlib",
-      modrinth_versionid: "helperlib-version",
-      directUrl: [
-        "https://example.com/mirror/helperlib.jar",
-        "https://mirror.example.net/helperlib.jar"
-      ],
-      priority: "modrinth",
-      dlc_identifier: "HelperLib",
-      type: "mod",
-      file_name: "helperlib-1.0.0.jar",
-      isInList: true,
-      isHidden: true,
-      AllowEnableByAll: true,
-      dependencies: "",
-      conflicts: "",
-      DisplayName: {
-        en_us: "Helper Library",
-        zh_cn: "辅助库"
-      },
-      tip: {}
-    }
-  },
-  conflicts: [
-    "ConflictMod"
-  ],
-  DisplayName: {
-    en_us: "Example Mod",
-    zh_cn: "示例模组"
-  },
-  tip: {
-    en_us: "Example tip",
-    zh_cn: "示例提示"
-  }
-}
-```
+```dc
+[download]
+curseforge_projectid = "123456"
+curseforge_fileid = "7890123"
+modrinth_projectid = "project-slug-or-id"
+modrinth_versionid = "version-id-or-number"
+directUrl = [
+  "https://example.com/mirror/modA.jar",
+  "https://mirror.example.net/modA.jar"
+]
+priority = "curseforge,modrinth,directurl"
 
----
+[basic]
+identifier = "ExampleMod"
+type = "mod"
+file_name = "example-mod-1.0.0.jar"
+appliedTarget = "mods"
+isInList = true
+isHidden = false
+AllowEnableByAll = true
+dependencies = ["HelperLib"]
+conflicts = ["ConflictMod"]
+alarm = false
+
+[dependencies]
+  [HelperLib]
+    [download]
+    modrinth_projectid = "helperlib"
+    modrinth_versionid = "helperlib-version"
+    directUrl = ""
+    priority = "modrinth"
+
+    [basic]
+    identifier = "HelperLib"
+    type = "mod"
+    file_name = "helperlib-1.0.0.jar"
+    isInList = true
+    isHidden = true
+    AllowEnableByAll = true
+    dependencies = ""
+    conflicts = ""
+    alarm = false
+
+    [DisplayName]
+    en_us = "Helper Library"
+    zh_cn = "辅助库"
+
+    [tip]
+
+[DisplayName]
+en_us = "Example Mod"
+zh_cn = "示例模组"
+
+[tip]
+en_us = "Example tip"
+zh_cn = "示例提示"
+```
 
 ## Field Reference
 
-#### `curseforge_projectid`
-- **Purpose**: CurseForge project ID or slug.
-- **Allowed**: String.
+#### `download` table
+- `curseforge_projectid`: CurseForge project ID or slug.
+- `curseforge_fileid`: CurseForge file ID / version string / file name.
+- `modrinth_projectid`: Modrinth project ID or slug.
+- `modrinth_versionid`: Modrinth version ID or version string.
+- `directUrl`: string or string array (multi-mirror).
+- `priority`: comma-separated priority.
+  - Supported: `curseforge`, `modrinth`, `directurl`.
+  - If empty, starts with `curseforge`, then fills missing sources in default order.
 
-#### `curseforge_fileid`
-- **Purpose**: CurseForge file ID, version string, or file name.
-- **Allowed**: String.
+#### `basic.identifier`
+- **Purpose**: Logical ID used by dependencies/conflicts/presets.
+- **Fallback order**: identifier -> file_name -> config base name -> URL file name -> project IDs.
 
-#### `modrinth_projectid`
-- **Purpose**: Modrinth project ID or slug.
-- **Allowed**: String.
+#### `basic.file_name`
+- **Purpose**: Final file name on disk.
+- **Fallback**: URL-derived file name, then fallback name.
 
-#### `modrinth_versionid`
-- **Purpose**: Modrinth version ID or version string.
-- **Allowed**: String.
+#### `basic.type`
+- **Allowed**: `mod`, `resourcepack`, `datapack`, `gunpack`, `others`.
+- **Default**: `mod`.
 
-#### `directUrl`
-- **Purpose**: Direct download URL(s).
+#### `basic.appliedTarget`
+- **Purpose**: Override apply target path.
+- **Allowed**: Relative or absolute path.
+- Relative paths are resolved against modpack root.
+
+#### `basic.isInList` / `basic.isHidden` / `basic.AllowEnableByAll`
+- **Purpose**: List visibility and batch-enable behavior.
+- **Default**: `true`, `false`, `true`.
+
+#### `basic.dependencies`
 - **Allowed**:
-  - String (single URL)
-  - Array (multi-mirror; tried in order on failure)
+  - string (`"LibA,LibB"`)
+  - array (`["LibA","LibB"]`)
+  - object/nested dependencies via `[dependencies]`
 
-#### `priority`
-- **Purpose**: Download priority order.
-- **Allowed**: Comma-separated string, case-insensitive.
-- **Allowed values**:
-  - `curseforge`
-  - `modrinth`
-  - `directurl`
-- **Defaults / Fill-up**:
-  - If empty, default order is `curseforge,modrinth,directurl`.
-  - If only 1–2 sources are specified, the rest are appended in default order.
+#### `basic.conflicts`
+- **Allowed**: string or array of identifiers.
 
-#### `dlc_identifier`
-- **Purpose**: Logical identifier (used by prerequisites/conflicts/presets).
-- **Allowed**: String.
-- **Fallback**: If empty, falls back to the “name fallback value” below.
-
-#### `file_name`
-- **Purpose**: Target file name (final name on disk).
-- **Allowed**: String.
-- **Fallback**:
-  1) Extracted from `directUrl` if possible;
-  2) Otherwise, the “name fallback value”.
-
-#### “Name fallback value” (can be ignored if you fill `file_name`/`dlc_identifier`)
-When `file_name`/`dlc_identifier`/`DisplayName` is empty, the system falls back in this order:
-1) Config file name (without extension)
-2) `directUrl` file name
-3) `modrinth_projectid`
-4) `curseforge_projectid`
-
-#### `DisplayName`
-- **Purpose**: Localized display name.
-- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
-- **Fallback**: If empty, `en_us` is set to the name fallback value.
-
-#### `tip`
-- **Purpose**: Localized tooltip text.
-- **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
-
-#### `type`
-- **Purpose**: Category and default target directory.
-- **Allowed**:
-  - `mod`
-  - `resourcepack`
-  - `datapack`
-  - `gunpack`
-  - `others`
-- **Default**: `mod`
-
-#### `appliedTarget`
-- **Purpose**: Override default target directory; can be a specific path.
-- **Allowed**: String (relative or absolute).
-- **Rules**:
-  - Relative paths are resolved against the **modpack root**.
-  - If it ends with `/` or `\`, it is treated as a directory.
-
-> Note: If `type=others` and `appliedTarget` is empty, the entry is forced hidden (`isInList=false`).
-
-#### `isInList`
-- **Purpose**: Show in DLC list (otherwise unmanaged by DLC Manager).
+#### `basic.alarm`
+- **Purpose**: Show alarm confirmation screen before enabling.
 - **Allowed**: Boolean.
-- **Default**: `true`.
 
-#### `isHidden`
-- **Purpose**: Hide entry. Intended for libraries/prerequisites; auto-disabled when not required.
-- **Allowed**: Boolean.
-- **Default**: `false`.
-
-#### `AllowEnableByAll`
-- **Purpose**: Whether “Enable All” affects this entry.
-- **Allowed**: Boolean.
-- **Default**: `true`.
-
-#### `dependencies` (prerequisites)
-All forms below are supported and can be mixed:
-
-1) **String** (comma-separated identifiers)
-```json5
-"LibA, LibB"
-```
-
-2) **Array**
-```json5
-["LibA", "LibB"]
-```
-
-3) **Object** (keys are aliases; values are identifiers or objects)
-```json5
-{
-  LibA: "LibA",
-  LibB: { dlc_identifier: "LibB" }
-}
-```
-
-4) **Inline Remote object**
-```json5
-{
-  dlc_identifier: "LibC",
-  modrinth_projectid: "xxxx",
-  modrinth_versionid: "yyyy",
-  file_name: "libc.jar"
-}
-```
-
-**Resolution behavior:**
-- All prerequisite `dlc_identifier`s are extracted as logical prerequisites.
-- If an inline object contains full remote fields, it becomes a remote DLC entry and is added as a prerequisite.
-- If only an identifier is provided, the loader will attempt to link it to existing entries.
-
-#### `conflicts`
-Supports string/array/object forms; uses `dlc_identifier` for matching. Syntax mirrors prerequisites (without inline remote usage).
-
----
+#### `DisplayName` / `tip`
+- Localized text tables, typically `en_us` and `zh_cn`.
 
 ## Notes
-
-- **Display language selection**:
-  The client language is matched first, then `en_us`, then any available value.
-
-- **File name normalization**:
-  Query strings are removed from URLs, and illegal characters are replaced with `_`.
+- If `type = "others"` and `appliedTarget` is empty, the entry is forced out of list display.
+- Display language fallback: client language -> `en_us` -> first available entry.
+- Illegal filename characters are sanitized to `_`.

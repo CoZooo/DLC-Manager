@@ -1,197 +1,134 @@
 # Update (Update Packages)
 
-This section documents all update package fields, purposes, allowed values, defaults, fallback rules, and execution behavior, with a complete example.
+This section documents update package fields, purposes, value rules, and execution behavior for `update.dc`.
 
-For JSON5 format and conventions, please read:
+For `dc` format conventions, please read:
 - [Getting Started](../Getting_Started.mdx)
 
 ## Directory & Package Layout
 - Directory: `DLC/update/`
-- Update packages are `.zip` files.
-- `update.json5` can be placed anywhere inside the ZIP (recommended in the top level).
-  - The system searches for it automatically.
-  - The folder containing `update.json5` is the **content root**; `file.add` sources are relative to it.
-- Temporary unpack directory: `DLC/update_tmp/_staging/` (auto-created).
-- Backup & rollback metadata: `DLC/update_tmp/<dlc_new>/meta.json5`.
-- Unpack ignores `__MACOSX/`, `._*`, and `.DS_Store`.
+- Update packages are `.zip`.
+- Manifest file: `update.dc` (recommended at ZIP root; can be in subdirectories).
+- The directory containing `update.dc` is the update content root.
+- Temporary staging directory: `DLC/tmp/_staging/`.
+- Backup/rollback metadata: `DLC/tmp/<dlc_new>/meta.dc`.
+- Runtime version file: `DLC/info/version.dc`.
 
 ## Complete Example
-```json5
-{
-  version: {
-    base: "1.0.0",
-    base_new: "1.0.0",
-    dlc_old: "1.0.0",
-    dlc_new: "1.0.1"
-  },
-  isHidden: false,
-  file: {
-    del: [
-      "mods/old.jar"
-    ],
-    add: {
-      "mods/new.jar": {
-        appliedTarget: "mods/",
-        override: "true"
-      },
-      "config/": {
-        appliedTarget: "config/",
-        override: "all"
-      }
-    },
-    move: {
-      "config/old.json": "config/new.json"
-    },
-    modify: {
-      "config/example.json": {
-        find: "\"enabled\": false",
-        replace: "\"enabled\": true",
-        which: "last"
-      }
-    }
-  },
-  update: {
-    remote: {
-      "ExampleMod": {
-        modrinth: "version-id-or-number"
-      }
-    },
-    required: {
-      "ExampleRequired": {
-        curseforge: "fileid-or-version"
-      }
-    }
-  },
-  changelog: {
-    zh_cn: "将 DLC 版本更新至 1.0.1",
-    en_us: "Updated DLC version to 1.0.1"
-  }
-}
-```
+```dc
+isHidden = false
 
----
+[version]
+platform = "universal"   # client / server / universal
+base = "1.0.0"
+base_new = "1.0.1"       # optional
+dlc = "1.0.0"            # old key dlc_old is still readable
+dlc_new = "1.0.2"        # optional
+
+[changelog]
+en_us = """Update notes line 1
+line 2"""
+zh_cn = """更新说明第1行
+第2行"""
+
+[file]
+  [del]
+  "mods/old-mod.jar",
+  "config/old.toml"
+
+  [add]
+    "mods/new-mod.jar":
+      appliedTarget = "mods/new-mod.jar"
+      override = true
+
+    "config/":
+      appliedTarget = "config/"
+      override = "all"
+
+  [move]
+  "config/a.toml" = "config/legacy/a.toml"
+
+  [modify]
+    "config/example.toml":
+      find = "old_value"
+      replace = "new_value"
+      which = "all"
+
+[update]
+  [remote]
+    "mod1":
+      curseforge = "1234567"
+      modrinth = "AbCdEf12"
+
+  [required]
+    "mod2":
+      curseforge = "7654321"
+      modrinth = "ZyXwVu98"
+```
 
 ## Field Reference
 
-#### `version`
-- **Purpose**: Version constraints and range.
-- **Allowed**: Object.
-  - `base`: base pack version (must match current).
-  - `base_new`: base pack version after update (optional).
-  - `dlc_old` / `dlc_new`: DLC version range (must match current).
-
 #### `isHidden`
-- **Purpose**: Hide the update in the list (no rollback allowed).
+- **Purpose**: Hide this update package in manager list.
 - **Allowed**: Boolean.
 
-#### `file`
-- **Purpose**: File-level delete, add, move, and text replace.
+#### `version`
+- `platform`: `client` / `server` / `universal` (default `universal`)
+- `base`: source base-pack version (required)
+- `base_new`: target base-pack version (optional)
+- `dlc`: source DLC version (required for matching)
+- `dlc_new`: target DLC version (optional)
 
-##### `file.del`
-- **Purpose**: Delete files/directories.
-- **Allowed**: String or array (paths relative to modpack root).
-- **Behavior**: Backs up before deletion; deleting configs under `DLC/required` or `DLC/remote` triggers uninstall logic.
-
-##### `file.add`
-- **Purpose**: Add files or directories from the update package.
-- **Allowed**: Object (`source path -> AddEntry`).
-  - **Source path**: Relative to the update content root.
-  - **AddEntry**:
-    - `appliedTarget`: target path (relative or absolute). **Required**.
-    - `override`: override mode (see “Override Modes”).
-  - **Directory detection**: If the source path ends with `/` or is a directory, it is treated as a directory.
-
-##### `file.move`
-- **Purpose**: Move/rename.
-- **Allowed**: Object (`from -> to`).
-- **Behavior**: If `to` ends with `/`, it is treated as a directory; the system backs up then moves.
-
-##### `file.modify`
-- **Purpose**: Replace text in a target file.
-- **Allowed**: Object or array:
-  - **Object**: `path -> ModifyEntry` or `path -> [ModifyEntry...]`
-  - **Array**: each item `{ path, find, replace, which }`
-
-**ModifyEntry**:
-- `path`: target file path (relative to modpack root).
-- `find`: text to search for.
-- `replace`: replacement text.
-- `which`: optional replacement selector.
-  - `all`: replace all (default).
-  - `last` / `-1`: replace only the last occurrence.
-  - number or comma list (**1-based**), e.g. `1` / `1,3`.
-  - array form: `[1, 3, -1]` (where `-1` means last).
-
-> **Tip**: If `find` contains multiple JSON key/value pairs, the system will attempt to match using the “last pair” to reduce false matches.
-
-#### `update`
-- **Purpose**: Update Remote/Required entries by `dlc_identifier` and download the new version.
-- **Allowed**: Object containing `remote` / `required`.
-
-##### `update.remote` / `update.required`
-- **Key**: `dlc_identifier`.
-- **Value**: source object:
-  - `curseforge`: file ID / version string.
-  - `modrinth`: version ID / version string.
-
-> Note: Only `curseforge` / `modrinth` are supported; `directUrl` is not supported as an update source.
+> A package is considered effective only if at least one side changes (`base` -> `base_new` or `dlc` -> `dlc_new`).
 
 #### `changelog`
-- **Purpose**: Update log.
+- **Purpose**: Update notes.
 - **Allowed**:
-  - Localized object `{ zh_cn: "...", en_us: "..." }`
-  - or a single string (single-language)
+  - Localized table (`en_us`, `zh_cn`, ...)
+  - Single string
 
----
+#### `file.del`
+- **Purpose**: Delete files/directories.
+- **Allowed**: string array.
 
-## Override Modes
-Supported `override` values for `file.add`:
-- `true` (default): overwrite existing files.
-- `false`: do not overwrite existing files.
-- `all`: **directory sync**; delete extra entries in target directory before copying.
-- `none`: skip entirely if target exists.
+#### `file.add`
+- **Purpose**: Add files/directories from package content root.
+- **Shape**: `"<source>": { appliedTarget, override }`
+- `appliedTarget`: target path (required)
+- `override`: `true` / `false` / `all` / `none`
 
-`override` accepts boolean or string values, case-insensitive.
+#### `file.move`
+- **Purpose**: Move/rename files.
+- **Shape**: `"<from>" = "<to>"`
 
----
+#### `file.modify`
+- **Purpose**: In-place text replacement.
+- **Keys**:
+  - `find`
+  - `replace`
+  - `which` (`all`, `last`, `-1`, index, index list)
 
-## Execution Order & Rules
+#### `update.remote` / `update.required`
+- **Purpose**: Update existing remote/required entries by identifier.
+- **Key**: entry identifier.
+- **Value keys**:
+  - `curseforge`
+  - `modrinth`
 
-### Execution Order
-1) `file.del`
-2) `file.move`
-3) `file.add`
-4) `file.modify`
-5) `update.remote` / `update.required`
+## Execution Rules
+- Execution order:
+  1. `file.del`
+  2. `file.move`
+  3. `file.add`
+  4. `file.modify`
+  5. `update.remote` / `update.required`
+- Version matching is based on current `DLC/info/version.dc`.
+- If update content contains `remote/` or `required/` and they are not explicitly mapped in `file.add`, they are copied implicitly.
+- Adding required resources clears `DLC/required/SKIP`.
 
-### Version Matching
-An update package applies only if:
-- `version.base` matches the current base version, and
-- `version.dlc_old` matches the current DLC version.
-
-Otherwise, the package is not applied.
-
-### Update Chain Selection
-- Within the same `base`, the system chooses a chain by `dlc_old -> dlc_new`.
-- If multiple candidates exist at one node, it prefers the **smallest `dlc_new`** for incremental updates.
-- If a rollback was performed and `rollback_from` still exists, updates are restricted to that chain unless rollback is ignored.
-
-### Implicit Remote/Required Copy
-- If the update content root contains `remote/` or `required/` and these paths are **not explicitly declared** in `file.add`, they are copied automatically to `DLC/remote` / `DLC/required`.
-
-### Required Skip Marker Cleanup
-- If required resources are added, the `DLC/required/SKIP` marker is cleared to avoid skipping the prompt.
-
-### Remote/Required Update Behavior
-- Updates write back `curseforge_fileid` / `modrinth_versionid` to the config file.
-- New files are downloaded automatically.
-- If the entry is currently enabled/applied, it is updated and re-applied; if not enabled, only config + download are updated.
-
----
-
-## Version Records & Rollback
-- Current version is stored at: `DLC/info/version.json5`.
-- Each update records to `DLC/update_tmp/<dlc_new>/meta.json5`:
-  - `restore`: paths to restore on rollback
-  - `created`: paths created by the update
-- Rollback restores and cleans based on `meta.json5`.
+## Rollback
+- Per-update metadata is stored in `DLC/tmp/<dlc_new>/meta.dc`.
+- Rollback uses:
+  - `restore` paths
+  - `created` paths
+  - changelog snapshot in metadata.

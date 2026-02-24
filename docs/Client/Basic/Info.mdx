@@ -2,51 +2,51 @@
 
 This section explains info file fields, purposes, allowed values, and fallback rules, with a complete example.
 
-For JSON5 format and conventions, please read:
+For `dc` format and conventions, please read:
 - [Getting Started](../Getting_Started.mdx)
 
 ## Location
 - Directory: `DLC/info/`
-- File: `<dlc_identifier>.json5`
+- File: `<name>.dc`
 
 ## Write Rules
 - Basic usage:
-  - Each DLC has one info file. The file name is the file name (`file_name`) plus `.json5`.
+  - Each DLC has one info file. The config file name is based on `file_name`.
 - Remote download or Required resources:
   - Info files are generated automatically; content comes from remote/required configs.
-  - If you want to maintain manually, create the info file; fields in the info file are used with priority.
+  - If maintained manually, info fields are used with priority.
 
 ## Complete Example
-```json5
-{
-  dlc_name: "example-mod-1.0.0.jar",
-  dlc_identifier: "ExampleMod",
-  DisplayName: {
-    zh_cn: "示例模组",
-    en_us: "Example Mod"
-  },
-  type: "mod",
-  isInList: true,
-  isHidden: false,
-  AllowEnableByAll: true,
-  dependencies: "",
-  conflicts: "",
-  tip: {
-    zh_cn: "这是一个示例说明",
-    en_us: "Example description"
-  }
-}
+```dc
+[basic]
+identifier = "ExampleMod"
+type = "mod"
+file_name = "example-mod-1.0.0.jar"
+isInList = true
+isHidden = false
+AllowEnableByAll = true
+dependencies = ""
+conflicts = ""
+alarm = false
+
+[DisplayName]
+zh_cn = "示例模组"
+en_us = "Example Mod"
+
+[tip]
+zh_cn = "这是一个示例说明"
+en_us = "Example description"
 ```
 
 ---
 
 ## Field Reference
 
-#### `dlc_name`
+#### `file_name`
 - **Purpose**: Actual file name.
 - **Allowed**: String.
 
-#### `dlc_identifier`
+#### `identifier`
 - **Purpose**: Logical identifier (used by prerequisites/presets/conflicts).
 - **Allowed**: String.
 
@@ -70,16 +70,20 @@ For JSON5 format and conventions, please read:
 - **Purpose**: Whether “Enable All” affects this entry.
 - **Allowed**: Boolean.
 
+#### `alarm`
+- **Purpose**: Whether enabling this item requires alarm confirmation.
+- **Allowed**: Boolean.
+
 #### `dependencies`
 - **Purpose**: Prerequisite identifier list (string or array).
 
 1) **String** (comma-separated identifiers)
-```json5
+```dc
 "LibA, LibB"
 ```
 
 2) **Array**
-```json5
+```dc
 ["LibA", "LibB"]
 ```
 

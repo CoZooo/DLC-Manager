@@ -2,45 +2,56 @@
 
 This section explains the client config file fields, purposes, allowed values, defaults, and fallback rules, and provides a complete example.
 
-For JSON5 format and conventions, please read:
+For `dc` format and conventions, please read:
 - [Getting Started](../Getting_Started.mdx)
 
 ## Location
 - Directory: `config/dlc_manager/`
-- File: `config.json5`
+- File: `config.dc`
 
 ## Complete Example
-```json5
-{
-  paths: {
-    dlcRoot: "DLC",
-    taczRoot: "tacz",
-    resourcepackRoot: "resourcepacks",
-    datapackRoot: "datapacks"
-  },
-  ui: {
-    isEnableAllButtonShown: true,
-    isConfigButtonShown: false,
-    isUButtomShown: true,
-    isUpdateManagerOn: true,
-    isSelfUpdateAutoCheckOn: true,
-    isPresetFuncOn: true,
-    serverSupport: true,
-    titleAnchor: "auto",
-    titleOffsetX: 0,
-    titleOffsetY: 0,
-    titleWidth: 0,
-    titleHeight: 0
-  },
-  downloads: {
-    maxConcurrentDownloads: 5,
-    maxSegmentsPerFile: 4,
-    minSegmentMB: 20,
-    maxRetryCount: 5,
-    connectTimeoutSeconds: 10,
-    taskTimeoutSeconds: 60
-  }
-}
+```dc
+[paths]
+dlcRoot = "DLC"
+taczRoot = "tacz"
+resourcepackRoot = "resourcepacks"
+datapackRoot = "datapacks"
+
+[ui]
+isEnableAllButtonShown = true
+isConfigButtonShown = false
+isUButtomShown = true
+isUpdateManagerOn = true
+isSelfUpdateAutoCheckOn = true
+isPresetFuncOn = true
+ShowOnFirstRun = false
+WaitingTime = 0
+serverSupport = true
+titleAnchor = "auto"
+titleOffsetX = 0
+titleOffsetY = 0
+titleUpdateAnchor = "auto"
+titleUpdateOffsetX = 0
+titleUpdateOffsetY = 0
+noticeDisplayMode = "manager_button"
+noticeButtonAnchor = "bottom_right"
+noticeButtonOffsetX = 0
+noticeButtonOffsetY = 0
+noticePanelAnchor = "top_left"
+noticePanelOffsetX = 0
+noticePanelOffsetY = 0
+noticePanelWidth = 0
+noticePanelHeight = 0
+modpackUrl = ""
+updateGithubRepo = ""
+
+[downloads]
+maxConcurrentDownloads = 5
+maxSegmentsPerFile = 4
+minSegmentMB = 20
+maxRetryCount = 5
+connectTimeoutSeconds = 10
+taskTimeoutSeconds = 60
 ```
 
 ---
@@ -92,6 +103,17 @@ For JSON5 format and conventions, please read:
 - **Allowed**: Boolean.
 - **Default**: `true`.
 
+#### `ui.ShowOnFirstRun`
+- **Purpose**: Auto-open DLC Manager on first run.
+- **Allowed**: Boolean.
+- **Default**: `false`.
+- **Behavior**: Uses `DLC/ShownOnFirstRun` marker after first open.
+
+#### `ui.WaitingTime`
+- **Purpose**: Alarm screen minimum wait time before confirmation.
+- **Allowed**: Integer `0~10` (seconds).
+- **Default**: `0`.
+
 #### `ui.serverSupport`
 - **Purpose**: Show server manager entry (client-side).
 - **Allowed**: Boolean.
@@ -101,9 +123,9 @@ For JSON5 format and conventions, please read:
 - **Purpose**: Main menu button anchor.
 - **Allowed**:
   - `auto`
-  - `left_top`, `top`, `right_top`
+  - `top_left`, `top`, `top_right`
   - `left`, `center`, `right`
-  - `left_bottom`, `bottom`, `right_bottom`
+  - `bottom_left`, `bottom`, `bottom_right`
 - **Default**: `"auto"`.
 
 #### `ui.titleOffsetX` / `ui.titleOffsetY`
@@ -111,10 +133,45 @@ For JSON5 format and conventions, please read:
 - **Allowed**: Integer.
 - **Default**: `0`.
 
-#### `ui.titleWidth` / `ui.titleHeight`
-- **Purpose**: Button size (pixels).
-- **Allowed**: Integer; `0` means default size.
-- **Default**: `0`.
+#### `ui.titleUpdateAnchor` / `ui.titleUpdateOffsetX` / `ui.titleUpdateOffsetY`
+- **Purpose**: Main menu update button (`U`) anchor and offset.
+- **Allowed**:
+  - anchor: `auto`, `top_left`, `top`, `top_right`, `left`, `center`, `right`, `bottom_left`, `bottom`, `bottom_right`
+  - offsets: Integer (`titleUpdateOffsetX`, `titleUpdateOffsetY`)
+- **Default**: `auto`, `0`, `0`.
+
+#### `ui.noticeDisplayMode`
+- **Purpose**: Notice presentation mode.
+- **Allowed**:
+  - `manager_button`
+  - `main_menu_button`
+  - `main_menu_panel`
+- **Default**: `manager_button`.
+
+#### `ui.noticeButtonAnchor` / `ui.noticeButtonOffsetX` / `ui.noticeButtonOffsetY`
+- **Purpose**: Main menu notice button position.
+- **Allowed**: String + integer offsets.
+- **Default**: `bottom_right`, `0`, `0`.
+
+#### `ui.noticePanelAnchor` / `ui.noticePanelOffsetX` / `ui.noticePanelOffsetY`
+- **Purpose**: Main menu notice panel position.
+- **Allowed**: String + integer offsets.
+- **Default**: `top_left`, `0`, `0`.
+
+#### `ui.noticePanelWidth` / `ui.noticePanelHeight`
+- **Purpose**: Main menu notice panel size.
+- **Allowed**: Integer (`0` means disabled).
+- **Default**: `0`, `0`.
+
+#### `ui.modpackUrl`
+- **Purpose**: Modpack homepage URL used by pack update UI.
+- **Allowed**: String URL.
+- **Default**: Empty.
+
+#### `ui.updateGithubRepo`
+- **Purpose**: Repository URL used for pack release update checks.
+- **Allowed**: String URL (single or comma-separated multiple repos).
+- **Default**: Empty.
 
 #### `downloads.maxConcurrentDownloads`
 - **Purpose**: Max number of concurrent download tasks.

@@ -1,53 +1,53 @@
-# 信息文件（info）
+# Info 文件（info）
 
-本节说明 info 文件的字段、用途、可填写值与回退规则，并提供完整示例。
+本节说明 info 文件字段、用途、可填写值与回退规则，并给出完整示例。
 
-配置文件格式与通用约定（JSON5）请先阅读：
-- [Getting Started](../Getting_Started.mdx)
+`dc` 格式与通用约定请先阅读：
+- [开始使用](../Getting_Started.mdx)
 
-## 目录
+## 位置
 - 目录：`DLC/info/`
-- 文件：`<dlc_identifier>.json5`
+- 文件：`<name>.dc`
 
 ## 写入规则
 - 基础用法：
-  - 每个 DLC 对应一个 info 文件，文件名为文件名（`file_name`）加 `.json5` 后缀。
-- Remote 远程下载或 Required 必要资源：
-  - info 文件由系统自动生成，内容来源于 remote/required 配置。
-  - 若需要手动维护，可创建对应 info 文件，系统会优先使用 info 文件中的字段。
+  - 每个 DLC 对应一个 info 文件；配置名通常与 `file_name` 对应。
+- Remote 下载与 Required 资源：
+  - info 由系统自动生成，内容来自 remote/required 配置。
+  - 若你手动维护 info，手动值优先。
 
 ## 完整示例
-```json5
-{
-  dlc_name: "example-mod-1.0.0.jar",
-  dlc_identifier: "ExampleMod",
-  DisplayName: {
-    zh_cn: "示例模组",
-    en_us: "Example Mod"
-  },
-  type: "mod",
-  isInList: true,
-  isHidden: false,
-  AllowEnableByAll: true,
-  dependencies: "",
-  conflicts: "",
-  tip: {
-    zh_cn: "这是一个示例说明",
-    en_us: "Example description"
-  }
-}
+```dc
+[basic]
+identifier = "ExampleMod"
+type = "mod"
+file_name = "example-mod-1.0.0.jar"
+isInList = true
+isHidden = false
+AllowEnableByAll = true
+dependencies = ""
+conflicts = ""
+alarm = false
+
+[DisplayName]
+zh_cn = "示例模组"
+en_us = "Example Mod"
+
+[tip]
+zh_cn = "这是一个示例说明"
+en_us = "Example description"
 ```
 
 ---
 
 ## 字段说明
 
-#### `dlc_name`
-- **用途**：当前实际文件名。
+#### `file_name`
+- **用途**：实际文件名。
 - **可填**：字符串。
 
-#### `dlc_identifier`
-- **用途**：逻辑标识符（前置/预设/冲突统一使用）。
+#### `identifier`
+- **用途**：逻辑标识（前置/冲突/预设匹配）。
 - **可填**：字符串。
 
 #### `DisplayName`
@@ -59,32 +59,36 @@
 - **可填**：`mod` / `resourcepack` / `datapack` / `gunpack` / `others`。
 
 #### `isInList`
-- **用途**：是否显示在 DLC 列表中。
+- **用途**：是否在 DLC 列表显示。
 - **可填**：布尔。
 
 #### `isHidden`
-- **用途**：是否隐藏条目，仅适用于库/前置等无实际意义的模组，在未被作为前置需求时自动禁用。
+- **用途**：隐藏条目。通常用于前置库；无人依赖时会自动关闭。
 - **可填**：布尔。
 
 #### `AllowEnableByAll`
-- **用途**：是否允许“全部开启/一键开启”统一控制。
+- **用途**：“全部开启”是否影响该条目。
+- **可填**：布尔。
+
+#### `alarm`
+- **用途**：开启前是否显示警告确认页。
 - **可填**：布尔。
 
 #### `dependencies`
-- **用途**：前置标识符列表（字符串或数组）。
+- **用途**：前置 identifier 列表（字符串或数组）。
 
-1) **字符串**（逗号分隔 identifier）
-```json5
+1) 字符串（逗号分隔）
+```dc
 "LibA, LibB"
 ```
 
-2) **数组**
-```json5
+2) 数组
+```dc
 ["LibA", "LibB"]
 ```
 
 #### `conflicts`
-- **用途**：冲突标识符列表（字符串或数组）。 （同前置部分）
+- **用途**：冲突 identifier 列表（字符串或数组，写法与 `dependencies` 相同）。
 
 #### `tip`
 - **用途**：多语言提示文本。
@@ -92,7 +96,7 @@
 
 ---
 
-## 补充
-- info 文件可由系统自动生成，也可手动维护。
-- 若缺失 DisplayName 或 tip，会回退为文件名或标识符。
-- remote/required 中提供的 DisplayName 与 tip 会优先写入 info。
+## 补充说明
+- info 可自动生成，也可手动维护。
+- 若 `DisplayName` 或 `tip` 缺失，会回退到 `file_name` 或 `identifier`。
+- remote/required 的 `DisplayName`、`tip` 会优先写入 info。

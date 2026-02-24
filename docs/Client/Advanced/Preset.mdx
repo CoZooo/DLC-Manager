@@ -2,7 +2,7 @@
 
 This section explains preset fields, purposes, allowed values, and behavior, with a complete example.
 
-For JSON5 format and conventions, please read:
+For `dc` format conventions, please read:
 - [Getting Started](../Getting_Started.mdx)
 
 ## Location
@@ -10,24 +10,23 @@ For JSON5 format and conventions, please read:
 - File name does not affect display; DisplayName can override it.
 
 ## Complete Example
-```json5
-{
-  DisplayName: {
-    zh_cn: "优化预设",
-    en_us: "Performance Preset"
-  },
-  tip: {
-    zh_cn: "适合低配机器",
-    en_us: "Recommended for low-end PCs"
-  },
-  enable: [
-    "Mod1",
-    "Mod2"
-  ],
-  conflicts: [
-    "Mod3"
-  ]
-}
+```dc
+[DisplayName]
+zh_cn = "优化预设"
+en_us = "Performance Preset"
+
+[tip]
+zh_cn = "适合低配机器"
+en_us = "Recommended for low-end PCs"
+
+enable = [
+  "Mod1",
+  "Mod2"
+]
+conflicts = [
+  "Mod3"
+]
+alarm = false
 ```
 
 ---
@@ -44,19 +43,24 @@ For JSON5 format and conventions, please read:
 - **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
 
 #### `enable`
-- **Purpose**: DLC list to enable (`dlc_identifier`).
-- **Allowed**: Array of **dlc_identifier**.
+- **Purpose**: DLC list to enable (`identifier`).
+- **Allowed**: Array of identifiers.
 
 #### `conflicts`
-- **Purpose**: DLC list that conflicts with this preset (`dlc_identifier`).
-- **Allowed**: Array of **dlc_identifier**.
+- **Purpose**: DLC list that conflicts with this preset (`identifier`).
+- **Allowed**: Array of identifiers.
+
+#### `alarm`
+- **Purpose**: Whether enabling this preset shows alarm confirmation first.
+- **Allowed**: Boolean.
 
 ---
 
 ## State & Storage
-- Stored at: `config/dlc_manager/state.json5`, field `presets`.
+- Stored at: `config/dlc_manager/state.dc`, field `presets`.
 - Status values: `On` / `Part` / `Off`.
 
 ## Behavior
 - When enabled, the preset attempts to enable all DLCs in `enable`.
-- DLCs listed in `conflicts` are disabled and show conflict warnings.
+- DLCs listed in `conflicts` are auto-disabled and show conflict warnings.
+- Conflict handling supports cascade disable for dependents.

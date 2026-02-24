@@ -1,46 +1,57 @@
-# 配置（Config）
+# Config（客户端配置）
 
-本节说明客户端配置文件的字段、用途、可填写值、默认与回退规则，并提供完整示例。
+本节说明客户端配置文件字段、用途、可填写值、默认值与回退规则，并提供完整示例。
 
-配置文件格式与通用约定（JSON5）请先阅读：
-- [Getting Started](../Getting_Started.mdx)
+`dc` 格式与通用约定请先阅读：
+- [开始使用](../Getting_Started.mdx)
 
-## 目录
+## 位置
 - 目录：`config/dlc_manager/`
-- 文件：`config.json5`
+- 文件：`config.dc`
 
 ## 完整示例
-```json5
-{
-  paths: {
-    dlcRoot: "DLC",
-    taczRoot: "tacz",
-    resourcepackRoot: "resourcepacks",
-    datapackRoot: "datapacks"
-  },
-  ui: {
-    isEnableAllButtonShown: true,
-    isConfigButtonShown: false,
-    isUButtomShown: true,
-    isUpdateManagerOn: true,
-    isSelfUpdateAutoCheckOn: true,
-    isPresetFuncOn: true,
-    serverSupport: true,
-    titleAnchor: "auto",
-    titleOffsetX: 0,
-    titleOffsetY: 0,
-    titleWidth: 0,
-    titleHeight: 0
-  },
-  downloads: {
-    maxConcurrentDownloads: 5,
-    maxSegmentsPerFile: 4,
-    minSegmentMB: 20,
-    maxRetryCount: 5,
-    connectTimeoutSeconds: 10,
-    taskTimeoutSeconds: 60
-  }
-}
+```dc
+[paths]
+dlcRoot = "DLC"
+taczRoot = "tacz"
+resourcepackRoot = "resourcepacks"
+datapackRoot = "datapacks"
+
+[ui]
+isEnableAllButtonShown = true
+isConfigButtonShown = false
+isUButtomShown = true
+isUpdateManagerOn = true
+isSelfUpdateAutoCheckOn = true
+isPresetFuncOn = true
+ShowOnFirstRun = false
+WaitingTime = 0
+serverSupport = true
+titleAnchor = "auto"
+titleOffsetX = 0
+titleOffsetY = 0
+titleUpdateAnchor = "auto"
+titleUpdateOffsetX = 0
+titleUpdateOffsetY = 0
+noticeDisplayMode = "manager_button"
+noticeButtonAnchor = "bottom_right"
+noticeButtonOffsetX = 0
+noticeButtonOffsetY = 0
+noticePanelAnchor = "top_left"
+noticePanelOffsetX = 0
+noticePanelOffsetY = 0
+noticePanelWidth = 0
+noticePanelHeight = 0
+modpackUrl = ""
+updateGithubRepo = ""
+
+[downloads]
+maxConcurrentDownloads = 5
+maxSegmentsPerFile = 4
+minSegmentMB = 20
+maxRetryCount = 5
+connectTimeoutSeconds = 10
+taskTimeoutSeconds = 60
 ```
 
 ---
@@ -49,85 +60,131 @@
 
 #### `paths.dlcRoot`
 - **用途**：DLC 根目录。
-- **可填**：相对或绝对路径。
+- **可填**：相对路径或绝对路径。
 - **默认**：`"DLC"`。
 
 #### `paths.taczRoot`
-- **用途**：对应TACZ枪包在DLC目录中的文件夹名。
+- **用途**：TACZ 资源目录名。
 - **可填**：字符串。
-- **默认**：`"tacz"` 。
+- **默认**：`"tacz"`。
 
 #### `paths.resourcepackRoot` / `paths.datapackRoot`
-- **用途**：对应分类的默认目标目录名。
+- **用途**：资源包/数据包默认目标目录名。
 - **可填**：字符串。
 - **默认**：`"resourcepacks"` / `"datapacks"`。
 
 #### `ui.isEnableAllButtonShown`
-- **用途**：是否显示“全部开启/关闭”。
+- **用途**：显示“全部开启/全部关闭”按钮。
 - **可填**：布尔。
 - **默认**：`true`。
 
 #### `ui.isConfigButtonShown`
-- **用途**：是否显示配置按钮。
+- **用途**：显示配置按钮。
 - **可填**：布尔。
 - **默认**：`false`。
 
 #### `ui.isUButtomShown`
-- **用途**：主菜单 U 按钮显示开关。
+- **用途**：主菜单显示 `U` 按钮。
 - **可填**：布尔。
 - **默认**：`true`。
 
 #### `ui.isUpdateManagerOn`
-- **用途**：是否启用更新管理器。
+- **用途**：启用更新管理器。
 - **可填**：布尔。
 - **默认**：`true`。
 
 #### `ui.isSelfUpdateAutoCheckOn`
-- **用途**：是否自动检查 DLC 管理器更新。
+- **用途**：自动检查 DLC Manager 更新。
 - **可填**：布尔。
 - **默认**：`true`。
 
 #### `ui.isPresetFuncOn`
-- **用途**：是否启用预设功能。
+- **用途**：启用预设功能。
 - **可填**：布尔。
 - **默认**：`true`。
 
+#### `ui.ShowOnFirstRun`
+- **用途**：第一次启动游戏时自动打开 DLC 管理器。
+- **可填**：布尔。
+- **默认**：`false`。
+- **行为**：首次弹出后写入 `DLC/ShownOnFirstRun` 标记。
+
+#### `ui.WaitingTime`
+- **用途**：警告页最短等待时间。
+- **可填**：整数 `0~10`（秒）。
+- **默认**：`0`。
+
 #### `ui.serverSupport`
-- **用途**：是否显示服务器管理入口（客户端侧）。
+- **用途**：显示服务器管理入口（客户端侧）。
 - **可填**：布尔。
 - **默认**：`true`。
 
 #### `ui.titleAnchor`
-- **用途**：主菜单按钮锚点。
+- **用途**：主菜单 DLC 管理器按钮锚点。
 - **可填**：
   - `auto`
-  - `left_top`、`top`、`right_top`
+  - `top_left`、`top`、`top_right`
   - `left`、`center`、`right`
-  - `left_bottom`、`bottom`、`right_bottom`
+  - `bottom_left`、`bottom`、`bottom_right`
 - **默认**：`"auto"`。
 
 #### `ui.titleOffsetX` / `ui.titleOffsetY`
-- **用途**：按钮位置偏移（像素）。
+- **用途**：主菜单 DLC 管理器按钮偏移（像素）。
 - **可填**：整数。
 - **默认**：`0`。
 
-#### `ui.titleWidth` / `ui.titleHeight`
-- **用途**：按钮尺寸（像素）。
-- **可填**：整数，`0` 表示使用默认尺寸。
-- **默认**：`0`。
+#### `ui.titleUpdateAnchor` / `ui.titleUpdateOffsetX` / `ui.titleUpdateOffsetY`
+- **用途**：主菜单更新按钮（`U`）锚点与偏移。
+- **可填**：
+  - 锚点：`auto`、`top_left`、`top`、`top_right`、`left`、`center`、`right`、`bottom_left`、`bottom`、`bottom_right`
+  - 偏移：整数
+- **默认**：`auto`、`0`、`0`。
+
+#### `ui.noticeDisplayMode`
+- **用途**：公告展示模式。
+- **可填**：
+  - `manager_button`
+  - `main_menu_button`
+  - `main_menu_panel`
+- **默认**：`manager_button`。
+
+#### `ui.noticeButtonAnchor` / `ui.noticeButtonOffsetX` / `ui.noticeButtonOffsetY`
+- **用途**：主菜单公告按钮位置。
+- **可填**：锚点字符串 + 整数偏移。
+- **默认**：`bottom_right`、`0`、`0`。
+
+#### `ui.noticePanelAnchor` / `ui.noticePanelOffsetX` / `ui.noticePanelOffsetY`
+- **用途**：主菜单公告面板位置。
+- **可填**：锚点字符串 + 整数偏移。
+- **默认**：`top_left`、`0`、`0`。
+
+#### `ui.noticePanelWidth` / `ui.noticePanelHeight`
+- **用途**：主菜单公告面板尺寸。
+- **可填**：整数（`0` 表示不显示）。
+- **默认**：`0`、`0`。
+
+#### `ui.modpackUrl`
+- **用途**：整合包主页链接（用于整合包更新页跳转）。
+- **可填**：URL 字符串。
+- **默认**：空。
+
+#### `ui.updateGithubRepo`
+- **用途**：整合包版本仓库地址（用于整合包更新检测）。
+- **可填**：URL 字符串（可逗号分隔多个仓库）。
+- **默认**：空。
 
 #### `downloads.maxConcurrentDownloads`
-- **用途**：并行下载任务数。
+- **用途**：最大并发下载任务数。
 - **可填**：整数。
 - **默认**：`5`。
 
 #### `downloads.maxSegmentsPerFile`
-- **用途**：单文件分段数。
+- **用途**：单文件最大分段数。
 - **可填**：整数。
 - **默认**：`4`。
 
 #### `downloads.minSegmentMB`
-- **用途**：分段最小大小（MB）。
+- **用途**：最小分段大小（MB）。
 - **可填**：整数。
 - **默认**：`20`。
 
@@ -145,4 +202,3 @@
 - **用途**：任务超时（秒）。
 - **可填**：整数。
 - **默认**：`60`。
-

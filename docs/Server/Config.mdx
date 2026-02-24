@@ -1,48 +1,48 @@
 # Server Config
 
-This section documents **all fields, purposes, allowed values, defaults, and fallback rules** for the server config file `config-server.json5`.
+This section documents all fields, purposes, allowed values, defaults, and fallback rules for server config `config-server.dc`.
 
-For JSON5 format and conventions, please read:
-- [Getting Started](../Client/Basic/Getting_Started.mdx)
+For `dc` format conventions, please read:
+- [Getting Started](../Client/Getting_Started.mdx)
 
 ## Location
 - Directory: `config/dlc_manager/`
-- File: `config-server.json5`
+- File: `config-server.dc`
 
-> Note: This file is **server-only**. The client does not read local `config-server.json5`.
+> Note: This file is server-side only.
 
 ## Complete Example
-```json5
-{
-  server: {
-    serverSupport: true,
-    serverPort: 29690,
-    serverPassword: "",
-    rconHost: "127.0.0.1",
-    rconPort: 25575,
-    rconPassword: ""
-  },
-  ui: {
-    isEnableAllButtonShown: true,
-    isUpdateManagerOn: true,
-    isSelfUpdateAutoCheckOn: true,
-    isPresetFuncOn: true
-  },
-  paths: {
-    dlcRoot: "DLC",
-    taczRoot: "tacz",
-    resourcepackRoot: "resourcepacks",
-    datapackRoot: "datapacks"
-  },
-  downloads: {
-    maxConcurrentDownloads: 5,
-    maxSegmentsPerFile: 4,
-    minSegmentMB: 20,
-    maxRetryCount: 5,
-    connectTimeoutSeconds: 10,
-    taskTimeoutSeconds: 60
-  }
-}
+```dc
+[server]
+serverSupport = true
+serverPort = 29690
+serverPassword = ""
+modpackUrl = ""
+updateGithubRepo = ""
+rconHost = "127.0.0.1"
+rconPort = 25575
+rconPassword = ""
+
+[ui]
+isEnableAllButtonShown = true
+isUpdateManagerOn = true
+isSelfUpdateAutoCheckOn = true
+isPresetFuncOn = true
+WaitingTime = 0
+
+[paths]
+dlcRoot = "DLC"
+taczRoot = "tacz"
+resourcepackRoot = "resourcepacks"
+datapackRoot = "datapacks"
+
+[downloads]
+maxConcurrentDownloads = 5
+maxSegmentsPerFile = 4
+minSegmentMB = 20
+maxRetryCount = 5
+connectTimeoutSeconds = 10
+taskTimeoutSeconds = 60
 ```
 
 ---
@@ -66,6 +66,16 @@ For JSON5 format and conventions, please read:
 - **Purpose**: Server DLC Manager password (plain text).
 - **Allowed**: String.
 - **Default**: Empty string (no password).
+
+#### `modpackUrl`
+- **Purpose**: Modpack homepage link exposed to manager UI.
+- **Allowed**: String URL.
+- **Default**: Empty.
+
+#### `updateGithubRepo`
+- **Purpose**: Pack release update repository URL(s).
+- **Allowed**: String URL, supports comma-separated multiple repos.
+- **Default**: Empty.
 
 #### `rconHost`
 - **Purpose**: RCON host (used by the server manager’s RCON features).
@@ -110,6 +120,11 @@ For JSON5 format and conventions, please read:
 - **Purpose**: Enable presets.
 - **Allowed**: Boolean.
 - **Default**: `true`.
+
+#### `WaitingTime`
+- **Purpose**: Alarm screen wait time before confirmation.
+- **Allowed**: Integer `0~10`.
+- **Default**: `0`.
 
 ---
 
