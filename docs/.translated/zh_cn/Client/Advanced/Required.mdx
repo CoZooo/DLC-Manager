@@ -64,44 +64,44 @@ zh_cn = "请勿删除"
 
 ## 字段说明
 
-#### `[download]` 表
+#### `[download]`
 - `curseforge_projectid`、`curseforge_fileid`
 - `modrinth_projectid`、`modrinth_versionid`
 - `directUrl`：字符串或字符串数组
 - `priority`：`curseforge`、`modrinth`、`directurl`（逗号分隔）
 
-#### `basic.identifier`
+#### `[basic].identifier`
 - **用途**：用于前置/预设/冲突匹配的逻辑标识。
 - **回退**：配置文件名。
 
-#### `basic.file_name`
+#### `[basic].file_name`
 - **用途**：最终文件名。
 - **回退**：先从 URL 推断，再回退到 identifier。
 
-#### `basic.appliedTarget`
+#### `[basic].appliedTarget`
 - **用途**：安装/应用目标路径。
 - **可填**：相对路径或绝对路径。
 
-#### `basic.isInList`
+#### `[basic].isInList`
 - **用途**：是否在必要资源列表显示。
 - **默认**：`true`。
 
-#### `basic.isHidden`
+#### `[basic].isHidden`
 - **用途**：隐藏条目但仍由系统管理。
 - **默认**：`false`。
 
-#### `basic.dependencies`
+#### `[basic].dependencies`
 - **可填**：identifier 字符串或数组。
 
-#### `[dependencies]` 表
+#### `[dependencies]`
 - **用途**：以嵌套的形式定义前置。
 - **语法**：
   - `identifier:` 或 `[identifier]`
 
-#### `[DisplayName]` 表
+#### `[DisplayName]`
 - 多语言显示名文本表（`en_us`、`zh_cn` 等）。
 
-#### `[tip]` 表
+#### `[tip]`
 - 多语言提示文本表（`en_us`、`zh_cn` 等）。
 
 #### `UserRemoved`

@@ -72,7 +72,7 @@ zh_cn = """更新说明第1行
 - **用途**：在更新管理器中隐藏该更新包。
 - **可填**：布尔。
 
-#### `version`
+#### `[version]`
 - `platform`：`client` / `server` / `universal`（默认 `universal`）
 - `base`：原底包版本（必填）
 - `base_new`：新底包版本（可选）
@@ -81,34 +81,34 @@ zh_cn = """更新说明第1行
 
 > 仅当至少一侧发生变化（`base -> base_new` 或 `dlc -> dlc_new`）时，该更新包才会生效。
 
-#### `changelog`
+#### `[changelog]`
 - **用途**：更新日志。
 - **可填**：
   - 多语言表（`en_us`、`zh_cn` 等）
   - 单字符串
 
-#### `file.del`
+#### `[file].del`
 - **用途**：删除文件/目录。
 - **可填**：字符串数组。
 
-#### `file.add`
+#### `[file].add`
 - **用途**：从更新包内容根目录添加文件/目录。
 - **结构**：`"<source>": { appliedTarget, override }`
 - `appliedTarget`：目标路径（必填）
 - `override`：`true` / `false` / `all` / `none`
 
-#### `file.move`
+#### `[file].move`
 - **用途**：移动/重命名文件。
 - **结构**：`"<from>" = "<to>"`
 
-#### `file.modify`
+#### `[file].modify`
 - **用途**：文本内替换。
 - **键**：
   - `find`
   - `replace`
   - `which`（`all`、`last`、`-1`、索引、索引数组）
 
-#### `update.remote` / `update.required`
+#### `[update].remote` / `[update].required`
 - **用途**：按 identifier 更新 remote/required 配置中的平台 ID。
 - **键**：条目 identifier。
 - **值键**：
@@ -117,17 +117,17 @@ zh_cn = """更新说明第1行
 
 ## 执行规则
 - 执行顺序：
-  1. `file.del`
-  2. `file.move`
-  3. `file.add`
-  4. `file.modify`
-  5. `update.remote` / `update.required`
+  1. `[file].del`
+  2. `[file].move`
+  3. `[file].add`
+  4. `[file].modify`
+  5. `[update].remote` / `[update].required`
 - 版本匹配基于 `DLC/info/version.dc`。
-- 若更新包包含 `remote/` 或 `required/`，且未在 `file.add` 显式映射，会按默认规则隐式复制。
+- 若更新包包含 `remote/` 或 `required/`，且未在 `[file].add` 显式映射，会按默认规则隐式复制。
 - 添加 required 资源时会清理 `DLC/required/SKIP`。
 
 ## 仓库 Release 更新模式
-仓库模式由 `ui.updateGithubRepo` / `server.updateGithubRepo` 配置驱动，通过 Release 元数据匹配热更新包并下载。
+仓库模式由 `[ui].updateGithubRepo` / `[server].updateGithubRepo` 配置驱动，通过 Release 元数据匹配热更新包并下载。
 
 ### 仓库输入与回退
 - 支持逗号分隔多个仓库 URL。

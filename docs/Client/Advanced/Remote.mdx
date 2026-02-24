@@ -72,7 +72,7 @@ zh_cn = "示例提示"
 
 ## Field Reference
 
-#### `[download]` table
+#### `[download]`
 - `curseforge_projectid`: CurseForge project ID or slug.
 - `curseforge_fileid`: CurseForge file ID / version string / file name.
 - `modrinth_projectid`: Modrinth project ID or slug.
@@ -82,48 +82,48 @@ zh_cn = "示例提示"
   - Supported: `curseforge`, `modrinth`, `directurl`.
   - If empty, starts with `curseforge`, then fills missing sources in default order.
 
-#### `basic.identifier`
+#### `[basic].identifier`
 - **Purpose**: Logical ID used by dependencies/conflicts/presets.
 - **Fallback order**: identifier -> file_name -> config base name -> URL file name -> project IDs.
 
-#### `basic.file_name`
+#### `[basic].file_name`
 - **Purpose**: Final file name on disk.
 - **Fallback**: URL-derived file name, then fallback name.
 
-#### `basic.type`
+#### `[basic].type`
 - **Allowed**: `mod`, `resourcepack`, `datapack`, `gunpack`, `others`.
 - **Default**: `mod`.
 
-#### `basic.appliedTarget`
+#### `[basic].appliedTarget`
 - **Purpose**: Override apply target path.
 - **Allowed**: Relative or absolute path.
 - Relative paths are resolved against modpack root.
 
-#### `basic.isInList` / `basic.isHidden` / `basic.AllowEnableByAll`
+#### `[basic].isInList` / `[basic].isHidden` / `[basic].AllowEnableByAll`
 - **Purpose**: List visibility and batch-enable behavior.
 - **Default**: `true`, `false`, `true`.
 
-#### `basic.conflicts`
+#### `[basic].conflicts`
 - **Allowed**: string or array of identifiers.
 
-#### `basic.alarm`
+#### `[basic].alarm`
 - **Purpose**: Show alarm confirmation screen before enabling.
 - **Allowed**: Boolean.
 
-#### `basic.dependencies`
+#### `[basic].dependencies`
 - **Allowed**:
   - string (`"LibA,LibB"`)
   - array (`["LibA","LibB"]`)
 
-#### `[dependencies]` table
+#### `[dependencies]`
 - **Purpose**: Define nested dependency nodes.
 - **Syntax**:
   - `identifier:` or `[identifier]`
 
-#### `[DisplayName]` table
+#### `[DisplayName]`
 - Localized display name table, typically `en_us` and `zh_cn`.
 
-#### `[tip]` table
+#### `[tip]`
 - Localized tooltip text table, typically `en_us` and `zh_cn`.
 
 ## Notes

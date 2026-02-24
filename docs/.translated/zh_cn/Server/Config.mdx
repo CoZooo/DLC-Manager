@@ -49,8 +49,7 @@ taskTimeoutSeconds = 60
 
 ## 字段说明
 
-### `server`
-
+### `[server]`
 #### `serverSupport`
 - **用途**：是否启用服务端 DLC 管理通信功能。
 - **可填**：布尔。
@@ -103,7 +102,7 @@ taskTimeoutSeconds = 60
 
 ---
 
-### `ui`（服务端管理器界面开关）
+### `[ui]`（服务端管理器界面开关）
 > 这些选项由服务端返回给客户端，用于控制“服务器管理器”界面显示。
 
 #### `isEnableAllButtonShown`
@@ -133,7 +132,7 @@ taskTimeoutSeconds = 60
 
 ---
 
-### `paths`
+### `[paths]`
 > 所有路径均以服务端整合包根目录为基准解析。
 
 #### `dlcRoot`
@@ -158,8 +157,7 @@ taskTimeoutSeconds = 60
 
 ---
 
-### `downloads`
-
+### `[downloads]`
 #### `maxConcurrentDownloads`
 - **用途**：最大并发下载任务数。
 - **可填**：整数。

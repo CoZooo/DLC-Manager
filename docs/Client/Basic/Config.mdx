@@ -58,68 +58,68 @@ taskTimeoutSeconds = 60
 
 ## Field Reference
 
-#### `paths.dlcRoot`
+#### `[paths].dlcRoot`
 - **Purpose**: DLC root directory.
 - **Allowed**: Relative or absolute path.
 - **Default**: `"DLC"`.
 
-#### `paths.taczRoot`
+#### `[paths].taczRoot`
 - **Purpose**: Folder name for TACZ packs under the DLC root.
 - **Allowed**: String.
 - **Default**: `"tacz"`.
 
-#### `paths.resourcepackRoot` / `paths.datapackRoot`
+#### `[paths].resourcepackRoot` / `[paths].datapackRoot`
 - **Purpose**: Default target directory names for each category.
 - **Allowed**: String.
 - **Default**: `"resourcepacks"` / `"datapacks"`.
 
-#### `ui.isEnableAllButtonShown`
+#### `[ui].isEnableAllButtonShown`
 - **Purpose**: Show “Enable/Disable All”.
 - **Allowed**: Boolean.
 - **Default**: `true`.
 
-#### `ui.isConfigButtonShown`
+#### `[ui].isConfigButtonShown`
 - **Purpose**: Show the config button.
 - **Allowed**: Boolean.
 - **Default**: `false`.
 
-#### `ui.isUButtomShown`
+#### `[ui].isUButtomShown`
 - **Purpose**: Toggle the “U” button on the main menu.
 - **Allowed**: Boolean.
 - **Default**: `true`.
 
-#### `ui.isUpdateManagerOn`
+#### `[ui].isUpdateManagerOn`
 - **Purpose**: Enable the update manager.
 - **Allowed**: Boolean.
 - **Default**: `true`.
 
-#### `ui.isSelfUpdateAutoCheckOn`
+#### `[ui].isSelfUpdateAutoCheckOn`
 - **Purpose**: Auto-check DLC Manager updates.
 - **Allowed**: Boolean.
 - **Default**: `true`.
 
-#### `ui.isPresetFuncOn`
+#### `[ui].isPresetFuncOn`
 - **Purpose**: Enable presets.
 - **Allowed**: Boolean.
 - **Default**: `true`.
 
-#### `ui.ShowOnFirstRun`
+#### `[ui].ShowOnFirstRun`
 - **Purpose**: Auto-open DLC Manager on first run.
 - **Allowed**: Boolean.
 - **Default**: `false`.
 - **Behavior**: Uses `DLC/ShownOnFirstRun` marker after first open.
 
-#### `ui.WaitingTime`
+#### `[ui].WaitingTime`
 - **Purpose**: Alarm screen minimum wait time before confirmation.
 - **Allowed**: Integer `0~10` (seconds).
 - **Default**: `0`.
 
-#### `ui.serverSupport`
+#### `[ui].serverSupport`
 - **Purpose**: Show server manager entry (client-side).
 - **Allowed**: Boolean.
 - **Default**: `true`.
 
-#### `ui.titleAnchor`
+#### `[ui].titleAnchor`
 - **Purpose**: Main menu button anchor.
 - **Allowed**:
   - `auto`
@@ -128,19 +128,19 @@ taskTimeoutSeconds = 60
   - `bottom_left`, `bottom`, `bottom_right`
 - **Default**: `"auto"`.
 
-#### `ui.titleOffsetX` / `ui.titleOffsetY`
+#### `[ui].titleOffsetX` / `[ui].titleOffsetY`
 - **Purpose**: Button position offset (pixels).
 - **Allowed**: Integer.
 - **Default**: `0`.
 
-#### `ui.titleUpdateAnchor` / `ui.titleUpdateOffsetX` / `ui.titleUpdateOffsetY`
+#### `[ui].titleUpdateAnchor` / `[ui].titleUpdateOffsetX` / `[ui].titleUpdateOffsetY`
 - **Purpose**: Main menu update button (`U`) anchor and offset.
 - **Allowed**:
   - anchor: `auto`, `top_left`, `top`, `top_right`, `left`, `center`, `right`, `bottom_left`, `bottom`, `bottom_right`
   - offsets: Integer (`titleUpdateOffsetX`, `titleUpdateOffsetY`)
 - **Default**: `auto`, `0`, `0`.
 
-#### `ui.noticeDisplayMode`
+#### `[ui].noticeDisplayMode`
 - **Purpose**: Notice presentation mode.
 - **Allowed**:
   - `manager_button`
@@ -148,27 +148,27 @@ taskTimeoutSeconds = 60
   - `main_menu_panel`
 - **Default**: `manager_button`.
 
-#### `ui.noticeButtonAnchor` / `ui.noticeButtonOffsetX` / `ui.noticeButtonOffsetY`
+#### `[ui].noticeButtonAnchor` / `[ui].noticeButtonOffsetX` / `[ui].noticeButtonOffsetY`
 - **Purpose**: Main menu notice button position.
 - **Allowed**: String + integer offsets.
 - **Default**: `bottom_right`, `0`, `0`.
 
-#### `ui.noticePanelAnchor` / `ui.noticePanelOffsetX` / `ui.noticePanelOffsetY`
+#### `[ui].noticePanelAnchor` / `[ui].noticePanelOffsetX` / `[ui].noticePanelOffsetY`
 - **Purpose**: Main menu notice panel position.
 - **Allowed**: String + integer offsets.
 - **Default**: `top_left`, `0`, `0`.
 
-#### `ui.noticePanelWidth` / `ui.noticePanelHeight`
+#### `[ui].noticePanelWidth` / `[ui].noticePanelHeight`
 - **Purpose**: Main menu notice panel size.
 - **Allowed**: Integer (`0` means disabled).
 - **Default**: `0`, `0`.
 
-#### `ui.modpackUrl`
+#### `[ui].modpackUrl`
 - **Purpose**: Modpack homepage URL used by pack update UI.
 - **Allowed**: String URL.
 - **Default**: Empty.
 
-#### `ui.updateGithubRepo`
+#### `[ui].updateGithubRepo`
 - **Purpose**: Repository URL used for pack release update checks.
 - **Allowed**:
   - Single repository URL
@@ -181,32 +181,32 @@ taskTimeoutSeconds = 60
   - Generic Git hosts with API fallback probing
 - **Default**: Empty.
 
-#### `downloads.maxConcurrentDownloads`
+#### `[downloads].maxConcurrentDownloads`
 - **Purpose**: Max number of concurrent download tasks.
 - **Allowed**: Integer.
 - **Default**: `5`.
 
-#### `downloads.maxSegmentsPerFile`
+#### `[downloads].maxSegmentsPerFile`
 - **Purpose**: Max number of segments per file.
 - **Allowed**: Integer.
 - **Default**: `4`.
 
-#### `downloads.minSegmentMB`
+#### `[downloads].minSegmentMB`
 - **Purpose**: Minimum segment size (MB).
 - **Allowed**: Integer.
 - **Default**: `20`.
 
-#### `downloads.maxRetryCount`
+#### `[downloads].maxRetryCount`
 - **Purpose**: Max retry attempts per segment.
 - **Allowed**: Integer.
 - **Default**: `5`.
 
-#### `downloads.connectTimeoutSeconds`
+#### `[downloads].connectTimeoutSeconds`
 - **Purpose**: Connection timeout (seconds).
 - **Allowed**: Integer.
 - **Default**: `10`.
 
-#### `downloads.taskTimeoutSeconds`
+#### `[downloads].taskTimeoutSeconds`
 - **Purpose**: Task timeout (seconds).
 - **Allowed**: Integer.
 - **Default**: `60`.

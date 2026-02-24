@@ -49,8 +49,7 @@ taskTimeoutSeconds = 60
 
 ## Field Reference
 
-### `server`
-
+### `[server]`
 #### `serverSupport`
 - **Purpose**: Enable server-side DLC Manager communication.
 - **Allowed**: Boolean.
@@ -106,7 +105,7 @@ taskTimeoutSeconds = 60
 
 ---
 
-### `ui` (server manager UI toggles)
+### `[ui]` (server manager UI toggles)
 > These options are returned by the server and control what the client-side “Server Manager” UI shows.
 
 #### `isEnableAllButtonShown`
@@ -136,7 +135,7 @@ taskTimeoutSeconds = 60
 
 ---
 
-### `paths`
+### `[paths]`
 > All paths are resolved relative to the **server modpack root**.
 
 #### `dlcRoot`
@@ -161,8 +160,7 @@ taskTimeoutSeconds = 60
 
 ---
 
-### `downloads`
-
+### `[downloads]`
 #### `maxConcurrentDownloads`
 - **Purpose**: Maximum concurrent download tasks.
 - **Allowed**: Integer.

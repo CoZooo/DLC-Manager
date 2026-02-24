@@ -64,44 +64,44 @@ zh_cn = "请勿删除"
 
 ## Field Reference
 
-#### `[download]` table
+#### `[download]`
 - `curseforge_projectid`, `curseforge_fileid`
 - `modrinth_projectid`, `modrinth_versionid`
 - `directUrl`: string or string array
 - `priority`: `curseforge`, `modrinth`, `directurl` (comma-separated)
 
-#### `basic.identifier`
+#### `[basic].identifier`
 - **Purpose**: Logical ID for dependencies/presets/conflicts matching.
 - **Fallback**: config file base name.
 
-#### `basic.file_name`
+#### `[basic].file_name`
 - **Purpose**: Final file name.
 - **Fallback**: inferred from URL; then identifier.
 
-#### `basic.appliedTarget`
+#### `[basic].appliedTarget`
 - **Purpose**: Apply/install target path.
 - **Allowed**: relative or absolute path.
 
-#### `basic.isInList`
+#### `[basic].isInList`
 - **Purpose**: Show in Required manager list.
 - **Default**: `true`.
 
-#### `basic.isHidden`
+#### `[basic].isHidden`
 - **Purpose**: Hide entry while still managed internally.
 - **Default**: `false`.
 
-#### `basic.dependencies`
+#### `[basic].dependencies`
 - **Allowed**: string or array of identifiers.
 
-#### `[dependencies]` table
+#### `[dependencies]`
 - **Purpose**: Define nested dependency nodes.
 - **Syntax**:
   - `identifier:` or `[identifier]`
 
-#### `[DisplayName]` table
+#### `[DisplayName]`
 - Localized display name table (`en_us`, `zh_cn`, etc.).
 
-#### `[tip]` table
+#### `[tip]`
 - Localized tooltip text table (`en_us`, `zh_cn`, etc.).
 
 #### `UserRemoved`

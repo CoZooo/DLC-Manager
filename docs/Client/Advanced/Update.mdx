@@ -72,7 +72,7 @@ zh_cn = """更新说明第1行
 - **Purpose**: Hide this update package in manager list.
 - **Allowed**: Boolean.
 
-#### `version`
+#### `[version]`
 - `platform`: `client` / `server` / `universal` (default `universal`)
 - `base`: source base-pack version (required)
 - `base_new`: target base-pack version (optional)
@@ -81,34 +81,34 @@ zh_cn = """更新说明第1行
 
 > A package is considered effective only if at least one side changes (`base` -> `base_new` or `dlc` -> `dlc_new`).
 
-#### `changelog`
+#### `[changelog]`
 - **Purpose**: Update notes.
 - **Allowed**:
   - Localized table (`en_us`, `zh_cn`, ...)
   - Single string
 
-#### `file.del`
+#### `[file].del`
 - **Purpose**: Delete files/directories.
 - **Allowed**: string array.
 
-#### `file.add`
+#### `[file].add`
 - **Purpose**: Add files/directories from package content root.
 - **Shape**: `"<source>": { appliedTarget, override }`
 - `appliedTarget`: target path (required)
 - `override`: `true` / `false` / `all` / `none`
 
-#### `file.move`
+#### `[file].move`
 - **Purpose**: Move/rename files.
 - **Shape**: `"<from>" = "<to>"`
 
-#### `file.modify`
+#### `[file].modify`
 - **Purpose**: In-place text replacement.
 - **Keys**:
   - `find`
   - `replace`
   - `which` (`all`, `last`, `-1`, index, index list)
 
-#### `update.remote` / `update.required`
+#### `[update].remote` / `[update].required`
 - **Purpose**: Update existing remote/required entries by identifier.
 - **Key**: entry identifier.
 - **Value keys**:
@@ -117,17 +117,17 @@ zh_cn = """更新说明第1行
 
 ## Execution Rules
 - Execution order:
-  1. `file.del`
-  2. `file.move`
-  3. `file.add`
-  4. `file.modify`
-  5. `update.remote` / `update.required`
+  1. `[file].del`
+  2. `[file].move`
+  3. `[file].add`
+  4. `[file].modify`
+  5. `[update].remote` / `[update].required`
 - Version matching is based on current `DLC/info/version.dc`.
-- If update content contains `remote/` or `required/` and they are not explicitly mapped in `file.add`, they are copied implicitly.
+- If update content contains `remote/` or `required/` and they are not explicitly mapped in `[file].add`, they are copied implicitly.
 - Adding required resources clears `DLC/required/SKIP`.
 
 ## Pack Release Update (Repository Mode)
-Repository mode is configured by `ui.updateGithubRepo` / `server.updateGithubRepo`. It checks Release metadata and maps Release assets to update package downloads.
+Repository mode is configured by `[ui].updateGithubRepo` / `[server].updateGithubRepo`. It checks Release metadata and maps Release assets to update package downloads.
 
 ### Repository input and fallback
 - Multiple repositories are supported via comma-separated URLs.

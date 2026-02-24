@@ -72,7 +72,7 @@ zh_cn = "示例提示"
 
 ## 字段说明
 
-#### `[download]` 表
+#### `[download]`
 - `curseforge_projectid`：CurseForge 项目 ID 或 slug。
 - `curseforge_fileid`：CurseForge 文件 ID / 版本字符串 / 文件名。
 - `modrinth_projectid`：Modrinth 项目 ID 或 slug。
@@ -82,48 +82,48 @@ zh_cn = "示例提示"
   - 支持：`curseforge`、`modrinth`、`directurl`。
   - 为空时，默认从 `curseforge` 开始并按内置顺序补全。
 
-#### `basic.identifier`
+#### `[basic].identifier`
 - **用途**：用于前置/冲突/预设匹配的逻辑标识。
 - **回退顺序**：identifier -> file_name -> 配置文件名 -> URL 文件名 -> 平台项目 ID。
 
-#### `basic.file_name`
+#### `[basic].file_name`
 - **用途**：最终落地文件名。
 - **回退**：先从 URL 推断，再使用回退名。
 
-#### `basic.type`
+#### `[basic].type`
 - **可填**：`mod`、`resourcepack`、`datapack`、`gunpack`、`others`。
 - **默认**：`mod`。
 
-#### `basic.appliedTarget`
+#### `[basic].appliedTarget`
 - **用途**：覆盖应用目标路径。
 - **可填**：相对路径或绝对路径。
 - 相对路径按整合包根目录解析。
 
-#### `basic.isInList` / `basic.isHidden` / `basic.AllowEnableByAll`
+#### `[basic].isInList` / `[basic].isHidden` / `[basic].AllowEnableByAll`
 - **用途**：列表显示与批量启用行为控制。
 - **默认**：`true`、`false`、`true`。
 
-#### `basic.conflicts`
+#### `[basic].conflicts`
 - **可填**：字符串或 identifier 数组。
 
-#### `basic.alarm`
+#### `[basic].alarm`
 - **用途**：启用前显示警告确认页。
 - **可填**：布尔。
 
-#### `basic.dependencies`
+#### `[basic].dependencies`
 - **可填**：
   - 字符串（如 `"LibA,LibB"`）
   - 数组（如 `["LibA","LibB"]`）
 
-#### `[dependencies]` 表
+#### `[dependencies]`
 - **用途**：以嵌套的形式定义前置。
 - **语法**：
   - `identifier:` 或 `[identifier]`
 
-#### `[DisplayName]` 表
+#### `[DisplayName]`
 - 多语言显示名文本表，通常为 `en_us` 与 `zh_cn`。
 
-#### `[tip]` 表
+#### `[tip]`
 - 多语言提示文本表，通常为 `en_us` 与 `zh_cn`。
 
 ## 补充说明
