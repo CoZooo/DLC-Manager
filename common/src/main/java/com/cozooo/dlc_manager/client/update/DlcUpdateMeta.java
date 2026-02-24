@@ -1,12 +1,12 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ public class DlcUpdateMeta {
         if (metaPath == null || !Files.exists(metaPath)) {
             return null;
         }
-        JsonObject obj = Json5Util.readObject(metaPath);
+        JsonObject obj = DcConfigIO.read(metaPath, DcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }
@@ -106,9 +106,7 @@ public class DlcUpdateMeta {
             }
             obj.add("restore", restore);
             obj.add("created", created);
-            try (Writer writer = Files.newBufferedWriter(metaPath)) {
-                GSON.toJson(obj, writer);
-            }
+            DcConfigIO.write(metaPath, obj, DcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }

@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -20,6 +21,7 @@ public class DlcAlarmConfirmScreen extends Screen {
     private int checkboxSize = 12;
     private int checkboxTextWidth;
     private boolean acknowledged;
+    private long waitEndMillis;
 
     public DlcAlarmConfirmScreen(Screen parent, String tip, Runnable onConfirm) {
         super(Component.translatable("dlc_manager.alarm.title"));
@@ -43,7 +45,7 @@ public class DlcAlarmConfirmScreen extends Screen {
         this.confirmButton = Button.builder(Component.translatable("dlc_manager.alarm.confirm"), btn -> handleConfirm())
             .bounds(leftX, buttonY, buttonWidth, buttonHeight)
             .build();
-        this.confirmButton.active = acknowledged;
+        this.confirmButton.active = false;
         addRenderableWidget(this.confirmButton);
 
         addRenderableWidget(Button.builder(Component.translatable("dlc_manager.alarm.cancel"),
@@ -56,10 +58,14 @@ public class DlcAlarmConfirmScreen extends Screen {
         int totalCheckboxWidth = checkboxSize + 6 + checkboxTextWidth;
         this.checkboxX = (this.width - totalCheckboxWidth) / 2;
         this.checkboxY = buttonY - 24;
+
+        int configuredWaiting = Math.max(0, Math.min(10, DlcPathConfig.getAlarmWaitingTime()));
+        this.waitEndMillis = configuredWaiting > 0 ? (System.currentTimeMillis() + configuredWaiting * 1000L) : 0L;
+        updateConfirmButtonState();
     }
 
     private void handleConfirm() {
-        if (!acknowledged) {
+        if (!acknowledged || isWaiting()) {
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();
@@ -72,13 +78,20 @@ public class DlcAlarmConfirmScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0 && isInsideCheckbox(mouseX, mouseY)) {
-            acknowledged = !acknowledged;
-            if (confirmButton != null) {
-                confirmButton.active = acknowledged;
+            if (isWaiting()) {
+                return true;
             }
+            acknowledged = !acknowledged;
+            updateConfirmButtonState();
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        updateConfirmButtonState();
     }
 
     private boolean isInsideCheckbox(double mouseX, double mouseY) {
@@ -106,6 +119,12 @@ public class DlcAlarmConfirmScreen extends Screen {
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         guiGraphics.fill(0, 0, this.width, this.height, 0xC0101010);
+        int remaining = getRemainingSeconds();
+        if (remaining > 0) {
+            Component remainingText = Component.translatable("dlc_manager.alarm.remaining", remaining);
+            int x = this.width - this.font.width(remainingText) - 10;
+            guiGraphics.drawString(this.font, remainingText, x, 10, 0xE6E6E6, false);
+        }
 
         int centerX = this.width / 2;
         int titleY = 36;
@@ -131,7 +150,8 @@ public class DlcAlarmConfirmScreen extends Screen {
             tipY += lineHeight;
         }
 
-        int boxColor = acknowledged ? 0xFF66FF66 : 0xFFB0B0B0;
+        boolean waiting = remaining > 0;
+        int boxColor = waiting ? 0xFF777777 : (acknowledged ? 0xFF66FF66 : 0xFFB0B0B0);
         guiGraphics.fill(checkboxX, checkboxY, checkboxX + checkboxSize, checkboxY + checkboxSize, 0xFF111111);
         guiGraphics.fill(checkboxX, checkboxY, checkboxX + checkboxSize, checkboxY + 1, boxColor);
         guiGraphics.fill(checkboxX, checkboxY + checkboxSize - 1, checkboxX + checkboxSize, checkboxY + checkboxSize, boxColor);
@@ -143,9 +163,30 @@ public class DlcAlarmConfirmScreen extends Screen {
                 checkboxX + checkboxSize - innerPadding, checkboxY + checkboxSize - innerPadding, 0xFF66FF66);
         }
         guiGraphics.drawString(this.font, Component.translatable("dlc_manager.alarm.read_ack"),
-            checkboxX + checkboxSize + 6, checkboxY + (checkboxSize - this.font.lineHeight) / 2, 0xE6E6E6, false);
+            checkboxX + checkboxSize + 6, checkboxY + (checkboxSize - this.font.lineHeight) / 2, waiting ? 0xA0A0A0 : 0xE6E6E6, false);
 
         super.render(guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private int getRemainingSeconds() {
+        if (waitEndMillis <= 0) {
+            return 0;
+        }
+        long remaining = waitEndMillis - System.currentTimeMillis();
+        if (remaining <= 0) {
+            return 0;
+        }
+        return (int) Math.ceil(remaining / 1000.0D);
+    }
+
+    private boolean isWaiting() {
+        return getRemainingSeconds() > 0;
+    }
+
+    private void updateConfirmButtonState() {
+        if (confirmButton != null) {
+            confirmButton.active = acknowledged && !isWaiting();
+        }
     }
 
     @Override

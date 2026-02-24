@@ -19,8 +19,10 @@ import java.io.StringReader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 public final class Json5Util {
+    public static final String DC_EXTENSION = ".dc";
     public static final String JSON5_EXTENSION = ".json5";
     public static final String JSON_EXTENSION = ".json";
     private static final Json5 JSON5 = new Json5();
@@ -34,7 +36,7 @@ public final class Json5Util {
             return false;
         }
         String lower = name.toLowerCase();
-        return lower.endsWith(JSON5_EXTENSION) || lower.endsWith(JSON_EXTENSION);
+        return lower.endsWith(DC_EXTENSION) || lower.endsWith(JSON5_EXTENSION) || lower.endsWith(JSON_EXTENSION);
     }
 
     public static String stripJsonExtension(String name) {
@@ -48,7 +50,22 @@ public final class Json5Util {
         if (lower.endsWith(JSON_EXTENSION)) {
             return name.substring(0, name.length() - JSON_EXTENSION.length());
         }
+        if (lower.endsWith(DC_EXTENSION)) {
+            return name.substring(0, name.length() - DC_EXTENSION.length());
+        }
         return name;
+    }
+
+    public static Path toDcPath(Path path) {
+        if (path == null) {
+            return null;
+        }
+        String name = path.getFileName() == null ? path.toString() : path.getFileName().toString();
+        if (name.toLowerCase().endsWith(DC_EXTENSION)) {
+            return path;
+        }
+        String base = stripJsonExtension(name);
+        return path.getParent() == null ? Path.of(base + DC_EXTENSION) : path.getParent().resolve(base + DC_EXTENSION);
     }
 
     public static Path toJson5Path(Path path) {
@@ -70,6 +87,10 @@ public final class Json5Util {
         if (dir == null || baseName == null || baseName.isBlank()) {
             return null;
         }
+        Path dc = dir.resolve(baseName + DC_EXTENSION);
+        if (Files.exists(dc)) {
+            return dc;
+        }
         Path json5 = dir.resolve(baseName + JSON5_EXTENSION);
         if (Files.exists(json5)) {
             return json5;
@@ -78,7 +99,7 @@ public final class Json5Util {
         if (Files.exists(json)) {
             return json;
         }
-        return json5;
+        return dc;
     }
 
     public static JsonElement readElement(Path path) {
@@ -90,6 +111,26 @@ public final class Json5Util {
             content = Files.readString(path);
         } catch (IOException ignored) {
             return null;
+        }
+        if (path.getFileName() != null && path.getFileName().toString().toLowerCase().endsWith(DC_EXTENSION)) {
+            JsonObject dc = DcFormatUtil.readGenericText(content);
+            if (dc != null && !dc.entrySet().isEmpty()) {
+                return dc;
+            }
+            String trimmed = content == null ? "" : content.stripLeading();
+            if (isLikelyJsonContent(trimmed)) {
+                JsonElement jsonLike = readElementJson5(content);
+                if (jsonLike != null) {
+                    return jsonLike;
+                }
+                jsonLike = readElementLenient(content);
+                if (jsonLike != null) {
+                    return jsonLike;
+                }
+            }
+            if (dc != null) {
+                return dc;
+            }
         }
         JsonElement parsed = readElementJson5(content);
         if (parsed != null) {
@@ -201,27 +242,72 @@ public final class Json5Util {
             return null;
         }
         String name = legacyPath.getFileName() == null ? legacyPath.toString() : legacyPath.getFileName().toString();
-        if (!name.toLowerCase().endsWith(JSON_EXTENSION)) {
+        String lower = name.toLowerCase();
+        if (lower.endsWith(DC_EXTENSION)) {
+            migrateJsonLikeDcInPlace(legacyPath, gson);
             return legacyPath;
         }
-        Path json5 = toJson5Path(legacyPath);
-        if (json5 != null && Files.exists(json5)) {
-            return json5;
+        if (!isJsonLikeName(name)) {
+            return legacyPath;
+        }
+        Path dc = toDcPath(legacyPath);
+        if (dc != null && Files.exists(dc)) {
+            return dc;
         }
         JsonElement element = readElement(legacyPath);
-        if (element == null || json5 == null) {
+        if (element == null || dc == null) {
             return legacyPath;
         }
         try {
-            Files.createDirectories(json5.getParent());
-            try (Writer writer = Files.newBufferedWriter(json5)) {
-                gson.toJson(element, writer);
+            Files.createDirectories(dc.getParent());
+            JsonElement normalized = normalizeLegacyKeys(element);
+            boolean written;
+            if (normalized != null && normalized.isJsonObject()) {
+                written = DcFormatUtil.writeGeneric(dc, normalized.getAsJsonObject());
+            } else {
+                try (Writer writer = Files.newBufferedWriter(dc)) {
+                    gson.toJson(normalized == null ? JsonNull.INSTANCE : normalized, writer);
+                }
+                written = true;
             }
-            Files.deleteIfExists(legacyPath);
-            return json5;
+            if (!written) {
+                return legacyPath;
+            }
+            if (!dc.equals(legacyPath)) {
+                Files.deleteIfExists(legacyPath);
+            }
+            return dc;
         } catch (IOException ignored) {
             return legacyPath;
         }
+    }
+
+    private static void migrateJsonLikeDcInPlace(Path path, Gson gson) {
+        if (path == null || gson == null || !Files.exists(path)) {
+            return;
+        }
+        String content;
+        try {
+            content = Files.readString(path);
+        } catch (IOException ignored) {
+            return;
+        }
+        if (content == null) {
+            return;
+        }
+        String trimmed = content.stripLeading();
+        if (!isLikelyJsonContent(trimmed)) {
+            return;
+        }
+        JsonElement parsed = readElementJson5(content);
+        if (parsed == null) {
+            parsed = readElementLenient(content);
+        }
+        if (parsed == null) {
+            return;
+        }
+        JsonElement normalized = normalizeLegacyKeys(parsed);
+        writeNormalizedToDc(path, normalized, gson);
     }
 
     public static boolean shouldSkipLegacy(Path path) {
@@ -229,11 +315,187 @@ public final class Json5Util {
             return false;
         }
         String name = path.getFileName().toString().toLowerCase();
-        if (!name.endsWith(JSON_EXTENSION)) {
+        if (name.endsWith(DC_EXTENSION)) {
+            return false;
+        }
+        if (!name.endsWith(JSON_EXTENSION) && !name.endsWith(JSON5_EXTENSION)) {
+            return false;
+        }
+        Path dc = toDcPath(path);
+        if (dc != null && Files.exists(dc)) {
+            return true;
+        }
+        if (name.endsWith(JSON5_EXTENSION)) {
             return false;
         }
         Path json5 = toJson5Path(path);
         return json5 != null && Files.exists(json5);
+    }
+
+    public static boolean normalizeLegacyKeys(Path path, Gson gson) {
+        if (path == null || gson == null || !Files.exists(path)) {
+            return false;
+        }
+        JsonElement raw = readElement(path);
+        if (raw == null) {
+            return false;
+        }
+        NormalizeResult result = normalizeLegacyKeysInternal(raw);
+        if (!result.changed) {
+            return false;
+        }
+        try {
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+            }
+            return writeNormalizedToDc(path, result.element, gson);
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    public static JsonElement normalizeLegacyKeys(JsonElement element) {
+        return normalizeLegacyKeysInternal(element).element;
+    }
+
+    private static NormalizeResult normalizeLegacyKeysInternal(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return new NormalizeResult(JsonNull.INSTANCE, false);
+        }
+        if (element.isJsonArray()) {
+            JsonArray input = element.getAsJsonArray();
+            JsonArray output = new JsonArray();
+            boolean changed = false;
+            for (JsonElement child : input) {
+                NormalizeResult childResult = normalizeLegacyKeysInternal(child);
+                output.add(childResult.element);
+                changed = changed || childResult.changed;
+            }
+            return new NormalizeResult(output, changed);
+        }
+        if (!element.isJsonObject()) {
+            return new NormalizeResult(element.deepCopy(), false);
+        }
+        JsonObject input = element.getAsJsonObject();
+        JsonObject output = new JsonObject();
+        boolean changed = false;
+        for (Map.Entry<String, JsonElement> entry : input.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            String mappedKey = mapLegacyKey(key);
+            if (!mappedKey.equals(key)) {
+                changed = true;
+            }
+            NormalizeResult childResult = normalizeLegacyKeysInternal(entry.getValue());
+            if (output.has(mappedKey)) {
+                changed = true;
+                continue;
+            }
+            output.add(mappedKey, childResult.element);
+            changed = changed || childResult.changed;
+        }
+        return new NormalizeResult(output, changed);
+    }
+
+    private static String mapLegacyKey(String key) {
+        if (key == null) {
+            return "";
+        }
+        if ("dlc_name".equalsIgnoreCase(key)) {
+            return "file_name";
+        }
+        if ("dlc_identifier".equalsIgnoreCase(key)) {
+            return "identifier";
+        }
+        return key;
+    }
+
+    private static boolean writeNormalizedToDc(Path path, JsonElement element, Gson gson) {
+        if (path == null || gson == null) {
+            return false;
+        }
+        Path target = Json5Util.toDcPath(path);
+        if (target == null) {
+            return false;
+        }
+        try {
+            if (target.getParent() != null) {
+                Files.createDirectories(target.getParent());
+            }
+            String lower = target.getFileName() == null ? "" : target.getFileName().toString().toLowerCase();
+            if (lower.endsWith(DC_EXTENSION)
+                && element != null
+                && element.isJsonObject()
+                && !isHotUpdateConfigPath(target)) {
+                boolean written = DcFormatUtil.writeGeneric(target, element.getAsJsonObject());
+                if (written) {
+                    deleteLegacyIfMoved(path, target);
+                }
+                return written;
+            }
+            try (Writer writer = Files.newBufferedWriter(target)) {
+                gson.toJson(element == null ? JsonNull.INSTANCE : element, writer);
+            }
+            deleteLegacyIfMoved(path, target);
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
+    private static final class NormalizeResult {
+        private final JsonElement element;
+        private final boolean changed;
+
+        private NormalizeResult(JsonElement element, boolean changed) {
+            this.element = element;
+            this.changed = changed;
+        }
+    }
+
+    private static boolean isHotUpdateConfigPath(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return false;
+        }
+        return "update.dc".equalsIgnoreCase(path.getFileName().toString());
+    }
+
+    private static void deleteLegacyIfMoved(Path original, Path target) {
+        if (original == null || target == null || original.equals(target)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(original);
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static boolean isLikelyJsonContent(String trimmed) {
+        if (trimmed == null || trimmed.isBlank()) {
+            return false;
+        }
+        if (trimmed.startsWith("{")) {
+            return true;
+        }
+        if (!trimmed.startsWith("[")) {
+            return false;
+        }
+        int i = 1;
+        while (i < trimmed.length() && Character.isWhitespace(trimmed.charAt(i))) {
+            i++;
+        }
+        if (i >= trimmed.length()) {
+            return false;
+        }
+        char c = trimmed.charAt(i);
+        if (c == '"' || c == '\'' || c == '{' || c == '[' || c == ']' || c == '-' || Character.isDigit(c)) {
+            return true;
+        }
+        return trimmed.startsWith("true", i)
+            || trimmed.startsWith("false", i)
+            || trimmed.startsWith("null", i);
     }
 
     private static JsonElement toGson(Json5Element element) {

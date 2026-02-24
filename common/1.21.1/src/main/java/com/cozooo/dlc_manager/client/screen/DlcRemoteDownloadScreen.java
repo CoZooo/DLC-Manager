@@ -371,9 +371,10 @@ public class DlcRemoteDownloadScreen extends Screen {
             for (DlcRemoteEntry dep : entry.getRemoteDependencies()) {
                 work.add(dep);
             }
-            for (DlcRemoteEntry dep : fetchModrinthRequired(entry)) {
-                work.add(dep);
-            }
+            // Disabled: do not auto-append Modrinth required dependencies into remote queue.
+            // for (DlcRemoteEntry dep : fetchModrinthRequired(entry)) {
+            //     work.add(dep);
+            // }
         }
         previewQueue = queue;
         detecting = false;

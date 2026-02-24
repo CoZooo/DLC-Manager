@@ -1,24 +1,25 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class DlcRemoteRuntime {
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
     private static boolean promptedThisSession = false;
 
     private DlcRemoteRuntime() {
@@ -87,9 +88,12 @@ public final class DlcRemoteRuntime {
             identifier = fileName;
         }
         obj.addProperty("identifier", identifier);
+        Map<String, String> displayNames = resolveDisplayNames(entry);
+        if (displayNames.isEmpty()) {
+            displayNames.put("en_us", fileName);
+        }
         JsonObject displayObj = new JsonObject();
-        displayObj.addProperty("en_us", fileName);
-        for (var e : entry.getDisplayNames().entrySet()) {
+        for (var e : displayNames.entrySet()) {
             displayObj.addProperty(e.getKey(), e.getValue());
         }
         obj.add("DisplayName", displayObj);
@@ -107,18 +111,14 @@ public final class DlcRemoteRuntime {
         obj.addProperty("dependencies", String.join(",", entry.getResolvedDependencyNames()));
         obj.addProperty("conflicts", String.join(",", entry.getConflictNames()));
         obj.addProperty("alarm", entry.isAlarm());
+        Map<String, String> tips = resolveTips(entry);
         JsonObject tipObj = new JsonObject();
-        for (var e : entry.getTips().entrySet()) {
+        for (var e : tips.entrySet()) {
             tipObj.addProperty(e.getKey(), e.getValue());
         }
         obj.add("tip", tipObj);
-        Path legacy = infoDir.resolve(fileName + Json5Util.JSON_EXTENSION);
-        Json5Util.migrateLegacy(legacy, PRETTY_GSON);
-        Path out = infoDir.resolve(fileName + Json5Util.JSON5_EXTENSION);
-        try (Writer writer = Files.newBufferedWriter(out)) {
-            PRETTY_GSON.toJson(obj, writer);
-        } catch (IOException ignored) {
-        }
+        Path out = Json5Util.resolveConfigPath(infoDir, fileName);
+        DcConfigIO.write(out, obj, DcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     public static void updateFileNameKey(DlcRemoteEntry entry, String fileName) {
@@ -133,18 +133,22 @@ public final class DlcRemoteRuntime {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        try {
-            JsonObject obj = Json5Util.readObject(config);
-            if (obj == null) {
-                return;
-            }
-            JsonObject reordered = reorderRemoteJson(obj, normalized);
-            try (Writer writer = Files.newBufferedWriter(config)) {
-                PRETTY_GSON.toJson(reordered, writer);
-            }
-            entry.setFileNameHint(normalized);
-        } catch (IOException ignored) {
+        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+        if (obj == null) {
+            return;
         }
+        JsonObject reordered = reorderRemoteJson(obj, normalized);
+        Path target = Json5Util.toDcPath(config);
+        if (target != null && DcFormatUtil.write(target, reordered)) {
+            if (!target.equals(config)) {
+                try {
+                    Files.deleteIfExists(config);
+                } catch (IOException ignored) {
+                }
+            }
+            entry.setConfigPath(target);
+        }
+        entry.setFileNameHint(normalized);
     }
 
     private static JsonObject reorderRemoteJson(JsonObject obj, String fileNameOverride) {
@@ -277,6 +281,60 @@ public final class DlcRemoteRuntime {
             normalized.add(targetKey, normalizeRelationElement(entry.getValue()));
         }
         return normalized;
+    }
+
+    private static Map<String, String> resolveDisplayNames(DlcRemoteEntry entry) {
+        Map<String, String> values = new HashMap<>();
+        if (entry != null && entry.getDisplayNames() != null) {
+            values.putAll(entry.getDisplayNames());
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
+        JsonObject obj = entry == null ? null : DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED);
+        values.putAll(readLocalizedAny(obj, "DisplayName"));
+        return values;
+    }
+
+    private static Map<String, String> resolveTips(DlcRemoteEntry entry) {
+        Map<String, String> values = new HashMap<>();
+        if (entry != null && entry.getTips() != null) {
+            values.putAll(entry.getTips());
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
+        JsonObject obj = entry == null ? null : DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED);
+        values.putAll(readLocalizedAny(obj, "tip"));
+        return values;
+    }
+
+    private static Map<String, String> readLocalizedAny(JsonObject obj, String key) {
+        Map<String, String> values = new HashMap<>();
+        if (obj == null || key == null || key.isBlank()) {
+            return values;
+        }
+        JsonObject object = JsonCaseUtil.getObjectIgnoreCase(obj, key);
+        if (object != null) {
+            for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
+                if (entry.getValue() == null || !entry.getValue().isJsonPrimitive()) {
+                    continue;
+                }
+                String lang = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                if (lang == null) {
+                    continue;
+                }
+                values.put(lang, entry.getValue().getAsString());
+            }
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
+        String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+        if (single != null && !single.isBlank()) {
+            values.put("en_us", single);
+        }
+        return values;
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {

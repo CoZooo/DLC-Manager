@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.required;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
@@ -35,11 +36,12 @@ public final class DlcRequiredNotice {
         Path requiredDir = dlcRoot.resolve("required");
         Json5Util.migrateLegacy(requiredDir.resolve("notice.json"), GSON);
         Path noticePath = Json5Util.resolveConfigPath(requiredDir, "notice");
+        noticePath = Json5Util.migrateLegacy(noticePath, GSON);
         ensureNoticeFile(noticePath);
         if (!Files.exists(noticePath)) {
             return new DlcRequiredNotice(download, manage);
         }
-        JsonObject obj = Json5Util.readObject(noticePath);
+        JsonObject obj = DcConfigIO.read(noticePath, DcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return new DlcRequiredNotice(download, manage);
         }
@@ -97,9 +99,7 @@ public final class DlcRequiredNotice {
         obj.add("manage_desc", manage);
         try {
             Files.createDirectories(noticePath.getParent());
-            try (java.io.Writer writer = Files.newBufferedWriter(noticePath)) {
-                GSON.toJson(obj, writer);
-            }
+            DcConfigIO.write(noticePath, obj, DcConfigIO.Layout.GENERIC);
         } catch (Exception ignored) {
         }
     }

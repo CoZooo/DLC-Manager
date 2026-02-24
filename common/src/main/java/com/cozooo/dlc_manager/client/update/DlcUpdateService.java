@@ -13,6 +13,7 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -24,10 +25,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.stream.JsonReader;
 import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -157,7 +155,7 @@ public final class DlcUpdateService {
 
     public static UpdateApplyResult applyUpdate(DlcUpdatePackage pkg, DlcUpdateVersion current, boolean forceMissing) {
         if (pkg == null || pkg.getManifest() == null) {
-            return UpdateApplyResult.failed("Missing update.json5");
+            return UpdateApplyResult.failed("Missing update manifest");
         }
         DlcUpdateManifest manifest = pkg.getManifest();
         DlcUpdateManifest.VersionInfo info = manifest.getVersion();
@@ -196,6 +194,7 @@ public final class DlcUpdateService {
         Path backupRoot = DlcTmpPaths.resolve(dlcRoot, targetDlcVersion(info));
         Json5Util.migrateLegacy(backupRoot.resolve("meta.json"), UPDATE_GSON);
         Path metaPath = Json5Util.resolveConfigPath(backupRoot, "meta");
+        metaPath = Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
 
         UpdateContext context = new UpdateContext(dlcRoot, staging, backupRoot, meta);
 
@@ -316,6 +315,7 @@ public final class DlcUpdateService {
         Path metaRoot = DlcTmpPaths.resolve(dlcRoot, dlcVersion);
         Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
         Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
+        metaPath = Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
         return DlcUpdateMeta.load(metaPath);
     }
 
@@ -1173,7 +1173,7 @@ public final class DlcUpdateService {
                 if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
                     continue;
                 }
-                if ("notice.json".equalsIgnoreCase(fileName) || "notice.json5".equalsIgnoreCase(fileName)) {
+                if (isNoticeConfig(fileName)) {
                     continue;
                 }
                 DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(path, dlcRoot);
@@ -1342,23 +1342,26 @@ public final class DlcUpdateService {
     }
 
     private static JsonObject readJson(Path path) {
-        try (Reader reader = Files.newBufferedReader(path)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            return UPDATE_GSON.fromJson(jsonReader, JsonObject.class);
-        } catch (IOException ignored) {
-            return null;
-        }
+        return DcConfigIO.read(path, layoutForPath(path));
     }
 
     private static void writeJson(Path path, JsonObject obj) {
         if (path == null || obj == null) {
             return;
         }
-        try (Writer writer = Files.newBufferedWriter(path)) {
-            UPDATE_GSON.toJson(obj, writer);
-        } catch (IOException ignored) {
+        DcConfigIO.write(path, obj, layoutForPath(path));
+    }
+
+    private static DcConfigIO.Layout layoutForPath(Path path) {
+        if (path == null) {
+            return DcConfigIO.Layout.GENERIC;
         }
+        String normalized = path.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
+        if (normalized.contains("/remote/")
+            || normalized.contains("/required/")) {
+            return DcConfigIO.Layout.DLC_STRUCTURED;
+        }
+        return DcConfigIO.Layout.GENERIC;
     }
 
     private static DownloadedFile downloadRemoteEntry(DlcRemoteEntry entry) throws IOException, InterruptedException {
@@ -2007,6 +2010,7 @@ public final class DlcUpdateService {
             Path metaRoot = DlcTmpPaths.resolve(dlcRoot, working);
             Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
             Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
+            metaPath = Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
             DlcUpdateMeta meta = DlcUpdateMeta.load(metaPath);
             if (meta == null || meta.getDlcOld() == null || meta.getDlcOld().isBlank()) {
                 break;
@@ -2078,6 +2082,7 @@ public final class DlcUpdateService {
         }
         Path infoDir = dlcRoot.resolve("info");
         Path notice = Json5Util.resolveConfigPath(infoDir, "notice");
+        notice = Json5Util.migrateLegacy(notice, UPDATE_GSON);
         if (notice == null) {
             return false;
         }
@@ -2089,10 +2094,18 @@ public final class DlcUpdateService {
             return false;
         }
         Path infoDir = dlcRoot.resolve("info");
+        Path dc = infoDir.resolve("version" + Json5Util.DC_EXTENSION).normalize();
         Path json5 = infoDir.resolve("version" + Json5Util.JSON5_EXTENSION).normalize();
         Path json = infoDir.resolve("version.json").normalize();
         Path normalized = path.normalize();
-        return normalized.equals(json5) || normalized.equals(json);
+        return normalized.equals(dc) || normalized.equals(json5) || normalized.equals(json);
+    }
+
+    private static boolean isNoticeConfig(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return false;
+        }
+        return "notice".equalsIgnoreCase(Json5Util.stripJsonExtension(fileName));
     }
 
     private static boolean isRequiredPath(Path target, Path dlcRoot) {
@@ -2582,7 +2595,7 @@ public final class DlcUpdateService {
             if (path == null || !Files.exists(path)) {
                 return null;
             }
-            com.google.gson.JsonObject obj = Json5Util.readObject(path);
+            com.google.gson.JsonObject obj = DcConfigIO.read(path, layoutForPath(path));
             if (obj == null) {
                 return null;
             }
@@ -2593,10 +2606,7 @@ public final class DlcUpdateService {
             if (path == null || obj == null) {
                 return;
             }
-            try (var writer = Files.newBufferedWriter(path)) {
-                new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(obj, writer);
-            } catch (IOException ignored) {
-            }
+            DcConfigIO.write(path, obj, layoutForPath(path));
         }
     }
 

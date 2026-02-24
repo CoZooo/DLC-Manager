@@ -1,12 +1,11 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import com.google.gson.stream.JsonReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,7 +44,13 @@ public class DlcUpdatePackage {
 
     private static ManifestInfo readManifest(Path zipPath) {
         try (ZipFile zipFile = new ZipFile(zipPath.toFile())) {
-            ZipEntry entry = zipFile.getEntry("update.json5");
+            ZipEntry entry = zipFile.getEntry("update.dc");
+            if (entry == null) {
+                entry = zipFile.getEntry("./update.dc");
+            }
+            if (entry == null) {
+                entry = zipFile.getEntry("update.json5");
+            }
             if (entry == null) {
                 entry = zipFile.getEntry("./update.json5");
             }
@@ -62,7 +67,7 @@ public class DlcUpdatePackage {
                         continue;
                     }
                     String name = candidate.getName().toLowerCase(Locale.ROOT);
-                    if (name.endsWith("update.json5") || name.endsWith("update.json")) {
+                    if (name.endsWith("update.dc") || name.endsWith("update.json5") || name.endsWith("update.json")) {
                         entry = candidate;
                         break;
                     }
@@ -80,14 +85,30 @@ public class DlcUpdatePackage {
             if (slash > 0) {
                 root = entryName.substring(0, slash);
             }
-            try (var reader = new InputStreamReader(zipFile.getInputStream(entry), StandardCharsets.UTF_8)) {
-                JsonReader jsonReader = new JsonReader(reader);
-                jsonReader.setLenient(true);
-                JsonObject obj = GSON.fromJson(jsonReader, JsonObject.class);
-                DlcUpdateManifest manifest = DlcUpdateManifest.fromJsonObject(obj);
-                return new ManifestInfo(manifest, root);
+            JsonObject obj = null;
+            try (var in = zipFile.getInputStream(entry)) {
+                String text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                if (entryName.toLowerCase(Locale.ROOT).endsWith(".dc")) {
+                    String trimmed = text == null ? "" : text.stripLeading();
+                    if (trimmed.startsWith("{")) {
+                        obj = GSON.fromJson(trimmed, JsonObject.class);
+                    } else {
+                        obj = DlcUpdateDcParser.parse(text);
+                        if (obj == null || obj.entrySet().isEmpty()) {
+                            obj = DcFormatUtil.readGenericText(text);
+                        }
+                    }
+                }
+                if (obj == null) {
+                    obj = GSON.fromJson(text, JsonObject.class);
+                }
             }
-        } catch (IOException ignored) {
+            if (obj == null) {
+                return null;
+            }
+            DlcUpdateManifest manifest = DlcUpdateManifest.fromJsonObject(obj);
+            return new ManifestInfo(manifest, root);
+        } catch (Exception ignored) {
             return null;
         }
     }

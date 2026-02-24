@@ -7,7 +7,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,6 +36,8 @@ public class DlcPathConfig {
     public static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
     public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
     public static final boolean DEFAULT_PRESET_FUNC_ON = true;
+    public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
+    public static final int DEFAULT_ALARM_WAITING_TIME = 0;
     public static final boolean DEFAULT_SERVER_SUPPORT = true;
     public static final int DEFAULT_SERVER_PORT = 29690;
     public static final String DEFAULT_SERVER_PASSWORD = "";
@@ -80,6 +81,8 @@ public class DlcPathConfig {
     private static boolean updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
     private static boolean selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
     private static boolean presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+    private static boolean showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
+    private static int alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
     private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
     private static boolean serverSupportServer = DEFAULT_SERVER_SUPPORT;
     private static int serverPort = DEFAULT_SERVER_PORT;
@@ -121,11 +124,13 @@ public class DlcPathConfig {
     public static void loadClient() {
         loadClientFromDisk();
         ensureClientConfigFile();
+        migrateKnownConfigsToDc();
     }
 
     public static void loadServer() {
         loadServerFromDisk();
         ensureServerConfigFile();
+        migrateKnownConfigsToDc();
     }
 
     public static void save() {
@@ -229,6 +234,14 @@ public class DlcPathConfig {
 
     public static boolean isPresetFuncOn() {
         return presetFuncOn;
+    }
+
+    public static boolean isShowOnFirstRun() {
+        return showOnFirstRun;
+    }
+
+    public static int getAlarmWaitingTime() {
+        return alarmWaitingTime;
     }
 
     public static boolean isServerSupportOn() {
@@ -537,6 +550,14 @@ public class DlcPathConfig {
         presetFuncOn = value;
     }
 
+    public static void setShowOnFirstRun(boolean value) {
+        showOnFirstRun = value;
+    }
+
+    public static void setAlarmWaitingTime(int value) {
+        alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME);
+    }
+
     public static void setServerSupportOn(boolean value) {
         serverSupportClient = value;
     }
@@ -680,6 +701,8 @@ public class DlcPathConfig {
         updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
         selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
         presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+        showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
+        alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
         serverSupportClient = DEFAULT_SERVER_SUPPORT;
         serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
@@ -717,8 +740,7 @@ public class DlcPathConfig {
     private static void loadClientFromDisk() {
         resetDefaults();
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
-        jsonPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path jsonPath = resolveManagerConfigPath(configDir, CONFIG_NAME);
         if (Files.exists(jsonPath)) {
             loadFromJson(jsonPath);
         }
@@ -727,8 +749,7 @@ public class DlcPathConfig {
     private static void loadServerFromDisk() {
         resetServerDefaults();
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
-        serverPath = Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path serverPath = resolveManagerConfigPath(configDir, CONFIG_SERVER_NAME);
         if (Files.exists(serverPath)) {
             loadFromServerJson(serverPath);
         }
@@ -746,7 +767,7 @@ public class DlcPathConfig {
     }
 
     private static void loadFromJson(Path jsonPath) {
-        JsonObject root = Json5Util.readObject(jsonPath);
+        JsonObject root = DcConfigIO.read(jsonPath, DcConfigIO.Layout.GENERIC);
         if (root == null) {
             return;
         }
@@ -756,7 +777,7 @@ public class DlcPathConfig {
     }
 
     private static void loadFromServerJson(Path jsonPath) {
-        JsonObject root = Json5Util.readObject(jsonPath);
+        JsonObject root = DcConfigIO.read(jsonPath, DcConfigIO.Layout.GENERIC);
         if (root == null) {
             return;
         }
@@ -768,8 +789,7 @@ public class DlcPathConfig {
 
     private static void ensureClientConfigFile() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path jsonPath = Json5Util.resolveConfigPath(configDir, CONFIG_NAME);
-        Json5Util.migrateLegacy(configDir.resolve(CONFIG_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path jsonPath = resolveManagerConfigPath(configDir, CONFIG_NAME);
         if (Files.exists(jsonPath)) {
             return;
         }
@@ -778,8 +798,7 @@ public class DlcPathConfig {
 
     private static void ensureServerConfigFile() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path serverPath = Json5Util.resolveConfigPath(configDir, CONFIG_SERVER_NAME);
-        Json5Util.migrateLegacy(configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON_EXTENSION), GSON);
+        Path serverPath = resolveManagerConfigPath(configDir, CONFIG_SERVER_NAME);
         if (Files.exists(serverPath)) {
             return;
         }
@@ -788,7 +807,7 @@ public class DlcPathConfig {
 
     private static void saveClientToDisk() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path jsonPath = configDir.resolve(CONFIG_NAME + Json5Util.JSON5_EXTENSION);
+        Path jsonPath = managerConfigPath(configDir, CONFIG_NAME);
         try {
             Files.createDirectories(configDir);
         } catch (IOException ignored) {
@@ -803,7 +822,7 @@ public class DlcPathConfig {
 
     private static void saveServerToDisk() {
         Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
-        Path serverPath = configDir.resolve(CONFIG_SERVER_NAME + Json5Util.JSON5_EXTENSION);
+        Path serverPath = managerConfigPath(configDir, CONFIG_SERVER_NAME);
         try {
             Files.createDirectories(configDir);
         } catch (IOException ignored) {
@@ -818,8 +837,46 @@ public class DlcPathConfig {
     }
 
     private static void writeJson(JsonObject root, Path path) {
-        try (Writer writer = Files.newBufferedWriter(path)) {
-            GSON.toJson(root, writer);
+        DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
+    }
+
+    private static Path resolveManagerConfigPath(Path configDir, String baseName) {
+        if (configDir == null || baseName == null || baseName.isBlank()) {
+            return null;
+        }
+        migrateManagerLegacyJson(configDir, baseName);
+        Path path = managerConfigPath(configDir, baseName);
+        if (Files.exists(path)) {
+            return path;
+        }
+        return path;
+    }
+
+    private static Path managerConfigPath(Path configDir, String baseName) {
+        return configDir.resolve(baseName + Json5Util.DC_EXTENSION);
+    }
+
+    private static void migrateManagerLegacyJson(Path configDir, String baseName) {
+        Path dcPath = managerConfigPath(configDir, baseName);
+        if (dcPath == null || Files.exists(dcPath)) {
+            return;
+        }
+        Path legacyJson5 = configDir.resolve(baseName + Json5Util.JSON5_EXTENSION);
+        Path legacyJson = configDir.resolve(baseName + Json5Util.JSON_EXTENSION);
+        Path source = Files.exists(legacyJson5) ? legacyJson5 : (Files.exists(legacyJson) ? legacyJson : null);
+        if (source == null) {
+            return;
+        }
+        JsonObject root = DcConfigIO.read(source, DcConfigIO.Layout.GENERIC);
+        if (root == null) {
+            return;
+        }
+        if (!DcConfigIO.write(dcPath, root, DcConfigIO.Layout.GENERIC)) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(legacyJson5);
+            Files.deleteIfExists(legacyJson);
         } catch (IOException ignored) {
         }
     }
@@ -841,6 +898,8 @@ public class DlcPathConfig {
         obj.addProperty("isUpdateManagerOn", updateManagerOn);
         obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
         obj.addProperty("isPresetFuncOn", presetFuncOn);
+        obj.addProperty("ShowOnFirstRun", showOnFirstRun);
+        obj.addProperty("WaitingTime", alarmWaitingTime);
         obj.addProperty("serverSupport", serverSupportClient);
         obj.addProperty("titleAnchor", titleAnchor);
         obj.addProperty("titleOffsetX", titleOffsetX);
@@ -868,6 +927,7 @@ public class DlcPathConfig {
         obj.addProperty("isUpdateManagerOn", updateManagerOn);
         obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
         obj.addProperty("isPresetFuncOn", presetFuncOn);
+        obj.addProperty("WaitingTime", alarmWaitingTime);
         root.add("ui", obj);
     }
 
@@ -930,6 +990,8 @@ public class DlcPathConfig {
         map.put("isUpdateManagerOn", value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON));
         map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
         map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
+        map.put("ShowOnFirstRun", value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN));
+        map.put("WaitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
         map.put("serverSupport", value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT));
         map.put("titleAnchor", value -> titleAnchor = asString(value, DEFAULT_TITLE_ANCHOR));
         map.put("titleOffsetX", value -> titleOffsetX = asInt(value, DEFAULT_TITLE_OFFSET_X));
@@ -970,6 +1032,7 @@ public class DlcPathConfig {
         map.put("isUpdateManagerOn", value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON));
         map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
         map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
+        map.put("WaitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
         return map;
     }
 
@@ -1120,5 +1183,268 @@ public class DlcPathConfig {
             }
         }
         return new ArrayList<>(paths);
+    }
+
+    private static void migrateKnownConfigsToDc() {
+        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        migrateLocalConfigDirToDc(configDir);
+        for (Path dlcRootPath : getDlcRoots()) {
+            migrateDlcConfigTreeToDc(dlcRootPath);
+        }
+    }
+
+    private static void migrateLocalConfigDirToDc(Path configDir) {
+        if (configDir == null || !Files.isDirectory(configDir)) {
+            return;
+        }
+        try (var stream = Files.walk(configDir)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> !isManagerConfigFile(path))
+                .forEach(path -> {
+                    Path migrated = Json5Util.migrateLegacy(path, GSON);
+                    Json5Util.normalizeLegacyKeys(migrated, GSON);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static boolean isManagerConfigFile(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return false;
+        }
+        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        return CONFIG_NAME.equalsIgnoreCase(base) || CONFIG_SERVER_NAME.equalsIgnoreCase(base);
+    }
+
+    private static void migrateDlcConfigTreeToDc(Path dlcRootPath) {
+        if (dlcRootPath == null || !Files.isDirectory(dlcRootPath)) {
+            return;
+        }
+        List<String> configDirs = List.of("info", "remote", "required", "preset", "tmp", "update");
+        for (String dirName : configDirs) {
+            Path target = dlcRootPath.resolve(dirName);
+            if ("info".equals(dirName)) {
+                migrateInfoConfigsToDc(target);
+            } else if ("remote".equals(dirName)) {
+                migrateRemoteConfigsToDc(target);
+            } else {
+                migrateTreeConfigsToDc(target);
+            }
+        }
+    }
+
+    private static void migrateTreeConfigsToDc(Path root) {
+        if (root == null || !Files.isDirectory(root)) {
+            return;
+        }
+        try (var stream = Files.walk(root)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .forEach(path -> {
+                    Path migrated = Json5Util.migrateLegacy(path, GSON);
+                    Json5Util.normalizeLegacyKeys(migrated, GSON);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void migrateInfoConfigsToDc(Path infoRoot) {
+        if (infoRoot == null || !Files.isDirectory(infoRoot)) {
+            return;
+        }
+        try (var stream = Files.walk(infoRoot)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .forEach(path -> {
+                    String baseName = Json5Util.stripJsonExtension(path.getFileName().toString());
+                    if ("version".equalsIgnoreCase(baseName) || "notice".equalsIgnoreCase(baseName)) {
+                        Path migrated = Json5Util.migrateLegacy(path, GSON);
+                        Json5Util.normalizeLegacyKeys(migrated, GSON);
+                        return;
+                    }
+                    migrateInfoEntryConfig(path);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void migrateInfoEntryConfig(Path path) {
+        if (path == null || !Files.exists(path) || path.getFileName() == null) {
+            return;
+        }
+        Path migrated = Json5Util.migrateLegacy(path, GSON);
+        Json5Util.normalizeLegacyKeys(migrated, GSON);
+        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
+        if (obj == null) {
+            return;
+        }
+        JsonObject normalizedElement = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
+        String fallbackName = Json5Util.stripJsonExtension(migrated.getFileName().toString());
+        JsonObject normalized = normalizeInfoEntry(normalizedElement, fallbackName);
+        DcConfigIO.write(migrated, normalized, DcConfigIO.Layout.DLC_STRUCTURED);
+    }
+
+    private static JsonObject normalizeInfoEntry(JsonObject input, String fallbackName) {
+        JsonObject out = new JsonObject();
+        if (input != null) {
+            for (Map.Entry<String, JsonElement> entry : input.entrySet()) {
+                String key = entry.getKey();
+                if (key == null || key.isBlank()) {
+                    continue;
+                }
+                if ("isShownInList".equalsIgnoreCase(key)) {
+                    continue;
+                }
+                out.add(key, entry.getValue());
+            }
+        }
+
+        String fileName = JsonCaseUtil.getStringIgnoreCase(out, "file_name");
+        if (fileName == null || fileName.isBlank()) {
+            fileName = fallbackName == null ? "" : fallbackName;
+            JsonCaseUtil.removeIgnoreCase(out, "file_name");
+            out.addProperty("file_name", fileName);
+        }
+
+        String identifier = JsonCaseUtil.getStringIgnoreCase(out, "identifier");
+        if (identifier == null || identifier.isBlank()) {
+            identifier = fileName;
+            JsonCaseUtil.removeIgnoreCase(out, "identifier");
+            out.addProperty("identifier", identifier == null ? "" : identifier);
+        }
+
+        if (!JsonCaseUtil.hasIgnoreCase(out, "type")) {
+            out.addProperty("type", "others");
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "isInList")) {
+            boolean legacyShown = JsonCaseUtil.getBooleanIgnoreCase(input, "isShownInList", true);
+            out.addProperty("isInList", legacyShown);
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "isHidden")) {
+            out.addProperty("isHidden", false);
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "AllowEnableByAll")) {
+            out.addProperty("AllowEnableByAll", true);
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "dependencies")) {
+            out.addProperty("dependencies", "");
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "conflicts")) {
+            out.addProperty("conflicts", "");
+        }
+        if (!JsonCaseUtil.hasIgnoreCase(out, "alarm")) {
+            out.addProperty("alarm", false);
+        }
+
+        normalizeLocalizedField(out, "DisplayName", fileName);
+        normalizeLocalizedField(out, "tip", null);
+        return out;
+    }
+
+    private static void normalizeLocalizedField(JsonObject obj, String key, String defaultEnUs) {
+        JsonObject localized = new JsonObject();
+        JsonObject fromObject = JsonCaseUtil.getObjectIgnoreCase(obj, key);
+        if (fromObject != null) {
+            for (Map.Entry<String, JsonElement> entry : fromObject.entrySet()) {
+                JsonElement value = entry.getValue();
+                if (value == null || !value.isJsonPrimitive()) {
+                    continue;
+                }
+                String lang = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                if (lang == null || lang.isBlank()) {
+                    continue;
+                }
+                localized.addProperty(lang, value.getAsString());
+            }
+        } else {
+            String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+            if (single != null && !single.isBlank()) {
+                localized.addProperty("en_us", single);
+            }
+        }
+        if (localized.entrySet().isEmpty() && defaultEnUs != null && !defaultEnUs.isBlank()) {
+            localized.addProperty("en_us", defaultEnUs);
+        }
+        JsonCaseUtil.removeIgnoreCase(obj, key);
+        obj.add(key, localized);
+    }
+
+    private static void migrateRemoteConfigsToDc(Path remoteRoot) {
+        if (remoteRoot == null || !Files.isDirectory(remoteRoot)) {
+            return;
+        }
+        Path redirectRoot = remoteRoot.resolve("redirect").normalize();
+        try (var stream = Files.walk(remoteRoot)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName() != null)
+                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .forEach(path -> {
+                    Path normalized = path.normalize();
+                    if (normalized.startsWith(redirectRoot)) {
+                        Path migrated = Json5Util.migrateLegacy(path, GSON);
+                        Json5Util.normalizeLegacyKeys(migrated, GSON);
+                        return;
+                    }
+                    migrateRemoteEntryConfig(path);
+                });
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void migrateRemoteEntryConfig(Path path) {
+        if (path == null || !Files.exists(path) || path.getFileName() == null) {
+            return;
+        }
+        String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (lower.endsWith(Json5Util.JSON_EXTENSION) || lower.endsWith(Json5Util.JSON5_EXTENSION)) {
+            JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+            if (obj == null) {
+                return;
+            }
+            JsonObject normalized = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
+            Path out = Json5Util.toDcPath(path);
+            if (DcFormatUtil.write(out, normalized)) {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            }
+            return;
+        }
+        if (lower.endsWith(Json5Util.DC_EXTENSION)) {
+            JsonObject obj = readRemoteDcObject(path);
+            if (obj == null) {
+                return;
+            }
+            JsonObject normalized = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
+            DcFormatUtil.write(path, normalized);
+        }
+    }
+
+    private static JsonObject readRemoteDcObject(Path path) {
+        if (path == null || !Files.exists(path)) {
+            return null;
+        }
+        String content;
+        try {
+            content = Files.readString(path);
+        } catch (IOException ignored) {
+            return null;
+        }
+        if (content != null) {
+            String trimmed = content.stripLeading();
+            if (trimmed.startsWith("{")) {
+                JsonElement parsed = Json5Util.readElement(path);
+                if (parsed != null && parsed.isJsonObject()) {
+                    return parsed.getAsJsonObject();
+                }
+                return null;
+            }
+        }
+        return DcFormatUtil.read(path);
     }
 }

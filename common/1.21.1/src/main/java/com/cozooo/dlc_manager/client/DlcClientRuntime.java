@@ -55,6 +55,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 
@@ -73,6 +75,8 @@ public final class DlcClientRuntime {
     private static int titleNoticeDragStartY = 0;
     private static int titleNoticeDragStartScroll = 0;
     private static CompletableFuture<String> titleNoticeFuture;
+    private static volatile boolean firstRunManagerHandled = false;
+    private static final String FIRST_RUN_MARKER_NAME = "ShownOnFirstRun";
     private static final Logger LOGGER = LogUtils.getLogger();
 
     private DlcClientRuntime() {
@@ -104,6 +108,35 @@ public final class DlcClientRuntime {
 
     public static void openNoticeFromTitle(Screen parent) {
         DlcNoticeManager.forceShow(parent);
+    }
+
+    public static void maybeOpenManagerOnFirstRun(Screen parent) {
+        if (firstRunManagerHandled) {
+            return;
+        }
+        firstRunManagerHandled = true;
+        if (parent == null || !DlcPathConfig.isShowOnFirstRun()) {
+            return;
+        }
+        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        if (dlcRoot == null) {
+            return;
+        }
+        Path markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME);
+        try {
+            if (Files.exists(markerPath)) {
+                return;
+            }
+            Files.createDirectories(dlcRoot);
+            Files.createFile(markerPath);
+        } catch (IOException ignored) {
+            return;
+        }
+        Screen managerScreen = new DlcMaLiLibScreen(parent);
+        if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
+            return;
+        }
+        Minecraft.getInstance().setScreen(managerScreen);
     }
 
     public static void renderTitleNoticePanel(Screen screen, GuiGraphics guiGraphics) {

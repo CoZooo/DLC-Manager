@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.Json5Util;
@@ -179,7 +180,7 @@ public final class DlcSelfUpdateService {
         }
         JsonObject obj;
         try {
-            obj = Json5Util.readObject(marker);
+            obj = DcConfigIO.read(marker, DcConfigIO.Layout.GENERIC);
         } catch (Exception ex) {
             return false;
         }
@@ -293,8 +294,8 @@ public final class DlcSelfUpdateService {
             return null;
         }
         try {
-            com.google.gson.JsonElement element = Json5Util.readElement(path);
-            SelfUpdateHistory history = element == null ? null : GSON.fromJson(element, SelfUpdateHistory.class);
+            JsonObject root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+            SelfUpdateHistory history = root == null ? null : GSON.fromJson(root, SelfUpdateHistory.class);
             if (history != null && history.backupFile != null && !history.backupFile.isBlank()) {
                 Path dlcRoot = DlcPaths.dlcRoot();
                 if (dlcRoot != null && !Path.of(history.backupFile).isAbsolute()) {
@@ -360,9 +361,8 @@ public final class DlcSelfUpdateService {
                 history.backupFile = backupFile.getFileName().toString();
             }
             history.appliedAt = Instant.now().toString();
-            try (var writer = Files.newBufferedWriter(path)) {
-                GSON.toJson(history, writer);
-            }
+            JsonObject root = GSON.toJsonTree(history).getAsJsonObject();
+            DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
         } catch (Exception ignored) {
         }
     }
@@ -374,7 +374,8 @@ public final class DlcSelfUpdateService {
         }
         Path dir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
         Json5Util.migrateLegacy(dir.resolve("self_update_history.json"), GSON);
-        return dir.resolve("self_update_history" + Json5Util.JSON5_EXTENSION);
+        Path path = Json5Util.resolveConfigPath(dir, "self_update_history");
+        return Json5Util.migrateLegacy(path, GSON);
     }
 
     private static void clearPendingMarker() {
@@ -401,9 +402,7 @@ public final class DlcSelfUpdateService {
             obj.addProperty("currentVersion", result.currentVersion == null ? "" : result.currentVersion);
             obj.addProperty("latestVersion", result.latestVersion == null ? "" : result.latestVersion);
             obj.addProperty("updatedAt", Instant.now().toString());
-            try (var writer = Files.newBufferedWriter(marker)) {
-                GSON.toJson(obj, writer);
-            }
+            DcConfigIO.write(marker, obj, DcConfigIO.Layout.GENERIC);
             return SaveResult.success();
         } catch (IOException ignored) {
             return SaveResult.failed();
@@ -417,7 +416,8 @@ public final class DlcSelfUpdateService {
         }
         Path dir = configDir.resolve("dlc_manager");
         Json5Util.migrateLegacy(dir.resolve("self_update.json"), GSON);
-        return dir.resolve("self_update" + Json5Util.JSON5_EXTENSION);
+        Path path = Json5Util.resolveConfigPath(dir, "self_update");
+        return Json5Util.migrateLegacy(path, GSON);
     }
 
     private static String readString(JsonObject obj, String key) {

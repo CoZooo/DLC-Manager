@@ -1,11 +1,11 @@
 package com.cozooo.dlc_manager.core;
 
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -105,7 +105,7 @@ public class DlcNoticeConfig {
             return config;
         }
         config.exists = true;
-        JsonObject obj = Json5Util.readObject(config.path);
+        JsonObject obj = DcConfigIO.read(config.path, DcConfigIO.Layout.GENERIC);
         if (obj == null) {
             config.noticeEnabled = false;
             return config;
@@ -145,10 +145,7 @@ public class DlcNoticeConfig {
             obj.add("ContentUrl", writeLocalized(contentUrls));
         }
         obj.add("Contents", writeLocalized(contents));
-        try (Writer writer = Files.newBufferedWriter(path)) {
-            GSON.toJson(obj, writer);
-        } catch (IOException ignored) {
-        }
+        DcConfigIO.write(path, obj, DcConfigIO.Layout.GENERIC);
     }
 
     public boolean isNoticeEnabled() {
@@ -206,7 +203,8 @@ public class DlcNoticeConfig {
         }
         Path infoDir = root.resolve("info");
         Json5Util.migrateLegacy(infoDir.resolve("notice.json"), GSON);
-        return Json5Util.resolveConfigPath(infoDir, "notice");
+        Path noticePath = Json5Util.resolveConfigPath(infoDir, "notice");
+        return Json5Util.migrateLegacy(noticePath, GSON);
     }
 
     private static void ensureNoticeFiles() {
@@ -217,6 +215,7 @@ public class DlcNoticeConfig {
         Path infoDir = root.resolve("info");
         Json5Util.migrateLegacy(infoDir.resolve("notice.json"), GSON);
         Path noticePath = Json5Util.resolveConfigPath(infoDir, "notice");
+        noticePath = Json5Util.migrateLegacy(noticePath, GSON);
         if (Files.exists(noticePath)) {
             return;
         }
@@ -236,9 +235,7 @@ public class DlcNoticeConfig {
         obj.add("Contents", contents);
         try {
             Files.createDirectories(noticePath.getParent());
-            try (Writer writer = Files.newBufferedWriter(noticePath)) {
-                GSON.toJson(obj, writer);
-            }
+            DcConfigIO.write(noticePath, obj, DcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }

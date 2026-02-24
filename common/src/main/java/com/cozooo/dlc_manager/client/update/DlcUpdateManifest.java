@@ -33,13 +33,29 @@ public class DlcUpdateManifest {
         if (updateJson == null || !Files.exists(updateJson)) {
             return null;
         }
-        JsonObject obj;
-        try (Reader reader = Files.newBufferedReader(updateJson)) {
-            JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
-            obj = GSON.fromJson(jsonReader, JsonObject.class);
-        } catch (IOException ignored) {
-            return null;
+        JsonObject obj = null;
+        String fileName = updateJson.getFileName() == null ? "" : updateJson.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (fileName.endsWith(".dc")) {
+            try {
+                String text = Files.readString(updateJson);
+                String trimmed = text == null ? "" : text.stripLeading();
+                if (trimmed.startsWith("{")) {
+                    obj = GSON.fromJson(trimmed, JsonObject.class);
+                } else {
+                    obj = DlcUpdateDcParser.parse(text);
+                }
+            } catch (IOException ignored) {
+                return null;
+            }
+        }
+        if (obj == null) {
+            try (Reader reader = Files.newBufferedReader(updateJson)) {
+                JsonReader jsonReader = new JsonReader(reader);
+                jsonReader.setLenient(true);
+                obj = GSON.fromJson(jsonReader, JsonObject.class);
+            } catch (IOException ignored) {
+                return null;
+            }
         }
         return fromJsonObject(obj);
     }

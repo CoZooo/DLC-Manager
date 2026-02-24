@@ -17,6 +17,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -1205,7 +1206,7 @@ public final class DlcServerDownloadService {
                 if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
                     continue;
                 }
-                if ("notice.json".equalsIgnoreCase(fileName) || "notice.json5".equalsIgnoreCase(fileName)) {
+                if (isNoticeConfig(fileName)) {
                     continue;
                 }
                 Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
@@ -1740,15 +1741,12 @@ public final class DlcServerDownloadService {
             return;
         }
         Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
-        JsonObject obj = Json5Util.readObject(migrated);
+        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
         JsonObject reordered = reorderRemoteJson(obj, normalized);
-        try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
-            PRETTY_GSON.toJson(reordered, writer);
-        } catch (IOException ignored) {
-        }
+        DcConfigIO.write(migrated, reordered, DcConfigIO.Layout.DLC_STRUCTURED);
         entry.setFileNameHint(normalized);
     }
 
@@ -1836,15 +1834,12 @@ public final class DlcServerDownloadService {
             return;
         }
         Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
-        JsonObject obj = Json5Util.readObject(migrated);
+        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
         JsonObject ordered = reorderRequiredJson(obj, normalized);
-        try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
-            PRETTY_GSON.toJson(ordered, writer);
-        } catch (IOException ignored) {
-        }
+        DcConfigIO.write(migrated, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     private static void updateRequiredUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
@@ -1856,7 +1851,7 @@ public final class DlcServerDownloadService {
             return;
         }
         Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
-        JsonObject obj = Json5Util.readObject(migrated);
+        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
@@ -1867,10 +1862,7 @@ public final class DlcServerDownloadService {
             obj.remove("userRemoved");
         }
         JsonObject ordered = reorderRequiredJson(obj, entry.getRequiredFileName());
-        try (java.io.Writer writer = Files.newBufferedWriter(migrated)) {
-            PRETTY_GSON.toJson(ordered, writer);
-        } catch (IOException ignored) {
-        }
+        DcConfigIO.write(migrated, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
         entry.setUserRemoved(userRemoved);
     }
 
@@ -2173,11 +2165,15 @@ public final class DlcServerDownloadService {
         info.add("tip", tipObj);
         Path legacy = infoDir.resolve(fileName + Json5Util.JSON_EXTENSION);
         Json5Util.migrateLegacy(legacy, PRETTY_GSON);
-        Path out = infoDir.resolve(fileName + Json5Util.JSON5_EXTENSION);
-        try (java.io.Writer writer = Files.newBufferedWriter(out)) {
-            PRETTY_GSON.toJson(info, writer);
-        } catch (IOException ignored) {
+        Path out = Json5Util.resolveConfigPath(infoDir, fileName);
+        DcConfigIO.write(out, info, DcConfigIO.Layout.DLC_STRUCTURED);
+    }
+
+    private static boolean isNoticeConfig(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return false;
         }
+        return "notice".equalsIgnoreCase(Json5Util.stripJsonExtension(fileName));
     }
 
     private static final class DownloadCandidate {
