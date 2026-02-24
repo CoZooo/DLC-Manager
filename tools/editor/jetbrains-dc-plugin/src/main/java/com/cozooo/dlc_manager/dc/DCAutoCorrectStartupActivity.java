@@ -18,7 +18,9 @@ import com.intellij.util.messages.MessageBusConnection;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -97,7 +99,20 @@ public final class DCAutoCorrectStartupActivity implements StartupActivity.DumbA
     }
 
     private static void applyFixes(Project project, Document doc) {
-        List<Fix> fixes = collectFixes(doc);
+        List<Fix> quoteFixes = collectQuoteFixes(doc);
+        if (!quoteFixes.isEmpty()) {
+            applyFixList(project, doc, quoteFixes);
+            return;
+        }
+
+        List<Fix> indentFixes = collectIndentationFixes(doc);
+        if (indentFixes.isEmpty()) {
+            return;
+        }
+        applyFixList(project, doc, indentFixes);
+    }
+
+    private static void applyFixList(Project project, Document doc, List<Fix> fixes) {
         if (fixes.isEmpty()) {
             return;
         }
@@ -121,7 +136,7 @@ public final class DCAutoCorrectStartupActivity implements StartupActivity.DumbA
         });
     }
 
-    private static List<Fix> collectFixes(Document doc) {
+    private static List<Fix> collectQuoteFixes(Document doc) {
         List<Fix> fixes = new ArrayList<>();
         PendingQuote pendingSingleQuoteOpen = null;
 
@@ -181,6 +196,39 @@ public final class DCAutoCorrectStartupActivity implements StartupActivity.DumbA
         return deduped;
     }
 
+    private static List<Fix> collectIndentationFixes(Document doc) {
+        String[] lines = doc.getText().split("\\R", -1);
+        List<DcIndentationRules.IndentationIssue> issues = DcIndentationRules.collectIssues(lines);
+        if (issues.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Integer, DcIndentationRules.IndentationIssue> firstByLine = new LinkedHashMap<>();
+        for (DcIndentationRules.IndentationIssue issue : issues) {
+            firstByLine.putIfAbsent(issue.line, issue);
+        }
+
+        List<Fix> fixes = new ArrayList<>();
+        for (DcIndentationRules.IndentationIssue issue : firstByLine.values()) {
+            if (issue.line < 0 || issue.line >= doc.getLineCount()) {
+                continue;
+            }
+            int lineStart = doc.getLineStartOffset(issue.line);
+            int lineEnd = doc.getLineEndOffset(issue.line);
+            String lineText = doc.getText(new TextRange(lineStart, lineEnd));
+            int leading = leadingWhitespaceLength(lineText);
+            if (leading == issue.expectedIndent) {
+                continue;
+            }
+            fixes.add(new Fix(
+                lineStart,
+                lineStart + leading,
+                " ".repeat(Math.max(0, issue.expectedIndent))
+            ));
+        }
+        return fixes;
+    }
+
     private static int findValueOpeningQuote(String line) {
         if (line == null || line.isEmpty() || line.contains("\"\"\"")) {
             return -1;
@@ -223,6 +271,17 @@ public final class DCAutoCorrectStartupActivity implements StartupActivity.DumbA
             return "";
         }
         return text.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static int leadingWhitespaceLength(String line) {
+        if (line == null || line.isEmpty()) {
+            return 0;
+        }
+        int idx = 0;
+        while (idx < line.length() && Character.isWhitespace(line.charAt(idx))) {
+            idx++;
+        }
+        return idx;
     }
 
     private record PendingQuote(int line, int column) {

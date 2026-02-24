@@ -90,7 +90,7 @@ function activate(context) {
       refresh(doc);
       return;
     }
-    const changed = await autoCorrectMultilineDoubleQuotes(doc, correctingDocs);
+    const changed = await autoCorrectDocumentStructure(doc, correctingDocs);
     if (!changed) {
       refresh(doc);
     }
@@ -110,7 +110,7 @@ function activate(context) {
       return;
     }
 
-    const changed = await autoCorrectMultilineDoubleQuotes(doc, correctingDocs);
+    const changed = await autoCorrectDocumentStructure(doc, correctingDocs);
     if (!changed) {
       refresh(doc);
     }
@@ -151,6 +151,44 @@ async function autoCorrectMultilineDoubleQuotes(document, correctingDocs) {
   for (const fix of singleLineTripleFixes) {
     const lineText = document.lineAt(fix.line).text;
     edit.replace(document.uri, new vscode.Range(fix.line, 0, fix.line, lineText.length), fix.replacement);
+  }
+
+  const uriKey = document.uri.toString();
+  correctingDocs.add(uriKey);
+  try {
+    await vscode.workspace.applyEdit(edit);
+  } finally {
+    setTimeout(() => correctingDocs.delete(uriKey), 0);
+  }
+  return true;
+}
+
+async function autoCorrectDocumentStructure(document, correctingDocs) {
+  const changedQuotes = await autoCorrectMultilineDoubleQuotes(document, correctingDocs);
+  if (changedQuotes) {
+    return true;
+  }
+  return autoCorrectIndentation(document, correctingDocs);
+}
+
+async function autoCorrectIndentation(document, correctingDocs) {
+  const indentationFixes = collectIndentationFixes(document);
+  if (indentationFixes.length === 0) {
+    return false;
+  }
+
+  const edit = new vscode.WorkspaceEdit();
+  for (const fix of indentationFixes) {
+    const lineText = document.lineAt(fix.line).text;
+    const leading = lineText.match(/^\s*/)[0].length;
+    if (leading === fix.expectedIndent) {
+      continue;
+    }
+    edit.replace(
+      document.uri,
+      new vscode.Range(fix.line, 0, fix.line, leading),
+      " ".repeat(Math.max(0, fix.expectedIndent))
+    );
   }
 
   const uriKey = document.uri.toString();
@@ -393,7 +431,271 @@ function validateDocument(document, diagnostics) {
     ));
   }
 
+  const indentIssues = collectIndentationIssues(document);
+  for (const issue of indentIssues) {
+    const text = document.lineAt(issue.line).text;
+    items.push(new vscode.Diagnostic(
+      new vscode.Range(issue.line, 0, issue.line, text.length),
+      issue.message,
+      vscode.DiagnosticSeverity.Warning
+    ));
+  }
+
   diagnostics.set(document.uri, items);
+}
+
+function collectIndentationFixes(document) {
+  const issues = collectIndentationIssues(document);
+  const byLine = new Map();
+  for (const issue of issues) {
+    if (!byLine.has(issue.line)) {
+      byLine.set(issue.line, issue);
+    }
+  }
+  return Array.from(byLine.values());
+}
+
+function collectIndentationIssues(document) {
+  const states = buildLineStates(document);
+  const issues = [];
+  issues.push(...collectUpdateIndentationIssues(states));
+  issues.push(...collectDependenciesIndentationIssues(states));
+  return issues;
+}
+
+function buildLineStates(document) {
+  const out = [];
+  let tripleQuoteOpen = false;
+  for (let i = 0; i < document.lineCount; i++) {
+    const text = document.lineAt(i).text;
+    const trimmed = text.trim();
+    const tripleMatches = countOccurrences(text, "\"\"\"");
+    const wasTripleOpen = tripleQuoteOpen;
+    if (tripleMatches > 0 && tripleMatches % 2 === 1) {
+      tripleQuoteOpen = !tripleQuoteOpen;
+    }
+    const inTriple = wasTripleOpen || tripleMatches > 0;
+    const ignored =
+      inTriple ||
+      trimmed.length === 0 ||
+      trimmed.startsWith("#") ||
+      trimmed.startsWith("//");
+    const indentMatch = text.match(/^\s*/);
+    out.push({
+      line: i,
+      text,
+      trimmed,
+      indent: indentMatch ? indentMatch[0].length : 0,
+      ignored
+    });
+  }
+  return out;
+}
+
+function collectUpdateIndentationIssues(states) {
+  const issues = [];
+  const rootHeaders = new Set(["version", "changelog", "file", "update"]);
+  const fileSubHeaders = new Set(["del", "add", "move", "modify"]);
+  const updateSubHeaders = new Set(["remote", "required"]);
+
+  let root = null;
+  let sub = null;
+  let inMapEntry = false;
+
+  const hasUpdateShape = states.some(
+    (s) => !s.ignored && (sectionName(s.trimmed) === "file" || sectionName(s.trimmed) === "update")
+  );
+  if (!hasUpdateShape) {
+    return issues;
+  }
+
+  for (const s of states) {
+    if (s.ignored) {
+      continue;
+    }
+    const sec = sectionName(s.trimmed);
+    if (sec) {
+      if (rootHeaders.has(sec)) {
+        pushIndentIssue(issues, s.line, s.indent, 0, "update");
+        root = sec;
+        sub = null;
+        inMapEntry = false;
+        continue;
+      }
+      if (root === "file" && fileSubHeaders.has(sec)) {
+        pushIndentIssue(issues, s.line, s.indent, 2, "update");
+        sub = sec;
+        inMapEntry = false;
+        continue;
+      }
+      if (root === "update" && updateSubHeaders.has(sec)) {
+        pushIndentIssue(issues, s.line, s.indent, 2, "update");
+        sub = sec;
+        inMapEntry = false;
+        continue;
+      }
+      inMapEntry = false;
+      continue;
+    }
+
+    if (!root) {
+      continue;
+    }
+
+    if (root === "version" || root === "changelog") {
+      if (isKeyValueLine(s.trimmed)) {
+        pushIndentIssue(issues, s.line, s.indent, 0, "update");
+      }
+      continue;
+    }
+
+    if (root === "file") {
+      if (sub === "del") {
+        if (looksLikeListItem(s.trimmed) || isKeyValueLine(s.trimmed)) {
+          pushIndentIssue(issues, s.line, s.indent, 4, "update");
+        }
+        inMapEntry = false;
+        continue;
+      }
+      if (sub === "move") {
+        if (isKeyValueLine(s.trimmed)) {
+          pushIndentIssue(issues, s.line, s.indent, 4, "update");
+        }
+        inMapEntry = false;
+        continue;
+      }
+      if (sub === "add" || sub === "modify") {
+        if (isMapEntryLine(s.trimmed)) {
+          pushIndentIssue(issues, s.line, s.indent, 4, "update");
+          inMapEntry = true;
+          continue;
+        }
+        if (isKeyValueLine(s.trimmed)) {
+          pushIndentIssue(issues, s.line, s.indent, inMapEntry ? 6 : 4, "update");
+          continue;
+        }
+        inMapEntry = false;
+        continue;
+      }
+      inMapEntry = false;
+      continue;
+    }
+
+    if (root === "update" && (sub === "remote" || sub === "required")) {
+      if (isMapEntryLine(s.trimmed)) {
+        pushIndentIssue(issues, s.line, s.indent, 4, "update");
+        inMapEntry = true;
+        continue;
+      }
+      if (isKeyValueLine(s.trimmed)) {
+        pushIndentIssue(issues, s.line, s.indent, inMapEntry ? 6 : 4, "update");
+        continue;
+      }
+      inMapEntry = false;
+    }
+  }
+  return issues;
+}
+
+function collectDependenciesIndentationIssues(states) {
+  const issues = [];
+  const nodeSections = new Set([
+    "download",
+    "basic",
+    "displayname",
+    "tip",
+    "notice",
+    "contents",
+    "contenturl"
+  ]);
+
+  const hasDependencies = states.some((s) => !s.ignored && sectionName(s.trimmed) === "dependencies");
+  if (!hasDependencies) {
+    return issues;
+  }
+
+  const stack = [];
+  for (const s of states) {
+    if (s.ignored) {
+      continue;
+    }
+
+    const secRaw = sectionNameRaw(s.trimmed);
+    const sec = secRaw ? secRaw.toLowerCase() : null;
+    const depEntry = isMapEntryLine(s.trimmed);
+
+    if (!sec && !depEntry) {
+      continue;
+    }
+
+    while (stack.length > 0 && s.indent <= stack[stack.length - 1].indent) {
+      stack.pop();
+    }
+
+    if (sec === "dependencies") {
+      const expected =
+        stack.length > 0 && stack[stack.length - 1].type === "depNode"
+          ? stack[stack.length - 1].indent + 2
+          : 0;
+      pushIndentIssue(issues, s.line, s.indent, expected, "dependencies");
+      stack.push({ type: "depContainer", indent: expected });
+      continue;
+    }
+
+    if (depEntry && stack.length > 0 && stack[stack.length - 1].type === "depContainer") {
+      const expected = stack[stack.length - 1].indent + 2;
+      pushIndentIssue(issues, s.line, s.indent, expected, "dependencies");
+      stack.push({ type: "depNode", indent: expected });
+      continue;
+    }
+
+    if (sec && stack.length > 0 && stack[stack.length - 1].type === "depContainer" && !nodeSections.has(sec)) {
+      const expected = stack[stack.length - 1].indent + 2;
+      pushIndentIssue(issues, s.line, s.indent, expected, "dependencies");
+      stack.push({ type: "depNode", indent: expected });
+      continue;
+    }
+
+    if (sec && stack.length > 0 && stack[stack.length - 1].type === "depNode" && nodeSections.has(sec)) {
+      const expected = stack[stack.length - 1].indent + 2;
+      pushIndentIssue(issues, s.line, s.indent, expected, "dependencies");
+    }
+  }
+
+  return issues;
+}
+
+function pushIndentIssue(items, line, actual, expected, scope) {
+  if (actual === expected) {
+    return;
+  }
+  const label = scope === "update" ? "热更新结构" : "dependencies结构";
+  items.push({
+    line,
+    expectedIndent: expected,
+    message: `${label}缩进不正确：期望 ${expected} 个空格，当前为 ${actual}。`
+  });
+}
+
+function sectionNameRaw(trimmed) {
+  const m = trimmed.match(/^\[([^\]]+)\]$/);
+  if (!m) {
+    return null;
+  }
+  return m[1].trim();
+}
+
+function sectionName(trimmed) {
+  const raw = sectionNameRaw(trimmed);
+  return raw ? raw.toLowerCase() : null;
+}
+
+function isKeyValueLine(trimmed) {
+  return /^(?:\"[^\"]+\"|[A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*.*$/.test(trimmed);
+}
+
+function isMapEntryLine(trimmed) {
+  return /^(?:\"[^\"]+\"|[A-Za-z_][A-Za-z0-9_.-]*)\s*:\s*$/.test(trimmed);
 }
 
 function looksLikeListItem(trimmed) {

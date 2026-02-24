@@ -6,6 +6,7 @@ import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiFile;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 
@@ -87,6 +88,22 @@ public final class DCBasicSyntaxInspection extends LocalInspectionTool {
 
                     offset += lineLength + 1;
                 }
+
+                List<DcIndentationRules.IndentationIssue> indentIssues = DcIndentationRules.collectIssues(lines);
+                for (DcIndentationRules.IndentationIssue issue : indentIssues) {
+                    if (issue.line < 0 || issue.line >= lines.length) {
+                        continue;
+                    }
+                    int start = computeLineStartOffset(lines, issue.line);
+                    int end = start + lines[issue.line].length();
+                    holder.registerProblem(
+                        file,
+                        issue.message,
+                        ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
+                        TextRange.create(start, end)
+                    );
+                }
+
                 if (tripleOpen) {
                     int start = Math.max(text.length() - 1, 0);
                     holder.registerProblem(
@@ -98,6 +115,14 @@ public final class DCBasicSyntaxInspection extends LocalInspectionTool {
                 }
             }
         };
+    }
+
+    private static int computeLineStartOffset(String[] lines, int lineNumber) {
+        int offset = 0;
+        for (int i = 0; i < lineNumber && i < lines.length; i++) {
+            offset += lines[i].length() + 1;
+        }
+        return offset;
     }
 
     private static boolean looksLikeListItem(String trimmed) {
