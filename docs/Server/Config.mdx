@@ -74,7 +74,15 @@ taskTimeoutSeconds = 60
 
 #### `updateGithubRepo`
 - **Purpose**: Pack release update repository URL(s).
-- **Allowed**: String URL, supports comma-separated multiple repos.
+- **Allowed**:
+  - Single repository URL
+  - Multiple repository URLs separated by commas (fallback in order)
+  - HTTPS/HTTP repository page URL, release page URL, or SSH form (`git@host:owner/repo.git`)
+- **Supported providers**:
+  - GitHub
+  - GitLab (including self-hosted instances)
+  - Gitee
+  - Generic Git hosts with API fallback probing
 - **Default**: Empty.
 
 #### `rconHost`

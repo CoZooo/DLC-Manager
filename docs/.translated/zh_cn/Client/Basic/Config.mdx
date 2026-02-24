@@ -170,7 +170,15 @@ taskTimeoutSeconds = 60
 
 #### `ui.updateGithubRepo`
 - **用途**：整合包版本仓库地址（用于整合包更新检测）。
-- **可填**：URL 字符串（可逗号分隔多个仓库）。
+- **可填**：
+  - 单个仓库 URL
+  - 多个仓库 URL（逗号分隔，按顺序回退）
+  - HTTPS/HTTP 仓库页链接、Release 页链接、或 SSH 形式（`git@host:owner/repo.git`）
+- **支持平台**：
+  - GitHub
+  - GitLab（含自建实例）
+  - Gitee
+  - 其他带 API 回退探测的通用 Git 平台
 - **默认**：空。
 
 #### `downloads.maxConcurrentDownloads`

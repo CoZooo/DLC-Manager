@@ -126,9 +126,38 @@ zh_cn = """更新说明第1行
 - If update content contains `remote/` or `required/` and they are not explicitly mapped in `file.add`, they are copied implicitly.
 - Adding required resources clears `DLC/required/SKIP`.
 
-## Rollback
-- Per-update metadata is stored in `DLC/tmp/<dlc_new>/meta.dc`.
-- Rollback uses:
-  - `restore` paths
-  - `created` paths
-  - changelog snapshot in metadata.
+## Pack Release Update (Repository Mode)
+Repository mode is configured by `ui.updateGithubRepo` / `server.updateGithubRepo`. It checks Release metadata and maps Release assets to update package downloads.
+
+### Repository input and fallback
+- Multiple repositories are supported via comma-separated URLs.
+- Repositories are checked in left-to-right order until a valid update chain is found.
+- Supported providers:
+  - GitHub
+  - GitLab (including self-hosted instances)
+  - Gitee
+  - Generic Git hosts with API fallback probing
+
+### Release tag format
+- Required format: `<oldBase><sep><oldDlc>/<newBase><sep><newDlc>`
+- Example: `1.0.0+1.0.0/1.0.1+1.0.1`
+- Supported `<sep>` between base and dlc:
+  - `+`, `_`, `@`, `~`, `-`, space
+
+### Asset filename matching
+- Client side candidates:
+  - `Universal_<newBase><sep><newDlc>.zip`
+  - `Client_<newBase><sep><newDlc>.zip`
+- Server side candidates:
+  - `Universal_<newBase><sep><newDlc>.zip`
+  - `Server_<newBase><sep><newDlc>.zip`
+- `<sep>` supports the same delimiter set as tag parsing.
+- If both `Universal_*` and side-specific assets exist, `Universal_*` is preferred.
+
+### Multi-step chain updates
+- The checker builds a state chain from current version pair:
+  - `<currentBase>|<currentDlc>` -> next -> next ...
+- If multiple releases are available, updates are applied in chain order (old to new), not in one jump.
+
+### Release changelog source
+- `release_notes` (not language-key tables).\

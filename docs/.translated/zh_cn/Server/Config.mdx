@@ -74,7 +74,15 @@ taskTimeoutSeconds = 60
 
 #### `updateGithubRepo`
 - **用途**：整合包版本仓库地址（用于检测整合包更新）。
-- **可填**：字符串 URL，支持逗号分隔多个仓库。
+- **可填**：
+  - 单个仓库 URL
+  - 多个仓库 URL（逗号分隔，按顺序回退）
+  - HTTPS/HTTP 仓库页链接、Release 页链接、或 SSH 形式（`git@host:owner/repo.git`）
+- **支持平台**：
+  - GitHub
+  - GitLab（含自建实例）
+  - Gitee
+  - 其他带 API 回退探测的通用 Git 平台
 - **默认**：空。
 
 #### `rconHost`

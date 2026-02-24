@@ -126,9 +126,38 @@ zh_cn = """更新说明第1行
 - 若更新包包含 `remote/` 或 `required/`，且未在 `file.add` 显式映射，会按默认规则隐式复制。
 - 添加 required 资源时会清理 `DLC/required/SKIP`。
 
-## 回滚
-- 每次更新的元数据记录在 `DLC/tmp/<dlc_new>/meta.dc`。
-- 回滚依赖：
-  - `restore` 路径
-  - `created` 路径
-  - 元数据中的 changelog 快照
+## 仓库 Release 更新模式
+仓库模式由 `ui.updateGithubRepo` / `server.updateGithubRepo` 配置驱动，通过 Release 元数据匹配热更新包并下载。
+
+### 仓库输入与回退
+- 支持逗号分隔多个仓库 URL。
+- 按从左到右顺序依次检测，直到找到可用更新链。
+- 支持平台：
+  - GitHub
+  - GitLab（含自建实例）
+  - Gitee （国内最佳平台）
+  - 其他带 API 回退探测的通用 Git 平台
+
+### Release Tag 规则
+- 必须满足：`<oldBase><sep><oldDlc>/<newBase><sep><newDlc>`
+- 示例：`1.0.0+1.0.0/1.0.1+1.0.1`
+- `base` 与 `dlc` 之间支持分隔符：
+  - `+`、`_`、`@`、`~`、`-`、空格
+
+### 资产文件名匹配
+- 客户端候选：
+  - `Universal_<newBase><sep><newDlc>.zip`
+  - `Client_<newBase><sep><newDlc>.zip`
+- 服务端候选：
+  - `Universal_<newBase><sep><newDlc>.zip`
+  - `Server_<newBase><sep><newDlc>.zip`
+- `<sep>` 与 Tag 解析使用同一组分隔符。
+- 若同时存在 `Universal_*` 与端侧包，优先选择 `Universal_*`。
+
+### 多步链式更新
+- 检测器会从当前版本对开始构建链：
+  - `<currentBase>|<currentDlc>` -> 下一步 -> 下一步 ...
+- 当存在多段可升级路径时，会按链顺序依次更新，而不是跨版本直接跳转。
+
+### 更新日志来源
+- `release_notes` （没有语言区分）
