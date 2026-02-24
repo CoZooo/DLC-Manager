@@ -37,7 +37,7 @@ conflicts = ["ConflictMod"]
 alarm = false
 
 [dependencies]
-  [HelperLib]
+  HelperLib:
     [download]
     modrinth_projectid = "helperlib"
     modrinth_versionid = "helperlib-version"
@@ -107,7 +107,7 @@ zh_cn = "示例提示"
 - **Allowed**:
   - string (`"LibA,LibB"`)
   - array (`["LibA","LibB"]`)
-  - object/nested dependencies via `[dependencies]`
+  - nested dependencies via `[identifier]` or `identifier:`
 
 #### `basic.conflicts`
 - **Allowed**: string or array of identifiers.

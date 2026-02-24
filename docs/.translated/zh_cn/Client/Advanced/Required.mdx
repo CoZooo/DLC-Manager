@@ -32,7 +32,7 @@ isHidden = false
 dependencies = ["HelperLib"]
 
 [dependencies]
-  [HelperLib]
+  HelperLib:
     [download]
     modrinth_projectid = "helperlib"
     modrinth_versionid = "helperlib-version"
@@ -91,7 +91,7 @@ zh_cn = "请勿删除"
 - **默认**：`false`。
 
 #### `basic.dependencies`
-- **可填**：字符串、数组、对象或嵌套 `[dependencies]`。
+- **可填**：字符串、数组，或嵌套 `[identifier]` 或 `identifier:`。
 
 #### `DisplayName` / `tip`
 - 多语言文本表（`en_us`、`zh_cn` 等）。

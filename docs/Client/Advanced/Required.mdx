@@ -32,7 +32,7 @@ isHidden = false
 dependencies = ["HelperLib"]
 
 [dependencies]
-  [HelperLib]
+  HelperLib:
     [download]
     modrinth_projectid = "helperlib"
     modrinth_versionid = "helperlib-version"
@@ -91,7 +91,7 @@ zh_cn = "请勿删除"
 - **Default**: `false`.
 
 #### `basic.dependencies`
-- **Allowed**: string, array, object, or nested `[dependencies]`.
+- **Allowed**: string, array, or nested `[identifier]` or `identifier:`.
 
 #### `DisplayName` / `tip`
 - Localized text tables (`en_us`, `zh_cn`, etc.).

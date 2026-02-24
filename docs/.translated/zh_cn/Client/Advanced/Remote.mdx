@@ -37,7 +37,7 @@ conflicts = ["ConflictMod"]
 alarm = false
 
 [dependencies]
-  [HelperLib]
+  HelperLib:
     [download]
     modrinth_projectid = "helperlib"
     modrinth_versionid = "helperlib-version"
@@ -107,7 +107,7 @@ zh_cn = "示例提示"
 - **可填**：
   - 字符串（如 `"LibA,LibB"`）
   - 数组（如 `["LibA","LibB"]`）
-  - 嵌套对象（`[dependencies]`）
+  - 嵌套前置（`[identifier]` 或 `identifier:`）
 
 #### `basic.conflicts`
 - **可填**：字符串或 identifier 数组。
