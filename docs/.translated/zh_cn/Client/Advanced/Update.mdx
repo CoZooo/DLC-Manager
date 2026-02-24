@@ -108,8 +108,15 @@ zh_cn = """更新说明第1行
   - `replace`
   - `which`（`all`、`last`、`-1`、索引、索引数组）
 
-#### `[update].remote` / `[update].required`
-- **用途**：按 identifier 更新 remote/required 配置中的平台 ID。
+#### `[update].remote`
+- **用途**：按 identifier 更新 remote 配置中的平台 ID。
+- **键**：条目 identifier。
+- **值键**：
+  - `curseforge`
+  - `modrinth`
+
+#### `[update].required`
+- **用途**：按 identifier 更新 required 配置中的平台 ID。
 - **键**：条目 identifier。
 - **值键**：
   - `curseforge`
@@ -121,7 +128,7 @@ zh_cn = """更新说明第1行
   2. `[file].move`
   3. `[file].add`
   4. `[file].modify`
-  5. `[update].remote` / `[update].required`
+  5. `[update].remote` 和 `[update].required`
 - 版本匹配基于 `DLC/info/version.dc`。
 - 若更新包包含 `remote/` 或 `required/`，且未在 `[file].add` 显式映射，会按默认规则隐式复制。
 - 添加 required 资源时会清理 `DLC/required/SKIP`。

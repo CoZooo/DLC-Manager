@@ -99,9 +99,17 @@ zh_cn = "示例提示"
 - **Allowed**: Relative or absolute path.
 - Relative paths are resolved against modpack root.
 
-#### `[basic].isInList` / `[basic].isHidden` / `[basic].AllowEnableByAll`
-- **Purpose**: List visibility and batch-enable behavior.
-- **Default**: `true`, `false`, `true`.
+#### `[basic].isInList`
+- **Purpose**: Whether this entry is shown in the DLC list.
+- **Default**: `true`.
+
+#### `[basic].isHidden`
+- **Purpose**: Hide this entry while still allowing dependency management.
+- **Default**: `false`.
+
+#### `[basic].AllowEnableByAll`
+- **Purpose**: Whether “Enable All” can affect this entry.
+- **Default**: `true`.
 
 #### `[basic].conflicts`
 - **Allowed**: string or array of identifiers.

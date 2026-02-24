@@ -108,8 +108,15 @@ zh_cn = """更新说明第1行
   - `replace`
   - `which` (`all`, `last`, `-1`, index, index list)
 
-#### `[update].remote` / `[update].required`
-- **Purpose**: Update existing remote/required entries by identifier.
+#### `[update].remote`
+- **Purpose**: Update existing remote entries by identifier.
+- **Key**: entry identifier.
+- **Value keys**:
+  - `curseforge`
+  - `modrinth`
+
+#### `[update].required`
+- **Purpose**: Update existing required entries by identifier.
 - **Key**: entry identifier.
 - **Value keys**:
   - `curseforge`
@@ -121,7 +128,7 @@ zh_cn = """更新说明第1行
   2. `[file].move`
   3. `[file].add`
   4. `[file].modify`
-  5. `[update].remote` / `[update].required`
+  5. `[update].remote` and `[update].required`
 - Version matching is based on current `DLC/info/version.dc`.
 - If update content contains `remote/` or `required/` and they are not explicitly mapped in `[file].add`, they are copied implicitly.
 - Adding required resources clears `DLC/required/SKIP`.

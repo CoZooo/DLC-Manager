@@ -99,9 +99,17 @@ zh_cn = "示例提示"
 - **可填**：相对路径或绝对路径。
 - 相对路径按整合包根目录解析。
 
-#### `[basic].isInList` / `[basic].isHidden` / `[basic].AllowEnableByAll`
-- **用途**：列表显示与批量启用行为控制。
-- **默认**：`true`、`false`、`true`。
+#### `[basic].isInList`
+- **用途**：是否在 DLC 列表中显示该条目。
+- **默认**：`true`。
+
+#### `[basic].isHidden`
+- **用途**：隐藏该条目，但仍参与依赖关系管理。
+- **默认**：`false`。
+
+#### `[basic].AllowEnableByAll`
+- **用途**：“全部开启”是否可作用于该条目。
+- **默认**：`true`。
 
 #### `[basic].conflicts`
 - **可填**：字符串或 identifier 数组。

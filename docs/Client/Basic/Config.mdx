@@ -68,10 +68,15 @@ taskTimeoutSeconds = 60
 - **Allowed**: String.
 - **Default**: `"tacz"`.
 
-#### `[paths].resourcepackRoot` / `[paths].datapackRoot`
-- **Purpose**: Default target directory names for each category.
+#### `[paths].resourcepackRoot`
+- **Purpose**: Default target directory name for resource packs.
 - **Allowed**: String.
-- **Default**: `"resourcepacks"` / `"datapacks"`.
+- **Default**: `"resourcepacks"`.
+
+#### `[paths].datapackRoot`
+- **Purpose**: Default target directory name for data packs.
+- **Allowed**: String.
+- **Default**: `"datapacks"`.
 
 #### `[ui].isEnableAllButtonShown`
 - **Purpose**: Show “Enable/Disable All”.
@@ -128,17 +133,30 @@ taskTimeoutSeconds = 60
   - `bottom_left`, `bottom`, `bottom_right`
 - **Default**: `"auto"`.
 
-#### `[ui].titleOffsetX` / `[ui].titleOffsetY`
-- **Purpose**: Button position offset (pixels).
+#### `[ui].titleOffsetX`
+- **Purpose**: Horizontal offset of the main menu button (pixels).
 - **Allowed**: Integer.
 - **Default**: `0`.
 
-#### `[ui].titleUpdateAnchor` / `[ui].titleUpdateOffsetX` / `[ui].titleUpdateOffsetY`
-- **Purpose**: Main menu update button (`U`) anchor and offset.
-- **Allowed**:
-  - anchor: `auto`, `top_left`, `top`, `top_right`, `left`, `center`, `right`, `bottom_left`, `bottom`, `bottom_right`
-  - offsets: Integer (`titleUpdateOffsetX`, `titleUpdateOffsetY`)
-- **Default**: `auto`, `0`, `0`.
+#### `[ui].titleOffsetY`
+- **Purpose**: Vertical offset of the main menu button (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
+
+#### `[ui].titleUpdateAnchor`
+- **Purpose**: Anchor of the main menu update button (`U`).
+- **Allowed**: `auto`, `top_left`, `top`, `top_right`, `left`, `center`, `right`, `bottom_left`, `bottom`, `bottom_right`.
+- **Default**: `auto`.
+
+#### `[ui].titleUpdateOffsetX`
+- **Purpose**: Horizontal offset of the update button (`U`) (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
+
+#### `[ui].titleUpdateOffsetY`
+- **Purpose**: Vertical offset of the update button (`U`) (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
 
 #### `[ui].noticeDisplayMode`
 - **Purpose**: Notice presentation mode.
@@ -148,20 +166,45 @@ taskTimeoutSeconds = 60
   - `main_menu_panel`
 - **Default**: `manager_button`.
 
-#### `[ui].noticeButtonAnchor` / `[ui].noticeButtonOffsetX` / `[ui].noticeButtonOffsetY`
-- **Purpose**: Main menu notice button position.
-- **Allowed**: String + integer offsets.
-- **Default**: `bottom_right`, `0`, `0`.
+#### `[ui].noticeButtonAnchor`
+- **Purpose**: Anchor of the main menu notice button.
+- **Allowed**: `top_left`, `top`, `top_right`, `left`, `center`, `right`, `bottom_left`, `bottom`, `bottom_right`.
+- **Default**: `bottom_right`.
 
-#### `[ui].noticePanelAnchor` / `[ui].noticePanelOffsetX` / `[ui].noticePanelOffsetY`
-- **Purpose**: Main menu notice panel position.
-- **Allowed**: String + integer offsets.
-- **Default**: `top_left`, `0`, `0`.
+#### `[ui].noticeButtonOffsetX`
+- **Purpose**: Horizontal offset of the main menu notice button (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
 
-#### `[ui].noticePanelWidth` / `[ui].noticePanelHeight`
-- **Purpose**: Main menu notice panel size.
+#### `[ui].noticeButtonOffsetY`
+- **Purpose**: Vertical offset of the main menu notice button (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
+
+#### `[ui].noticePanelAnchor`
+- **Purpose**: Anchor of the main menu notice panel.
+- **Allowed**: `top_left`, `top`, `top_right`, `left`, `center`, `right`, `bottom_left`, `bottom`, `bottom_right`.
+- **Default**: `top_left`.
+
+#### `[ui].noticePanelOffsetX`
+- **Purpose**: Horizontal offset of the main menu notice panel (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
+
+#### `[ui].noticePanelOffsetY`
+- **Purpose**: Vertical offset of the main menu notice panel (pixels).
+- **Allowed**: Integer.
+- **Default**: `0`.
+
+#### `[ui].noticePanelWidth`
+- **Purpose**: Width of the main menu notice panel.
 - **Allowed**: Integer (`0` means disabled).
-- **Default**: `0`, `0`.
+- **Default**: `0`.
+
+#### `[ui].noticePanelHeight`
+- **Purpose**: Height of the main menu notice panel.
+- **Allowed**: Integer (`0` means disabled).
+- **Default**: `0`.
 
 #### `[ui].modpackUrl`
 - **Purpose**: Modpack homepage URL used by pack update UI.
