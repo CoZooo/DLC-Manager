@@ -98,9 +98,18 @@ tasks.register('obfuscateJarYguard') {
     }
 }
 
+tasks.register('exportObfClasspathAll') {
+    group = 'build'
+    description = 'Export obfuscation classpath jars for all Architectury targets.'
+
+    dependsOn(gradle.includedBuild('arch1201').task(':exportObfClasspathAll'))
+    dependsOn(gradle.includedBuild('arch1211').task(':exportObfClasspathAll'))
+}
+
 tasks.register('obfuscateForge1201Yguard') {
     group = 'build'
     description = 'Obfuscate Forge 1.20.1 output jar with yGuard.'
+    dependsOn(gradle.includedBuild('arch1201').task(':forge:exportObfClasspath'))
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(
@@ -114,6 +123,7 @@ tasks.register('obfuscateForge1201Yguard') {
 tasks.register('obfuscateFabric1201Yguard') {
     group = 'build'
     description = 'Obfuscate Fabric 1.20.1 output jar with yGuard.'
+    dependsOn(gradle.includedBuild('arch1201').task(':fabric:exportObfClasspath'))
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(
@@ -127,6 +137,7 @@ tasks.register('obfuscateFabric1201Yguard') {
 tasks.register('obfuscateFabric1211Yguard') {
     group = 'build'
     description = 'Obfuscate Fabric 1.21.1 output jar with yGuard.'
+    dependsOn(gradle.includedBuild('arch1211').task(':fabric:exportObfClasspath'))
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(
@@ -140,6 +151,7 @@ tasks.register('obfuscateFabric1211Yguard') {
 tasks.register('obfuscateNeoForge1211Yguard') {
     group = 'build'
     description = 'Obfuscate NeoForge 1.21.1 output jar with yGuard.'
+    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:exportObfClasspath'))
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(

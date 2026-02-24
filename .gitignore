@@ -55,5 +55,6 @@ build/
 output/
 test/
 jar-obf-lib/
+obf-lib/
 jar-obfuscator-temp/
 tools/editor/dc-quicklook/Derived/

@@ -94,6 +94,7 @@ jar {
 }
 
 tasks.register('exportObfClasspath', Sync) {
+    dependsOn(':common:jar')
     from({
         def jars = [] as LinkedHashSet<File>
         [configurations.compileClasspath, configurations.runtimeClasspath].each { cfg ->
