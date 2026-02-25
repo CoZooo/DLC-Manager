@@ -12,9 +12,11 @@ import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.Locale;
 
 public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
     private static final int COLOR_GROUP = 0xFFBFD7FF;
@@ -263,11 +265,7 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                     Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                         Minecraft.getInstance().setScreen(screen);
                         if (accepted) {
-                            for (DlcServerItem conflict : conflicts.items) {
-                                if (conflict != null) {
-                                    conflict.enabled = false;
-                                }
-                            }
+                            screen.disableItemsWithDependents(conflicts.items);
                             enableItems(deps.missingItems, targets);
                         }
                     }, Component.translatable("dlc_manager.conflict.word"), message,
@@ -287,11 +285,7 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                 }
                 enableItems(deps.missingItems, targets);
             } else {
-                for (DlcServerItem item : items) {
-                    if (item != null) {
-                        item.enabled = false;
-                    }
-                }
+                screen.disableItemsWithDependents(items);
                 screen.updateApplyState();
             }
             if (button instanceof ButtonGeneric generic) {
@@ -322,26 +316,40 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
             if (targets == null || targets.isEmpty()) {
                 return batch;
             }
-            Set<String> targetIds = new LinkedHashSet<>();
+            Set<String> plannedIds = new LinkedHashSet<>();
+            Set<String> visited = new LinkedHashSet<>();
+            ArrayDeque<DlcServerItem> queue = new ArrayDeque<>();
             for (DlcServerItem item : targets) {
                 if (item != null && item.identifier != null) {
-                    targetIds.add(item.identifier);
+                    String key = normalizeIdentifier(item.identifier);
+                    if (!key.isBlank() && plannedIds.add(key)) {
+                        queue.add(item);
+                    }
                 }
             }
-            for (DlcServerItem item : targets) {
-                if (item == null || item.dependencies == null) {
+            while (!queue.isEmpty()) {
+                DlcServerItem item = queue.poll();
+                if (item == null || item.identifier == null) {
+                    continue;
+                }
+                String itemKey = normalizeIdentifier(item.identifier);
+                if (itemKey.isBlank() || !visited.add(itemKey)) {
+                    continue;
+                }
+                if (item.dependencies == null || item.dependencies.isEmpty()) {
                     continue;
                 }
                 for (String depId : item.dependencies) {
                     if (depId == null || depId.isBlank()) {
                         continue;
                     }
-                    if (targetIds.contains(depId)) {
+                    String depKey = normalizeIdentifier(depId);
+                    if (depKey.isBlank()) {
                         continue;
                     }
                     DlcServerItem dep = screen.getItemByIdentifier(depId);
                     if (dep == null || !dep.enabled) {
-                        if (batch.missingIds.add(depId)) {
+                        if (batch.missingIds.add(depKey)) {
                             String name = screen.resolveDisplayName(dep);
                             if (name == null || name.isBlank()) {
                                 name = depId;
@@ -350,6 +358,12 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                             if (dep != null) {
                                 batch.missingItems.add(dep);
                             }
+                        }
+                    }
+                    if (dep != null && dep.identifier != null) {
+                        String resolved = normalizeIdentifier(dep.identifier);
+                        if (!resolved.isBlank() && plannedIds.add(resolved)) {
+                            queue.add(dep);
                         }
                     }
                 }
@@ -362,34 +376,96 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
             if (targets == null || targets.isEmpty()) {
                 return batch;
             }
-            Set<String> targetIds = new LinkedHashSet<>();
+            Set<String> plannedIds = new LinkedHashSet<>();
+            Set<String> visited = new LinkedHashSet<>();
+            ArrayDeque<DlcServerItem> queue = new ArrayDeque<>();
             for (DlcServerItem item : targets) {
                 if (item != null && item.identifier != null) {
-                    targetIds.add(item.identifier);
+                    String key = normalizeIdentifier(item.identifier);
+                    if (!key.isBlank() && plannedIds.add(key)) {
+                        queue.add(item);
+                    }
                 }
             }
-            for (DlcServerItem item : targets) {
-                if (item == null || item.conflicts == null) {
+            while (!queue.isEmpty()) {
+                DlcServerItem item = queue.poll();
+                if (item == null || item.identifier == null) {
+                    continue;
+                }
+                String itemKey = normalizeIdentifier(item.identifier);
+                if (itemKey.isBlank() || !visited.add(itemKey)) {
+                    continue;
+                }
+                if (item.dependencies != null) {
+                    for (String depId : item.dependencies) {
+                        if (depId == null || depId.isBlank()) {
+                            continue;
+                        }
+                        DlcServerItem dep = screen.getItemByIdentifier(depId);
+                        if (dep != null && dep.identifier != null) {
+                            String depKey = normalizeIdentifier(dep.identifier);
+                            if (!depKey.isBlank() && plannedIds.add(depKey)) {
+                                queue.add(dep);
+                            }
+                        }
+                    }
+                }
+                if (item.conflicts == null || item.conflicts.isEmpty()) {
                     continue;
                 }
                 for (String conflictId : item.conflicts) {
                     if (conflictId == null || conflictId.isBlank()) {
                         continue;
                     }
-                    if (targetIds.contains(conflictId)) {
+                    String conflictKey = normalizeIdentifier(conflictId);
+                    if (conflictKey.isBlank() || plannedIds.contains(conflictKey)) {
                         continue;
                     }
                     DlcServerItem conflict = screen.getItemByIdentifier(conflictId);
                     if (conflict != null && conflict.enabled) {
-                        if (batch.conflictIds.add(conflictId)) {
+                        if (batch.conflictIds.add(conflictKey)) {
                             batch.names.add(screen.resolveDisplayName(conflict));
                             batch.items.add(conflict);
                         }
                     }
                 }
             }
+            for (DlcServerItem existing : screen.getItemsSnapshot()) {
+                if (existing == null || existing.identifier == null || existing.identifier.isBlank() || !existing.enabled) {
+                    continue;
+                }
+                String existingKey = normalizeIdentifier(existing.identifier);
+                if (existingKey.isBlank() || plannedIds.contains(existingKey)) {
+                    continue;
+                }
+                if (existing.conflicts == null || existing.conflicts.isEmpty()) {
+                    continue;
+                }
+                boolean hit = false;
+                for (String conflictId : existing.conflicts) {
+                    if (conflictId == null || conflictId.isBlank()) {
+                        continue;
+                    }
+                    String conflictKey = normalizeIdentifier(conflictId);
+                    if (!conflictKey.isBlank() && plannedIds.contains(conflictKey)) {
+                        hit = true;
+                        break;
+                    }
+                }
+                if (hit && batch.conflictIds.add(existingKey)) {
+                    batch.names.add(screen.resolveDisplayName(existing));
+                    batch.items.add(existing);
+                }
+            }
             return batch;
         }
+    }
+
+    private static String normalizeIdentifier(String identifier) {
+        if (identifier == null) {
+            return "";
+        }
+        return identifier.trim().toLowerCase(Locale.ROOT);
     }
 
     private static final class GroupToggleState {

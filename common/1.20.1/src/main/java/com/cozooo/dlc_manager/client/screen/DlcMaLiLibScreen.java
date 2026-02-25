@@ -1666,8 +1666,27 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             if (!accepted) {
                 return;
             }
-            enableItems(depsToEnable, true);
-            enableItems(targets, true);
+            java.util.ArrayList<DlcItem> planned = new java.util.ArrayList<>();
+            if (depsToEnable != null) {
+                planned.addAll(depsToEnable);
+            }
+            if (targets != null) {
+                planned.addAll(targets);
+            }
+            DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(planned);
+            if (!conflicts.getLines().isEmpty()) {
+                java.util.List<DlcItem> filteredTargets = filterConflictTargets(planned, conflicts);
+                if (filteredTargets.isEmpty()) {
+                    refreshAfterStateChange();
+                    return;
+                }
+                showBatchConflictSkipPrompt(conflicts.getLines(), () -> {
+                    enableItems(filteredTargets, true);
+                    refreshAfterStateChange();
+                });
+                return;
+            }
+            enableItems(planned, true);
             refreshAfterStateChange();
         }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
     }

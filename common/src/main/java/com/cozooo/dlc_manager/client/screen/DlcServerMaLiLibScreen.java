@@ -391,6 +391,10 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         return itemsByIdentifier.get(normalizeIdentifier(identifier));
     }
 
+    List<DlcServerItem> getItemsSnapshot() {
+        return new ArrayList<>(items);
+    }
+
     private DlcServerInfo buildInfoSnapshot() {
         DlcServerInfo info = new DlcServerInfo();
         info.items = new ArrayList<>(items);
@@ -450,6 +454,18 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         if (item == null) {
             return;
         }
+        ConflictCheck conflicts = checkConflicts(item);
+        if (!conflicts.conflicts.isEmpty()) {
+            Component message = Component.translatable("dlc_manager.conflict.prompt_prefix", String.join(", ", conflicts.conflictNames));
+            Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+                Minecraft.getInstance().setScreen(this);
+                if (accepted) {
+                    disableItemsWithDependents(conflicts.conflictItems);
+                    continueEnableWithChecks(item);
+                }
+            }, Component.translatable("dlc_manager.conflict.word"), message, Component.translatable("dlc_manager.conflict.resolve"), Component.translatable("gui.cancel")));
+            return;
+        }
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
             Component message = Component.translatable("dlc_manager.dependency.prompt", String.join(", ", deps.missingNames));
@@ -465,21 +481,6 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             }, Component.translatable("dlc_manager.dependency.enable"), message, Component.translatable("dlc_manager.dependency.enable"), Component.translatable("gui.cancel")));
             return;
         }
-        ConflictCheck conflicts = checkConflicts(item);
-        if (!conflicts.conflicts.isEmpty()) {
-            Component message = Component.translatable("dlc_manager.conflict.prompt_prefix", String.join(", ", conflicts.conflictNames));
-            Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
-                Minecraft.getInstance().setScreen(this);
-                if (accepted) {
-                    for (DlcServerItem conflict : conflicts.conflictItems) {
-                        conflict.enabled = false;
-                    }
-                    item.enabled = true;
-                    updateApplyState();
-                }
-            }, Component.translatable("dlc_manager.conflict.word"), message, Component.translatable("dlc_manager.conflict.resolve"), Component.translatable("gui.cancel")));
-            return;
-        }
         item.enabled = true;
         updateApplyState();
     }
@@ -488,7 +489,19 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         if (item == null) {
             return;
         }
-        Set<DlcServerItem> toDisable = collectDependentsRecursive(item);
+        disableItemsWithDependents(List.of(item));
+    }
+
+    void disableItemsWithDependents(java.util.Collection<DlcServerItem> itemsToDisable) {
+        if (itemsToDisable == null || itemsToDisable.isEmpty()) {
+            return;
+        }
+        Set<DlcServerItem> toDisable = new LinkedHashSet<>();
+        for (DlcServerItem item : itemsToDisable) {
+            if (item != null) {
+                toDisable.addAll(collectDependentsRecursive(item));
+            }
+        }
         for (DlcServerItem target : toDisable) {
             if (target != null) {
                 target.enabled = false;
@@ -718,15 +731,39 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         if (item == null || item.dependencies == null) {
             return check;
         }
-        for (String depId : item.dependencies) {
-            if (depId == null || depId.isBlank()) {
+        Set<String> visited = new LinkedHashSet<>();
+        ArrayDeque<DlcServerItem> queue = new ArrayDeque<>();
+        queue.add(item);
+        while (!queue.isEmpty()) {
+            DlcServerItem current = queue.poll();
+            if (current == null || current.identifier == null || current.identifier.isBlank()) {
                 continue;
             }
-            DlcServerItem dep = resolveDependencyItem(depId);
-            if (dep == null || !dep.enabled) {
-                check.missing.add(depId);
-                check.missingItems.add(dep);
-                check.missingNames.add(resolveDisplayName(dep));
+            String currentId = normalizeIdentifier(current.identifier);
+            if (currentId.isBlank() || !visited.add(currentId)) {
+                continue;
+            }
+            if (current.dependencies == null || current.dependencies.isEmpty()) {
+                continue;
+            }
+            for (String depId : current.dependencies) {
+                if (depId == null || depId.isBlank()) {
+                    continue;
+                }
+                DlcServerItem dep = resolveDependencyItem(depId);
+                if (dep == null || !dep.enabled) {
+                    String depKey = normalizeIdentifier(depId);
+                    if (!check.missing.contains(depKey)) {
+                        check.missing.add(depKey);
+                        check.missingNames.add(resolveDisplayName(dep));
+                    }
+                    if (dep != null && !check.missingItems.contains(dep)) {
+                        check.missingItems.add(dep);
+                    }
+                }
+                if (dep != null) {
+                    queue.add(dep);
+                }
             }
         }
         return check;
@@ -734,18 +771,84 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
     private ConflictCheck checkConflicts(DlcServerItem item) {
         ConflictCheck check = new ConflictCheck();
-        if (item == null || item.conflicts == null) {
+        if (item == null) {
             return check;
         }
-        for (String conflictId : item.conflicts) {
-            if (conflictId == null || conflictId.isBlank()) {
+        Set<String> plannedIds = new LinkedHashSet<>();
+        Set<String> visited = new LinkedHashSet<>();
+        ArrayDeque<DlcServerItem> queue = new ArrayDeque<>();
+        queue.add(item);
+        while (!queue.isEmpty()) {
+            DlcServerItem current = queue.poll();
+            if (current == null || current.identifier == null || current.identifier.isBlank()) {
                 continue;
             }
-            DlcServerItem conflict = resolveDependencyItem(conflictId);
-            if (conflict != null && conflict.enabled) {
-                check.conflicts.add(conflictId);
-                check.conflictItems.add(conflict);
-                check.conflictNames.add(resolveDisplayName(conflict));
+            String currentId = normalizeIdentifier(current.identifier);
+            if (currentId.isBlank() || !visited.add(currentId)) {
+                continue;
+            }
+            plannedIds.add(currentId);
+            if (current.dependencies != null) {
+                for (String depId : current.dependencies) {
+                    if (depId == null || depId.isBlank()) {
+                        continue;
+                    }
+                    DlcServerItem dep = resolveDependencyItem(depId);
+                    if (dep != null) {
+                        queue.add(dep);
+                    }
+                }
+            }
+        }
+
+        for (String plannedId : plannedIds) {
+            DlcServerItem planned = itemsByIdentifier.get(plannedId);
+            if (planned == null || planned.conflicts == null || planned.conflicts.isEmpty()) {
+                continue;
+            }
+            for (String conflictId : planned.conflicts) {
+                if (conflictId == null || conflictId.isBlank()) {
+                    continue;
+                }
+                String conflictKey = normalizeIdentifier(conflictId);
+                if (conflictKey.isBlank() || plannedIds.contains(conflictKey)) {
+                    continue;
+                }
+                DlcServerItem conflict = resolveDependencyItem(conflictId);
+                if (conflict != null && conflict.enabled && !check.conflicts.contains(conflictKey)) {
+                    check.conflicts.add(conflictKey);
+                    check.conflictItems.add(conflict);
+                    check.conflictNames.add(resolveDisplayName(conflict));
+                }
+            }
+        }
+
+        for (DlcServerItem existing : items) {
+            if (existing == null || existing.identifier == null || existing.identifier.isBlank() || !existing.enabled) {
+                continue;
+            }
+            String existingKey = normalizeIdentifier(existing.identifier);
+            if (existingKey.isBlank() || plannedIds.contains(existingKey)) {
+                continue;
+            }
+            if (existing.conflicts == null || existing.conflicts.isEmpty()) {
+                continue;
+            }
+            boolean hit = false;
+            for (String conflictId : existing.conflicts) {
+                if (conflictId == null || conflictId.isBlank()) {
+                    continue;
+                }
+                String conflictKey = normalizeIdentifier(conflictId);
+                if (!conflictKey.isBlank() && plannedIds.contains(conflictKey)) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (hit && !check.conflicts.contains(existingKey)) {
+                check.conflicts.add(existingKey);
+                check.conflictItems.add(existing);
+                check.conflictNames.add(resolveDisplayName(existing));
             }
         }
         return check;

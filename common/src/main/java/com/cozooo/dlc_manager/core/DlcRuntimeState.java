@@ -346,14 +346,41 @@ public final class DlcRuntimeState {
         if (targets == null || targets.isEmpty()) {
             return new ConflictBatchResult(lines);
         }
-        java.util.Set<String> targetIdentifiers = new java.util.HashSet<>();
+        java.util.Map<String, DlcItem> plannedById = new java.util.LinkedHashMap<>();
+        java.util.ArrayDeque<DlcItem> queue = new java.util.ArrayDeque<>();
         for (DlcItem item : targets) {
-            if (item != null && item.getIdentifier() != null) {
-                targetIdentifiers.add(item.getIdentifier());
+            if (item == null || item.getIdentifier() == null || item.getIdentifier().isBlank()) {
+                continue;
+            }
+            if (plannedById.putIfAbsent(item.getIdentifier(), item) == null) {
+                queue.add(item);
             }
         }
+        while (!queue.isEmpty()) {
+            DlcItem item = queue.poll();
+            if (item == null) {
+                continue;
+            }
+            java.util.List<String> deps = item.getDependencies();
+            if (deps == null || deps.isEmpty()) {
+                continue;
+            }
+            for (String depName : deps) {
+                if (depName == null || depName.isBlank()) {
+                    continue;
+                }
+                DlcItem depItem = getItemByIdentifier(depName);
+                if (depItem == null || depItem.getIdentifier() == null || depItem.getIdentifier().isBlank()) {
+                    continue;
+                }
+                if (plannedById.putIfAbsent(depItem.getIdentifier(), depItem) == null) {
+                    queue.add(depItem);
+                }
+            }
+        }
+        java.util.Set<String> targetIdentifiers = plannedById.keySet();
         java.util.Set<String> seen = new java.util.HashSet<>();
-        for (DlcItem item : targets) {
+        for (DlcItem item : plannedById.values()) {
             if (item == null) {
                 continue;
             }
@@ -371,24 +398,53 @@ public final class DlcRuntimeState {
                 }
                 boolean conflictEnabled = conflictItem.isEnabled() || targetIdentifiers.contains(conflictItem.getIdentifier());
                 if (conflictEnabled) {
-                    String a = item.getIdentifier();
-                    String b = conflictItem.getIdentifier();
-                    if (a == null || b == null) {
-                        continue;
-                    }
-                    String key = a.compareToIgnoreCase(b) <= 0 ? a + "|" + b : b + "|" + a;
-                    if (seen.add(key)) {
-                        if (a.compareToIgnoreCase(b) > 0) {
-                            String tmp = a;
-                            a = b;
-                            b = tmp;
-                        }
-                        lines.add(new ConflictLine(a, b));
-                    }
+                    addConflictLine(lines, seen, item.getIdentifier(), conflictItem.getIdentifier());
                 }
             }
         }
+        for (DlcItem existing : ITEMS_BY_IDENTIFIER.values()) {
+            if (existing == null || existing.getIdentifier() == null || existing.getIdentifier().isBlank()) {
+                continue;
+            }
+            if (targetIdentifiers.contains(existing.getIdentifier())) {
+                continue;
+            }
+            if (!existing.isEnabled()) {
+                continue;
+            }
+            java.util.List<String> conflicts = existing.getConflicts();
+            if (conflicts == null || conflicts.isEmpty()) {
+                continue;
+            }
+            for (String conflictName : conflicts) {
+                if (conflictName == null || conflictName.isBlank()) {
+                    continue;
+                }
+                if (!targetIdentifiers.contains(conflictName)) {
+                    continue;
+                }
+                addConflictLine(lines, seen, existing.getIdentifier(), conflictName);
+            }
+        }
         return new ConflictBatchResult(lines);
+    }
+
+    private static void addConflictLine(java.util.List<ConflictLine> lines, java.util.Set<String> seen, String left, String right) {
+        if (left == null || right == null || left.isBlank() || right.isBlank()) {
+            return;
+        }
+        String a = left;
+        String b = right;
+        String key = a.compareToIgnoreCase(b) <= 0 ? a + "|" + b : b + "|" + a;
+        if (!seen.add(key)) {
+            return;
+        }
+        if (a.compareToIgnoreCase(b) > 0) {
+            String tmp = a;
+            a = b;
+            b = tmp;
+        }
+        lines.add(new ConflictLine(a, b));
     }
 
     public static java.util.Set<String> collectMissingDependencyIdentifiers(DlcItem item) {

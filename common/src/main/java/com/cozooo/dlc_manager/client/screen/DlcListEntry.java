@@ -598,20 +598,35 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     }
 
     private static ConflictCheck getConflicts(DlcItem item) {
-        java.util.List<String> conflicts = item.getConflicts();
-        if (conflicts == null || conflicts.isEmpty()) {
+        if (item == null) {
             return new ConflictCheck(java.util.List.of(), java.util.List.of());
+        }
+        DlcRuntimeState.ConflictBatchResult batch = DlcRuntimeState.collectConflicts(java.util.List.of(item));
+        if (batch.getLines().isEmpty()) {
+            return new ConflictCheck(java.util.List.of(), java.util.List.of());
+        }
+        String rootId = item.getIdentifier();
+        java.util.Set<String> conflictIds = new java.util.LinkedHashSet<>();
+        for (DlcRuntimeState.ConflictLine line : batch.getLines()) {
+            String left = line.getLeftName();
+            String right = line.getRightName();
+            if (left != null && !left.isBlank() && (rootId == null || !left.equals(rootId))) {
+                conflictIds.add(left);
+            }
+            if (right != null && !right.isBlank() && (rootId == null || !right.equals(rootId))) {
+                conflictIds.add(right);
+            }
         }
         java.util.List<DlcItem> toDisable = new java.util.ArrayList<>();
         java.util.List<String> names = new java.util.ArrayList<>();
-        for (String name : conflicts) {
-            if (name == null || name.isBlank()) {
+        for (String identifier : conflictIds) {
+            if (identifier == null || identifier.isBlank()) {
                 continue;
             }
-        DlcItem conflictItem = DlcRuntimeState.getItemByIdentifier(name);
+            DlcItem conflictItem = DlcRuntimeState.getItemByIdentifier(identifier);
             if (conflictItem != null && conflictItem.isEnabled()) {
                 toDisable.add(conflictItem);
-                names.add(DlcDisplayNameUtil.resolveDisplayName(name));
+                names.add(DlcDisplayNameUtil.resolveDisplayName(identifier));
             }
         }
         return new ConflictCheck(names, toDisable);
@@ -717,8 +732,27 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             if (!accepted) {
                 return;
             }
-            enableItems(depsToEnable, true);
-            enableItems(targets, true);
+            java.util.ArrayList<DlcItem> planned = new java.util.ArrayList<>();
+            if (depsToEnable != null) {
+                planned.addAll(depsToEnable);
+            }
+            if (targets != null) {
+                planned.addAll(targets);
+            }
+            DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(planned);
+            if (!conflicts.getLines().isEmpty()) {
+                java.util.List<DlcItem> filtered = filterConflictTargets(planned, conflicts);
+                showBatchConflictPrompt(conflicts.getLines(), () -> {
+                    if (!filtered.isEmpty()) {
+                        enableItems(filtered, true);
+                    }
+                    if (returnScreen instanceof DlcMaLiLibScreen screen) {
+                        screen.refreshAfterStateChange();
+                    }
+                });
+                return;
+            }
+            enableItems(planned, true);
             if (returnScreen instanceof DlcMaLiLibScreen screen) {
                 screen.refreshAfterStateChange();
             }
@@ -770,13 +804,8 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             if (!accepted) {
                 return;
             }
-            for (DlcItem conflict : conflicts.items) {
-                conflict.setEnabled(false);
-                DlcRuntimeState.setOverride(conflict.getId(), false);
-            }
-            item.setEnabled(true);
-            DlcRuntimeState.setOverride(item.getId(), true);
-            updateToggleButtonLabel(button, item);
+            disableItemsWithDependents(conflicts.items);
+            attemptEnable(item, button);
             if (returnScreen instanceof DlcMaLiLibScreen screen) {
                 screen.refreshAfterStateChange();
             }
