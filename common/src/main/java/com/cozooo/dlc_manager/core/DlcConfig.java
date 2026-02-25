@@ -28,20 +28,33 @@ public class DlcConfig {
         Json5Util.migrateLegacy(legacy, GSON);
         configPath = Json5Util.resolveConfigPath(configDir, "state");
         configPath = Json5Util.migrateLegacy(configPath, GSON);
+        boolean migrateLegacyStateSection = false;
         if (configPath != null && Files.exists(configPath)) {
             try {
                 com.google.gson.JsonObject root = DcConfigIO.read(configPath, DcConfigIO.Layout.GENERIC);
                 if (root != null) {
                     DlcConfigData data = GSON.fromJson(root, DlcConfigData.class);
-                    if (data != null && data.stateById != null) {
-                        stateById = new HashMap<>(data.stateById);
+                    if (data != null && data.DLC == null && data.stateById != null) {
+                        migrateLegacyStateSection = true;
+                    }
+                    Map<String, DlcState> loaded = selectStateMap(data);
+                    if (loaded != null && !loaded.isEmpty()) {
+                        stateById = new HashMap<>(loaded);
+                    } else {
+                        Map<String, DlcState> recovered = recoverFlattenedStateMap(root);
+                        if (!recovered.isEmpty()) {
+                            stateById = recovered;
+                        } else if (loaded != null) {
+                            stateById = new HashMap<>(loaded);
+                        }
                     }
                 }
             } catch (Exception ignored) {
                 stateById = new HashMap<>();
             }
         }
-        boolean migrated = migrateStoredPaths();
+        boolean migrated = migrateLegacyStateSection;
+        migrated = migrateStoredPaths() || migrated;
         migrated = migrateStateIds() || migrated;
         migrated = normalizeEnabledStates() || migrated;
         if (migrated) {
@@ -53,7 +66,7 @@ public class DlcConfig {
         try {
             Files.createDirectories(configPath.getParent());
             DlcConfigData data = new DlcConfigData();
-            data.stateById = stateById;
+            data.DLC = stateById;
             com.google.gson.JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
             DcConfigIO.write(configPath, root, DcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
@@ -78,7 +91,18 @@ public class DlcConfig {
     }
 
     private static class DlcConfigData {
+        Map<String, DlcState> DLC;
         Map<String, DlcState> stateById;
+    }
+
+    private static Map<String, DlcState> selectStateMap(DlcConfigData data) {
+        if (data == null) {
+            return null;
+        }
+        if (data.DLC != null) {
+            return data.DLC;
+        }
+        return data.stateById;
     }
 
     private static boolean migrateStoredPaths() {
@@ -252,5 +276,34 @@ public class DlcConfig {
         } catch (Exception ignored) {
         }
         return key;
+    }
+
+    private static Map<String, DlcState> recoverFlattenedStateMap(com.google.gson.JsonObject root) {
+        Map<String, DlcState> recovered = new HashMap<>();
+        if (root == null || root.entrySet().isEmpty()) {
+            return recovered;
+        }
+        for (Map.Entry<String, com.google.gson.JsonElement> entry : root.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || key.isBlank() || "DLC".equalsIgnoreCase(key) || "stateById".equalsIgnoreCase(key)) {
+                continue;
+            }
+            com.google.gson.JsonElement value = entry.getValue();
+            if (value == null || !value.isJsonObject()) {
+                continue;
+            }
+            com.google.gson.JsonObject obj = value.getAsJsonObject();
+            if (!obj.has("enabled") && !obj.has("appliedTargets")) {
+                continue;
+            }
+            try {
+                DlcState state = GSON.fromJson(obj, DlcState.class);
+                if (state != null) {
+                    recovered.put(key, state);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return recovered;
     }
 }

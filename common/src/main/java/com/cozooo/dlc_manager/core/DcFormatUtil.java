@@ -294,7 +294,7 @@ public final class DcFormatUtil {
             return "";
         }
         StringBuilder out = new StringBuilder(512);
-        writeGenericObject(out, obj);
+        writeGenericObject(out, obj, 0);
         return out.toString();
     }
 
@@ -313,30 +313,32 @@ public final class DcFormatUtil {
         }
     }
 
-    private static void writeGenericObject(StringBuilder out, JsonObject obj) {
-        boolean wrotePrimitive = false;
+    private static void writeGenericObject(StringBuilder out, JsonObject obj, int indent) {
+        boolean wroteAny = false;
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             JsonElement value = entry.getValue();
             if (value != null && value.isJsonObject()) {
                 continue;
             }
+            indentLine(out, indent);
             out.append(entry.getKey())
                 .append(" = ")
                 .append(formatGenericValue(entry.getKey(), value))
                 .append('\n');
-            wrotePrimitive = true;
+            wroteAny = true;
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             JsonElement value = entry.getValue();
             if (value == null || !value.isJsonObject()) {
                 continue;
             }
-            if (wrotePrimitive || out.length() > 0) {
+            if (wroteAny) {
                 out.append('\n');
             }
+            indentLine(out, indent);
             out.append('[').append(entry.getKey()).append(']').append('\n');
-            writeGenericObject(out, value.getAsJsonObject());
-            wrotePrimitive = true;
+            writeGenericObject(out, value.getAsJsonObject(), indent + 2);
+            wroteAny = true;
         }
     }
 
