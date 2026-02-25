@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class DlcPresetRuntimeState {
+    private static final String PRESET_REF_PREFIX = "preset:";
     private static final Map<String, DlcPresetEntry> PRESETS_BY_ID = new LinkedHashMap<>();
     private static final Set<String> ENABLED_PRESETS = new LinkedHashSet<>();
     private static final Set<String> LAST_APPLIED_IDENTIFIERS = new LinkedHashSet<>();
@@ -240,13 +241,15 @@ public final class DlcPresetRuntimeState {
         Map<String, Set<String>> dlcBlockers = new LinkedHashMap<>();
         Map<String, Set<String>> presetBlockers = new LinkedHashMap<>();
         Map<String, Set<String>> activeEnabledOwners = new LinkedHashMap<>();
+        Map<String, Set<String>> enableCache = new LinkedHashMap<>();
+        Map<String, Set<String>> conflictCache = new LinkedHashMap<>();
         for (String presetId : ENABLED_PRESETS) {
             DlcPresetEntry preset = PRESETS_BY_ID.get(presetId);
             if (preset == null) {
                 continue;
             }
             boolean partial = preset.getStatus() == DlcPresetStatus.PART;
-            for (String enable : preset.getEnable()) {
+            for (String enable : resolveEnableIdentifiersForPreset(preset.getId(), enableCache, new LinkedHashSet<>())) {
                 if (enable == null || enable.isBlank()) {
                     continue;
                 }
@@ -258,7 +261,7 @@ public final class DlcPresetRuntimeState {
                 }
                 activeEnabledOwners.computeIfAbsent(enable, key -> new LinkedHashSet<>()).add(presetId);
             }
-            for (String conflict : preset.getConflicts()) {
+            for (String conflict : resolveConflictIdentifiersForPreset(preset.getId(), enableCache, conflictCache, new LinkedHashSet<>(), new LinkedHashSet<>())) {
                 if (conflict == null || conflict.isBlank()) {
                     continue;
                 }
@@ -292,7 +295,7 @@ public final class DlcPresetRuntimeState {
                 if (ENABLED_PRESETS.contains(preset.getId())) {
                     continue;
                 }
-                for (String enable : preset.getEnable()) {
+                for (String enable : resolveEnableIdentifiersForPreset(preset.getId(), enableCache, new LinkedHashSet<>())) {
                     if (enable == null || enable.isBlank()) {
                         continue;
                     }
@@ -315,7 +318,7 @@ public final class DlcPresetRuntimeState {
             return DlcPresetStatus.OFF;
         }
         boolean allEnabled = true;
-        for (String identifier : entry.getEnable()) {
+        for (String identifier : resolveEnableIdentifiersForPreset(entry.getId(), new LinkedHashMap<>(), new LinkedHashSet<>())) {
             if (identifier == null || identifier.isBlank()) {
                 continue;
             }
@@ -356,13 +359,15 @@ public final class DlcPresetRuntimeState {
     private static void applyOverrides() {
         Set<String> desiredEnable = new LinkedHashSet<>();
         Set<String> desiredDisable = new LinkedHashSet<>();
+        Map<String, Set<String>> enableCache = new LinkedHashMap<>();
+        Map<String, Set<String>> conflictCache = new LinkedHashMap<>();
         for (String presetId : ENABLED_PRESETS) {
             DlcPresetEntry preset = PRESETS_BY_ID.get(presetId);
             if (preset == null) {
                 continue;
             }
             boolean partial = preset.getStatus() == DlcPresetStatus.PART;
-            for (String enable : preset.getEnable()) {
+            for (String enable : resolveEnableIdentifiersForPreset(preset.getId(), enableCache, new LinkedHashSet<>())) {
                 if (enable == null || enable.isBlank()) {
                     continue;
                 }
@@ -375,7 +380,7 @@ public final class DlcPresetRuntimeState {
                     desiredEnable.add(enable);
                 }
             }
-            for (String conflict : preset.getConflicts()) {
+            for (String conflict : resolveConflictIdentifiersForPreset(preset.getId(), enableCache, conflictCache, new LinkedHashSet<>(), new LinkedHashSet<>())) {
                 if (conflict == null || conflict.isBlank()) {
                     continue;
                 }
@@ -417,6 +422,140 @@ public final class DlcPresetRuntimeState {
 
         LAST_APPLIED_IDENTIFIERS.clear();
         LAST_APPLIED_IDENTIFIERS.addAll(desiredAll);
+    }
+
+    public static Set<String> resolveEffectiveEnableIdentifiers(String presetId) {
+        return resolveEnableIdentifiersForPreset(presetId, new LinkedHashMap<>(), new LinkedHashSet<>());
+    }
+
+    public static Set<String> resolveEffectiveConflictIdentifiers(String presetId) {
+        Map<String, Set<String>> enableCache = new LinkedHashMap<>();
+        return resolveConflictIdentifiersForPreset(presetId, enableCache, new LinkedHashMap<>(), new LinkedHashSet<>(), new LinkedHashSet<>());
+    }
+
+    private static Set<String> resolveEnableIdentifiersForPreset(String presetId,
+                                                                 Map<String, Set<String>> cache,
+                                                                 Set<String> stack) {
+        if (presetId == null || presetId.isBlank()) {
+            return Set.of();
+        }
+        Set<String> cached = cache.get(presetId);
+        if (cached != null) {
+            return cached;
+        }
+        if (!stack.add(presetId)) {
+            return Set.of();
+        }
+        DlcPresetEntry preset = PRESETS_BY_ID.get(presetId);
+        if (preset == null) {
+            stack.remove(presetId);
+            return Set.of();
+        }
+        Set<String> result = new LinkedHashSet<>();
+        for (String token : preset.getEnable()) {
+            String value = normalizeToken(token);
+            if (value.isBlank()) {
+                continue;
+            }
+            String refPresetId = resolvePresetReference(value);
+            if (refPresetId != null) {
+                result.addAll(resolveEnableIdentifiersForPreset(refPresetId, cache, stack));
+            } else {
+                result.add(value);
+            }
+        }
+        stack.remove(presetId);
+        Set<String> unmodifiable = java.util.Collections.unmodifiableSet(new LinkedHashSet<>(result));
+        cache.put(presetId, unmodifiable);
+        return unmodifiable;
+    }
+
+    private static Set<String> resolveConflictIdentifiersForPreset(String presetId,
+                                                                   Map<String, Set<String>> enableCache,
+                                                                   Map<String, Set<String>> conflictCache,
+                                                                   Set<String> stack,
+                                                                   Set<String> enableStack) {
+        if (presetId == null || presetId.isBlank()) {
+            return Set.of();
+        }
+        Set<String> cached = conflictCache.get(presetId);
+        if (cached != null) {
+            return cached;
+        }
+        if (!stack.add(presetId)) {
+            return Set.of();
+        }
+        DlcPresetEntry preset = PRESETS_BY_ID.get(presetId);
+        if (preset == null) {
+            stack.remove(presetId);
+            return Set.of();
+        }
+        Set<String> result = new LinkedHashSet<>();
+        for (String token : preset.getConflicts()) {
+            String value = normalizeToken(token);
+            if (value.isBlank()) {
+                continue;
+            }
+            String refPresetId = resolvePresetReference(value);
+            if (refPresetId != null) {
+                result.addAll(resolveEnableIdentifiersForPreset(refPresetId, enableCache, enableStack));
+            } else {
+                result.add(value);
+            }
+        }
+        stack.remove(presetId);
+        Set<String> unmodifiable = java.util.Collections.unmodifiableSet(new LinkedHashSet<>(result));
+        conflictCache.put(presetId, unmodifiable);
+        return unmodifiable;
+    }
+
+    private static String resolvePresetReference(String token) {
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        boolean forcedPreset = false;
+        String value = token.trim();
+        if (value.regionMatches(true, 0, PRESET_REF_PREFIX, 0, PRESET_REF_PREFIX.length())) {
+            forcedPreset = true;
+            value = value.substring(PRESET_REF_PREFIX.length()).trim();
+            if (value.isBlank()) {
+                return null;
+            }
+        }
+        String resolved = findPresetId(value);
+        if (resolved == null) {
+            return null;
+        }
+        if (!forcedPreset && DlcRuntimeState.getItemByIdentifier(value) != null) {
+            return null;
+        }
+        return resolved;
+    }
+
+    private static String findPresetId(String value) {
+        DlcPresetEntry exact = PRESETS_BY_ID.get(value);
+        if (exact != null && exact.getId() != null && !exact.getId().isBlank()) {
+            return exact.getId();
+        }
+        for (DlcPresetEntry entry : PRESETS_BY_ID.values()) {
+            if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
+                continue;
+            }
+            if (entry.getId().equalsIgnoreCase(value)) {
+                return entry.getId();
+            }
+            if (entry.getFileName() != null && !entry.getFileName().isBlank() && entry.getFileName().equalsIgnoreCase(value)) {
+                return entry.getId();
+            }
+        }
+        return null;
+    }
+
+    private static String normalizeToken(String token) {
+        if (token == null) {
+            return "";
+        }
+        return token.trim();
     }
 
     private static Set<String> collectInfoConflicts(Set<String> enabledIdentifiers) {
