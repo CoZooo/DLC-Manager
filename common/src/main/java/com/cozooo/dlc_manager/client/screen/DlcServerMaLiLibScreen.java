@@ -894,6 +894,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
                 }
             }
         }
+        desiredDisable.addAll(collectInfoConflicts(desiredEnable));
         desiredDisable = expandDisabledByDependents(desiredDisable);
         desiredEnable.removeAll(desiredDisable);
         Set<String> desiredAll = new LinkedHashSet<>(desiredEnable);
@@ -916,11 +917,39 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         for (String identifier : toDisable) {
             DlcServerItem item = getItemByIdentifier(identifier);
             if (item != null) {
-                item.enabled = false;
+                Boolean base = baseline.get(item.id);
+                item.enabled = base != null ? base : false;
             }
         }
         presetAppliedIdentifiers.clear();
         presetAppliedIdentifiers.addAll(desiredAll);
+    }
+
+    private Set<String> collectInfoConflicts(Set<String> enabledIdentifiers) {
+        Set<String> result = new LinkedHashSet<>();
+        if (enabledIdentifiers == null || enabledIdentifiers.isEmpty()) {
+            return result;
+        }
+        for (String identifier : enabledIdentifiers) {
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            DlcServerItem item = getItemByIdentifier(identifier);
+            if (item == null || item.conflicts == null || item.conflicts.isEmpty()) {
+                continue;
+            }
+            for (String conflict : item.conflicts) {
+                String key = normalizeIdentifier(conflict);
+                if (key.isBlank()) {
+                    continue;
+                }
+                if (enabledIdentifiers.contains(key)) {
+                    continue;
+                }
+                result.add(key);
+            }
+        }
+        return result;
     }
 
     private Set<String> expandDisabledByDependents(Set<String> disabledIdentifiers) {

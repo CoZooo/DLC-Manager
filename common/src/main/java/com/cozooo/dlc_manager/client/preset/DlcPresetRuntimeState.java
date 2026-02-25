@@ -239,16 +239,49 @@ public final class DlcPresetRuntimeState {
     private static void rebuildBlocks() {
         Map<String, Set<String>> dlcBlockers = new LinkedHashMap<>();
         Map<String, Set<String>> presetBlockers = new LinkedHashMap<>();
+        Map<String, Set<String>> activeEnabledOwners = new LinkedHashMap<>();
         for (String presetId : ENABLED_PRESETS) {
             DlcPresetEntry preset = PRESETS_BY_ID.get(presetId);
             if (preset == null) {
                 continue;
+            }
+            boolean partial = preset.getStatus() == DlcPresetStatus.PART;
+            for (String enable : preset.getEnable()) {
+                if (enable == null || enable.isBlank()) {
+                    continue;
+                }
+                if (partial) {
+                    DlcItem item = DlcRuntimeState.getItemByIdentifier(enable);
+                    if (item == null || !item.isEnabled()) {
+                        continue;
+                    }
+                }
+                activeEnabledOwners.computeIfAbsent(enable, key -> new LinkedHashSet<>()).add(presetId);
             }
             for (String conflict : preset.getConflicts()) {
                 if (conflict == null || conflict.isBlank()) {
                     continue;
                 }
                 dlcBlockers.computeIfAbsent(conflict, key -> new LinkedHashSet<>()).add(presetId);
+            }
+        }
+        if (!activeEnabledOwners.isEmpty()) {
+            for (Map.Entry<String, Set<String>> entry : activeEnabledOwners.entrySet()) {
+                String identifier = entry.getKey();
+                DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
+                if (item == null || item.getConflicts() == null || item.getConflicts().isEmpty()) {
+                    continue;
+                }
+                Set<String> owners = entry.getValue();
+                for (String conflict : item.getConflicts()) {
+                    if (conflict == null || conflict.isBlank()) {
+                        continue;
+                    }
+                    if (activeEnabledOwners.containsKey(conflict)) {
+                        continue;
+                    }
+                    dlcBlockers.computeIfAbsent(conflict, key -> new LinkedHashSet<>()).addAll(owners);
+                }
             }
         }
         if (!dlcBlockers.isEmpty()) {
@@ -349,6 +382,7 @@ public final class DlcPresetRuntimeState {
                 desiredDisable.add(conflict);
             }
         }
+        desiredDisable.addAll(collectInfoConflicts(desiredEnable));
         desiredDisable = expandDisabledByDependents(desiredDisable);
         desiredEnable.removeAll(desiredDisable);
 
@@ -383,6 +417,36 @@ public final class DlcPresetRuntimeState {
 
         LAST_APPLIED_IDENTIFIERS.clear();
         LAST_APPLIED_IDENTIFIERS.addAll(desiredAll);
+    }
+
+    private static Set<String> collectInfoConflicts(Set<String> enabledIdentifiers) {
+        Set<String> result = new LinkedHashSet<>();
+        if (enabledIdentifiers == null || enabledIdentifiers.isEmpty()) {
+            return result;
+        }
+        for (String identifier : enabledIdentifiers) {
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
+            if (item == null) {
+                continue;
+            }
+            List<String> conflicts = item.getConflicts();
+            if (conflicts == null || conflicts.isEmpty()) {
+                continue;
+            }
+            for (String conflict : conflicts) {
+                if (conflict == null || conflict.isBlank()) {
+                    continue;
+                }
+                if (enabledIdentifiers.contains(conflict)) {
+                    continue;
+                }
+                result.add(conflict);
+            }
+        }
+        return result;
     }
 
     private static Set<String> expandDisabledByDependents(Set<String> disabledIdentifiers) {
