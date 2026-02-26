@@ -50,6 +50,10 @@ public final class DlcUpdateService {
     private static final String PLATFORM_CLIENT = "client";
     private static final String PLATFORM_SERVER = "server";
     private static final String PLATFORM_UNIVERSAL = "universal";
+    private static final int MATCH_NONE = 0;
+    private static final int MATCH_WILDCARD = 1;
+    private static final int MATCH_RANGE = 2;
+    private static final int MATCH_EXACT = 3;
 
     private DlcUpdateService() {
     }
@@ -102,10 +106,10 @@ public final class DlcUpdateService {
             if (!hasVersionTransition(info)) {
                 continue;
             }
-            if (!base.equals(sourceBaseVersion(info))) {
+            if (!sourceBaseMatches(base, info)) {
                 continue;
             }
-            if (targetOld.equals(sourceDlcVersion(info)) && targetNew.equals(targetDlcVersion(info))) {
+            if (sourceDlcMatches(targetOld, info) && targetNew.equals(targetDlcVersion(info))) {
                 return pkg;
             }
         }
@@ -379,8 +383,8 @@ public final class DlcUpdateService {
         DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
         return hasVersionTransition(info)
             && isPlatformCompatible(info)
-            && safeVersion(current.getBase()).equals(sourceBaseVersion(info))
-            && safeVersion(current.getDlc()).equals(sourceDlcVersion(info));
+            && sourceBaseMatches(safeVersion(current.getBase()), info)
+            && sourceDlcMatches(safeVersion(current.getDlc()), info);
     }
 
     public static boolean importUpdatePackage(Path zipPath) {
@@ -591,7 +595,7 @@ public final class DlcUpdateService {
         if (!ignoreRollback && version.getRollbackFrom() != null && !version.getRollbackFrom().isBlank()) {
             boolean hasNewer = packages.stream().anyMatch(pkg -> {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-                return info != null && version.getRollbackFrom().equals(sourceDlcVersion(info));
+                return info != null && sourceDlcMatches(version.getRollbackFrom(), info);
             });
             if (!hasNewer) {
                 return List.of();
@@ -611,16 +615,16 @@ public final class DlcUpdateService {
                 if (!hasVersionTransition(info)) {
                     continue;
                 }
-                if (currentBase.equals(sourceBaseVersion(info)) && currentDlc.equals(sourceDlcVersion(info))) {
+                if (sourceBaseMatches(currentBase, info) && sourceDlcMatches(currentDlc, info)) {
                     candidates.add(pkg);
                 }
             }
             if (candidates.isEmpty()) {
                 break;
             }
-            candidates.sort(Comparator
-                .comparing((DlcUpdatePackage pkg) -> targetBaseVersion(pkg.getManifest().getVersion()), DlcUpdateService::compareVersion)
-                .thenComparing(pkg -> targetDlcVersion(pkg.getManifest().getVersion()), DlcUpdateService::compareVersion));
+            final String stepBase = currentBase;
+            final String stepDlc = currentDlc;
+            candidates.sort((left, right) -> compareCandidateByPriority(stepBase, stepDlc, left, right));
             DlcUpdatePackage chosen = candidates.get(0);
             chain.add(chosen);
             remaining.remove(chosen);
@@ -648,7 +652,7 @@ public final class DlcUpdateService {
         if (!ignoreRollback && version.getRollbackFrom() != null && !version.getRollbackFrom().isBlank()) {
             boolean hasNewer = packages.stream().anyMatch(pkg -> {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-                return info != null && version.getRollbackFrom().equals(sourceDlcVersion(info));
+                return info != null && sourceDlcMatches(version.getRollbackFrom(), info);
             });
             if (!hasNewer) {
                 return List.of();
@@ -668,12 +672,6 @@ public final class DlcUpdateService {
         if (filtered.isEmpty()) {
             return List.of();
         }
-        java.util.Map<String, List<DlcUpdatePackage>> byOld = new java.util.HashMap<>();
-        for (DlcUpdatePackage pkg : filtered) {
-            DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-            String oldState = stateKey(sourceBaseVersion(info), sourceDlcVersion(info));
-            byOld.computeIfAbsent(oldState, k -> new ArrayList<>()).add(pkg);
-        }
         java.util.ArrayDeque<PathNode> queue = new java.util.ArrayDeque<>();
         java.util.Set<String> visited = new java.util.HashSet<>();
         queue.add(new PathNode(startBase, startDlc, new ArrayList<>()));
@@ -683,11 +681,16 @@ public final class DlcUpdateService {
             if (node.dlc.equals(target)) {
                 return node.path;
             }
-            List<DlcUpdatePackage> nextPkgs = byOld.get(stateKey(node.base, node.dlc));
-            if (nextPkgs == null || nextPkgs.isEmpty()) {
-                continue;
+            List<DlcUpdatePackage> nodeCandidates = new ArrayList<>();
+            for (DlcUpdatePackage pkg : filtered) {
+                DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
+                if (!sourceBaseMatches(node.base, info) || !sourceDlcMatches(node.dlc, info)) {
+                    continue;
+                }
+                nodeCandidates.add(pkg);
             }
-            for (DlcUpdatePackage pkg : nextPkgs) {
+            nodeCandidates.sort((left, right) -> compareCandidateByPriority(node.base, node.dlc, left, right));
+            for (DlcUpdatePackage pkg : nodeCandidates) {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
                 String nextBase = targetBaseVersion(info);
                 String nextDlc = targetDlcVersion(info);
@@ -717,7 +720,7 @@ public final class DlcUpdateService {
         if (targetOld.isEmpty()) {
             return List.of();
         }
-        DlcUpdatePackage targetPkg = null;
+        List<DlcUpdatePackage> targetCandidates = new ArrayList<>();
         String base = safeVersion(version.getBase());
         for (DlcUpdatePackage pkg : packages) {
             if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
@@ -727,20 +730,21 @@ public final class DlcUpdateService {
             if (!hasVersionTransition(info)) {
                 continue;
             }
-            if (!base.equals(sourceBaseVersion(info))) {
+            if (!sourceBaseMatches(base, info)) {
                 continue;
             }
-            if (targetOld.equals(sourceDlcVersion(info)) && targetNew.equals(targetDlcVersion(info))) {
-                targetPkg = pkg;
-                break;
+            if (sourceDlcMatches(targetOld, info) && targetNew.equals(targetDlcVersion(info))) {
+                targetCandidates.add(pkg);
             }
         }
+        targetCandidates.sort((left, right) -> compareCandidateByPriority(base, targetOld, left, right));
+        DlcUpdatePackage targetPkg = targetCandidates.isEmpty() ? null : targetCandidates.get(0);
         if (targetPkg == null) {
             return List.of();
         }
         String currentBase = safeVersion(version.getBase());
         String currentDlc = safeVersion(version.getDlc());
-        if (currentDlc.equals(targetOld) && currentBase.equals(sourceBaseVersion(targetPkg.getManifest().getVersion()))) {
+        if (versionSpecMatches(currentDlc, targetOld) && sourceBaseMatches(currentBase, targetPkg.getManifest().getVersion())) {
             return List.of(targetPkg);
         }
         List<DlcUpdatePackage> prefix = resolveUpdateChainTo(version, packages, targetOld, ignoreRollback);
@@ -776,8 +780,8 @@ public final class DlcUpdateService {
         }
         String base = safeVersion(current.getBase());
         String dlc = safeVersion(current.getDlc());
-        return base.equals(sourceBaseVersion(info))
-            && dlc.equals(sourceDlcVersion(info));
+        return sourceBaseMatches(base, info)
+            && sourceDlcMatches(dlc, info);
     }
 
     private static List<String> findMissingModifyTargets(DlcUpdateManifest manifest, Path gameDir) {
@@ -2409,6 +2413,229 @@ public final class DlcUpdateService {
 
     private static String sourceBaseVersion(DlcUpdateManifest.VersionInfo info) {
         return info == null ? safeVersion(null) : safeVersion(info.getBase());
+    }
+
+    private static boolean sourceBaseMatches(String currentVersion, DlcUpdateManifest.VersionInfo info) {
+        return versionSpecMatchLevel(currentVersion, sourceBaseVersion(info)) > MATCH_NONE;
+    }
+
+    private static boolean sourceDlcMatches(String currentVersion, DlcUpdateManifest.VersionInfo info) {
+        return versionSpecMatchLevel(currentVersion, sourceDlcVersion(info)) > MATCH_NONE;
+    }
+
+    private static boolean versionSpecMatches(String currentVersion, String spec) {
+        return versionSpecMatchLevel(currentVersion, spec) > MATCH_NONE;
+    }
+
+    private static int sourceBaseMatchLevel(String currentVersion, DlcUpdateManifest.VersionInfo info) {
+        return versionSpecMatchLevel(currentVersion, sourceBaseVersion(info));
+    }
+
+    private static int sourceDlcMatchLevel(String currentVersion, DlcUpdateManifest.VersionInfo info) {
+        return versionSpecMatchLevel(currentVersion, sourceDlcVersion(info));
+    }
+
+    private static int versionSpecMatchLevel(String currentVersion, String spec) {
+        String current = safeVersion(currentVersion);
+        int best = MATCH_NONE;
+        for (String token : splitVersionSpec(spec)) {
+            int level = versionTokenMatchLevel(current, token);
+            if (level > best) {
+                best = level;
+            }
+        }
+        return best;
+    }
+
+    private static int versionTokenMatchLevel(String currentVersion, String token) {
+        if (token == null || token.isBlank()) {
+            return MATCH_NONE;
+        }
+        String current = safeVersion(currentVersion);
+        String spec = token.trim();
+        if (current.equalsIgnoreCase(spec)) {
+            return MATCH_EXACT;
+        }
+        if (rangeVersionMatches(current, spec)) {
+            return MATCH_RANGE;
+        }
+        if (containsWildcard(spec) && wildcardVersionMatches(current, spec)) {
+            return MATCH_WILDCARD;
+        }
+        return MATCH_NONE;
+    }
+
+    private static boolean containsWildcard(String token) {
+        return token != null && (token.indexOf('*') >= 0 || token.indexOf('?') >= 0);
+    }
+
+    private static int compareCandidateByPriority(String currentBase, String currentDlc, DlcUpdatePackage left, DlcUpdatePackage right) {
+        if (left == right) {
+            return 0;
+        }
+        if (left == null) {
+            return 1;
+        }
+        if (right == null) {
+            return -1;
+        }
+        DlcUpdateManifest.VersionInfo li = left.getManifest() == null ? null : left.getManifest().getVersion();
+        DlcUpdateManifest.VersionInfo ri = right.getManifest() == null ? null : right.getManifest().getVersion();
+        if (li == null && ri == null) {
+            return 0;
+        }
+        if (li == null) {
+            return 1;
+        }
+        if (ri == null) {
+            return -1;
+        }
+        int lb = sourceBaseMatchLevel(currentBase, li);
+        int ld = sourceDlcMatchLevel(currentDlc, li);
+        int rb = sourceBaseMatchLevel(currentBase, ri);
+        int rd = sourceDlcMatchLevel(currentDlc, ri);
+        int specificity = compareSourceSpecificity(lb, ld, rb, rd);
+        if (specificity != 0) {
+            return specificity;
+        }
+        int cmpBase = compareVersion(targetBaseVersion(li), targetBaseVersion(ri));
+        if (cmpBase != 0) {
+            return cmpBase;
+        }
+        int cmpDlc = compareVersion(targetDlcVersion(li), targetDlcVersion(ri));
+        if (cmpDlc != 0) {
+            return cmpDlc;
+        }
+        String ln = left.getArchivePath() == null ? "" : left.getArchivePath().toString();
+        String rn = right.getArchivePath() == null ? "" : right.getArchivePath().toString();
+        return ln.compareToIgnoreCase(rn);
+    }
+
+    private static int compareSourceSpecificity(int lb, int ld, int rb, int rd) {
+        boolean le = lb == MATCH_EXACT || ld == MATCH_EXACT;
+        boolean re = rb == MATCH_EXACT || rd == MATCH_EXACT;
+        if (le != re) {
+            return le ? -1 : 1;
+        }
+        if (le) {
+            int lec = (lb == MATCH_EXACT ? 1 : 0) + (ld == MATCH_EXACT ? 1 : 0);
+            int rec = (rb == MATCH_EXACT ? 1 : 0) + (rd == MATCH_EXACT ? 1 : 0);
+            if (lec != rec) {
+                return Integer.compare(rec, lec);
+            }
+        }
+        if (lb != rb) {
+            return Integer.compare(rb, lb);
+        }
+        if (ld != rd) {
+            return Integer.compare(rd, ld);
+        }
+        return 0;
+    }
+
+    private static List<String> splitVersionSpec(String spec) {
+        String raw = spec == null || spec.isBlank() ? safeVersion(null) : spec.trim();
+        List<String> tokens = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == ',' || c == ';' || c == '|' || c == '，') {
+                String token = current.toString().trim();
+                if (!token.isEmpty()) {
+                    tokens.add(token);
+                }
+                current.setLength(0);
+                continue;
+            }
+            current.append(c);
+        }
+        String token = current.toString().trim();
+        if (!token.isEmpty()) {
+            tokens.add(token);
+        }
+        if (tokens.isEmpty()) {
+            tokens.add(safeVersion(null));
+        }
+        return tokens;
+    }
+
+    private static boolean wildcardVersionMatches(String version, String pattern) {
+        if (pattern == null || pattern.isBlank()) {
+            return version.equals(safeVersion(null));
+        }
+        String candidate = safeVersion(version);
+        String rawPattern = pattern.trim();
+        StringBuilder regex = new StringBuilder(rawPattern.length() * 2 + 8);
+        regex.append("^");
+        for (int i = 0; i < rawPattern.length(); i++) {
+            char ch = rawPattern.charAt(i);
+            if (ch == '*') {
+                regex.append(".*");
+                continue;
+            }
+            if (ch == '?') {
+                regex.append('.');
+                continue;
+            }
+            if ("\\.[]{}()+-^$|".indexOf(ch) >= 0) {
+                regex.append('\\');
+            }
+            regex.append(ch);
+        }
+        regex.append("$");
+        return candidate.matches(regex.toString());
+    }
+
+    private static boolean rangeVersionMatches(String version, String token) {
+        if (token == null) {
+            return false;
+        }
+        String raw = token.trim();
+        if (raw.isEmpty()) {
+            return false;
+        }
+        int idx = findRangeDelimiter(raw);
+        if (idx <= 0 || idx >= raw.length() - 1) {
+            return false;
+        }
+        String left = raw.substring(0, idx).trim();
+        String right = raw.substring(idx + 1).trim();
+        if (!isSimpleRangeEndpoint(left) || !isSimpleRangeEndpoint(right)) {
+            return false;
+        }
+        String min = left;
+        String max = right;
+        if (compareVersion(min, max) > 0) {
+            min = right;
+            max = left;
+        }
+        return compareVersion(version, min) >= 0 && compareVersion(version, max) <= 0;
+    }
+
+    private static int findRangeDelimiter(String raw) {
+        int tilde = raw.indexOf('~');
+        if (tilde > 0 && tilde < raw.length() - 1 && raw.indexOf('~', tilde + 1) < 0) {
+            return tilde;
+        }
+        int dash = raw.indexOf('-');
+        if (dash > 0 && dash < raw.length() - 1 && raw.indexOf('-', dash + 1) < 0) {
+            return dash;
+        }
+        return -1;
+    }
+
+    private static boolean isSimpleRangeEndpoint(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '.' || c == '_') {
+                continue;
+            }
+            return false;
+        }
+        return true;
     }
 
     private static String versionPlatform(DlcUpdateManifest.VersionInfo info) {

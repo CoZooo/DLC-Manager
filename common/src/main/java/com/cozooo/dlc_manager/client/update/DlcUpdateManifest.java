@@ -117,14 +117,14 @@ public class DlcUpdateManifest {
             return info;
         }
         info.platform = normalizePlatform(getString(obj, "platform"));
-        info.base = getString(obj, "base");
-        info.baseNew = getString(obj, "base_new");
-        String dlc = getString(obj, "dlc");
+        info.base = getVersionSpec(obj, "base");
+        info.baseNew = getSingleVersionSpec(obj, "base_new");
+        String dlc = getVersionSpec(obj, "dlc");
         if (dlc == null || dlc.isBlank()) {
-            dlc = getString(obj, "dlc_old");
+            dlc = getVersionSpec(obj, "dlc_old");
         }
         info.dlcOld = dlc;
-        info.dlcNew = getString(obj, "dlc_new");
+        info.dlcNew = getSingleVersionSpec(obj, "dlc_new");
         return info;
     }
 
@@ -470,6 +470,77 @@ public class DlcUpdateManifest {
 
     private static String getString(JsonObject obj, String key) {
         return JsonCaseUtil.getStringIgnoreCase(obj, key);
+    }
+
+    private static String getVersionSpec(JsonObject obj, String key) {
+        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
+        if (element.isJsonPrimitive()) {
+            return element.getAsString();
+        }
+        if (element.isJsonArray()) {
+            List<String> values = new ArrayList<>();
+            for (JsonElement child : element.getAsJsonArray()) {
+                if (child == null || child.isJsonNull() || !child.isJsonPrimitive()) {
+                    continue;
+                }
+                String raw = child.getAsString();
+                if (raw != null && !raw.isBlank()) {
+                    values.add(raw.trim());
+                }
+            }
+            if (!values.isEmpty()) {
+                return String.join(",", values);
+            }
+        }
+        return null;
+    }
+
+    private static String getSingleVersionSpec(JsonObject obj, String key) {
+        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
+        if (element.isJsonPrimitive()) {
+            return firstVersionToken(element.getAsString());
+        }
+        if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) {
+                if (child == null || child.isJsonNull() || !child.isJsonPrimitive()) {
+                    continue;
+                }
+                String value = firstVersionToken(child.getAsString());
+                if (value != null && !value.isBlank()) {
+                    return value;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String firstVersionToken(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String value = raw.trim();
+        if (value.isEmpty()) {
+            return null;
+        }
+        int idx = -1;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (c == ',' || c == ';' || c == '|' || c == '，') {
+                idx = i;
+                break;
+            }
+        }
+        if (idx >= 0) {
+            String head = value.substring(0, idx).trim();
+            return head.isEmpty() ? null : head;
+        }
+        return value;
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {

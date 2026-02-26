@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +33,10 @@ public final class DlcPackReleaseUpdateService {
     private static final String DEFAULT_VERSION = "1.0.0";
     private static final String UNIVERSAL_PREFIX = "Universal_";
     private static final String[] VERSION_PAIR_DELIMITERS = new String[] {"+", "_", "@", "~", "-", " "};
+    private static final int MATCH_NONE = 0;
+    private static final int MATCH_WILDCARD = 1;
+    private static final int MATCH_RANGE = 2;
+    private static final int MATCH_EXACT = 3;
 
     private DlcPackReleaseUpdateService() {
     }
@@ -94,6 +97,8 @@ public final class DlcPackReleaseUpdateService {
                 return "";
             }
             StringBuilder builder = new StringBuilder();
+            String runningBase = safeVersion(currentBase);
+            String runningDlc = safeVersion(currentDlc);
             for (ReleaseStep step : steps) {
                 if (step == null) {
                     continue;
@@ -105,16 +110,20 @@ public final class DlcPackReleaseUpdateService {
                 if (!builder.isEmpty()) {
                     builder.append("\n\n");
                 }
+                String fromBase = resolveDisplaySourceVersion(step.oldBase, runningBase);
+                String fromDlc = resolveDisplaySourceVersion(step.oldDlc, runningDlc);
                 builder
-                    .append(safeVersion(step.oldBase))
+                    .append(fromBase)
                     .append("+")
-                    .append(safeVersion(step.oldDlc))
+                    .append(fromDlc)
                     .append(" -> ")
                     .append(safeVersion(step.newBase))
                     .append("+")
                     .append(safeVersion(step.newDlc))
                     .append("\n")
                     .append(line.trim());
+                runningBase = safeVersion(step.newBase);
+                runningDlc = safeVersion(step.newDlc);
             }
             return builder.toString();
         }
@@ -245,7 +254,7 @@ public final class DlcPackReleaseUpdateService {
         if (releases == null || releases.isEmpty()) {
             return result;
         }
-        Map<String, ReleaseStep> nextByState = new HashMap<>();
+        List<ReleaseStep> candidates = new ArrayList<>();
         for (JsonElement element : releases) {
             if (element == null || !element.isJsonObject()) {
                 continue;
@@ -272,28 +281,51 @@ public final class DlcPackReleaseUpdateService {
             candidate.assetName = asset.name;
             candidate.assetUrl = asset.url;
             candidate.rawChangelog = resolveReleaseChangelog(release);
-            String key = stateKey(candidate.oldBase, candidate.oldDlc);
-            ReleaseStep current = nextByState.get(key);
-            if (shouldReplace(current, candidate)) {
-                nextByState.put(key, candidate);
-            }
+            candidates.add(candidate);
         }
 
-        String currentKey = stateKey(result.currentBase, result.currentDlc);
+        String currentBase = result.currentBase;
+        String currentDlc = result.currentDlc;
+        String currentKey = stateKey(currentBase, currentDlc);
         List<ReleaseStep> chain = new ArrayList<>();
         Set<String> visited = new HashSet<>();
         visited.add(currentKey);
+        List<ReleaseStep> remaining = new ArrayList<>(candidates);
         while (true) {
-            ReleaseStep next = nextByState.get(currentKey);
+            List<ReleaseStep> matched = new ArrayList<>();
+            for (ReleaseStep candidate : remaining) {
+                if (candidate == null) {
+                    continue;
+                }
+                if (versionSpecMatches(currentBase, candidate.oldBase) && versionSpecMatches(currentDlc, candidate.oldDlc)) {
+                    matched.add(candidate);
+                }
+            }
+            if (matched.isEmpty()) {
+                break;
+            }
+            final String stepBase = currentBase;
+            final String stepDlc = currentDlc;
+            matched.sort((left, right) -> compareReleaseCandidate(stepBase, stepDlc, left, right));
+            ReleaseStep next = null;
+            String nextKey = null;
+            for (ReleaseStep candidate : matched) {
+                String candidateKey = stateKey(candidate.newBase, candidate.newDlc);
+                if (candidateKey.equals(currentKey) || visited.contains(candidateKey)) {
+                    continue;
+                }
+                next = candidate;
+                nextKey = candidateKey;
+                break;
+            }
             if (next == null) {
                 break;
             }
-            String nextKey = stateKey(next.newBase, next.newDlc);
-            if (nextKey.equals(currentKey) || visited.contains(nextKey)) {
-                break;
-            }
             chain.add(next);
+            remaining.remove(next);
             visited.add(nextKey);
+            currentBase = safeVersion(next.newBase);
+            currentDlc = safeVersion(next.newDlc);
             currentKey = nextKey;
         }
         result.steps = chain;
@@ -487,30 +519,44 @@ public final class DlcPackReleaseUpdateService {
         progress.onProgress(stepIndex, stepCount, fileName, downloaded, total, overall);
     }
 
-    private static boolean shouldReplace(ReleaseStep current, ReleaseStep candidate) {
-        if (candidate == null) {
-            return false;
+    private static int compareReleaseCandidate(String currentBase, String currentDlc, ReleaseStep left, ReleaseStep right) {
+        if (left == right) {
+            return 0;
         }
-        if (current == null) {
-            return true;
+        if (left == null) {
+            return 1;
         }
-        int compareBase = DlcUpdateService.compareVersions(safeVersion(candidate.newBase), safeVersion(current.newBase));
-        if (compareBase != 0) {
-            return compareBase > 0;
+        if (right == null) {
+            return -1;
         }
-        int compareDlc = DlcUpdateService.compareVersions(safeVersion(candidate.newDlc), safeVersion(current.newDlc));
-        if (compareDlc != 0) {
-            return compareDlc > 0;
+        int lb = versionSpecMatchLevel(currentBase, left.oldBase);
+        int ld = versionSpecMatchLevel(currentDlc, left.oldDlc);
+        int rb = versionSpecMatchLevel(currentBase, right.oldBase);
+        int rd = versionSpecMatchLevel(currentDlc, right.oldDlc);
+        int specificity = compareSourceSpecificity(lb, ld, rb, rd);
+        if (specificity != 0) {
+            return specificity;
         }
-        boolean currentHasAsset = current.assetUrl != null && !current.assetUrl.isBlank();
-        boolean candidateHasAsset = candidate.assetUrl != null && !candidate.assetUrl.isBlank();
-        if (candidateHasAsset && !currentHasAsset) {
-            return true;
+        int cmpBase = DlcUpdateService.compareVersions(safeVersion(left.newBase), safeVersion(right.newBase));
+        if (cmpBase != 0) {
+            return cmpBase;
         }
-        if (!candidateHasAsset || !currentHasAsset) {
-            return false;
+        int cmpDlc = DlcUpdateService.compareVersions(safeVersion(left.newDlc), safeVersion(right.newDlc));
+        if (cmpDlc != 0) {
+            return cmpDlc;
         }
-        return assetPriority(candidate.assetName) > assetPriority(current.assetName);
+        boolean leftHasAsset = left.assetUrl != null && !left.assetUrl.isBlank();
+        boolean rightHasAsset = right.assetUrl != null && !right.assetUrl.isBlank();
+        if (leftHasAsset != rightHasAsset) {
+            return leftHasAsset ? -1 : 1;
+        }
+        int assetCmp = Integer.compare(assetPriority(right.assetName), assetPriority(left.assetName));
+        if (assetCmp != 0) {
+            return assetCmp;
+        }
+        String lt = left.tag == null ? "" : left.tag;
+        String rt = right.tag == null ? "" : right.tag;
+        return lt.compareToIgnoreCase(rt);
     }
 
     private static AssetChoice resolvePreferredAsset(JsonObject release, Side side, String base, String dlc) {
@@ -554,6 +600,184 @@ public final class DlcPackReleaseUpdateService {
             return 2;
         }
         return 1;
+    }
+
+    private static String resolveDisplaySourceVersion(String sourceSpec, String currentVersion) {
+        String spec = sourceSpec == null ? "" : sourceSpec.trim();
+        String current = safeVersion(currentVersion);
+        if (spec.isBlank()) {
+            return current;
+        }
+        if (spec.equalsIgnoreCase(current)) {
+            return safeVersion(spec);
+        }
+        return current;
+    }
+
+    private static int compareSourceSpecificity(int lb, int ld, int rb, int rd) {
+        boolean le = lb == MATCH_EXACT || ld == MATCH_EXACT;
+        boolean re = rb == MATCH_EXACT || rd == MATCH_EXACT;
+        if (le != re) {
+            return le ? -1 : 1;
+        }
+        if (le) {
+            int lec = (lb == MATCH_EXACT ? 1 : 0) + (ld == MATCH_EXACT ? 1 : 0);
+            int rec = (rb == MATCH_EXACT ? 1 : 0) + (rd == MATCH_EXACT ? 1 : 0);
+            if (lec != rec) {
+                return Integer.compare(rec, lec);
+            }
+        }
+        if (lb != rb) {
+            return Integer.compare(rb, lb);
+        }
+        if (ld != rd) {
+            return Integer.compare(rd, ld);
+        }
+        return 0;
+    }
+
+    private static int versionSpecMatchLevel(String currentVersion, String spec) {
+        String current = safeVersion(currentVersion);
+        int best = MATCH_NONE;
+        for (String token : splitVersionSpec(spec)) {
+            int level = versionTokenMatchLevel(current, token);
+            if (level > best) {
+                best = level;
+            }
+        }
+        return best;
+    }
+
+    private static boolean versionSpecMatches(String currentVersion, String spec) {
+        return versionSpecMatchLevel(currentVersion, spec) > MATCH_NONE;
+    }
+
+    private static int versionTokenMatchLevel(String currentVersion, String token) {
+        if (token == null || token.isBlank()) {
+            return MATCH_NONE;
+        }
+        String current = safeVersion(currentVersion);
+        String pattern = token.trim();
+        if (current.equalsIgnoreCase(pattern)) {
+            return MATCH_EXACT;
+        }
+        if (rangeVersionMatches(current, pattern)) {
+            return MATCH_RANGE;
+        }
+        if (containsWildcard(pattern) && wildcardVersionMatches(current, pattern)) {
+            return MATCH_WILDCARD;
+        }
+        return MATCH_NONE;
+    }
+
+    private static List<String> splitVersionSpec(String spec) {
+        String raw = spec == null || spec.isBlank() ? DEFAULT_VERSION : spec.trim();
+        List<String> tokens = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == ',' || c == ';' || c == '|' || c == '，') {
+                String token = current.toString().trim();
+                if (!token.isEmpty()) {
+                    tokens.add(token);
+                }
+                current.setLength(0);
+                continue;
+            }
+            current.append(c);
+        }
+        String token = current.toString().trim();
+        if (!token.isEmpty()) {
+            tokens.add(token);
+        }
+        if (tokens.isEmpty()) {
+            tokens.add(DEFAULT_VERSION);
+        }
+        return tokens;
+    }
+
+    private static boolean containsWildcard(String token) {
+        return token != null && (token.indexOf('*') >= 0 || token.indexOf('?') >= 0);
+    }
+
+    private static boolean wildcardVersionMatches(String version, String pattern) {
+        if (pattern == null || pattern.isBlank()) {
+            return safeVersion(version).equals(DEFAULT_VERSION);
+        }
+        String candidate = safeVersion(version);
+        String rawPattern = pattern.trim();
+        StringBuilder regex = new StringBuilder(rawPattern.length() * 2 + 8);
+        regex.append("^");
+        for (int i = 0; i < rawPattern.length(); i++) {
+            char ch = rawPattern.charAt(i);
+            if (ch == '*') {
+                regex.append(".*");
+                continue;
+            }
+            if (ch == '?') {
+                regex.append('.');
+                continue;
+            }
+            if ("\\.[]{}()+-^$|".indexOf(ch) >= 0) {
+                regex.append('\\');
+            }
+            regex.append(ch);
+        }
+        regex.append("$");
+        return candidate.matches(regex.toString());
+    }
+
+    private static boolean rangeVersionMatches(String version, String token) {
+        if (token == null) {
+            return false;
+        }
+        String raw = token.trim();
+        if (raw.isEmpty()) {
+            return false;
+        }
+        int idx = findRangeDelimiter(raw);
+        if (idx <= 0 || idx >= raw.length() - 1) {
+            return false;
+        }
+        String left = raw.substring(0, idx).trim();
+        String right = raw.substring(idx + 1).trim();
+        if (!isSimpleRangeEndpoint(left) || !isSimpleRangeEndpoint(right)) {
+            return false;
+        }
+        String min = left;
+        String max = right;
+        if (DlcUpdateService.compareVersions(min, max) > 0) {
+            min = right;
+            max = left;
+        }
+        return DlcUpdateService.compareVersions(version, min) >= 0
+            && DlcUpdateService.compareVersions(version, max) <= 0;
+    }
+
+    private static int findRangeDelimiter(String raw) {
+        int tilde = raw.indexOf('~');
+        if (tilde > 0 && tilde < raw.length() - 1 && raw.indexOf('~', tilde + 1) < 0) {
+            return tilde;
+        }
+        int dash = raw.indexOf('-');
+        if (dash > 0 && dash < raw.length() - 1 && raw.indexOf('-', dash + 1) < 0) {
+            return dash;
+        }
+        return -1;
+    }
+
+    private static boolean isSimpleRangeEndpoint(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isLetterOrDigit(c) || c == '.' || c == '_') {
+                continue;
+            }
+            return false;
+        }
+        return true;
     }
 
     private static String findAssetUrl(JsonObject release, String expectedName) {
