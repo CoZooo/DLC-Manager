@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.core;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 
@@ -30,14 +31,76 @@ public class DlcPaths {
     }
 
     public static Path resolveAppliedTarget(String raw) {
-        if (raw == null || raw.isBlank()) {
+        Path path = parsePathLenient(raw);
+        if (path == null) {
             return null;
         }
-        Path path = Path.of(raw);
         if (!path.isAbsolute()) {
             path = gameDir().resolve(path);
         }
         return path.normalize();
+    }
+
+    public static Path resolveAgainstGameDir(String raw) {
+        Path path = parsePathLenient(raw);
+        if (path == null) {
+            return null;
+        }
+        if (!path.isAbsolute()) {
+            path = gameDir().resolve(path);
+        }
+        return path.normalize();
+    }
+
+    public static Path parsePathLenient(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return Path.of(raw);
+        } catch (InvalidPathException ignored) {
+        }
+        String repaired = repairEscapedControlChars(raw);
+        if (repaired.equals(raw) || repaired.isBlank()) {
+            return null;
+        }
+        try {
+            return Path.of(repaired);
+        } catch (InvalidPathException ignored) {
+            return null;
+        }
+    }
+
+    private static String repairEscapedControlChars(String raw) {
+        StringBuilder builder = new StringBuilder(raw.length() + 8);
+        boolean changed = false;
+        for (int i = 0; i < raw.length(); i++) {
+            char ch = raw.charAt(i);
+            switch (ch) {
+                case '\t' -> {
+                    builder.append('\\').append('t');
+                    changed = true;
+                }
+                case '\n' -> {
+                    builder.append('\\').append('n');
+                    changed = true;
+                }
+                case '\r' -> {
+                    builder.append('\\').append('r');
+                    changed = true;
+                }
+                case '\b' -> {
+                    builder.append('\\').append('b');
+                    changed = true;
+                }
+                case '\f' -> {
+                    builder.append('\\').append('f');
+                    changed = true;
+                }
+                default -> builder.append(ch);
+            }
+        }
+        return changed ? builder.toString() : raw;
     }
 
     public static boolean isAppliedTargetDirectory(String raw, Path resolved, Path source) {

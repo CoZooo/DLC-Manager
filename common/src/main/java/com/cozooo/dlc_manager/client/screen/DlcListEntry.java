@@ -853,9 +853,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 if (raw == null || raw.isBlank()) {
                     continue;
                 }
-                Path path = Path.of(raw);
-                if (!path.isAbsolute()) {
-                    path = DlcPaths.gameDir().resolve(path);
+                Path path = DlcPaths.resolveAgainstGameDir(raw);
+                if (path == null) {
+                    continue;
                 }
                 if (java.nio.file.Files.exists(path)) {
                     return true;

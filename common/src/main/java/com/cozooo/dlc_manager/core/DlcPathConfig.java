@@ -1118,7 +1118,13 @@ public class DlcPathConfig {
 
     private static Path resolvePath(String value, String fallback) {
         String raw = value == null || value.isBlank() ? fallback : value;
-        Path path = Path.of(raw);
+        Path path = DlcPaths.parsePathLenient(raw);
+        if (path == null) {
+            path = DlcPaths.parsePathLenient(fallback);
+        }
+        if (path == null) {
+            return CrossPlatformRuntime.gameDir().toAbsolutePath().normalize();
+        }
         if (!path.isAbsolute()) {
             path = CrossPlatformRuntime.gameDir().resolve(path);
         }
@@ -1152,7 +1158,10 @@ public class DlcPathConfig {
             if (trimmed.isEmpty()) {
                 continue;
             }
-            Path candidate = Path.of(trimmed);
+            Path candidate = DlcPaths.parsePathLenient(trimmed);
+            if (candidate == null) {
+                continue;
+            }
             if (candidate.isAbsolute()) {
                 paths.add(candidate.normalize());
             } else {

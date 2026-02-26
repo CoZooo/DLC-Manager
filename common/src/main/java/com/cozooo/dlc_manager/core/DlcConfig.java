@@ -126,7 +126,11 @@ public class DlcConfig {
                 if (raw == null || raw.isBlank()) {
                     continue;
                 }
-                Path path = Path.of(raw);
+                Path path = DlcPaths.parsePathLenient(raw);
+                if (path == null) {
+                    localChanged = true;
+                    continue;
+                }
                 if (path.isAbsolute()) {
                     Path normalized = path.toAbsolutePath().normalize();
                     boolean converted = false;
@@ -150,10 +154,13 @@ public class DlcConfig {
                         migrated.add(normalized.toString());
                     }
                 } else {
-                    migrated.add(raw);
+                    migrated.add(path.toString());
+                    if (!raw.equals(path.toString())) {
+                        localChanged = true;
+                    }
                 }
             }
-            if (localChanged) {
+            if (localChanged || migrated.size() != state.appliedTargets.size()) {
                 state.appliedTargets = migrated;
                 changed = true;
             }
@@ -231,11 +238,14 @@ public class DlcConfig {
         if (raw == null) {
             return DlcPaths.gameDir();
         }
-        Path path = Path.of(raw);
+        Path path = DlcPaths.parsePathLenient(raw);
+        if (path == null) {
+            return DlcPaths.gameDir().resolve("__invalid_path__");
+        }
         if (path.isAbsolute()) {
             return path;
         }
-        return DlcPaths.gameDir().resolve(raw);
+        return DlcPaths.gameDir().resolve(path);
     }
 
     private static String migrateIdKey(String key, Path gameDir, Path gameReal) {

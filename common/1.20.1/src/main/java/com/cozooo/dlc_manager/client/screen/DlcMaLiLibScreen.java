@@ -956,11 +956,11 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private Path resolveStatePath(String raw) {
-        Path path = Path.of(raw);
-        if (path.isAbsolute()) {
+        Path path = DlcPaths.resolveAgainstGameDir(raw);
+        if (path != null) {
             return path;
         }
-        return DlcPaths.gameDir().resolve(raw);
+        return DlcPaths.gameDir().resolve("__invalid_path__");
     }
 
     private boolean isResourcePackSelected(String fileName) {
