@@ -301,6 +301,7 @@
   "dlc_manager.update.changelog_button": "Continue",
   "dlc_manager.update.base": "Base: %s",
   "dlc_manager.update.current": "Current DLC: %s",
+  "dlc_manager.update.current_full": "Current version: %s",
   "dlc_manager.update.rollback_info": "Rolled back: %s -> %s",
   "dlc_manager.update.manager_prefix": "DLC Manager: ",
   "dlc_manager.update.confirm_apply": "Apply updates now?",

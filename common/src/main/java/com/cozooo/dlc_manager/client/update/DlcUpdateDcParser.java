@@ -53,7 +53,17 @@ final class DlcUpdateDcParser {
                 continue;
             }
 
-            while (stack.size() > 1 && indent <= stack.peek().indent) {
+            boolean isSectionHeader = content.startsWith("[") && content.endsWith("]") && content.length() >= 3;
+            while (stack.size() > 1) {
+                Frame top = stack.peek();
+                int topIndent = top.indent;
+                boolean shouldPop = isSectionHeader ? indent <= topIndent : indent < topIndent;
+                if (!shouldPop && !isSectionHeader && indent == topIndent && top.object != null && !top.sectionObject) {
+                    shouldPop = true;
+                }
+                if (!shouldPop) {
+                    break;
+                }
                 stack.pop();
             }
             Frame current = stack.peek();
@@ -62,7 +72,7 @@ final class DlcUpdateDcParser {
                 continue;
             }
 
-            if (content.startsWith("[") && content.endsWith("]") && content.length() >= 3) {
+            if (isSectionHeader) {
                 String header = content.substring(1, content.length() - 1).trim();
                 if (header.isBlank() || current.object == null) {
                     index++;
@@ -73,7 +83,7 @@ final class DlcUpdateDcParser {
                     stack.push(Frame.array(indent, arr));
                 } else {
                     JsonObject child = getOrCreateObject(current.object, header);
-                    stack.push(Frame.object(indent, child, current.object, header));
+                    stack.push(Frame.sectionObject(indent, child, current.object, header));
                 }
                 index++;
                 continue;
@@ -361,25 +371,31 @@ final class DlcUpdateDcParser {
         final JsonArray array;
         final JsonObject parentObject;
         final String keyInParent;
+        final boolean sectionObject;
 
-        private Frame(int indent, JsonObject object, JsonArray array, JsonObject parentObject, String keyInParent) {
+        private Frame(int indent, JsonObject object, JsonArray array, JsonObject parentObject, String keyInParent, boolean sectionObject) {
             this.indent = indent;
             this.object = object;
             this.array = array;
             this.parentObject = parentObject;
             this.keyInParent = keyInParent;
+            this.sectionObject = sectionObject;
         }
 
         static Frame root(JsonObject root) {
-            return new Frame(-1, root, null, null, null);
+            return new Frame(-1, root, null, null, null, true);
         }
 
         static Frame object(int indent, JsonObject object, JsonObject parent, String keyInParent) {
-            return new Frame(indent, object, null, parent, keyInParent);
+            return new Frame(indent, object, null, parent, keyInParent, false);
+        }
+
+        static Frame sectionObject(int indent, JsonObject object, JsonObject parent, String keyInParent) {
+            return new Frame(indent, object, null, parent, keyInParent, true);
         }
 
         static Frame array(int indent, JsonArray array) {
-            return new Frame(indent, null, array, null, null);
+            return new Frame(indent, null, array, null, null, false);
         }
     }
 }

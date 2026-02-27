@@ -737,16 +737,24 @@ public final class DlcClientRuntime {
                 if (dlcRoot != null) {
                     DlcUpdateVersion currentVersion = DlcUpdateVersion.load(dlcRoot);
                     if (currentVersion != null) {
+                        String currentBase = currentVersion.getBase();
                         String currentDlc = currentVersion.getDlc();
+                        String currentMarker = composeChangelogMarker(currentBase, currentDlc);
                         String shown = currentVersion.getChangelogShown();
+                        if (shown != null && !shown.isBlank() && !isPairMarker(shown)) {
+                            String migratedShown = composeChangelogMarker(currentBase, shown);
+                            currentVersion.setChangelogShown(migratedShown);
+                            currentVersion.save(dlcRoot);
+                            shown = migratedShown;
+                        }
                         if (currentDlc != null && !currentDlc.isBlank()
                             && shown != null && !shown.isBlank()
-                            && !currentDlc.equals(shown)) {
-                            List<DlcUpdateMeta> pending = collectPendingChangelogMeta(shown, currentDlc);
+                            && !isSameChangelogMarker(shown, currentMarker, currentDlc)) {
+                            List<DlcUpdateMeta> pending = collectPendingChangelogMeta(shown, currentMarker, currentDlc);
                             if (!pending.isEmpty()) {
                                 changelogText = buildPendingChangelogText(pending, CrossPlatformRuntime.languageCode());
                                 if (changelogText != null && !changelogText.isBlank()) {
-                                    changelogVersion = currentDlc;
+                                    changelogVersion = currentMarker;
                                 }
                             }
                         }
@@ -913,21 +921,40 @@ public final class DlcClientRuntime {
         };
     }
 
-    private static List<DlcUpdateMeta> collectPendingChangelogMeta(String shownVersion, String currentVersion) {
-        if (shownVersion == null || shownVersion.isBlank() || currentVersion == null || currentVersion.isBlank()
-            || shownVersion.equals(currentVersion)) {
+    private static List<DlcUpdateMeta> collectPendingChangelogMeta(String shownMarker, String currentMarker, String currentDlcVersion) {
+        if (shownMarker == null || shownMarker.isBlank()
+            || currentMarker == null || currentMarker.isBlank()
+            || currentDlcVersion == null || currentDlcVersion.isBlank()) {
+            return List.of();
+        }
+        String shown = shownMarker.trim();
+        String currentDlc = safeVersion(currentDlcVersion);
+        String shownDlc = extractDlcFromMarker(shown);
+        if (!isPairMarker(shown) && shownDlc.equals(currentDlc)) {
+            return List.of();
+        }
+        if (isPairMarker(shown) && shownDlc.equals(currentDlc)) {
+            DlcUpdateMeta latest = DlcUpdateService.loadMetaForVersion(currentDlc);
+            if (latest == null) {
+                return List.of();
+            }
+            String fromMarker = composeChangelogMarker(latest.getBaseOld(), latest.getDlcOld());
+            String toMarker = composeChangelogMarker(resolveMetaTargetBase(latest), resolveMetaTargetDlc(latest));
+            if (fromMarker.equals(shown) && toMarker.equals(currentMarker.trim())) {
+                return List.of(latest);
+            }
             return List.of();
         }
         List<DlcUpdateMeta> reverse = new ArrayList<>();
         Set<String> visited = new HashSet<>();
-        String cursor = currentVersion;
-        while (cursor != null && !cursor.isBlank() && !cursor.equals(shownVersion) && visited.add(cursor)) {
+        String cursor = currentDlc;
+        while (cursor != null && !cursor.isBlank() && !cursor.equals(shownDlc) && visited.add(cursor)) {
             DlcUpdateMeta meta = DlcUpdateService.loadMetaForVersion(cursor);
             if (meta == null) {
                 break;
             }
-            String oldVersion = meta.getDlcOld();
-            String newVersion = meta.getDlcNew();
+            String oldVersion = resolveMetaSourceDlc(meta);
+            String newVersion = resolveMetaTargetDlc(meta);
             if (oldVersion == null || oldVersion.isBlank() || newVersion == null || newVersion.isBlank()) {
                 break;
             }
@@ -938,6 +965,9 @@ public final class DlcClientRuntime {
             cursor = oldVersion;
         }
         if (reverse.isEmpty()) {
+            return List.of();
+        }
+        if (!shownDlc.equals(cursor)) {
             return List.of();
         }
         Collections.reverse(reverse);
@@ -960,18 +990,82 @@ public final class DlcClientRuntime {
             if (!builder.isEmpty()) {
                 builder.append("\n\n");
             }
+            String fromMarker = composeChangelogMarker(meta.getBaseOld(), meta.getDlcOld());
+            String toMarker = composeChangelogMarker(resolveMetaTargetBase(meta), resolveMetaTargetDlc(meta));
             builder
-                .append(safeVersion(meta.getDlcOld()))
-                .append(" -> ")
-                .append(safeVersion(meta.getDlcNew()))
+                .append(fromMarker);
+            if (!fromMarker.equals(toMarker)) {
+                builder.append(" -> ").append(toMarker);
+            }
+            builder
                 .append("\n")
                 .append(log.trim());
         }
         return builder.toString();
     }
 
+    private static boolean isSameChangelogMarker(String shown, String currentMarker, String currentDlc) {
+        if (shown == null || shown.isBlank()) {
+            return false;
+        }
+        String normalizedShown = shown.trim();
+        if (isPairMarker(normalizedShown)) {
+            return normalizedShown.equals(currentMarker == null ? "" : currentMarker.trim());
+        }
+        return safeVersion(normalizedShown).equals(safeVersion(currentDlc));
+    }
+
+    private static boolean isPairMarker(String marker) {
+        return marker != null && marker.indexOf('+') > 0;
+    }
+
+    private static String extractDlcFromMarker(String marker) {
+        if (marker == null || marker.isBlank()) {
+            return safeVersion(null);
+        }
+        int plus = marker.lastIndexOf('+');
+        if (plus >= 0 && plus + 1 < marker.length()) {
+            return safeVersion(marker.substring(plus + 1));
+        }
+        return safeVersion(marker);
+    }
+
+    private static String composeChangelogMarker(String base, String dlc) {
+        return safeVersion(base) + "+" + safeVersion(dlc);
+    }
+
+    private static String resolveMetaSourceDlc(DlcUpdateMeta meta) {
+        return safeVersion(meta == null ? null : meta.getDlcOld());
+    }
+
+    private static String resolveMetaTargetDlc(DlcUpdateMeta meta) {
+        if (meta == null) {
+            return safeVersion(null);
+        }
+        String dlcNew = meta.getDlcNew();
+        if (dlcNew == null || dlcNew.isBlank()) {
+            return resolveMetaSourceDlc(meta);
+        }
+        return safeVersion(dlcNew);
+    }
+
+    private static String resolveMetaSourceBase(DlcUpdateMeta meta) {
+        return safeVersion(meta == null ? null : meta.getBaseOld());
+    }
+
+    private static String resolveMetaTargetBase(DlcUpdateMeta meta) {
+        if (meta == null) {
+            return safeVersion(null);
+        }
+        String baseNew = meta.getBaseNew();
+        if (baseNew == null || baseNew.isBlank()) {
+            return resolveMetaSourceBase(meta);
+        }
+        return safeVersion(baseNew);
+    }
+
     private static String safeVersion(String value) {
-        return value == null || value.isBlank() ? "1.0.0" : value;
+        return value == null || value.isBlank() ? "1.0.0" : value.trim();
     }
 
     public static void syncEnabledResourcePacks() {

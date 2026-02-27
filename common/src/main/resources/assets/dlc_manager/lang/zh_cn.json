@@ -301,6 +301,7 @@
   "dlc_manager.update.changelog_button": "确定",
   "dlc_manager.update.base": "底包版本：%s",
   "dlc_manager.update.current": "当前 DLC 版本：%s",
+  "dlc_manager.update.current_full": "当前版本：%s",
   "dlc_manager.update.rollback_info": "已回溯：%s -> %s",
   "dlc_manager.update.manager_prefix": "DLC管理器：",
   "dlc_manager.update.confirm_apply": "确定开始更新吗？",

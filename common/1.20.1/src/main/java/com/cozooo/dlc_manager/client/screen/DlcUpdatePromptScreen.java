@@ -121,8 +121,10 @@ public class DlcUpdatePromptScreen extends Screen {
         int titleX = (this.width - this.font.width(getTitle())) / 2;
         guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
         y += 16;
-        String currentVersion = result.getCurrent() == null ? "" : result.getCurrent().getDlc();
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.current", currentVersion), centerX, y, 0xC8C8C8);
+        String currentVersion = result.getCurrent() == null
+            ? formatVersionPair("", "")
+            : formatVersionPair(result.getCurrent().getBase(), result.getCurrent().getDlc());
+        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.current_full", currentVersion), centerX, y, 0xC8C8C8);
         y += 14;
         if (applying) {
             String text = statusText == null ? "" : statusText;
@@ -183,15 +185,31 @@ public class DlcUpdatePromptScreen extends Screen {
         if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
             return "";
         }
-        String oldV = pkg.getManifest().getVersion().getDlcOld();
-        String newV = pkg.getManifest().getVersion().getDlcNew();
-        if (oldV == null) {
-            oldV = "";
+        var version = pkg.getManifest().getVersion();
+        String oldBase = normalizeVersion(version.getBase());
+        String oldDlc = normalizeVersion(version.getDlcOld());
+        String newBase = normalizeVersion(version.getBaseNew());
+        String newDlc = normalizeVersion(version.getDlcNew());
+        if (newBase.isBlank()) {
+            newBase = oldBase;
         }
-        if (newV == null) {
-            newV = "";
+        if (newDlc.isBlank()) {
+            newDlc = oldDlc;
         }
-        return oldV + " -> " + newV;
+        String from = formatVersionPair(oldBase, oldDlc);
+        String to = formatVersionPair(newBase, newDlc);
+        if (from.equals(to)) {
+            return from;
+        }
+        return from + " -> " + to;
+    }
+
+    private String formatVersionPair(String base, String dlc) {
+        return normalizeVersion(base) + "+" + normalizeVersion(dlc);
+    }
+
+    private String normalizeVersion(String value) {
+        return value == null || value.isBlank() ? "1.0.0" : value.trim();
     }
 
     private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {

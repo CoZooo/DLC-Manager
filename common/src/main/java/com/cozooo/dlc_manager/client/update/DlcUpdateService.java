@@ -214,7 +214,7 @@ public final class DlcUpdateService {
             updated.setBase(nextBase);
             updated.setDlc(targetDlcVersion(info));
             updated.setRollbackFrom(null);
-            updated.setChangelogShown(sourceDlcVersion(info));
+            updated.setChangelogShown(sourceBaseVersion(info) + "+" + sourceDlcVersion(info));
             updated.save(dlcRoot);
 
             if (context.addedRemote) {
