@@ -2,8 +2,9 @@
   "name": "dc-language-tools",
   "displayName": "DC Language Tools",
   "description": "Syntax highlighting, diagnostics, and completion for .dc files",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "cozooo",
+  "icon": "icons/plugin-icon.png",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -25,6 +26,10 @@
         "extensions": [
           ".dc"
         ],
+        "icon": {
+          "light": "./icons/dc-light.svg",
+          "dark": "./icons/dc-dark.svg"
+        },
         "configuration": "./language-configuration.json"
       }
     ],

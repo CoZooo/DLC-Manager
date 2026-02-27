@@ -30,6 +30,6 @@ public final class DCFileType extends LanguageFileType {
 
     @Override
     public @Nullable Icon getIcon() {
-        return null;
+        return DCIcons.FILE;
     }
 }
