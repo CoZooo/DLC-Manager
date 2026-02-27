@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
@@ -43,6 +44,8 @@ public class DlcUpdateManagerScreen extends Screen {
     private List<String> rollbackTargets = List.of();
     private List<DlcUpdateRowPlanner.Action> rowActions = List.of();
     private List<DlcUpdateRowPlanner.Type> rowTypes = List.of();
+    private List<String> rowDisplayOld = List.of();
+    private List<String> rowDisplayNew = List.of();
     private String currentVersion;
     private String baseVersion;
     private String rollbackFrom;
@@ -71,23 +74,29 @@ public class DlcUpdateManagerScreen extends Screen {
         hasVisibleUpdates = false;
         DlcSelfUpdateService.SelfUpdateHistory selfHistory = DlcSelfUpdateService.loadHistory();
         DlcUpdateRowPlanner.PlanResult plan = DlcUpdateRowPlanner.planClientRows(
-            snapshot.history, selfHistory, updateCheck, rolledBackMode, currentVersion
+            snapshot.history, selfHistory, updateCheck, rolledBackMode, baseVersion, currentVersion
         );
         List<DlcUpdateMeta> rows = new ArrayList<>(plan.rows.size());
         List<String> targets = new ArrayList<>(plan.rows.size());
         List<DlcUpdateRowPlanner.Action> actions = new ArrayList<>(plan.rows.size());
         List<DlcUpdateRowPlanner.Type> types = new ArrayList<>(plan.rows.size());
+        List<String> displayOld = new ArrayList<>(plan.rows.size());
+        List<String> displayNew = new ArrayList<>(plan.rows.size());
         for (DlcUpdateRowPlanner.UpdateRow row : plan.rows) {
             rows.add(row.meta);
-            targets.add(row.oldVersion);
+            targets.add(row.rollbackTarget);
             actions.add(row.action);
             types.add(row.type);
+            displayOld.add(row.displayOldVersion);
+            displayNew.add(row.displayNewVersion);
         }
         hasVisibleUpdates = plan.hasVisibleUpdates;
         history = rows;
         rollbackTargets = targets;
         rowActions = actions;
         rowTypes = types;
+        rowDisplayOld = displayOld;
+        rowDisplayNew = displayNew;
         buildWidgets();
     }
 
@@ -152,7 +161,7 @@ public class DlcUpdateManagerScreen extends Screen {
                         || chosen == DlcUpdateRowPlanner.Action.UPDATE) {
                         DlcUpdateMeta meta = idx < history.size() ? history.get(idx) : null;
                         if (meta != null) {
-                            confirmReupdate(meta.getDlcOld(), meta.getDlcNew());
+                            confirmReupdate(meta.getBaseOld(), meta.getDlcOld(), meta.getBaseNew(), meta.getDlcNew());
                         }
                     }
                 }
@@ -202,7 +211,19 @@ public class DlcUpdateManagerScreen extends Screen {
         int visibleEnd = Math.min(totalLines, scrollIndex + maxVisible);
         for (int i = scrollIndex; i < visibleEnd; i++) {
             DlcUpdateMeta meta = history.get(i);
-            String label = meta.getDlcOld() + " -> " + meta.getDlcNew();
+            String sourceBase = meta == null ? null : meta.getBaseOld();
+            String sourceDlc = meta == null ? null : meta.getDlcOld();
+            String targetBase = meta == null ? null : meta.getBaseNew();
+            String targetDlc = meta == null ? null : meta.getDlcNew();
+            if (targetBase == null || targetBase.isBlank()) {
+                targetBase = sourceBase;
+            }
+            if (targetDlc == null || targetDlc.isBlank()) {
+                targetDlc = sourceDlc;
+            }
+            String oldDisplay = i < rowDisplayOld.size() ? rowDisplayOld.get(i) : normalizeVersion(sourceBase) + "+" + normalizeVersion(sourceDlc);
+            String newDisplay = i < rowDisplayNew.size() ? rowDisplayNew.get(i) : normalizeVersion(targetBase) + "+" + normalizeVersion(targetDlc);
+            String label = oldDisplay + " -> " + newDisplay;
             DlcUpdateRowPlanner.Type type = i < rowTypes.size() ? rowTypes.get(i) : DlcUpdateRowPlanner.Type.UPDATE;
             if (type == DlcUpdateRowPlanner.Type.MANAGER) {
                 label = Component.translatable("dlc_manager.update.manager_prefix").getString() + label;
@@ -272,7 +293,7 @@ public class DlcUpdateManagerScreen extends Screen {
         int maxWidth = Math.max(120, this.width - 60);
         List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
         lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
-        lines.addAll(this.font.split(Component.literal(changelog), maxWidth));
+        lines.addAll(DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth));
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
@@ -363,11 +384,11 @@ public class DlcUpdateManagerScreen extends Screen {
         }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
     }
 
-    private void startReupdate(String dlcOld, String dlcNew) {
+    private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         if (dlcOld == null || dlcNew == null) {
             return;
         }
-        var chain = DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true);
+        var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
             return;
@@ -379,27 +400,28 @@ public class DlcUpdateManagerScreen extends Screen {
         }, "dlc-update-reapply").start();
     }
 
-    private void confirmReupdate(String dlcOld, String dlcNew) {
+    private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         String changelog = DlcUpdateService.buildChangelogText(
-            DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true),
+            DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
             CrossPlatformRuntime.languageCode());
-        confirmReupdateNow(dlcOld, dlcNew, changelog);
+        confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog);
     }
 
-    private void confirmReupdateNow(String dlcOld, String dlcNew, String changelog) {
+    private void confirmReupdateNow(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
         Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = buildReupdateMessage(dlcOld, dlcNew, changelog);
+        Component message = buildReupdateMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                startReupdate(dlcOld, dlcNew);
+                startReupdate(baseOld, dlcOld, baseNew, dlcNew);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
         }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
     }
 
-    private Component buildReupdateMessage(String dlcOld, String dlcNew, String changelog) {
-        Component base = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+    private Component buildReupdateMessage(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
+        String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
+        Component base = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
         if (changelog == null || changelog.isBlank()) {
             return base;
         }
@@ -408,7 +430,7 @@ public class DlcUpdateManagerScreen extends Screen {
             .append("\n\n")
             .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
             .append("\n")
-            .append(Component.literal(changelog));
+            .append(DlcTextFormatter.parse(changelog));
     }
 
     private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {
@@ -451,6 +473,29 @@ public class DlcUpdateManagerScreen extends Screen {
             return true;
         }
         return false;
+    }
+
+    private static String normalizeVersion(String value) {
+        return value == null || value.isBlank() ? "1.0.0" : value.trim();
+    }
+
+    private static String[] compactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
+        String sourceBase = normalizeVersion(oldBase);
+        String sourceDlc = normalizeVersion(oldDlc);
+        String targetBase = normalizeVersion(newBase == null || newBase.isBlank() ? sourceBase : newBase);
+        String targetDlc = normalizeVersion(newDlc == null || newDlc.isBlank() ? sourceDlc : newDlc);
+        boolean baseChanged = !sourceBase.equals(targetBase);
+        boolean dlcChanged = !sourceDlc.equals(targetDlc);
+        if (baseChanged && dlcChanged) {
+            return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
+        }
+        if (baseChanged) {
+            return new String[] {sourceBase, targetBase};
+        }
+        if (dlcChanged) {
+            return new String[] {sourceDlc, targetDlc};
+        }
+        return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
     }
 
     private void setApplyingUpdates(boolean applying) {
@@ -500,7 +545,7 @@ public class DlcUpdateManagerScreen extends Screen {
         }
         var info = pkg.getManifest().getVersion();
         if (info != null) {
-            confirmReupdate(info.getDlcOld(), info.getDlcNew());
+            confirmReupdate(info.getBase(), info.getDlcOld(), info.getBaseNew(), info.getDlcNew());
         } else {
             refreshData();
         }

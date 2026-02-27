@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeMarkdownRenderer;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcNoticeConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -115,7 +116,7 @@ public class DlcNoticeScreen extends Screen {
         guiGraphics.fill(panelRight - 1, panelTop, panelRight, panelBottom, 0xFF2A2F36);
 
         int titleY = panelTop + 10;
-        guiGraphics.drawCenteredString(this.font, titleText, this.width / 2, titleY, 0xFFFFFF);
+        guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(titleText), this.width / 2, titleY, 0xFFFFFF);
         if (subheadEnabled && !subheadLines.isEmpty()) {
             int subheadY = titleY + 12;
             int lineStep = this.font.lineHeight + 2;
@@ -249,18 +250,7 @@ public class DlcNoticeScreen extends Screen {
     }
 
     private List<FormattedCharSequence> wrapMultiline(String text, int maxWidth) {
-        List<FormattedCharSequence> lines = new ArrayList<>();
-        if (text == null || text.isBlank()) {
-            return lines;
-        }
-        for (String line : text.split("\\R", -1)) {
-            if (line.isEmpty()) {
-                lines.add(FormattedCharSequence.EMPTY);
-            } else {
-                lines.addAll(this.font.split(Component.literal(line), maxWidth));
-            }
-        }
-        return lines;
+        return DlcTextFormatter.splitMultiline(this.font, text, maxWidth);
     }
 
     private List<FormattedCharSequence> wrapMarkdown(String text, int maxWidth) {

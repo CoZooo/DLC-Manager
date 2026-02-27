@@ -575,7 +575,7 @@ public class DlcServerService {
         String base = version == null ? "" : version.getBase();
         String dlc = version == null ? "" : version.getDlc();
         String rollbackFrom = version == null ? "" : version.getRollbackFrom();
-        boolean rolledBack = rollbackFrom != null && !rollbackFrom.isBlank() && !rollbackFrom.equals(dlc);
+        boolean rolledBack = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, base, dlc);
         List<DlcUpdateMeta> history = rolledBack
             ? DlcUpdateService.listUpdateHistoryFrom(rollbackFrom)
             : DlcUpdateService.listUpdateHistory();
@@ -645,11 +645,16 @@ public class DlcServerService {
     }
 
     private static void handleUpdateApply(JsonObject request, BufferedWriter writer) throws IOException {
+        String baseOld = request.has("baseOld") ? request.get("baseOld").getAsString() : null;
         String dlcOld = request.has("dlcOld") ? request.get("dlcOld").getAsString() : null;
+        String baseNew = request.has("baseNew") ? request.get("baseNew").getAsString() : null;
         String dlcNew = request.has("dlcNew") ? request.get("dlcNew").getAsString() : null;
         List<DlcUpdatePackage> updates;
-        if (dlcOld != null && !dlcOld.isBlank() && dlcNew != null && !dlcNew.isBlank()) {
-            updates = DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true);
+        if (baseOld != null && !baseOld.isBlank()
+            && dlcOld != null && !dlcOld.isBlank()
+            && baseNew != null && !baseNew.isBlank()
+            && dlcNew != null && !dlcNew.isBlank()) {
+            updates = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
         } else {
             DlcUpdateService.UpdateCheckResult result = DlcUpdateService.checkForUpdates();
             updates = result == null ? List.of() : result.getUpdates();

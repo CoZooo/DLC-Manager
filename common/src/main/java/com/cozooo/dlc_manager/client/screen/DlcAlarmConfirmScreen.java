@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -102,18 +103,7 @@ public class DlcAlarmConfirmScreen extends Screen {
     }
 
     private List<FormattedCharSequence> wrapTip(int maxWidth) {
-        List<FormattedCharSequence> lines = new ArrayList<>();
-        if (tip.isBlank()) {
-            return lines;
-        }
-        for (String line : tip.split("\\R", -1)) {
-            if (line.isEmpty()) {
-                lines.add(FormattedCharSequence.EMPTY);
-            } else {
-                lines.addAll(this.font.split(Component.literal(line), maxWidth));
-            }
-        }
-        return lines;
+        return DlcTextFormatter.splitMultiline(this.font, tip, maxWidth);
     }
 
     @Override

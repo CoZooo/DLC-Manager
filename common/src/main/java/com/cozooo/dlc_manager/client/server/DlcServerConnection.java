@@ -620,7 +620,8 @@ public class DlcServerConnection {
         return fetchUpdateState(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
 
-    public static UpdateResponse applyUpdate(DlcServerEntry entry, int timeoutMs, String dlcOld, String dlcNew,
+    public static UpdateResponse applyUpdate(DlcServerEntry entry, int timeoutMs,
+        String baseOld, String dlcOld, String baseNew, String dlcNew,
         String playerName, String playerUuid) throws IOException {
         try (Socket socket = openSocket(entry, timeoutMs)) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
@@ -630,8 +631,14 @@ public class DlcServerConnection {
             }
             JsonObject applyReq = new JsonObject();
             applyReq.addProperty("type", "update_apply");
+            if (baseOld != null && !baseOld.isBlank()) {
+                applyReq.addProperty("baseOld", baseOld);
+            }
             if (dlcOld != null && !dlcOld.isBlank()) {
                 applyReq.addProperty("dlcOld", dlcOld);
+            }
+            if (baseNew != null && !baseNew.isBlank()) {
+                applyReq.addProperty("baseNew", baseNew);
             }
             if (dlcNew != null && !dlcNew.isBlank()) {
                 applyReq.addProperty("dlcNew", dlcNew);
@@ -658,8 +665,8 @@ public class DlcServerConnection {
         }
     }
 
-    public static UpdateResponse applyUpdate(DlcServerEntry entry, int timeoutMs, String dlcOld, String dlcNew) throws IOException {
-        return applyUpdate(entry, timeoutMs, dlcOld, dlcNew, currentPlayerName(), currentPlayerUuid());
+    public static UpdateResponse applyUpdate(DlcServerEntry entry, int timeoutMs, String baseOld, String dlcOld, String baseNew, String dlcNew) throws IOException {
+        return applyUpdate(entry, timeoutMs, baseOld, dlcOld, baseNew, dlcNew, currentPlayerName(), currentPlayerUuid());
     }
 
     public static UpdateResponse rollbackUpdate(DlcServerEntry entry, int timeoutMs, String targetVersion,

@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
@@ -10,7 +11,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
 import java.util.ArrayList;
 import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
@@ -100,10 +100,12 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                 String suffix = screen.getPendingSuffix(item);
                 String label = displayName + suffix;
                 guiGraphics.drawString(Minecraft.getInstance().font,
-                    Component.literal(label).setStyle(Style.EMPTY.withItalic(true)),
+                    DlcTextFormatter.parse(label).copy().withStyle(style -> style.withItalic(true)),
                     this.x + 10, this.y + 4, nameColor, false);
             } else {
-                drawString(this.x + 10, this.y + 4, nameColor, displayName, guiGraphics);
+                guiGraphics.drawString(Minecraft.getInstance().font,
+                    DlcTextFormatter.parse(displayName),
+                    this.x + 10, this.y + 4, nameColor, false);
             }
             if (toggleButton != null) {
                 toggleButton.setDisplayString(getToggleLabel(item));

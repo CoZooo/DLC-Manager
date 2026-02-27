@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.notice;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.network.chat.ClickEvent;
@@ -210,7 +211,7 @@ public final class DlcNoticeMarkdownRenderer {
         String marker = "++";
         int index = text.indexOf(marker);
         if (index < 0) {
-            return renderLegacyCodes(text, style, false);
+            return DlcTextFormatter.parse(text, style);
         }
         MutableComponent result = Component.literal("");
         int pos = 0;
@@ -218,7 +219,7 @@ public final class DlcNoticeMarkdownRenderer {
         while (index >= 0) {
             String chunk = text.substring(pos, index);
             if (!chunk.isEmpty()) {
-                result.append(renderLegacyCodes(chunk, style, underline));
+                result.append(DlcTextFormatter.parse(chunk, underline ? style.withUnderlined(true) : style));
             }
             underline = !underline;
             pos = index + marker.length();
@@ -226,103 +227,9 @@ public final class DlcNoticeMarkdownRenderer {
         }
         String tail = text.substring(pos);
         if (!tail.isEmpty()) {
-            result.append(renderLegacyCodes(tail, style, underline));
+            result.append(DlcTextFormatter.parse(tail, underline ? style.withUnderlined(true) : style));
         }
         return result;
-    }
-
-    private static Component renderLegacyCodes(String text, Style baseStyle, boolean underlineFlag) {
-        MutableComponent result = Component.literal("");
-        StringBuilder current = new StringBuilder();
-        ChatFormatting currentColor = null;
-        boolean extraBold = false;
-        boolean extraItalic = false;
-        boolean extraUnderline = false;
-        boolean extraStrikethrough = false;
-        boolean extraObfuscated = false;
-
-        for (int i = 0; i < text.length(); i++) {
-            char ch = text.charAt(i);
-            if ((ch == '§' || ch == '&') && i + 1 < text.length()) {
-                char code = Character.toLowerCase(text.charAt(i + 1));
-                ChatFormatting formatting = ChatFormatting.getByCode(code);
-                if (formatting != null) {
-                    if (current.length() > 0) {
-                        result.append(Component.literal(current.toString())
-                            .withStyle(buildStyle(baseStyle, underlineFlag, currentColor,
-                                extraBold, extraItalic, extraUnderline, extraStrikethrough, extraObfuscated)));
-                        current.setLength(0);
-                    }
-                    if (formatting == ChatFormatting.RESET) {
-                        currentColor = null;
-                        extraBold = false;
-                        extraItalic = false;
-                        extraUnderline = false;
-                        extraStrikethrough = false;
-                        extraObfuscated = false;
-                    } else if (formatting.isColor()) {
-                        currentColor = formatting;
-                        extraBold = false;
-                        extraItalic = false;
-                        extraUnderline = false;
-                        extraStrikethrough = false;
-                        extraObfuscated = false;
-                    } else if (formatting == ChatFormatting.BOLD) {
-                        extraBold = true;
-                    } else if (formatting == ChatFormatting.ITALIC) {
-                        extraItalic = true;
-                    } else if (formatting == ChatFormatting.UNDERLINE) {
-                        extraUnderline = true;
-                    } else if (formatting == ChatFormatting.STRIKETHROUGH) {
-                        extraStrikethrough = true;
-                    } else if (formatting == ChatFormatting.OBFUSCATED) {
-                        extraObfuscated = true;
-                    }
-                    i++;
-                    continue;
-                }
-            }
-            current.append(ch);
-        }
-        if (current.length() > 0) {
-            result.append(Component.literal(current.toString())
-                .withStyle(buildStyle(baseStyle, underlineFlag, currentColor,
-                    extraBold, extraItalic, extraUnderline, extraStrikethrough, extraObfuscated)));
-        }
-        return result;
-    }
-
-    private static Style buildStyle(Style baseStyle,
-                                    boolean underlineFlag,
-                                    ChatFormatting currentColor,
-                                    boolean extraBold,
-                                    boolean extraItalic,
-                                    boolean extraUnderline,
-                                    boolean extraStrikethrough,
-                                    boolean extraObfuscated) {
-        Style style = baseStyle;
-        if (underlineFlag) {
-            style = style.withUnderlined(true);
-        }
-        if (currentColor != null) {
-            style = style.withColor(currentColor);
-        }
-        if (extraBold) {
-            style = style.withBold(true);
-        }
-        if (extraItalic) {
-            style = style.withItalic(true);
-        }
-        if (extraUnderline) {
-            style = style.withUnderlined(true);
-        }
-        if (extraStrikethrough) {
-            style = style.withStrikethrough(true);
-        }
-        if (extraObfuscated) {
-            style = style.withObfuscated(true);
-        }
-        return style;
     }
 
     private static int extractHeadingLevel(FormattedCharSequence line) {

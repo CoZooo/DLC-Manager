@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
@@ -613,13 +614,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
         String tooltip = getTooltipText(item);
         if (tooltip != null && !tooltip.isBlank()) {
-            for (String line : tooltip.split("\\R", -1)) {
-                if (line.isEmpty()) {
-                    lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
-                    continue;
-                }
-                lines.addAll(font.split(Component.literal(line), maxWidth));
-            }
+            lines.addAll(DlcTextFormatter.splitMultiline(font, tooltip, maxWidth));
         }
         List<String> deps = collectDependencyNamesRecursive(item);
         List<String> conflicts = item != null ? item.conflicts : List.of();
@@ -645,7 +640,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
                 .append(":");
             lines.addAll(font.split(missingLabel, maxWidth));
             for (String dep : missing) {
-                lines.addAll(font.split(Component.literal(resolveDisplayName(resolveDependencyItem(dep))), maxWidth));
+                lines.addAll(font.split(DlcTextFormatter.parse(resolveDisplayName(resolveDependencyItem(dep))), maxWidth));
             }
         }
         if (deps != null && !deps.isEmpty()) {
@@ -657,7 +652,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
                 .append(":");
             lines.addAll(font.split(depLabel, maxWidth));
             for (String dep : deps) {
-                lines.addAll(font.split(Component.literal(resolveDisplayName(resolveDependencyItem(dep))), maxWidth));
+                lines.addAll(font.split(DlcTextFormatter.parse(resolveDisplayName(resolveDependencyItem(dep))), maxWidth));
             }
         }
         if (conflicts != null && !conflicts.isEmpty()) {
@@ -669,7 +664,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
                 .append(":");
             lines.addAll(font.split(conflictLabel, maxWidth));
             for (String conflict : conflicts) {
-                lines.addAll(font.split(Component.literal(resolveDisplayName(resolveDependencyItem(conflict))), maxWidth));
+                lines.addAll(font.split(DlcTextFormatter.parse(resolveDisplayName(resolveDependencyItem(conflict))), maxWidth));
             }
         }
         return lines;

@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.required.DlcRequiredDependency;
@@ -560,7 +561,7 @@ public class DlcRequiredManagerScreen extends Screen {
         boolean applied = getDesiredState(entry);
         boolean baseline = DlcRequiredRuntimeState.getBaseline(entry.getIdentifier(), applied);
         boolean pending = DlcRequiredRuntimeState.isPending(entry.getIdentifier(), baseline);
-        Component label = Component.literal(name);
+        Component label = DlcTextFormatter.parse(name);
         if (applied && pending) {
             label = label.copy().withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
         } else if (applied) {
@@ -990,11 +991,8 @@ public class DlcRequiredManagerScreen extends Screen {
         if (tip == null || tip.isBlank()) {
             return;
         }
-        List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
         int maxWidth = Math.min(260, this.width - 40);
-        for (String line : tip.split("\\\\n")) {
-            lines.addAll(this.font.split(Component.literal(line), maxWidth));
-        }
+        List<net.minecraft.util.FormattedCharSequence> lines = DlcTextFormatter.splitMultiline(this.font, tip, maxWidth);
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 

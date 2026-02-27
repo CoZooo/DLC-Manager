@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeMarkdownRenderer;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
@@ -175,7 +176,7 @@ public final class DlcClientRuntime {
         int titleY = layout.y + layout.padding;
         guiGraphics.drawCenteredString(
             Minecraft.getInstance().font,
-            layout.title,
+            DlcTextFormatter.parse(layout.title),
             layout.x + (layout.right - layout.x) / 2,
             titleY,
             0xFFFFFF
@@ -473,18 +474,7 @@ public final class DlcClientRuntime {
     }
 
     private static List<FormattedCharSequence> wrapMultiline(String text, int maxWidth) {
-        List<FormattedCharSequence> lines = new ArrayList<>();
-        if (text == null || text.isBlank()) {
-            return lines;
-        }
-        for (String line : text.split("\\R", -1)) {
-            if (line.isEmpty()) {
-                lines.add(FormattedCharSequence.EMPTY);
-            } else {
-                lines.addAll(Minecraft.getInstance().font.split(Component.literal(line), maxWidth));
-            }
-        }
-        return lines;
+        return DlcTextFormatter.splitMultiline(Minecraft.getInstance().font, text, maxWidth);
     }
 
     private static final class TitleNoticePanelLayout {
@@ -750,7 +740,7 @@ public final class DlcClientRuntime {
                         if (currentDlc != null && !currentDlc.isBlank()
                             && shown != null && !shown.isBlank()
                             && !isSameChangelogMarker(shown, currentMarker, currentDlc)) {
-                            List<DlcUpdateMeta> pending = collectPendingChangelogMeta(shown, currentMarker, currentDlc);
+                            List<DlcUpdateMeta> pending = collectPendingChangelogMeta(shown, currentMarker, currentBase, currentDlc);
                             if (!pending.isEmpty()) {
                                 changelogText = buildPendingChangelogText(pending, CrossPlatformRuntime.languageCode());
                                 if (changelogText != null && !changelogText.isBlank()) {
@@ -921,20 +911,23 @@ public final class DlcClientRuntime {
         };
     }
 
-    private static List<DlcUpdateMeta> collectPendingChangelogMeta(String shownMarker, String currentMarker, String currentDlcVersion) {
+    private static List<DlcUpdateMeta> collectPendingChangelogMeta(String shownMarker, String currentMarker, String currentBaseVersion, String currentDlcVersion) {
         if (shownMarker == null || shownMarker.isBlank()
             || currentMarker == null || currentMarker.isBlank()
+            || currentBaseVersion == null || currentBaseVersion.isBlank()
             || currentDlcVersion == null || currentDlcVersion.isBlank()) {
             return List.of();
         }
         String shown = shownMarker.trim();
+        String currentBase = safeVersion(currentBaseVersion);
         String currentDlc = safeVersion(currentDlcVersion);
+        String shownBase = extractBaseFromMarker(shown);
         String shownDlc = extractDlcFromMarker(shown);
         if (!isPairMarker(shown) && shownDlc.equals(currentDlc)) {
             return List.of();
         }
-        if (isPairMarker(shown) && shownDlc.equals(currentDlc)) {
-            DlcUpdateMeta latest = DlcUpdateService.loadMetaForVersion(currentDlc);
+        if (isPairMarker(shown) && shownBase.equals(currentBase) && shownDlc.equals(currentDlc)) {
+            DlcUpdateMeta latest = DlcUpdateService.loadMetaForVersion(currentBase, currentDlc);
             if (latest == null) {
                 return List.of();
             }
@@ -947,27 +940,41 @@ public final class DlcClientRuntime {
         }
         List<DlcUpdateMeta> reverse = new ArrayList<>();
         Set<String> visited = new HashSet<>();
-        String cursor = currentDlc;
-        while (cursor != null && !cursor.isBlank() && !cursor.equals(shownDlc) && visited.add(cursor)) {
-            DlcUpdateMeta meta = DlcUpdateService.loadMetaForVersion(cursor);
+        String cursorBase = currentBase;
+        String cursorDlc = currentDlc;
+        boolean pairShown = isPairMarker(shown);
+        while (cursorDlc != null
+            && !cursorDlc.isBlank()
+            && !(pairShown
+                ? (cursorBase.equals(shownBase) && cursorDlc.equals(shownDlc))
+                : cursorDlc.equals(shownDlc))
+            && visited.add(composeChangelogMarker(cursorBase, cursorDlc))) {
+            DlcUpdateMeta meta = DlcUpdateService.loadMetaForVersion(cursorBase, cursorDlc);
             if (meta == null) {
                 break;
             }
-            String oldVersion = resolveMetaSourceDlc(meta);
-            String newVersion = resolveMetaTargetDlc(meta);
-            if (oldVersion == null || oldVersion.isBlank() || newVersion == null || newVersion.isBlank()) {
+            String oldBase = resolveMetaSourceBase(meta);
+            String oldDlc = resolveMetaSourceDlc(meta);
+            String newBase = resolveMetaTargetBase(meta);
+            String newDlc = resolveMetaTargetDlc(meta);
+            if (oldBase == null || oldBase.isBlank() || oldDlc == null || oldDlc.isBlank()
+                || newBase == null || newBase.isBlank() || newDlc == null || newDlc.isBlank()) {
                 break;
             }
-            if (!cursor.equals(newVersion)) {
+            if (!cursorBase.equals(newBase) || !cursorDlc.equals(newDlc)) {
                 break;
             }
             reverse.add(meta);
-            cursor = oldVersion;
+            cursorBase = oldBase;
+            cursorDlc = oldDlc;
         }
         if (reverse.isEmpty()) {
             return List.of();
         }
-        if (!shownDlc.equals(cursor)) {
+        boolean reached = pairShown
+            ? shownBase.equals(cursorBase) && shownDlc.equals(cursorDlc)
+            : shownDlc.equals(cursorDlc);
+        if (!reached) {
             return List.of();
         }
         Collections.reverse(reverse);
@@ -1028,6 +1035,17 @@ public final class DlcClientRuntime {
             return safeVersion(marker.substring(plus + 1));
         }
         return safeVersion(marker);
+    }
+
+    private static String extractBaseFromMarker(String marker) {
+        if (marker == null || marker.isBlank()) {
+            return safeVersion(null);
+        }
+        int plus = marker.indexOf('+');
+        if (plus > 0) {
+            return safeVersion(marker.substring(0, plus));
+        }
+        return safeVersion(null);
     }
 
     private static String composeChangelogMarker(String base, String dlc) {

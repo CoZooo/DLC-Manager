@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -88,7 +89,8 @@ public class DlcPresetManagerScreen extends Screen {
             boolean blocked = DlcPresetRuntimeState.isPresetBlocked(entry.getId());
             int color = blocked ? 0x888888 : 0xE6E6E6;
             int labelY = rowY + (ROW_HEIGHT - this.font.lineHeight) / 2;
-            guiGraphics.drawString(this.font, entry.resolveDisplayName(lang), CHECKBOX_X + CHECKBOX_SIZE + LABEL_GAP, labelY, color, false);
+            guiGraphics.drawString(this.font, DlcTextFormatter.parse(entry.resolveDisplayName(lang)),
+                CHECKBOX_X + CHECKBOX_SIZE + LABEL_GAP, labelY, color, false);
             if (isMouseOverRow(mouseX, mouseY, rowY, ROW_HEIGHT) && !isMouseOverButton(button, mouseX, mouseY)) {
                 renderTooltip(guiGraphics, entry, mouseX, mouseY, lang);
             }
@@ -181,13 +183,7 @@ public class DlcPresetManagerScreen extends Screen {
         int maxWidth = Math.min(260, this.width - 40);
         String tip = entry.resolveTip(lang);
         if (tip != null && !tip.isBlank()) {
-            for (String line : tip.split("\\R", -1)) {
-                if (line.isEmpty()) {
-                    lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
-                    continue;
-                }
-                lines.addAll(this.font.split(Component.literal(line), maxWidth));
-            }
+            lines.addAll(DlcTextFormatter.splitMultiline(this.font, tip, maxWidth));
         }
         List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(entry.getId(), lang);
         if (!blockers.isEmpty()) {

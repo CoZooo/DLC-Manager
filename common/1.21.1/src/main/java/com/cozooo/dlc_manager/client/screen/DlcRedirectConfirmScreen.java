@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -7,7 +8,6 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import java.util.ArrayList;
 import java.util.List;
 
 public class DlcRedirectConfirmScreen extends Screen {
@@ -64,17 +64,7 @@ public class DlcRedirectConfirmScreen extends Screen {
         int maxWidth = Math.min(360, this.width - 40);
         promptLines = font.split(Component.translatable("dlc_manager.redirect.prompt"), maxWidth);
         urlLines = font.split(Component.literal(url), maxWidth);
-        List<FormattedCharSequence> noticeOut = new ArrayList<>();
-        if (!notice.isBlank()) {
-            for (String line : notice.split("\\R", -1)) {
-                if (line.isEmpty()) {
-                    noticeOut.add(FormattedCharSequence.EMPTY);
-                } else {
-                    noticeOut.addAll(font.split(Component.literal(line), maxWidth));
-                }
-            }
-        }
-        noticeLines = noticeOut;
+        noticeLines = DlcTextFormatter.splitMultiline(this.font, notice, maxWidth);
         int lh = font.lineHeight;
         int total = lh + 10 + promptLines.size() * (lh + 2) + 8 + urlLines.size() * (lh + 2);
         if (!noticeLines.isEmpty()) {

@@ -13,6 +13,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -39,8 +40,11 @@ public class DlcServerUpdateManagerScreen extends Screen {
     private int scrollIndex;
     private List<DlcUpdateMeta> rows = List.of();
     private List<DlcUpdateRowPlanner.Action> rowActions = List.of();
+    private List<String> rollbackTargets = List.of();
     private List<String> actionOld = List.of();
     private List<String> actionNew = List.of();
+    private List<String> displayOld = List.of();
+    private List<String> displayNew = List.of();
     private final List<Button> actionButtons = new ArrayList<>();
     private String currentVersion = "";
     private String baseVersion = "";
@@ -70,8 +74,11 @@ public class DlcServerUpdateManagerScreen extends Screen {
         applying = false;
         rows = List.of();
         rowActions = List.of();
+        rollbackTargets = List.of();
         actionOld = List.of();
         actionNew = List.of();
+        displayOld = List.of();
+        displayNew = List.of();
         buildWidgets();
         new Thread(() -> {
             DlcServerUpdateState state;
@@ -111,7 +118,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 packUpdateRepoUrl = finalState.updateGithubRepo == null ? "" : finalState.updateGithubRepo.trim();
                 packModpackUrl = finalState.modpackUrl == null ? "" : finalState.modpackUrl.trim();
                 rollbackFrom = finalState.rollbackFrom;
-                rolledBackMode = rollbackFrom != null && !rollbackFrom.isBlank() && !rollbackFrom.equals(currentVersion);
+                rolledBackMode = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, baseVersion, currentVersion);
                 buildRows(finalState);
                 buildWidgets();
                 if (finalShouldCheckPackUpdate
@@ -125,23 +132,32 @@ public class DlcServerUpdateManagerScreen extends Screen {
 
     private void buildRows(DlcServerUpdateState state) {
         DlcUpdateRowPlanner.PlanResult plan = DlcUpdateRowPlanner.planServerRows(
-            state.history, state.updates, rolledBackMode, currentVersion
+            state.history, state.updates, rolledBackMode, baseVersion, currentVersion
         );
         List<DlcUpdateMeta> list = new ArrayList<>(plan.rows.size());
         List<DlcUpdateRowPlanner.Action> actions = new ArrayList<>(plan.rows.size());
+        List<String> targets = new ArrayList<>(plan.rows.size());
         List<String> olds = new ArrayList<>(plan.rows.size());
         List<String> news = new ArrayList<>(plan.rows.size());
+        List<String> displayOlds = new ArrayList<>(plan.rows.size());
+        List<String> displayNews = new ArrayList<>(plan.rows.size());
         for (DlcUpdateRowPlanner.UpdateRow row : plan.rows) {
             list.add(row.meta);
             actions.add(row.action);
+            targets.add(row.rollbackTarget);
             olds.add(row.oldVersion);
             news.add(row.newVersion);
+            displayOlds.add(row.displayOldVersion);
+            displayNews.add(row.displayNewVersion);
         }
         hasVisibleUpdates = plan.hasVisibleUpdates;
         rows = list;
         rowActions = actions;
+        rollbackTargets = targets;
         actionOld = olds;
         actionNew = news;
+        displayOld = displayOlds;
+        displayNew = displayNews;
     }
 
     private void buildWidgets() {
@@ -201,12 +217,16 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 DlcUpdateRowPlanner.Action chosen = rowActions.get(idx);
                 String oldVersion = idx < actionOld.size() ? actionOld.get(idx) : null;
                 String newVersion = idx < actionNew.size() ? actionNew.get(idx) : null;
+                String rollbackTarget = idx < rollbackTargets.size() ? rollbackTargets.get(idx) : null;
+                DlcUpdateMeta meta = idx < rows.size() ? rows.get(idx) : null;
+                String baseOld = meta == null ? null : meta.getBaseOld();
+                String baseNew = meta == null ? null : meta.getBaseNew();
                 if (chosen == DlcUpdateRowPlanner.Action.ROLLBACK) {
-                    confirmRollback(oldVersion);
+                    confirmRollback(rollbackTarget);
                 } else if (chosen == DlcUpdateRowPlanner.Action.REUPDATE) {
-                    confirmReupdate(oldVersion, newVersion);
+                    confirmReupdate(baseOld, oldVersion, baseNew, newVersion);
                 } else if (chosen == DlcUpdateRowPlanner.Action.UPDATE) {
-                    confirmApply(oldVersion, newVersion);
+                    confirmApply(baseOld, oldVersion, baseNew, newVersion);
                 }
             }).bounds(-10000, -10000, buttonW, 16).build();
             actionButton.visible = false;
@@ -269,7 +289,19 @@ public class DlcServerUpdateManagerScreen extends Screen {
         int visibleEnd = Math.min(totalLines, scrollIndex + maxVisible);
         for (int i = scrollIndex; i < visibleEnd; i++) {
             DlcUpdateMeta meta = rows.get(i);
-            String label = meta.getDlcOld() + " -> " + meta.getDlcNew();
+            String sourceBase = meta == null ? null : meta.getBaseOld();
+            String sourceDlc = meta == null ? null : meta.getDlcOld();
+            String targetBase = meta == null ? null : meta.getBaseNew();
+            String targetDlc = meta == null ? null : meta.getDlcNew();
+            if (targetBase == null || targetBase.isBlank()) {
+                targetBase = sourceBase;
+            }
+            if (targetDlc == null || targetDlc.isBlank()) {
+                targetDlc = sourceDlc;
+            }
+            String oldText = i < displayOld.size() ? displayOld.get(i) : normalizeVersion(sourceBase) + "+" + normalizeVersion(sourceDlc);
+            String newText = i < displayNew.size() ? displayNew.get(i) : normalizeVersion(targetBase) + "+" + normalizeVersion(targetDlc);
+            String label = oldText + " -> " + newText;
             if (i < rowActions.size() && rowActions.get(i) == DlcUpdateRowPlanner.Action.REUPDATE) {
                 label = label + " " + Component.translatable("dlc_manager.update.rolled_back").getString();
             }
@@ -335,7 +367,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
         int maxWidth = Math.max(120, this.width - 60);
         List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
         lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
-        lines.addAll(this.font.split(Component.literal(changelog), maxWidth));
+        lines.addAll(DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth));
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
@@ -372,22 +404,23 @@ public class DlcServerUpdateManagerScreen extends Screen {
         }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
     }
 
-    private void confirmReupdate(String dlcOld, String dlcNew) {
+    private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         if (dlcOld == null || dlcNew == null) {
             return;
         }
+        String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
         Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+        Component message = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                startApply(dlcOld, dlcNew);
+                startApply(baseOld, dlcOld, baseNew, dlcNew);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
         }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
     }
 
-    private void confirmApply(String dlcOld, String dlcNew) {
+    private void confirmApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         if (dlcOld == null || dlcNew == null) {
             return;
         }
@@ -395,7 +428,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
         Component message = Component.translatable("dlc_manager.update.confirm_apply");
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                startApply(dlcOld, dlcNew);
+                startApply(baseOld, dlcOld, baseNew, dlcNew);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
@@ -416,12 +449,12 @@ public class DlcServerUpdateManagerScreen extends Screen {
         }, "dlc-server-update-rollback").start();
     }
 
-    private void startApply(String dlcOld, String dlcNew) {
+    private void startApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         setApplying(true);
         new Thread(() -> {
             UpdateResponse result;
             try {
-                result = DlcServerConnection.applyUpdate(entry, 8000, dlcOld, dlcNew);
+                result = DlcServerConnection.applyUpdate(entry, 8000, baseOld, dlcOld, baseNew, dlcNew);
             } catch (Exception ex) {
                 result = null;
             }
@@ -608,5 +641,28 @@ public class DlcServerUpdateManagerScreen extends Screen {
         int barY = top + (trackHeight - barHeight) * scrollIndex / Math.max(1, maxScroll);
         guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF3B3B3B);
         guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF9B9B9B);
+    }
+
+    private static String normalizeVersion(String value) {
+        return value == null || value.isBlank() ? "1.0.0" : value.trim();
+    }
+
+    private static String[] compactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
+        String sourceBase = normalizeVersion(oldBase);
+        String sourceDlc = normalizeVersion(oldDlc);
+        String targetBase = normalizeVersion(newBase == null || newBase.isBlank() ? sourceBase : newBase);
+        String targetDlc = normalizeVersion(newDlc == null || newDlc.isBlank() ? sourceDlc : newDlc);
+        boolean baseChanged = !sourceBase.equals(targetBase);
+        boolean dlcChanged = !sourceDlc.equals(targetDlc);
+        if (baseChanged && dlcChanged) {
+            return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
+        }
+        if (baseChanged) {
+            return new String[] {sourceBase, targetBase};
+        }
+        if (dlcChanged) {
+            return new String[] {sourceDlc, targetDlc};
+        }
+        return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
     }
 }

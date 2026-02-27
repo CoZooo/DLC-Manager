@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -192,7 +193,7 @@ public class DlcUpdateUrlScreen extends Screen {
                 Minecraft.getInstance().execute(() -> {
                     downloading = false;
                     if (info != null) {
-                        confirmReupdate(info.getDlcOld(), info.getDlcNew());
+                        confirmReupdate(info.getBase(), info.getDlcOld(), info.getBaseNew(), info.getDlcNew());
                     } else {
                         Minecraft.getInstance().setScreen(parent);
                     }
@@ -242,27 +243,28 @@ public class DlcUpdateUrlScreen extends Screen {
         }, null);
     }
 
-    private void confirmReupdate(String dlcOld, String dlcNew) {
+    private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         String changelog = DlcUpdateService.buildChangelogText(
-            DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true),
+            DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
             CrossPlatformRuntime.languageCode());
-        confirmReupdateNow(dlcOld, dlcNew, changelog);
+        confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog);
     }
 
-    private void confirmReupdateNow(String dlcOld, String dlcNew, String changelog) {
+    private void confirmReupdateNow(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
         Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = buildReupdateMessage(dlcOld, dlcNew, changelog);
+        Component message = buildReupdateMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                startReupdate(dlcOld, dlcNew);
+                startReupdate(baseOld, dlcOld, baseNew, dlcNew);
             } else {
                 Minecraft.getInstance().setScreen(parent);
             }
         }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
     }
 
-    private Component buildReupdateMessage(String dlcOld, String dlcNew, String changelog) {
-        Component base = Component.translatable("dlc_manager.update.confirm_reapply", dlcOld, dlcNew);
+    private Component buildReupdateMessage(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
+        String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
+        Component base = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
         if (changelog == null || changelog.isBlank()) {
             return base;
         }
@@ -271,11 +273,11 @@ public class DlcUpdateUrlScreen extends Screen {
             .append("\n\n")
             .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
             .append("\n")
-            .append(Component.literal(changelog));
+            .append(DlcTextFormatter.parse(changelog));
     }
 
-    private void startReupdate(String dlcOld, String dlcNew) {
-        var chain = DlcUpdateService.resolveUpdateChainTo(dlcOld, dlcNew, true);
+    private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
+        var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));
             return;
@@ -327,6 +329,29 @@ public class DlcUpdateUrlScreen extends Screen {
         if (!applyingUpdates) {
             super.onClose();
         }
+    }
+
+    private static String normalizeVersion(String value) {
+        return value == null || value.isBlank() ? "1.0.0" : value.trim();
+    }
+
+    private static String[] compactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
+        String sourceBase = normalizeVersion(oldBase);
+        String sourceDlc = normalizeVersion(oldDlc);
+        String targetBase = normalizeVersion(newBase == null || newBase.isBlank() ? sourceBase : newBase);
+        String targetDlc = normalizeVersion(newDlc == null || newDlc.isBlank() ? sourceDlc : newDlc);
+        boolean baseChanged = !sourceBase.equals(targetBase);
+        boolean dlcChanged = !sourceDlc.equals(targetDlc);
+        if (baseChanged && dlcChanged) {
+            return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
+        }
+        if (baseChanged) {
+            return new String[] {sourceBase, targetBase};
+        }
+        if (dlcChanged) {
+            return new String[] {sourceDlc, targetDlc};
+        }
+        return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
     }
 
     private boolean tryShowPostUpdateDownloads(UpdateApplyResult result) {

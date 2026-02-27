@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -173,7 +174,7 @@ public class DlcUpdatePromptScreen extends Screen {
             }
             if (changelog != null && !changelog.isBlank()) {
                 lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
-                lines.addAll(this.font.split(Component.literal(changelog), maxWidth));
+                lines.addAll(DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth));
             }
             lines.add(FormattedCharSequence.EMPTY);
         }
@@ -189,14 +190,15 @@ public class DlcUpdatePromptScreen extends Screen {
         String oldDlc = normalizeVersion(version.getDlcOld());
         String newBase = normalizeVersion(version.getBaseNew());
         String newDlc = normalizeVersion(version.getDlcNew());
-        if (newBase.isBlank()) {
+        if (newBase == null || newBase.isBlank()) {
             newBase = oldBase;
         }
-        if (newDlc.isBlank()) {
+        if (newDlc == null || newDlc.isBlank()) {
             newDlc = oldDlc;
         }
-        String from = formatVersionPair(oldBase, oldDlc);
-        String to = formatVersionPair(newBase, newDlc);
+        String[] compact = compactTransition(oldBase, oldDlc, newBase, newDlc);
+        String from = compact[0];
+        String to = compact[1];
         if (from.equals(to)) {
             return from;
         }
@@ -205,6 +207,25 @@ public class DlcUpdatePromptScreen extends Screen {
 
     private String formatVersionPair(String base, String dlc) {
         return normalizeVersion(base) + "+" + normalizeVersion(dlc);
+    }
+
+    private String[] compactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
+        String sourceBase = normalizeVersion(oldBase);
+        String sourceDlc = normalizeVersion(oldDlc);
+        String targetBase = normalizeVersion(newBase);
+        String targetDlc = normalizeVersion(newDlc);
+        boolean baseChanged = !sourceBase.equals(targetBase);
+        boolean dlcChanged = !sourceDlc.equals(targetDlc);
+        if (baseChanged && dlcChanged) {
+            return new String[] {formatVersionPair(sourceBase, sourceDlc), formatVersionPair(targetBase, targetDlc)};
+        }
+        if (baseChanged) {
+            return new String[] {sourceBase, targetBase};
+        }
+        if (dlcChanged) {
+            return new String[] {sourceDlc, targetDlc};
+        }
+        return new String[] {formatVersionPair(sourceBase, sourceDlc), formatVersionPair(targetBase, targetDlc)};
     }
 
     private String normalizeVersion(String value) {

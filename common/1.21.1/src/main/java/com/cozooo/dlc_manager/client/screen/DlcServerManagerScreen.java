@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -375,7 +376,7 @@ public class DlcServerManagerScreen extends Screen {
                 guiGraphics.drawString(this.font, entry.label, 36, labelY, 0x8CB3FF, false);
             } else if (entry.item != null) {
                 DlcServerItem item = entry.item;
-                guiGraphics.drawString(this.font, resolveDisplayName(item), 48, labelY, 0xE6E6E6, false);
+                guiGraphics.drawString(this.font, DlcTextFormatter.parse(resolveDisplayName(item)), 48, labelY, 0xE6E6E6, false);
                 drawToggle(guiGraphics, rowY, item.enabled);
             }
             if (!entry.header && entry.item != null && isRowHovered(rowY)) {
@@ -914,7 +915,7 @@ public class DlcServerManagerScreen extends Screen {
         if (tip == null || tip.isBlank()) {
             return;
         }
-        guiGraphics.renderTooltip(this.font, this.font.split(Component.literal(tip), 240), 0, 0);
+        guiGraphics.renderTooltip(this.font, DlcTextFormatter.splitMultiline(this.font, tip, 240), 0, 0);
     }
 
     private boolean isRowHovered(int rowY) {

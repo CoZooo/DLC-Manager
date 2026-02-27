@@ -73,9 +73,7 @@ public final class DlcUpdateRuntime {
         String currentVersion = version == null ? "" : version.getDlc();
         String baseVersion = version == null ? "" : version.getBase();
         String rollbackFrom = version == null ? null : version.getRollbackFrom();
-        boolean rolledBackMode = rollbackFrom != null
-            && !rollbackFrom.isBlank()
-            && !rollbackFrom.equals(currentVersion);
+        boolean rolledBackMode = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, baseVersion, currentVersion);
         List<DlcUpdateMeta> baseHistory = DlcUpdateRowPlanner.visibleOnly(DlcUpdateService.listUpdateHistory());
         if (rolledBackMode) {
             List<DlcUpdateMeta> rolledHistory = DlcUpdateRowPlanner.visibleOnly(

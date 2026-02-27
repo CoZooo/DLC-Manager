@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
@@ -213,7 +214,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             y += 12;
         }
         if (errorText != null && !errorText.isBlank()) {
-            guiGraphics.drawCenteredString(this.font, errorText, centerX, y, 0xE6E6E6);
+            guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(errorText), centerX, y, 0xE6E6E6);
             y += 12;
         }
 
@@ -235,7 +236,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             boolean checked = isAllSelected() || selectedKeys.contains(item.key);
             drawCheckbox(guiGraphics, CHECKBOX_X, rowY + 1, CHECKBOX_SIZE, checked);
             String name = resolveDisplayName(item);
-            guiGraphics.drawString(this.font, name, CHECKBOX_X + CHECKBOX_SIZE + 6, rowY, 0xE6E6E6, false);
+            guiGraphics.drawString(this.font, DlcTextFormatter.parse(name), CHECKBOX_X + CHECKBOX_SIZE + 6, rowY, 0xE6E6E6, false);
             if (downloading) {
                 Float progress = progressByKey.get(item.key);
                 if (progress != null) {

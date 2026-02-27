@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
@@ -469,14 +470,14 @@ public class DlcServerRequiredManagerScreen extends Screen {
 
     private Component buildEntryLabel(DlcServerRequiredItem item) {
         String name = resolveDisplayName(item);
-        Component label = Component.literal(name);
+        Component label = DlcTextFormatter.parse(name);
         boolean applied = isApplied(item);
         boolean pending = item != null && item.hasFile && item.needsApply;
         if (applied) {
             label = label.copy().withStyle(ChatFormatting.GREEN);
         } else if (pending) {
-            label = Component.literal(name + " " + Component.translatable("dlc_manager.required.pending_restart").getString())
-                .withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
+            label = DlcTextFormatter.parse(name + " " + Component.translatable("dlc_manager.required.pending_restart").getString())
+                .copy().withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
         }
         return label;
     }
@@ -598,11 +599,8 @@ public class DlcServerRequiredManagerScreen extends Screen {
         if (tip == null || tip.isBlank()) {
             return;
         }
-        List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
         int maxWidth = Math.min(260, this.width - 40);
-        for (String line : tip.split("\\n")) {
-            lines.addAll(this.font.split(Component.literal(line), maxWidth));
-        }
+        List<net.minecraft.util.FormattedCharSequence> lines = DlcTextFormatter.splitMultiline(this.font, tip, maxWidth);
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 

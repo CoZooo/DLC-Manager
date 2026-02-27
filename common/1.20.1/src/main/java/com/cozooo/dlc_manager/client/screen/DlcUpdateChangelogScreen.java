@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -73,17 +74,8 @@ public class DlcUpdateChangelogScreen extends Screen {
     }
 
     private void rebuildLines() {
-        List<FormattedCharSequence> built = new ArrayList<>();
         int maxWidth = Math.max(40, this.width - 48);
-        String[] parts = changelog.split("\\R", -1);
-        for (String part : parts) {
-            if (part == null || part.isEmpty()) {
-                built.add(FormattedCharSequence.EMPTY);
-                continue;
-            }
-            built.addAll(this.font.split(Component.literal(part), maxWidth));
-        }
-        lines = built;
+        lines = DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth);
         scrollIndex = 0;
     }
 

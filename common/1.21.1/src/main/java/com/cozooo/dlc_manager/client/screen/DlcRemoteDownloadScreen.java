@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -144,7 +145,7 @@ public class DlcRemoteDownloadScreen extends Screen {
             boolean checked = isAllSelected() || selectedKeys.contains(selectionKey(entry));
             int rowY = listStart + (i - scrollIndex) * lineHeight;
             drawCheckbox(guiGraphics, CHECKBOX_X, rowY + 1, CHECKBOX_SIZE, checked);
-            guiGraphics.drawString(this.font, name, CHECKBOX_X + CHECKBOX_SIZE + 6, rowY, 0xE6E6E6, false);
+            guiGraphics.drawString(this.font, DlcTextFormatter.parse(name), CHECKBOX_X + CHECKBOX_SIZE + 6, rowY, 0xE6E6E6, false);
             if (downloading && maxConcurrentDownloads > 1) {
                 String key = progressKey(entry);
                 Float progress = progressByKey.get(key);
@@ -177,7 +178,7 @@ public class DlcRemoteDownloadScreen extends Screen {
             y = this.height - 70;
             if (maxConcurrentDownloads <= 1) {
                 String status = statusText == null ? "" : statusText;
-                guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
+                guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(status), centerX, y, 0xE6E6E6);
                 y += 12;
                 DlcRemoteEntry activeEntry = activeDownloadEntry;
                 String activeKey = activeEntry == null ? null : progressKey(activeEntry);
@@ -201,7 +202,7 @@ public class DlcRemoteDownloadScreen extends Screen {
             }
         } else if (errorText != null && !errorText.isBlank()) {
             y = this.height - 70;
-            guiGraphics.drawCenteredString(this.font, errorText, centerX, y, 0xFF6B6B);
+            guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B);
         }
 
     }

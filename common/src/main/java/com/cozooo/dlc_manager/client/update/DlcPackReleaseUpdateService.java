@@ -106,13 +106,7 @@ public final class DlcPackReleaseUpdateService {
                     builder.append("\n\n");
                 }
                 builder
-                    .append(safeVersion(step.oldBase))
-                    .append("+")
-                    .append(safeVersion(step.oldDlc))
-                    .append(" -> ")
-                    .append(safeVersion(step.newBase))
-                    .append("+")
-                    .append(safeVersion(step.newDlc))
+                    .append(formatCompactTransition(step.oldBase, step.oldDlc, step.newBase, step.newDlc))
                     .append("\n")
                     .append(line.trim());
             }
@@ -1079,6 +1073,25 @@ public final class DlcPackReleaseUpdateService {
         }
         String normalized = value.trim();
         return normalized.isBlank() ? DEFAULT_VERSION : normalized;
+    }
+
+    private static String formatCompactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
+        String sourceBase = safeVersion(oldBase);
+        String sourceDlc = safeVersion(oldDlc);
+        String targetBase = safeVersion(newBase);
+        String targetDlc = safeVersion(newDlc);
+        boolean baseChanged = !sourceBase.equals(targetBase);
+        boolean dlcChanged = !sourceDlc.equals(targetDlc);
+        if (baseChanged && dlcChanged) {
+            return sourceBase + "+" + sourceDlc + " -> " + targetBase + "+" + targetDlc;
+        }
+        if (baseChanged) {
+            return sourceBase + " -> " + targetBase;
+        }
+        if (dlcChanged) {
+            return sourceDlc + " -> " + targetDlc;
+        }
+        return sourceBase + "+" + sourceDlc + " -> " + targetBase + "+" + targetDlc;
     }
 
     private static String stateKey(String base, String dlc) {

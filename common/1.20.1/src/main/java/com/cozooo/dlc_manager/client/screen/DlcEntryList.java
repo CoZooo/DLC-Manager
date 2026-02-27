@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -92,7 +93,7 @@ public class DlcEntryList extends ObjectSelectionList<DlcEntryList.Entry> {
             checkbox.render(guiGraphics, mouseX, mouseY, partialTick);
 
             int color = 0xFFE0E0E0;
-            guiGraphics.drawString(Minecraft.getInstance().font, item.getName(), x + 30, y + 7, color, false);
+            guiGraphics.drawString(Minecraft.getInstance().font, DlcTextFormatter.parse(item.getName()), x + 30, y + 7, color, false);
 
             if (hovered) {
                 int infoColor = 0xFF7AA2FF;

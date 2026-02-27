@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Side;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -143,7 +144,7 @@ public class DlcPackReleaseUpdateScreen extends Screen {
         y += 12;
         int maxWidth = Math.max(120, this.width - 80);
         int maxBottom = this.height - 90;
-        for (net.minecraft.util.FormattedCharSequence line : this.font.split(Component.literal(changelog), maxWidth)) {
+        for (net.minecraft.util.FormattedCharSequence line : DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth)) {
             if (y > maxBottom) {
                 break;
             }

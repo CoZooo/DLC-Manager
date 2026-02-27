@@ -119,7 +119,8 @@ public final class DlcUpdateService {
         }
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         List<DlcUpdatePackage> packages = scanUpdatePackages(dlcRoot);
-        return resolveUpdateChainTo(version, packages, targetDlcNew, ignoreRollback);
+        String currentBase = version == null ? null : version.getBase();
+        return resolveUpdateChainTo(version, packages, currentBase, targetDlcNew, ignoreRollback);
     }
 
     public static List<DlcUpdatePackage> resolveUpdateChainTo(String targetDlcOld, String targetDlcNew, boolean ignoreRollback) {
@@ -129,7 +130,22 @@ public final class DlcUpdateService {
         }
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         List<DlcUpdatePackage> packages = scanUpdatePackages(dlcRoot);
-        return resolveUpdateChainTo(version, packages, targetDlcOld, targetDlcNew, ignoreRollback);
+        String currentBase = version == null ? null : version.getBase();
+        return resolveUpdateChainTo(version, packages, currentBase, targetDlcOld, currentBase, targetDlcNew, ignoreRollback);
+    }
+
+    public static List<DlcUpdatePackage> resolveUpdateChainTo(String targetBaseOld,
+                                                              String targetDlcOld,
+                                                              String targetBaseNew,
+                                                              String targetDlcNew,
+                                                              boolean ignoreRollback) {
+        Path dlcRoot = getDlcRoot();
+        if (dlcRoot == null) {
+            return List.of();
+        }
+        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+        List<DlcUpdatePackage> packages = scanUpdatePackages(dlcRoot);
+        return resolveUpdateChainTo(version, packages, targetBaseOld, targetDlcOld, targetBaseNew, targetDlcNew, ignoreRollback);
     }
 
     public static UpdateApplyResult applyUpdates(List<DlcUpdatePackage> packages, boolean forceMissing) {
@@ -191,10 +207,10 @@ public final class DlcUpdateService {
         meta.setTimestamp(Long.toString(System.currentTimeMillis()));
         meta.setHidden(manifest.isHidden());
         meta.setChangelog(manifest.getChangelog());
-        Path backupRoot = DlcTmpPaths.resolve(dlcRoot, targetDlcVersion(info));
-        Json5Util.migrateLegacy(backupRoot.resolve("meta.json"), UPDATE_GSON);
-        Path metaPath = Json5Util.resolveConfigPath(backupRoot, "meta");
-        metaPath = Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
+        String nextBase = baseNew != null ? safeVersion(baseNew) : safeVersion(current.getBase());
+        String nextDlc = targetDlcVersion(info);
+        Path backupRoot = resolveMetaRootByPair(dlcRoot, nextBase, nextDlc);
+        Path metaPath = resolveMetaPath(backupRoot);
 
         UpdateContext context = new UpdateContext(dlcRoot, staging, backupRoot, meta);
 
@@ -207,12 +223,8 @@ public final class DlcUpdateService {
             meta.save(metaPath);
 
             DlcUpdateVersion updated = new DlcUpdateVersion();
-            String nextBase = safeVersion(current.getBase());
-            if (baseNew != null) {
-                nextBase = baseNew;
-            }
             updated.setBase(nextBase);
-            updated.setDlc(targetDlcVersion(info));
+            updated.setDlc(nextDlc);
             updated.setRollbackFrom(null);
             updated.setChangelogShown(sourceBaseVersion(info) + "+" + sourceDlcVersion(info));
             updated.save(dlcRoot);
@@ -240,17 +252,23 @@ public final class DlcUpdateService {
         if (targetVersion == null || targetVersion.isBlank()) {
             return UpdateRollbackResult.failed("Missing target version");
         }
-        if (targetVersion.equals(current.getDlc())) {
+        String currentBase = safeVersion(current.getBase());
+        String currentDlc = safeVersion(current.getDlc());
+        VersionState targetState = parseVersionState(targetVersion, currentBase);
+        if (targetState == null) {
+            return UpdateRollbackResult.failed("Missing target version");
+        }
+        if (stateMatchesTarget(currentBase, currentDlc, targetState)) {
             return UpdateRollbackResult.success(current.getDlc());
         }
 
-        List<DlcUpdateMeta> chain = loadRollbackChain(dlcRoot, current.getDlc());
+        List<DlcUpdateMeta> chain = loadRollbackChain(dlcRoot, currentBase, currentDlc);
         if (chain.isEmpty()) {
             return UpdateRollbackResult.failed("No rollback data");
         }
         boolean targetFound = false;
         for (DlcUpdateMeta meta : chain) {
-            if (meta != null && targetVersion.equals(meta.getDlcOld())) {
+            if (meta != null && stateMatchesTarget(sourceBaseVersion(meta), sourceDlcVersion(meta), targetState)) {
                 targetFound = true;
                 break;
             }
@@ -258,24 +276,24 @@ public final class DlcUpdateService {
         if (!targetFound) {
             return UpdateRollbackResult.failed("Target version not found");
         }
-        String beforeRollback = current.getDlc();
-        String working = current.getDlc();
-        String workingBase = current.getBase();
+        String beforeRollback = currentBase + "+" + currentDlc;
+        String working = currentDlc;
+        String workingBase = currentBase;
         for (DlcUpdateMeta meta : chain) {
             if (meta == null) {
                 break;
             }
-            if (!working.equals(meta.getDlcNew())) {
+            String metaTargetDlc = targetDlcVersion(meta);
+            String metaTargetBase = targetBaseVersion(meta);
+            if (!working.equals(metaTargetDlc) || !safeVersion(workingBase).equals(metaTargetBase)) {
                 continue;
             }
-            Path backupRoot = DlcTmpPaths.resolve(dlcRoot, meta.getDlcNew());
+            Path backupRoot = resolveMetaRootByPair(dlcRoot, metaTargetBase, metaTargetDlc);
             UpdateContext context = new UpdateContext(dlcRoot, null, backupRoot, meta);
             rollbackUpdate(context);
-            working = meta.getDlcOld();
-            if (meta.getBaseOld() != null && !meta.getBaseOld().isBlank()) {
-                workingBase = meta.getBaseOld();
-            }
-            if (working != null && working.equals(targetVersion)) {
+            working = sourceDlcVersion(meta);
+            workingBase = sourceBaseVersion(meta);
+            if (stateMatchesTarget(workingBase, working, targetState)) {
                 break;
             }
         }
@@ -284,7 +302,7 @@ public final class DlcUpdateService {
         updated.setDlc(working);
         updated.setRollbackFrom(beforeRollback);
         updated.save(dlcRoot);
-        if (!targetVersion.equals(working)) {
+        if (!stateMatchesTarget(workingBase, working, targetState)) {
             return UpdateRollbackResult.failed("Rollback incomplete");
         }
         return UpdateRollbackResult.success(working);
@@ -296,7 +314,7 @@ public final class DlcUpdateService {
             return List.of();
         }
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
-        return loadRollbackChain(dlcRoot, version.getDlc());
+        return loadRollbackChain(dlcRoot, version.getBase(), version.getDlc());
     }
 
     public static List<DlcUpdateMeta> listUpdateHistoryFrom(String startVersion) {
@@ -304,7 +322,16 @@ public final class DlcUpdateService {
         if (dlcRoot == null || startVersion == null || startVersion.isBlank()) {
             return List.of();
         }
-        return loadRollbackChain(dlcRoot, startVersion);
+        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+        VersionState start = parseVersionState(startVersion, version.getBase());
+        if (start == null) {
+            return List.of();
+        }
+        List<DlcUpdateMeta> chain = loadRollbackChain(dlcRoot, start.base, start.dlc);
+        if (!chain.isEmpty()) {
+            return chain;
+        }
+        return loadRollbackChain(dlcRoot, null, start.dlc);
     }
 
     public static DlcUpdateMeta loadMetaForVersion(String dlcVersion) {
@@ -312,11 +339,21 @@ public final class DlcUpdateService {
         if (dlcRoot == null || dlcVersion == null || dlcVersion.isBlank()) {
             return null;
         }
-        Path metaRoot = DlcTmpPaths.resolve(dlcRoot, dlcVersion);
-        Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
-        Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
-        metaPath = Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
-        return DlcUpdateMeta.load(metaPath);
+        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+        String base = version == null ? null : version.getBase();
+        DlcUpdateMeta meta = loadMetaForVersion(dlcRoot, base, dlcVersion);
+        if (meta != null) {
+            return meta;
+        }
+        return loadMetaForVersion(dlcRoot, null, dlcVersion);
+    }
+
+    public static DlcUpdateMeta loadMetaForVersion(String baseVersion, String dlcVersion) {
+        Path dlcRoot = getDlcRoot();
+        if (dlcRoot == null) {
+            return null;
+        }
+        return loadMetaForVersion(dlcRoot, baseVersion, dlcVersion);
     }
 
     public static String buildChangelogText(List<DlcUpdatePackage> packages, String lang) {
@@ -337,7 +374,12 @@ public final class DlcUpdateService {
                 builder.append("\n\n");
             }
             if (info != null) {
-                builder.append(sourceDlcVersion(info)).append(" -> ").append(targetDlcVersion(info)).append("\n");
+                builder.append(formatCompactTransition(
+                    sourceBaseVersion(info),
+                    sourceDlcVersion(info),
+                    targetBaseVersion(info),
+                    targetDlcVersion(info)
+                )).append("\n");
             }
             builder.append(text.trim());
         }
@@ -591,7 +633,11 @@ public final class DlcUpdateService {
         if (!ignoreRollback && version.getRollbackFrom() != null && !version.getRollbackFrom().isBlank()) {
             boolean hasNewer = packages.stream().anyMatch(pkg -> {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-                return info != null && version.getRollbackFrom().equals(sourceDlcVersion(info));
+                return info != null && rollbackMarkerMatchesSource(
+                    version.getRollbackFrom(),
+                    sourceBaseVersion(info),
+                    sourceDlcVersion(info)
+                );
             });
             if (!hasNewer) {
                 return List.of();
@@ -632,23 +678,28 @@ public final class DlcUpdateService {
     }
 
     private static List<DlcUpdatePackage> resolveUpdateChainTo(DlcUpdateVersion version, List<DlcUpdatePackage> packages,
-        String targetDlcNew, boolean ignoreRollback) {
+        String targetBase, String targetDlc, boolean ignoreRollback) {
         if (version == null || packages == null || packages.isEmpty()) {
             return List.of();
         }
-        String target = safeVersion(targetDlcNew);
-        if (target.isEmpty()) {
+        String targetBaseVersion = safeVersion(targetBase);
+        String targetDlcVersion = safeVersion(targetDlc);
+        if (targetBaseVersion.isEmpty() || targetDlcVersion.isEmpty()) {
             return List.of();
         }
         String startBase = safeVersion(version.getBase());
         String startDlc = safeVersion(version.getDlc());
-        if (startDlc.equals(target)) {
+        if (startBase.equals(targetBaseVersion) && startDlc.equals(targetDlcVersion)) {
             return List.of();
         }
         if (!ignoreRollback && version.getRollbackFrom() != null && !version.getRollbackFrom().isBlank()) {
             boolean hasNewer = packages.stream().anyMatch(pkg -> {
                 DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-                return info != null && version.getRollbackFrom().equals(sourceDlcVersion(info));
+                return info != null && rollbackMarkerMatchesSource(
+                    version.getRollbackFrom(),
+                    sourceBaseVersion(info),
+                    sourceDlcVersion(info)
+                );
             });
             if (!hasNewer) {
                 return List.of();
@@ -680,7 +731,7 @@ public final class DlcUpdateService {
         visited.add(stateKey(startBase, startDlc));
         while (!queue.isEmpty()) {
             PathNode node = queue.poll();
-            if (node.dlc.equals(target)) {
+            if (node.base.equals(targetBaseVersion) && node.dlc.equals(targetDlcVersion)) {
                 return node.path;
             }
             List<DlcUpdatePackage> nextPkgs = byOld.get(stateKey(node.base, node.dlc));
@@ -705,20 +756,28 @@ public final class DlcUpdateService {
     }
 
     private static List<DlcUpdatePackage> resolveUpdateChainTo(DlcUpdateVersion version, List<DlcUpdatePackage> packages,
-        String targetDlcOld, String targetDlcNew, boolean ignoreRollback) {
+        String targetBaseOld, String targetDlcOld, String targetBaseNew, String targetDlcNew, boolean ignoreRollback) {
         if (version == null || packages == null || packages.isEmpty()) {
             return List.of();
         }
+        String oldBase = safeVersion(targetBaseOld);
         String targetOld = safeVersion(targetDlcOld);
+        String newBase = optionalVersion(targetBaseNew);
+        if (newBase == null) {
+            newBase = oldBase;
+        } else {
+            newBase = safeVersion(newBase);
+        }
         String targetNew = optionalVersion(targetDlcNew);
         if (targetNew == null) {
             targetNew = targetOld;
+        } else {
+            targetNew = safeVersion(targetNew);
         }
-        if (targetOld.isEmpty()) {
+        if (oldBase.isEmpty() || targetOld.isEmpty()) {
             return List.of();
         }
         DlcUpdatePackage targetPkg = null;
-        String base = safeVersion(version.getBase());
         for (DlcUpdatePackage pkg : packages) {
             if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
                 continue;
@@ -727,10 +786,12 @@ public final class DlcUpdateService {
             if (!hasVersionTransition(info)) {
                 continue;
             }
-            if (!base.equals(sourceBaseVersion(info))) {
+            if (!oldBase.equals(sourceBaseVersion(info))) {
                 continue;
             }
-            if (targetOld.equals(sourceDlcVersion(info)) && targetNew.equals(targetDlcVersion(info))) {
+            if (targetOld.equals(sourceDlcVersion(info))
+                && newBase.equals(targetBaseVersion(info))
+                && targetNew.equals(targetDlcVersion(info))) {
                 targetPkg = pkg;
                 break;
             }
@@ -740,10 +801,11 @@ public final class DlcUpdateService {
         }
         String currentBase = safeVersion(version.getBase());
         String currentDlc = safeVersion(version.getDlc());
-        if (currentDlc.equals(targetOld) && currentBase.equals(sourceBaseVersion(targetPkg.getManifest().getVersion()))) {
+        if (currentDlc.equals(targetOld)
+            && currentBase.equals(oldBase)) {
             return List.of(targetPkg);
         }
-        List<DlcUpdatePackage> prefix = resolveUpdateChainTo(version, packages, targetOld, ignoreRollback);
+        List<DlcUpdatePackage> prefix = resolveUpdateChainTo(version, packages, oldBase, targetOld, ignoreRollback);
         if (prefix.isEmpty()) {
             return List.of();
         }
@@ -2000,26 +2062,34 @@ public final class DlcUpdateService {
         }
     }
 
-    private static List<DlcUpdateMeta> loadRollbackChain(Path dlcRoot, String currentVersion) {
-        if (dlcRoot == null || currentVersion == null) {
+    private static List<DlcUpdateMeta> loadRollbackChain(Path dlcRoot, String currentBaseVersion, String currentDlcVersion) {
+        if (dlcRoot == null || currentDlcVersion == null) {
             return List.of();
         }
         List<DlcUpdateMeta> chain = new ArrayList<>();
-        String working = currentVersion;
+        String workingBase = safeVersion(currentBaseVersion);
+        String workingDlc = safeVersion(currentDlcVersion);
         for (int i = 0; i < 32; i++) {
-            Path metaRoot = DlcTmpPaths.resolve(dlcRoot, working);
-            Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
-            Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
-            metaPath = Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
-            DlcUpdateMeta meta = DlcUpdateMeta.load(metaPath);
-            if (meta == null || meta.getDlcOld() == null || meta.getDlcOld().isBlank()) {
+            DlcUpdateMeta meta = loadMetaForVersion(dlcRoot, workingBase, workingDlc);
+            if (meta == null) {
+                break;
+            }
+            String sourceDlc = sourceDlcVersion(meta);
+            String targetDlc = targetDlcVersion(meta);
+            String sourceBase = sourceBaseVersion(meta);
+            String targetBase = targetBaseVersion(meta);
+            if (sourceDlc.isBlank() || targetDlc.isBlank()) {
+                break;
+            }
+            if (!workingDlc.equals(targetDlc) || !workingBase.equals(targetBase)) {
                 break;
             }
             chain.add(meta);
-            if (meta.getDlcOld().equals(working)) {
+            if (sourceDlc.equals(workingDlc) && sourceBase.equals(workingBase)) {
                 break;
             }
-            working = meta.getDlcOld();
+            workingDlc = sourceDlc;
+            workingBase = sourceBase;
         }
         return chain;
     }
@@ -2407,6 +2477,135 @@ public final class DlcUpdateService {
         return value == null || value.isBlank() ? "1.0.0" : value.trim();
     }
 
+    public static boolean isRollbackMarkerActive(String rollbackFrom, String currentBase, String currentDlc) {
+        VersionState marker = parseVersionState(rollbackFrom, currentBase);
+        if (marker == null) {
+            return false;
+        }
+        if (marker.explicitBase) {
+            return !stateEquals(marker.base, marker.dlc, currentBase, currentDlc);
+        }
+        return !safeVersion(marker.dlc).equals(safeVersion(currentDlc));
+    }
+
+    private static String sourceBaseVersion(DlcUpdateMeta meta) {
+        return safeVersion(meta == null ? null : meta.getBaseOld());
+    }
+
+    private static String targetBaseVersion(DlcUpdateMeta meta) {
+        if (meta == null) {
+            return safeVersion(null);
+        }
+        String target = optionalVersion(meta.getBaseNew());
+        return target == null ? sourceBaseVersion(meta) : safeVersion(target);
+    }
+
+    private static String sourceDlcVersion(DlcUpdateMeta meta) {
+        return safeVersion(meta == null ? null : meta.getDlcOld());
+    }
+
+    private static String targetDlcVersion(DlcUpdateMeta meta) {
+        if (meta == null) {
+            return safeVersion(null);
+        }
+        String target = optionalVersion(meta.getDlcNew());
+        return target == null ? sourceDlcVersion(meta) : safeVersion(target);
+    }
+
+    private static String metaPairKey(String baseVersion, String dlcVersion) {
+        return safeVersion(baseVersion) + "+" + safeVersion(dlcVersion);
+    }
+
+    private static Path resolveMetaRootByPair(Path dlcRoot, String baseVersion, String dlcVersion) {
+        return DlcTmpPaths.resolve(dlcRoot, metaPairKey(baseVersion, dlcVersion));
+    }
+
+    private static Path resolveMetaPath(Path metaRoot) {
+        if (metaRoot == null) {
+            return null;
+        }
+        Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
+        Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
+        return Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
+    }
+
+    private static DlcUpdateMeta loadMetaFromRoot(Path metaRoot) {
+        Path metaPath = resolveMetaPath(metaRoot);
+        if (metaPath == null) {
+            return null;
+        }
+        return DlcUpdateMeta.load(metaPath);
+    }
+
+    private static DlcUpdateMeta loadMetaForVersion(Path dlcRoot, String baseVersion, String dlcVersion) {
+        if (dlcRoot == null || dlcVersion == null || dlcVersion.isBlank()) {
+            return null;
+        }
+        String expectedBase = safeVersion(baseVersion);
+        String expectedDlc = safeVersion(dlcVersion);
+        Path pairRoot = resolveMetaRootByPair(dlcRoot, expectedBase, expectedDlc);
+        DlcUpdateMeta meta = loadMetaFromRoot(pairRoot);
+        if (meta != null && expectedBase.equals(targetBaseVersion(meta)) && expectedDlc.equals(targetDlcVersion(meta))) {
+            return meta;
+        }
+
+        Path legacyRoot = DlcTmpPaths.resolve(dlcRoot, expectedDlc);
+        if (!legacyRoot.equals(pairRoot)) {
+            DlcUpdateMeta legacy = loadMetaFromRoot(legacyRoot);
+            if (legacy != null) {
+                if (expectedDlc.equals(targetDlcVersion(legacy)) && (baseVersion == null || baseVersion.isBlank() || expectedBase.equals(targetBaseVersion(legacy)))) {
+                    return legacy;
+                }
+                if (meta == null) {
+                    meta = legacy;
+                }
+            }
+        }
+
+        Path tmpRoot = DlcTmpPaths.root(dlcRoot);
+        if (tmpRoot == null || !Files.isDirectory(tmpRoot)) {
+            return meta;
+        }
+        DlcUpdateMeta dlcMatch = meta;
+        long dlcMatchTs = parseTimestamp(meta);
+        try (var stream = Files.list(tmpRoot)) {
+            for (Path child : (Iterable<Path>) stream::iterator) {
+                if (child == null || !Files.isDirectory(child)) {
+                    continue;
+                }
+                DlcUpdateMeta candidate = loadMetaFromRoot(child);
+                if (candidate == null || !expectedDlc.equals(targetDlcVersion(candidate))) {
+                    continue;
+                }
+                long candidateTs = parseTimestamp(candidate);
+                if (expectedBase.equals(targetBaseVersion(candidate))) {
+                    if (dlcMatch == null || candidateTs >= dlcMatchTs) {
+                        dlcMatch = candidate;
+                        dlcMatchTs = candidateTs;
+                    }
+                    continue;
+                }
+                if (dlcMatch == null || candidateTs > dlcMatchTs) {
+                    dlcMatch = candidate;
+                    dlcMatchTs = candidateTs;
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return dlcMatch;
+    }
+
+    private static long parseTimestamp(DlcUpdateMeta meta) {
+        if (meta == null || meta.getTimestamp() == null || meta.getTimestamp().isBlank()) {
+            return Long.MIN_VALUE;
+        }
+        try {
+            return Long.parseLong(meta.getTimestamp().trim());
+        } catch (NumberFormatException ignored) {
+            return Long.MIN_VALUE;
+        }
+    }
+
     private static String sourceBaseVersion(DlcUpdateManifest.VersionInfo info) {
         return info == null ? safeVersion(null) : safeVersion(info.getBase());
     }
@@ -2487,6 +2686,80 @@ public final class DlcUpdateService {
         }
         String trimmed = value.trim();
         return trimmed.isBlank() ? null : trimmed;
+    }
+
+    private static String formatCompactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
+        String sourceBase = safeVersion(oldBase);
+        String sourceDlc = safeVersion(oldDlc);
+        String targetBase = safeVersion(newBase);
+        String targetDlc = safeVersion(newDlc);
+        boolean baseChanged = !sourceBase.equals(targetBase);
+        boolean dlcChanged = !sourceDlc.equals(targetDlc);
+        if (baseChanged && dlcChanged) {
+            return sourceBase + "+" + sourceDlc + " -> " + targetBase + "+" + targetDlc;
+        }
+        if (baseChanged) {
+            return sourceBase + " -> " + targetBase;
+        }
+        if (dlcChanged) {
+            return sourceDlc + " -> " + targetDlc;
+        }
+        return sourceBase + "+" + sourceDlc + " -> " + targetBase + "+" + targetDlc;
+    }
+
+    private static VersionState parseVersionState(String raw, String defaultBase) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String normalized = raw.trim();
+        int plus = normalized.indexOf('+');
+        if (plus >= 0) {
+            String base = normalized.substring(0, plus).trim();
+            String dlc = normalized.substring(plus + 1).trim();
+            return new VersionState(safeVersion(base), safeVersion(dlc), true);
+        }
+        return new VersionState(safeVersion(defaultBase), safeVersion(normalized), false);
+    }
+
+    private static boolean rollbackMarkerMatchesSource(String rollbackFrom, String sourceBase, String sourceDlc) {
+        VersionState marker = parseVersionState(rollbackFrom, sourceBase);
+        if (marker == null) {
+            return false;
+        }
+        if (marker.explicitBase) {
+            return stateEquals(marker.base, marker.dlc, sourceBase, sourceDlc);
+        }
+        return safeVersion(marker.dlc).equals(safeVersion(sourceDlc));
+    }
+
+    private static boolean stateMatchesTarget(String base, String dlc, VersionState target) {
+        if (target == null) {
+            return false;
+        }
+        if (!safeVersion(dlc).equals(target.dlc)) {
+            return false;
+        }
+        if (!target.explicitBase) {
+            return true;
+        }
+        return safeVersion(base).equals(target.base);
+    }
+
+    private static boolean stateEquals(String leftBase, String leftDlc, String rightBase, String rightDlc) {
+        return safeVersion(leftBase).equals(safeVersion(rightBase))
+            && safeVersion(leftDlc).equals(safeVersion(rightDlc));
+    }
+
+    private static final class VersionState {
+        private final String base;
+        private final String dlc;
+        private final boolean explicitBase;
+
+        private VersionState(String base, String dlc, boolean explicitBase) {
+            this.base = safeVersion(base);
+            this.dlc = safeVersion(dlc);
+            this.explicitBase = explicitBase;
+        }
     }
 
     private static final class UpdatePromptSpan {

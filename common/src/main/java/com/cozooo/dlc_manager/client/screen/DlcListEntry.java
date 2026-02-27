@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
@@ -17,7 +18,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
 import net.minecraft.server.packs.repository.PackRepository;
 import java.nio.file.Path;
 import java.util.List;
@@ -114,7 +114,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             DlcRedirectEntry entry = row.getRedirectEntry();
             String lang = Minecraft.getInstance().options.languageCode;
             String label = entry == null ? "" : entry.resolveDisplayName(lang);
-            drawString(this.x + 10, this.y + 4, COLOR_ITEM, label, guiGraphics);
+            guiGraphics.drawString(Minecraft.getInstance().font,
+                DlcTextFormatter.parse(label),
+                this.x + 10, this.y + 4, COLOR_ITEM, false);
             if (redirectButton != null) {
                 int bx = this.x + this.width - redirectButton.getWidth() - 6;
                 int by = this.y + (this.height - redirectButton.getHeight()) / 2;
@@ -131,10 +133,12 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 String suffix = DlcMaLiLibScreen.getPendingSuffix(item);
                 String label = displayName + suffix;
                 guiGraphics.drawString(Minecraft.getInstance().font,
-                    Component.literal(label).setStyle(Style.EMPTY.withItalic(true)),
+                    DlcTextFormatter.parse(label).copy().withStyle(style -> style.withItalic(true)),
                     this.x + 10, this.y + 4, nameColor, false);
             } else {
-                drawString(this.x + 10, this.y + 4, nameColor, displayName, guiGraphics);
+                guiGraphics.drawString(Minecraft.getInstance().font,
+                    DlcTextFormatter.parse(displayName),
+                    this.x + 10, this.y + 4, nameColor, false);
             }
             if (toggleButton != null) {
                 toggleButton.setDisplayString(getToggleLabel(item));
@@ -159,14 +163,8 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 if (tip != null && !tip.isBlank()) {
                     var font = Minecraft.getInstance().font;
                     int maxWidth = Math.max(160, Math.min(this.width - 20, 280));
-                    java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
-                    for (String line : tip.split("\\R", -1)) {
-                        if (line.isEmpty()) {
-                            lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
-                            continue;
-                        }
-                        lines.addAll(font.split(Component.literal(line), maxWidth));
-                    }
+                    java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines =
+                        new java.util.ArrayList<>(DlcTextFormatter.splitMultiline(font, tip, maxWidth));
                     if (!lines.isEmpty()) {
                         DlcTooltipContext.set(lines, mouseX, mouseY);
                     }
@@ -251,13 +249,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
         String tooltip = getTooltipText(item);
         if (tooltip != null && !tooltip.isBlank()) {
-            for (String line : tooltip.split("\\R", -1)) {
-                if (line.isEmpty()) {
-                    lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
-                    continue;
-                }
-                lines.addAll(font.split(Component.literal(line), maxWidth));
-            }
+            lines.addAll(DlcTextFormatter.splitMultiline(font, tooltip, maxWidth));
         }
 
         java.util.List<String> deps = collectDependencyNamesRecursive(item);
@@ -284,7 +276,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 .append(":");
             lines.addAll(font.split(missingLabel, maxWidth));
             for (String dep : missing) {
-                lines.addAll(font.split(Component.literal(DlcDisplayNameUtil.resolveDisplayName(dep)), maxWidth));
+                lines.addAll(font.split(DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(dep)), maxWidth));
             }
         }
         if (deps != null && !deps.isEmpty()) {
@@ -296,7 +288,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 .append(":");
             lines.addAll(font.split(depLabel, maxWidth));
             for (String dep : deps) {
-                lines.addAll(font.split(Component.literal(DlcDisplayNameUtil.resolveDisplayName(dep)), maxWidth));
+                lines.addAll(font.split(DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(dep)), maxWidth));
             }
         }
         if (conflicts != null && !conflicts.isEmpty()) {
@@ -308,7 +300,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 .append(":");
             lines.addAll(font.split(conflictLabel, maxWidth));
             for (String conflict : conflicts) {
-                lines.addAll(font.split(Component.literal(DlcDisplayNameUtil.resolveDisplayName(conflict)), maxWidth));
+                lines.addAll(font.split(DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(conflict)), maxWidth));
             }
         }
         return lines;
