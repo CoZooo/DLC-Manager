@@ -18,7 +18,11 @@
 
 自动模式会在检测到 `version.dc` 版本变化时生成热更新包；无版本变化则不生成。
 
-### Repository Variables（自动模式）
+### Repository Variables
+- `AUTO_UPDATE_WORKFLOW`
+  - 作用：是否启用 push 自动生成。
+  - 可选：`false` / `true`
+  - 默认：`true`
 - `VERSION_DC_PATH`
   - 作用：指定 `version.dc` 路径。
   - 默认：`DLC/info/version.dc`
@@ -30,10 +34,6 @@
   - 作用：自动模式是否同步 Gitee。
   - 可选：`false` / `true`
   - 默认：`false`
-- `AUTO_UPDATE_WORKFLOW`
-  - 作用：是否启用 push 自动生成。
-  - 可选：`false` / `true`
-  - 默认：`true`
 
 ## 3. Gitee 同步
 工作流：`sync-github-release-to-gitee.yml`

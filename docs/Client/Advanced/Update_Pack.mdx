@@ -19,7 +19,11 @@ Trigger methods:
 
 In auto mode, an update package is generated only when a version change is detected in `version.dc`.
 
-### Repository Variables (Auto Mode)
+### Repository Variables
+- `AUTO_UPDATE_WORKFLOW`
+  - Purpose: whether push-triggered auto generation is enabled.
+  - Allowed: `false` / `true`
+  - Default: `true`
 - `VERSION_DC_PATH`
   - Purpose: path to `version.dc`.
   - Default: `DLC/info/version.dc`
@@ -31,10 +35,6 @@ In auto mode, an update package is generated only when a version change is detec
   - Purpose: whether to sync to Gitee in auto mode.
   - Allowed: `false` / `true`
   - Default: `false`
-- `AUTO_UPDATE_WORKFLOW`
-  - Purpose: whether push-triggered auto generation is enabled.
-  - Allowed: `false` / `true`
-  - Default: `true`
 
 ## 3. Gitee Sync
 Workflow: `sync-github-release-to-gitee.yml`
