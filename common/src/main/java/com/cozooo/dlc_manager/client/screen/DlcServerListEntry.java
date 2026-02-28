@@ -263,7 +263,8 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                 DependencyBatch deps = collectDependencies(targets);
                 ConflictBatch conflicts = collectConflicts(targets);
                 if (!conflicts.names.isEmpty()) {
-                    Component message = Component.translatable("dlc_manager.conflict.prompt_prefix", String.join(", ", conflicts.names));
+                    Component message = Component.translatable("dlc_manager.conflict.prompt_prefix",
+                        DlcTextFormatter.parse(String.join(", ", conflicts.names)));
                     Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                         Minecraft.getInstance().setScreen(screen);
                         if (accepted) {
@@ -275,7 +276,8 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                     return;
                 }
                 if (!deps.names.isEmpty()) {
-                    Component message = Component.translatable("dlc_manager.dependency.prompt", String.join(", ", deps.names));
+                    Component message = Component.translatable("dlc_manager.dependency.prompt",
+                        DlcTextFormatter.parse(String.join(", ", deps.names)));
                     Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                         Minecraft.getInstance().setScreen(screen);
                         if (accepted) {

@@ -458,19 +458,20 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         }
         ConflictCheck conflicts = checkConflicts(item);
         if (!conflicts.conflicts.isEmpty()) {
-            Component message = Component.translatable("dlc_manager.conflict.prompt_prefix", String.join(", ", conflicts.conflictNames));
+            Component message = Component.translatable("dlc_manager.conflict.prompt_prefix",
+                DlcTextFormatter.parse(String.join(", ", conflicts.conflictNames)));
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
-                    disableItemsWithDependents(conflicts.conflictItems);
-                    continueEnableWithChecks(item);
+                    continueEnableAfterConflictResolution(item);
                 }
             }, Component.translatable("dlc_manager.conflict.word"), message, Component.translatable("dlc_manager.conflict.resolve"), Component.translatable("gui.cancel")));
             return;
         }
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
-            Component message = Component.translatable("dlc_manager.dependency.prompt", String.join(", ", deps.missingNames));
+            Component message = Component.translatable("dlc_manager.dependency.prompt",
+                DlcTextFormatter.parse(String.join(", ", deps.missingNames)));
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
@@ -483,6 +484,37 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             }, Component.translatable("dlc_manager.dependency.enable"), message, Component.translatable("dlc_manager.dependency.enable"), Component.translatable("gui.cancel")));
             return;
         }
+        item.enabled = true;
+        updateApplyState();
+    }
+
+    private void continueEnableAfterConflictResolution(DlcServerItem item) {
+        int guard = 0;
+        while (guard++ < 64) {
+            ConflictCheck conflicts = checkConflicts(item);
+            if (conflicts.conflicts.isEmpty() || conflicts.conflictItems.isEmpty()) {
+                break;
+            }
+            disableItemsWithDependents(conflicts.conflictItems);
+        }
+
+        DependencyCheck deps = checkDependencies(item);
+        if (!deps.missing.isEmpty()) {
+            Component message = Component.translatable("dlc_manager.dependency.prompt",
+                DlcTextFormatter.parse(String.join(", ", deps.missingNames)));
+            Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+                Minecraft.getInstance().setScreen(this);
+                if (accepted) {
+                    for (DlcServerItem dep : deps.missingItems) {
+                        dep.enabled = true;
+                    }
+                    item.enabled = true;
+                    updateApplyState();
+                }
+            }, Component.translatable("dlc_manager.dependency.enable"), message, Component.translatable("dlc_manager.dependency.enable"), Component.translatable("gui.cancel")));
+            return;
+        }
+
         item.enabled = true;
         updateApplyState();
     }

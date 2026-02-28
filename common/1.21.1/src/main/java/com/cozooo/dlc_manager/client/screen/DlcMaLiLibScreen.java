@@ -17,6 +17,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -1654,8 +1655,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         java.util.List<Component> components = new java.util.ArrayList<>();
         for (DlcRuntimeState.DependencyLine line : lines) {
             components.add(Component.translatable("dlc_manager.batch.dependencies_line",
-                DlcDisplayNameUtil.resolveDisplayName(line.getItemName()),
-                DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())));
+                DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getItemName())),
+                DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName()))));
         }
         Component message = joinLines(components);
         Component title = Component.translatable("dlc_manager.batch.dependencies_title");
@@ -1692,7 +1693,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private Component buildConflictLine(String left, String right) {
-        return Component.translatable("dlc_manager.batch.conflicts_line_prefix", left, right)
+        return Component.translatable("dlc_manager.batch.conflicts_line_prefix",
+                DlcTextFormatter.parse(left), DlcTextFormatter.parse(right))
             .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
     }
 

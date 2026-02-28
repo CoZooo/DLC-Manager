@@ -494,6 +494,28 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         item.setDirty(isDirty(item));
     }
 
+    private static void continueEnableAfterConflictResolution(DlcItem item, fi.dy.masa.malilib.gui.button.ButtonBase button) {
+        int guard = 0;
+        while (guard++ < 64) {
+            ConflictCheck conflicts = getConflicts(item);
+            if (conflicts.items.isEmpty()) {
+                break;
+            }
+            disableItemsWithDependents(conflicts.items);
+        }
+
+        DependencyCheck dependencies = getMissingDependencies(item);
+        if (!dependencies.names.isEmpty()) {
+            showDependencyPrompt(item, dependencies, button);
+            return;
+        }
+
+        item.setEnabled(true);
+        DlcRuntimeState.setOverride(item.getId(), true);
+        updateToggleButtonLabel(button, item);
+        item.setDirty(isDirty(item));
+    }
+
     private static String resolveLocalized(java.util.Map<String, String> values) {
         if (values == null || values.isEmpty()) {
             return "";
@@ -625,12 +647,13 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     }
 
     private static Component buildConflictPromptMessage(String list) {
-        return Component.translatable("dlc_manager.conflict.prompt_prefix", list)
+        return Component.translatable("dlc_manager.conflict.prompt_prefix", DlcTextFormatter.parse(list))
             .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
     }
 
     private static Component buildConflictLine(String left, String right) {
-        return Component.translatable("dlc_manager.batch.conflicts_line_prefix", left, right)
+        return Component.translatable("dlc_manager.batch.conflicts_line_prefix",
+                DlcTextFormatter.parse(left), DlcTextFormatter.parse(right))
             .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
     }
 
@@ -760,7 +783,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             screen.rememberListScroll();
         }
         String list = String.join(", ", dependencies.names);
-        Component message = Component.translatable("dlc_manager.dependency.prompt", list);
+        Component message = Component.translatable("dlc_manager.dependency.prompt", DlcTextFormatter.parse(list));
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
@@ -796,8 +819,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             if (!accepted) {
                 return;
             }
-            disableItemsWithDependents(conflicts.items);
-            attemptEnable(item, button);
+            continueEnableAfterConflictResolution(item, button);
             if (returnScreen instanceof DlcMaLiLibScreen screen) {
                 screen.refreshAfterStateChange();
             }
