@@ -19,6 +19,7 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
@@ -1090,6 +1091,7 @@ public final class DlcUpdateService {
     private static void applyRemoteUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context)
         throws IOException, InterruptedException {
         Map<String, DlcRemoteEntry> entries = loadRemoteEntries(context.dlcRoot);
+        Map<String, Path> infoByIdentifier = loadInfoConfigPathByIdentifier(context.dlcRoot);
         if (entries.isEmpty()) {
             return;
         }
@@ -1118,6 +1120,7 @@ public final class DlcUpdateService {
             if (configPath != null && Files.exists(configPath)) {
                 backupPath(toGameRelativePath(configPath), configPath, context);
                 updateRemoteConfigFields(configPath, updateEntry);
+                syncInfoConfigFields(infoByIdentifier.get(identifier), updateEntry);
                 entry = DlcRemoteLoader.loadSingle(configPath, context.dlcRoot);
                 if (entry == null) {
                     continue;
@@ -1146,6 +1149,7 @@ public final class DlcUpdateService {
     private static void applyRequiredUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context)
         throws IOException, InterruptedException {
         Map<String, DlcRequiredEntry> entries = loadRequiredEntries(context.dlcRoot);
+        Map<String, Path> infoByIdentifier = loadInfoConfigPathByIdentifier(context.dlcRoot);
         if (entries.isEmpty()) {
             return;
         }
@@ -1182,6 +1186,7 @@ public final class DlcUpdateService {
             if (configPath != null && Files.exists(configPath)) {
                 backupPath(toGameRelativePath(configPath), configPath, context);
                 updateRequiredConfigFields(configPath, updateEntry);
+                syncInfoConfigFields(infoByIdentifier.get(identifier), updateEntry);
                 entry = DlcRequiredLoader.loadSingle(configPath, context.dlcRoot);
                 if (entry == null) {
                     continue;
@@ -1351,6 +1356,7 @@ public final class DlcUpdateService {
         if (update.getModrinth() != null && !update.getModrinth().isBlank()) {
             obj.addProperty("modrinth_versionid", update.getModrinth());
         }
+        applyEntryFieldUpdates(obj, update, FieldUpdateMode.NORMAL);
         writeJson(configPath, obj);
     }
 
@@ -1368,7 +1374,239 @@ public final class DlcUpdateService {
         if (update.getModrinth() != null && !update.getModrinth().isBlank()) {
             obj.addProperty("modrinth_versionid", update.getModrinth());
         }
+        applyEntryFieldUpdates(obj, update, FieldUpdateMode.NORMAL);
         writeJson(configPath, obj);
+    }
+
+    private static void syncInfoConfigFields(Path infoPath, DlcUpdateManifest.UpdateEntry update) {
+        if (infoPath == null || update == null || !Files.exists(infoPath)) {
+            return;
+        }
+        JsonObject info = readJson(infoPath);
+        if (info == null) {
+            return;
+        }
+        if (applyEntryFieldUpdates(info, update, FieldUpdateMode.INFO_ALLOWED)) {
+            writeJson(infoPath, info);
+        }
+    }
+
+    private static boolean applyEntryFieldUpdates(JsonObject obj, DlcUpdateManifest.UpdateEntry update, FieldUpdateMode mode) {
+        if (obj == null || update == null || update.getFields().isEmpty()) {
+            return false;
+        }
+        boolean changed = false;
+        for (Map.Entry<String, JsonElement> field : update.getFields().entrySet()) {
+            String path = field.getKey();
+            JsonElement value = field.getValue();
+            if (path == null || path.isBlank()) {
+                continue;
+            }
+            if (applyStructuredFieldPath(obj, path, value, mode == null ? FieldUpdateMode.NORMAL : mode)) {
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private static final Set<String> INFO_ALLOWED_TABLES = Set.of(
+        "basic", "displayname", "tip", "dependencies", "conflicts"
+    );
+    private static final Set<String> INFO_ALLOWED_BASIC_KEYS = Set.of(
+        "identifier",
+        "file_name",
+        "type",
+        "appliedTarget",
+        "isInList",
+        "isHidden",
+        "AllowEnableByAll",
+        "dependencies",
+        "conflicts",
+        "alarm"
+    );
+
+    private static boolean applyStructuredFieldPath(JsonObject root, String dottedPath, JsonElement value, FieldUpdateMode mode) {
+        if (root == null || dottedPath == null || dottedPath.isBlank()) {
+            return false;
+        }
+        String[] parts = dottedPath.split("\\.");
+        if (parts.length < 2) {
+            return false;
+        }
+        String table = parts[0].trim().toLowerCase(Locale.ROOT);
+        if (table.isBlank()) {
+            return false;
+        }
+        if (mode == FieldUpdateMode.INFO_ALLOWED && !INFO_ALLOWED_TABLES.contains(table)) {
+            return false;
+        }
+        String[] keyPath = java.util.Arrays.copyOfRange(parts, 1, parts.length);
+        if ("basic".equals(table) || "download".equals(table)) {
+            if (mode == FieldUpdateMode.INFO_ALLOWED && "download".equals(table)) {
+                return false;
+            }
+            String key = String.join(".", keyPath).trim();
+            if (key.isBlank()) {
+                return false;
+            }
+            if ("basic".equals(table)) {
+                key = normalizeBasicFieldKey(key);
+            }
+            if (mode == FieldUpdateMode.INFO_ALLOWED && !INFO_ALLOWED_BASIC_KEYS.contains(key)) {
+                return false;
+            }
+            upsertCaseInsensitive(root, key, safeCopy(value));
+            return true;
+        }
+        String containerKey = switch (table) {
+            case "displayname" -> "DisplayName";
+            case "tip" -> "tip";
+            case "dependencies" -> "dependencies";
+            case "conflicts" -> "conflicts";
+            default -> null;
+        };
+        if (containerKey == null) {
+            return false;
+        }
+        JsonElement containerElement = JsonCaseUtil.getIgnoreCase(root, containerKey);
+        JsonObject container;
+        if (containerElement != null && containerElement.isJsonObject()) {
+            container = containerElement.getAsJsonObject();
+        } else {
+            container = new JsonObject();
+            upsertCaseInsensitive(root, containerKey, container);
+        }
+        if (keyPath.length == 0) {
+            return false;
+        }
+        setNestedPath(container, keyPath, safeCopy(value));
+        return true;
+    }
+
+    private static String normalizeBasicFieldKey(String key) {
+        if (key == null) {
+            return "";
+        }
+        if ("conflict".equalsIgnoreCase(key)) {
+            return "conflicts";
+        }
+        if ("dependency".equalsIgnoreCase(key)) {
+            return "dependencies";
+        }
+        if ("dlc_identifier".equalsIgnoreCase(key)) {
+            return "identifier";
+        }
+        if ("dlc_name".equalsIgnoreCase(key)) {
+            return "file_name";
+        }
+        return key;
+    }
+
+    private static String findExistingKeyIgnoreCase(JsonObject obj, String key) {
+        if (obj == null || key == null) {
+            return null;
+        }
+        if (obj.has(key)) {
+            return key;
+        }
+        for (String candidate : obj.keySet()) {
+            if (candidate != null && candidate.equalsIgnoreCase(key)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static void upsertCaseInsensitive(JsonObject obj, String key, JsonElement value) {
+        if (obj == null || key == null || key.isBlank()) {
+            return;
+        }
+        String existing = findExistingKeyIgnoreCase(obj, key);
+        if (existing != null) {
+            obj.add(existing, value);
+        } else {
+            obj.add(key, value);
+        }
+    }
+
+    private static void setNestedPath(JsonObject root, String[] path, JsonElement value) {
+        if (root == null || path == null || path.length == 0) {
+            return;
+        }
+        JsonObject current = root;
+        for (int i = 0; i < path.length; i++) {
+            String raw = path[i];
+            String key = raw == null ? "" : raw.trim();
+            if (key.isBlank()) {
+                return;
+            }
+            if (i == path.length - 1) {
+                upsertCaseInsensitive(current, key, value);
+                return;
+            }
+            JsonElement child = JsonCaseUtil.getIgnoreCase(current, key);
+            JsonObject next;
+            if (child != null && child.isJsonObject()) {
+                next = child.getAsJsonObject();
+            } else {
+                next = new JsonObject();
+                upsertCaseInsensitive(current, key, next);
+            }
+            current = next;
+        }
+    }
+
+    private static JsonElement safeCopy(JsonElement value) {
+        if (value == null || value.isJsonNull()) {
+            return com.google.gson.JsonNull.INSTANCE;
+        }
+        return value.deepCopy();
+    }
+
+    private enum FieldUpdateMode {
+        NORMAL,
+        INFO_ALLOWED
+    }
+
+    private static Map<String, Path> loadInfoConfigPathByIdentifier(Path dlcRoot) {
+        Map<String, Path> map = new java.util.HashMap<>();
+        if (dlcRoot == null) {
+            return map;
+        }
+        Path infoDir = dlcRoot.resolve("info");
+        if (!Files.isDirectory(infoDir)) {
+            return map;
+        }
+        try (var stream = Files.walk(infoDir)) {
+            stream.filter(Files::isRegularFile)
+                .forEach(path -> {
+                    if (path.getFileName() == null) {
+                        return;
+                    }
+                    String fileName = path.getFileName().toString();
+                    if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                        return;
+                    }
+                    String baseName = Json5Util.stripJsonExtension(fileName);
+                    if ("version".equalsIgnoreCase(baseName) || "notice".equalsIgnoreCase(baseName)) {
+                        return;
+                    }
+                    JsonObject obj = readJson(path);
+                    if (obj == null) {
+                        return;
+                    }
+                    String identifier = JsonCaseUtil.getStringIgnoreCase(obj, "identifier");
+                    if (identifier == null || identifier.isBlank()) {
+                        identifier = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_identifier");
+                    }
+                    if (identifier == null || identifier.isBlank()) {
+                        return;
+                    }
+                    map.putIfAbsent(identifier, path);
+                });
+        } catch (IOException ignored) {
+        }
+        return map;
     }
 
     private static void updateRemoteFileName(Path configPath, String fileName) {

@@ -5,6 +5,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonReader;
 import java.io.IOException;
@@ -281,13 +282,53 @@ public class DlcUpdateManifest {
         JsonObject obj = element.getAsJsonObject();
         String curseforge = getString(obj, "curseforge");
         String modrinth = getString(obj, "modrinth");
-        if ((curseforge == null || curseforge.isBlank()) && (modrinth == null || modrinth.isBlank())) {
+        Map<String, JsonElement> extraFields = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+            if ("curseforge".equalsIgnoreCase(key) || "modrinth".equalsIgnoreCase(key)) {
+                continue;
+            }
+            flattenUpdateField(key, entry.getValue(), extraFields);
+        }
+        if ((curseforge == null || curseforge.isBlank())
+            && (modrinth == null || modrinth.isBlank())
+            && extraFields.isEmpty()) {
             return null;
         }
         UpdateEntry entry = new UpdateEntry();
         entry.curseforge = curseforge;
         entry.modrinth = modrinth;
+        entry.fields.putAll(extraFields);
         return entry;
+    }
+
+    private static void flattenUpdateField(String key, JsonElement value, Map<String, JsonElement> out) {
+        if (key == null || key.isBlank() || out == null) {
+            return;
+        }
+        if (value == null || value.isJsonNull()) {
+            out.putIfAbsent(key, JsonNull.INSTANCE);
+            return;
+        }
+        if (!value.isJsonObject()) {
+            out.putIfAbsent(key, value.deepCopy());
+            return;
+        }
+        JsonObject obj = value.getAsJsonObject();
+        if (obj.entrySet().isEmpty()) {
+            out.putIfAbsent(key, new JsonObject());
+            return;
+        }
+        for (Map.Entry<String, JsonElement> child : obj.entrySet()) {
+            String childKey = child.getKey();
+            if (childKey == null || childKey.isBlank()) {
+                continue;
+            }
+            flattenUpdateField(key + "." + childKey, child.getValue(), out);
+        }
     }
 
     private static AddEntry parseAddEntry(String key, JsonElement element) {
@@ -554,6 +595,7 @@ public class DlcUpdateManifest {
     public static class UpdateEntry {
         private String curseforge;
         private String modrinth;
+        private final Map<String, JsonElement> fields = new LinkedHashMap<>();
 
         public String getCurseforge() {
             return curseforge;
@@ -561,6 +603,10 @@ public class DlcUpdateManifest {
 
         public String getModrinth() {
             return modrinth;
+        }
+
+        public Map<String, JsonElement> getFields() {
+            return fields;
         }
     }
 
