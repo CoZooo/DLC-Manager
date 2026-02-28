@@ -15,6 +15,10 @@
     "name": "Update System",
     "icon": null
   },
+  "Update_Pack.mdx": {
+    "name": "Auto Generate Update Pack",
+    "icon": null
+  },
   "Redirect.mdx": {
     "name": "Redirect Function",
     "icon": null

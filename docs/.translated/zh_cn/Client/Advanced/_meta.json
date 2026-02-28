@@ -15,6 +15,10 @@
     "name": "更新系统",
     "icon": null
   },
+  "Update_Pack.mdx": {
+    "name": "自动生成更新包",
+    "icon": null
+  },
   "Redirect.mdx": {
     "name": "链接跳转功能",
     "icon": null
