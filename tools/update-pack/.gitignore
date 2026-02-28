@@ -5,3 +5,4 @@ logs/
 crash-reports/
 instance.json
 PCL/
+lightspeed-cache/
