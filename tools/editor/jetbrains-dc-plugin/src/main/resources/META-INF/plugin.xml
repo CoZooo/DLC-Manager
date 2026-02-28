@@ -33,6 +33,11 @@
         <completion.contributor
                 language="DC"
                 implementationClass="com.cozooo.dlc_manager.dc.DCCompletionContributor"/>
+        <codeInsight.inlayProvider
+                language="DC"
+                implementationClass="com.cozooo.dlc_manager.dc.DCInlineColorInlayHintsProvider"/>
+        <typedHandler implementation="com.cozooo.dlc_manager.dc.DCTypedHandler"/>
+        <backspaceHandlerDelegate implementation="com.cozooo.dlc_manager.dc.DCBackspaceHandler"/>
         <localInspection
                 language="DC"
                 shortName="DCBasicSyntax"

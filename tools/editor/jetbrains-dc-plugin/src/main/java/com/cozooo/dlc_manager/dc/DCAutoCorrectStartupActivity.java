@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.dc;
 
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.EditorFactory;
@@ -59,18 +60,19 @@ public final class DCAutoCorrectStartupActivity implements StartupActivity.DumbA
                 if (!isDcFile(file)) {
                     return;
                 }
-                Document doc = FileDocumentManager.getInstance().getDocument(file);
+                Document doc = ReadAction.compute(() -> FileDocumentManager.getInstance().getDocument(file));
                 if (doc != null) {
                     scheduleNormalize(project, doc);
                 }
             }
         });
 
-        for (VirtualFile file : FileEditorManager.getInstance(project).getOpenFiles()) {
+        VirtualFile[] openFiles = ReadAction.compute(() -> FileEditorManager.getInstance(project).getOpenFiles());
+        for (VirtualFile file : openFiles) {
             if (!isDcFile(file)) {
                 continue;
             }
-            Document doc = FileDocumentManager.getInstance().getDocument(file);
+            Document doc = ReadAction.compute(() -> FileDocumentManager.getInstance().getDocument(file));
             if (doc != null) {
                 scheduleNormalize(project, doc);
             }
@@ -99,13 +101,13 @@ public final class DCAutoCorrectStartupActivity implements StartupActivity.DumbA
     }
 
     private static void applyFixes(Project project, Document doc) {
-        List<Fix> quoteFixes = collectQuoteFixes(doc);
+        List<Fix> quoteFixes = ReadAction.compute(() -> collectQuoteFixes(doc));
         if (!quoteFixes.isEmpty()) {
             applyFixList(project, doc, quoteFixes);
             return;
         }
 
-        List<Fix> indentFixes = collectIndentationFixes(doc);
+        List<Fix> indentFixes = ReadAction.compute(() -> collectIndentationFixes(doc));
         if (indentFixes.isEmpty()) {
             return;
         }

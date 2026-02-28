@@ -50,6 +50,21 @@ const SECTION_KEYS = {
 };
 
 const SECTION_SNIPPETS = Object.keys(SECTION_KEYS).map((section) => `[${section}]`);
+const PICK_COLOR_COMMAND = "dc.pickHexColor";
+const COLOR_TOKEN_RE = /&#([0-9a-fA-F]{6})/g;
+const COLOR_TRIGGER_RE = /(&|&#([0-9a-fA-F]{0,6}))$/;
+const PRESET_COLORS = [
+  { name: "White", hex: "FFFFFF" },
+  { name: "Black", hex: "000000" },
+  { name: "Red", hex: "FF5555" },
+  { name: "Orange", hex: "FFAA00" },
+  { name: "Yellow", hex: "FFFF55" },
+  { name: "Green", hex: "55FF55" },
+  { name: "Aqua", hex: "55FFFF" },
+  { name: "Blue", hex: "5555FF" },
+  { name: "Purple", hex: "AA00AA" },
+  { name: "Gray", hex: "AAAAAA" }
+];
 const BOOL_KEYS = new Set([
   "isInList",
   "isHidden",
@@ -126,9 +141,58 @@ function activate(context) {
     },
     "[",
     "=",
-    ":"
+    ":",
+    "#",
+    "&"
   );
   context.subscriptions.push(provider);
+
+  const colorProvider = vscode.languages.registerColorProvider(
+    { language: "dc", scheme: "file" },
+    {
+      provideDocumentColors(document) {
+        return provideDocumentColors(document);
+      },
+      provideColorPresentations(color, context) {
+        return provideColorPresentations(color, context);
+      }
+    }
+  );
+  context.subscriptions.push(colorProvider);
+
+  const pickColorCommand = vscode.commands.registerCommand(PICK_COLOR_COMMAND, async (rangeArg) => {
+    await runPickColorCommand(rangeArg);
+  });
+  context.subscriptions.push(pickColorCommand);
+
+  context.subscriptions.push(vscode.workspace.onDidChangeTextDocument((e) => {
+    if (!e || !e.document || e.document.languageId !== "dc" || e.contentChanges.length !== 1) {
+      return;
+    }
+    const change = e.contentChanges[0];
+    if (!change) {
+      return;
+    }
+    const smallEdit = change.text.length <= 1 && change.rangeLength <= 1;
+    if (!smallEdit) {
+      return;
+    }
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.toString() !== e.document.uri.toString()) {
+      return;
+    }
+    setTimeout(() => {
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor || activeEditor.document.uri.toString() !== e.document.uri.toString()) {
+        return;
+      }
+      const pos = activeEditor.selection.active;
+      if (!hasAnyCompletionContext(e.document, pos)) {
+        return;
+      }
+      vscode.commands.executeCommand("editor.action.triggerSuggest");
+    }, 0);
+  }));
 }
 
 function deactivate() {}
@@ -317,6 +381,11 @@ function complete(document, position) {
   const prefix = line.slice(0, position.character);
   const section = detectCurrentSection(document, position.line);
   const suggestions = [];
+  const colorContext = detectColorContext(document, position);
+
+  if (colorContext) {
+    return buildColorCompletionItems(colorContext);
+  }
 
   const sectionPrefixMatch = prefix.match(/^(\s*)\[[^\]]*$/);
   if (/^\s*$/.test(prefix) || sectionPrefixMatch) {
@@ -369,6 +438,189 @@ function complete(document, position) {
   }
 
   return suggestions;
+}
+
+function hasAnyCompletionContext(document, position) {
+  const items = complete(document, position);
+  return Array.isArray(items) && items.length > 0;
+}
+
+function provideDocumentColors(document) {
+  const infos = [];
+  for (let i = 0; i < document.lineCount; i++) {
+    const text = document.lineAt(i).text;
+    let match;
+    COLOR_TOKEN_RE.lastIndex = 0;
+    while ((match = COLOR_TOKEN_RE.exec(text)) !== null) {
+      const full = match[0];
+      const hex = normalizeHexColor(match[1]);
+      if (!hex) {
+        continue;
+      }
+      const start = match.index;
+      const end = start + full.length;
+      const range = new vscode.Range(i, start, i, end);
+      infos.push(new vscode.ColorInformation(range, hexToColor(hex)));
+    }
+  }
+  return infos;
+}
+
+function provideColorPresentations(color, context) {
+  const hex = colorToHex(color);
+  const text = `&#${hex}`;
+  const presentation = new vscode.ColorPresentation(text);
+  presentation.textEdit = new vscode.TextEdit(context.range, text);
+  return [presentation];
+}
+
+function detectColorContext(document, position) {
+  if (!document || !position) {
+    return null;
+  }
+  const line = document.lineAt(position.line).text;
+  const prefix = line.slice(0, position.character);
+  const match = prefix.match(COLOR_TRIGGER_RE);
+  if (!match) {
+    return null;
+  }
+  const token = match[0];
+  const typed = match[2] || "";
+  const start = position.character - token.length;
+  if (start < 0) {
+    return null;
+  }
+  return {
+    token,
+    typedHex: typed.toUpperCase(),
+    range: new vscode.Range(position.line, start, position.line, position.character)
+  };
+}
+
+function buildColorCompletionItems(colorContext) {
+  const items = [];
+  const custom = new vscode.CompletionItem("Pick custom color...", vscode.CompletionItemKind.Function);
+  custom.insertText = colorContext.token;
+  custom.range = colorContext.range;
+  custom.sortText = "000_picker";
+  custom.filterText = colorContext.token;
+  custom.preselect = true;
+  custom.command = {
+    title: "Pick custom color",
+    command: PICK_COLOR_COMMAND,
+    arguments: [colorContext.range]
+  };
+  items.push(custom);
+
+  for (const preset of PRESET_COLORS) {
+    if (!preset || !preset.hex) {
+      continue;
+    }
+    if (colorContext.typedHex && !preset.hex.startsWith(colorContext.typedHex)) {
+      continue;
+    }
+    const item = new vscode.CompletionItem(
+      `${preset.name} (&#${preset.hex})`,
+      vscode.CompletionItemKind.Color
+    );
+    item.insertText = `&#${preset.hex}`;
+    item.range = colorContext.range;
+    item.sortText = `100_${preset.hex}`;
+    item.detail = "DC hex color";
+    const md = new vscode.MarkdownString();
+    md.appendMarkdown(`<span style="color:#${preset.hex};">███</span> \`&#${preset.hex}\``);
+    item.documentation = md;
+    items.push(item);
+  }
+  return items;
+}
+
+async function runPickColorCommand(rangeArg) {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor || !editor.document || editor.document.languageId !== "dc") {
+    return;
+  }
+  const range = resolveColorEditRange(editor.document, rangeArg, editor.selection.active);
+  const current = (range ? extractHexFromColorToken(editor.document.getText(range)) : "") || "FFFFFF";
+  const replaceRange = range || new vscode.Range(editor.selection.active, editor.selection.active);
+  const token = `&#${current}`;
+  await editor.edit((editBuilder) => {
+    editBuilder.replace(replaceRange, token);
+  });
+
+  const selectStart = replaceRange.start;
+  const selectEnd = replaceRange.start.translate(0, Math.min(3, token.length));
+  editor.selection = new vscode.Selection(selectStart, selectEnd);
+  editor.revealRange(new vscode.Range(selectStart, selectEnd));
+
+  try {
+    await vscode.commands.executeCommand("editor.action.showOrFocusStandaloneColorPicker");
+  } catch (_e) {
+    const input = await vscode.window.showInputBox({
+      prompt: "Input color as RRGGBB, #RRGGBB, or &#RRGGBB",
+      value: `#${current}`,
+      validateInput(value) {
+        return normalizeHexColor(value) ? null : "Invalid color. Use RRGGBB, #RRGGBB, or &#RRGGBB.";
+      }
+    });
+    const hex = normalizeHexColor(input || "");
+    if (!hex) {
+      return;
+    }
+    await editor.edit((editBuilder) => {
+      editBuilder.replace(
+        new vscode.Range(replaceRange.start, replaceRange.start.translate(0, token.length)),
+        `&#${hex}`
+      );
+    });
+  }
+}
+
+function resolveColorEditRange(document, rangeArg, cursor) {
+  if (rangeArg instanceof vscode.Range) {
+    return rangeArg;
+  }
+  const detected = detectColorContext(document, cursor);
+  if (detected) {
+    return detected.range;
+  }
+  return null;
+}
+
+function extractHexFromColorToken(text) {
+  if (!text) {
+    return "";
+  }
+  const match = text.match(/^&#([0-9a-fA-F]{6})$/);
+  return match ? match[1].toUpperCase() : "";
+}
+
+function normalizeHexColor(input) {
+  if (!input) {
+    return "";
+  }
+  const normalized = input.trim().replace(/^&#/, "").replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return "";
+  }
+  return normalized.toUpperCase();
+}
+
+function hexToColor(hex) {
+  const value = normalizeHexColor(hex);
+  if (!value) {
+    return new vscode.Color(1, 1, 1, 1);
+  }
+  const r = parseInt(value.slice(0, 2), 16) / 255;
+  const g = parseInt(value.slice(2, 4), 16) / 255;
+  const b = parseInt(value.slice(4, 6), 16) / 255;
+  return new vscode.Color(r, g, b, 1);
+}
+
+function colorToHex(color) {
+  const clamp = (value) => Math.max(0, Math.min(255, Math.round(value * 255)));
+  const to2 = (value) => value.toString(16).toUpperCase().padStart(2, "0");
+  return `${to2(clamp(color.red))}${to2(clamp(color.green))}${to2(clamp(color.blue))}`;
 }
 
 function validateDocument(document, diagnostics) {

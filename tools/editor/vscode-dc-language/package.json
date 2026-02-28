@@ -2,7 +2,7 @@
   "name": "dc-language-tools",
   "displayName": "DC Language Tools",
   "description": "Syntax highlighting, diagnostics, and completion for .dc files",
-  "version": "1.1.1",
+  "version": "1.2.1",
   "publisher": "cozooo",
   "icon": "icons/plugin-icon.png",
   "engines": {
@@ -12,7 +12,8 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:dc"
+    "onLanguage:dc",
+    "onCommand:dc.pickHexColor"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -38,6 +39,12 @@
         "language": "dc",
         "scopeName": "source.dc",
         "path": "./syntaxes/dc.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "dc.pickHexColor",
+        "title": "DC: Pick Hex Color"
       }
     ],
     "snippets": [
