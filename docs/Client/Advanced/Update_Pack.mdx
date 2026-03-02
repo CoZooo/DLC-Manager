@@ -2,14 +2,14 @@
 
 This page explains how to use the workflows under `tools/update-pack` to generate DLC hot-update packages.
 
-## This Wiki only support Version `3.6.4` and above of DLC Manager.
+## This Wiki only support Version `3.6.5` and above of DLC Manager.
 
 ## 1. Preparation
 - First, create your modpack repository from this template: [Github Link](https://github.com/CoZooo/Modpack-Template)
 - Make sure `version.dc` exists under `DLC/info/` (or another path if you set `VERSION_DC_PATH`), used to store current `base` and `dlc` versions.
 - Add the files and directories (path) you want to ignore changes to `.gitignore`.
 - Optional: add one of the following files in the repository root as update notes:
-  - `changelog`, `CHANGELOG`, `changelog.md`, `CHANGELOG.md`
+  - `changelog`, `CHANGELOG`
 
 ## 2. Auto Generate Update Package
 Workflow: `auto-generate-update-pack.yml`

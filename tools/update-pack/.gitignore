@@ -6,3 +6,5 @@ crash-reports/
 instance.json
 PCL/
 lightspeed-cache/
+options.txt
+config/oculus.properties
