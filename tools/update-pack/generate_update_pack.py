@@ -14,10 +14,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 CHANGELOG_CANDIDATES = [
     "changelog",
     "CHANGELOG",
-    "changelog.md",
-    "CHANGELOG.md",
     "Changelog",
-    "Changelog.md",
 ]
 
 
