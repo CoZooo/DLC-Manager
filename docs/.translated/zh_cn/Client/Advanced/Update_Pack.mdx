@@ -10,6 +10,29 @@
 - 在`.gitignore`文件中加入你需要排除检测更改的文件和目录（路径）。
 - 可选：在仓库根目录放置 `changelog` / `CHANGELOG`（任意一个即可），内容将作为更新日志。
 
+### 推荐：使用 GitHub Desktop
+建议使用 GitHub Desktop 管理仓库。
+
+操作步骤：
+1. 安装 [GitHub Desktop](https://desktop.github.com/) 并登录 GitHub 账号。
+2. 在 GitHub Desktop 中打开你的整合包仓库（`File -> Add local repository...` 或直接 `Clone`）。
+3. 后续照常在 GitHub Desktop 中提交/推送。
+
+### 可选：启用 Git LFS（大文件）
+如果仓库里包含大文件（100MB 以上，如 `.jar`、`.zip`），建议启用 Git LFS。
+
+操作步骤：
+1. 打开仓库终端（`Repository -> Open in Terminal`），执行：
+   ```bash
+   git lfs install
+   git lfs track "*.jar"
+   git lfs track "*.zip"
+   ```
+2. 提交并推送自动生成的 `.gitattributes` 文件。
+
+注意：
+- 新协作者首次拉取仓库后，建议执行一次 `git lfs pull`，确保本地拿到真实文件而非指针文件。
+
 ## 2. 自动生成热更新包
 工作流：`auto-generate-update-pack.yml`
 

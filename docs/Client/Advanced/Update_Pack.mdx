@@ -11,6 +11,29 @@ This page explains how to use the workflows under `tools/update-pack` to generat
 - Optional: add one of the following files in the repository root as update notes:
   - `changelog`, `CHANGELOG`
 
+### Recommended: GitHub Desktop
+It is recommended to manage the repository with GitHub Desktop.
+
+Steps:
+1. Install [GitHub Desktop](https://desktop.github.com/) and sign in with your GitHub account.
+2. Open your modpack repository in GitHub Desktop (`File -> Add local repository...` or `Clone`).
+3. Continue normal commit/push in GitHub Desktop.
+
+### Optional: Enable Git LFS (Large Files)
+If your repository includes large files (above 100MB, such as `.jar` and `.zip`), it is recommended to enable Git LFS.
+
+Steps:
+1. Open terminal from GitHub Desktop (`Repository -> Open in Terminal`) and run:
+   ```bash
+   git lfs install
+   git lfs track "*.jar"
+   git lfs track "*.zip"
+   ```
+2. Commit and push the generated `.gitattributes` file.
+
+Note:
+- For new collaborators, run `git lfs pull` after first clone to ensure real files are downloaded instead of pointer files.
+
 ## 2. Auto Generate Update Package
 Workflow: `auto-generate-update-pack.yml`
 
