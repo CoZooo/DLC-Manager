@@ -175,7 +175,20 @@ jobs:
                   continue
               gitee_tag_name = normalize_gitee_tag_name(tag_name)
               release_name = (gh_release.get("name") or tag_name).strip()
-              release_body = gh_release.get("body") or ""
+              release_body = (gh_release.get("body") or "").strip()
+              if not release_body:
+                  target_pair = tag_name.split("/", 1)[1] if "/" in tag_name else tag_name
+                  base_ver = ""
+                  dlc_ver = ""
+                  if "+" in target_pair:
+                      base_ver, dlc_ver = target_pair.split("+", 1)
+                  else:
+                      base_ver = target_pair
+                  release_body = "\n".join([
+                      "version:",
+                      f"base:{base_ver.strip()}",
+                      f"dlc:{dlc_ver.strip()}",
+                  ])
               target_commitish = (gh_release.get("target_commitish") or "master").strip()
               prerelease = bool(gh_release.get("prerelease", False))
               gh_assets = gh_release.get("assets") or []
