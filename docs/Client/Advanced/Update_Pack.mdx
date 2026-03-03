@@ -28,6 +28,14 @@ In auto mode, an update package is generated only when a version change is detec
 - `VERSION_DC_PATH`
   - Purpose: path to `version.dc`.
   - Default: `DLC/info/version.dc`
+- `CLIENT_BRANCH`
+  - Purpose: branch names treated as client package in auto push mode.
+  - Format: comma-separated branch names, case-insensitive.
+  - Example: `client,client-release,feature-client`
+- `SERVER_BRANCH`
+  - Purpose: branch names treated as server package in auto push mode.
+  - Format: comma-separated branch names, case-insensitive.
+  - Example: `server,server-release,feature-server`
 - `AUTO_UPDATE_PLATFORM`
   - Purpose: platform used in auto mode.
   - Allowed: `universal` / `client` / `server`

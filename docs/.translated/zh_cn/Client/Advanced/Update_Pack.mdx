@@ -27,6 +27,14 @@
 - `VERSION_DC_PATH`
   - 作用：指定 `version.dc` 路径。
   - 默认：`DLC/info/version.dc`
+- `CLIENT_BRANCH`
+  - 作用：自动模式下，匹配为客户端热更新包的分支名。
+  - 格式：多个分支名用逗号分隔，忽略大小写。
+  - 示例：`client,client-release,feature-client`
+- `SERVER_BRANCH`
+  - 作用：自动模式下，匹配为服务端热更新包的分支名。
+  - 格式：多个分支名用逗号分隔，忽略大小写。
+  - 示例：`server,server-release,feature-server`
 - `AUTO_UPDATE_PLATFORM`
   - 作用：自动模式使用的平台。
   - 可选：`universal` / `client` / `server`
