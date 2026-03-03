@@ -144,8 +144,6 @@ jobs:
               platform = "client"
             elif branch_key in server_branch_set:
               platform = "server"
-            else:
-              platform = "universal"
 
           if platform not in {"client", "server", "universal"}:
             raise SystemExit(f"Invalid platform: {platform}")
