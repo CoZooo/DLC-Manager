@@ -54,6 +54,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
+
+      - name: Fetch Git LFS objects
+        shell: bash
+        run: |
+          if [ ! -f .gitattributes ]; then
+            echo "No .gitattributes found, skip LFS fetch."
+            exit 0
+          fi
+          if ! grep -qi "filter=lfs" .gitattributes; then
+            echo "No LFS patterns in .gitattributes, skip LFS fetch."
+            exit 0
+          fi
+          if ! command -v git-lfs >/dev/null 2>&1; then
+            echo "git-lfs not found on runner, skip LFS fetch."
+            exit 0
+          fi
+          git lfs install --local || true
+          git lfs fetch --all || true
+          git lfs pull || true
 
       - name: Validate version change
         shell: bash

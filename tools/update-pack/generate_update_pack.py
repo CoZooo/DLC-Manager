@@ -36,13 +36,41 @@ def normalize_relpath(path: str) -> str:
 
 
 def read_file_at_ref(ref: str, rel_path: str) -> bytes:
-    cp = subprocess.run(
-        ["git", "show", f"{ref}:{rel_path}"],
-        check=True,
-        capture_output=True,
-        text=False,
-    )
-    return cp.stdout
+    try:
+        cp = subprocess.run(
+            ["git", "cat-file", "--filters", f"{ref}:{rel_path}"],
+            check=True,
+            capture_output=True,
+            text=False,
+        )
+        return cp.stdout
+    except subprocess.CalledProcessError:
+        cp = subprocess.run(
+            ["git", "show", f"{ref}:{rel_path}"],
+            check=True,
+            capture_output=True,
+            text=False,
+        )
+        return cp.stdout
+
+
+def is_lfs_pointer_content(data: bytes) -> bool:
+    if not data:
+        return False
+    if len(data) > 1024:
+        return False
+    try:
+        text = data.decode("utf-8", errors="strict")
+    except UnicodeDecodeError:
+        return False
+    lines = [line.strip() for line in text.replace("\r\n", "\n").split("\n") if line.strip()]
+    if len(lines) < 2:
+        return False
+    if not lines[0].startswith("version https://git-lfs.github.com/spec/v1"):
+        return False
+    has_oid = any(line.startswith("oid sha256:") for line in lines[1:])
+    has_size = any(line.startswith("size ") for line in lines[1:])
+    return has_oid and has_size
 
 
 def find_changelog_text(ref: str) -> str:
@@ -602,6 +630,11 @@ def copy_added_files(to_ref: str, add_paths: list[str], stage_dir: Path) -> None
         target = (stage_dir / rel_path).resolve()
         target.parent.mkdir(parents=True, exist_ok=True)
         data = read_file_at_ref(to_ref, rel)
+        if is_lfs_pointer_content(data):
+            raise RuntimeError(
+                f"LFS pointer detected for '{rel}' at '{to_ref}'. "
+                "Please ensure Git LFS objects are fetched before packaging."
+            )
         target.write_bytes(data)
 
 
