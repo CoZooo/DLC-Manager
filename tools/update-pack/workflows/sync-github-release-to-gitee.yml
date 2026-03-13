@@ -7,6 +7,14 @@ on:
         description: "GitHub release tag to sync"
         required: false
         default: ""
+      sync_file:
+        description: "Sync release assets"
+        required: true
+        type: choice
+        options:
+          - "true"
+          - "false"
+        default: "true"
       sync_all:
         description: "Sync all GitHub releases"
         required: true
@@ -26,6 +34,10 @@ on:
   workflow_call:
     inputs:
       tag:
+        required: false
+        type: string
+        default: ""
+      sync_file:
         required: false
         type: string
         default: ""
@@ -60,9 +72,11 @@ jobs:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           SOURCE_REPO: ${{ github.repository }}
           TARGET_TAG: ${{ inputs.tag }}
+          INPUT_SYNC_FILE: ${{ inputs.sync_file }}
           SYNC_ALL: ${{ inputs.sync_all }}
           GITEE_USERNAME_VAR: ${{ vars.GITEE_USERNAME }}
           GITEE_REPO_VAR: ${{ vars.GITEE_REPO }}
+          SYNC_FILE_VAR: ${{ vars.SYNC_FILE }}
           OVERWRITE_ASSETS: ${{ inputs.overwrite_assets }}
         run: |
           python - <<'PY'
@@ -77,9 +91,11 @@ jobs:
           gitee_token = os.environ.get("GITEE_TOKEN", "").strip()
           source_repo = os.environ["SOURCE_REPO"].strip()
           target_tag = os.environ.get("TARGET_TAG", "").strip()
+          input_sync_file = os.environ.get("INPUT_SYNC_FILE", "").strip().lower()
           sync_all = os.environ.get("SYNC_ALL", "false").strip().lower() == "true"
           gitee_owner = (os.environ.get("GITEE_USERNAME_VAR", "") or "").strip()
           gitee_repo = (os.environ.get("GITEE_REPO_VAR", "") or "").strip()
+          sync_file_var = os.environ.get("SYNC_FILE_VAR", "").strip().lower()
           overwrite_assets = os.environ.get("OVERWRITE_ASSETS", "true").strip().lower() == "true"
           output_path = os.environ.get("GITHUB_OUTPUT", "").strip()
 
@@ -87,6 +103,13 @@ jobs:
               raise SystemExit("GITEE_TOKEN is required.")
           if not gitee_owner or not gitee_repo:
               raise SystemExit("GITEE_USERNAME/GITEE_REPO Repository Variables are required.")
+
+          if input_sync_file in ("true", "false"):
+              sync_files = input_sync_file == "true"
+          elif sync_file_var in ("true", "false"):
+              sync_files = sync_file_var == "true"
+          else:
+              sync_files = True
 
           gh_headers = {
               "Accept": "application/vnd.github+json",
@@ -251,56 +274,57 @@ jobs:
 
               uploaded = 0
               skipped = 0
-              for asset in gh_assets:
-                  source_asset_name = (asset.get("name") or "").strip()
-                  if not source_asset_name:
-                      continue
-                  gitee_asset_name = normalize_gitee_asset_name(source_asset_name)
-                  if gitee_asset_name in existing_by_name and not overwrite_assets:
-                      skipped += 1
-                      continue
+              if sync_files:
+                  for asset in gh_assets:
+                      source_asset_name = (asset.get("name") or "").strip()
+                      if not source_asset_name:
+                          continue
+                      gitee_asset_name = normalize_gitee_asset_name(source_asset_name)
+                      if gitee_asset_name in existing_by_name and not overwrite_assets:
+                          skipped += 1
+                          continue
 
-                  existing = existing_by_name.get(gitee_asset_name)
-                  if existing and overwrite_assets:
-                      aid = existing.get("id")
-                      if aid:
-                          del_resp = gitee_request(
-                              "DELETE",
-                              f"/repos/{gitee_owner}/{gitee_repo}/releases/{release_id}/attach_files/{aid}",
-                          )
-                          if del_resp.status_code >= 300:
-                              raise SystemExit(
-                                  f"Failed to delete existing Gitee asset '{gitee_asset_name}': {del_resp.status_code} {del_resp.text}"
+                      existing = existing_by_name.get(gitee_asset_name)
+                      if existing and overwrite_assets:
+                          aid = existing.get("id")
+                          if aid:
+                              del_resp = gitee_request(
+                                  "DELETE",
+                                  f"/repos/{gitee_owner}/{gitee_repo}/releases/{release_id}/attach_files/{aid}",
                               )
+                              if del_resp.status_code >= 300:
+                                  raise SystemExit(
+                                      f"Failed to delete existing Gitee asset '{gitee_asset_name}': {del_resp.status_code} {del_resp.text}"
+                                  )
 
-                  gh_asset_url = asset.get("url")
-                  if not gh_asset_url:
-                      continue
-                  download_headers = dict(gh_headers)
-                  download_headers["Accept"] = "application/octet-stream"
-                  download_resp = requests.get(gh_asset_url, headers=download_headers, timeout=300)
-                  if download_resp.status_code >= 300:
-                      raise SystemExit(
-                          f"Failed to download GitHub asset '{source_asset_name}': {download_resp.status_code} {download_resp.text}"
-                      )
+                      gh_asset_url = asset.get("url")
+                      if not gh_asset_url:
+                          continue
+                      download_headers = dict(gh_headers)
+                      download_headers["Accept"] = "application/octet-stream"
+                      download_resp = requests.get(gh_asset_url, headers=download_headers, timeout=300)
+                      if download_resp.status_code >= 300:
+                          raise SystemExit(
+                              f"Failed to download GitHub asset '{source_asset_name}': {download_resp.status_code} {download_resp.text}"
+                          )
 
-                  asset_path = out_dir / gitee_tag_name / gitee_asset_name
-                  asset_path.parent.mkdir(parents=True, exist_ok=True)
-                  asset_path.write_bytes(download_resp.content)
+                      asset_path = out_dir / gitee_tag_name / gitee_asset_name
+                      asset_path.parent.mkdir(parents=True, exist_ok=True)
+                      asset_path.write_bytes(download_resp.content)
 
-                  with asset_path.open("rb") as fp:
-                      upload_resp = gitee_request(
-                          "POST",
-                          f"/repos/{gitee_owner}/{gitee_repo}/releases/{release_id}/attach_files",
-                          data={"name": gitee_asset_name},
-                          files={"file": (gitee_asset_name, fp, "application/octet-stream")},
-                          timeout=600,
-                      )
-                  if upload_resp.status_code >= 300:
-                      raise SystemExit(
-                          f"Failed to upload asset '{gitee_asset_name}' to Gitee: {upload_resp.status_code} {upload_resp.text}"
-                      )
-                  uploaded += 1
+                      with asset_path.open("rb") as fp:
+                          upload_resp = gitee_request(
+                              "POST",
+                              f"/repos/{gitee_owner}/{gitee_repo}/releases/{release_id}/attach_files",
+                              data={"name": gitee_asset_name},
+                              files={"file": (gitee_asset_name, fp, "application/octet-stream")},
+                              timeout=600,
+                          )
+                      if upload_resp.status_code >= 300:
+                          raise SystemExit(
+                              f"Failed to upload asset '{gitee_asset_name}' to Gitee: {upload_resp.status_code} {upload_resp.text}"
+                          )
+                      uploaded += 1
 
               total_uploaded += uploaded
               total_skipped += skipped
@@ -309,6 +333,7 @@ jobs:
                   "tag_name": tag_name,
                   "gitee_tag_name": gitee_tag_name,
                   "assets_total": len(gh_assets),
+                  "sync_files": sync_files,
                   "uploaded": uploaded,
                   "skipped": skipped
               }, ensure_ascii=False))
@@ -319,6 +344,7 @@ jobs:
               "synced_release_count": len(synced_tags),
               "uploaded": total_uploaded,
               "skipped": total_skipped,
+              "sync_files": sync_files,
               "overwrite_assets": overwrite_assets,
               "sync_all": sync_all,
           }
@@ -344,9 +370,11 @@ jobs:
                   f.write(f"synced_release_count={len(synced_tags)}\n")
                   f.write(f"uploaded={total_uploaded}\n")
                   f.write(f"skipped={total_skipped}\n")
+                  f.write(f"sync_files={'true' if sync_files else 'false'}\n")
           PY
 
       - name: Upload sync artifact
+        if: ${{ steps.sync_release.outputs.sync_files == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: synced-release-${{ steps.sync_release.outputs.artifact_tag_name || 'latest' }}

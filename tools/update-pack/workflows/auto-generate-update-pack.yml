@@ -151,6 +151,7 @@ jobs:
           ref_name = (os.environ.get("REF_NAME", "") or "").strip()
           input_from_ref = (os.environ.get("INPUT_FROM_REF", "") or "").strip()
           input_to_ref = (os.environ.get("INPUT_TO_REF", "") or "").strip()
+          manual_ref_override = False
           version_file = pick(os.environ.get("VAR_VERSION_FILE"), default="DLC/info/version.dc")
           platform = pick(os.environ.get("INPUT_PLATFORM"), os.environ.get("VAR_PLATFORM"), default="universal").lower()
           client_branch_set = parse_csv_set(os.environ.get("VAR_CLIENT_BRANCH", ""))
@@ -181,6 +182,7 @@ jobs:
               if cp_target.returncode != 0 or not cp_target.stdout.strip():
                 raise SystemExit(f"Invalid to_ref: {input_to_ref}")
               event_after = cp_target.stdout.strip()
+              manual_ref_override = True
 
             if input_from_ref:
               cp_base = subprocess.run(
@@ -191,6 +193,7 @@ jobs:
               if cp_base.returncode != 0 or not cp_base.stdout.strip():
                 raise SystemExit(f"Invalid from_ref: {input_from_ref}")
               event_before = cp_base.stdout.strip()
+              manual_ref_override = True
             else:
               cp_prev = subprocess.run(["git", "rev-parse", f"{event_after}^"], capture_output=True, text=True)
               event_before = cp_prev.stdout.strip() if cp_prev.returncode == 0 else ""
@@ -242,34 +245,37 @@ jobs:
             print("reason=version_unchanged")
             sys.exit(0)
 
-          # Find the first commit where version became old_base+old_dlc.
-          commits = run("git", "rev-list", "--reverse", event_after).stdout.strip().splitlines()
-          first_old_commit = None
-          prev_pair = None
-          for c in commits:
-            if not file_exists_at(c, version_file):
-              continue
-            pair = parse_version_dc(read_file_at(c, version_file))
-            if pair is None:
-              continue
-            if pair == (old_base, old_dlc) and prev_pair != (old_base, old_dlc):
-              first_old_commit = c
-              break
-            prev_pair = pair
+          if manual_ref_override:
+            resolved_from_ref = event_before
+          else:
+            commits = run("git", "rev-list", "--reverse", event_after).stdout.strip().splitlines()
+            first_old_commit = None
+            prev_pair = None
+            for c in commits:
+              if not file_exists_at(c, version_file):
+                continue
+              pair = parse_version_dc(read_file_at(c, version_file))
+              if pair is None:
+                continue
+              if pair == (old_base, old_dlc) and prev_pair != (old_base, old_dlc):
+                first_old_commit = c
+                break
+              prev_pair = pair
 
-          if not first_old_commit:
-            print("changed=false")
-            print(f"version_file={version_file}")
-            print(f"platform={platform}")
-            print(f"sync_to_gitee={sync_to_gitee}")
-            print("reason=from_ref_not_found")
-            sys.exit(0)
+            if not first_old_commit:
+              print("changed=false")
+              print(f"version_file={version_file}")
+              print(f"platform={platform}")
+              print(f"sync_to_gitee={sync_to_gitee}")
+              print("reason=from_ref_not_found")
+              sys.exit(0)
+            resolved_from_ref = first_old_commit
 
           print("changed=true")
           print(f"version_file={version_file}")
           print(f"platform={platform}")
           print(f"sync_to_gitee={sync_to_gitee}")
-          print(f"from_ref={first_old_commit}")
+          print(f"from_ref={resolved_from_ref}")
           print(f"to_ref={event_after}")
           print(f"base={old_base}")
           print(f"base_new={new_base}")

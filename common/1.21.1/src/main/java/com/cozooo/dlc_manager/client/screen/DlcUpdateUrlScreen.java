@@ -188,14 +188,9 @@ public class DlcUpdateUrlScreen extends Screen {
                     });
                     return;
                 }
-                var info = pkg.getManifest().getVersion();
                 Minecraft.getInstance().execute(() -> {
                     downloading = false;
-                    if (info != null) {
-                        confirmReupdate(info.getBase(), info.getDlcOld(), info.getBaseNew(), info.getDlcNew());
-                    } else {
-                        Minecraft.getInstance().setScreen(parent);
-                    }
+                    promptImportedUpdate();
                 });
                 return;
             } catch (Exception ex) {
@@ -216,6 +211,17 @@ public class DlcUpdateUrlScreen extends Screen {
                 });
             }
         }, "dlc-update-url-download").start();
+    }
+
+    private void promptImportedUpdate() {
+        UpdateCheckResult check = DlcUpdateService.checkForUpdates(true);
+        if (check != null && check.hasUpdates()) {
+            Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, check));
+            return;
+        }
+        showToast(Component.translatable("dlc_manager.update.manager_title"),
+            Component.translatable("dlc_manager.update.no_updates"));
+        Minecraft.getInstance().setScreen(parent);
     }
 
     private Path downloadToUpdateDir(String url) throws IOException {

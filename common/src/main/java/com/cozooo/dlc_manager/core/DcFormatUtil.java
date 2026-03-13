@@ -257,6 +257,14 @@ public final class DcFormatUtil {
             }
             if (content.startsWith("[") && content.endsWith("]") && content.length() >= 3) {
                 String header = content.substring(1, content.length() - 1).trim();
+                if (header.contains(".")) {
+                    JsonObject child = ensureGenericPath(root, header);
+                    stack.clear();
+                    stack.push(new GenericFrame(-1, root));
+                    stack.push(new GenericFrame(indent, child));
+                    index++;
+                    continue;
+                }
                 while (stack.size() > 1 && stack.peek().indent >= indent) {
                     stack.pop();
                 }
@@ -294,7 +302,7 @@ public final class DcFormatUtil {
             return "";
         }
         StringBuilder out = new StringBuilder(512);
-        writeGenericObject(out, obj, 0);
+        writeGenericRoot(out, obj);
         return out.toString();
     }
 
@@ -313,14 +321,13 @@ public final class DcFormatUtil {
         }
     }
 
-    private static void writeGenericObject(StringBuilder out, JsonObject obj, int indent) {
+    private static void writeGenericRoot(StringBuilder out, JsonObject obj) {
         boolean wroteAny = false;
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             JsonElement value = entry.getValue();
             if (value != null && value.isJsonObject()) {
                 continue;
             }
-            indentLine(out, indent);
             out.append(entry.getKey())
                 .append(" = ")
                 .append(formatGenericValue(entry.getKey(), value))
@@ -335,11 +342,72 @@ public final class DcFormatUtil {
             if (wroteAny) {
                 out.append('\n');
             }
-            indentLine(out, indent);
-            out.append('[').append(entry.getKey()).append(']').append('\n');
-            writeGenericObject(out, value.getAsJsonObject(), indent + 2);
+            writeGenericSection(out, entry.getKey(), value.getAsJsonObject(), 0);
             wroteAny = true;
         }
+    }
+
+    private static void writeGenericSection(StringBuilder out, String name, JsonObject obj, int sectionIndent) {
+        indentLine(out, sectionIndent);
+        out.append('[').append(name).append(']').append('\n');
+        boolean hasNestedSections = hasNestedGenericSections(obj);
+        int bodyIndent = (sectionIndent > 0 || hasNestedSections) ? sectionIndent + 2 : 0;
+        boolean wroteAny = false;
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value != null && value.isJsonObject()) {
+                continue;
+            }
+            indentLine(out, bodyIndent);
+            out.append(entry.getKey())
+                .append(" = ")
+                .append(formatGenericValue(entry.getKey(), value))
+                .append('\n');
+            wroteAny = true;
+        }
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value == null || !value.isJsonObject()) {
+                continue;
+            }
+            if (wroteAny) {
+                out.append('\n');
+            }
+            writeGenericSection(out, entry.getKey(), value.getAsJsonObject(), sectionIndent + 2);
+            wroteAny = true;
+        }
+    }
+
+    private static boolean hasNestedGenericSections(JsonObject obj) {
+        if (obj == null || obj.entrySet().isEmpty()) {
+            return false;
+        }
+        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value != null && value.isJsonObject()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static JsonObject ensureGenericPath(JsonObject root, String header) {
+        JsonObject current = root;
+        for (String rawPart : header.split("\\.")) {
+            String part = rawPart == null ? "" : rawPart.trim();
+            if (part.isBlank()) {
+                continue;
+            }
+            JsonElement existing = current.get(part);
+            if (existing != null && existing.isJsonObject()) {
+                current = existing.getAsJsonObject();
+            } else {
+                JsonObject child = new JsonObject();
+                current.add(part, child);
+                current = child;
+            }
+        }
+        return current;
     }
 
     private static String formatGenericValue(String key, JsonElement value) {

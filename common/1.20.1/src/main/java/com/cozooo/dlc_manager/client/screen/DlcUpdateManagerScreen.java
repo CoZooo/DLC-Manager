@@ -157,11 +157,15 @@ public class DlcUpdateManagerScreen extends Screen {
                         if (target != null && !target.isBlank()) {
                             confirmRollback(target);
                         }
-                    } else if (chosen == DlcUpdateRowPlanner.Action.REUPDATE
-                        || chosen == DlcUpdateRowPlanner.Action.UPDATE) {
+                    } else if (chosen == DlcUpdateRowPlanner.Action.REUPDATE) {
                         DlcUpdateMeta meta = idx < history.size() ? history.get(idx) : null;
                         if (meta != null) {
                             confirmReupdate(meta.getBaseOld(), meta.getDlcOld(), meta.getBaseNew(), meta.getDlcNew());
+                        }
+                    } else if (chosen == DlcUpdateRowPlanner.Action.UPDATE) {
+                        DlcUpdateMeta meta = idx < history.size() ? history.get(idx) : null;
+                        if (meta != null) {
+                            confirmApply(meta.getBaseOld(), meta.getDlcOld(), meta.getBaseNew(), meta.getDlcNew());
                         }
                     }
                 }
@@ -184,8 +188,9 @@ public class DlcUpdateManagerScreen extends Screen {
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.current", currentVersion), centerX, y, 0xC8C8C8);
         y += 14;
         if (rolledBackMode) {
+            String currentPair = normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion);
             guiGraphics.drawCenteredString(this.font,
-                Component.translatable("dlc_manager.update.rollback_info", rollbackFrom, currentVersion),
+                Component.translatable("dlc_manager.update.rollback_info", rollbackFrom, currentPair),
                 centerX, y, 0xE6E6E6);
             y += 12;
         }
@@ -385,9 +390,6 @@ public class DlcUpdateManagerScreen extends Screen {
     }
 
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        if (dlcOld == null || dlcNew == null) {
-            return;
-        }
         var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
@@ -400,11 +402,36 @@ public class DlcUpdateManagerScreen extends Screen {
         }, "dlc-update-reapply").start();
     }
 
+    private void startApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
+        var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+        if (chain == null || chain.isEmpty()) {
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
+            return;
+        }
+        setApplyingUpdates(true);
+        new Thread(() -> {
+            UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+            Minecraft.getInstance().execute(() -> handleReupdateResult(result, null));
+        }, "dlc-update-apply").start();
+    }
+
     private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         String changelog = DlcUpdateService.buildChangelogText(
             DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
             CrossPlatformRuntime.languageCode());
         confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog);
+    }
+
+    private void confirmApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
+        Component title = Component.translatable("dlc_manager.update.manager_title");
+        Component message = Component.translatable("dlc_manager.update.confirm_apply");
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) {
+                startApply(baseOld, dlcOld, baseNew, dlcNew);
+            } else {
+                Minecraft.getInstance().setScreen(this);
+            }
+        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
     }
 
     private void confirmReupdateNow(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
@@ -543,12 +570,18 @@ public class DlcUpdateManagerScreen extends Screen {
                 Component.translatable("dlc_manager.update.dlc_root_missing"));
             return;
         }
-        var info = pkg.getManifest().getVersion();
-        if (info != null) {
-            confirmReupdate(info.getBase(), info.getDlcOld(), info.getBaseNew(), info.getDlcNew());
-        } else {
-            refreshData();
+        promptImportedUpdate();
+    }
+
+    private void promptImportedUpdate() {
+        UpdateCheckResult check = DlcUpdateService.checkForUpdates(true);
+        if (check != null && check.hasUpdates()) {
+            Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(this, check));
+            return;
         }
+        showToast(Component.translatable("dlc_manager.update.manager_title"),
+            Component.translatable("dlc_manager.update.no_updates"));
+        refreshData();
     }
 
     private void checkPackUpdate() {

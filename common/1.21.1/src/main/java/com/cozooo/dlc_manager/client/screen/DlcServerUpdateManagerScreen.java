@@ -247,8 +247,9 @@ public class DlcServerUpdateManagerScreen extends Screen {
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.current", currentVersion), centerX, y, 0xC8C8C8);
         y += 14;
         if (rolledBackMode) {
+            String currentPair = normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion);
             guiGraphics.drawCenteredString(this.font,
-                Component.translatable("dlc_manager.update.rollback_info", rollbackFrom, currentVersion),
+                Component.translatable("dlc_manager.update.rollback_info", rollbackFrom, currentPair),
                 centerX, y, 0xE6E6E6);
             y += 12;
         }
@@ -404,9 +405,6 @@ public class DlcServerUpdateManagerScreen extends Screen {
     }
 
     private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        if (dlcOld == null || dlcNew == null) {
-            return;
-        }
         String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
         Component title = Component.translatable("dlc_manager.update.manager_title");
         Component message = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
@@ -420,9 +418,6 @@ public class DlcServerUpdateManagerScreen extends Screen {
     }
 
     private void confirmApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        if (dlcOld == null || dlcNew == null) {
-            return;
-        }
         Component title = Component.translatable("dlc_manager.update.manager_title");
         Component message = Component.translatable("dlc_manager.update.confirm_apply");
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
