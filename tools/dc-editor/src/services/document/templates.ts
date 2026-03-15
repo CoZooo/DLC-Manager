@@ -21,7 +21,6 @@ export function createEmptyTemplate(type: DocumentType): string {
         ""
       ].join("\n");
     case "remote":
-    case "required":
       return [
         "[download]",
         'modrinth_projectid = ""',
@@ -29,7 +28,7 @@ export function createEmptyTemplate(type: DocumentType): string {
         'curseforge_projectid = ""',
         'curseforge_fileid = ""',
         "directUrl = []",
-        'priority = "modrinth"',
+        'priority = ["curseforge", "modrinth", "directUrl"]',
         "",
         "[basic]",
         'identifier = ""',
@@ -45,6 +44,36 @@ export function createEmptyTemplate(type: DocumentType): string {
         "[DisplayName]",
         "",
         "[tip]",
+        ""
+      ].join("\n");
+    case "required":
+      return [
+        "[download]",
+        'modrinth_projectid = ""',
+        'modrinth_versionid = ""',
+        'curseforge_projectid = ""',
+        'curseforge_fileid = ""',
+        "directUrl = []",
+        'priority = ["curseforge", "modrinth", "directUrl"]',
+        "",
+        "[basic]",
+        'identifier = ""',
+        'file_name = ""',
+        'appliedTarget = ""',
+        "isInList = true",
+        "isHidden = false",
+        "dependencies = []",
+        "",
+        "[DisplayName]",
+        "",
+        "[tip]",
+        ""
+      ].join("\n");
+    case "required_notice":
+      return [
+        "[download_desc]",
+        "",
+        "[manage_desc]",
         ""
       ].join("\n");
     case "preset":
@@ -109,9 +138,7 @@ export function createEmptyTemplate(type: DocumentType): string {
     case "version":
       return [
         "base = \"1.0.0\"",
-        "dlc = \"1.0.0\"",
-        'rollback_from = ""',
-        'changelog_shown = ""'
+        "dlc = \"1.0.0\""
       ].join("\n");
     case "meta":
       return [

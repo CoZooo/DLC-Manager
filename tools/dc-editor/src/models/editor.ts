@@ -4,6 +4,7 @@ export type DocumentType =
   | "info"
   | "remote"
   | "required"
+  | "required_notice"
   | "preset"
   | "notice"
   | "redirect"
@@ -15,7 +16,15 @@ export type DocumentType =
   | "config_client"
   | "config_server";
 
-export type FieldKind = "text" | "textarea" | "boolean" | "select" | "number" | "list";
+export type FieldKind =
+  | "text"
+  | "textarea"
+  | "boolean"
+  | "select"
+  | "number"
+  | "list"
+  | "ordered-select-list"
+  | "language-visibility";
 export type LocaleValueKind = "text" | "textarea";
 
 export interface ValidationIssue {
@@ -30,6 +39,17 @@ export interface FieldSchema {
   label: string;
   kind: FieldKind;
   help?: string;
+  hiddenInForm?: boolean;
+  visibleWhen?: {
+    sectionKey: string;
+    fieldKey: string;
+    equals?: string;
+    oneOf?: string[];
+  };
+  toggleLabels?: {
+    checked: string;
+    unchecked: string;
+  };
   options?: Array<{ value: string; label: string }>;
   placeholder?: string;
 }

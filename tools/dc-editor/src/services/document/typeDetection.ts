@@ -10,8 +10,34 @@ function pathBaseName(path?: string): string {
 
 export function detectDocumentType(path?: string, text?: string): DocumentType {
   const name = pathBaseName(path).toLowerCase();
+  const lowerPath = (path || "").toLowerCase();
+  const body = (text || "").toLowerCase();
+
+  if (
+    (name === "notice.dc" && (lowerPath.includes("/required/") || lowerPath.includes("\\required\\"))) ||
+    body.includes("[download_desc]") ||
+    body.includes("[manage_desc]")
+  ) {
+    return "required_notice";
+  }
+
   if (name === "notice.dc") {
     return "notice";
+  }
+  if (name === "remote.dc") {
+    return "remote";
+  }
+  if (name === "required.dc") {
+    return "required";
+  }
+  if (name === "preset.dc") {
+    return "preset";
+  }
+  if (name === "redirect.dc") {
+    return "redirect";
+  }
+  if (name === "info.dc") {
+    return "info";
   }
   if (name === "update.dc") {
     return "update";
@@ -35,7 +61,6 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
     return "config_server";
   }
 
-  const lowerPath = (path || "").toLowerCase();
   if (lowerPath.includes("/remote/") || lowerPath.includes("\\remote\\")) {
     return "remote";
   }
@@ -52,7 +77,6 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
     return "info";
   }
 
-  const body = (text || "").toLowerCase();
   if (body.includes("[download]")) {
     return body.includes("modrinth_projectid") || body.includes("curseforge_projectid") ? "remote" : "required";
   }
@@ -67,6 +91,9 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   }
   if (body.includes("[file]") || body.includes("[update]")) {
     return "update";
+  }
+  if (body.includes("enable") && body.includes("[displayname]") && body.includes("[tip]")) {
+    return "preset";
   }
   if (body.includes("[server]") && body.includes("serverport")) {
     return "config_server";

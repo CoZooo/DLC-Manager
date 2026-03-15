@@ -54,6 +54,12 @@ export class ApiBackend implements EditorBackend {
     this.unsupported();
   }
 
+  async serializeForSave(type: DocumentType, model: StructuredModel): Promise<string> {
+    void type;
+    void model;
+    this.unsupported();
+  }
+
   async save(request: SaveDocumentRequest): Promise<SaveDocumentResult> {
     void request;
     this.unsupported();

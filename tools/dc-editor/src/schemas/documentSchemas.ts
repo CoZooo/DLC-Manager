@@ -9,7 +9,13 @@ const typeOptions = [
   { value: "others", label: "others" }
 ];
 
-const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: boolean }): SectionSchema => ({
+const priorityOptions = [
+  { value: "modrinth", label: "modrinth" },
+  { value: "curseforge", label: "curseforge" },
+  { value: "directUrl", label: "directUrl" }
+];
+
+const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: boolean; appliedTargetOnlyFor?: string[] }): SectionSchema => ({
   key: "basic",
   label: "[basic]",
   fields: [
@@ -23,7 +29,19 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       key: "file_name",
       label: "file_name",
       kind: "text",
-      help: "实际文件名；用于确定磁盘上的目标名称。"
+      help: "DLC 文件名（包含扩展名）；用于确定磁盘上的目标名称。"
+    },
+    {
+      key: "__multiFileEnabled",
+      label: "__multiFileEnabled",
+      kind: "boolean",
+      hiddenInForm: true
+    },
+    {
+      key: "fileNames",
+      label: "fileNames",
+      kind: "list",
+      hiddenInForm: true
     },
     ...((options?.includeType ?? true)
       ? [{
@@ -39,6 +57,15 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
           key: "appliedTarget",
           label: "appliedTarget",
           kind: "text" as const,
+          ...((options?.appliedTargetOnlyFor && options.appliedTargetOnlyFor.length > 0)
+            ? {
+                visibleWhen: {
+                  sectionKey: "basic",
+                  fieldKey: "type",
+                  oneOf: options.appliedTargetOnlyFor
+                }
+              }
+            : {}),
           help: "应用目标路径；可填写相对路径或绝对路径。"
         }]
       : []),
@@ -58,7 +85,7 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       key: "AllowEnableByAll",
       label: "AllowEnableByAll",
       kind: "boolean",
-      help: "“全部开启”是否会影响该项。"
+      help: "是否遵循“全部开启”而开启。"
     },
     {
       key: "dependencies",
@@ -81,6 +108,49 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
   ]
 });
 
+const requiredBasicSection: SectionSchema = {
+  key: "basic",
+  label: "[basic]",
+  fields: [
+    {
+      key: "identifier",
+      label: "identifier",
+      kind: "text",
+      help: "逻辑标识符；用于前置匹配。"
+    },
+    {
+      key: "file_name",
+      label: "file_name",
+      kind: "text",
+      help: "DLC 文件名（包含扩展名）；用于最终下载文件名。"
+    },
+    {
+      key: "appliedTarget",
+      label: "appliedTarget",
+      kind: "text",
+      help: "应用目标路径；可填写相对路径或绝对路径。"
+    },
+    {
+      key: "isInList",
+      label: "isInList",
+      kind: "boolean",
+      help: "是否在必要资源列表中显示该项。"
+    },
+    {
+      key: "isHidden",
+      label: "isHidden",
+      kind: "boolean",
+      help: "是否隐藏该项。"
+    },
+    {
+      key: "dependencies",
+      label: "dependencies",
+      kind: "list",
+      help: "前置 identifier 列表；当前表单模式仅支持简单列表。"
+    }
+  ]
+};
+
 const displayNameSection: SectionSchema = {
   key: "DisplayName",
   label: "[DisplayName]",
@@ -101,19 +171,39 @@ const tipSection: SectionSchema = {
   fields: []
 };
 
+const localeTextSection = (key: string, label: string, help: string): SectionSchema => ({
+  key,
+  label,
+  dynamicLocale: {
+    valueKind: "text",
+    help
+  },
+  fields: []
+});
+
+const localeTextareaSection = (key: string, label: string, help: string): SectionSchema => ({
+  key,
+  label,
+  dynamicLocale: {
+    valueKind: "textarea",
+    help
+  },
+  fields: []
+});
+
 export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   info: {
     type: "info",
     label: "Info",
-    summary: "编辑 DLC/info 下的 info 配置。",
+    summary: "DLC 文件的信息\n文件存放于 <DLC>/info 下",
     defaultFileName: "info.dc",
     supportsStructured: true,
-    sections: [basicFields(), displayNameSection, tipSection]
+    sections: [basicFields({ includeAppliedTarget: true, appliedTargetOnlyFor: ["others", "config"] }), displayNameSection, tipSection]
   },
   remote: {
     type: "remote",
     label: "Remote",
-    summary: "编辑 DLC/remote 下的远程下载配置。",
+    summary: "需下载的 DLC\n文件存放于 <DLC>/remote 下",
     defaultFileName: "remote.dc",
     supportsStructured: true,
     sections: [
@@ -155,12 +245,13 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
           {
             key: "priority",
             label: "priority",
-            kind: "text",
-            help: "下载源优先级；使用逗号分隔，例如 curseforge,modrinth,directurl。"
+            kind: "ordered-select-list",
+            options: priorityOptions,
+            help: "下载源优先顺序；勾选来源并调整顺序，写回为列表。"
           }
         ]
       },
-      basicFields({ includeAppliedTarget: true }),
+      basicFields({ includeAppliedTarget: true, appliedTargetOnlyFor: ["others"] }),
       displayNameSection,
       tipSection
     ]
@@ -168,7 +259,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   required: {
     type: "required",
     label: "Required",
-    summary: "编辑 DLC/required 下的必要资源配置。",
+    summary: "必要资源配置\n文件存放于 <DLC>/required 下",
     defaultFileName: "required.dc",
     supportsStructured: true,
     sections: [
@@ -210,20 +301,29 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
           {
             key: "priority",
             label: "priority",
-            kind: "text",
-            help: "下载源优先级；使用逗号分隔，例如 curseforge,modrinth,directurl。"
+            kind: "ordered-select-list",
+            options: priorityOptions,
+            help: "下载源优先顺序；勾选来源并调整顺序，写回为列表。"
           }
         ]
       },
-      basicFields({ includeType: false, includeAppliedTarget: true }),
+      requiredBasicSection,
       displayNameSection,
       tipSection
     ]
   },
+  required_notice: {
+    type: "required_notice",
+    label: "Required Notice",
+    summary: "必要资源提示配置\n文件通常为 <DLC>/required/notice.dc",
+    defaultFileName: "notice.dc",
+    supportsStructured: false,
+    sections: []
+  },
   preset: {
     type: "preset",
     label: "Preset",
-    summary: "编辑 DLC/preset 下的预设配置。",
+    summary: "预设配置\n文件存放于 <DLC>/preset 下",
     defaultFileName: "preset.dc",
     supportsStructured: true,
     sections: [
@@ -258,7 +358,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   notice: {
     type: "notice",
     label: "Notice",
-    summary: "编辑公告 notice.dc 与显示参数。",
+    summary: "公告配置\n文件通常为 <DLC>/notice.dc",
     defaultFileName: "notice.dc",
     supportsStructured: true,
     sections: [
@@ -288,54 +388,41 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
               { value: "perlaunchgame", label: "perlaunchgame" },
               { value: "once", label: "once" }
             ],
-            help: "公告显示频率；支持 perlaunchmanager、pergamesession、perlaunchgame、once。"
+            help: "公告显示频率。\nperlaunchmanager：每次进入 DLC 管理器时显示。\npergamesession：每次游戏进程期间只显示一次。\nperlaunchgame：每次启动游戏时显示一次。\nonce：仅显示一次。"
           }
         ]
       },
       {
-        key: "Title",
-        label: "[Title]",
-        fields: [
-          { key: "en_us", label: "en_us", kind: "text", help: "公告标题（英文）。" },
-          { key: "zh_cn", label: "zh_cn", kind: "text", help: "公告标题（简体中文）。" }
-        ]
+        ...localeTextSection("Title", "[Title]", "公告标题；手动填写语言代码和对应文本，可继续添加更多语言。")
       },
       {
         key: "Subhead",
         label: "[Subhead]",
+        dynamicLocale: {
+          valueKind: "text",
+          help: "公告副标题；手动填写语言代码和对应文本，可继续添加更多语言。"
+        },
         fields: [
           {
             key: "enabled",
             label: "enabled",
             kind: "boolean",
             help: "是否启用副标题。"
-          },
-          { key: "en_us", label: "en_us", kind: "text", help: "公告副标题（英文）。" },
-          { key: "zh_cn", label: "zh_cn", kind: "text", help: "公告副标题（简体中文）。" }
+          }
         ]
       },
       {
-        key: "ContentUrl",
-        label: "[ContentUrl]",
-        fields: [
-          { key: "en_us", label: "en_us", kind: "text", help: "在线公告内容 URL（英文）；优先级高于 Contents。" },
-          { key: "zh_cn", label: "zh_cn", kind: "text", help: "在线公告内容 URL（简体中文）；优先级高于 Contents。" }
-        ]
+        ...localeTextSection("ContentUrl", "[ContentUrl]", "在线公告内容 URL；优先级高于 Contents，可为不同语言分别填写。")
       },
       {
-        key: "Contents",
-        label: "[Contents]",
-        fields: [
-          { key: "en_us", label: "en_us", kind: "textarea", help: "公告正文（英文）；支持 Markdown 与颜色代码。" },
-          { key: "zh_cn", label: "zh_cn", kind: "textarea", help: "公告正文（简体中文）；支持 Markdown 与颜色代码。" }
-        ]
+        ...localeTextareaSection("Contents", "[Contents]", "公告正文；支持 Markdown 与颜色代码，可继续添加更多语言。")
       }
     ]
   },
   redirect: {
     type: "redirect",
     label: "Redirect",
-    summary: "编辑 redirect 配置。",
+    summary: "链接跳转配置\n文件存放于 <DLC>/remote/redirect 下",
     defaultFileName: "redirect.dc",
     supportsStructured: true,
     sections: [
@@ -352,26 +439,16 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
           {
             key: "available",
             label: "available",
-            kind: "text",
-            help: "控制可见性；可留空、填写语言代码，或填 hidden。"
+            kind: "language-visibility",
+            help: "控制可见性；可逐条新增语言代码。留空时所有语言可见，勾选隐藏时所有语言隐藏。"
           }
         ]
       },
       {
-        key: "DisplayName",
-        label: "[DisplayName]",
-        fields: [
-          { key: "en_us", label: "en_us", kind: "text", help: "列表名称（英文）。" },
-          { key: "zh_cn", label: "zh_cn", kind: "text", help: "列表名称（简体中文）。" }
-        ]
+        ...localeTextSection("DisplayName", "[DisplayName]", "列表名称；手动填写语言代码和对应文本，可继续添加更多语言。")
       },
       {
-        key: "notice",
-        label: "[notice]",
-        fields: [
-          { key: "en_us", label: "en_us", kind: "textarea", help: "跳转前确认说明（英文）。" },
-          { key: "zh_cn", label: "zh_cn", kind: "textarea", help: "跳转前确认说明（简体中文）。" }
-        ]
+        ...localeTextareaSection("notice", "[notice]", "跳转前确认说明；手动填写语言代码和对应文本，可继续添加更多语言。")
       },
       tipSection
     ]
@@ -379,7 +456,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   update: {
     type: "update",
     label: "Update",
-    summary: "编辑 update.dc。第一阶段以原文模式为主。",
+    summary: "热更新包配置",
     defaultFileName: "update.dc",
     supportsStructured: false,
     sections: []
@@ -387,14 +464,13 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   version: {
     type: "version",
     label: "Version",
-    summary: "编辑 version.dc。",
+    summary: "整合包版本配置\n文件通常为 <DLC>/info/version.dc",
     defaultFileName: "version.dc",
     supportsStructured: true,
     sections: [
       {
         key: ROOT_SECTION_KEY,
         label: "根级字段",
-        description: "version.dc 顶部直接写字段，不包在任何表头下。",
         fields: [
           {
             key: "base",
@@ -407,18 +483,6 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             label: "dlc",
             kind: "text",
             help: "当前 DLC 版本。"
-          },
-          {
-            key: "rollback_from",
-            label: "rollback_from",
-            kind: "text",
-            help: "最近一次回溯来源版本对。"
-          },
-          {
-            key: "changelog_shown",
-            label: "changelog_shown",
-            kind: "text",
-            help: "已显示过更新日志的版本标记。"
           }
         ]
       }
@@ -573,6 +637,7 @@ export const orderedDocumentTypes: DocumentType[] = [
   "info",
   "remote",
   "required",
+  "required_notice",
   "preset",
   "notice",
   "redirect",
@@ -597,6 +662,7 @@ export const configurableDocumentTypes: DocumentType[] = [
 ];
 
 export const internalDocumentTypes = new Set<DocumentType>([
+  "required_notice",
   "meta",
   "state",
   "update_skip",

@@ -128,6 +128,10 @@ export class LocalBackend implements EditorBackend {
     return serializeStructuredDocument(model, documentSchemas[type]);
   }
 
+  async serializeForSave(type: DocumentType, model: StructuredModel): Promise<string> {
+    return serializeStructuredDocument(model, documentSchemas[type], { applyImplicitDefaultLocale: true });
+  }
+
   async save(request: SaveDocumentRequest): Promise<SaveDocumentResult> {
     if (window.showSaveFilePicker) {
       const handle = await window.showSaveFilePicker({

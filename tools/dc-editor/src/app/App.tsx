@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "../components/Sidebar";
 import { NoticePreview } from "../components/NoticePreview";
 import { RawDcEditor } from "../components/RawDcEditor";
@@ -146,6 +146,14 @@ function buildDocument(
 }
 
 export function App() {
+  const mainPanelRef = useRef<HTMLElement | null>(null);
+  const scrollPositionsRef = useRef<Record<EditorView, number>>({
+    form: 0,
+    raw: 0,
+    preview: 0,
+    validation: 0
+  });
+  const preserveStructuredDraftRef = useRef<string | null>(null);
   const persisted = loadPersistedState();
   const [backendMode] = useState<BackendMode>("local");
   const backend: EditorBackend = useMemo(() => {
@@ -201,10 +209,11 @@ export function App() {
           if (!previous || previous.id !== document.id) {
             return previous;
           }
+          const keepStructuredDraft = preserveStructuredDraftRef.current === previous.id;
           return {
             ...previous,
-            name: deriveDocumentName(previous.type, parsed.model, previous.name),
-            structuredModel: parsed.model,
+            name: deriveDocumentName(previous.type, keepStructuredDraft ? previous.structuredModel : parsed.model, previous.name),
+            structuredModel: keepStructuredDraft ? previous.structuredModel : parsed.model,
             issues
           };
         });
@@ -349,6 +358,7 @@ export function App() {
   };
 
   const updateRawText = (rawText: string) => {
+    preserveStructuredDraftRef.current = null;
     setDocument((previous) => previous ? {
       ...previous,
       rawText,
@@ -360,7 +370,8 @@ export function App() {
     if (!document) {
       return;
     }
-    const nextRaw = await backend.serialize(document.type, model);
+    const nextRaw = await backend.serializeForSave(document.type, model);
+    preserveStructuredDraftRef.current = document.id;
     setDocument({
       ...document,
       name: deriveDocumentName(document.type, model, document.name),
@@ -382,16 +393,23 @@ export function App() {
       return;
     }
     try {
+      const textToSave = document.structuredEnabled && document.structuredModel
+        ? await backend.serializeForSave(document.type, document.structuredModel)
+        : document.rawText;
+      if (document.structuredEnabled && document.structuredModel) {
+        preserveStructuredDraftRef.current = document.id;
+      }
       const result = await backend.save({
         suggestedName: document.name,
         path: document.path,
-        text: document.rawText
+        text: textToSave
       });
       setDocument({
         ...document,
         name: result.name,
         path: result.path,
-        originalText: document.rawText,
+        rawText: textToSave,
+        originalText: textToSave,
         isDirty: false
       });
       setStatus(`已保存 ${result.name}。`);
@@ -410,6 +428,23 @@ export function App() {
     return counts;
   }, [document?.issues]);
 
+  useLayoutEffect(() => {
+    const panel = mainPanelRef.current;
+    if (!panel || homeVisible) {
+      return;
+    }
+    const nextTop = scrollPositionsRef.current[activeView] ?? 0;
+    panel.scrollTop = nextTop;
+  }, [activeView, homeVisible]);
+
+  const changeActiveView = (nextView: EditorView) => {
+    const panel = mainPanelRef.current;
+    if (panel) {
+      scrollPositionsRef.current[activeView] = panel.scrollTop;
+    }
+    setActiveView(nextView);
+  };
+
   return (
     <div className="app-shell">
       <Toolbar
@@ -423,7 +458,7 @@ export function App() {
           setStatus("已返回主页。");
         }}
         onToggleSidebar={() => setSidebarVisible((previous) => !previous)}
-        onChangeView={setActiveView}
+        onChangeView={changeActiveView}
         onSave={saveDocument}
       />
 
@@ -440,7 +475,7 @@ export function App() {
           />
         </div>
 
-        <main className="main-panel">
+        <main className="main-panel" ref={mainPanelRef}>
           {homeVisible && (
             <section className="welcome">
               <h1>DC 配置工作台</h1>

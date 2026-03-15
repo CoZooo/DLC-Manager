@@ -101,6 +101,23 @@ function parseValueByKind(valueText: string, kind: FieldKind): StructuredValue {
       .map((item) => item.trim())
       .filter(Boolean);
   }
+  if (kind === "ordered-select-list") {
+    const array = parseStringArray(valueText);
+    if (array) {
+      return array;
+    }
+    return parseQuoted(valueText)
+      .split(/[\n,]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+  if (kind === "language-visibility") {
+    const array = parseStringArray(valueText);
+    if (array) {
+      return array;
+    }
+    return parseQuoted(valueText);
+  }
   return parseQuoted(valueText);
 }
 
@@ -183,35 +200,64 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     model[currentSection][key] = parseValueByKind(valueText, kind);
   }
 
+  if (schema.type === "info") {
+    normalizeInfoMultiFileModel(model);
+  }
+
   return { model, issues };
 }
 
-export function serializeStructuredDocument(model: StructuredModel, schema: DocumentSchema): string {
+interface SerializeOptions {
+  applyImplicitDefaultLocale?: boolean;
+}
+
+export function serializeStructuredDocument(model: StructuredModel, schema: DocumentSchema, options: SerializeOptions = {}): string {
   const out: string[] = [];
   for (let index = 0; index < schema.sections.length; index++) {
     const section = schema.sections[index];
     const sectionKey = section.key;
     const values = model[sectionKey] || {};
-    const hasValues = section.dynamicLocale
-      ? Object.keys(values).length > 0
-      : section.fields.some((field) => values[field.key] !== undefined);
+    const fieldKeys = new Set(section.fields.map((field) => field.key));
+    const dynamicLocaleState = section.dynamicLocale ? collectDynamicLocaleState(values, fieldKeys) : null;
+    const hasFieldValues = section.fields.some((field) => values[field.key] !== undefined);
+    const hasLocaleValues = dynamicLocaleState
+      ? dynamicLocaleState.localeEntries.length > 0 || dynamicLocaleState.hasSingleImplicitEnUs
+      : false;
+    const hasValues = hasFieldValues || hasLocaleValues;
     if (sectionKey !== ROOT_SECTION_KEY) {
       out.push(section.label);
     }
-    if (section.dynamicLocale) {
-      for (const [locale, rawValue] of Object.entries(values)) {
-        if (typeof rawValue !== "string" || !locale.trim() || locale.startsWith("__draft_locale__:")) {
-          continue;
-        }
-        out.push(`${locale} = ${serializeValue(rawValue)}`);
+    for (const field of section.fields) {
+      if (field.key === "__multiFileEnabled") {
+        continue;
       }
-    } else {
-      for (const field of section.fields) {
-        const value = values[field.key];
-        if (value === undefined) {
+      if (schema.type === "info" && section.key === "basic" && field.key === "fileNames") {
+        const enabled = Boolean(values.__multiFileEnabled);
+        if (!enabled) {
           continue;
         }
-        out.push(`${field.key} = ${serializeValue(value)}`);
+        const primary = typeof values.file_name === "string" ? values.file_name.trim() : "";
+        const extras = Array.isArray(values.fileNames)
+          ? values.fileNames.map((item) => item.trim()).filter(Boolean)
+          : [];
+        const merged = primary ? [primary, ...extras] : [...extras];
+        if (merged.length > 0) {
+          out.push(`fileNames = ${serializeValue(merged)}`);
+        }
+        continue;
+      }
+      const value = values[field.key];
+      if (value === undefined) {
+        continue;
+      }
+      out.push(`${field.key} = ${serializeValue(value)}`);
+    }
+    if (section.dynamicLocale) {
+      if (options.applyImplicitDefaultLocale && dynamicLocaleState?.hasSingleImplicitEnUs) {
+        out.push(`en_us = ${serializeValue(dynamicLocaleState.draftEntries[0])}`);
+      }
+      for (const [locale, rawValue] of dynamicLocaleState?.localeEntries || []) {
+        out.push(`${locale} = ${serializeValue(rawValue)}`);
       }
     }
     if (sectionKey === ROOT_SECTION_KEY && hasValues && index < schema.sections.length - 1) {
@@ -221,6 +267,32 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
     }
   }
   return out.join("\n").replace(/\n+$/g, "\n");
+}
+
+function normalizeInfoMultiFileModel(model: StructuredModel) {
+  const basic = model.basic || {};
+  const current = basic.fileNames;
+  if (!Array.isArray(current)) {
+    return;
+  }
+  const primary = typeof basic.file_name === "string" ? basic.file_name.trim() : "";
+  let removedPrimary = false;
+  const extras = current.filter((item) => {
+    const trimmed = item.trim();
+    if (!trimmed) {
+      return false;
+    }
+    if (!removedPrimary && primary && trimmed === primary) {
+      removedPrimary = true;
+      return false;
+    }
+    return true;
+  });
+  model.basic = {
+    ...basic,
+    __multiFileEnabled: true,
+    fileNames: extras
+  };
 }
 
 function serializeValue(value: StructuredValue): string {
@@ -236,6 +308,39 @@ function serializeValue(value: StructuredValue): string {
   return formatString(value);
 }
 
+function collectDynamicLocaleState(
+  values: Record<string, StructuredValue>,
+  fieldKeys: Set<string>
+): {
+  localeEntries: Array<[string, string]>;
+  draftEntries: string[];
+  hasSingleImplicitEnUs: boolean;
+} {
+  const localeEntries: Array<[string, string]> = [];
+  const draftEntries: string[] = [];
+
+  for (const [key, rawValue] of Object.entries(values)) {
+    if (fieldKeys.has(key) || typeof rawValue !== "string") {
+      continue;
+    }
+    if (key.startsWith("__draft_locale__:")) {
+      if (rawValue.trim()) {
+        draftEntries.push(rawValue);
+      }
+      continue;
+    }
+    if (key.trim()) {
+      localeEntries.push([key, rawValue]);
+    }
+  }
+
+  return {
+    localeEntries,
+    draftEntries,
+    hasSingleImplicitEnUs: localeEntries.length === 0 && draftEntries.length === 1
+  };
+}
+
 export function validateStructuredModel(model: StructuredModel | null, schema: DocumentSchema): ValidationIssue[] {
   if (!schema.supportsStructured || !model) {
     return [];
@@ -243,8 +348,33 @@ export function validateStructuredModel(model: StructuredModel | null, schema: D
   const issues: ValidationIssue[] = [];
   for (const section of schema.sections) {
     const values = model[section.key] || {};
+    const fieldKeys = new Set(section.fields.map((field) => field.key));
+    for (const field of section.fields) {
+      const value = values[field.key];
+      if (field.key === "identifier" && typeof value === "string" && !value.trim()) {
+        issues.push({
+          severity: "warning",
+          message: `[${section.key}].identifier 为空。`,
+          source: "schema"
+        });
+      }
+      if (field.kind === "number" && value !== undefined && typeof value !== "number") {
+        issues.push({
+          severity: "warning",
+          message: `[${section.key}].${field.key} 应为数字。`,
+          source: "schema"
+        });
+      }
+    }
     if (section.dynamicLocale) {
+      const dynamicLocaleState = collectDynamicLocaleState(values, fieldKeys);
+      if (dynamicLocaleState.hasSingleImplicitEnUs) {
+        continue;
+      }
       for (const [locale, value] of Object.entries(values)) {
+        if (fieldKeys.has(locale)) {
+          continue;
+        }
         if (locale.startsWith("__draft_locale__:")) {
           issues.push({
             severity: "error",
@@ -274,24 +404,6 @@ export function validateStructuredModel(model: StructuredModel | null, schema: D
             source: "schema"
           });
         }
-      }
-      continue;
-    }
-    for (const field of section.fields) {
-      const value = values[field.key];
-      if (field.key === "identifier" && typeof value === "string" && !value.trim()) {
-        issues.push({
-          severity: "warning",
-          message: `[${section.key}].identifier 为空。`,
-          source: "schema"
-        });
-      }
-      if (field.kind === "number" && value !== undefined && typeof value !== "number") {
-        issues.push({
-          severity: "warning",
-          message: `[${section.key}].${field.key} 应为数字。`,
-          source: "schema"
-        });
       }
     }
   }

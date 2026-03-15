@@ -59,7 +59,7 @@ export function Toolbar(props: ToolbarProps) {
       </div>
 
       <div className="toolbar-right">
-        <button disabled={disabled} onClick={props.onSave}>保存 / 导出</button>
+        <button disabled={disabled} onClick={props.onSave}>导出</button>
       </div>
     </header>
   );

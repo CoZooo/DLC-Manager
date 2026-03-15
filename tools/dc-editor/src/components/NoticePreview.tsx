@@ -15,8 +15,12 @@ function collectLanguages(model: StructuredModel): string[] {
   const ordered = ["zh_cn", "en_us"];
   const seen = new Set<string>();
   const result: string[] = [];
+  const reservedKeys = new Set(["enabled"]);
   for (const section of ["Title", "Subhead", "ContentUrl", "Contents"]) {
     for (const key of Object.keys(model[section] || {})) {
+      if (reservedKeys.has(key)) {
+        continue;
+      }
       if (!seen.has(key)) {
         seen.add(key);
         result.push(key);
@@ -70,7 +74,6 @@ export function NoticePreview(props: NoticePreviewProps) {
   return (
     <section className="panel">
       <div className="panel-title">公告预览</div>
-      <div className="panel-note">仅 `notice` 保留预览模式，其余类型统一使用原文模式。</div>
       <div className="preview-toolbar">
         {languages.map((lang) => (
           <button

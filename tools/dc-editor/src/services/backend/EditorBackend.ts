@@ -23,5 +23,6 @@ export interface EditorBackend {
   parse(type: DocumentType, text: string): Promise<ParsedDocumentResult>;
   validate(type: DocumentType, text: string, model: StructuredModel | null): Promise<ValidationIssue[]>;
   serialize(type: DocumentType, model: StructuredModel): Promise<string>;
+  serializeForSave(type: DocumentType, model: StructuredModel): Promise<string>;
   save(request: SaveDocumentRequest): Promise<SaveDocumentResult>;
 }
