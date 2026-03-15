@@ -1,0 +1,58 @@
+name: Deploy DC Editor to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/dc-editor/**"
+      - ".github/workflows/deploy-dc-editor-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tools/dc-editor/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: tools/dc-editor
+
+      - name: Build
+        run: npm run build
+        working-directory: tools/dc-editor
+        env:
+          GITHUB_PAGES_REPO: ${{ github.event.repository.name }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: tools/dc-editor/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+
+    steps:
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
