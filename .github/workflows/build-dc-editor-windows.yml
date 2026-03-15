@@ -35,5 +35,10 @@ jobs:
         with:
           projectPath: tools/dc-editor
           args: --bundles nsis
-          uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: dc-editor-windows-[bundle]
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dc-editor-windows-nsis
+          path: tools/dc-editor/src-tauri/target/release/bundle/nsis/*
+          if-no-files-found: error
