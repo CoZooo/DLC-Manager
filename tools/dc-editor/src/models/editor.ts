@@ -79,6 +79,11 @@ export interface OpenDocumentResult {
   text: string;
 }
 
+export interface PickedFileResult {
+  name: string;
+  path?: string;
+}
+
 export interface SaveDocumentRequest {
   suggestedName: string;
   text: string;

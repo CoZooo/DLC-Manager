@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "../components/Sidebar";
 import { NoticePreview } from "../components/NoticePreview";
+import { RawDcEditor } from "../components/RawDcEditor";
 import { StructuredEditor } from "../components/StructuredEditor";
 import { Toolbar } from "../components/Toolbar";
 import {
@@ -35,6 +36,28 @@ function deriveDocumentName(type: DocumentType, model: StructuredModel | null, f
     return fallbackName;
   }
   return `${fileName.trim()}.dc`;
+}
+
+function stripExtension(name: string): string {
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
+function toIdentifier(name: string): string {
+  return stripExtension(name)
+    .replace(/[^A-Za-z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function guessDlcTypeFromFileName(name: string): string | null {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".jar")) {
+    return "mod";
+  }
+  if (lower.endsWith(".properties") || lower.endsWith(".toml") || lower.endsWith(".cfg") || lower.endsWith(".ini") || lower.endsWith(".yaml") || lower.endsWith(".yml")) {
+    return "config";
+  }
+  return null;
 }
 
 type EditorView = "form" | "raw" | "preview" | "validation";
@@ -89,6 +112,12 @@ function loadPersistedState(): PersistedAppState | null {
 
 function isConfigurableType(type: DocumentType): boolean {
   return !internalDocumentTypes.has(type);
+}
+
+function schemaHasField(schema: DocumentSchema, sectionKey: string, fieldKey: string): boolean {
+  return schema.sections.some((section) =>
+    section.key === sectionKey && section.fields.some((field) => field.key === fieldKey)
+  );
 }
 
 function buildDocument(
@@ -244,6 +273,81 @@ export function App() {
     }
   };
 
+  const createFromDlcFile = async () => {
+    try {
+      if (currentType !== "info") {
+        setStatus("“从导入DLC文件开始”目前仅支持 Info 类型。");
+        return;
+      }
+      const picked = await backend.pickFile();
+      if (!picked) {
+        return;
+      }
+      const created = await backend.createNew("info");
+      const type = detectDocumentType(created.path, created.text);
+      const targetSchema = documentSchemas[type];
+      const parsed = await backend.parse(type, created.text);
+      const model = parsed.model ? structuredClone(parsed.model) : {};
+
+      if (!model.basic) {
+        setStatus(`当前类型 ${targetSchema.label} 不支持从 DLC 文件预填，已改为普通新建。`);
+        const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
+        setDocument(next);
+        setHomeVisible(false);
+        setSidebarVisible(false);
+        setActiveView(targetSchema.supportsStructured ? "form" : "raw");
+        return;
+      }
+
+      const canFillFileName = schemaHasField(targetSchema, "basic", "file_name");
+      const canFillIdentifier = schemaHasField(targetSchema, "basic", "identifier");
+      const canFillType = schemaHasField(targetSchema, "basic", "type");
+
+      if (!canFillFileName && !canFillIdentifier && !canFillType) {
+        setStatus(`当前类型 ${targetSchema.label} 不支持从 DLC 文件预填，已改为普通新建。`);
+        const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
+        setDocument(next);
+        setHomeVisible(false);
+        setSidebarVisible(false);
+        setActiveView(targetSchema.supportsStructured ? "form" : "raw");
+        return;
+      }
+
+      if (canFillFileName) {
+        model.basic.file_name = picked.name;
+      }
+      if (canFillIdentifier && typeof model.basic.identifier === "string") {
+        model.basic.identifier = toIdentifier(picked.name);
+      }
+      if (canFillType && typeof model.basic.type === "string") {
+        const guessedType = guessDlcTypeFromFileName(picked.name);
+        if (guessedType) {
+          model.basic.type = guessedType;
+        }
+      }
+
+      const nextRaw = await backend.serialize(type, model);
+      const next = buildDocument(
+        type,
+        deriveDocumentName(type, model, created.name),
+        nextRaw,
+        targetSchema,
+        "new",
+        backendMode,
+        created.path
+      );
+      next.structuredModel = model;
+      next.isDirty = next.rawText !== next.originalText;
+      setDocument(next);
+      setHomeVisible(false);
+      setSidebarVisible(false);
+      setActiveView(targetSchema.supportsStructured ? "form" : "raw");
+      setStatus(`已从 ${picked.name} 生成 ${targetSchema.label} 配置。`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "从 DLC 文件开始失败。");
+    }
+  };
+
   const updateRawText = (rawText: string) => {
     setDocument((previous) => previous ? {
       ...previous,
@@ -341,9 +445,12 @@ export function App() {
             <section className="welcome">
               <h1>DC 配置工作台</h1>
               <p>新建一个 dc 配置，或导入现有文件后开始编辑。</p>
-              <div className="welcome-actions">
+              <div className={`welcome-actions${currentType === "info" ? "" : " welcome-actions-two"}`}>
                 <button onClick={createNew}>新建配置</button>
                 <button onClick={importDocument}>导入 .dc</button>
+                {currentType === "info" ? (
+                  <button onClick={createFromDlcFile}>从导入DLC文件开始</button>
+                ) : null}
               </div>
               <div className="welcome-note">
                 可先新建或导入已有 dc 文件。
@@ -365,10 +472,9 @@ export function App() {
               {activeView === "raw" && (
                 <section className="panel">
                   <div className="panel-title">原始 DC</div>
-                  <textarea
-                    className="raw-editor"
+                  <RawDcEditor
                     value={editingDocument.rawText}
-                    onChange={(event) => updateRawText(event.target.value)}
+                    onChange={updateRawText}
                   />
                 </section>
               )}

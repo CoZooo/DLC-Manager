@@ -14,6 +14,14 @@
   --error: #b53c2f;
   --warning: #9f6900;
   --info: #356a93;
+  --dc-section: #0033b3;
+  --dc-key: #871094;
+  --dc-string: #067d17;
+  --dc-number: #1750eb;
+  --dc-boolean: #0033b3;
+  --dc-comment: #8c8c8c;
+  --dc-operator: #1d2a32;
+  --dc-punct: #0033b3;
 }
 
 * {
@@ -283,6 +291,8 @@ button:disabled {
   gap: 14px;
   min-height: 400px;
   justify-content: center;
+  align-items: center;
+  text-align: center;
 }
 
 .welcome h1 {
@@ -291,9 +301,21 @@ button:disabled {
 }
 
 .welcome-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 220px));
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 760px;
+}
+
+.welcome-actions-two {
+  grid-template-columns: repeat(2, minmax(180px, 220px));
+  max-width: 520px;
+}
+
+.welcome-actions > button {
+  width: 100%;
 }
 
 .welcome-note,
@@ -437,6 +459,10 @@ select {
   color: var(--ink);
 }
 
+select.compact-select {
+  width: min(220px, 100%);
+}
+
 textarea {
   min-height: 120px;
   resize: vertical;
@@ -448,18 +474,33 @@ textarea {
   gap: 10px;
 }
 
-.raw-editor,
+.raw-editor-shell,
 .preview-text {
   min-height: 62vh;
   font-family: "SF Mono", "JetBrains Mono", monospace;
   font-size: 13px;
   line-height: 1.55;
-  white-space: pre-wrap;
+}
+
+.raw-editor-shell {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fcfbf8;
+  overflow: hidden;
+}
+
+.raw-editor-shell .cm-editor {
+  min-height: 62vh;
+}
+
+.raw-editor-shell .cm-scroller {
+  min-height: 62vh;
 }
 
 .preview-text {
   margin: 0;
   overflow: auto;
+  white-space: pre-wrap;
 }
 
 .preview-toolbar {
@@ -597,5 +638,10 @@ ul.reserved-list {
 
   .editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .welcome-actions {
+    grid-template-columns: 1fr;
+    max-width: 360px;
   }
 }

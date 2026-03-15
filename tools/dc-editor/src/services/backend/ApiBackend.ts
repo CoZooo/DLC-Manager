@@ -1,6 +1,7 @@
 import {
   DocumentType,
   OpenDocumentResult,
+  PickedFileResult,
   SaveDocumentRequest,
   SaveDocumentResult,
   StructuredModel,
@@ -16,6 +17,10 @@ export class ApiBackend implements EditorBackend {
   }
 
   async openWithPicker(): Promise<OpenDocumentResult | null> {
+    this.unsupported();
+  }
+
+  async pickFile(): Promise<PickedFileResult | null> {
     this.unsupported();
   }
 

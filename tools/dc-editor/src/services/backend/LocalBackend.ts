@@ -1,6 +1,7 @@
 import {
   DocumentType,
   OpenDocumentResult,
+  PickedFileResult,
   SaveDocumentRequest,
   SaveDocumentResult,
   StructuredModel,
@@ -54,6 +55,40 @@ export class LocalBackend implements EditorBackend {
           name: file.name,
           path: file.name,
           text: await file.text()
+        });
+      };
+      input.click();
+    });
+  }
+
+  async pickFile(): Promise<PickedFileResult | null> {
+    if (window.showOpenFilePicker) {
+      const [handle] = await window.showOpenFilePicker({
+        excludeAcceptAllOption: false,
+        multiple: false
+      });
+      if (!handle) {
+        return null;
+      }
+      const file = await handle.getFile();
+      return {
+        name: file.name,
+        path: file.name
+      };
+    }
+
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.onchange = async () => {
+        const file = input.files?.[0];
+        if (!file) {
+          resolve(null);
+          return;
+        }
+        resolve({
+          name: file.name,
+          path: file.name
         });
       };
       input.click();

@@ -1,6 +1,7 @@
 import {
   DocumentType,
   OpenDocumentResult,
+  PickedFileResult,
   SaveDocumentRequest,
   SaveDocumentResult,
   StructuredModel,
@@ -16,6 +17,7 @@ export interface ParsedDocumentResult {
 export interface EditorBackend {
   readonly mode: "local" | "api";
   openWithPicker(): Promise<OpenDocumentResult | null>;
+  pickFile(): Promise<PickedFileResult | null>;
   createNew(type: DocumentType): Promise<OpenDocumentResult>;
   detectType(path: string | undefined, text: string): Promise<DocumentType>;
   parse(type: DocumentType, text: string): Promise<ParsedDocumentResult>;

@@ -138,6 +138,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                     )}
                     {field.kind === "select" && (
                       <select
+                        className={field.key === "type" ? "compact-select" : undefined}
                         value={typeof value === "string" ? value : field.options?.[0]?.value || ""}
                         onChange={(event) => props.onChange(withValue(model, section.key, field.key, event.target.value))}
                       >
@@ -243,7 +244,7 @@ function DynamicLocaleSection(props: DynamicLocaleSectionProps) {
               <input
                 type="text"
                 value={row.locale}
-                placeholder="zh_cn"
+                placeholder="en_us"
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 onChange={(event) => updateRow(index, event.target.value, row.value)}
