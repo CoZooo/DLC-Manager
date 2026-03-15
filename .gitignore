@@ -60,5 +60,9 @@ jar-obfuscator-temp/
 tools/editor/dc-quicklook/Derived/
 tools/dc-editor/node_modules/
 tools/dc-editor/dist/
+tools/dc-editor/vite.config.js
+tools/dc-editor/vite.config.d.ts
+tools/dc-editor/tsconfig.tsbuildinfo
+tools/dc-editor/tsconfig.node.tsbuildinfo
 
 **/__pycache__/

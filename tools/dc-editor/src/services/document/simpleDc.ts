@@ -305,6 +305,9 @@ function serializeValue(value: StructuredValue): string {
   if (Array.isArray(value)) {
     return `[${value.map((item) => formatString(item)).join(", ")}]`;
   }
+  if (typeof value !== "string") {
+    return formatString("");
+  }
   return formatString(value);
 }
 

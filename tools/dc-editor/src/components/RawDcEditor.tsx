@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { HighlightStyle, StreamLanguage, syntaxHighlighting } from "@codemirror/language";
+import { HighlightStyle, StreamLanguage, StringStream, syntaxHighlighting } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import { StringStream } from "@codemirror/stream-parser";
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
 
