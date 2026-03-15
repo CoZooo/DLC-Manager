@@ -1,10 +1,12 @@
 import { ChangeEvent, TextareaHTMLAttributes, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DocumentSchema, StructuredModel, StructuredValue } from "../models/editor";
+import { EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 interface StructuredEditorProps {
   schema: DocumentSchema;
   model: StructuredModel | null;
   enabled: boolean;
+  locale: EditorLocale;
   onChange(next: StructuredModel): void;
 }
 
@@ -27,9 +29,9 @@ export function StructuredEditor(props: StructuredEditorProps) {
   if (!props.enabled || !props.schema.supportsStructured) {
     return (
       <section className="panel">
-        <div className="panel-title">结构化编辑</div>
+        <div className="panel-title">{t(props.locale, "formTitle")}</div>
         <div className="panel-note">
-          该配置类型在第一阶段仍以原文编辑为主。
+          {t(props.locale, "rawOnlyNote")}
         </div>
       </section>
     );
@@ -39,12 +41,12 @@ export function StructuredEditor(props: StructuredEditorProps) {
 
   return (
     <section className="panel">
-      <div className="panel-title">结构化编辑</div>
+      <div className="panel-title">{t(props.locale, "formTitle")}</div>
       <div className="section-stack">
         {props.schema.sections.map((section) => (
           <div key={section.key} className="section-card">
-            <div className="section-title">{section.label}</div>
-            {section.description && <div className="field-help">{section.description}</div>}
+            <div className="section-title">{translateStaticText(props.locale, section.label) || section.label}</div>
+            {section.description && <div className="field-help">{translateStaticText(props.locale, section.description)}</div>}
             {section.fields.length > 0 && (
             <div className="field-grid">
               {section.fields.map((field) => {
@@ -64,7 +66,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                 const label = (
                   <label className="field-label">
                     <span>{field.label}</span>
-                    {field.help && <span className="field-label-help">{field.help}</span>}
+                    {field.help && <span className="field-label-help">{translateStaticText(props.locale, field.help)}</span>}
                   </label>
                 );
 
@@ -109,6 +111,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                         />
                         {props.schema.type === "info" && section.key === "basic" && field.key === "file_name" && (
                           <InfoMultiFileEditor
+                            locale={props.locale}
                             typeValue={typeof sectionValues.type === "string" ? sectionValues.type : ""}
                             enabled={Boolean(sectionValues.__multiFileEnabled)}
                             value={Array.isArray(sectionValues.fileNames) ? sectionValues.fileNames : []}
@@ -137,7 +140,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                     {field.kind === "boolean" && (
                       <ToggleButton
                         checked={Boolean(value)}
-                        label={resolveToggleLabel(field.help, field.toggleLabels)}
+                        label={resolveToggleLabel(props.locale, field.help, field.toggleLabels)}
                         onToggle={() =>
                           props.onChange(withValue(model, section.key, field.key, !Boolean(value)))
                         }
@@ -146,12 +149,13 @@ export function StructuredEditor(props: StructuredEditorProps) {
                     {field.kind === "list" && (
                       <ListFieldEditor
                         value={Array.isArray(value) ? value : []}
-                        placeholder={field.placeholder || "每行一个值"}
+                        placeholder={field.placeholder || t(props.locale, "oneValuePerLine")}
                         onCommit={onListCommit}
                       />
                     )}
                     {field.kind === "ordered-select-list" && (
                       <OrderedSelectListEditor
+                        locale={props.locale}
                         value={Array.isArray(value) ? value : []}
                         options={field.options || []}
                         onChange={(nextItems) => props.onChange(withValue(model, section.key, field.key, nextItems))}
@@ -159,6 +163,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                     )}
                     {field.kind === "language-visibility" && (
                       <LanguageVisibilityEditor
+                        locale={props.locale}
                         value={value}
                         onChange={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
                       />
@@ -189,11 +194,12 @@ export function StructuredEditor(props: StructuredEditorProps) {
             )}
             {section.dynamicLocale && (
               <DynamicLocaleSection
+                locale={props.locale}
                 sectionKey={section.key}
                 values={model[section.key] || {}}
                 reservedKeys={section.fields.map((field) => field.key)}
                 valueKind={section.dynamicLocale.valueKind}
-                help={section.dynamicLocale.help}
+                help={translateStaticText(props.locale, section.dynamicLocale.help)}
                 onChange={(nextValues) => props.onChange({
                   ...model,
                   [section.key]: nextValues
@@ -208,6 +214,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
 }
 
 interface InfoMultiFileEditorProps {
+  locale: EditorLocale;
   typeValue: string;
   enabled: boolean;
   value: string[];
@@ -225,13 +232,13 @@ function InfoMultiFileEditor(props: InfoMultiFileEditorProps) {
     <div className="info-multi-file-editor">
       <ToggleButton
         checked={props.enabled}
-        label="对应多文件"
+        label={t(props.locale, "multiFile")}
         onToggle={() => props.onChange(!props.enabled, props.value)}
       />
       {props.enabled && (
         <ListFieldEditor
           value={props.value}
-          placeholder="每行填写一个附加文件名"
+          placeholder={t(props.locale, "extraFilePlaceholder")}
           onCommit={(rawText) => props.onChange(true, parseListText(rawText))}
         />
       )}
@@ -278,6 +285,7 @@ function ListFieldEditor(props: ListFieldEditorProps) {
 }
 
 interface DynamicLocaleSectionProps {
+  locale: EditorLocale;
   sectionKey: string;
   values: Record<string, StructuredValue>;
   reservedKeys?: string[];
@@ -326,23 +334,23 @@ function DynamicLocaleSection(props: DynamicLocaleSectionProps) {
         <div key={`${props.sectionKey}.${index}`} className="locale-row">
           <div className="locale-row-main">
             <div className="locale-code-field">
-              <label className="field-label">语言代码</label>
+              <label className="field-label">{t(props.locale, "localeCode")}</label>
               <input
                 type="text"
                 value={row.locale}
                 className={!row.locale.trim() ? "locale-code-input locale-code-input-implicit" : "locale-code-input"}
-                placeholder="en_us"
+                placeholder={t(props.locale, "localePlaceholder")}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
                 onChange={(event) => updateRow(index, event.target.value, row.value)}
               />
             </div>
             <div className="locale-text-field">
-              <label className="field-label">文本</label>
+              <label className="field-label">{t(props.locale, "text")}</label>
               {props.valueKind === "textarea" ? (
                 <AutoResizeTextarea
                   value={row.value}
-                  placeholder="填写对应语言的文本"
+                  placeholder={t(props.locale, "localeTextPlaceholder")}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
                   onChange={(event) => updateRow(index, row.locale, event.target.value)}
@@ -351,7 +359,7 @@ function DynamicLocaleSection(props: DynamicLocaleSectionProps) {
                 <input
                   type="text"
                   value={row.value}
-                  placeholder="填写对应语言的文本"
+                  placeholder={t(props.locale, "localeTextPlaceholder")}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
                   onChange={(event) => updateRow(index, row.locale, event.target.value)}
@@ -359,16 +367,16 @@ function DynamicLocaleSection(props: DynamicLocaleSectionProps) {
               )}
             </div>
             <div className="locale-row-actions">
-              <label className="field-label field-label-ghost">操作</label>
+              <label className="field-label field-label-ghost">{t(props.locale, "action")}</label>
               <button type="button" onClick={() => removeRow(index)} disabled={rows.length === 1 && !row.locale && !row.value}>
-                删除
+                {t(props.locale, "delete")}
               </button>
             </div>
           </div>
         </div>
       ))}
       <button type="button" className="secondary-action" onClick={addRow}>
-        新增语言
+        {t(props.locale, "addLanguage")}
       </button>
     </div>
   );
@@ -402,6 +410,7 @@ function AutoResizeTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) 
 }
 
 interface OrderedSelectListEditorProps {
+  locale: EditorLocale;
   value: string[];
   options: Array<{ value: string; label: string }>;
   onChange(nextItems: string[]): void;
@@ -426,26 +435,27 @@ function OrderedSelectListEditor(props: OrderedSelectListEditorProps) {
   return (
     <div className="ordered-select-list">
       <div className="ordered-select-selected">
-        <div className="ordered-select-selected-title">当前顺序</div>
+        <div className="ordered-select-selected-title">{t(props.locale, "currentOrder")}</div>
         {ordered.map((value, index) => {
           const label = props.options.find((option) => option.value === value)?.label || value;
           return (
             <div key={value} className="ordered-select-item">
               <span>{label}</span>
               <div className="ordered-select-actions">
-                <button type="button" onClick={() => move(index, -1)} disabled={index === 0}>上移</button>
-                <button type="button" onClick={() => move(index, 1)} disabled={index === ordered.length - 1}>下移</button>
+                <button type="button" onClick={() => move(index, -1)} disabled={index === 0}>{t(props.locale, "moveUp")}</button>
+                <button type="button" onClick={() => move(index, 1)} disabled={index === ordered.length - 1}>{t(props.locale, "moveDown")}</button>
               </div>
             </div>
           );
         })}
-        <div className="ordered-select-note">默认包含全部下载源，只支持调整顺序。</div>
+        <div className="ordered-select-note">{t(props.locale, "orderedSelectNote")}</div>
       </div>
     </div>
   );
 }
 
 interface LanguageVisibilityEditorProps {
+  locale: EditorLocale;
   value: StructuredValue | undefined;
   onChange(nextValue: string | string[]): void;
 }
@@ -466,13 +476,13 @@ function LanguageVisibilityEditor(props: LanguageVisibilityEditorProps) {
     <div className="field-grid">
       <ToggleButton
         checked={hidden}
-        label="所有语言隐藏"
+        label={t(props.locale, "hiddenAllLanguages")}
         onToggle={() => onHiddenChange(!hidden)}
       />
       {!hidden && (
         <ListFieldEditor
           value={items}
-          placeholder="每行填写一个语言代码"
+          placeholder={t(props.locale, "visibilityPlaceholder")}
           onCommit={(rawText) => props.onChange(toLanguageVisibilityValue(parseListText(rawText)))}
         />
       )}
@@ -561,14 +571,15 @@ function ToggleButton(props: ToggleButtonProps) {
 }
 
 function resolveToggleLabel(
+  locale: EditorLocale,
   help: string | undefined,
   toggleLabels: { checked: string; unchecked: string } | undefined
 ): string {
   if (toggleLabels) {
-    return toggleLabels.checked;
+    return translateStaticText(locale, toggleLabels.checked) || toggleLabels.checked;
   }
   if (help?.includes("是否")) {
-    return "是";
+    return t(locale, "yes");
   }
-  return "开启";
+  return t(locale, "enabled");
 }

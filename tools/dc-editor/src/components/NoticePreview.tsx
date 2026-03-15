@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { StructuredModel } from "../models/editor";
+import { EditorLocale, t } from "../i18n/editorI18n";
 
 interface NoticePreviewProps {
+  locale: EditorLocale;
   model: StructuredModel | null;
 }
 
@@ -44,12 +46,12 @@ function collectLanguages(model: StructuredModel): string[] {
   return result.length > 0 ? result : ["zh_cn", "en_us"];
 }
 
-function labelForLanguage(lang: string): string {
+function labelForLanguage(locale: EditorLocale, lang: string): string {
   if (lang === "zh_cn") {
-    return "中文";
+    return locale === "zh_cn" ? "中文" : "Chinese";
   }
   if (lang === "en_us") {
-    return "English";
+    return locale === "zh_cn" ? "英语" : "English";
   }
   return lang;
 }
@@ -73,7 +75,7 @@ export function NoticePreview(props: NoticePreviewProps) {
 
   return (
     <section className="panel">
-      <div className="panel-title">公告预览</div>
+      <div className="panel-title">{t(props.locale, "previewTitle")}</div>
       <div className="preview-toolbar">
         {languages.map((lang) => (
           <button
@@ -81,7 +83,7 @@ export function NoticePreview(props: NoticePreviewProps) {
             className={lang === activeLang ? "active" : ""}
             onClick={() => setActiveLang(lang)}
           >
-            {labelForLanguage(lang)}
+            {labelForLanguage(props.locale, lang)}
           </button>
         ))}
       </div>
@@ -90,11 +92,11 @@ export function NoticePreview(props: NoticePreviewProps) {
         {enabled && subhead && <p className="notice-subhead">{subhead}</p>}
         {contentUrl && (
           <p className="notice-url">
-            <strong>ContentUrl:</strong> {contentUrl}
+            <strong>{t(props.locale, "contentUrl")}:</strong> {contentUrl}
           </p>
         )}
         <div className="notice-markdown">
-          <ReactMarkdown>{contents || "暂无公告内容。"}</ReactMarkdown>
+          <ReactMarkdown>{contents || t(props.locale, "noNoticeContent")}</ReactMarkdown>
         </div>
       </article>
     </section>

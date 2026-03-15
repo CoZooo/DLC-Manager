@@ -210,7 +210,6 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       {
         key: "download",
         label: "[download]",
-        description: "下载源。第一阶段支持常用字段与简单 URL 列表。",
         fields: [
           {
             key: "modrinth_projectid",
@@ -266,7 +265,6 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       {
         key: "download",
         label: "[download]",
-        description: "下载源。第一阶段支持常用字段与简单 URL 列表。",
         fields: [
           {
             key: "modrinth_projectid",

@@ -20,6 +20,7 @@ import { ApiBackend } from "../services/backend/ApiBackend";
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
 import { detectDocumentType } from "../services/document/typeDetection";
+import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 const APP_STATE_STORAGE_KEY = "dlc-manager-dc-editor-state-v1";
 
@@ -110,6 +111,14 @@ function loadPersistedState(): PersistedAppState | null {
   }
 }
 
+function loadPersistedLocale(): EditorLocale {
+  if (typeof window === "undefined") {
+    return "zh_cn";
+  }
+  const value = window.localStorage.getItem(EDITOR_LOCALE_STORAGE_KEY);
+  return value === "en_us" ? "en_us" : "zh_cn";
+}
+
 function isConfigurableType(type: DocumentType): boolean {
   return !internalDocumentTypes.has(type);
 }
@@ -146,6 +155,7 @@ function buildDocument(
 }
 
 export function App() {
+  const initialLocale = loadPersistedLocale();
   const mainPanelRef = useRef<HTMLElement | null>(null);
   const scrollPositionsRef = useRef<Record<EditorView, number>>({
     form: 0,
@@ -155,6 +165,7 @@ export function App() {
   });
   const preserveStructuredDraftRef = useRef<string | null>(null);
   const persisted = loadPersistedState();
+  const [locale, setLocale] = useState<EditorLocale>(initialLocale);
   const [backendMode] = useState<BackendMode>("local");
   const backend: EditorBackend = useMemo(() => {
     return backendMode === "local" ? new LocalBackend() : new ApiBackend();
@@ -165,7 +176,7 @@ export function App() {
   const [activeView, setActiveView] = useState<EditorView>(persisted?.activeView ?? "form");
   const [sidebarVisible, setSidebarVisible] = useState(persisted?.sidebarVisible ?? true);
   const [homeVisible, setHomeVisible] = useState(persisted?.homeVisible ?? !(persisted?.document));
-  const [status, setStatus] = useState(persisted?.status ?? "就绪。");
+  const [status, setStatus] = useState(persisted?.status ?? t(initialLocale, "ready"));
 
   const editingDocument = homeVisible ? null : document;
   const schema = editingDocument ? documentSchemas[editingDocument.type] : documentSchemas[currentType];
@@ -191,6 +202,20 @@ export function App() {
     };
     window.sessionStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(snapshot));
   }, [currentType, document, activeView, sidebarVisible, homeVisible, status]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(EDITOR_LOCALE_STORAGE_KEY, locale);
+  }, [locale]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.document.title = t(locale, "appTitle");
+  }, [locale]);
 
   useEffect(() => {
     if (!document) {
@@ -252,7 +277,7 @@ export function App() {
       }
       const type = await backend.detectType(opened.path, opened.text);
       if (!isConfigurableType(type)) {
-        setStatus(`已识别为 ${documentSchemas[type].label}，该类型不属于编辑器的配置目标范围。`);
+        setStatus(t(locale, "typeNotEditable", { type: documentSchemas[type].label }));
         return;
       }
       const next = buildDocument(type, opened.name, opened.text, documentSchemas[type], "imported", backendMode, opened.path);
@@ -261,9 +286,9 @@ export function App() {
       setHomeVisible(false);
       setSidebarVisible(false);
       setActiveView(documentSchemas[type].supportsStructured ? "form" : "raw");
-      setStatus(`已导入 ${opened.name}。`);
+      setStatus(t(locale, "importedFile", { name: opened.name }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "导入失败。");
+      setStatus(error instanceof Error ? error.message : t(locale, "importFailed"));
     }
   };
 
@@ -276,16 +301,16 @@ export function App() {
       setHomeVisible(false);
       setSidebarVisible(false);
       setActiveView(documentSchemas[type].supportsStructured ? "form" : "raw");
-      setStatus(`已创建 ${documentSchemas[type].label} 配置。`);
+      setStatus(t(locale, "createdType", { type: documentSchemas[type].label }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "创建文档失败。");
+      setStatus(error instanceof Error ? error.message : t(locale, "createFailed"));
     }
   };
 
   const createFromDlcFile = async () => {
     try {
       if (currentType !== "info") {
-        setStatus("“从导入DLC文件开始”目前仅支持 Info 类型。");
+        setStatus(t(locale, "infoOnlyFromDlc"));
         return;
       }
       const picked = await backend.pickFile();
@@ -299,7 +324,7 @@ export function App() {
       const model = parsed.model ? structuredClone(parsed.model) : {};
 
       if (!model.basic) {
-        setStatus(`当前类型 ${targetSchema.label} 不支持从 DLC 文件预填，已改为普通新建。`);
+        setStatus(t(locale, "noPrefillFallback", { type: targetSchema.label }));
         const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
         setDocument(next);
         setHomeVisible(false);
@@ -313,7 +338,7 @@ export function App() {
       const canFillType = schemaHasField(targetSchema, "basic", "type");
 
       if (!canFillFileName && !canFillIdentifier && !canFillType) {
-        setStatus(`当前类型 ${targetSchema.label} 不支持从 DLC 文件预填，已改为普通新建。`);
+        setStatus(t(locale, "noPrefillFallback", { type: targetSchema.label }));
         const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
         setDocument(next);
         setHomeVisible(false);
@@ -351,9 +376,9 @@ export function App() {
       setHomeVisible(false);
       setSidebarVisible(false);
       setActiveView(targetSchema.supportsStructured ? "form" : "raw");
-      setStatus(`已从 ${picked.name} 生成 ${targetSchema.label} 配置。`);
+      setStatus(t(locale, "createdFromDlc", { name: picked.name, type: targetSchema.label }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "从 DLC 文件开始失败。");
+      setStatus(error instanceof Error ? error.message : t(locale, "createFromDlcFailed"));
     }
   };
 
@@ -388,8 +413,9 @@ export function App() {
     const errorCount = document.issues.filter((item) => item.severity === "error").length;
     if (errorCount > 0) {
       setActiveView("validation");
-      setStatus(`当前存在 ${errorCount} 个错误，未修复前无法保存或导出。`);
-      window.alert(`当前存在 ${errorCount} 个错误，未修复前无法保存或导出。`);
+      const message = t(locale, "validationBlocked", { count: errorCount });
+      setStatus(message);
+      window.alert(message);
       return;
     }
     try {
@@ -412,9 +438,9 @@ export function App() {
         originalText: textToSave,
         isDirty: false
       });
-      setStatus(`已保存 ${result.name}。`);
+      setStatus(t(locale, "savedFile", { name: result.name }));
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "保存失败。");
+      setStatus(error instanceof Error ? error.message : t(locale, "saveFailed"));
     }
   };
 
@@ -452,12 +478,14 @@ export function App() {
         activeView={activeView}
         allowPreview={allowPreview}
         sidebarVisible={sidebarVisible}
+        locale={locale}
         onGoHome={() => {
           setHomeVisible(true);
           setSidebarVisible(true);
-          setStatus("已返回主页。");
+          setStatus(t(locale, "goHomeStatus"));
         }}
         onToggleSidebar={() => setSidebarVisible((previous) => !previous)}
+        onChangeLocale={setLocale}
         onChangeView={changeActiveView}
         onSave={saveDocument}
       />
@@ -465,6 +493,7 @@ export function App() {
       <div className={`workspace${sidebarVisible ? "" : " workspace-collapsed"}`}>
         <div className={`sidebar-shell${sidebarVisible ? "" : " sidebar-shell-collapsed"}`}>
           <Sidebar
+            locale={locale}
             currentType={currentType}
             schemas={documentSchemas}
             orderedTypes={configurableDocumentTypes}
@@ -478,17 +507,17 @@ export function App() {
         <main className="main-panel" ref={mainPanelRef}>
           {homeVisible && (
             <section className="welcome">
-              <h1>DC 配置工作台</h1>
-              <p>新建一个 dc 配置，或导入现有文件后开始编辑。</p>
+              <h1>{t(locale, "homeTitle")}</h1>
+              <p>{t(locale, "homeDescription")}</p>
               <div className={`welcome-actions${currentType === "info" ? "" : " welcome-actions-two"}`}>
-                <button onClick={createNew}>新建配置</button>
-                <button onClick={importDocument}>导入 .dc</button>
+                <button onClick={createNew}>{t(locale, "newConfig")}</button>
+                <button onClick={importDocument}>{t(locale, "importDc")}</button>
                 {currentType === "info" ? (
-                  <button onClick={createFromDlcFile}>从导入DLC文件开始</button>
+                  <button onClick={createFromDlcFile}>{t(locale, "importFromDlc")}</button>
                 ) : null}
               </div>
               <div className="welcome-note">
-                可先新建或导入已有 dc 文件。
+                {t(locale, "homeNote")}
               </div>
             </section>
           )}
@@ -497,6 +526,7 @@ export function App() {
             <div className="editor-grid">
               {activeView === "form" && (
                 <StructuredEditor
+                  locale={locale}
                   schema={schema}
                   model={editingDocument.structuredModel}
                   enabled={editingDocument.structuredEnabled}
@@ -506,7 +536,7 @@ export function App() {
 
               {activeView === "raw" && (
                 <section className="panel">
-                  <div className="panel-title">原始 DC</div>
+                  <div className="panel-title">{t(locale, "rawTitle")}</div>
                   <RawDcEditor
                     value={editingDocument.rawText}
                     onChange={updateRawText}
@@ -515,27 +545,27 @@ export function App() {
               )}
 
               {activeView === "preview" && (
-                <NoticePreview model={editingDocument.structuredModel} />
+                <NoticePreview locale={locale} model={editingDocument.structuredModel} />
               )}
 
               {activeView === "validation" && (
                 <section className="panel">
-                  <div className="panel-title">校验</div>
+                  <div className="panel-title">{t(locale, "validationTitle")}</div>
                   <div className="validation-summary">
-                    <span>错误: {validationSummary.error}</span>
-                    <span>警告: {validationSummary.warning}</span>
-                    <span>信息: {validationSummary.info}</span>
+                    <span>{t(locale, "validationError")}: {validationSummary.error}</span>
+                    <span>{t(locale, "validationWarning")}: {validationSummary.warning}</span>
+                    <span>{t(locale, "validationInfo")}: {validationSummary.info}</span>
                   </div>
                   <div className="issue-list">
-                    {editingDocument.issues.length === 0 && <div className="issue ok">没有问题。</div>}
+                    {editingDocument.issues.length === 0 && <div className="issue ok">{t(locale, "validationNoIssues")}</div>}
                     {editingDocument.issues.map((issue, index) => (
                       <div key={`${issue.message}-${index}`} className={`issue ${issue.severity}`}>
                         <div className="issue-title">
                           <span>{issue.severity.toUpperCase()}</span>
                           <span>{issue.source}</span>
-                          {issue.line ? <span>第 {issue.line} 行</span> : null}
+                          {issue.line ? <span>{locale === "zh_cn" ? `第 ${issue.line} 行` : `Line ${issue.line}`}</span> : null}
                         </div>
-                        <div>{issue.message}</div>
+                        <div>{translateStaticText(locale, issue.message) || issue.message}</div>
                       </div>
                     ))}
                   </div>

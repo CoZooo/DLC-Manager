@@ -1,0 +1,247 @@
+export type EditorLocale = "zh_cn" | "en_us";
+
+export const EDITOR_LOCALE_STORAGE_KEY = "dlc-manager-dc-editor-locale-v1";
+
+const uiDictionary: Record<EditorLocale, Record<string, string>> = {
+  zh_cn: {
+    appTitle: "DLC配置生成器",
+    homeTitle: "DC 配置工作台",
+    homeDescription: "新建一个 dc 配置，或导入现有文件后开始编辑。",
+    homeNote: "可先新建或导入已有 dc 文件。",
+    newConfig: "新建配置",
+    importDc: "导入 .dc",
+    importFromDlc: "从导入DLC文件开始",
+    export: "导出",
+    backHome: "返回主页",
+    toggleSidebarShow: "显示左栏",
+    toggleSidebarHide: "隐藏左栏",
+    types: "类型",
+    documents: "文档",
+    formTitle: "结构化编辑",
+    rawTitle: "原始 DC",
+    previewTitle: "公告预览",
+    validationTitle: "校验",
+    validationError: "错误",
+    validationWarning: "警告",
+    validationInfo: "信息",
+    validationNoIssues: "没有问题。",
+    viewForm: "表单",
+    viewRaw: "原文",
+    viewPreview: "预览",
+    viewValidation: "校验",
+    localeCode: "语言代码",
+    text: "文本",
+    delete: "删除",
+    addLanguage: "新增语言",
+    multiFile: "对应多文件",
+    extraFilePlaceholder: "每行填写一个附加文件名",
+    visibilityPlaceholder: "每行填写一个语言代码",
+    localePlaceholder: "en_us",
+    localeTextPlaceholder: "填写对应语言的文本",
+    rawOnlyNote: "该配置类型在第一阶段仍以原文编辑为主。",
+    action: "操作",
+    currentOrder: "当前顺序",
+    moveUp: "上移",
+    moveDown: "下移",
+    orderedSelectNote: "默认包含全部下载源，只支持调整顺序。",
+    oneValuePerLine: "每行一个值",
+    noNoticeContent: "暂无公告内容。",
+    contentUrl: "ContentUrl",
+    languageZhCn: "中文",
+    languageEnUs: "English",
+    hiddenAllLanguages: "所有语言隐藏",
+    yes: "是",
+    enabled: "开启",
+    dirty: "已修改",
+    typeNotEditable: "已识别为 {type}，该类型不属于编辑器的配置目标范围。",
+    importedFile: "已导入 {name}。",
+    importFailed: "导入失败。",
+    createdType: "已创建 {type} 配置。",
+    createFailed: "创建文档失败。",
+    infoOnlyFromDlc: "“从导入DLC文件开始”目前仅支持 Info 类型。",
+    noPrefillFallback: "当前类型 {type} 不支持从 DLC 文件预填，已改为普通新建。",
+    createdFromDlc: "已从 {name} 生成 {type} 配置。",
+    createFromDlcFailed: "从 DLC 文件开始失败。",
+    validationBlocked: "当前存在 {count} 个错误，未修复前无法保存或导出。",
+    savedFile: "已保存 {name}。",
+    saveFailed: "保存失败。",
+    goHomeStatus: "已返回主页。",
+    ready: "就绪。"
+  },
+  en_us: {
+    appTitle: "DLC Config Generator",
+    homeTitle: "DC Config Workspace",
+    homeDescription: "Create a dc config or import an existing file to start editing.",
+    homeNote: "Create a new config or import an existing dc file.",
+    newConfig: "New Config",
+    importDc: "Import .dc",
+    importFromDlc: "Start from DLC File",
+    export: "Export",
+    backHome: "Back to Home",
+    toggleSidebarShow: "Show Sidebar",
+    toggleSidebarHide: "Hide Sidebar",
+    types: "Types",
+    documents: "Documents",
+    formTitle: "Structured Editor",
+    rawTitle: "Raw DC",
+    previewTitle: "Notice Preview",
+    validationTitle: "Validation",
+    validationError: "Errors",
+    validationWarning: "Warnings",
+    validationInfo: "Info",
+    validationNoIssues: "No issues.",
+    viewForm: "Form",
+    viewRaw: "Raw",
+    viewPreview: "Preview",
+    viewValidation: "Validation",
+    localeCode: "Locale",
+    text: "Text",
+    delete: "Delete",
+    addLanguage: "Add Language",
+    multiFile: "Match Multiple Files",
+    extraFilePlaceholder: "One extra file name per line",
+    visibilityPlaceholder: "One locale code per line",
+    localePlaceholder: "en_us",
+    localeTextPlaceholder: "Enter localized text",
+    rawOnlyNote: "This config type currently uses raw editing only.",
+    action: "Action",
+    currentOrder: "Current Order",
+    moveUp: "Up",
+    moveDown: "Down",
+    orderedSelectNote: "All download sources are included by default. Only the order can be changed.",
+    oneValuePerLine: "One value per line",
+    noNoticeContent: "No notice content.",
+    contentUrl: "ContentUrl",
+    languageZhCn: "中文",
+    languageEnUs: "English",
+    hiddenAllLanguages: "Hide For All Languages",
+    yes: "Yes",
+    enabled: "Enabled",
+    dirty: "Modified",
+    typeNotEditable: "Recognized as {type}. This type is outside the supported editor scope.",
+    importedFile: "Imported {name}.",
+    importFailed: "Import failed.",
+    createdType: "Created {type} config.",
+    createFailed: "Failed to create document.",
+    infoOnlyFromDlc: "\"Start from DLC File\" currently supports Info only.",
+    noPrefillFallback: "Type {type} does not support DLC file prefilling. Created a plain document instead.",
+    createdFromDlc: "Created {type} config from {name}.",
+    createFromDlcFailed: "Failed to create from DLC file.",
+    validationBlocked: "{count} errors remain. Export is blocked until they are fixed.",
+    savedFile: "Saved {name}.",
+    saveFailed: "Save failed.",
+    goHomeStatus: "Returned to home.",
+    ready: "Ready."
+  }
+};
+
+const staticTextDictionary: Record<string, string> = {
+  "DLC 文件的信息\n文件存放于 <DLC>/info 下": "DLC file information\nStored in <DLC>/info",
+  "需下载的 DLC\n文件存放于 <DLC>/remote 下": "Downloadable DLC\nStored in <DLC>/remote",
+  "必要资源配置\n文件存放于 <DLC>/required 下": "Required resource config\nStored in <DLC>/required",
+  "预设配置\n文件存放于 <DLC>/preset 下": "Preset config\nStored in <DLC>/preset",
+  "公告配置\n文件通常为 <DLC>/notice.dc": "Notice config\nUsually stored as <DLC>/notice.dc",
+  "链接跳转配置\n文件存放于 <DLC>/remote/redirect 下": "Redirect config\nStored in <DLC>/remote/redirect",
+  "热更新包配置": "Hot-update package config",
+  "整合包版本配置\n文件通常为 <DLC>/info/version.dc": "Modpack version config\nUsually stored as <DLC>/info/version.dc",
+  "必要资源提示配置\n文件通常为 <DLC>/required/notice.dc": "Required resource notice\nUsually stored as <DLC>/required/notice.dc",
+  "逻辑标识符；用于前置/冲突匹配。": "Logical identifier used for dependency/conflict matching.",
+  "逻辑标识符；用于依赖、冲突、预设等匹配。": "Logical identifier used for dependency, conflict, and preset matching.",
+  "逻辑标识符；用于前置匹配。": "Logical identifier used for dependency matching.",
+  "DLC 类型；可选 mod、resourcepack、datapack、gunpack、config、others。": "DLC type. Supported values: mod, resourcepack, datapack, gunpack, config, others.",
+  "DLC 文件名（包含扩展名）；用于确定磁盘上的目标名称。": "DLC file name (including extension); used as the on-disk target name.",
+  "DLC 文件名（包含扩展名）；用于最终下载文件名。": "DLC file name (including extension); used as the final downloaded file name.",
+  "应用目标路径；可填写相对路径或绝对路径。": "Applied target path; supports relative or absolute paths.",
+  "是否在 DLC 列表中显示该项。": "Whether this entry is shown in the DLC list.",
+  "是否隐藏该项；适合无独立意义的库或前置。": "Whether this entry is hidden; useful for libraries or internal prerequisites.",
+  "是否在必要资源列表中显示该项。": "Whether this entry is shown in the required resource list.",
+  "是否隐藏该项。": "Whether this entry is hidden.",
+  "是否遵循“全部开启”而开启。": "Whether this entry follows Enable All.",
+  "前置 identifier 列表；当前表单模式仅支持简单列表。": "Dependency identifier list. Form mode currently supports simple lists only.",
+  "冲突 identifier 列表。": "Conflict identifier list.",
+  "启用前是否弹出警告确认页面。": "Whether to show the alarm confirmation page before enabling.",
+  "手动填写语言代码和对应文本，可继续添加更多语言。": "Enter locale code and text manually. More locales can be added.",
+  "本地化显示名称；手动填写语言代码和对应文本，可继续添加更多语言。": "Localized display name. Enter locale code and text manually.",
+  "本地化提示文本；手动填写语言代码和对应文本，可继续添加更多语言。": "Localized tip text. Enter locale code and text manually.",
+  "列表名称；手动填写语言代码和对应文本，可继续添加更多语言。": "Display name. Enter locale code and text manually. More locales can be added.",
+  "跳转前确认说明；手动填写语言代码和对应文本，可继续添加更多语言。": "Confirmation text shown before redirect. Enter locale code and text manually.",
+  "直接下载链接；每行一个 URL，会写回为字符串数组。": "Direct download links. One URL per line and saved as a string array.",
+  "下载源优先顺序；勾选来源并调整顺序，写回为列表。": "Download source priority order. Reorder the fixed sources and save as a list.",
+  "Modrinth 项目 ID 或 slug。": "Modrinth project ID or slug.",
+  "Modrinth 版本 ID 或版本号。": "Modrinth version ID or version string.",
+  "CurseForge 项目 ID 或 slug。": "CurseForge project ID or slug.",
+  "CurseForge 文件 ID、版本串或文件名。": "CurseForge file ID, version string, or file name.",
+  "预设启用的 DLC 或预设 identifier 列表。": "List of DLC or preset identifiers enabled by this preset.",
+  "与该预设冲突的 DLC identifier 列表。": "List of DLC identifiers that conflict with this preset.",
+  "启用预设前是否先显示警告确认。": "Whether to show an alarm confirmation before enabling the preset.",
+  "根级字段": "Root Fields",
+  "是否启用公告功能。": "Whether the notice feature is enabled.",
+  "是否永不显示该公告。": "Whether to never show this notice.",
+  "公告显示频率。\nperlaunchmanager：每次进入 DLC 管理器时显示。\npergamesession：每次游戏进程期间只显示一次。\nperlaunchgame：每次启动游戏时显示一次。\nonce：仅显示一次。": "Notice display frequency.\nperlaunchmanager: show each time DLC Manager opens.\npergamesession: show once per game process.\nperlaunchgame: show once each game launch.\nonce: show only once.",
+  "公告标题；手动填写语言代码和对应文本，可继续添加更多语言。": "Notice title. Enter locale code and text manually.",
+  "公告副标题；手动填写语言代码和对应文本，可继续添加更多语言。": "Notice subhead. Enter locale code and text manually.",
+  "是否启用副标题。": "Whether the subhead is enabled.",
+  "在线公告内容 URL；优先级高于 Contents，可为不同语言分别填写。": "Online notice content URL. Higher priority than Contents and can vary by locale.",
+  "公告正文；支持 Markdown 与颜色代码，可继续添加更多语言。": "Notice body. Supports Markdown and color codes.",
+  "跳转目标 URL。": "Target redirect URL.",
+  "控制可见性；可逐条新增语言代码。留空时所有语言可见，勾选隐藏时所有语言隐藏。": "Visibility control. Add locale codes one per line. Empty means visible for all; hidden hides it for all languages.",
+  "当前整合包底包版本。": "Current modpack base version.",
+  "当前 DLC 版本。": "Current DLC version.",
+  "[DisplayName] 存在未填写语言代码的文本条目。": "[DisplayName] contains text entries without a locale code.",
+  "[tip] 存在未填写语言代码的文本条目。": "[tip] contains text entries without a locale code.",
+  "[Title] 存在未填写语言代码的文本条目。": "[Title] contains text entries without a locale code.",
+  "[Subhead] 存在未填写语言代码的文本条目。": "[Subhead] contains text entries without a locale code.",
+  "[ContentUrl] 存在未填写语言代码的文本条目。": "[ContentUrl] contains text entries without a locale code.",
+  "[Contents] 存在未填写语言代码的文本条目。": "[Contents] contains text entries without a locale code.",
+  "[notice] 存在未填写语言代码的文本条目。": "[notice] contains text entries without a locale code.",
+  "[DisplayName] 中存在空语言代码。": "[DisplayName] contains empty locale codes.",
+  "[tip] 中存在空语言代码。": "[tip] contains empty locale codes.",
+  "三引号字符串未正常结束。": "Triple-quoted string is not terminated properly.",
+  "该行看起来不是有效的 key/value 语句。": "This line does not look like a valid key/value statement.",
+  "该类型在第一阶段以原文编辑为主。": "This config type currently uses raw editing only."
+};
+
+export function t(locale: EditorLocale, key: string, params?: Record<string, string | number>): string {
+  const template = uiDictionary[locale][key] ?? uiDictionary.zh_cn[key] ?? key;
+  if (!params) {
+    return template;
+  }
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? ""));
+}
+
+export function translateStaticText(locale: EditorLocale, text?: string): string | undefined {
+  if (!text || locale === "zh_cn") {
+    return text;
+  }
+  const direct = staticTextDictionary[text];
+  if (direct) {
+    return direct;
+  }
+
+  let match = text.match(/^\[([^\]]+)\]\.identifier 为空。$/);
+  if (match) {
+    return `[${match[1]}].identifier is empty.`;
+  }
+
+  match = text.match(/^\[([^\]]+)\]\.([^.]+) 应为数字。$/);
+  if (match) {
+    return `[${match[1]}].${match[2]} must be a number.`;
+  }
+
+  match = text.match(/^\[([^\]]+)\] 中存在空语言代码。$/);
+  if (match) {
+    return `[${match[1]}] contains empty locale codes.`;
+  }
+
+  match = text.match(/^\[([^\]]+)\]\.([^.]+) 不是合法的语言代码，应使用类似 en_us \/ zh_cn \/ pt_br 的格式。$/);
+  if (match) {
+    return `[${match[1]}].${match[2]} is not a valid locale code. Use a format like en_us / zh_cn / pt_br.`;
+  }
+
+  match = text.match(/^\[([^\]]+)\]\.([^.]+) 应为文本。$/);
+  if (match) {
+    return `[${match[1]}].${match[2]} must be text.`;
+  }
+
+  return text;
+}

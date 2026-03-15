@@ -109,6 +109,66 @@ button:disabled {
   gap: 10px;
 }
 
+.toolbar-right > button,
+.toolbar-locale-menu {
+  height: 40px;
+}
+
+.toolbar-right > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.toolbar-locale-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.toolbar-locale-trigger {
+  height: 100%;
+  min-width: 56px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.toolbar-locale-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.toolbar-locale-caret {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.toolbar-locale-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 30px rgba(29, 42, 50, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 20;
+}
+
+.toolbar-locale-dropdown button {
+  width: 100%;
+  text-align: left;
+}
+
 .brand {
   font-size: 20px;
   font-weight: 700;
