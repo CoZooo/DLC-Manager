@@ -34,6 +34,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: tools/dc-editor
-          args: --bundles nsis,msi
+          args: --bundles nsis
           uploadWorkflowArtifacts: true
           workflowArtifactNamePattern: dc-editor-windows-[bundle]
