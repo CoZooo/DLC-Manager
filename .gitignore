@@ -58,5 +58,7 @@ jar-obf-lib/
 obf-lib/
 jar-obfuscator-temp/
 tools/editor/dc-quicklook/Derived/
+tools/dc-editor/node_modules/
+tools/dc-editor/dist/
 
 **/__pycache__/
