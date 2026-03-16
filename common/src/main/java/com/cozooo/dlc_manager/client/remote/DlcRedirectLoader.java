@@ -58,7 +58,7 @@ public final class DlcRedirectLoader {
         DlcRedirectEntry entry = new DlcRedirectEntry();
         entry.setConfigPath(path);
         entry.setRedirectUrl(redirectUrl);
-        entry.setAvailable(JsonCaseUtil.getStringIgnoreCase(obj, "available"));
+        entry.setAvailable(JsonCaseUtil.getIgnoreCase(obj, "available"));
 
         String fileName = path.getFileName() == null ? "" : path.getFileName().toString();
         entry.setFallbackName(Json5Util.stripJsonExtension(fileName));
