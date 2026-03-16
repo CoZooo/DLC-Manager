@@ -4,7 +4,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class DlcServerVersionUtil {
-    private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+\\.\\d+\\.\\d+(?:[A-Za-z0-9._+-]*)?)\\+(\\d+\\.\\d+\\.\\d+(?:[A-Za-z0-9._+-]*)?)");
+    private static final Pattern VERSION_PATTERN = Pattern.compile("([0-9][A-Za-z0-9._-]*)\\+([0-9][A-Za-z0-9._-]*)");
 
     private DlcServerVersionUtil() {
     }
