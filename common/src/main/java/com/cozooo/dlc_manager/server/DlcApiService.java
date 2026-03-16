@@ -1,9 +1,20 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
+import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
+import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
+import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
+import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
+import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.ApplyMode;
+import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
@@ -25,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
@@ -132,12 +144,92 @@ public final class DlcApiService {
                     handleDlcList(exchange);
                     return;
                 }
+                if ("GET".equals(method) && "/api/dlc/root/list".equals(path)) {
+                    handleDlcRootList(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/dlc/apply".equals(path)) {
+                    handleDlcApply(exchange);
+                    return;
+                }
+                if ("GET".equals(method) && "/api/remote/list".equals(path)) {
+                    handleRemoteList(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/remote/download".equals(path)) {
+                    handleRemoteDownload(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/remote/download/start".equals(path)) {
+                    handleRemoteDownloadStart(exchange);
+                    return;
+                }
+                if ("GET".equals(method) && "/api/remote/download/status".equals(path)) {
+                    handleRemoteDownloadStatus(exchange);
+                    return;
+                }
+                if ("GET".equals(method) && "/api/required/list".equals(path)) {
+                    handleRequiredList(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/required/download/start".equals(path)) {
+                    handleRequiredDownloadStart(exchange);
+                    return;
+                }
+                if ("GET".equals(method) && "/api/required/download/status".equals(path)) {
+                    handleRequiredDownloadStatus(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/required/download/cancel".equals(path)) {
+                    handleRequiredDownloadCancel(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/required/uninstall".equals(path)) {
+                    handleRequiredUninstall(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/required/apply".equals(path)) {
+                    handleRequiredApply(exchange);
+                    return;
+                }
+                if ("GET".equals(method) && "/api/update/state".equals(path)) {
+                    handleUpdateState(exchange);
+                    return;
+                }
+                if ("GET".equals(method) && "/api/update/list".equals(path)) {
+                    handleUpdateList(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/update/apply".equals(path)) {
+                    handleUpdateApply(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/update/rollback".equals(path)) {
+                    handleUpdateRollback(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/update/import".equals(path)) {
+                    handleUpdateImport(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/update/import-url".equals(path)) {
+                    handleUpdateImportUrl(exchange);
+                    return;
+                }
                 if ("POST".equals(method) && "/api/dc/detect-type".equals(path)) {
                     handleDetectType(exchange);
                     return;
                 }
                 if ("POST".equals(method) && "/api/dc/validate".equals(path)) {
                     handleValidate(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/dc/read".equals(path)) {
+                    handleReadDc(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/dc/write".equals(path)) {
+                    handleWriteDc(exchange);
                     return;
                 }
                 sendError(exchange, 404, "not_found", "Unknown API route.");
@@ -242,6 +334,185 @@ public final class DlcApiService {
         sendOk(exchange, data);
     }
 
+    private static void handleDlcRootList(HttpExchange exchange) throws IOException {
+        JsonObject data = new JsonObject();
+        JsonArray roots = new JsonArray();
+        List<Path> dlcRoots = DlcPathConfig.getDlcRoots();
+        for (int i = 0; i < dlcRoots.size(); i++) {
+            Path root = dlcRoots.get(i);
+            JsonObject rootJson = new JsonObject();
+            rootJson.addProperty("rootIndex", i);
+            rootJson.addProperty("rootPath", root == null ? "" : root.toString());
+            JsonArray files = new JsonArray();
+            for (Path relative : listEditableDcFiles(root)) {
+                String relativePath = normalizeRelativePath(relative);
+                JsonObject fileJson = new JsonObject();
+                fileJson.addProperty("name", relative.getFileName() == null ? relativePath : relative.getFileName().toString());
+                fileJson.addProperty("path", relativePath);
+                String type = detectDcType(fileJson.get("name").getAsString(), relativePath, "");
+                fileJson.addProperty("type", type);
+                fileJson.addProperty("supported", isSupportedType(type));
+                files.add(fileJson);
+            }
+            rootJson.add("files", files);
+            roots.add(rootJson);
+        }
+        data.add("roots", roots);
+        data.addProperty("rootCount", dlcRoots.size());
+        sendOk(exchange, data);
+    }
+
+    private static void handleDlcApply(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        JsonArray changes = request == null ? null : JsonCaseUtil.getArrayIgnoreCase(request, "changes");
+        if (changes == null || changes.isEmpty()) {
+            sendError(exchange, 400, "changes_empty", "No DLC changes were provided.");
+            return;
+        }
+        String modeRaw = request == null ? "" : blank(getString(request, "mode"));
+        ApplyMode applyMode = "reload".equalsIgnoreCase(modeRaw) || "try_hot_reload".equalsIgnoreCase(modeRaw)
+            ? ApplyMode.TRY_HOT_RELOAD
+            : ApplyMode.RESTART_ONLY;
+
+        Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
+        List<DlcItem> items = new ArrayList<>();
+        Map<String, DlcItem> itemById = new java.util.LinkedHashMap<>();
+        for (List<DlcItem> group : grouped.values()) {
+            if (group == null) {
+                continue;
+            }
+            for (DlcItem item : group) {
+                if (item == null) {
+                    continue;
+                }
+                items.add(item);
+                itemById.put(item.getId(), item);
+            }
+        }
+
+        JsonArray unknownIds = new JsonArray();
+        JsonArray appliedChanges = new JsonArray();
+        int changedCount = 0;
+        for (JsonElement element : changes) {
+            if (element == null || !element.isJsonObject()) {
+                continue;
+            }
+            JsonObject change = element.getAsJsonObject();
+            String id = blank(getString(change, "id"));
+            if (id.isBlank()) {
+                continue;
+            }
+            DlcItem item = itemById.get(id);
+            if (item == null) {
+                unknownIds.add(id);
+                continue;
+            }
+            boolean enabled = JsonCaseUtil.getBooleanIgnoreCase(change, "enabled", item.isEnabled());
+            boolean before = item.isEnabled();
+            item.setEnabled(enabled);
+            if (before != enabled) {
+                changedCount++;
+            }
+            JsonObject applied = new JsonObject();
+            applied.addProperty("id", id);
+            applied.addProperty("enabled", enabled);
+            appliedChanges.add(applied);
+        }
+
+        DlcApplier.ApplyResult result = DlcApplier.apply(items, applyMode);
+        JsonObject data = new JsonObject();
+        data.addProperty("mode", applyMode.name().toLowerCase(Locale.ROOT));
+        data.addProperty("changedCount", changedCount);
+        data.addProperty("requiresRestart", result.requiresRestart());
+        data.addProperty("hotReloaded", result.hotReloaded());
+        data.add("appliedChanges", appliedChanges);
+        data.add("unknownIds", unknownIds);
+        data.add("messages", toStringArray(result.messages()));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRemoteList(HttpExchange exchange) throws IOException {
+        String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
+        JsonObject data = new JsonObject();
+        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcPathConfig.getDlcRoot(), lang)));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRemoteDownload(HttpExchange exchange) throws IOException {
+        DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadMissingRemote(DlcPathConfig.getDlcRoot());
+        JsonObject data = new JsonObject();
+        data.addProperty("success", result.success);
+        data.addProperty("downloaded", result.downloadedCount);
+        data.addProperty("error", result.error == null ? "" : result.error);
+        sendOk(exchange, data);
+    }
+
+    private static void handleRemoteDownloadStart(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        List<String> keys = readStringArray(request, "keys");
+        String lang = blank(getString(request, "lang"));
+        DlcServerRemoteStatus status = DlcServerDownloadService.startRemoteDownload(DlcPathConfig.getDlcRoot(), keys, lang);
+        JsonObject data = new JsonObject();
+        data.add("status", GSON.toJsonTree(status));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRemoteDownloadStatus(HttpExchange exchange) throws IOException {
+        String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
+        DlcServerRemoteStatus status = DlcServerDownloadService.getRemoteDownloadStatus(lang);
+        JsonObject data = new JsonObject();
+        data.add("status", GSON.toJsonTree(status));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRequiredList(HttpExchange exchange) throws IOException {
+        String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
+        List<DlcServerRequiredItem> items = DlcServerDownloadService.collectRequiredItems(DlcPathConfig.getDlcRoot(), lang);
+        JsonObject data = new JsonObject();
+        data.add("items", GSON.toJsonTree(items));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRequiredDownloadStart(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        List<String> ids = readStringArray(request, "ids");
+        String lang = blank(getString(request, "lang"));
+        DlcServerRequiredStatus status = DlcServerDownloadService.startRequiredDownload(DlcPathConfig.getDlcRoot(), ids, lang);
+        JsonObject data = new JsonObject();
+        data.add("status", GSON.toJsonTree(status));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRequiredDownloadStatus(HttpExchange exchange) throws IOException {
+        String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
+        DlcServerRequiredStatus status = DlcServerDownloadService.getRequiredDownloadStatus(lang);
+        JsonObject data = new JsonObject();
+        data.add("status", GSON.toJsonTree(status));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRequiredDownloadCancel(HttpExchange exchange) throws IOException {
+        JsonObject data = new JsonObject();
+        data.addProperty("canceled", DlcServerDownloadService.cancelRequiredDownload());
+        sendOk(exchange, data);
+    }
+
+    private static void handleRequiredUninstall(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        List<String> ids = readStringArray(request, "ids");
+        JsonObject data = new JsonObject();
+        data.addProperty("removed", DlcServerDownloadService.uninstallRequired(DlcPathConfig.getDlcRoot(), ids));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRequiredApply(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        List<String> ids = readStringArray(request, "ids");
+        JsonObject data = new JsonObject();
+        data.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcPathConfig.getDlcRoot(), ids));
+        sendOk(exchange, data);
+    }
+
     private static void handleDetectType(HttpExchange exchange) throws IOException {
         JsonObject request = readJsonBody(exchange);
         String name = request == null ? "" : blank(getString(request, "name"));
@@ -296,6 +567,194 @@ public final class DlcApiService {
         data.addProperty("supported", isSupportedType(type));
         data.addProperty("valid", valid);
         data.add("issues", issues);
+        sendOk(exchange, data);
+    }
+
+    private static void handleReadDc(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        ResolvedDcPath resolved = resolveRequestedDcPath(request, false);
+        if (resolved == null) {
+            sendError(exchange, 400, "invalid_path", "Requested path is outside the allowed DLC config workspace.");
+            return;
+        }
+        if (!Files.exists(resolved.absolutePath()) || !Files.isRegularFile(resolved.absolutePath())) {
+            sendError(exchange, 404, "not_found", "Requested DC file does not exist.");
+            return;
+        }
+        String content = Files.readString(resolved.absolutePath(), StandardCharsets.UTF_8);
+        String type = detectDcType(resolved.absolutePath().getFileName() == null ? "" : resolved.absolutePath().getFileName().toString(),
+            resolved.relativePath(), content);
+        JsonObject data = new JsonObject();
+        data.addProperty("name", resolved.absolutePath().getFileName() == null ? resolved.relativePath() : resolved.absolutePath().getFileName().toString());
+        data.addProperty("path", resolved.relativePath());
+        data.addProperty("rootIndex", resolved.rootIndex());
+        data.addProperty("type", type);
+        data.addProperty("supported", isSupportedType(type));
+        data.addProperty("content", content);
+        sendOk(exchange, data);
+    }
+
+    private static void handleWriteDc(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String content = request == null ? "" : blank(getString(request, "content"));
+        if (content.isBlank()) {
+            sendError(exchange, 400, "content_empty", "Content is empty.");
+            return;
+        }
+        ResolvedDcPath resolved = resolveRequestedDcPath(request, true);
+        if (resolved == null) {
+            sendError(exchange, 400, "invalid_path", "Requested path is outside the allowed DLC config workspace.");
+            return;
+        }
+        String explicitType = request == null ? "" : blank(getString(request, "type"));
+        String detectedType = explicitType.isBlank()
+            ? detectDcType(resolved.absolutePath().getFileName() == null ? "" : resolved.absolutePath().getFileName().toString(), resolved.relativePath(), content)
+            : explicitType.trim().toLowerCase(Locale.ROOT);
+        if (isSupportedType(detectedType) && parseDc(detectedType, resolved.absolutePath().getFileName() == null ? "" : resolved.absolutePath().getFileName().toString(), content) == null) {
+            sendError(exchange, 400, "parse_failed", "Failed to parse DC content.");
+            return;
+        }
+        Path parent = resolved.absolutePath().getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.writeString(resolved.absolutePath(), content, StandardCharsets.UTF_8);
+        JsonObject data = new JsonObject();
+        data.addProperty("name", resolved.absolutePath().getFileName() == null ? resolved.relativePath() : resolved.absolutePath().getFileName().toString());
+        data.addProperty("path", resolved.relativePath());
+        data.addProperty("rootIndex", resolved.rootIndex());
+        data.addProperty("type", detectedType);
+        data.addProperty("supported", isSupportedType(detectedType));
+        data.addProperty("written", true);
+        sendOk(exchange, data);
+    }
+
+    private static void handleUpdateState(HttpExchange exchange) throws IOException {
+        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        DlcUpdateVersion version = dlcRoot == null ? null : DlcUpdateVersion.load(dlcRoot);
+        String base = version == null ? "" : blank(version.getBase());
+        String dlc = version == null ? "" : blank(version.getDlc());
+        String rollbackFrom = version == null ? "" : blank(version.getRollbackFrom());
+        boolean rolledBack = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, base, dlc);
+        List<DlcUpdateMeta> history = rolledBack
+            ? DlcUpdateService.listUpdateHistoryFrom(rollbackFrom)
+            : DlcUpdateService.listUpdateHistory();
+        JsonObject data = new JsonObject();
+        data.addProperty("base", base);
+        data.addProperty("dlc", dlc);
+        data.addProperty("label", (base.isBlank() || dlc.isBlank()) ? "" : base + "+" + dlc);
+        data.addProperty("rollbackFrom", rollbackFrom);
+        data.addProperty("rolledBack", rolledBack);
+        data.add("history", GSON.toJsonTree(history == null ? List.of() : history));
+        sendOk(exchange, data);
+    }
+
+    private static void handleUpdateList(HttpExchange exchange) throws IOException {
+        DlcUpdateService.UpdateCheckResult result = DlcUpdateService.checkForUpdates();
+        JsonObject data = new JsonObject();
+        DlcUpdateVersion current = result == null ? null : result.getCurrent();
+        data.addProperty("base", current == null ? "" : blank(current.getBase()));
+        data.addProperty("dlc", current == null ? "" : blank(current.getDlc()));
+        JsonArray updates = new JsonArray();
+        if (result != null && result.getUpdates() != null) {
+            for (DlcUpdatePackage pkg : result.getUpdates()) {
+                JsonObject row = toUpdatePackageJson(pkg);
+                if (row != null) {
+                    updates.add(row);
+                }
+            }
+        }
+        data.add("updates", updates);
+        data.addProperty("hasUpdates", updates.size() > 0);
+        sendOk(exchange, data);
+    }
+
+    private static void handleUpdateApply(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String baseOld = blank(getString(request, "baseOld"));
+        String dlcOld = blank(getString(request, "dlcOld"));
+        String baseNew = blank(getString(request, "baseNew"));
+        String dlcNew = blank(getString(request, "dlcNew"));
+
+        List<DlcUpdatePackage> updates;
+        if (!baseOld.isBlank() && !dlcOld.isBlank() && !baseNew.isBlank() && !dlcNew.isBlank()) {
+            updates = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+        } else {
+            DlcUpdateService.UpdateCheckResult result = DlcUpdateService.checkForUpdates();
+            updates = result == null ? List.of() : result.getUpdates();
+        }
+        DlcUpdateService.UpdateApplyResult apply = DlcUpdateService.applyUpdates(updates, false);
+        JsonObject data = new JsonObject();
+        data.addProperty("success", apply != null && apply.isSuccess());
+        data.addProperty("missing", apply != null && apply.isMissing());
+        data.addProperty("message", apply == null ? "" : blank(apply.getMessage()));
+        data.add("missingPaths", toStringArray(apply == null ? List.of() : apply.getMissingPaths()));
+        data.addProperty("addedRequired", apply != null && apply.hasRequiredAdd());
+        data.addProperty("addedRemote", apply != null && apply.hasRemoteAdd());
+        sendOk(exchange, data);
+    }
+
+    private static void handleUpdateRollback(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String target = blank(getString(request, "target"));
+        if (target.isBlank()) {
+            sendError(exchange, 400, "target_missing", "Rollback target is required.");
+            return;
+        }
+        DlcUpdateService.UpdateRollbackResult result = DlcUpdateService.rollbackTo(target);
+        JsonObject data = new JsonObject();
+        data.addProperty("success", result != null && result.isSuccess());
+        data.addProperty("message", result == null ? "" : blank(result.getMessage()));
+        data.addProperty("version", result == null ? "" : blank(result.getVersion()));
+        sendOk(exchange, data);
+    }
+
+    private static void handleUpdateImport(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String rawPath = blank(getString(request, "path"));
+        Path source = resolveGameRelativePath(rawPath);
+        if (source == null || !Files.exists(source) || !Files.isRegularFile(source)) {
+            sendError(exchange, 400, "invalid_path", "Update package path is invalid.");
+            return;
+        }
+        boolean ok = DlcUpdateService.importUpdatePackage(source);
+        JsonObject data = new JsonObject();
+        data.addProperty("success", ok);
+        data.addProperty("path", source.toString());
+        sendOk(exchange, data);
+    }
+
+    private static void handleUpdateImportUrl(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String url = blank(getString(request, "url"));
+        String fileName = blank(getString(request, "fileName"));
+        if (url.isBlank()) {
+            sendError(exchange, 400, "url_missing", "URL is required.");
+            return;
+        }
+        Path updateDir = DlcUpdateService.getUpdateDir();
+        if (updateDir == null) {
+            sendError(exchange, 400, "missing_dlc_root", "Missing DLC root.");
+            return;
+        }
+        boolean ok = false;
+        String message = "";
+        Path downloaded = null;
+        try {
+            downloaded = DlcDownloadService.download(url, updateDir, fileName, null, null);
+            ok = DlcUpdateService.importUpdatePackage(downloaded);
+            if (!ok) {
+                message = "import_failed";
+            }
+        } catch (DlcDownloadService.DownloadCanceledException ex) {
+            message = "canceled";
+        } catch (Exception ex) {
+            message = ex.getMessage() == null ? "download_failed" : ex.getMessage();
+        }
+        JsonObject data = new JsonObject();
+        data.addProperty("success", ok);
+        data.addProperty("message", message);
+        data.addProperty("downloadedPath", downloaded == null ? "" : downloaded.toString());
         sendOk(exchange, data);
     }
 
@@ -454,6 +913,180 @@ public final class DlcApiService {
         };
     }
 
+    private static JsonObject toUpdatePackageJson(DlcUpdatePackage pkg) {
+        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            return null;
+        }
+        DlcUpdateManifest manifest = pkg.getManifest();
+        DlcUpdateManifest.VersionInfo info = manifest.getVersion();
+        JsonObject json = new JsonObject();
+        json.addProperty("name", blank(pkg.getName()));
+        json.addProperty("platform", blank(info.getPlatform()));
+        json.addProperty("base", blank(info.getBase()));
+        json.addProperty("base_new", blank(info.getBaseNew()));
+        json.addProperty("dlc", blank(info.getDlcOld()));
+        json.addProperty("dlc_new", blank(info.getDlcNew()));
+        json.addProperty("hidden", manifest.isHidden());
+        json.add("changelog", GSON.toJsonTree(manifest.getChangelog()));
+        return json;
+    }
+
+    private static List<Path> listEditableDcFiles(Path root) {
+        List<Path> files = new ArrayList<>();
+        if (root == null) {
+            return files;
+        }
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        Path rootNotice = normalizedRoot.resolve("notice.dc").normalize();
+        if (Files.isRegularFile(rootNotice)) {
+            files.add(normalizedRoot.relativize(rootNotice));
+        }
+        for (String dirName : List.of("info", "remote", "required", "preset", "update")) {
+            Path dir = normalizedRoot.resolve(dirName).normalize();
+            if (!Files.isDirectory(dir)) {
+                continue;
+            }
+            try (var stream = Files.walk(dir)) {
+                stream.filter(Files::isRegularFile)
+                    .filter(path -> DcConfigIO.isDc(path) || path.getFileName() != null && path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".dc"))
+                    .map(path -> normalizedRoot.relativize(path.normalize()))
+                    .sorted(Comparator.comparing(DlcApiService::normalizeRelativePath))
+                    .forEach(files::add);
+            } catch (IOException ignored) {
+            }
+        }
+        files.sort(Comparator.comparing(DlcApiService::normalizeRelativePath));
+        return files;
+    }
+
+    private static ResolvedDcPath resolveRequestedDcPath(JsonObject request, boolean allowCreate) {
+        String rawPath = request == null ? "" : blank(getString(request, "path"));
+        if (rawPath.isBlank()) {
+            return null;
+        }
+        List<Path> roots = DlcPathConfig.getDlcRoots();
+        if (roots.isEmpty()) {
+            return null;
+        }
+        Integer requestedRootIndex = getOptionalInt(request, "rootIndex");
+        Path candidate = DlcPaths.parsePathLenient(rawPath);
+        if (candidate == null) {
+            return null;
+        }
+
+        if (candidate.isAbsolute()) {
+            Path absolute = candidate.normalize();
+            for (int i = 0; i < roots.size(); i++) {
+                if (requestedRootIndex != null && requestedRootIndex != i) {
+                    continue;
+                }
+                Path root = roots.get(i).toAbsolutePath().normalize();
+                if (absolute.startsWith(root) && isAllowedDlcConfigPath(root, absolute, allowCreate)) {
+                    return new ResolvedDcPath(i, root.relativize(absolute), absolute);
+                }
+            }
+            return null;
+        }
+
+        int start = requestedRootIndex == null ? 0 : requestedRootIndex;
+        int end = requestedRootIndex == null ? roots.size() : Math.min(roots.size(), requestedRootIndex + 1);
+        for (int i = start; i < end; i++) {
+            Path root = roots.get(i).toAbsolutePath().normalize();
+            Path absolute = root.resolve(candidate).normalize();
+            if (isAllowedDlcConfigPath(root, absolute, allowCreate)) {
+                return new ResolvedDcPath(i, root.relativize(absolute), absolute);
+            }
+        }
+        return null;
+    }
+
+    private static boolean isAllowedDlcConfigPath(Path root, Path target, boolean allowCreate) {
+        if (root == null || target == null) {
+            return false;
+        }
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        Path normalizedTarget = target.toAbsolutePath().normalize();
+        if (!normalizedTarget.startsWith(normalizedRoot)) {
+            return false;
+        }
+        if (normalizedTarget.getFileName() == null) {
+            return false;
+        }
+        String fileName = normalizedTarget.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (!fileName.endsWith(".dc")) {
+            return false;
+        }
+        Path relative = normalizedRoot.relativize(normalizedTarget);
+        if (relative.getNameCount() == 1) {
+            return "notice.dc".equalsIgnoreCase(fileName);
+        }
+        String first = relative.getName(0).toString().toLowerCase(Locale.ROOT);
+        if (!List.of("info", "remote", "required", "preset", "update").contains(first)) {
+            return false;
+        }
+        if (!allowCreate && !Files.exists(normalizedTarget)) {
+            return false;
+        }
+        return true;
+    }
+
+    private static Path resolveGameRelativePath(String rawPath) {
+        Path root = DlcPaths.gameDir();
+        if (root == null) {
+            return null;
+        }
+        String value = rawPath == null ? "" : rawPath.replace('\\', '/');
+        Path resolved = value.isBlank() ? root : root.resolve(value);
+        resolved = resolved.normalize();
+        if (!resolved.startsWith(root.normalize())) {
+            return null;
+        }
+        return resolved;
+    }
+
+    private static String normalizeRelativePath(Path relative) {
+        return relative == null ? "" : relative.toString().replace('\\', '/');
+    }
+
+    private static Integer getOptionalInt(JsonObject obj, String key) {
+        if (obj == null) {
+            return null;
+        }
+        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        if (element == null || element.isJsonNull()) {
+            return null;
+        }
+        if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber()) {
+            return element.getAsInt();
+        }
+        String value = blank(element.getAsString());
+        if (value.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static List<String> readStringArray(JsonObject obj, String key) {
+        JsonArray array = obj == null ? null : JsonCaseUtil.getArrayIgnoreCase(obj, key);
+        List<String> values = new ArrayList<>();
+        if (array == null) {
+            return values;
+        }
+        for (JsonElement element : array) {
+            if (element != null && element.isJsonPrimitive()) {
+                String value = blank(element.getAsString());
+                if (!value.isBlank()) {
+                    values.add(value);
+                }
+            }
+        }
+        return values;
+    }
+
     private static boolean containsIgnoreCase(String haystack, String needle) {
         return haystack != null && needle != null && haystack.toLowerCase(Locale.ROOT).contains(needle.toLowerCase(Locale.ROOT));
     }
@@ -583,5 +1216,11 @@ public final class DlcApiService {
 
     private static String blank(String value) {
         return value == null ? "" : value;
+    }
+
+    private record ResolvedDcPath(int rootIndex, Path relative, Path absolutePath) {
+        private String relativePath() {
+            return normalizeRelativePath(relative);
+        }
     }
 }

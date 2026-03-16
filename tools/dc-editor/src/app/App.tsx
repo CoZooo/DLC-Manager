@@ -24,6 +24,7 @@ import { serializeStructuredDocumentWithPreservedRaw } from "../services/documen
 import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 const APP_STATE_STORAGE_KEY = "dlc-manager-dc-editor-state-v1";
+const BACKEND_MODE_STORAGE_KEY = "dlc-manager-dc-editor-backend-mode-v1";
 
 function makeDocumentId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -120,6 +121,20 @@ function loadPersistedLocale(): EditorLocale {
   return value === "en_us" ? "en_us" : "zh_cn";
 }
 
+function loadPersistedBackendMode(): BackendMode {
+  if (typeof window === "undefined") {
+    return "local";
+  }
+  const params = new URLSearchParams(window.location.search);
+  const queryMode = params.get("backend");
+  if (queryMode === "api" || queryMode === "local") {
+    window.localStorage.setItem(BACKEND_MODE_STORAGE_KEY, queryMode);
+    return queryMode;
+  }
+  const stored = window.localStorage.getItem(BACKEND_MODE_STORAGE_KEY);
+  return stored === "api" ? "api" : "local";
+}
+
 function getIssueSeverityLabel(locale: EditorLocale, severity: "error" | "warning" | "info") {
   if (severity === "error") {
     return t(locale, "validationSeverityError");
@@ -180,6 +195,7 @@ function buildDocument(
 
 export function App() {
   const initialLocale = loadPersistedLocale();
+  const initialBackendMode = loadPersistedBackendMode();
   const mainPanelRef = useRef<HTMLElement | null>(null);
   const scrollPositionsRef = useRef<Record<EditorView, number>>({
     form: 0,
@@ -190,7 +206,7 @@ export function App() {
   const preserveStructuredDraftRef = useRef<string | null>(null);
   const persisted = loadPersistedState();
   const [locale, setLocale] = useState<EditorLocale>(initialLocale);
-  const [backendMode] = useState<BackendMode>("local");
+  const [backendMode] = useState<BackendMode>(initialBackendMode);
   const backend: EditorBackend = useMemo(() => {
     return backendMode === "local" ? new LocalBackend() : new ApiBackend();
   }, [backendMode]);
@@ -233,6 +249,13 @@ export function App() {
     }
     window.localStorage.setItem(EDITOR_LOCALE_STORAGE_KEY, locale);
   }, [locale]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(BACKEND_MODE_STORAGE_KEY, backendMode);
+  }, [backendMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
