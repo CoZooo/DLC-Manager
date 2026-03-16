@@ -276,7 +276,7 @@ public class DlcNoticeScreen extends Screen {
     public void onClose() {
         if (neverShowBox != null) {
             config.setNeverShow(neverShowBox.selected());
-            // config.save();
+            config.save();
         }
         this.minecraft.setScreen(parent);
     }
