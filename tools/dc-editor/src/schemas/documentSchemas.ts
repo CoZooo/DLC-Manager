@@ -79,7 +79,8 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       key: "isHidden",
       label: "isHidden",
       kind: "boolean",
-      help: "是否隐藏该项；适合无独立意义的库或前置。"
+      help: "是否隐藏该项；适合无独立意义的库或前置。",
+      toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
     },
     {
       key: "AllowEnableByAll",
@@ -140,7 +141,8 @@ const requiredBasicSection: SectionSchema = {
       key: "isHidden",
       label: "isHidden",
       kind: "boolean",
-      help: "是否隐藏该项。"
+      help: "是否隐藏该项。",
+      toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
     },
     {
       key: "dependencies",
@@ -368,13 +370,15 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "isNoticeEnabled",
             label: "isNoticeEnabled",
             kind: "boolean",
-            help: "是否启用公告功能。"
+            help: "是否启用公告功能。",
+            toggleLabels: { checked: "启用", unchecked: "启用" }
           },
           {
             key: "neverShow",
             label: "neverShow",
             kind: "boolean",
-            help: "是否永不显示该公告。"
+            help: "是否永不显示该公告。",
+            toggleLabels: { checked: "永不显示", unchecked: "永不显示" }
           },
           {
             key: "ShowFrequency",
@@ -405,7 +409,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "enabled",
             label: "enabled",
             kind: "boolean",
-            help: "是否启用副标题。"
+            help: "是否启用副标题。",
+            toggleLabels: { checked: "启用", unchecked: "启用" }
           }
         ]
       },
@@ -456,8 +461,108 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
     label: "Update",
     summary: "热更新包配置",
     defaultFileName: "update.dc",
-    supportsStructured: false,
-    sections: []
+    supportsStructured: true,
+    sections: [
+      {
+        key: ROOT_SECTION_KEY,
+        label: "根级字段",
+        fields: [
+          {
+            key: "isHidden",
+            label: "isHidden",
+            kind: "boolean",
+            help: "是否在更新列表中隐藏该热更新包。",
+            toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
+          }
+        ]
+      },
+      {
+        key: "version",
+        label: "[version]",
+        fields: [
+          {
+            key: "platform",
+            label: "platform",
+            kind: "select",
+            options: [
+              { value: "universal", label: "universal" },
+              { value: "client", label: "client" },
+              { value: "server", label: "server" }
+            ],
+            help: "热更新包适用的平台；可选 universal、client、server。"
+          },
+          {
+            key: "base",
+            label: "base",
+            kind: "text",
+            help: "应用该热更新前要求的底包版本。"
+          },
+          {
+            key: "base_new",
+            label: "base_new",
+            kind: "text",
+            help: "应用后新的底包版本；不变时可留空。"
+          },
+          {
+            key: "dlc",
+            label: "dlc",
+            kind: "text",
+            help: "应用该热更新前要求的 DLC 版本。"
+          },
+          {
+            key: "dlc_new",
+            label: "dlc_new",
+            kind: "text",
+            help: "应用后新的 DLC 版本；不变时可留空。"
+          }
+        ]
+      },
+      {
+        ...localeTextareaSection("changelog", "[changelog]", "更新日志；手动填写语言代码和对应文本，可继续添加更多语言。")
+      },
+      {
+        key: "file_del",
+        label: "[file].del",
+        fields: [
+          {
+            key: "entries",
+            label: "entries",
+            kind: "update-file-del",
+            help: "需删除文件的相对路径。"
+          }
+        ]
+      },
+      {
+        key: "file_add",
+        label: "[file].add",
+        fields: [
+          {
+            key: "entries",
+            label: "entries",
+            kind: "update-file-add",
+            help: "新增文件规则。覆盖模式：\n勾选：覆盖（true），文件夹内替换每一个文件。\n不勾选：不覆盖（false），文件夹内跳过同名文件。\nall：替换整个文件夹，需在原文中手动调整。\nnone：存在同名文件夹时跳过，需在原文中手动调整。"
+          }
+        ]
+      },
+      {
+        key: "file_move",
+        label: "[file].move",
+        fields: [
+          {
+            key: "entries",
+            label: "entries",
+            kind: "update-file-move",
+            help: "移动规则：原路径 => 新路径。"
+          }
+        ]
+      },
+      {
+        key: "file_modify",
+        label: "[file].modify",
+        description: "请在原文模式中编辑 [file].modify。",
+        fields: []
+      }
+    ]
   },
   version: {
     type: "version",

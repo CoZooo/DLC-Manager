@@ -24,7 +24,11 @@ export type FieldKind =
   | "number"
   | "list"
   | "ordered-select-list"
-  | "language-visibility";
+  | "language-visibility"
+  | "update-file-del"
+  | "update-file-add"
+  | "update-file-move"
+  | "update-file-modify";
 export type LocaleValueKind = "text" | "textarea";
 
 export interface ValidationIssue {

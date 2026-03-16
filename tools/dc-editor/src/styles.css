@@ -579,6 +579,10 @@ select.compact-select-frequency {
   width: min(210px, 100%);
 }
 
+select.compact-select-override {
+  width: min(180px, 100%);
+}
+
 textarea {
   min-height: 48px;
   resize: none;
@@ -643,6 +647,66 @@ textarea {
 .toggle-button-label {
   font-weight: 600;
   color: var(--ink);
+}
+
+.update-rule-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.update-rule-row,
+.update-rule-card {
+  display: grid;
+  gap: 10px;
+  align-items: start;
+}
+
+.update-rule-row-single {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.update-rule-card {
+  padding: 12px;
+  border: 1px solid rgba(177, 164, 146, 0.6);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.update-rule-card > button,
+.update-rule-row > button {
+  justify-self: start;
+  width: fit-content;
+}
+
+.update-rule-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.update-rule-grid-add {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.5fr) auto;
+  align-items: start;
+}
+
+.update-override-editor {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  justify-self: end;
+  min-width: max-content;
+}
+
+.update-rule-grid-two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 960px) {
+  .update-rule-row-single,
+  .update-rule-grid,
+  .update-rule-grid-two {
+    grid-template-columns: 1fr;
+  }
 }
 
 .raw-editor-shell,

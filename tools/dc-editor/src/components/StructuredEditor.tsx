@@ -168,6 +168,34 @@ export function StructuredEditor(props: StructuredEditorProps) {
                         onChange={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
                       />
                     )}
+                    {field.kind === "update-file-del" && (
+                      <UpdateDeleteEditor
+                        locale={props.locale}
+                        value={typeof value === "string" ? value : ""}
+                        onChange={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
+                      />
+                    )}
+                    {field.kind === "update-file-add" && (
+                      <UpdateAddEditor
+                        locale={props.locale}
+                        value={typeof value === "string" ? value : ""}
+                        onChange={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
+                      />
+                    )}
+                    {field.kind === "update-file-move" && (
+                      <UpdateMoveEditor
+                        locale={props.locale}
+                        value={typeof value === "string" ? value : ""}
+                        onChange={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
+                      />
+                    )}
+                    {field.kind === "update-file-modify" && (
+                      <UpdateModifyEditor
+                        locale={props.locale}
+                        value={typeof value === "string" ? value : ""}
+                        onChange={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
+                      />
+                    )}
                     {field.kind === "select" && (
                       <select
                         className={
@@ -568,6 +596,286 @@ function ToggleButton(props: ToggleButtonProps) {
       <span className="toggle-button-label">{props.label}</span>
     </button>
   );
+}
+
+interface UpdateDeleteEditorProps {
+  locale: EditorLocale;
+  value: string;
+  onChange(nextValue: string): void;
+}
+
+function UpdateDeleteEditor(props: UpdateDeleteEditorProps) {
+  const [rows, setRows] = useState<string[]>(parseUpdateRows(props.value));
+
+  useEffect(() => {
+    setRows(parseUpdateRows(props.value));
+  }, [props.value]);
+
+  const updateRows = (nextRows: string[]) => {
+    setRows(nextRows);
+    props.onChange(nextRows.map((item) => item.trim()).filter(Boolean).join("\n"));
+  };
+
+  return (
+    <div className="update-rule-editor">
+      {rows.map((row, index) => (
+        <div key={`del-${index}`} className="update-rule-row update-rule-row-single">
+          <input
+            type="text"
+            value={row}
+            placeholder={t(props.locale, "updateDeletePath")}
+            onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? event.target.value : item))}
+          />
+          <button type="button" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
+            {t(props.locale, "delete")}
+          </button>
+        </div>
+      ))}
+      <button type="button" className="secondary-action" onClick={() => updateRows([...rows, ""])}>
+        {t(props.locale, "addEntry")}
+      </button>
+    </div>
+  );
+}
+
+interface UpdateAddEditorProps {
+  locale: EditorLocale;
+  value: string;
+  onChange(nextValue: string): void;
+}
+
+function UpdateAddEditor(props: UpdateAddEditorProps) {
+  const [rows, setRows] = useState<Array<{ source: string; target: string; override: string }>>(parseUpdateAddRows(props.value));
+
+  useEffect(() => {
+    setRows(parseUpdateAddRows(props.value));
+  }, [props.value]);
+
+  const updateRows = (nextRows: Array<{ source: string; target: string; override: string }>) => {
+    setRows(nextRows);
+    props.onChange(
+      nextRows
+        .map((row) => [row.source.trim(), row.target.trim(), row.override.trim() || "true"].join(" => "))
+        .filter((line) => line.split(/\s*=>\s*/)[0])
+        .join("\n")
+    );
+  };
+
+  return (
+    <div className="update-rule-editor">
+      {rows.map((row, index) => (
+        <div key={`add-${index}`} className="update-rule-card">
+          <div className="update-rule-grid update-rule-grid-add">
+            <input
+              type="text"
+              value={row.source}
+              placeholder={t(props.locale, "updateSourcePath")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, source: event.target.value } : item))}
+            />
+            <input
+              type="text"
+              value={row.target}
+              placeholder={t(props.locale, "updateAppliedTarget")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, target: event.target.value } : item))}
+            />
+            <div className="update-override-editor">
+              <ToggleButton
+                checked={row.override === "true" || row.override === "all"}
+                label={t(props.locale, "updateOverrideEnabled")}
+                onToggle={() => updateRows(rows.map((item, rowIndex) => rowIndex === index ? {
+                  ...item,
+                  override: item.override === "true" || item.override === "all" ? "false" : "true"
+                } : item))}
+              />
+            </div>
+          </div>
+          <button type="button" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
+            {t(props.locale, "delete")}
+          </button>
+        </div>
+      ))}
+      <button type="button" className="secondary-action" onClick={() => updateRows([...rows, { source: "", target: "", override: "true" }])}>
+        {t(props.locale, "addEntry")}
+      </button>
+    </div>
+  );
+}
+
+interface UpdateMoveEditorProps {
+  locale: EditorLocale;
+  value: string;
+  onChange(nextValue: string): void;
+}
+
+function UpdateMoveEditor(props: UpdateMoveEditorProps) {
+  const [rows, setRows] = useState<Array<{ from: string; to: string }>>(parseUpdateMoveRows(props.value));
+
+  useEffect(() => {
+    setRows(parseUpdateMoveRows(props.value));
+  }, [props.value]);
+
+  const updateRows = (nextRows: Array<{ from: string; to: string }>) => {
+    setRows(nextRows);
+    props.onChange(
+      nextRows
+        .map((row) => `${row.from.trim()} => ${row.to.trim()}`)
+        .filter((line) => line.split(/\s*=>\s*/)[0])
+        .join("\n")
+    );
+  };
+
+  return (
+    <div className="update-rule-editor">
+      {rows.map((row, index) => (
+        <div key={`move-${index}`} className="update-rule-card">
+          <div className="update-rule-grid update-rule-grid-two">
+            <input
+              type="text"
+              value={row.from}
+              placeholder={t(props.locale, "updateFromPath")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, from: event.target.value } : item))}
+            />
+            <input
+              type="text"
+              value={row.to}
+              placeholder={t(props.locale, "updateToPath")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, to: event.target.value } : item))}
+            />
+          </div>
+          <button type="button" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
+            {t(props.locale, "delete")}
+          </button>
+        </div>
+      ))}
+      <button type="button" className="secondary-action" onClick={() => updateRows([...rows, { from: "", to: "" }])}>
+        {t(props.locale, "addEntry")}
+      </button>
+    </div>
+  );
+}
+
+interface UpdateModifyEditorProps {
+  locale: EditorLocale;
+  value: string;
+  onChange(nextValue: string): void;
+}
+
+function UpdateModifyEditor(props: UpdateModifyEditorProps) {
+  const [rows, setRows] = useState<Array<{ target: string; find: string; replace: string; which: string }>>(parseUpdateModifyRows(props.value));
+
+  useEffect(() => {
+    setRows(parseUpdateModifyRows(props.value));
+  }, [props.value]);
+
+  const updateRows = (nextRows: Array<{ target: string; find: string; replace: string; which: string }>) => {
+    setRows(nextRows);
+    props.onChange(
+      nextRows
+        .map((row) => [row.target.trim(), row.find.trim(), row.replace.trim(), row.which.trim()].join(" => "))
+        .filter((line) => line.split(/\s*=>\s*/)[0])
+        .join("\n")
+    );
+  };
+
+  return (
+    <div className="update-rule-editor">
+      {rows.map((row, index) => (
+        <div key={`modify-${index}`} className="update-rule-card">
+          <div className="update-rule-grid">
+            <input
+              type="text"
+              value={row.target}
+              placeholder={t(props.locale, "updateTargetPath")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, target: event.target.value } : item))}
+            />
+            <input
+              type="text"
+              value={row.find}
+              placeholder={t(props.locale, "updateFind")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, find: event.target.value } : item))}
+            />
+            <input
+              type="text"
+              value={row.replace}
+              placeholder={t(props.locale, "updateReplace")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, replace: event.target.value } : item))}
+            />
+            <input
+              type="text"
+              value={row.which}
+              placeholder={t(props.locale, "updateWhich")}
+              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, which: event.target.value } : item))}
+            />
+          </div>
+          <button type="button" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
+            {t(props.locale, "delete")}
+          </button>
+        </div>
+      ))}
+      <button type="button" className="secondary-action" onClick={() => updateRows([...rows, { target: "", find: "", replace: "", which: "" }])}>
+        {t(props.locale, "addEntry")}
+      </button>
+    </div>
+  );
+}
+
+function parseUpdateRows(value: string): string[] {
+  const rows = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean);
+  return rows.length > 0 ? rows : [""];
+}
+
+function parseUpdateAddRows(value: string): Array<{ source: string; target: string; override: string }> {
+  const rows = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [source = "", target = "", override = ""] = line.split(/\s*=>\s*/);
+      return {
+        source,
+        target,
+        override: normalizeUpdateOverride(override)
+      };
+    });
+  return rows.length > 0 ? rows : [{ source: "", target: "", override: "true" }];
+}
+
+function normalizeUpdateOverride(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "false") {
+    return "false";
+  }
+  if (normalized === "none") {
+    return "none";
+  }
+  if (normalized === "all") {
+    return "all";
+  }
+  return "true";
+}
+
+function parseUpdateMoveRows(value: string): Array<{ from: string; to: string }> {
+  const rows = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [from = "", to = ""] = line.split(/\s*=>\s*/);
+      return { from, to };
+    });
+  return rows.length > 0 ? rows : [{ from: "", to: "" }];
+}
+
+function parseUpdateModifyRows(value: string): Array<{ target: string; find: string; replace: string; which: string }> {
+  const rows = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [target = "", find = "", replace = "", which = ""] = line.split(/\s*=>\s*/);
+      return { target, find, replace, which };
+    });
+  return rows.length > 0 ? rows : [{ target: "", find: "", replace: "", which: "" }];
 }
 
 function resolveToggleLabel(

@@ -20,6 +20,7 @@ import { ApiBackend } from "../services/backend/ApiBackend";
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
 import { detectDocumentType } from "../services/document/typeDetection";
+import { serializeStructuredDocumentWithPreservedRaw } from "../services/document/simpleDc";
 import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 const APP_STATE_STORAGE_KEY = "dlc-manager-dc-editor-state-v1";
@@ -117,6 +118,29 @@ function loadPersistedLocale(): EditorLocale {
   }
   const value = window.localStorage.getItem(EDITOR_LOCALE_STORAGE_KEY);
   return value === "en_us" ? "en_us" : "zh_cn";
+}
+
+function getIssueSeverityLabel(locale: EditorLocale, severity: "error" | "warning" | "info") {
+  if (severity === "error") {
+    return t(locale, "validationSeverityError");
+  }
+  if (severity === "warning") {
+    return t(locale, "validationSeverityWarning");
+  }
+  return t(locale, "validationSeverityInfo");
+}
+
+function getIssueSourceLabel(locale: EditorLocale, source: "syntax" | "schema" | "backend" | "api-placeholder") {
+  if (source === "syntax") {
+    return t(locale, "validationSourceSyntax");
+  }
+  if (source === "backend") {
+    return t(locale, "validationSourceBackend");
+  }
+  if (source === "api-placeholder") {
+    return t(locale, "validationSourceApiPlaceholder");
+  }
+  return t(locale, "validationSourceSchema");
 }
 
 function isConfigurableType(type: DocumentType): boolean {
@@ -395,7 +419,9 @@ export function App() {
     if (!document) {
       return;
     }
-    const nextRaw = await backend.serializeForSave(document.type, model);
+    const nextRaw = document.type === "update"
+      ? serializeStructuredDocumentWithPreservedRaw(document.rawText, model, documentSchemas[document.type], { applyImplicitDefaultLocale: true })
+      : await backend.serializeForSave(document.type, model);
     preserveStructuredDraftRef.current = document.id;
     setDocument({
       ...document,
@@ -420,7 +446,9 @@ export function App() {
     }
     try {
       const textToSave = document.structuredEnabled && document.structuredModel
-        ? await backend.serializeForSave(document.type, document.structuredModel)
+        ? document.type === "update"
+          ? serializeStructuredDocumentWithPreservedRaw(document.rawText, document.structuredModel, documentSchemas[document.type], { applyImplicitDefaultLocale: true })
+          : await backend.serializeForSave(document.type, document.structuredModel)
         : document.rawText;
       if (document.structuredEnabled && document.structuredModel) {
         preserveStructuredDraftRef.current = document.id;
@@ -561,8 +589,8 @@ export function App() {
                     {editingDocument.issues.map((issue, index) => (
                       <div key={`${issue.message}-${index}`} className={`issue ${issue.severity}`}>
                         <div className="issue-title">
-                          <span>{issue.severity.toUpperCase()}</span>
-                          <span>{issue.source}</span>
+                          <span>{getIssueSeverityLabel(locale, issue.severity)}</span>
+                          <span>{getIssueSourceLabel(locale, issue.source)}</span>
                           {issue.line ? <span>{locale === "zh_cn" ? `第 ${issue.line} 行` : `Line ${issue.line}`}</span> : null}
                         </div>
                         <div>{translateStaticText(locale, issue.message) || issue.message}</div>
