@@ -7,7 +7,6 @@ import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
-import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader;
@@ -34,6 +33,7 @@ import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.packs.repository.PackRepository;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -478,6 +478,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
 
         Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
+        Map<String, Boolean> enabledById = new HashMap<>();
         for (DlcType type : DlcType.values()) {
             if (type == DlcType.TACZ_PACK && !hasTaczMod) {
                 continue;
@@ -490,7 +491,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                 hasModItems = true;
             }
             for (DlcItem item : typeItems) {
-                DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                boolean enabled = item.isEnabled();
+                enabledById.put(item.getId(), enabled);
+                DlcRuntimeState.ensureBaseline(item.getId(), enabled);
                 Boolean override = DlcRuntimeState.getOverride(item.getId());
                 if (override != null) {
                     item.setEnabled(override);
@@ -520,7 +523,8 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
                     rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false));
                 }
                 for (DlcItem item : entry.getValue()) {
-                    DlcRuntimeState.ensureBaseline(item.getId(), isEnabledInTargets(item));
+                    boolean enabled = enabledById.getOrDefault(item.getId(), item.isEnabled());
+                    DlcRuntimeState.ensureBaseline(item.getId(), enabled);
                     Boolean override = DlcRuntimeState.getOverride(item.getId());
                     if (override != null) {
                         item.setEnabled(override);
@@ -901,83 +905,6 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         return false;
     }
 
-    private boolean isEnabledInTargets(DlcItem item) {
-        DlcConfig.DlcState state = DlcConfig.getState(item.getId());
-        if (state != null && state.enabled && state.appliedTargets != null && !state.appliedTargets.isEmpty()) {
-            boolean anyExists = false;
-            for (String raw : state.appliedTargets) {
-                if (raw == null || raw.isBlank()) {
-                    continue;
-                }
-                if (java.nio.file.Files.exists(resolveStatePath(raw))) {
-                    anyExists = true;
-                    break;
-                }
-            }
-            return anyExists;
-        }
-        String name = item.getSourcePath().getFileName().toString();
-        if (item.getType() == DlcType.UNKNOWN) {
-            Path target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw());
-            if (target == null) {
-                return false;
-            }
-            boolean dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, item.getSourcePath());
-            if (dirTarget) {
-                Path resolved = target.resolve(name);
-                if (item.isConfigType()) {
-                    return DlcConfigDlcSupport.hasBackupForTarget(resolved);
-                }
-                return java.nio.file.Files.exists(resolved);
-            }
-            if (item.isConfigType()) {
-                return DlcConfigDlcSupport.hasBackupForTarget(target);
-            }
-            return java.nio.file.Files.exists(target);
-        }
-        List<Path> targetDirs = switch (item.getType()) {
-            case MOD -> List.of(DlcPaths.modsDir());
-            case RESOURCE_PACK -> List.of();
-            case DATA_PACK -> DlcPathConfig.getDatapackRoots();
-            case TACZ_PACK -> List.of(DlcPaths.taczDir());
-            default -> List.of();
-        };
-        if (item.getType() == DlcType.RESOURCE_PACK) {
-            return isResourcePackSelected(name);
-        }
-        if (targetDirs.isEmpty()) {
-            return false;
-        }
-        for (Path dir : targetDirs) {
-            if (!java.nio.file.Files.exists(dir.resolve(name))) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private Path resolveStatePath(String raw) {
-        Path path = DlcPaths.resolveAgainstGameDir(raw);
-        if (path != null) {
-            return path;
-        }
-        return DlcPaths.gameDir().resolve("__invalid_path__");
-    }
-
-    private boolean isResourcePackSelected(String fileName) {
-        try {
-            Minecraft minecraft = Minecraft.getInstance();
-            PackRepository repo = minecraft.getResourcePackRepository();
-            String packId = resolvePackId(repo, fileName);
-            if (packId == null) {
-                return false;
-            }
-            return repo.getSelectedIds().contains(packId);
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
     private boolean isItemModified(DlcItem item) {
         return DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled());
     }
@@ -994,8 +921,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     private boolean computeApplyChanges() {
         for (DlcItem item : allItems) {
-            boolean current = isEnabledInTargets(item);
-            if (item.isEnabled() != current) {
+            if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
                 return true;
             }
         }
