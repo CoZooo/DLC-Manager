@@ -118,6 +118,21 @@ Authorization: Bearer <apiToken>
 - `dependencies`
 - `conflicts`
 
+### `GET /api/dlc/pending`
+
+返回当前待应用的 DLC 改动。
+
+返回字段：
+- `count`
+- `items`
+  - `id`
+  - `identifier`
+  - `name`
+  - `type`
+  - `enabled`
+  - `baselineEnabled`
+  - `pending`
+
 ## DLC 根目录 / 配置文件接口
 
 ### `GET /api/dlc/root/list`
@@ -233,6 +248,116 @@ Issue 字段：
 - `type`
 - `supported`
 - `written`
+
+## 文件接口
+
+### `POST /api/file/add`
+
+请求体：
+
+```json
+{
+  "path": "mods/example.jar",
+  "content": "..."
+}
+```
+
+或：
+
+```json
+{
+  "path": "config/example.txt",
+  "contentBase64": "SGVsbG8="
+}
+```
+
+或：
+
+```json
+{
+  "path": "mods/example.jar",
+  "source": "downloads/example.jar"
+}
+```
+
+创建目录：
+
+```json
+{
+  "path": "tmp/example",
+  "directory": true
+}
+```
+
+返回字段：
+- `path`
+- `created`
+- `directory`
+
+### `POST /api/file/del`
+
+请求体：
+
+```json
+{
+  "path": "mods/example.jar"
+}
+```
+
+返回字段：
+- `path`
+- `deleted`
+
+### `POST /api/file/mv`
+
+请求体：
+
+```json
+{
+  "from": "mods/example.jar",
+  "to": "mods/example-disabled.jar"
+}
+```
+
+返回字段：
+- `from`
+- `to`
+- `moved`
+
+### `POST /api/file/rename`
+
+请求体：
+
+```json
+{
+  "path": "mods/example.jar",
+  "name": "example-disabled.jar"
+}
+```
+
+返回字段：
+- `from`
+- `to`
+- `renamed`
+
+### `POST /api/file/upload`
+
+向游戏工作区内目标路径上传原始二进制文件内容。
+
+参数：
+- `path`：上传后的目标保存路径，位于游戏目录内，例如 `mods/example.jar` 或 `config/example.txt`
+
+请求体：
+- 原始二进制 body
+
+支持的目标路径来源：
+- 查询参数 `path`
+- 请求头 `X-Dlc-Path`
+
+返回字段：
+- `path`
+- `uploaded`
+- `size`
 
 ## DLC 应用接口
 

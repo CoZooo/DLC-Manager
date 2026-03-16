@@ -33,6 +33,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -150,6 +151,10 @@ public final class DlcApiService {
                     handleDlcList(exchange);
                     return;
                 }
+                if ("GET".equals(method) && "/api/dlc/pending".equals(path)) {
+                    handleDlcPending(exchange);
+                    return;
+                }
                 if ("GET".equals(method) && "/api/dlc/root/list".equals(path)) {
                     handleDlcRootList(exchange);
                     return;
@@ -244,6 +249,26 @@ public final class DlcApiService {
                 }
                 if ("POST".equals(method) && "/api/dc/write".equals(path)) {
                     handleWriteDc(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/file/add".equals(path)) {
+                    handleFileAdd(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/file/del".equals(path)) {
+                    handleFileDelete(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/file/mv".equals(path)) {
+                    handleFileMove(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/file/rename".equals(path)) {
+                    handleFileRename(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/file/upload".equals(path)) {
+                    handleFileUpload(exchange);
                     return;
                 }
                 sendError(exchange, 404, "not_found", "Unknown API route.");
@@ -342,6 +367,34 @@ public final class DlcApiService {
             groups.add(group);
         }
         data.add("groups", groups);
+        sendOk(exchange, data);
+    }
+
+    private static void handleDlcPending(HttpExchange exchange) throws IOException {
+        Map<DlcType, List<DlcItem>> grouped = scanDlcItemsForApi();
+        JsonArray items = new JsonArray();
+        for (DlcType type : DlcType.values()) {
+            for (DlcItem item : grouped.getOrDefault(type, List.of())) {
+                if (item == null || item.getId() == null || item.getId().isBlank()) {
+                    continue;
+                }
+                if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
+                    continue;
+                }
+                JsonObject json = new JsonObject();
+                json.addProperty("id", blank(item.getId()));
+                json.addProperty("identifier", blank(item.getIdentifier()));
+                json.addProperty("name", resolveApiDisplayName(item));
+                json.addProperty("type", item.getType().name().toLowerCase(Locale.ROOT));
+                json.addProperty("enabled", item.isEnabled());
+                json.addProperty("baselineEnabled", Boolean.TRUE.equals(DlcRuntimeState.getBaselineEnabled(item.getId())));
+                json.addProperty("pending", true);
+                items.add(json);
+            }
+        }
+        JsonObject data = new JsonObject();
+        data.add("items", items);
+        data.addProperty("count", items.size());
         sendOk(exchange, data);
     }
 
@@ -917,6 +970,169 @@ public final class DlcApiService {
         sendOk(exchange, data);
     }
 
+    private static void handleFileAdd(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String pathRaw = blank(getString(request, "path"));
+        if (pathRaw.isBlank()) {
+            sendError(exchange, 400, "path_missing", "Target path is required.");
+            return;
+        }
+        Path target = resolveWritableGamePath(pathRaw);
+        if (target == null) {
+            sendError(exchange, 400, "invalid_path", "Target path is outside the allowed game workspace.");
+            return;
+        }
+        String content = getString(request, "content");
+        String base64 = blank(getString(request, "contentBase64"));
+        String sourceRaw = blank(getString(request, "source"));
+        boolean directory = getBoolean(request, "directory");
+        if (directory) {
+            Files.createDirectories(target);
+            JsonObject data = new JsonObject();
+            data.addProperty("path", toGameRelativePath(target));
+            data.addProperty("created", true);
+            data.addProperty("directory", true);
+            sendOk(exchange, data);
+            return;
+        }
+        Path parent = target.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        if (!sourceRaw.isBlank()) {
+            Path source = resolveReadableGamePath(sourceRaw);
+            if (source == null || !Files.exists(source)) {
+                sendError(exchange, 400, "invalid_source", "Source path is invalid.");
+                return;
+            }
+            Files.copy(source, target);
+        } else if (!base64.isBlank()) {
+            byte[] bytes = java.util.Base64.getDecoder().decode(base64);
+            Files.write(target, bytes);
+        } else {
+            Files.writeString(target, content, StandardCharsets.UTF_8);
+        }
+        JsonObject data = new JsonObject();
+        data.addProperty("path", toGameRelativePath(target));
+        data.addProperty("created", true);
+        sendOk(exchange, data);
+    }
+
+    private static void handleFileDelete(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String pathRaw = blank(getString(request, "path"));
+        if (pathRaw.isBlank()) {
+            sendError(exchange, 400, "path_missing", "Target path is required.");
+            return;
+        }
+        Path target = resolveReadableGamePath(pathRaw);
+        if (target == null) {
+            sendError(exchange, 400, "invalid_path", "Target path is outside the allowed game workspace.");
+            return;
+        }
+        boolean deleted = deleteRecursiveIfExists(target);
+        JsonObject data = new JsonObject();
+        data.addProperty("path", toGameRelativePath(target));
+        data.addProperty("deleted", deleted);
+        sendOk(exchange, data);
+    }
+
+    private static void handleFileMove(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String fromRaw = blank(getString(request, "from"));
+        String toRaw = blank(getString(request, "to"));
+        if (fromRaw.isBlank() || toRaw.isBlank()) {
+            sendError(exchange, 400, "path_missing", "Both from and to paths are required.");
+            return;
+        }
+        Path source = resolveReadableGamePath(fromRaw);
+        Path target = resolveWritableGamePath(toRaw);
+        if (source == null || target == null) {
+            sendError(exchange, 400, "invalid_path", "Path is outside the allowed game workspace.");
+            return;
+        }
+        if (!Files.exists(source)) {
+            sendError(exchange, 404, "not_found", "Source path does not exist.");
+            return;
+        }
+        Path parent = target.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        JsonObject data = new JsonObject();
+        data.addProperty("from", toGameRelativePath(source));
+        data.addProperty("to", toGameRelativePath(target));
+        data.addProperty("moved", true);
+        sendOk(exchange, data);
+    }
+
+    private static void handleFileRename(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String pathRaw = blank(getString(request, "path"));
+        String nameRaw = blank(getString(request, "name"));
+        if (pathRaw.isBlank() || nameRaw.isBlank()) {
+            sendError(exchange, 400, "path_missing", "Path and new name are required.");
+            return;
+        }
+        if (nameRaw.contains("/") || nameRaw.contains("\\") || ".".equals(nameRaw) || "..".equals(nameRaw)) {
+            sendError(exchange, 400, "invalid_name", "New name is invalid.");
+            return;
+        }
+        Path source = resolveReadableGamePath(pathRaw);
+        if (source == null) {
+            sendError(exchange, 400, "invalid_path", "Path is outside the allowed game workspace.");
+            return;
+        }
+        if (!Files.exists(source)) {
+            sendError(exchange, 404, "not_found", "Source path does not exist.");
+            return;
+        }
+        Path parent = source.getParent();
+        if (parent == null) {
+            sendError(exchange, 400, "invalid_path", "Source path cannot be renamed.");
+            return;
+        }
+        Path target = parent.resolve(nameRaw).normalize();
+        if (!target.startsWith(DlcPaths.gameDir().normalize())) {
+            sendError(exchange, 400, "invalid_path", "Target path is outside the allowed game workspace.");
+            return;
+        }
+        Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        JsonObject data = new JsonObject();
+        data.addProperty("from", toGameRelativePath(source));
+        data.addProperty("to", toGameRelativePath(target));
+        data.addProperty("renamed", true);
+        sendOk(exchange, data);
+    }
+
+    private static void handleFileUpload(HttpExchange exchange) throws IOException {
+        String pathRaw = blank(getQueryParam(exchange.getRequestURI(), "path"));
+        if (pathRaw.isBlank()) {
+            pathRaw = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Path"));
+        }
+        if (pathRaw.isBlank()) {
+            sendError(exchange, 400, "path_missing", "Upload target path is required.");
+            return;
+        }
+        Path target = resolveWritableGamePath(pathRaw);
+        if (target == null) {
+            sendError(exchange, 400, "invalid_path", "Target path is outside the allowed game workspace.");
+            return;
+        }
+        byte[] body = exchange.getRequestBody().readAllBytes();
+        Path parent = target.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+        Files.write(target, body);
+        JsonObject data = new JsonObject();
+        data.addProperty("path", toGameRelativePath(target));
+        data.addProperty("uploaded", true);
+        data.addProperty("size", body.length);
+        sendOk(exchange, data);
+    }
+
     private static void handleUpdateState(HttpExchange exchange) throws IOException {
         Path dlcRoot = DlcPathConfig.getDlcRoot();
         DlcUpdateVersion version = dlcRoot == null ? null : DlcUpdateVersion.load(dlcRoot);
@@ -1326,6 +1542,68 @@ public final class DlcApiService {
         return resolved;
     }
 
+    private static Path resolveReadableGamePath(String rawPath) {
+        return resolveGameRelativePath(rawPath);
+    }
+
+    private static Path resolveWritableGamePath(String rawPath) {
+        return resolveGameRelativePath(rawPath);
+    }
+
+    private static String toGameRelativePath(Path path) {
+        if (path == null) {
+            return "";
+        }
+        Path gameDir = DlcPaths.gameDir();
+        if (gameDir == null) {
+            return path.toString();
+        }
+        try {
+            return normalizeRelativePath(gameDir.normalize().relativize(path.toAbsolutePath().normalize()));
+        } catch (Exception ignored) {
+            return path.toString();
+        }
+    }
+
+    private static boolean deleteRecursiveIfExists(Path path) throws IOException {
+        if (path == null || !Files.exists(path)) {
+            return false;
+        }
+        if (Files.isDirectory(path)) {
+            try (var stream = Files.walk(path)) {
+                stream.sorted(Comparator.reverseOrder()).forEach(target -> {
+                    try {
+                        Files.deleteIfExists(target);
+                    } catch (IOException error) {
+                        throw new RuntimeException(error);
+                    }
+                });
+            } catch (RuntimeException error) {
+                if (error.getCause() instanceof IOException io) {
+                    throw io;
+                }
+                throw error;
+            }
+            return true;
+        }
+        return Files.deleteIfExists(path);
+    }
+
+    private static boolean getBoolean(JsonObject obj, String key) {
+        if (obj == null) {
+            return false;
+        }
+        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        if (element == null || element.isJsonNull()) {
+            return false;
+        }
+        try {
+            return element.getAsBoolean();
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     private static String normalizeRelativePath(Path relative) {
         return relative == null ? "" : relative.toString().replace('\\', '/');
     }
@@ -1469,6 +1747,30 @@ public final class DlcApiService {
             path = path.substring(0, path.length() - 1);
         }
         return path;
+    }
+
+    private static String getQueryParam(URI uri, String key) {
+        if (uri == null || uri.getQuery() == null || uri.getQuery().isBlank() || key == null || key.isBlank()) {
+            return "";
+        }
+        String[] parts = uri.getQuery().split("&");
+        for (String part : parts) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            int index = part.indexOf('=');
+            String rawKey = index >= 0 ? part.substring(0, index) : part;
+            if (!key.equals(rawKey)) {
+                continue;
+            }
+            String rawValue = index >= 0 ? part.substring(index + 1) : "";
+            try {
+                return URLDecoder.decode(rawValue, StandardCharsets.UTF_8);
+            } catch (Exception ignored) {
+                return rawValue;
+            }
+        }
+        return "";
     }
 
     private static JsonArray toStringArray(List<?> values) {

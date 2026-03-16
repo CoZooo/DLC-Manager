@@ -118,6 +118,21 @@ Each item may include:
 - `dependencies`
 - `conflicts`
 
+### `GET /api/dlc/pending`
+
+Returns pending DLC changes.
+
+Response fields:
+- `count`
+- `items`
+  - `id`
+  - `identifier`
+  - `name`
+  - `type`
+  - `enabled`
+  - `baselineEnabled`
+  - `pending`
+
 ## DLC Root / Config File Endpoints
 
 ### `GET /api/dlc/root/list`
@@ -233,6 +248,116 @@ Response fields:
 - `type`
 - `supported`
 - `written`
+
+## File Endpoints
+
+### `POST /api/file/add`
+
+Request body:
+
+```json
+{
+  "path": "mods/example.jar",
+  "content": "..."
+}
+```
+
+Or:
+
+```json
+{
+  "path": "config/example.txt",
+  "contentBase64": "SGVsbG8="
+}
+```
+
+Or:
+
+```json
+{
+  "path": "mods/example.jar",
+  "source": "downloads/example.jar"
+}
+```
+
+Or create a directory:
+
+```json
+{
+  "path": "tmp/example",
+  "directory": true
+}
+```
+
+Response fields:
+- `path`
+- `created`
+- `directory`
+
+### `POST /api/file/del`
+
+Request body:
+
+```json
+{
+  "path": "mods/example.jar"
+}
+```
+
+Response fields:
+- `path`
+- `deleted`
+
+### `POST /api/file/mv`
+
+Request body:
+
+```json
+{
+  "from": "mods/example.jar",
+  "to": "mods/example-disabled.jar"
+}
+```
+
+Response fields:
+- `from`
+- `to`
+- `moved`
+
+### `POST /api/file/rename`
+
+Request body:
+
+```json
+{
+  "path": "mods/example.jar",
+  "name": "example-disabled.jar"
+}
+```
+
+Response fields:
+- `from`
+- `to`
+- `renamed`
+
+### `POST /api/file/upload`
+
+Upload raw binary content to a file path inside the game workspace.
+
+Parameters:
+- `path`: target save path inside the game directory, for example `mods/example.jar` or `config/example.txt`
+
+Request body:
+- raw binary body
+
+Supported target path sources:
+- query param `path`
+- request header `X-Dlc-Path`
+
+Response fields:
+- `path`
+- `uploaded`
+- `size`
 
 ## DLC Apply Endpoints
 
