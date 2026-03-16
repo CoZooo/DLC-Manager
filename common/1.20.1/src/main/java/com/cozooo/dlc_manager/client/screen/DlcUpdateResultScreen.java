@@ -53,7 +53,10 @@ public class DlcUpdateResultScreen extends Screen {
         guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
         y += 20;
         int color = success ? 0x9BE17A : 0xFF6B6B;
-        guiGraphics.drawCenteredString(this.font, message, centerX, y, color);
+        for (var line : this.font.split(message, this.width - 40)) {
+            guiGraphics.drawCenteredString(this.font, line, centerX, y, color);
+            y += 10;
+        }
         if (success) {
             y += 14;
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.restart"), centerX, y, 0xC8C8C8);

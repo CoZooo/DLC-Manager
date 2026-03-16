@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.DlcPendingFileOpsHelper;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
@@ -691,9 +692,14 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             return;
         }
 
+        DlcApplier.ApplyResult applyResult = null;
         if (applyNeeded) {
-            DlcApplier.apply(allItems, applyMode);
+            applyResult = DlcApplier.apply(allItems, applyMode);
             updateResourcePackSelection();
+            if (shouldShowApplyFailureScreen(applyResult)) {
+                showApplyFailureScreen(applyResult);
+                return;
+            }
         }
         if (DlcPathConfig.isPresetFuncOn() && (presetChanged || applyNeeded)) {
             DlcPresetRuntimeState.syncStatusFromRuntime();
@@ -754,6 +760,32 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             minecraft.setScreen(new ConfirmScreen(accepted -> minecraft.setScreen(parent),
                 Component.translatable("dlc_manager.title"), Component.translatable(message)));
         }
+    }
+
+    private boolean shouldShowApplyFailureScreen(DlcApplier.ApplyResult result) {
+        if (result == null || result.messages() == null || result.messages().isEmpty()) {
+            return false;
+        }
+        return !(DlcPendingFileOpsHelper.isSupported() && hasDelayedRemovalMessage(result));
+    }
+
+    private boolean hasDelayedRemovalMessage(DlcApplier.ApplyResult result) {
+        if (result.messages() == null) {
+            return false;
+        }
+        for (String message : result.messages()) {
+            if (message != null && message.startsWith("Scheduled delayed removal after process exit")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void showApplyFailureScreen(DlcApplier.ApplyResult result) {
+        minecraft.setScreen(new DlcSingleButtonScreen(parent,
+            Component.translatable("dlc_manager.server.apply_failed"),
+            Component.literal(String.join("\n", result.messages())),
+            Component.translatable("dlc_manager.back")));
     }
 
     private class FooterButtonListener implements IButtonActionListener {

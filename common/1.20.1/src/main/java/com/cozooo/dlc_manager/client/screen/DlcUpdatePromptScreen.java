@@ -314,13 +314,20 @@ public class DlcUpdatePromptScreen extends Screen {
             return;
         }
         if (!result.isSuccess()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));
+            String message = result == null ? "" : result.getMessage();
+            Component component = (message == null || message.isBlank())
+                ? Component.translatable("dlc_manager.update.failed")
+                : Component.literal(message);
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, component));
             return;
         }
         if (tryShowPostUpdateDownloads(result)) {
             return;
         }
-        Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, Component.translatable("dlc_manager.update.success")));
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
+        Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
     }
 
     private boolean tryShowPostUpdateDownloads(UpdateApplyResult result) {
