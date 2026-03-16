@@ -28,6 +28,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
+import com.cozooo.dlc_manager.client.DlcStartupStateSync;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcNoticeConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
@@ -672,6 +673,7 @@ public final class DlcClientRuntime {
         if (startupCheckRunning || startupChecksCompleted) {
             return;
         }
+        DlcStartupStateSync.syncOnStartup();
         startupCheckRunning = true;
         startupChecksCompleted = true;
         new Thread(() -> {
