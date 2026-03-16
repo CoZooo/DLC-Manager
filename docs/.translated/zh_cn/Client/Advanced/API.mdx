@@ -70,8 +70,7 @@ Authorization: Bearer <apiToken>
 返回字段：
 - `service`
 - `running`
-- `port`
-- `serverVersionLabel`
+- `mode`
 
 ### `GET /api/version`
 
@@ -89,12 +88,8 @@ Authorization: Bearer <apiToken>
 返回 API 与运行时状态摘要。
 
 返回字段：
-- `apiEnabled`
-- `apiPort`
 - `serverRunning`
 - `dedicatedServer`
-- `base`
-- `dlc`
 - `totalItems`
 - `enabledItems`
 - `counts`
@@ -109,6 +104,8 @@ Authorization: Bearer <apiToken>
 - `name`
 - `type`
 - `enabled`
+- `baselineEnabled`
+- `pending`
 - `hidden`
 - `configType`
 - `alarm`
@@ -239,26 +236,99 @@ Issue 字段：
 
 ## DLC 应用接口
 
-### `POST /api/dlc/apply`
-
-立即提交并应用启用/关闭改动。
+### `POST /api/dlc/enable`
 
 请求体：
 
 ```json
 {
-  "mode": "restart_only",
-  "changes": [
-    { "id": "mod:...|a.jar", "enabled": true },
-    { "id": "unknown:...|b.zip", "enabled": false }
-  ]
+  "id": "mod:...|a.jar"
+}
+```
+
+或：
+
+```json
+{
+  "ids": ["mod:...|a.jar", "unknown:...|b.zip"]
+}
+```
+
+也支持直接传 `identifier`：
+
+```json
+{
+  "identifier": "example_mod"
+}
+```
+
+```json
+{
+  "identifiers": ["example_mod", "example_pack"]
+}
+```
+
+返回字段：
+- `enabled`
+- `changes`
+- `linkedChanges`
+- `unknownIds`
+- `unknownIdentifiers`
+
+### `POST /api/dlc/disable`
+
+请求体：
+
+```json
+{
+  "id": "mod:...|a.jar"
+}
+```
+
+或：
+
+```json
+{
+  "ids": ["mod:...|a.jar", "unknown:...|b.zip"]
+}
+```
+
+也支持直接传 `identifier`：
+
+```json
+{
+  "identifier": "example_mod"
+}
+```
+
+```json
+{
+  "identifiers": ["example_mod", "example_pack"]
+}
+```
+
+返回字段：
+- `enabled`
+- `changes`
+- `linkedChanges`
+- `unknownIds`
+- `unknownIdentifiers`
+
+### `POST /api/dlc/apply`
+
+只应用当前已经处于待应用状态的 DLC 改动。
+
+请求体：
+
+```json
+{
+  "mode": "restart"
 }
 ```
 
 支持的 `mode`：
-- `restart_only`
+- `restart`
 - `reload`
-- `try_hot_reload`
 
 返回字段：
 - `mode`
@@ -266,7 +336,6 @@ Issue 字段：
 - `requiresRestart`
 - `hotReloaded`
 - `appliedChanges`
-- `unknownIds`
 - `messages`
 
 ## Remote 接口
@@ -398,9 +467,6 @@ X-Dlc-Lang: zh_cn
 返回当前更新状态与回滚历史。
 
 返回字段：
-- `base`
-- `dlc`
-- `label`
 - `rollbackFrom`
 - `rolledBack`
 - `history`
@@ -410,8 +476,6 @@ X-Dlc-Lang: zh_cn
 返回当前可应用的更新包列表。
 
 返回字段：
-- `base`
-- `dlc`
 - `hasUpdates`
 - `updates`
 

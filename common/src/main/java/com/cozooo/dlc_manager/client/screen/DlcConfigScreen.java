@@ -74,7 +74,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     };
 
     public DlcConfigScreen(Screen parent) {
-        this(parent, Tab.SERVER);
+        this(parent, Tab.PATHS);
     }
 
     public DlcConfigScreen(Screen parent, Tab tab) {
@@ -181,7 +181,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private static Tab resolveTab(Tab tab) {
-        return tab == null ? Tab.SERVER : tab;
+        return tab == null ? Tab.PATHS : tab;
     }
 
     private static List<ConfigOptionWrapper> buildOptions(Tab tab) {

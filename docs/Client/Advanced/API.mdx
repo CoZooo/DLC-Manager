@@ -70,8 +70,7 @@ Health check.
 Response fields:
 - `service`
 - `running`
-- `port`
-- `serverVersionLabel`
+- `mode`
 
 ### `GET /api/version`
 
@@ -89,12 +88,8 @@ Response fields:
 Returns API/runtime summary.
 
 Response fields:
-- `apiEnabled`
-- `apiPort`
 - `serverRunning`
 - `dedicatedServer`
-- `base`
-- `dlc`
 - `totalItems`
 - `enabledItems`
 - `counts`
@@ -109,6 +104,8 @@ Each item may include:
 - `name`
 - `type`
 - `enabled`
+- `baselineEnabled`
+- `pending`
 - `hidden`
 - `configType`
 - `alarm`
@@ -237,28 +234,101 @@ Response fields:
 - `supported`
 - `written`
 
-## DLC Apply Endpoint
+## DLC Apply Endpoints
 
-### `POST /api/dlc/apply`
-
-Apply enable/disable changes immediately.
+### `POST /api/dlc/enable`
 
 Request body:
 
 ```json
 {
-  "mode": "restart_only",
-  "changes": [
-    { "id": "mod:...|a.jar", "enabled": true },
-    { "id": "unknown:...|b.zip", "enabled": false }
-  ]
+  "id": "mod:...|a.jar"
+}
+```
+
+Or:
+
+```json
+{
+  "ids": ["mod:...|a.jar", "unknown:...|b.zip"]
+}
+```
+
+Or use identifiers:
+
+```json
+{
+  "identifier": "example_mod"
+}
+```
+
+```json
+{
+  "identifiers": ["example_mod", "example_pack"]
+}
+```
+
+Response fields:
+- `enabled`
+- `changes`
+- `linkedChanges`
+- `unknownIds`
+- `unknownIdentifiers`
+
+### `POST /api/dlc/disable`
+
+Request body:
+
+```json
+{
+  "id": "mod:...|a.jar"
+}
+```
+
+Or:
+
+```json
+{
+  "ids": ["mod:...|a.jar", "unknown:...|b.zip"]
+}
+```
+
+Or use identifiers:
+
+```json
+{
+  "identifier": "example_mod"
+}
+```
+
+```json
+{
+  "identifiers": ["example_mod", "example_pack"]
+}
+```
+
+Response fields:
+- `enabled`
+- `changes`
+- `linkedChanges`
+- `unknownIds`
+- `unknownIdentifiers`
+
+### `POST /api/dlc/apply`
+
+Apply current pending DLC changes only.
+
+Request body:
+
+```json
+{
+  "mode": "restart"
 }
 ```
 
 Supported `mode`:
-- `restart_only`
+- `restart`
 - `reload`
-- `try_hot_reload`
 
 Response fields:
 - `mode`
@@ -266,7 +336,6 @@ Response fields:
 - `requiresRestart`
 - `hotReloaded`
 - `appliedChanges`
-- `unknownIds`
 - `messages`
 
 ## Remote Endpoints
@@ -398,9 +467,6 @@ Response fields:
 Returns current update state and rollback history.
 
 Response fields:
-- `base`
-- `dlc`
-- `label`
 - `rollbackFrom`
 - `rolledBack`
 - `history`
@@ -410,8 +476,6 @@ Response fields:
 Returns current applicable update packages.
 
 Response fields:
-- `base`
-- `dlc`
 - `hasUpdates`
 - `updates`
 
@@ -500,4 +564,3 @@ Response fields:
 - `success`
 - `message`
 - `downloadedPath`
-

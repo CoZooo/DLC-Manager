@@ -47,6 +47,14 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 
 public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcListWidget> {
+    public static void refreshCurrentOpenScreen() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || !(minecraft.screen instanceof DlcMaLiLibScreen screen)) {
+            return;
+        }
+        screen.refreshAfterStateChange();
+    }
+
     private final Screen parent;
     private final List<DlcListRow> rows = new ArrayList<>();
     private final List<DlcItem> items = new ArrayList<>();
