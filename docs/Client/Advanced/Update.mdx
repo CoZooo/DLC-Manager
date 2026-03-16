@@ -81,7 +81,7 @@ zh_cn = """更新说明第1行
 - `dlc`: source DLC version (required for matching)
 - `dlc_new`: target DLC version (optional)
 
-> A package is considered effective only if at least one side changes (`base` -> `base_new` or `dlc` -> `dlc_new`).
+> `base` and `dlc` are required. At least one of `base_new` or `dlc_new` must be set, otherwise the package is invalid.
 
 #### `[changelog]`
 - **Purpose**: Update notes.
@@ -98,6 +98,10 @@ zh_cn = """更新说明第1行
 - **Shape**: `"<source>": { appliedTarget, override }`
 - `appliedTarget`: target path (required)
 - `override`: `true` / `false` / `all` / `none`
+  - `true`: overwrite; for directories, replace every file inside the folder.
+  - `false`: do not overwrite; for directories, skip files with the same name.
+  - `all`: replace the entire folder.
+  - `none`: skip when a folder with the same name already exists.
 
 #### `[file].move`
 - **Purpose**: Move/rename files.

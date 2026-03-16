@@ -11,7 +11,7 @@ For `dc` format conventions, please read:
 
 ## Complete Example
 ```dc
-available = "zh_cn"
+available = "en_us"
 RedirectUrl = "https://example.com/qq-group"
 
 [DisplayName]
@@ -37,9 +37,10 @@ en_us = "Click to open"
 - **Purpose**: Control visibility.
 - **Allowed**:
   - Empty `""`: visible for all languages.
-  - Language code (e.g., `zh_cn` / `en_us`).
-  - `hidden` (hide the entry).
-- **Note**: Only a **single** language code is supported; lists are not supported.
+  - A single language code (e.g., `zh_cn` / `en_us`): visible only for that language.
+  - Multiple language codes in a comma-separated string (e.g., `"zh_cn,en_us"`): visible only for those languages.
+  - A string array (e.g., `["zh_cn", "en_us"]`): visible only for those languages.
+  - `hidden`: hidden for all languages.
 
 #### `RedirectUrl`
 - **Purpose**: Target URL.

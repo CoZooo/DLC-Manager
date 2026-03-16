@@ -81,7 +81,7 @@ zh_cn = """更新说明第1行
 - `dlc`：原 DLC 版本（用于匹配）
 - `dlc_new`：新 DLC 版本（可选）
 
-> 仅当至少一侧发生变化（`base -> base_new` 或 `dlc -> dlc_new`）时，该更新包才会生效。
+> `base` 和 `dlc` 必填。`base_new` 与 `dlc_new` 至少需要填写一项，否则该更新包无效。
 
 #### `[changelog]`
 - **用途**：更新日志。
@@ -98,6 +98,10 @@ zh_cn = """更新说明第1行
 - **结构**：`"<source>": { appliedTarget, override }`
 - `appliedTarget`：目标路径（必填）
 - `override`：`true` / `false` / `all` / `none`
+  - `true`：覆盖；若为文件夹，则替换文件夹内的每一个文件。
+  - `false`：不覆盖；若为文件夹，则跳过同名文件。
+  - `all`：替换整个文件夹。
+  - `none`：存在同名文件夹时跳过。
 
 #### `[file].move`
 - **用途**：移动/重命名文件。
