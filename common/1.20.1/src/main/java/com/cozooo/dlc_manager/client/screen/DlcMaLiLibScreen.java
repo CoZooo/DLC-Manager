@@ -763,10 +763,22 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private boolean shouldShowApplyFailureScreen(DlcApplier.ApplyResult result) {
-        if (result == null || result.messages() == null || result.messages().isEmpty()) {
+        if (!hasFailureMessage(result)) {
             return false;
         }
         return !(DlcPendingFileOpsHelper.isSupported() && hasDelayedRemovalMessage(result));
+    }
+
+    private boolean hasFailureMessage(DlcApplier.ApplyResult result) {
+        if (result == null || result.messages() == null) {
+            return false;
+        }
+        for (String message : result.messages()) {
+            if (message != null && message.startsWith("Failed to ")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasDelayedRemovalMessage(DlcApplier.ApplyResult result) {
@@ -784,8 +796,21 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private void showApplyFailureScreen(DlcApplier.ApplyResult result) {
         minecraft.setScreen(new DlcSingleButtonScreen(parent,
             Component.translatable("dlc_manager.server.apply_failed"),
-            Component.literal(String.join("\n", result.messages())),
+            Component.literal(joinFailureMessages(result)),
             Component.translatable("dlc_manager.back")));
+    }
+
+    private String joinFailureMessages(DlcApplier.ApplyResult result) {
+        if (result == null || result.messages() == null) {
+            return "";
+        }
+        List<String> failureMessages = new ArrayList<>();
+        for (String message : result.messages()) {
+            if (message != null && message.startsWith("Failed to ")) {
+                failureMessages.add(message);
+            }
+        }
+        return String.join("\n", failureMessages);
     }
 
     private class FooterButtonListener implements IButtonActionListener {
