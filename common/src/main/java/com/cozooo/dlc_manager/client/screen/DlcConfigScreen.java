@@ -74,7 +74,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     };
 
     public DlcConfigScreen(Screen parent) {
-        this(parent, Tab.PATHS);
+        this(parent, Tab.SERVER);
     }
 
     public DlcConfigScreen(Screen parent, Tab tab) {
@@ -100,6 +100,8 @@ public class DlcConfigScreen extends GuiModConfigs {
         this.setConfigWidth(configWidth);
         super.initGui();
         x = addTabButton(Tab.PATHS, x, y, height);
+        x += gap;
+        x = addTabButton(Tab.SERVER, x, y, height);
         x += gap;
         x = addTabButton(Tab.UI, x, y, height);
         x += gap;
@@ -179,7 +181,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private static Tab resolveTab(Tab tab) {
-        return tab == null ? Tab.PATHS : tab;
+        return tab == null ? Tab.SERVER : tab;
     }
 
     private static List<ConfigOptionWrapper> buildOptions(Tab tab) {
@@ -190,6 +192,7 @@ public class DlcConfigScreen extends GuiModConfigs {
 
     private static List<IConfigBase> getConfigsForTab(Tab tab) {
         return switch (tab) {
+            case SERVER -> DlcPathConfigClient.getServerConfigs();
             case UI -> DlcPathConfigClient.getUiConfigs();
             case DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs();
             case PATHS -> DlcPathConfigClient.getPathConfigs();
@@ -636,6 +639,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     public enum Tab {
+        SERVER("dlc_manager.config.tab.server"),
         PATHS("dlc_manager.config.tab.paths"),
         UI("dlc_manager.config.tab.ui"),
         DOWNLOADS("dlc_manager.config.tab.download");

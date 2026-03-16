@@ -17,6 +17,12 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort");
     private static final ConfigString SERVER_PASSWORD = new DlcConfigString("serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword");
+    private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcPathConfig.DEFAULT_API_ENABLED,
+        "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
+    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 1, 65535,
+        "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
+    private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", "",
+        "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
     private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL,
         "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
     private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
@@ -59,6 +65,9 @@ public final class DlcServerConfigClient {
         SERVER_SUPPORT,
         SERVER_PORT,
         SERVER_PASSWORD,
+        API_ENABLED,
+        API_PORT,
+        API_TOKEN,
         MODPACK_URL,
         UPDATE_GITHUB_REPO
     );
@@ -117,6 +126,11 @@ public final class DlcServerConfigClient {
         MODPACK_URL.setValueFromString(getString(server, "modpackUrl", MODPACK_URL.getStringValue()));
         UPDATE_GITHUB_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GITHUB_REPO.getStringValue()));
 
+        JsonObject api = asObject(root, "api");
+        API_ENABLED.setBooleanValue(getBoolean(api, "apiEnabled", API_ENABLED.getBooleanValue()));
+        API_PORT.setIntegerValue(getInt(api, "apiPort", API_PORT.getIntegerValue()));
+        API_TOKEN.setValueFromString(getString(api, "apiToken", API_TOKEN.getStringValue()));
+
         JsonObject ui = asObject(root, "ui");
         UI_ENABLE_ALL.setBooleanValue(getBoolean(ui, "isEnableAllButtonShown", UI_ENABLE_ALL.getBooleanValue()));
         UI_UPDATE_MANAGER.setBooleanValue(getBoolean(ui, "isUpdateManagerOn", UI_UPDATE_MANAGER.getBooleanValue()));
@@ -148,6 +162,12 @@ public final class DlcServerConfigClient {
         server.addProperty("modpackUrl", MODPACK_URL.getStringValue());
         server.addProperty("updateGithubRepo", UPDATE_GITHUB_REPO.getStringValue());
         root.add("server", server);
+
+        JsonObject api = new JsonObject();
+        api.addProperty("apiEnabled", API_ENABLED.getBooleanValue());
+        api.addProperty("apiPort", API_PORT.getIntegerValue());
+        api.addProperty("apiToken", API_TOKEN.getStringValue());
+        root.add("api", api);
 
         JsonObject ui = new JsonObject();
         ui.addProperty("isEnableAllButtonShown", UI_ENABLE_ALL.getBooleanValue());

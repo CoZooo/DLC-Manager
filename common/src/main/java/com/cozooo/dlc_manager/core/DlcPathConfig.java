@@ -153,6 +153,7 @@ public class DlcPathConfig {
 
     public static JsonObject buildServerConfigJson() {
         JsonObject root = new JsonObject();
+        writeApi(root);
         writeServer(root);
         writeServerUi(root);
         writePaths(root);
@@ -164,6 +165,7 @@ public class DlcPathConfig {
         if (root == null) {
             return;
         }
+        readSection(root, "api", buildApiReaders());
         readSection(root, "server", buildServerReaders());
         readSection(root, "ui", buildServerUiReaders());
         readSection(root, "paths", buildPathReaders());
