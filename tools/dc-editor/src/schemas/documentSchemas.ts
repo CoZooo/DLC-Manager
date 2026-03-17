@@ -23,13 +23,13 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       key: "identifier",
       label: "identifier",
       kind: "text",
-      help: "逻辑标识符；用于依赖、冲突、预设等匹配。"
+      help: "逻辑标识符，用于依赖、冲突、预设等匹配。"
     },
     {
       key: "file_name",
       label: "file_name",
       kind: "text",
-      help: "DLC 文件名（包含扩展名）；用于确定磁盘上的目标名称。"
+      help: "DLC 文件名（包含扩展名）。"
     },
     {
       key: "__multiFileEnabled",
@@ -49,7 +49,7 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
           label: "type",
           kind: "select" as const,
           options: typeOptions,
-          help: "DLC 类型；可选 mod、resourcepack、datapack、gunpack、config、others。"
+          help: "DLC 类型，可选 mod、resourcepack、datapack、gunpack、config、others。"
         }]
       : []),
     ...((options?.includeAppliedTarget ?? false)
@@ -66,7 +66,7 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
                 }
               }
             : {}),
-          help: "应用目标路径；可填写相对路径或绝对路径。"
+          help: "应用目标路径，填写相对路径。"
         }]
       : []),
     {
@@ -79,7 +79,7 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       key: "isHidden",
       label: "isHidden",
       kind: "boolean",
-      help: "是否隐藏该项；适合无独立意义的库或前置。",
+      help: "是否隐藏该项，适合无独立意义的库或前置。",
       toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
     },
     {
@@ -92,7 +92,7 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       key: "dependencies",
       label: "dependencies",
       kind: "list",
-      help: "前置 identifier 列表；当前表单模式仅支持简单列表。"
+      help: "前置 identifier 列表。"
     },
     {
       key: "conflicts",
@@ -117,19 +117,19 @@ const requiredBasicSection: SectionSchema = {
       key: "identifier",
       label: "identifier",
       kind: "text",
-      help: "逻辑标识符；用于前置匹配。"
+      help: "逻辑标识符，用于前置匹配。"
     },
     {
       key: "file_name",
       label: "file_name",
       kind: "text",
-      help: "DLC 文件名（包含扩展名）；用于最终下载文件名。"
+      help: "DLC 文件名（包含扩展名），用于最终下载文件名。"
     },
     {
       key: "appliedTarget",
       label: "appliedTarget",
       kind: "text",
-      help: "应用目标路径；可填写相对路径或绝对路径。"
+      help: "应用目标路径，填写相对路径。"
     },
     {
       key: "isInList",
@@ -148,7 +148,7 @@ const requiredBasicSection: SectionSchema = {
       key: "dependencies",
       label: "dependencies",
       kind: "list",
-      help: "前置 identifier 列表；当前表单模式仅支持简单列表。"
+      help: "前置 identifier 列表。"
     }
   ]
 };
@@ -158,7 +158,7 @@ const displayNameSection: SectionSchema = {
   label: "[DisplayName]",
   dynamicLocale: {
     valueKind: "text",
-    help: "本地化显示名称；手动填写语言代码和对应文本，可继续添加更多语言。"
+    help: "本地化显示名称。"
   },
   fields: []
 };
@@ -168,7 +168,7 @@ const tipSection: SectionSchema = {
   label: "[tip]",
   dynamicLocale: {
     valueKind: "textarea",
-    help: "本地化提示文本；手动填写语言代码和对应文本，可继续添加更多语言。"
+    help: "本地化提示文本。"
   },
   fields: []
 };
@@ -241,14 +241,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "directUrl",
             label: "directUrl",
             kind: "list",
-            help: "直接下载链接；每行一个 URL，会写回为字符串数组。"
+            help: "直链，每行一个 URL。"
           },
           {
             key: "priority",
             label: "priority",
             kind: "ordered-select-list",
             options: priorityOptions,
-            help: "下载源优先顺序；勾选来源并调整顺序，写回为列表。"
+            help: "下载源优先顺序，调整顺序。"
           }
         ]
       },
@@ -296,14 +296,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "directUrl",
             label: "directUrl",
             kind: "list",
-            help: "直接下载链接；每行一个 URL，会写回为字符串数组。"
+            help: "直链，每行一个 URL。"
           },
           {
             key: "priority",
             label: "priority",
             kind: "ordered-select-list",
             options: priorityOptions,
-            help: "下载源优先顺序；勾选来源并调整顺序，写回为列表。"
+            help: "下载源优先顺序，调整顺序。"
           }
         ]
       },
@@ -341,7 +341,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "conflicts",
             label: "conflicts",
             kind: "list",
-            help: "与该预设冲突的 DLC identifier 列表。"
+            help: "与该预设冲突的 DLC identifier 或预设列表。"
           },
           {
             key: "alarm",
@@ -395,14 +395,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       {
-        ...localeTextSection("Title", "[Title]", "公告标题；手动填写语言代码和对应文本，可继续添加更多语言。")
+        ...localeTextSection("Title", "[Title]", "公告标题。")
       },
       {
         key: "Subhead",
         label: "[Subhead]",
         dynamicLocale: {
           valueKind: "text",
-          help: "公告副标题；手动填写语言代码和对应文本，可继续添加更多语言。"
+          help: "公告副标题。"
         },
         fields: [
           {
@@ -415,10 +415,10 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       {
-        ...localeTextSection("ContentUrl", "[ContentUrl]", "在线公告内容 URL；优先级高于 Contents，可为不同语言分别填写。")
+        ...localeTextSection("ContentUrl", "[ContentUrl]", "在线公告内容 URL，优先级高于 Contents。")
       },
       {
-        ...localeTextareaSection("Contents", "[Contents]", "公告正文；支持 Markdown 与颜色代码，可继续添加更多语言。")
+        ...localeTextareaSection("Contents", "[Contents]", "公告正文，支持 Markdown 与颜色代码。")
       }
     ]
   },
@@ -443,15 +443,15 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "available",
             label: "available",
             kind: "language-visibility",
-            help: "控制可见性；可逐条新增语言代码。留空时所有语言可见，勾选隐藏时所有语言隐藏。"
+            help: "控制可见性。留空时所有语言可见，勾选隐藏时所有语言隐藏。"
           }
         ]
       },
       {
-        ...localeTextSection("DisplayName", "[DisplayName]", "列表名称；手动填写语言代码和对应文本，可继续添加更多语言。")
+        ...localeTextSection("DisplayName", "[DisplayName]", "列表名称。")
       },
       {
-        ...localeTextareaSection("notice", "[notice]", "跳转前确认说明；手动填写语言代码和对应文本，可继续添加更多语言。")
+        ...localeTextareaSection("notice", "[notice]", "跳转前确认说明。")
       },
       tipSection
     ]
@@ -489,7 +489,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
               { value: "client", label: "client" },
               { value: "server", label: "server" }
             ],
-            help: "热更新包适用的平台；可选 universal、client、server。"
+            help: "热更新包适用的平台，可选 universal、client、server。"
           },
           {
             key: "base",
@@ -501,7 +501,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "base_new",
             label: "base_new",
             kind: "text",
-            help: "应用后新的底包版本；不变时可留空。"
+            help: "应用后新的底包版本，不变时可留空。"
           },
           {
             key: "dlc",
@@ -513,12 +513,12 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "dlc_new",
             label: "dlc_new",
             kind: "text",
-            help: "应用后新的 DLC 版本；不变时可留空。"
+            help: "应用后新的 DLC 版本，不变时可留空。"
           }
         ]
       },
       {
-        ...localeTextareaSection("changelog", "[changelog]", "更新日志；手动填写语言代码和对应文本，可继续添加更多语言。")
+        ...localeTextareaSection("changelog", "[changelog]", "更新日志。")
       },
       {
         key: "file_del",
