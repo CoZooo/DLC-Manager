@@ -248,7 +248,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             label: "priority",
             kind: "ordered-select-list",
             options: priorityOptions,
-            help: "下载源优先顺序，调整顺序。"
+            help: "调整下载源优先顺序。"
           }
         ]
       },
@@ -303,7 +303,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             label: "priority",
             kind: "ordered-select-list",
             options: priorityOptions,
-            help: "下载源优先顺序，调整顺序。"
+            help: "调整下载源优先顺序。"
           }
         ]
       },

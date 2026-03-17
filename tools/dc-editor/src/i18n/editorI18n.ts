@@ -211,7 +211,7 @@ const staticTextDictionary: Record<string, string> = {
   "列表名称。": "Display name.",
   "跳转前确认说明。": "Confirmation text shown before redirect.",
   "直链，每行一个 URL。": "Direct links. One URL per line.",
-  "下载源优先顺序，调整顺序。": "Download source priority order, reorder the sources.",
+  "调整下载源优先顺序。": "Adjust download source priority order.",
   "Modrinth 项目 ID 或 slug。": "Modrinth project ID or slug.",
   "Modrinth 版本 ID 或版本号。": "Modrinth version ID or version string.",
   "CurseForge 项目 ID 或 slug。": "CurseForge project ID or slug.",
