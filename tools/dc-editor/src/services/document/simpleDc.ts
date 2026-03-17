@@ -286,7 +286,11 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
         }
         continue;
       }
-      const value = values[field.key];
+      const rawValue = values[field.key];
+      const value =
+        rawValue === undefined && schema.type === "update" && section.key === "version" && field.key === "platform"
+          ? field.options?.[0]?.value
+          : rawValue;
       if (value === undefined) {
         continue;
       }
@@ -391,6 +395,11 @@ function extractPreservedUpdateBlocks(rawText: string): string[] {
       currentLines = [];
       return;
     }
+    if (currentHeader === "update" && isEmptyUpdateBlock(currentLines)) {
+      currentHeader = null;
+      currentLines = [];
+      return;
+    }
     blocks.push(trimTrailingBlankLines(currentLines).join("\n"));
     currentHeader = null;
     currentLines = [];
@@ -412,6 +421,13 @@ function extractPreservedUpdateBlocks(rawText: string): string[] {
 
   flush();
   return blocks.filter(Boolean);
+}
+
+function isEmptyUpdateBlock(lines: string[]): boolean {
+  if (lines.length <= 1) {
+    return true;
+  }
+  return lines.slice(1).every((line) => !stripComment(line).trim());
 }
 
 function trimTrailingBlankLines(lines: string[]): string[] {
@@ -864,8 +880,8 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
 
   if (schema.type === "version") {
     const root = model[ROOT_SECTION_KEY] || {};
-    requireNonEmptyString(issues, root.base, "[根级字段].base 为空。", "warning");
-    requireNonEmptyString(issues, root.dlc, "[根级字段].dlc 为空。", "warning");
+    requireNonEmptyString(issues, root.base, "[根级字段].base 为空。", "error");
+    requireNonEmptyString(issues, root.dlc, "[根级字段].dlc 为空。", "error");
     return;
   }
 

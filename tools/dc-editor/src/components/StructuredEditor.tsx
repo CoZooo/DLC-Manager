@@ -201,6 +201,8 @@ export function StructuredEditor(props: StructuredEditorProps) {
                         className={
                           field.key === "type"
                             ? "compact-select"
+                            : field.key === "platform" && section.key === "version"
+                              ? "compact-select compact-select-platform"
                             : field.key === "ShowFrequency"
                               ? "compact-select compact-select-frequency"
                               : undefined
@@ -445,6 +447,8 @@ interface OrderedSelectListEditorProps {
 }
 
 function OrderedSelectListEditor(props: OrderedSelectListEditorProps) {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const ordered = [
     ...props.value.filter((value) => props.options.some((option) => option.value === value)),
     ...props.options.map((option) => option.value).filter((value) => !props.value.includes(value))
@@ -460,15 +464,66 @@ function OrderedSelectListEditor(props: OrderedSelectListEditorProps) {
     props.onChange(next);
   };
 
+  const moveTo = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= ordered.length || to >= ordered.length) {
+      return;
+    }
+    const next = [...ordered];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    props.onChange(next);
+  };
+
   return (
     <div className="ordered-select-list">
       <div className="ordered-select-selected">
         <div className="ordered-select-selected-title">{t(props.locale, "currentOrder")}</div>
         {ordered.map((value, index) => {
           const label = props.options.find((option) => option.value === value)?.label || value;
+          const dragStateClass =
+            draggingIndex === index
+              ? " is-dragging"
+              : dropIndex === index
+                ? " is-drop-target"
+                : "";
           return (
-            <div key={value} className="ordered-select-item">
-              <span>{label}</span>
+            <div
+              key={value}
+              className={`ordered-select-item${dragStateClass}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (draggingIndex !== null && draggingIndex !== index && dropIndex !== index) {
+                  setDropIndex(index);
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (draggingIndex !== null) {
+                  moveTo(draggingIndex, index);
+                }
+                setDraggingIndex(null);
+                setDropIndex(null);
+              }}
+              onDragEnd={() => {
+                setDraggingIndex(null);
+                setDropIndex(null);
+              }}
+            >
+              <button
+                type="button"
+                className="drag-handle-button"
+                draggable
+                aria-label={`${t(props.locale, "currentOrder")} ${label}`}
+                onDragStart={(event) => {
+                  setDraggingIndex(index);
+                  setDropIndex(index);
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", value);
+                }}
+              >
+                ⋮⋮
+              </button>
+              <span className="ordered-select-item-label">{label}</span>
               <div className="ordered-select-actions">
                 <button type="button" onClick={() => move(index, -1)} disabled={index === 0}>{t(props.locale, "moveUp")}</button>
                 <button type="button" onClick={() => move(index, 1)} disabled={index === ordered.length - 1}>{t(props.locale, "moveDown")}</button>

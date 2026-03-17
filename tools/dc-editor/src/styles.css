@@ -449,8 +449,39 @@ button:disabled {
   border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+.ordered-select-item.is-dragging {
+  opacity: 0.55;
+}
+
+.ordered-select-item.is-drop-target {
+  background: rgba(15, 23, 42, 0.05);
+}
+
 .ordered-select-item:first-of-type {
   border-top: 0;
+}
+
+.ordered-select-item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.drag-handle-button {
+  flex: 0 0 auto;
+  align-self: stretch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--muted);
+  cursor: grab;
+  padding: 0 10px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.drag-handle-button:active {
+  cursor: grabbing;
 }
 
 .ordered-select-actions {
@@ -577,6 +608,10 @@ select.compact-select {
 
 select.compact-select-frequency {
   width: min(210px, 100%);
+}
+
+select.compact-select-platform {
+  width: min(180px, 100%);
 }
 
 select.compact-select-override {

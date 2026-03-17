@@ -96,11 +96,9 @@ export function createEmptyTemplate(type: DocumentType): string {
         'ShowFrequency = "perlaunchmanager"',
         "",
         "[Title]",
-        'en_us = "Title"',
         "",
         "[Subhead]",
         "enabled = false",
-        'en_us = "Subhead"',
         "",
         "[ContentUrl]",
         "",
@@ -125,14 +123,12 @@ export function createEmptyTemplate(type: DocumentType): string {
         "",
         "[version]",
         'platform = "universal"',
-        'base = "1.0.0"',
-        'dlc = "1.0.0"',
+        'base = ""',
+        'dlc = ""',
         "",
         "[changelog]",
         "",
         "[file]",
-        "",
-        "[update]",
         ""
       ].join("\n");
     case "version":
