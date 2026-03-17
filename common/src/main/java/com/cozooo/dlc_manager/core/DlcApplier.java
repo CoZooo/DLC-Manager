@@ -41,7 +41,8 @@ public class DlcApplier {
             } else {
                 if (wasEnabled) {
                     messages.add("Disabled " + item.getName());
-                    removeItem(item, previous);
+                    RemovalResult removal = removeItem(item, previous);
+                    messages.addAll(removal.messages());
                 }
                 DlcConfig.DlcState state = new DlcConfig.DlcState();
                 state.enabled = false;
@@ -175,20 +176,42 @@ public class DlcApplier {
         return backupPath;
     }
 
-    private static void removeItem(DlcItem item, DlcConfig.DlcState previous) {
+    private static RemovalResult removeItem(DlcItem item, DlcConfig.DlcState previous) {
+        List<String> messages = new ArrayList<>();
         if (previous == null || previous.appliedTargets == null) {
-            return;
+            return new RemovalResult(messages);
         }
         if (DlcConfigDlcSupport.isConfigType(item)) {
             restoreConfigItem(item, previous);
-            return;
+            return new RemovalResult(messages);
         }
+        List<Path> delayedDeletePaths = new ArrayList<>();
+        List<String> failedPaths = new ArrayList<>();
         for (String pathString : previous.appliedTargets) {
+            Path resolved = resolveStoredPath(pathString);
             try {
-                deleteRecursive(resolveStoredPath(pathString));
+                deleteRecursive(resolved);
             } catch (IOException ignored) {
+                if (resolved != null && Files.exists(resolved) && DlcPendingFileOpsHelper.isSupported()) {
+                    delayedDeletePaths.add(resolved);
+                } else if (resolved != null) {
+                    failedPaths.add(toGameRelativePath(resolved));
+                }
             }
         }
+        if (!delayedDeletePaths.isEmpty()) {
+            if (DlcPendingFileOpsHelper.scheduleDelete(delayedDeletePaths)) {
+                messages.add("Scheduled delayed removal after process exit for " + item.getName());
+            } else {
+                for (Path delayedDeletePath : delayedDeletePaths) {
+                    failedPaths.add(toGameRelativePath(delayedDeletePath));
+                }
+            }
+        }
+        if (!failedPaths.isEmpty()) {
+            messages.add("Failed to remove some files for " + item.getName() + ": " + String.join(", ", failedPaths));
+        }
+        return new RemovalResult(messages);
     }
 
     private static void restoreConfigItem(DlcItem item, DlcConfig.DlcState previous) {
@@ -285,12 +308,12 @@ public class DlcApplier {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     Path relative = source.relativize(file);
-                    Files.copy(file, target.resolve(relative), StandardCopyOption.REPLACE_EXISTING);
+                    copyWithHelperFallback(file, target.resolve(relative));
                     return FileVisitResult.CONTINUE;
                 }
             });
         } else {
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            copyWithHelperFallback(source, target);
         }
     }
 
@@ -328,16 +351,48 @@ public class DlcApplier {
         Files.walkFileTree(path, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                Files.deleteIfExists(file);
+                deleteWithHelperFallback(file);
                 return FileVisitResult.CONTINUE;
             }
 
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                Files.deleteIfExists(dir);
+                deleteWithHelperFallback(dir);
                 return FileVisitResult.CONTINUE;
             }
         });
+    }
+
+    private static void copyWithHelperFallback(Path source, Path target) throws IOException {
+        if (source == null || target == null) {
+            return;
+        }
+        try {
+            if (target.getParent() != null) {
+                Files.createDirectories(target.getParent());
+            }
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException error) {
+            if (!DlcPendingFileOpsHelper.isSupported()
+                || !DlcPendingFileOpsHelper.scheduleCopy(source, target, true)) {
+                throw error;
+            }
+        }
+    }
+
+    private static void deleteWithHelperFallback(Path path) throws IOException {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException error) {
+            if (!Files.exists(path)
+                || !DlcPendingFileOpsHelper.isSupported()
+                || !DlcPendingFileOpsHelper.scheduleDelete(List.of(path))) {
+                throw error;
+            }
+        }
     }
 
     private static String toGameRelativePath(Path path) {
@@ -373,6 +428,8 @@ public class DlcApplier {
         }
         return DlcPaths.gameDir().resolve(path).normalize();
     }
+
+    private record RemovalResult(List<String> messages) {}
 
     public record ApplyResult(List<String> messages, boolean requiresRestart, boolean hotReloaded) {}
 }

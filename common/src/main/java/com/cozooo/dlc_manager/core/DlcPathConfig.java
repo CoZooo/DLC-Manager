@@ -41,6 +41,9 @@ public class DlcPathConfig {
     public static final boolean DEFAULT_SERVER_SUPPORT = true;
     public static final int DEFAULT_SERVER_PORT = 29690;
     public static final String DEFAULT_SERVER_PASSWORD = "";
+    public static final boolean DEFAULT_API_ENABLED = false;
+    public static final int DEFAULT_API_PORT = 10086;
+    public static final String DEFAULT_API_TOKEN = "";
     public static final String DEFAULT_RCON_HOST = "";
     public static final int DEFAULT_RCON_PORT = 25575;
     public static final String DEFAULT_RCON_PASSWORD = "";
@@ -87,6 +90,9 @@ public class DlcPathConfig {
     private static boolean serverSupportServer = DEFAULT_SERVER_SUPPORT;
     private static int serverPort = DEFAULT_SERVER_PORT;
     private static String serverPassword = DEFAULT_SERVER_PASSWORD;
+    private static boolean apiEnabled = DEFAULT_API_ENABLED;
+    private static int apiPort = DEFAULT_API_PORT;
+    private static String apiToken = DEFAULT_API_TOKEN;
     private static String serverRconHost = DEFAULT_RCON_HOST;
     private static int serverRconPort = DEFAULT_RCON_PORT;
     private static String serverRconPassword = DEFAULT_RCON_PASSWORD;
@@ -147,6 +153,7 @@ public class DlcPathConfig {
 
     public static JsonObject buildServerConfigJson() {
         JsonObject root = new JsonObject();
+        writeApi(root);
         writeServer(root);
         writeServerUi(root);
         writePaths(root);
@@ -158,6 +165,7 @@ public class DlcPathConfig {
         if (root == null) {
             return;
         }
+        readSection(root, "api", buildApiReaders());
         readSection(root, "server", buildServerReaders());
         readSection(root, "ui", buildServerUiReaders());
         readSection(root, "paths", buildPathReaders());
@@ -258,6 +266,18 @@ public class DlcPathConfig {
 
     public static String getServerPassword() {
         return serverPassword;
+    }
+
+    public static boolean isApiEnabled() {
+        return apiEnabled;
+    }
+
+    public static int getApiPort() {
+        return apiPort;
+    }
+
+    public static String getApiToken() {
+        return apiToken;
     }
 
     public static String getServerRconHost() {
@@ -574,6 +594,18 @@ public class DlcPathConfig {
         serverPassword = value == null ? DEFAULT_SERVER_PASSWORD : value;
     }
 
+    public static void setApiEnabled(boolean value) {
+        apiEnabled = value;
+    }
+
+    public static void setApiPort(int value) {
+        apiPort = clampInt(value, 1, 65535, DEFAULT_API_PORT);
+    }
+
+    public static void setApiToken(String value) {
+        apiToken = value == null ? DEFAULT_API_TOKEN : value;
+    }
+
     public static void setServerRconHost(String value) {
         serverRconHost = value == null ? DEFAULT_RCON_HOST : value;
     }
@@ -707,6 +739,9 @@ public class DlcPathConfig {
         serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
+        apiEnabled = DEFAULT_API_ENABLED;
+        apiPort = DEFAULT_API_PORT;
+        apiToken = DEFAULT_API_TOKEN;
         serverRconHost = DEFAULT_RCON_HOST;
         serverRconPort = DEFAULT_RCON_PORT;
         serverRconPassword = DEFAULT_RCON_PASSWORD;
@@ -759,6 +794,9 @@ public class DlcPathConfig {
         serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
+        apiEnabled = DEFAULT_API_ENABLED;
+        apiPort = DEFAULT_API_PORT;
+        apiToken = DEFAULT_API_TOKEN;
         serverRconHost = DEFAULT_RCON_HOST;
         serverRconPort = DEFAULT_RCON_PORT;
         serverRconPassword = DEFAULT_RCON_PASSWORD;
@@ -771,6 +809,7 @@ public class DlcPathConfig {
         if (root == null) {
             return;
         }
+        readSection(root, "api", buildApiReaders());
         readSection(root, "paths", buildPathReaders());
         readSection(root, "ui", buildUiReaders());
         readSection(root, "downloads", buildDownloadReaders());
@@ -781,6 +820,7 @@ public class DlcPathConfig {
         if (root == null) {
             return;
         }
+        readSection(root, "api", buildApiReaders());
         readSection(root, "server", buildServerReaders());
         readSection(root, "ui", buildServerUiReaders());
         readSection(root, "paths", buildPathReaders());
@@ -814,6 +854,7 @@ public class DlcPathConfig {
             return;
         }
         JsonObject root = new JsonObject();
+        writeApi(root);
         writePaths(root);
         writeUi(root);
         writeDownloads(root);
@@ -829,6 +870,7 @@ public class DlcPathConfig {
             return;
         }
         JsonObject root = new JsonObject();
+        writeApi(root);
         writeServer(root);
         writeServerUi(root);
         writePaths(root);
@@ -888,6 +930,14 @@ public class DlcPathConfig {
         obj.addProperty("resourcepackRoot", resourcepackRoot);
         obj.addProperty("datapackRoot", datapackRoot);
         root.add("paths", obj);
+    }
+
+    private static void writeApi(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("apiEnabled", apiEnabled);
+        obj.addProperty("apiPort", apiPort);
+        obj.addProperty("apiToken", apiToken);
+        root.add("api", obj);
     }
 
     private static void writeUi(JsonObject root) {
@@ -979,6 +1029,14 @@ public class DlcPathConfig {
         map.put("taczRoot", value -> taczRoot = asString(value, DEFAULT_TACZ_DLC_ROOT));
         map.put("resourcepackRoot", value -> resourcepackRoot = asString(value, DEFAULT_RESOURCEPACK_ROOT));
         map.put("datapackRoot", value -> datapackRoot = asString(value, DEFAULT_DATAPACK_ROOT));
+        return map;
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildApiReaders() {
+        Map<String, Consumer<JsonElement>> map = new HashMap<>();
+        map.put("apiEnabled", value -> apiEnabled = asBoolean(value, DEFAULT_API_ENABLED));
+        map.put("apiPort", value -> apiPort = clampInt(asInt(value, DEFAULT_API_PORT), 1, 65535, DEFAULT_API_PORT));
+        map.put("apiToken", value -> apiToken = asString(value, DEFAULT_API_TOKEN));
         return map;
     }
 

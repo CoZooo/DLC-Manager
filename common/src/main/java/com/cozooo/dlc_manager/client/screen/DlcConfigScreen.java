@@ -101,6 +101,8 @@ public class DlcConfigScreen extends GuiModConfigs {
         super.initGui();
         x = addTabButton(Tab.PATHS, x, y, height);
         x += gap;
+        x = addTabButton(Tab.SERVER, x, y, height);
+        x += gap;
         x = addTabButton(Tab.UI, x, y, height);
         x += gap;
         addTabButton(Tab.DOWNLOADS, x, y, height);
@@ -190,6 +192,7 @@ public class DlcConfigScreen extends GuiModConfigs {
 
     private static List<IConfigBase> getConfigsForTab(Tab tab) {
         return switch (tab) {
+            case SERVER -> DlcPathConfigClient.getServerConfigs();
             case UI -> DlcPathConfigClient.getUiConfigs();
             case DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs();
             case PATHS -> DlcPathConfigClient.getPathConfigs();
@@ -636,6 +639,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     public enum Tab {
+        SERVER("dlc_manager.config.tab.server"),
         PATHS("dlc_manager.config.tab.paths"),
         UI("dlc_manager.config.tab.ui"),
         DOWNLOADS("dlc_manager.config.tab.download");

@@ -19,6 +19,10 @@
     "name": "自动生成更新包",
     "icon": null
   },
+  "API.mdx": {
+    "name": "外部 API",
+    "icon": null
+  },
   "Redirect.mdx": {
     "name": "链接跳转功能",
     "icon": null

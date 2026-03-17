@@ -25,6 +25,9 @@ public final class DlcPathConfigClient {
     private static final ConfigBoolean SERVER_SUPPORT_CLIENT = new DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
     private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
     private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
+    private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcPathConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
+    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 1, 65535, "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
+    private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", DlcPathConfig.DEFAULT_API_TOKEN, "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
     private static final ConfigString NOTICE_DISPLAY_MODE = new DlcConfigString("noticeDisplayMode", DlcPathConfig.DEFAULT_NOTICE_DISPLAY_MODE, "dlc_manager.config.comment.ui.noticeDisplayMode", "dlc_manager.config.ui.noticeDisplayMode");
     private static final ConfigString NOTICE_BUTTON_ANCHOR = new DlcConfigString("noticeButtonAnchor", DlcPathConfig.DEFAULT_NOTICE_BUTTON_ANCHOR, "dlc_manager.config.comment.ui.noticeButtonAnchor", "dlc_manager.config.ui.noticeButtonAnchor");
     private static final ConfigInteger NOTICE_BUTTON_OFFSET_X = new DlcConfigInteger("noticeButtonOffsetX", DlcPathConfig.DEFAULT_NOTICE_BUTTON_OFFSET_X, -DlcPathConfig.MAX_NOTICE_OFFSET, DlcPathConfig.MAX_NOTICE_OFFSET, "dlc_manager.config.comment.ui.noticeButtonOffsetX", "dlc_manager.config.ui.noticeButtonOffsetX");
@@ -64,7 +67,6 @@ public final class DlcPathConfigClient {
             PRESET_FUNC_ON,
             SHOW_ON_FIRST_RUN,
             ALARM_WAITING_TIME,
-            SERVER_SUPPORT_CLIENT,
             MODPACK_URL,
             UPDATE_GITHUB_REPO,
             NOTICE_DISPLAY_MODE,
@@ -82,6 +84,13 @@ public final class DlcPathConfigClient {
             TITLE_UPDATE_ANCHOR,
             TITLE_UPDATE_OFFSET_X,
             TITLE_UPDATE_OFFSET_Y
+    );
+
+    private static final List<IConfigBase> SERVER_CONFIGS = List.of(
+            SERVER_SUPPORT_CLIENT,
+            API_ENABLED,
+            API_PORT,
+            API_TOKEN
     );
 
     private static final List<IConfigBase> DOWNLOAD_CONFIGS = List.of(
@@ -102,6 +111,10 @@ public final class DlcPathConfigClient {
 
     public static List<IConfigBase> getUiConfigs() {
         return UI_CONFIGS;
+    }
+
+    public static List<IConfigBase> getServerConfigs() {
+        return SERVER_CONFIGS;
     }
 
     public static List<IConfigBase> getDownloadConfigs() {
@@ -125,6 +138,9 @@ public final class DlcPathConfigClient {
         SERVER_SUPPORT_CLIENT.setBooleanValue(DlcPathConfig.isServerSupportOn());
         MODPACK_URL.setValueFromString(DlcPathConfig.getModpackUrl());
         UPDATE_GITHUB_REPO.setValueFromString(DlcPathConfig.getUpdateGithubRepoUrl());
+        API_ENABLED.setBooleanValue(DlcPathConfig.isApiEnabled());
+        API_PORT.setIntegerValue(DlcPathConfig.getApiPort());
+        API_TOKEN.setValueFromString(DlcPathConfig.getApiToken());
         NOTICE_DISPLAY_MODE.setValueFromString(DlcPathConfig.getNoticeDisplayMode());
         NOTICE_BUTTON_ANCHOR.setValueFromString(DlcPathConfig.getNoticeButtonAnchor());
         NOTICE_BUTTON_OFFSET_X.setIntegerValue(DlcPathConfig.getNoticeButtonOffsetX());
@@ -166,6 +182,9 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());
         DlcPathConfig.setModpackUrl(MODPACK_URL.getStringValue());
         DlcPathConfig.setUpdateGithubRepoUrl(UPDATE_GITHUB_REPO.getStringValue());
+        DlcPathConfig.setApiEnabled(API_ENABLED.getBooleanValue());
+        DlcPathConfig.setApiPort(API_PORT.getIntegerValue());
+        DlcPathConfig.setApiToken(API_TOKEN.getStringValue());
         DlcPathConfig.setNoticeDisplayMode(NOTICE_DISPLAY_MODE.getStringValue());
         DlcPathConfig.setNoticeButtonAnchor(NOTICE_BUTTON_ANCHOR.getStringValue());
         DlcPathConfig.setNoticeButtonOffsetX(NOTICE_BUTTON_OFFSET_X.getIntegerValue());

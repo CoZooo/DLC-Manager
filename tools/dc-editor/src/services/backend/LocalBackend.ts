@@ -13,8 +13,9 @@ import { parseStructuredDocument, serializeStructuredDocument, validateStructure
 import { detectDocumentType } from "../document/typeDetection";
 import { isTauriRuntime } from "../../runtime/tauri";
 import { EditorBackend, ParsedDocumentResult } from "./EditorBackend";
+import { invoke } from "@tauri-apps/api/core";
 import { open as tauriOpen, save as tauriSave } from "@tauri-apps/plugin-dialog";
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile } from "@tauri-apps/plugin-fs";
 
 declare global {
   interface Window {
@@ -225,7 +226,7 @@ export class LocalBackend implements EditorBackend {
     if (!target) {
       throw new Error("用户取消了导出。");
     }
-    await writeTextFile(target, request.text);
+    await invoke("write_text_file_direct", { path: target, text: request.text });
     return {
       name: this.getPathName(target),
       path: target

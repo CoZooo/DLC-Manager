@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.server.DlcApiService;
 import com.cozooo.dlc_manager.server.DlcServerDownloadService;
 import com.cozooo.dlc_manager.server.DlcServerService;
 import com.cozooo.dlc_manager.server.DlcServerUpdateNotifier;
@@ -37,11 +38,15 @@ public final class DlcWorldSync {
             if (server.isDedicatedServer()) {
                 DlcPathConfig.loadServer();
                 DlcServerService.updateServerStatus(server);
+                DlcApiService.start(server);
                 DlcServerService.start();
                 startServerRequiredDownload(server);
             }
         });
-        LifecycleEvent.SERVER_STOPPING.register(server -> DlcServerService.stop());
+        LifecycleEvent.SERVER_STOPPING.register(server -> {
+            DlcApiService.stop();
+            DlcServerService.stop();
+        });
         PlayerEvent.PLAYER_JOIN.register(DlcServerUpdateNotifier::onPlayerJoin);
     }
 
