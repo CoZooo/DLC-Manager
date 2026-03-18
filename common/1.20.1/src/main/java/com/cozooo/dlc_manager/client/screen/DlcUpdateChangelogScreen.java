@@ -1,13 +1,12 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import java.util.ArrayList;
 import java.util.List;
 
 public class DlcUpdateChangelogScreen extends Screen {
@@ -57,7 +56,8 @@ public class DlcUpdateChangelogScreen extends Screen {
     private void drawLines(GuiGraphics guiGraphics, int startY) {
         int listTop = startY;
         int listBottom = this.height - 60;
-        int lineHeight = 10;
+        int lineHeight = this.font.lineHeight + 2;
+        int maxWidth = Math.max(40, this.width - 48);
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int totalLines = lines.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
@@ -68,14 +68,29 @@ public class DlcUpdateChangelogScreen extends Screen {
         int end = Math.min(totalLines, scrollIndex + maxVisible);
         for (int i = scrollIndex; i < end; i++) {
             FormattedCharSequence line = lines.get(i);
-            guiGraphics.drawString(this.font, line, 24, y, 0xE6E6E6, false);
-            y += lineHeight;
+            if (DlcMarkdownRenderer.isHrLine(line)) {
+                int hrY = y + lineHeight / 2;
+                guiGraphics.fill(24, hrY, this.width - 24, hrY + 1, 0xFF5A5A5A);
+                y += lineHeight;
+                continue;
+            }
+            float scale = DlcMarkdownRenderer.getHeadingScale(this.font, line, maxWidth);
+            int drawHeight = DlcMarkdownRenderer.getLineHeight(this.font, line, lineHeight, maxWidth);
+            if (scale > 1.0f) {
+                guiGraphics.pose().pushPose();
+                guiGraphics.pose().scale(scale, scale, 1.0f);
+                guiGraphics.drawString(this.font, line, (int) (24 / scale), (int) (y / scale), 0xE6E6E6, false);
+                guiGraphics.pose().popPose();
+            } else {
+                guiGraphics.drawString(this.font, line, 24, y, 0xE6E6E6, false);
+            }
+            y += drawHeight;
         }
     }
 
     private void rebuildLines() {
         int maxWidth = Math.max(40, this.width - 48);
-        lines = DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth);
+        lines = DlcMarkdownRenderer.wrapMarkdown(this.font, changelog, maxWidth);
         scrollIndex = 0;
     }
 

@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.client.Minecraft;
@@ -174,7 +175,7 @@ public class DlcUpdatePromptScreen extends Screen {
             }
             if (changelog != null && !changelog.isBlank()) {
                 lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
-                lines.addAll(DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth));
+                lines.addAll(DlcMarkdownRenderer.wrapMarkdown(this.font, changelog, maxWidth));
             }
             lines.add(FormattedCharSequence.EMPTY);
         }

@@ -13,7 +13,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -368,7 +368,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
         int maxWidth = Math.max(120, this.width - 60);
         List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
         lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
-        lines.addAll(DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth));
+        lines.addAll(DlcMarkdownRenderer.wrapMarkdown(this.font, changelog, maxWidth));
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 

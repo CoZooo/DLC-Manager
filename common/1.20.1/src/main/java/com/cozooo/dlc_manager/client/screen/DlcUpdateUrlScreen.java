@@ -10,7 +10,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -279,7 +279,7 @@ public class DlcUpdateUrlScreen extends Screen {
             .append("\n\n")
             .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
             .append("\n")
-            .append(DlcTextFormatter.parse(changelog));
+            .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog));
     }
 
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {

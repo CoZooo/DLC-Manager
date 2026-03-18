@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Side;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -143,13 +143,28 @@ public class DlcPackReleaseUpdateScreen extends Screen {
         y += 12;
         int maxWidth = Math.max(120, this.width - 80);
         int maxBottom = this.height - 90;
-        for (net.minecraft.util.FormattedCharSequence line : DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth)) {
+        for (net.minecraft.util.FormattedCharSequence line : DlcMarkdownRenderer.wrapMarkdown(this.font, changelog, maxWidth)) {
             if (y > maxBottom) {
                 break;
             }
-            int x = centerX - this.font.width(line) / 2;
-            guiGraphics.drawString(this.font, line, x, y, 0xC8C8C8, false);
-            y += this.font.lineHeight + 1;
+            if (DlcMarkdownRenderer.isHrLine(line)) {
+                guiGraphics.fill(centerX - maxWidth / 2, y + (this.font.lineHeight + 2) / 2,
+                    centerX + maxWidth / 2, y + (this.font.lineHeight + 2) / 2 + 1, 0xFF5A5A5A);
+                y += this.font.lineHeight + 2;
+                continue;
+            }
+            float scale = DlcMarkdownRenderer.getHeadingScale(this.font, line, maxWidth);
+            int drawHeight = DlcMarkdownRenderer.getLineHeight(this.font, line, this.font.lineHeight + 2, maxWidth);
+            int x = centerX - Math.round(this.font.width(line) * scale / 2f);
+            if (scale > 1.0f) {
+                guiGraphics.pose().pushPose();
+                guiGraphics.pose().scale(scale, scale, 1.0f);
+                guiGraphics.drawString(this.font, line, (int) (x / scale), (int) (y / scale), 0xC8C8C8, false);
+                guiGraphics.pose().popPose();
+            } else {
+                guiGraphics.drawString(this.font, line, x, y, 0xC8C8C8, false);
+            }
+            y += drawHeight;
         }
         return y + 2;
     }

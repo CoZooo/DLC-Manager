@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
-import com.cozooo.dlc_manager.client.notice.DlcNoticeMarkdownRenderer;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
@@ -200,7 +200,7 @@ public final class DlcClientRuntime {
         guiGraphics.enableScissor(layout.x + 1, layout.textTop, layout.right - 1, layout.textBottom);
         try {
             for (FormattedCharSequence line : layout.bodyLines) {
-                if (DlcNoticeMarkdownRenderer.isHrLine(line)) {
+                if (DlcMarkdownRenderer.isHrLine(line)) {
                     int hrY = drawY + layout.lineStep / 2;
                     if (hrY >= layout.textTop && hrY <= layout.textBottom - 1) {
                         guiGraphics.fill(layout.textX, hrY, layout.textRight, hrY + 1, 0xFF5A5A5A);
@@ -208,8 +208,8 @@ public final class DlcClientRuntime {
                     drawY += layout.lineStep;
                     continue;
                 }
-                float scale = DlcNoticeMarkdownRenderer.getHeadingScale(Minecraft.getInstance().font, line, layout.textWidth);
-                int lineHeight = DlcNoticeMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, layout.lineStep, layout.textWidth);
+                float scale = DlcMarkdownRenderer.getHeadingScale(Minecraft.getInstance().font, line, layout.textWidth);
+                int lineHeight = DlcMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, layout.lineStep, layout.textWidth);
                 if (drawY > layout.textBottom - lineHeight) {
                     break;
                 }
@@ -266,12 +266,12 @@ public final class DlcClientRuntime {
         if (layout.isOverContent(mouseX, mouseY)) {
             int drawY = layout.textTop - titleNoticeScrollOffset;
             for (FormattedCharSequence line : layout.bodyLines) {
-                if (DlcNoticeMarkdownRenderer.isHrLine(line)) {
+                if (DlcMarkdownRenderer.isHrLine(line)) {
                     drawY += layout.lineStep;
                     continue;
                 }
-                float scale = DlcNoticeMarkdownRenderer.getHeadingScale(Minecraft.getInstance().font, line, layout.textWidth);
-                int lineHeight = DlcNoticeMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, layout.lineStep, layout.textWidth);
+                float scale = DlcMarkdownRenderer.getHeadingScale(Minecraft.getInstance().font, line, layout.textWidth);
+                int lineHeight = DlcMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, layout.lineStep, layout.textWidth);
                 if (drawY > layout.textBottom - lineHeight) {
                     break;
                 }
@@ -405,7 +405,7 @@ public final class DlcClientRuntime {
         int textRightNoBar = right - padding;
         int textWidthNoBar = Math.max(20, textRightNoBar - textX);
 
-        List<FormattedCharSequence> bodyLines = DlcNoticeMarkdownRenderer.wrapMarkdown(Minecraft.getInstance().font, body, textWidthNoBar);
+        List<FormattedCharSequence> bodyLines = DlcMarkdownRenderer.wrapMarkdown(Minecraft.getInstance().font, body, textWidthNoBar);
         int totalContentHeight = computeTotalLineHeight(bodyLines, lineStep, textWidthNoBar);
         int maxScroll = Math.max(0, totalContentHeight - visibleHeight);
         int textRight = textRightNoBar;
@@ -415,7 +415,7 @@ public final class DlcClientRuntime {
         if (maxScroll > 0) {
             textRight = Math.max(textX + 20, right - padding - scrollbarWidth - scrollbarGap);
             textWidth = Math.max(20, textRight - textX);
-            bodyLines = DlcNoticeMarkdownRenderer.wrapMarkdown(Minecraft.getInstance().font, body, textWidth);
+            bodyLines = DlcMarkdownRenderer.wrapMarkdown(Minecraft.getInstance().font, body, textWidth);
             totalContentHeight = computeTotalLineHeight(bodyLines, lineStep, textWidth);
             maxScroll = Math.max(0, totalContentHeight - visibleHeight);
             scrollbarX = textRight + scrollbarGap;
@@ -466,10 +466,10 @@ public final class DlcClientRuntime {
     private static int computeTotalLineHeight(List<FormattedCharSequence> lines, int lineStep, int textWidth) {
         int total = 0;
         for (FormattedCharSequence line : lines) {
-            if (DlcNoticeMarkdownRenderer.isHrLine(line)) {
+            if (DlcMarkdownRenderer.isHrLine(line)) {
                 total += lineStep;
             } else {
-                total += DlcNoticeMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, lineStep, textWidth);
+                total += DlcMarkdownRenderer.getLineHeight(Minecraft.getInstance().font, line, lineStep, textWidth);
             }
         }
         return total;

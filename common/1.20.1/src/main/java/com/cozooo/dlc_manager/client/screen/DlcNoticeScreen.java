@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.notice.DlcNoticeMarkdownRenderer;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcNoticeConfig;
 import net.minecraft.client.Minecraft;
@@ -135,7 +135,7 @@ public class DlcNoticeScreen extends Screen {
         guiGraphics.enableScissor(panelLeft + 2, contentTop, panelLeft + panelWidth - 2, contentBottom);
         try {
             for (FormattedCharSequence line : bodyLines) {
-                if (DlcNoticeMarkdownRenderer.isHrLine(line)) {
+                if (DlcMarkdownRenderer.isHrLine(line)) {
                     int y = textY + lineStep / 2;
                     if (y >= contentTop && y <= contentBottom - 1) {
                         int x2 = panelLeft + panelWidth - 14;
@@ -144,8 +144,8 @@ public class DlcNoticeScreen extends Screen {
                     textY += lineStep;
                     continue;
                 }
-                float scale = DlcNoticeMarkdownRenderer.getHeadingScale(this.font, line, markdownWidth);
-                int drawHeight = DlcNoticeMarkdownRenderer.getLineHeight(this.font, line, lineStep, markdownWidth);
+                float scale = DlcMarkdownRenderer.getHeadingScale(this.font, line, markdownWidth);
+                int drawHeight = DlcMarkdownRenderer.getLineHeight(this.font, line, lineStep, markdownWidth);
                 if (textY >= contentTop && textY <= contentBottom - drawHeight + 1) {
                     if (scale > 1.0f) {
                         guiGraphics.pose().pushPose();
@@ -252,13 +252,13 @@ public class DlcNoticeScreen extends Screen {
             return List.of();
         }
         markdownWidth = maxWidth;
-        return DlcNoticeMarkdownRenderer.wrapMarkdown(this.font, text, maxWidth);
+        return DlcMarkdownRenderer.wrapMarkdown(this.font, text, maxWidth);
     }
 
     private int countHeadingExtra() {
         int extra = 0;
         for (FormattedCharSequence line : bodyLines) {
-            int drawHeight = DlcNoticeMarkdownRenderer.getLineHeight(this.font, line, lineStep, markdownWidth);
+            int drawHeight = DlcMarkdownRenderer.getLineHeight(this.font, line, lineStep, markdownWidth);
             if (drawHeight > lineStep) {
                 extra += drawHeight - lineStep;
             }
@@ -295,8 +295,8 @@ public class DlcNoticeScreen extends Screen {
             int textX = panelLeft + 14;
             int textY = contentTop - scrollOffset;
             for (FormattedCharSequence line : bodyLines) {
-                float scale = DlcNoticeMarkdownRenderer.getHeadingScale(this.font, line, markdownWidth);
-                int lineHeight = DlcNoticeMarkdownRenderer.getLineHeight(this.font, line, lineStep, markdownWidth);
+                float scale = DlcMarkdownRenderer.getHeadingScale(this.font, line, markdownWidth);
+                int lineHeight = DlcMarkdownRenderer.getLineHeight(this.font, line, lineStep, markdownWidth);
                 if (mouseY >= textY && mouseY < textY + lineHeight) {
                     int relX = (int) mouseX - textX;
                     int maxWidth = Math.round(this.font.width(line) * scale);

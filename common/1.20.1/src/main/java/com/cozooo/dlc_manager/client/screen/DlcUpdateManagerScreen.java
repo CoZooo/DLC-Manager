@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -298,7 +299,7 @@ public class DlcUpdateManagerScreen extends Screen {
         int maxWidth = Math.max(120, this.width - 60);
         List<net.minecraft.util.FormattedCharSequence> lines = new ArrayList<>();
         lines.addAll(this.font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth));
-        lines.addAll(DlcTextFormatter.splitMultiline(this.font, changelog, maxWidth));
+        lines.addAll(DlcMarkdownRenderer.wrapMarkdown(this.font, changelog, maxWidth));
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
@@ -457,7 +458,7 @@ public class DlcUpdateManagerScreen extends Screen {
             .append("\n\n")
             .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
             .append("\n")
-            .append(DlcTextFormatter.parse(changelog));
+            .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog));
     }
 
     private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {

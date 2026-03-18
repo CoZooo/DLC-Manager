@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.client.notice;
+package com.cozooo.dlc_manager.client.core;
 
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import net.minecraft.ChatFormatting;
@@ -29,22 +29,29 @@ import org.commonmark.parser.Parser;
 
 import java.util.List;
 
-public final class DlcNoticeMarkdownRenderer {
+public final class DlcMarkdownRenderer {
     private static final String HEADING_MARKER = "__dlc_heading__:";
     private static final String HR_MARKER = "__dlc_hr__";
     private static final Parser MARKDOWN_PARSER = Parser.builder()
         .extensions(List.of(StrikethroughExtension.create()))
         .build();
 
-    private DlcNoticeMarkdownRenderer() {
+    private DlcMarkdownRenderer() {
     }
 
     public static List<FormattedCharSequence> wrapMarkdown(Font font, String text, int maxWidth) {
         if (font == null || text == null || text.isBlank()) {
             return List.of();
         }
-        Component markdown = renderMarkdown(text);
+        Component markdown = renderMarkdownComponent(text);
         return font.split(markdown, Math.max(1, maxWidth));
+    }
+
+    public static Component renderMarkdownComponent(String text) {
+        if (text == null || text.isBlank()) {
+            return Component.empty();
+        }
+        return renderMarkdown(text);
     }
 
     public static boolean isHrLine(FormattedCharSequence line) {
