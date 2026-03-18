@@ -74,6 +74,19 @@ interface PersistedAppState {
   status: string;
 }
 
+interface DocumentHistoryEntry {
+  name: string;
+  rawText: string;
+  structuredModel: StructuredModel | null;
+  structuredEnabled: boolean;
+}
+
+interface DocumentHistoryState {
+  docId: string | null;
+  past: DocumentHistoryEntry[];
+  future: DocumentHistoryEntry[];
+}
+
 function isDocumentTypeValue(value: unknown): value is DocumentType {
   return typeof value === "string" && value in documentSchemas;
 }
@@ -193,6 +206,42 @@ function buildDocument(
   };
 }
 
+function snapshotDocument(document: EditorDocument): DocumentHistoryEntry {
+  return {
+    name: document.name,
+    rawText: document.rawText,
+    structuredModel: document.structuredModel ? structuredClone(document.structuredModel) : null,
+    structuredEnabled: document.structuredEnabled
+  };
+}
+
+function restoreDocumentSnapshot(document: EditorDocument, snapshot: DocumentHistoryEntry): EditorDocument {
+  return {
+    ...document,
+    name: snapshot.name,
+    rawText: snapshot.rawText,
+    structuredModel: snapshot.structuredModel ? structuredClone(snapshot.structuredModel) : null,
+    structuredEnabled: snapshot.structuredEnabled,
+    isDirty: snapshot.rawText !== document.originalText
+  };
+}
+
+function isEditableFocusTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+    return true;
+  }
+  if (target.closest(".cm-editor")) {
+    return true;
+  }
+  if (target instanceof HTMLElement && target.isContentEditable) {
+    return true;
+  }
+  return Boolean(target.closest("[contenteditable='true']"));
+}
+
 export function App() {
   const initialLocale = loadPersistedLocale();
   const initialBackendMode = loadPersistedBackendMode();
@@ -217,6 +266,11 @@ export function App() {
   const [sidebarVisible, setSidebarVisible] = useState(persisted?.sidebarVisible ?? true);
   const [homeVisible, setHomeVisible] = useState(persisted?.homeVisible ?? !(persisted?.document));
   const [status, setStatus] = useState(persisted?.status ?? t(initialLocale, "ready"));
+  const [history, setHistory] = useState<DocumentHistoryState>({
+    docId: persisted?.document?.id ?? null,
+    past: [],
+    future: []
+  });
 
   const editingDocument = homeVisible ? null : document;
   const schema = editingDocument ? documentSchemas[editingDocument.type] : documentSchemas[currentType];
@@ -315,6 +369,80 @@ export function App() {
       cancelled = true;
     };
   }, [backend, document?.id, document?.rawText, document?.type]);
+
+  useEffect(() => {
+    if (history.docId === (document?.id ?? null)) {
+      return;
+    }
+    setHistory({
+      docId: document?.id ?? null,
+      past: [],
+      future: []
+    });
+  }, [document?.id, history.docId]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!editingDocument || homeVisible) {
+        return;
+      }
+      if (isEditableFocusTarget(event.target) || isEditableFocusTarget(window.document.activeElement)) {
+        return;
+      }
+      const isMod = event.metaKey || event.ctrlKey;
+      if (!isMod || event.altKey) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        if (history.docId !== editingDocument.id || history.past.length === 0) {
+          return;
+        }
+        event.preventDefault();
+        preserveStructuredDraftRef.current = editingDocument.id;
+        const previous = history.past[history.past.length - 1];
+        setHistory({
+          docId: editingDocument.id,
+          past: history.past.slice(0, -1),
+          future: [snapshotDocument(editingDocument), ...history.future]
+        });
+        setDocument(restoreDocumentSnapshot(editingDocument, previous));
+        return;
+      }
+      if ((key === "z" && event.shiftKey) || key === "y") {
+        if (history.docId !== editingDocument.id || history.future.length === 0) {
+          return;
+        }
+        event.preventDefault();
+        preserveStructuredDraftRef.current = editingDocument.id;
+        const next = history.future[0];
+        setHistory({
+          docId: editingDocument.id,
+          past: [...history.past, snapshotDocument(editingDocument)],
+          future: history.future.slice(1)
+        });
+        setDocument(restoreDocumentSnapshot(editingDocument, next));
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [editingDocument, history, homeVisible]);
+
+  const commitDocumentEdit = (nextDocument: EditorDocument) => {
+    if (!document || document.id !== nextDocument.id) {
+      setDocument(nextDocument);
+      return;
+    }
+    setHistory((previous) => ({
+      docId: document.id,
+      past: [
+        ...(previous.docId === document.id ? previous.past : []),
+        snapshotDocument(document)
+      ].slice(-100),
+      future: []
+    }));
+    setDocument(nextDocument);
+  };
 
   const importDocument = async () => {
     try {
@@ -431,11 +559,14 @@ export function App() {
 
   const updateRawText = (rawText: string) => {
     preserveStructuredDraftRef.current = null;
-    setDocument((previous) => previous ? {
-      ...previous,
+    if (!document) {
+      return;
+    }
+    commitDocumentEdit({
+      ...document,
       rawText,
-      isDirty: rawText !== previous.originalText
-    } : previous);
+      isDirty: rawText !== document.originalText
+    });
   };
 
   const updateStructured = async (model: StructuredModel) => {
@@ -446,7 +577,7 @@ export function App() {
       ? serializeStructuredDocumentWithPreservedRaw(document.rawText, model, documentSchemas[document.type], { applyImplicitDefaultLocale: true })
       : await backend.serializeForSave(document.type, model);
     preserveStructuredDraftRef.current = document.id;
-    setDocument({
+    commitDocumentEdit({
       ...document,
       name: deriveDocumentName(document.type, model, document.name),
       structuredModel: model,

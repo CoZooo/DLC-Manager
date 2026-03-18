@@ -157,7 +157,7 @@ const displayNameSection: SectionSchema = {
   key: "DisplayName",
   label: "[DisplayName]",
   dynamicLocale: {
-    valueKind: "text",
+    valueKind: "textarea",
     help: "本地化显示名称。"
   },
   fields: []
@@ -395,13 +395,13 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       {
-        ...localeTextSection("Title", "[Title]", "公告标题。")
+        ...localeTextareaSection("Title", "[Title]", "公告标题。")
       },
       {
         key: "Subhead",
         label: "[Subhead]",
         dynamicLocale: {
-          valueKind: "text",
+          valueKind: "textarea",
           help: "公告副标题。"
         },
         fields: [
@@ -418,7 +418,12 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ...localeTextSection("ContentUrl", "[ContentUrl]", "在线公告内容 URL，优先级高于 Contents。")
       },
       {
-        ...localeTextareaSection("Contents", "[Contents]", "公告正文，支持 Markdown 与颜色代码。")
+        ...localeTextareaSection("Contents", "[Contents]", "公告正文，支持 Markdown 与颜色代码。"),
+        dynamicLocale: {
+          valueKind: "textarea",
+          help: "公告正文，支持 Markdown 与颜色代码。",
+          toolbarMode: "mc-markdown"
+        }
       }
     ]
   },
@@ -448,7 +453,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       {
-        ...localeTextSection("DisplayName", "[DisplayName]", "列表名称。")
+        ...localeTextareaSection("DisplayName", "[DisplayName]", "列表名称。")
       },
       {
         ...localeTextareaSection("notice", "[notice]", "跳转前确认说明。")

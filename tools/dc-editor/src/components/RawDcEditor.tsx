@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { HighlightStyle, StreamLanguage, StringStream, syntaxHighlighting } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
-import { EditorView, lineNumbers } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { history, historyKeymap } from "@codemirror/commands";
 import { tags } from "@lezer/highlight";
 
 interface RawDcEditorProps {
@@ -176,6 +177,8 @@ const dcTheme = EditorView.theme({
 
 const dcExtensions = [
   lineNumbers(),
+  history(),
+  keymap.of(historyKeymap),
   dcLanguage,
   syntaxHighlighting(dcHighlightStyle),
   dcTheme

@@ -30,6 +30,7 @@ export type FieldKind =
   | "update-file-move"
   | "update-file-modify";
 export type LocaleValueKind = "text" | "textarea";
+export type TextToolbarMode = "mc" | "mc-markdown";
 
 export interface ValidationIssue {
   severity: "error" | "warning" | "info";
@@ -43,6 +44,7 @@ export interface FieldSchema {
   label: string;
   kind: FieldKind;
   help?: string;
+  toolbarMode?: TextToolbarMode;
   hiddenInForm?: boolean;
   visibleWhen?: {
     sectionKey: string;
@@ -66,6 +68,7 @@ export interface SectionSchema {
   dynamicLocale?: {
     valueKind: LocaleValueKind;
     help?: string;
+    toolbarMode?: TextToolbarMode;
   };
 }
 

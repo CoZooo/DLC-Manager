@@ -1,4 +1,5 @@
-import { ChangeEvent, TextareaHTMLAttributes, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChangeEvent, InputHTMLAttributes, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactElement, ReactNode, TextareaHTMLAttributes, cloneElement, isValidElement, useEffect, useLayoutEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { DocumentSchema, StructuredModel, StructuredValue } from "../models/editor";
 import { EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
@@ -70,15 +71,6 @@ export function StructuredEditor(props: StructuredEditorProps) {
                   </label>
                 );
 
-                const onTextChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                  props.onChange(withValue(model, section.key, field.key, event.target.value));
-                };
-
-                const onNumberChange = (event: ChangeEvent<HTMLInputElement>) => {
-                  const raw = event.target.value.trim();
-                  props.onChange(withValue(model, section.key, field.key, raw === "" ? 0 : Number.parseInt(raw, 10) || 0));
-                };
-
                 const parseListText = (rawText: string) => {
                   return rawText
                     .split(/[\r\n,]+/)
@@ -95,19 +87,23 @@ export function StructuredEditor(props: StructuredEditorProps) {
                   <div key={`${section.key}.${field.key}`} className="field">
                     {label}
                     {field.kind === "textarea" && (
-                      <AutoResizeTextarea
+                      <FormattedTextarea
+                        locale={props.locale}
                         value={typeof value === "string" ? value : ""}
+                        toolbarMode={field.toolbarMode ?? "mc"}
                         placeholder={field.placeholder}
-                        onChange={onTextChange}
+                        onChangeValue={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
                       />
                     )}
                     {field.kind === "text" && (
                       <>
-                        <input
+                        <UndoableInput
                           type="text"
                           value={typeof value === "string" ? value : ""}
                           placeholder={field.placeholder}
-                          onChange={onTextChange}
+                          onChangeValue={(nextValue) =>
+                            props.onChange(withValue(model, section.key, field.key, nextValue))
+                          }
                         />
                         {props.schema.type === "info" && section.key === "basic" && field.key === "file_name" && (
                           <InfoMultiFileEditor
@@ -130,11 +126,14 @@ export function StructuredEditor(props: StructuredEditorProps) {
                       </>
                     )}
                     {field.kind === "number" && (
-                      <input
+                      <UndoableInput
                         type="number"
-                        value={typeof value === "number" ? value : 0}
+                        value={String(typeof value === "number" ? value : 0)}
                         placeholder={field.placeholder}
-                        onChange={onNumberChange}
+                        onChangeValue={(nextValue) => {
+                          const raw = nextValue.trim();
+                          props.onChange(withValue(model, section.key, field.key, raw === "" ? 0 : Number.parseInt(raw, 10) || 0));
+                        }}
                       />
                     )}
                     {field.kind === "boolean" && (
@@ -229,6 +228,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                 values={model[section.key] || {}}
                 reservedKeys={section.fields.map((field) => field.key)}
                 valueKind={section.dynamicLocale.valueKind}
+                toolbarMode={section.dynamicLocale.toolbarMode}
                 help={translateStaticText(props.locale, section.dynamicLocale.help)}
                 onChange={(nextValues) => props.onChange({
                   ...model,
@@ -301,7 +301,7 @@ function ListFieldEditor(props: ListFieldEditorProps) {
   }, [props.value, draft, focused]);
 
   return (
-    <AutoResizeTextarea
+    <UndoableAutoResizeTextarea
       value={draft}
       placeholder={props.placeholder}
       onFocus={() => setFocused(true)}
@@ -309,7 +309,7 @@ function ListFieldEditor(props: ListFieldEditorProps) {
         setFocused(false);
         props.onCommit(draft);
       }}
-      onChange={(event) => setDraft(event.target.value)}
+      onChangeValue={setDraft}
     />
   );
 }
@@ -320,6 +320,7 @@ interface DynamicLocaleSectionProps {
   values: Record<string, StructuredValue>;
   reservedKeys?: string[];
   valueKind: "text" | "textarea";
+  toolbarMode?: "mc" | "mc-markdown";
   help?: string;
   onChange(nextValues: Record<string, string>): void;
 }
@@ -365,34 +366,36 @@ function DynamicLocaleSection(props: DynamicLocaleSectionProps) {
           <div className="locale-row-main">
             <div className="locale-code-field">
               <label className="field-label">{t(props.locale, "localeCode")}</label>
-              <input
+              <UndoableInput
                 type="text"
                 value={row.locale}
                 className={!row.locale.trim() ? "locale-code-input locale-code-input-implicit" : "locale-code-input"}
                 placeholder={t(props.locale, "localePlaceholder")}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
-                onChange={(event) => updateRow(index, event.target.value, row.value)}
+                onChangeValue={(nextValue) => updateRow(index, nextValue, row.value)}
               />
             </div>
             <div className="locale-text-field">
               <label className="field-label">{t(props.locale, "text")}</label>
               {props.valueKind === "textarea" ? (
-                <AutoResizeTextarea
+                <FormattedTextarea
+                  locale={props.locale}
                   value={row.value}
+                  toolbarMode={props.toolbarMode ?? "mc"}
                   placeholder={t(props.locale, "localeTextPlaceholder")}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
-                  onChange={(event) => updateRow(index, row.locale, event.target.value)}
+                  onChangeValue={(nextValue) => updateRow(index, row.locale, nextValue)}
                 />
               ) : (
-                <input
+                <UndoableInput
                   type="text"
                   value={row.value}
                   placeholder={t(props.locale, "localeTextPlaceholder")}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
-                  onChange={(event) => updateRow(index, row.locale, event.target.value)}
+                  onChangeValue={(nextValue) => updateRow(index, row.locale, nextValue)}
                 />
               )}
             </div>
@@ -412,8 +415,29 @@ function DynamicLocaleSection(props: DynamicLocaleSectionProps) {
   );
 }
 
-function AutoResizeTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const ref = useRef<HTMLTextAreaElement | null>(null);
+type MutableInputRef = { current: HTMLInputElement | null };
+type MutableTextareaRef = { current: HTMLTextAreaElement | null };
+type TextareaRefProp = MutableTextareaRef | ((node: HTMLTextAreaElement | null) => void);
+
+interface AutoResizeTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  textareaRef?: TextareaRefProp;
+}
+
+function AutoResizeTextarea(props: AutoResizeTextareaProps) {
+  const internalRef = useRef<HTMLTextAreaElement | null>(null);
+  const { textareaRef, ...textareaProps } = props;
+  const ref = internalRef;
+
+  useEffect(() => {
+    if (!textareaRef) {
+      return;
+    }
+    if (typeof textareaRef === "function") {
+      textareaRef(ref.current);
+      return;
+    }
+    textareaRef.current = ref.current;
+  }, [textareaRef]);
 
   useLayoutEffect(() => {
     const element = ref.current;
@@ -426,16 +450,822 @@ function AutoResizeTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) 
 
   return (
     <textarea
-      {...props}
+      {...textareaProps}
       ref={ref}
-      rows={props.rows ?? 1}
+      rows={textareaProps.rows ?? 1}
       onInput={(event) => {
         const element = event.currentTarget;
         element.style.height = "auto";
         element.style.height = `${element.scrollHeight}px`;
-        props.onInput?.(event);
+        textareaProps.onInput?.(event);
       }}
     />
+  );
+}
+
+function useUndoableTextController<T extends HTMLInputElement | HTMLTextAreaElement>(
+  value: string,
+  onChangeValue: (nextValue: string) => void
+) {
+  const elementRef = useRef<T | null>(null);
+  const [draft, setDraft] = useState(value);
+  const historyRef = useRef<Array<{ value: string; selectionStart: number; selectionEnd: number }>>([
+    { value, selectionStart: value.length, selectionEnd: value.length }
+  ]);
+  const historyIndexRef = useRef(0);
+  const selectionStartRef = useRef(value.length);
+  const selectionEndRef = useRef(value.length);
+  const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null);
+  const shouldRestoreFocusRef = useRef(false);
+  const localEchoRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (localEchoRef.current !== null) {
+      if (value === localEchoRef.current) {
+        localEchoRef.current = null;
+      }
+      return;
+    }
+    if (value !== draft) {
+      setDraft(value);
+      selectionStartRef.current = value.length;
+      selectionEndRef.current = value.length;
+      historyRef.current = [{ value, selectionStart: value.length, selectionEnd: value.length }];
+      historyIndexRef.current = 0;
+    }
+  }, [value, draft]);
+
+  useLayoutEffect(() => {
+    const pending = pendingSelectionRef.current;
+    const element = elementRef.current;
+    if (!pending || !element) {
+      return;
+    }
+    pendingSelectionRef.current = null;
+    const shouldRestoreFocus = shouldRestoreFocusRef.current;
+    shouldRestoreFocusRef.current = false;
+    if (shouldRestoreFocus) {
+      element.focus();
+    }
+    element.setSelectionRange(pending.start, pending.end);
+  }, [draft]);
+
+  const syncSelection = (element?: T | null) => {
+    const target = element ?? elementRef.current;
+    if (!target) {
+      return;
+    }
+    selectionStartRef.current = target.selectionStart ?? draft.length;
+    selectionEndRef.current = target.selectionEnd ?? draft.length;
+  };
+
+  const pushSnapshot = (nextValue: string, nextSelectionStart: number, nextSelectionEnd: number) => {
+    const current = historyRef.current[historyIndexRef.current];
+    if (
+      current &&
+      current.value === nextValue &&
+      current.selectionStart === nextSelectionStart &&
+      current.selectionEnd === nextSelectionEnd
+    ) {
+      return;
+    }
+    const nextHistory = historyRef.current
+      .slice(0, historyIndexRef.current + 1)
+      .concat([{ value: nextValue, selectionStart: nextSelectionStart, selectionEnd: nextSelectionEnd }]);
+    historyRef.current = nextHistory.slice(-100);
+    historyIndexRef.current = historyRef.current.length - 1;
+  };
+
+  const commitValue = (nextValue: string, nextSelectionStart: number, nextSelectionEnd: number) => {
+    selectionStartRef.current = nextSelectionStart;
+    selectionEndRef.current = nextSelectionEnd;
+    pushSnapshot(nextValue, nextSelectionStart, nextSelectionEnd);
+    pendingSelectionRef.current = { start: nextSelectionStart, end: nextSelectionEnd };
+    shouldRestoreFocusRef.current = typeof window !== "undefined" && window.document.activeElement === elementRef.current;
+    localEchoRef.current = nextValue;
+    setDraft(nextValue);
+    onChangeValue(nextValue);
+    const element = elementRef.current;
+    if (element) {
+      element.value = nextValue;
+    }
+  };
+
+  const handleChange = (event: ChangeEvent<T>) => {
+    const nextValue = event.target.value;
+    selectionStartRef.current = event.target.selectionStart ?? nextValue.length;
+    selectionEndRef.current = event.target.selectionEnd ?? nextValue.length;
+    pushSnapshot(nextValue, selectionStartRef.current, selectionEndRef.current);
+    localEchoRef.current = nextValue;
+    setDraft(nextValue);
+    onChangeValue(nextValue);
+  };
+
+  const restoreSnapshot = (snapshot: { value: string; selectionStart: number; selectionEnd: number }) => {
+    selectionStartRef.current = snapshot.selectionStart;
+    selectionEndRef.current = snapshot.selectionEnd;
+    pendingSelectionRef.current = { start: snapshot.selectionStart, end: snapshot.selectionEnd };
+    shouldRestoreFocusRef.current = true;
+    localEchoRef.current = snapshot.value;
+    setDraft(snapshot.value);
+    onChangeValue(snapshot.value);
+    const element = elementRef.current;
+    if (element) {
+      element.value = snapshot.value;
+    }
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent<T>) => {
+    if (!isNativeUndoRedoShortcut(event)) {
+      return;
+    }
+    event.stopPropagation();
+    const key = event.key.toLowerCase();
+    const isUndo = key === "z" && !event.shiftKey;
+    const isRedo = (key === "z" && event.shiftKey) || key === "y";
+    if (isUndo) {
+      if (historyIndexRef.current === 0) {
+        return;
+      }
+      event.preventDefault();
+      historyIndexRef.current -= 1;
+      restoreSnapshot(historyRef.current[historyIndexRef.current]);
+      return;
+    }
+    if (isRedo) {
+      if (historyIndexRef.current >= historyRef.current.length - 1) {
+        return;
+      }
+      event.preventDefault();
+      historyIndexRef.current += 1;
+      restoreSnapshot(historyRef.current[historyIndexRef.current]);
+    }
+  };
+
+  return {
+    draft,
+    elementRef,
+    selectionStartRef,
+    selectionEndRef,
+    syncSelection,
+    commitValue,
+    handleChange,
+    handleKeyDown
+  };
+}
+
+function isNativeUndoRedoShortcut(event: ReactKeyboardEvent<HTMLElement>): boolean {
+  const isMod = event.metaKey || event.ctrlKey;
+  if (!isMod || event.altKey) {
+    return false;
+  }
+  const key = event.key.toLowerCase();
+  return (key === "z") || (key === "y");
+}
+
+interface UndoableInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
+  value: string;
+  inputRef?: MutableInputRef;
+  onChangeValue(nextValue: string): void;
+}
+
+function UndoableInput(props: UndoableInputProps) {
+  const {
+    value,
+    inputRef,
+    onChangeValue,
+    onSelect,
+    onClick,
+    onKeyUp,
+    ...inputProps
+  } = props;
+  const controller = useUndoableTextController<HTMLInputElement>(value, onChangeValue);
+
+  return (
+    <input
+      {...inputProps}
+      ref={(element) => {
+        controller.elementRef.current = element;
+        if (inputRef) {
+          inputRef.current = element;
+        }
+      }}
+      value={controller.draft}
+      onChange={controller.handleChange}
+      onKeyDown={(event) => {
+        controller.handleKeyDown(event);
+      }}
+      onSelect={(event) => {
+        controller.syncSelection(event.currentTarget);
+        onSelect?.(event);
+      }}
+      onClick={(event) => {
+        controller.syncSelection(event.currentTarget);
+        onClick?.(event);
+      }}
+      onKeyUp={(event) => {
+        controller.syncSelection(event.currentTarget);
+        onKeyUp?.(event);
+      }}
+    />
+  );
+}
+
+interface UndoableAutoResizeTextareaProps extends Omit<AutoResizeTextareaProps, "value" | "onChange"> {
+  value: string;
+  onChangeValue(nextValue: string): void;
+}
+
+function UndoableAutoResizeTextarea(props: UndoableAutoResizeTextareaProps) {
+  const {
+    value,
+    onChangeValue,
+    onSelect,
+    onClick,
+    onKeyUp,
+    textareaRef,
+    ...textareaProps
+  } = props;
+  const controller = useUndoableTextController<HTMLTextAreaElement>(value, onChangeValue);
+
+  return (
+    <AutoResizeTextarea
+      {...textareaProps}
+      textareaRef={(element) => {
+        controller.elementRef.current = element;
+        if (textareaRef && typeof textareaRef !== "function") {
+          textareaRef.current = element;
+        }
+        if (typeof textareaRef === "function") {
+          textareaRef(element);
+        }
+      }}
+      value={controller.draft}
+      onChange={controller.handleChange}
+      onKeyDown={(event) => {
+        controller.handleKeyDown(event);
+      }}
+      onSelect={(event) => {
+        controller.syncSelection(event.currentTarget);
+        onSelect?.(event);
+      }}
+      onClick={(event) => {
+        controller.syncSelection(event.currentTarget);
+        onClick?.(event);
+      }}
+      onKeyUp={(event) => {
+        controller.syncSelection(event.currentTarget);
+        onKeyUp?.(event);
+      }}
+    />
+  );
+}
+
+interface FormattedTextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "onChange" | "value"> {
+  locale: EditorLocale;
+  value: string;
+  toolbarMode?: "mc" | "mc-markdown";
+  onChangeValue(nextValue: string): void;
+}
+
+const MC_COLOR_PRESETS = [
+  "#000000", "#0000aa", "#00aa00", "#00aaaa",
+  "#aa0000", "#aa00aa", "#ffaa00", "#aaaaaa",
+  "#555555", "#5555ff", "#55ff55", "#55ffff",
+  "#ff5555", "#ff55ff", "#ffff55", "#ffffff"
+];
+
+const MC_CLASSIC_COLORS: Record<string, string> = {
+  "0": "#000000",
+  "1": "#0000aa",
+  "2": "#00aa00",
+  "3": "#00aaaa",
+  "4": "#aa0000",
+  "5": "#aa00aa",
+  "6": "#ffaa00",
+  "7": "#aaaaaa",
+  "8": "#555555",
+  "9": "#5555ff",
+  "a": "#55ff55",
+  "b": "#55ffff",
+  "c": "#ff5555",
+  "d": "#ff55ff",
+  "e": "#ffff55",
+  "f": "#ffffff"
+};
+
+function normalizeMcHexColor(raw: string, fallback: string): string {
+  const trimmed = raw.trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return `#${trimmed.toLowerCase()}`;
+  }
+  return fallback;
+}
+
+interface McTextStyleState {
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  strikethrough?: boolean;
+  obfuscated?: boolean;
+}
+
+function buildMcStyle(style: McTextStyleState) {
+  return {
+    color: style.color,
+    fontWeight: style.bold ? 700 : undefined,
+    fontStyle: style.italic ? "italic" : undefined,
+    textDecoration: [
+      style.underline ? "underline" : "",
+      style.strikethrough ? "line-through" : ""
+    ].filter(Boolean).join(" ") || undefined
+  };
+}
+
+function nextMcState(style: McTextStyleState, code: string): McTextStyleState {
+  const lowered = code.toLowerCase();
+  if (lowered === "r") {
+    return {};
+  }
+  if (MC_CLASSIC_COLORS[lowered]) {
+    return { color: MC_CLASSIC_COLORS[lowered] };
+  }
+  if (lowered === "l") {
+    return { ...style, bold: true };
+  }
+  if (lowered === "o") {
+    return { ...style, italic: true };
+  }
+  if (lowered === "n") {
+    return { ...style, underline: true };
+  }
+  if (lowered === "m") {
+    return { ...style, strikethrough: true };
+  }
+  if (lowered === "k") {
+    return { ...style, obfuscated: true };
+  }
+  return style;
+}
+
+function randomizeObfuscatedText(source: string): string {
+  const pool = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*+-=?<>[]{}()/_~";
+
+  return Array.from(source).map((char) => {
+    if (/\s/.test(char)) {
+      return char;
+    }
+    return pool[Math.floor(Math.random() * pool.length)];
+  }).join("");
+}
+
+interface McObfuscatedSpanProps {
+  text: string;
+  style: ReturnType<typeof buildMcStyle>;
+}
+
+function McObfuscatedSpan(props: McObfuscatedSpanProps) {
+  const [displayText, setDisplayText] = useState(() => randomizeObfuscatedText(props.text));
+
+  useEffect(() => {
+    setDisplayText(randomizeObfuscatedText(props.text));
+    const timer = window.setInterval(() => {
+      setDisplayText(randomizeObfuscatedText(props.text));
+    }, 90);
+    return () => window.clearInterval(timer);
+  }, [props.text]);
+
+  return (
+    <span className="mc-preview-obfuscated" style={props.style}>
+      {displayText}
+    </span>
+  );
+}
+
+function renderMcFormattedText(value: string): ReactNode {
+  if (!value) {
+    return null;
+  }
+
+  const lines = value.split(/\r?\n/);
+  return lines.map((line, lineIndex) => {
+    const parts: ReactNode[] = [];
+    let buffer = "";
+    let style: McTextStyleState = {};
+
+    const flush = (key: string) => {
+      if (!buffer) {
+        return;
+      }
+      const renderedStyle = buildMcStyle(style);
+      if (style.obfuscated) {
+        parts.push(
+          <McObfuscatedSpan
+            key={key}
+            text={buffer}
+            style={renderedStyle}
+          />
+        );
+      } else {
+        parts.push(
+          <span key={key} style={renderedStyle}>
+            {buffer}
+          </span>
+        );
+      }
+      buffer = "";
+    };
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if ((ch === "§" || ch === "&") && i + 1 < line.length) {
+        const marker = line[i + 1];
+        if (marker === "#" && i + 7 < line.length) {
+          const hex = line.slice(i + 2, i + 8);
+          if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+            flush(`${lineIndex}-${parts.length}`);
+            style = { color: `#${hex.toLowerCase()}` };
+            i += 7;
+            continue;
+          }
+        }
+        const lowered = marker.toLowerCase();
+        if (MC_CLASSIC_COLORS[lowered] || "lonmrk".includes(lowered)) {
+          flush(`${lineIndex}-${parts.length}`);
+          style = nextMcState(style, lowered);
+          i += 1;
+          continue;
+        }
+      }
+      buffer += ch;
+    }
+
+    flush(`${lineIndex}-${parts.length}`);
+    return (
+      <div key={`mc-line-${lineIndex}`} className="mc-preview-line">
+        {parts.length > 0 ? parts : <br />}
+      </div>
+    );
+  });
+}
+
+function renderMcInlineText(value: string, keyPrefix: string): ReactNode[] {
+  if (!value) {
+    return [];
+  }
+
+  const parts: ReactNode[] = [];
+  let buffer = "";
+  let style: McTextStyleState = {};
+
+  const flush = (key: string) => {
+    if (!buffer) {
+      return;
+    }
+    const renderedStyle = buildMcStyle(style);
+    if (style.obfuscated) {
+      parts.push(
+        <McObfuscatedSpan
+          key={key}
+          text={buffer}
+          style={renderedStyle}
+        />
+      );
+    } else {
+      parts.push(
+        <span key={key} style={renderedStyle}>
+          {buffer}
+        </span>
+      );
+    }
+    buffer = "";
+  };
+
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i];
+    if ((ch === "§" || ch === "&") && i + 1 < value.length) {
+      const marker = value[i + 1];
+      if (marker === "#" && i + 7 < value.length) {
+        const hex = value.slice(i + 2, i + 8);
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+          flush(`${keyPrefix}-${parts.length}`);
+          style = { color: `#${hex.toLowerCase()}` };
+          i += 7;
+          continue;
+        }
+      }
+      const lowered = marker.toLowerCase();
+      if (MC_CLASSIC_COLORS[lowered] || "lonmrk".includes(lowered)) {
+        flush(`${keyPrefix}-${parts.length}`);
+        style = nextMcState(style, lowered);
+        i += 1;
+        continue;
+      }
+    }
+    buffer += ch;
+  }
+
+  flush(`${keyPrefix}-${parts.length}`);
+  return parts;
+}
+
+function renderMcMarkdownChildren(children: ReactNode, keyPrefix: string): ReactNode {
+  return Array.isArray(children)
+    ? children.map((child, index) => renderMcMarkdownNode(child, `${keyPrefix}-${index}`))
+    : renderMcMarkdownNode(children, keyPrefix);
+}
+
+function renderMcMarkdownNode(node: ReactNode, keyPrefix: string): ReactNode {
+  if (typeof node === "string") {
+    return renderMcInlineText(node, keyPrefix);
+  }
+  if (Array.isArray(node)) {
+    return node.map((child, index) => renderMcMarkdownNode(child, `${keyPrefix}-${index}`));
+  }
+  if (isValidElement(node)) {
+    const element = node as ReactElement<{ children?: ReactNode }>;
+    return cloneElement(element, {
+      children: renderMcMarkdownChildren(element.props.children, `${keyPrefix}-child`)
+    });
+  }
+  return node;
+}
+
+function renderMarkdownPreview(value: string): ReactNode {
+  return (
+    <div className="notice-markdown notice-markdown-preview">
+      <ReactMarkdown
+        components={{
+          h1: ({ children }) => <h1>{renderMcMarkdownChildren(children, "h1")}</h1>,
+          h2: ({ children }) => <h2>{renderMcMarkdownChildren(children, "h2")}</h2>,
+          h3: ({ children }) => <h3>{renderMcMarkdownChildren(children, "h3")}</h3>,
+          h4: ({ children }) => <h4>{renderMcMarkdownChildren(children, "h4")}</h4>,
+          p: ({ children }) => <p>{renderMcMarkdownChildren(children, "p")}</p>,
+          li: ({ children }) => <li>{renderMcMarkdownChildren(children, "li")}</li>,
+          blockquote: ({ children }) => <blockquote>{renderMcMarkdownChildren(children, "blockquote")}</blockquote>,
+          strong: ({ children }) => <strong>{renderMcMarkdownChildren(children, "strong")}</strong>,
+          em: ({ children }) => <em>{renderMcMarkdownChildren(children, "em")}</em>,
+          a: ({ href, children }) => <a href={href}>{renderMcMarkdownChildren(children, "a")}</a>,
+          code: ({ children, ...rest }) => <code {...rest}>{renderMcMarkdownChildren(children, "code")}</code>,
+          pre: ({ children }) => <pre>{children}</pre>
+        }}
+      >
+        {value}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+function FormattedTextarea(props: FormattedTextareaProps) {
+  const nativeColorInputRef = useRef<HTMLInputElement | null>(null);
+  const colorDraftInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedColor, setSelectedColor] = useState("#55ffff");
+  const [colorDraft, setColorDraft] = useState("#55ffff");
+  const selectedColorRef = useRef("#55ffff");
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const { locale, value, onChangeValue, toolbarMode = "mc", ...inputProps } = props;
+  const controller = useUndoableTextController<HTMLTextAreaElement>(value, onChangeValue);
+
+  const updateSelectedColor = (nextColor: string) => {
+    selectedColorRef.current = nextColor;
+    setSelectedColor(nextColor);
+    setColorDraft(nextColor);
+  };
+
+  const keepTextareaSelection = (event: MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+  };
+
+  const syncSelectionFromTextarea = () => {
+    controller.syncSelection();
+  };
+
+  const commitTextareaValue = (nextValue: string, nextSelectionStart: number, nextSelectionEnd: number) => {
+    controller.commitValue(nextValue, nextSelectionStart, nextSelectionEnd);
+  };
+
+  const applyWrap = (prefix: string, suffix = "") => {
+    const currentValue = controller.draft ?? "";
+    const start = Math.min(controller.selectionStartRef.current, currentValue.length);
+    const end = Math.min(controller.selectionEndRef.current, currentValue.length);
+    const selected = currentValue.slice(start, end);
+    const nextValue = `${currentValue.slice(0, start)}${prefix}${selected}${suffix}${currentValue.slice(end)}`;
+    const nextCursor = start + prefix.length + selected.length + suffix.length;
+    commitTextareaValue(nextValue, nextCursor, nextCursor);
+  };
+
+  const insertAtCursor = (snippet: string) => {
+    const currentValue = controller.draft ?? "";
+    const start = Math.min(controller.selectionStartRef.current, currentValue.length);
+    const end = Math.min(controller.selectionEndRef.current, currentValue.length);
+    const nextValue = `${currentValue.slice(0, start)}${snippet}${currentValue.slice(end)}`;
+    const nextCursor = start + snippet.length;
+    commitTextareaValue(nextValue, nextCursor, nextCursor);
+  };
+
+  const applyMarkdownWrap = (prefix: string, suffix = prefix) => {
+    const currentValue = controller.draft ?? "";
+    const start = Math.min(controller.selectionStartRef.current, currentValue.length);
+    const end = Math.min(controller.selectionEndRef.current, currentValue.length);
+    const selected = currentValue.slice(start, end);
+    const content = selected || t(locale, "markdownPlaceholder");
+    const nextValue = `${currentValue.slice(0, start)}${prefix}${content}${suffix}${currentValue.slice(end)}`;
+    const nextCursor = start + prefix.length + content.length + suffix.length;
+    commitTextareaValue(nextValue, nextCursor, nextCursor);
+  };
+
+  const applyMarkdownLinePrefix = (prefix: string) => {
+    const currentValue = controller.draft ?? "";
+    const start = Math.min(controller.selectionStartRef.current, currentValue.length);
+    const end = Math.min(controller.selectionEndRef.current, currentValue.length);
+    const lineStart = currentValue.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+    const lineEndIndex = currentValue.indexOf("\n", end);
+    const lineEnd = lineEndIndex === -1 ? currentValue.length : lineEndIndex;
+    const selectedBlock = currentValue.slice(lineStart, lineEnd);
+    const content = selectedBlock || t(locale, "markdownPlaceholder");
+    const transformed = content
+      .split(/\r?\n/)
+      .map((line) => `${prefix}${line}`)
+      .join("\n");
+    const nextValue = `${currentValue.slice(0, lineStart)}${transformed}${currentValue.slice(lineEnd)}`;
+    const nextCursor = lineStart + transformed.length;
+    commitTextareaValue(nextValue, nextCursor, nextCursor);
+  };
+
+  const insertMarkdownLink = () => {
+    const currentValue = controller.draft ?? "";
+    const start = Math.min(controller.selectionStartRef.current, currentValue.length);
+    const end = Math.min(controller.selectionEndRef.current, currentValue.length);
+    const content = currentValue.slice(start, end) || t(locale, "markdownPlaceholder");
+    const snippet = `[${content}](https://example.com)`;
+    const nextValue = `${currentValue.slice(0, start)}${snippet}${currentValue.slice(end)}`;
+    const nextCursor = start + snippet.length;
+    commitTextareaValue(nextValue, nextCursor, nextCursor);
+  };
+
+  const insertMarkdownOrderedList = () => {
+    const currentValue = controller.draft ?? "";
+    const start = Math.min(controller.selectionStartRef.current, currentValue.length);
+    const lineStart = currentValue.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+    const beforeLines = currentValue.slice(0, lineStart).split(/\r?\n/);
+    let nextNumber = 1;
+    for (let index = beforeLines.length - 1; index >= 0; index -= 1) {
+      const match = beforeLines[index].match(/^\s*(\d+)\.\s+/);
+      if (match) {
+        nextNumber = Number.parseInt(match[1], 10) + 1;
+        break;
+      }
+      if (beforeLines[index].trim()) {
+        break;
+      }
+    }
+    insertAtCursor(`${nextNumber}. `);
+  };
+
+  return (
+    <div className="formatted-textarea">
+      {toolbarMode === "mc-markdown" && (
+        <div className="format-toolbar markdown-toolbar">
+          <span className="format-toolbar-label">{t(locale, "markdownToolbar")}</span>
+          <button type="button" title={t(locale, "markdownHeading")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownLinePrefix("## ")}>
+            {t(locale, "markdownHeading")}
+          </button>
+          <button type="button" title={t(locale, "markdownBold")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownWrap("**")}>
+            {t(locale, "markdownBold")}
+          </button>
+          <button type="button" title={t(locale, "markdownItalic")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownWrap("*")}>
+            {t(locale, "markdownItalic")}
+          </button>
+          <button type="button" title={t(locale, "markdownQuote")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownLinePrefix("> ")}>
+            {t(locale, "markdownQuote")}
+          </button>
+          <button type="button" title={t(locale, "markdownList")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownLinePrefix("- ")}>
+            {t(locale, "markdownList")}
+          </button>
+          <button type="button" title={t(locale, "markdownOrderedList")} onMouseDown={keepTextareaSelection} onClick={insertMarkdownOrderedList}>
+            {t(locale, "markdownOrderedList")}
+          </button>
+          <button type="button" title={t(locale, "markdownLink")} onMouseDown={keepTextareaSelection} onClick={insertMarkdownLink}>
+            {t(locale, "markdownLink")}
+          </button>
+          <button type="button" title={t(locale, "markdownInlineCode")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownWrap("`")}>
+            {t(locale, "markdownInlineCode")}
+          </button>
+          <button type="button" title={t(locale, "markdownDivider")} onMouseDown={keepTextareaSelection} onClick={() => insertAtCursor("\n---\n")}>
+            {t(locale, "markdownDivider")}
+          </button>
+        </div>
+      )}
+      <div className="format-toolbar">
+        {toolbarMode === "mc-markdown" && (
+          <span className="format-toolbar-label">{t(locale, "mcToolbar")}</span>
+        )}
+        <button type="button" title={t(locale, "mcBold")} onMouseDown={keepTextareaSelection} onClick={() => applyWrap("§l")}>{t(locale, "mcBold")}</button>
+        <button type="button" title={t(locale, "mcItalic")} onMouseDown={keepTextareaSelection} onClick={() => applyWrap("§o")}>{t(locale, "mcItalic")}</button>
+        <button type="button" title={t(locale, "mcUnderline")} onMouseDown={keepTextareaSelection} onClick={() => applyWrap("§n")}>{t(locale, "mcUnderline")}</button>
+        <button type="button" title={t(locale, "mcStrikethrough")} onMouseDown={keepTextareaSelection} onClick={() => applyWrap("§m")}>{t(locale, "mcStrikethrough")}</button>
+        <button type="button" title={t(locale, "mcObfuscated")} onMouseDown={keepTextareaSelection} onClick={() => applyWrap("§k")}>{t(locale, "mcObfuscated")}</button>
+        <button type="button" title={t(locale, "mcReset")} onMouseDown={keepTextareaSelection} onClick={() => insertAtCursor("§r")}>{t(locale, "mcReset")}</button>
+        <div className="format-color-picker">
+          <button type="button" title={t(locale, "mcColor")} onMouseDown={keepTextareaSelection} onClick={() => setShowColorPicker((value) => !value)}>
+            {t(locale, "mcColor")}
+          </button>
+          {showColorPicker && (
+            <div className="format-color-popover">
+              <div className="format-color-current">
+                <button
+                  type="button"
+                  className="format-color-swatch format-color-swatch-button"
+                  style={{ backgroundColor: selectedColor }}
+                  title={t(locale, "mcColor")}
+                  onMouseDown={keepTextareaSelection}
+                  onClick={() => nativeColorInputRef.current?.click()}
+                  aria-label={t(locale, "mcColor")}
+                />
+                <UndoableInput
+                  inputRef={colorDraftInputRef}
+                  type="text"
+                  value={colorDraft}
+                  placeholder="#55ffff"
+                  onChangeValue={(nextDraft) => {
+                    setColorDraft(nextDraft);
+                    if (/^#?[0-9a-fA-F]{6}$/.test(nextDraft.trim())) {
+                      updateSelectedColor(normalizeMcHexColor(nextDraft, selectedColorRef.current));
+                    }
+                  }}
+                  onBlur={() => {
+                    const normalized = normalizeMcHexColor(colorDraft, selectedColorRef.current);
+                    updateSelectedColor(normalized);
+                  }}
+                />
+                <input
+                  ref={nativeColorInputRef}
+                  className="format-color-native-input"
+                  type="color"
+                  value={selectedColor}
+                  onInput={(event) => {
+                    updateSelectedColor((event.target as HTMLInputElement).value);
+                  }}
+                  onChange={(event) => {
+                    updateSelectedColor(event.target.value);
+                  }}
+                />
+              </div>
+              <div className="format-color-grid">
+                {MC_COLOR_PRESETS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`format-color-chip${selectedColor === color ? " is-active" : ""}`}
+                    style={{ backgroundColor: color }}
+                    title={color}
+                    onMouseDown={keepTextareaSelection}
+                    onClick={() => updateSelectedColor(color)}
+                    aria-label={color}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                className="format-color-insert"
+                title={t(locale, "mcInsertColor")}
+                onMouseDown={(event) => {
+                  keepTextareaSelection(event);
+                  const draftValue = colorDraftInputRef.current?.value ?? colorDraft;
+                  const normalized = normalizeMcHexColor(draftValue, selectedColorRef.current);
+                  updateSelectedColor(normalized);
+                  applyWrap(`&#${normalized.slice(1)}`);
+                  setShowColorPicker(false);
+                }}
+              >
+                {t(locale, "mcInsertColor")}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      <UndoableAutoResizeTextarea
+        {...inputProps}
+        textareaRef={controller.elementRef}
+        value={controller.draft}
+        onChangeValue={onChangeValue}
+        onSelect={syncSelectionFromTextarea}
+        onClick={syncSelectionFromTextarea}
+        onKeyUp={syncSelectionFromTextarea}
+      />
+      {controller.draft.trim() && (
+        <div className="mc-preview">
+          <div className="mc-preview-label">{t(locale, "mcPreview")}</div>
+          <div className="mc-preview-content">
+            {toolbarMode === "mc-markdown" ? renderMarkdownPreview(controller.draft) : renderMcFormattedText(controller.draft)}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -675,11 +1505,11 @@ function UpdateDeleteEditor(props: UpdateDeleteEditorProps) {
     <div className="update-rule-editor">
       {rows.map((row, index) => (
         <div key={`del-${index}`} className="update-rule-row update-rule-row-single">
-          <input
+          <UndoableInput
             type="text"
             value={row}
             placeholder={t(props.locale, "updateDeletePath")}
-            onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? event.target.value : item))}
+            onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? nextValue : item))}
           />
           <button type="button" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
             {t(props.locale, "delete")}
@@ -721,17 +1551,17 @@ function UpdateAddEditor(props: UpdateAddEditorProps) {
       {rows.map((row, index) => (
         <div key={`add-${index}`} className="update-rule-card">
           <div className="update-rule-grid update-rule-grid-add">
-            <input
+            <UndoableInput
               type="text"
               value={row.source}
               placeholder={t(props.locale, "updateSourcePath")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, source: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, source: nextValue } : item))}
             />
-            <input
+            <UndoableInput
               type="text"
               value={row.target}
               placeholder={t(props.locale, "updateAppliedTarget")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, target: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, target: nextValue } : item))}
             />
             <div className="update-override-editor">
               <ToggleButton
@@ -784,17 +1614,17 @@ function UpdateMoveEditor(props: UpdateMoveEditorProps) {
       {rows.map((row, index) => (
         <div key={`move-${index}`} className="update-rule-card">
           <div className="update-rule-grid update-rule-grid-two">
-            <input
+            <UndoableInput
               type="text"
               value={row.from}
               placeholder={t(props.locale, "updateFromPath")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, from: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, from: nextValue } : item))}
             />
-            <input
+            <UndoableInput
               type="text"
               value={row.to}
               placeholder={t(props.locale, "updateToPath")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, to: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, to: nextValue } : item))}
             />
           </div>
           <button type="button" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
@@ -837,29 +1667,29 @@ function UpdateModifyEditor(props: UpdateModifyEditorProps) {
       {rows.map((row, index) => (
         <div key={`modify-${index}`} className="update-rule-card">
           <div className="update-rule-grid">
-            <input
+            <UndoableInput
               type="text"
               value={row.target}
               placeholder={t(props.locale, "updateTargetPath")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, target: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, target: nextValue } : item))}
             />
-            <input
+            <UndoableInput
               type="text"
               value={row.find}
               placeholder={t(props.locale, "updateFind")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, find: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, find: nextValue } : item))}
             />
-            <input
+            <UndoableInput
               type="text"
               value={row.replace}
               placeholder={t(props.locale, "updateReplace")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, replace: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, replace: nextValue } : item))}
             />
-            <input
+            <UndoableInput
               type="text"
               value={row.which}
               placeholder={t(props.locale, "updateWhich")}
-              onChange={(event) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, which: event.target.value } : item))}
+              onChangeValue={(nextValue) => updateRows(rows.map((item, rowIndex) => rowIndex === index ? { ...item, which: nextValue } : item))}
             />
           </div>
           <button type="button" onClick={() => updateRows(rows.filter((_, rowIndex) => rowIndex !== index))}>
