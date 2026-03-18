@@ -727,7 +727,7 @@ export function App() {
               )}
 
               {activeView === "preview" && (
-                <NoticePreview locale={locale} model={editingDocument.structuredModel} />
+                <NoticePreview locale={locale} model={editingDocument.structuredModel} backend={backend} />
               )}
 
               {activeView === "validation" && (

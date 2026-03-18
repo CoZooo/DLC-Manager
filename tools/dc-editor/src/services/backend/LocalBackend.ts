@@ -131,6 +131,29 @@ export class LocalBackend implements EditorBackend {
     return this.saveWithDownload(request);
   }
 
+  async fetchNoticeContent(url: string): Promise<string | null> {
+    const normalized = url.trim();
+    if (!normalized) {
+      return null;
+    }
+    if (isTauriRuntime()) {
+      const text = await invoke<string | null>("fetch_notice_content", { url: normalized });
+      return text && text.trim() ? text : null;
+    }
+    const response = await fetch(normalized, {
+      method: "GET",
+      redirect: "follow"
+    });
+    if (!response.ok) {
+      return null;
+    }
+    let text = await response.text();
+    if (text.startsWith("\uFEFF")) {
+      text = text.slice(1);
+    }
+    return text && text.trim() ? text : null;
+  }
+
   private openWithInputPicker(accept: string): Promise<OpenDocumentResult | null> {
     return new Promise((resolve) => {
       const input = document.createElement("input");

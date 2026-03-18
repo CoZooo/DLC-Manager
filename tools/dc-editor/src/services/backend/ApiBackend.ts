@@ -259,6 +259,15 @@ export class ApiBackend implements EditorBackend {
     };
   }
 
+  async fetchNoticeContent(url: string): Promise<string | null> {
+    this.ensureConfigured();
+    const response = await this.request<{ content?: string | null }>("POST", "/api/notice/content", {
+      url
+    });
+    const content = typeof response.content === "string" ? response.content : "";
+    return content.trim() ? content : null;
+  }
+
   private collectRemoteChoices(listing: ApiRootListResponse): string[] {
     const choices: string[] = [];
     for (const root of listing.roots || []) {

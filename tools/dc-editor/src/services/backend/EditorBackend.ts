@@ -25,4 +25,5 @@ export interface EditorBackend {
   serialize(type: DocumentType, model: StructuredModel): Promise<string>;
   serializeForSave(type: DocumentType, model: StructuredModel): Promise<string>;
   save(request: SaveDocumentRequest): Promise<SaveDocumentResult>;
+  fetchNoticeContent(url: string): Promise<string | null>;
 }

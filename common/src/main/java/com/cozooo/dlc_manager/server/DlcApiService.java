@@ -251,6 +251,10 @@ public final class DlcApiService {
                     handleWriteDc(exchange);
                     return;
                 }
+                if ("POST".equals(method) && "/api/notice/content".equals(path)) {
+                    handleNoticeContent(exchange);
+                    return;
+                }
                 if ("POST".equals(method) && "/api/file/add".equals(path)) {
                     handleFileAdd(exchange);
                     return;
@@ -970,6 +974,20 @@ public final class DlcApiService {
         sendOk(exchange, data);
     }
 
+    private static void handleNoticeContent(HttpExchange exchange) throws IOException {
+        JsonObject request = readJsonBody(exchange);
+        String url = blank(getString(request, "url"));
+        if (url.isBlank()) {
+            sendError(exchange, 400, "url_missing", "URL is required.");
+            return;
+        }
+        String content = fetchNoticeContent(url);
+        JsonObject data = new JsonObject();
+        data.addProperty("url", url);
+        data.addProperty("content", content == null ? "" : content);
+        sendOk(exchange, data);
+    }
+
     private static void handleFileAdd(HttpExchange exchange) throws IOException {
         JsonObject request = readJsonBody(exchange);
         String pathRaw = blank(getString(request, "path"));
@@ -1587,6 +1605,40 @@ public final class DlcApiService {
             return true;
         }
         return Files.deleteIfExists(path);
+    }
+
+    private static String fetchNoticeContent(String rawUrl) {
+        String url = blank(rawUrl);
+        if (url.isBlank()) {
+            return null;
+        }
+        java.net.HttpURLConnection connection = null;
+        try {
+            java.net.URL target = new java.net.URL(url);
+            connection = (java.net.HttpURLConnection) target.openConnection();
+            connection.setConnectTimeout(3000);
+            connection.setReadTimeout(5000);
+            connection.setInstanceFollowRedirects(true);
+            connection.setRequestProperty("User-Agent", "DLC-Manager-NoticeApi/1.0");
+            int code = connection.getResponseCode();
+            if (code < 200 || code >= 300) {
+                return null;
+            }
+            try (java.io.InputStream in = connection.getInputStream()) {
+                byte[] bytes = in.readAllBytes();
+                String text = new String(bytes, StandardCharsets.UTF_8);
+                if (text.startsWith("\uFEFF")) {
+                    text = text.substring(1);
+                }
+                return text.isBlank() ? null : text;
+            }
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
     }
 
     private static boolean getBoolean(JsonObject obj, String key) {
