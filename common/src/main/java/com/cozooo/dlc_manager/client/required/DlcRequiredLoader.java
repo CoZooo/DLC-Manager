@@ -210,6 +210,7 @@ public final class DlcRequiredLoader {
         String applied = null;
         applied = getString(obj, "appliedTarget");
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
+        entry.setRedirectUrl(getString(obj, "RedirectUrl"));
         JsonElement depsElement = JsonCaseUtil.getIgnoreCase(obj, "dependencies");
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir);
@@ -384,6 +385,7 @@ public final class DlcRequiredLoader {
         String identifier = entry.getIdentifier();
         String fileName = entry.getRequiredFileName();
         String appliedTarget = entry.getAppliedTargetRaw();
+        String redirectUrl = entry.getRedirectUrl();
         DependencyResult deps = normalizeDependencies(JsonCaseUtil.getIgnoreCase(obj, "dependencies"), requiredDir);
         JsonObject display = new JsonObject();
         entry.getDisplayNames().forEach(display::addProperty);
@@ -410,6 +412,9 @@ public final class DlcRequiredLoader {
             ordered.addProperty("file_name", fileName);
         }
         ordered.addProperty("appliedTarget", appliedTarget == null ? "" : appliedTarget);
+        if (redirectUrl != null && !redirectUrl.isBlank()) {
+            ordered.addProperty("RedirectUrl", redirectUrl);
+        }
         ordered.addProperty("isInList", entry.isInList());
         ordered.addProperty("isHidden", entry.isHidden());
         if (entry.isUserRemoved()) {

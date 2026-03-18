@@ -2122,6 +2122,13 @@ public final class DlcServerDownloadService {
                 info.addProperty("appliedTarget", appliedTarget);
             }
         }
+        String redirectUrl = entry.getRedirectUrl();
+        if ((redirectUrl == null || redirectUrl.isBlank()) && configObj != null) {
+            redirectUrl = JsonCaseUtil.getStringIgnoreCase(configObj, "RedirectUrl");
+        }
+        if (redirectUrl != null && !redirectUrl.isBlank()) {
+            info.addProperty("RedirectUrl", redirectUrl);
+        }
         info.addProperty("isInList", entry.isInList());
         info.addProperty("isHidden", entry.isHidden());
         info.addProperty("AllowEnableByAll", entry.isAllowEnableByAll());

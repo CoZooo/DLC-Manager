@@ -8,6 +8,12 @@ function pathBaseName(path?: string): string {
   return slash >= 0 ? path.substring(slash + 1) : path;
 }
 
+function hasAssignment(body: string, key: string): boolean {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(^|\\n)\\s*${escaped}\\s*=`, "m");
+  return pattern.test(body);
+}
+
 export function detectDocumentType(path?: string, text?: string): DocumentType {
   const name = pathBaseName(path).toLowerCase();
   const lowerPath = (path || "").toLowerCase();
@@ -92,7 +98,7 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   if (body.includes("[file]") || body.includes("[update]")) {
     return "update";
   }
-  if (body.includes("enable") && body.includes("[displayname]") && body.includes("[tip]")) {
+  if (hasAssignment(body, "enable") && body.includes("[displayname]") && body.includes("[tip]")) {
     return "preset";
   }
   if (body.includes("[server]") && body.includes("serverport")) {

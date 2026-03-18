@@ -70,6 +70,12 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
         }]
       : []),
     {
+      key: "RedirectUrl",
+      label: "RedirectUrl",
+      kind: "text",
+      help: "双击 DLC 名称时打开的链接。"
+    },
+    {
       key: "isInList",
       label: "isInList",
       kind: "boolean",
@@ -130,6 +136,12 @@ const requiredBasicSection: SectionSchema = {
       label: "appliedTarget",
       kind: "text",
       help: "应用目标路径，填写相对路径。"
+    },
+    {
+      key: "RedirectUrl",
+      label: "RedirectUrl",
+      kind: "text",
+      help: "双击 DLC 名称时打开的链接。"
     },
     {
       key: "isInList",

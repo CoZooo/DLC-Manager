@@ -44,6 +44,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private ButtonGeneric redirectButton;
     private int groupToggleWidth;
     private int groupToggleHeight;
+    private long lastNameClickTime;
+    private int lastNameClickButton = -1;
+    private static final long DOUBLE_CLICK_INTERVAL_MS = 250L;
 
     public DlcListEntry(int x, int y, int width, int height, boolean isOdd, DlcListRow row, int listIndex) {
         super(x, y, width, height, row, listIndex);
@@ -74,7 +77,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         groupToggleWidth = Math.max(86, Minecraft.getInstance().font.width(getGroupToggleState(items).label) + 16);
         groupToggleHeight = 16;
         int bx = this.x + width - groupToggleWidth - 6 - 64 - 6;
-        int by = getAlignedButtonY(this.y, height, groupToggleHeight);
+        int by = getGroupToggleButtonY(this.y, height, groupToggleHeight);
         groupToggleButton = new ButtonGeneric(bx, by, groupToggleWidth, groupToggleHeight, getGroupToggleState(items).label);
         addButton(groupToggleButton, new GroupToggleListener(items));
     }
@@ -109,7 +112,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 if (state.show) {
                     groupToggleWidth = Math.max(86, Minecraft.getInstance().font.width(state.label) + 16);
                     int bx = this.x + this.width - groupToggleWidth - 6 - 64 - 6;
-                    int by = getAlignedButtonY(this.y, this.height, groupToggleHeight);
+                    int by = getGroupToggleButtonY(this.y, this.height, groupToggleHeight);
                     groupToggleButton.setX(bx);
                     groupToggleButton.setY(by);
                     groupToggleButton.setWidth(groupToggleWidth);
@@ -193,6 +196,33 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
     }
 
+    @Override
+    public boolean onMouseClicked(int mouseX, int mouseY, int mouseButton) {
+        if (super.onMouseClicked(mouseX, mouseY, mouseButton)) {
+            return true;
+        }
+        if (mouseButton != 0 || row.getType() != DlcListRow.RowType.ITEM) {
+            return false;
+        }
+        DlcItem item = row.getItem();
+        if (item == null || item.getRedirectUrl() == null || item.getRedirectUrl().isBlank()) {
+            return false;
+        }
+        if (!isMouseWithin(mouseX, mouseY) || isMouseOverButton(mouseX, mouseY) || !isMouseOverItemLabel(mouseX, mouseY, item)) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        boolean isDoubleClick = this.lastNameClickButton == mouseButton && now - this.lastNameClickTime <= DOUBLE_CLICK_INTERVAL_MS;
+        this.lastNameClickTime = now;
+        this.lastNameClickButton = mouseButton;
+        if (isDoubleClick) {
+            this.lastNameClickTime = 0L;
+            openItemRedirect(item);
+            return true;
+        }
+        return false;
+    }
+
     private void drawPendingAccent(GuiGraphics guiGraphics) {
         guiGraphics.fill(this.x + 1, this.y + 2, this.x + 4, this.y + this.height - 2, COLOR_PENDING_BAR);
     }
@@ -219,6 +249,10 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
 
     private int getAlignedButtonY(int rowY, int rowHeight, int buttonHeight) {
         return rowY + (rowHeight - buttonHeight) / 2;
+    }
+
+    private int getGroupToggleButtonY(int rowY, int rowHeight, int buttonHeight) {
+        return getAlignedButtonY(rowY, rowHeight, buttonHeight) + 2;
     }
 
     private void drawPendingBadge(GuiGraphics guiGraphics, String pendingText) {
@@ -259,6 +293,19 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         return mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh;
     }
 
+    private boolean isMouseOverItemLabel(int mouseX, int mouseY, DlcItem item) {
+        if (item == null) {
+            return false;
+        }
+        var font = Minecraft.getInstance().font;
+        String displayName = DlcDisplayNameUtil.resolveDisplayName(item);
+        int textX = this.x + 10;
+        int textY = this.y + (this.height - font.lineHeight) / 2;
+        int textWidth = font.width(DlcTextFormatter.parse(displayName));
+        return mouseX >= textX && mouseX < textX + textWidth
+            && mouseY >= textY && mouseY < textY + font.lineHeight;
+    }
+
     private String getToggleLabel(DlcItem item) {
         return item.isEnabled()
             ? "\u00A7a" + Component.translatable("dlc_manager.toggle.on").getString()
@@ -273,6 +320,14 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         String lang = Minecraft.getInstance().options.languageCode;
         String notice = entry.resolveNotice(lang);
         Minecraft.getInstance().setScreen(new DlcRedirectConfirmScreen(parent, entry.getRedirectUrl(), notice));
+    }
+
+    private void openItemRedirect(DlcItem item) {
+        if (item == null || item.getRedirectUrl() == null || item.getRedirectUrl().isBlank()) {
+            return;
+        }
+        Screen parent = Minecraft.getInstance().screen;
+        Minecraft.getInstance().setScreen(new DlcRedirectConfirmScreen(parent, item.getRedirectUrl(), ""));
     }
 
     private static GroupToggleState getGroupToggleState(java.util.List<DlcItem> items) {
@@ -316,8 +371,21 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private java.util.List<net.minecraft.util.FormattedCharSequence> buildTooltipLines(net.minecraft.client.gui.Font font, DlcItem item, int maxWidth) {
         java.util.ArrayList<net.minecraft.util.FormattedCharSequence> lines = new java.util.ArrayList<>();
         String tooltip = getTooltipText(item);
+        String redirectHint = null;
+        if (item.getRedirectUrl() != null && !item.getRedirectUrl().isBlank()) {
+            redirectHint = "\u00A7b" + Component.translatable("dlc_manager.tooltip.double_click_redirect").getString() + "\u00A7r";
+        }
         if (tooltip != null && !tooltip.isBlank()) {
             lines.addAll(DlcTextFormatter.splitMultiline(font, tooltip, maxWidth));
+        } else if (redirectHint != null) {
+            lines.addAll(DlcTextFormatter.splitMultiline(font, redirectHint, maxWidth));
+        }
+
+        if (redirectHint != null && tooltip != null && !tooltip.isBlank()) {
+            if (!lines.isEmpty()) {
+                lines.add(net.minecraft.util.FormattedCharSequence.EMPTY);
+            }
+            lines.addAll(DlcTextFormatter.splitMultiline(font, redirectHint, maxWidth));
         }
 
         java.util.List<String> deps = collectDependencyNamesRecursive(item);

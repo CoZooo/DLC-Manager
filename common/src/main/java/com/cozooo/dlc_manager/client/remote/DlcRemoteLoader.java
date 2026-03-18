@@ -330,6 +330,7 @@ public final class DlcRemoteLoader {
         String identifier = null;
         String fileName = getString(obj, "file_name");
         String appliedTarget = getString(obj, "appliedTarget");
+        String redirectUrl = getString(obj, "RedirectUrl");
         if (appliedTarget != null) {
             appliedTarget = appliedTarget.trim();
         }
@@ -402,6 +403,9 @@ public final class DlcRemoteLoader {
         if (appliedTarget != null && !appliedTarget.isBlank()) {
             ordered.addProperty("appliedTarget", appliedTarget);
         }
+        if (redirectUrl != null && !redirectUrl.isBlank()) {
+            ordered.addProperty("RedirectUrl", redirectUrl);
+        }
         if (fileName != null && !fileName.isBlank()) {
             ordered.addProperty("file_name", fileName);
         }
@@ -457,6 +461,7 @@ public final class DlcRemoteLoader {
         entry.setFileNameExplicit(fileNameExplicit);
         entry.setType(type);
         entry.setAppliedTargetRaw(appliedTarget);
+        entry.setRedirectUrl(redirectUrl);
         entry.setInList(inList);
         entry.setHidden(hidden);
         entry.setAllowEnableByAll(allowEnableByAll);

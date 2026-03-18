@@ -70,7 +70,7 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
         groupToggleWidth = Math.max(86, Minecraft.getInstance().font.width(state.label) + 16);
         groupToggleHeight = 16;
         int bx = this.x + width - groupToggleWidth - 6 - 64 - 6;
-        int by = getAlignedButtonY(this.y, height, groupToggleHeight);
+        int by = getGroupToggleButtonY(this.y, height, groupToggleHeight);
         groupToggleButton = new ButtonGeneric(bx, by, groupToggleWidth, groupToggleHeight, state.label);
         addButton(groupToggleButton, new GroupToggleListener(items));
     }
@@ -89,7 +89,7 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                 if (state.show) {
                     groupToggleWidth = Math.max(86, Minecraft.getInstance().font.width(state.label) + 16);
                     int bx = this.x + this.width - groupToggleWidth - 6 - 64 - 6;
-                    int by = getAlignedButtonY(this.y, this.height, groupToggleHeight);
+                    int by = getGroupToggleButtonY(this.y, this.height, groupToggleHeight);
                     groupToggleButton.setX(bx);
                     groupToggleButton.setY(by);
                     groupToggleButton.setWidth(groupToggleWidth);
@@ -168,6 +168,10 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
 
     private int getAlignedButtonY(int rowY, int rowHeight, int buttonHeight) {
         return rowY + (rowHeight - buttonHeight) / 2;
+    }
+
+    private int getGroupToggleButtonY(int rowY, int rowHeight, int buttonHeight) {
+        return getAlignedButtonY(rowY, rowHeight, buttonHeight) + 2;
     }
 
     private void drawPendingBadge(GuiGraphics guiGraphics, String pendingText) {

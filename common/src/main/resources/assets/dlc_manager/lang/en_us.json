@@ -225,6 +225,7 @@
   "dlc_manager.tooltip.dependencies": "Dependencies",
   "dlc_manager.tooltip.missing_dependencies": "Missing dependencies",
   "dlc_manager.tooltip.conflicts": "Conflicts",
+  "dlc_manager.tooltip.double_click_redirect": "Double-click to open link",
   "dlc_manager.type.mod": "Mods",
   "dlc_manager.type.resource": "Resource Packs",
   "dlc_manager.type.data": "Datapacks",

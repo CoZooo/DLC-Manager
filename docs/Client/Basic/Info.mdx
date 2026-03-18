@@ -22,6 +22,7 @@ For `dc` format and conventions, please read:
 identifier = "ExampleMod"
 type = "mod"
 file_name = "example-mod-1.0.0.jar"
+RedirectUrl = "https://example.com/project-page"
 isInList = true
 isHidden = false
 AllowEnableByAll = true
@@ -48,6 +49,10 @@ en_us = "Example description"
 
 #### `identifier`
 - **Purpose**: Logical identifier (used by prerequisites/presets/conflicts).
+- **Allowed**: String.
+
+#### `RedirectUrl`
+- **Purpose**: URL opened when the DLC name is double-clicked in the DLC list.
 - **Allowed**: String.
 
 #### `[DisplayName]`
@@ -99,4 +104,3 @@ en_us = "Example description"
 ## Notes
 - Info files may be generated automatically or maintained manually.
 - If DisplayName or tip is missing, they fall back to file name or identifier.
-- DisplayName/tip from remote/required configs are written into info with priority.

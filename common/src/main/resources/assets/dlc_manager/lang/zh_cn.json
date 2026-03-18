@@ -225,6 +225,7 @@
   "dlc_manager.tooltip.dependencies": "前置",
   "dlc_manager.tooltip.missing_dependencies": "缺失前置",
   "dlc_manager.tooltip.conflicts": "冲突",
+  "dlc_manager.tooltip.double_click_redirect": "可双击打开链接",
   "dlc_manager.type.mod": "模组",
   "dlc_manager.type.resource": "资源包",
   "dlc_manager.type.data": "数据包",

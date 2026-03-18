@@ -247,6 +247,7 @@ const staticTextDictionary: Record<string, string> = {
   "DLC 文件名（包含扩展名）。": "DLC file name (including extension).",
   "DLC 文件名（包含扩展名），用于最终下载文件名。": "DLC file name (including extension), used as the final downloaded file name.",
   "应用目标路径，填写相对路径。": "Applied target path, enter a relative path.",
+  "双击 DLC 名称时打开的链接。": "Link opened when the DLC name is double-clicked.",
   "是否在 DLC 列表中显示该项。": "Whether this entry is shown in the DLC list.",
   "是否隐藏该项，适合无独立意义的库或前置。": "Whether this entry is hidden, useful for libraries or internal prerequisites.",
   "是否在必要资源列表中显示该项。": "Whether this entry is shown in the required resource list.",

@@ -105,6 +105,9 @@ public final class DlcRemoteRuntime {
                 obj.addProperty("appliedTarget", appliedTarget);
             }
         }
+        if (entry.getRedirectUrl() != null && !entry.getRedirectUrl().isBlank()) {
+            obj.addProperty("RedirectUrl", entry.getRedirectUrl());
+        }
         obj.addProperty("isInList", entry.isInList());
         obj.addProperty("isHidden", entry.isHidden());
         obj.addProperty("AllowEnableByAll", entry.isAllowEnableByAll());

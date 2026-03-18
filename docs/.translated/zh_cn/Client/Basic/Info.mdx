@@ -22,6 +22,7 @@
 identifier = "ExampleMod"
 type = "mod"
 file_name = "example-mod-1.0.0.jar"
+RedirectUrl = "https://example.com/project-page"
 isInList = true
 isHidden = false
 AllowEnableByAll = true
@@ -48,6 +49,10 @@ en_us = "Example description"
 
 #### `identifier`
 - **用途**：逻辑标识（前置/冲突/预设匹配）。
+- **可填**：字符串。
+
+#### `RedirectUrl`
+- **用途**：在 DLC 列表中双击 DLC 名称时打开的链接。
 - **可填**：字符串。
 
 #### `[DisplayName]`
@@ -99,4 +104,3 @@ en_us = "Example description"
 ## 补充说明
 - info 可自动生成，也可手动维护。
 - 若 `DisplayName` 或 `tip` 缺失，会回退到 `file_name` 或 `identifier`。
-- remote/required 的 `DisplayName`、`tip` 会优先写入 info。

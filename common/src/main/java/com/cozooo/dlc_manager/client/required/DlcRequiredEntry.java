@@ -30,6 +30,7 @@ public class DlcRequiredEntry {
     private boolean hidden;
     private boolean userRemoved;
     private String appliedTargetRaw;
+    private String redirectUrl;
     private String resolvedFileName;
     private final List<DlcRequiredDependency> dependencies = new ArrayList<>();
 
@@ -280,6 +281,14 @@ public class DlcRequiredEntry {
 
     public String getAppliedTargetRaw() {
         return appliedTargetRaw;
+    }
+
+    public void setRedirectUrl(String redirectUrl) {
+        this.redirectUrl = redirectUrl;
+    }
+
+    public String getRedirectUrl() {
+        return redirectUrl;
     }
 
     public void setResolvedFileName(String resolvedFileName) {

@@ -40,7 +40,7 @@ public class DlcTooltipLoader {
                     TooltipEntry entry = readEntry(migrated);
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
-                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.fileNames, entry.alarm);
+                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.alarm);
                         result.put(entry.dlcName, data);
                     }
                 });
@@ -85,6 +85,7 @@ public class DlcTooltipLoader {
             dlcName,
             buildDefaultDisplayName(dlcName),
             toTypeString(type),
+            null,
             null,
             true,
             false,
@@ -146,7 +147,8 @@ public class DlcTooltipLoader {
         JsonObject tip = localizedObjectFromAny(obj, "tip");
         String appliedTarget = getString(obj, "appliedTarget");
 
-        obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget,
+        String redirectUrl = getString(obj, "RedirectUrl");
+        obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget, redirectUrl,
             inList, hidden, allowEnableByAll, dependencies, conflicts, alarm, tip);
         writeTooltipObject(path, obj);
     }
@@ -191,6 +193,7 @@ public class DlcTooltipLoader {
             entry.displayName = readLocalized(buildDefaultDisplayName(entry.dlcName));
         }
         entry.appliedTargetRaw = getString(obj, "appliedTarget");
+        entry.redirectUrl = getString(obj, "RedirectUrl");
         String type = getString(obj, "type");
         if (type != null) {
             DlcType parsed = parseTypeString(type);
@@ -228,6 +231,7 @@ public class DlcTooltipLoader {
             || JsonCaseUtil.hasIgnoreCase(obj, "tip")
             || JsonCaseUtil.hasIgnoreCase(obj, "type")
             || JsonCaseUtil.hasIgnoreCase(obj, "appliedTarget")
+            || JsonCaseUtil.hasIgnoreCase(obj, "RedirectUrl")
             || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
             || JsonCaseUtil.hasIgnoreCase(obj, "conflicts")
             || JsonCaseUtil.hasIgnoreCase(obj, "isInList")
@@ -399,7 +403,7 @@ public class DlcTooltipLoader {
     }
 
     private JsonObject buildOrderedTooltipObject(JsonObject source, String dlcName, String dlcIdentifier, JsonObject displayName, String type,
-        String appliedTarget,
+        String appliedTarget, String redirectUrl,
         boolean inList, boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, boolean alarm, JsonObject tip) {
         JsonObject ordered = new JsonObject();
         ordered.addProperty("file_name", dlcName);
@@ -412,6 +416,9 @@ public class DlcTooltipLoader {
         ordered.addProperty("type", type);
         if (appliedTarget != null && !appliedTarget.isBlank()) {
             ordered.addProperty("appliedTarget", appliedTarget);
+        }
+        if (redirectUrl != null && !redirectUrl.isBlank()) {
+            ordered.addProperty("RedirectUrl", redirectUrl);
         }
         ordered.addProperty("isInList", inList);
         ordered.addProperty("isHidden", hidden);
@@ -593,6 +600,7 @@ public class DlcTooltipLoader {
         boolean hidden = false;
         boolean allowEnableByAll = true;
         String appliedTargetRaw;
+        String redirectUrl;
         java.util.List<String> fileNames = java.util.List.of();
         boolean alarm;
     }
@@ -611,12 +619,13 @@ public class DlcTooltipLoader {
         private final java.util.List<String> dependencies;
         private final java.util.List<String> conflicts;
         private final String appliedTargetRaw;
+        private final String redirectUrl;
         private final java.util.List<String> fileNames;
         private final boolean alarm;
 
         public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField, boolean configType,
             boolean inList, boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
-            String appliedTargetRaw, java.util.List<String> fileNames, boolean alarm) {
+            String appliedTargetRaw, String redirectUrl, java.util.List<String> fileNames, boolean alarm) {
             this.identifier = identifier;
             this.tips = tips == null ? Map.of() : tips;
             this.displayName = displayName == null ? Map.of() : displayName;
@@ -630,6 +639,7 @@ public class DlcTooltipLoader {
             this.dependencies = dependencies == null ? java.util.List.of() : dependencies;
             this.conflicts = conflicts == null ? java.util.List.of() : conflicts;
             this.appliedTargetRaw = appliedTargetRaw;
+            this.redirectUrl = redirectUrl;
             this.fileNames = fileNames == null ? java.util.List.of() : fileNames;
             this.alarm = alarm;
         }
@@ -684,6 +694,10 @@ public class DlcTooltipLoader {
 
         public String getAppliedTargetRaw() {
             return appliedTargetRaw;
+        }
+
+        public String getRedirectUrl() {
+            return redirectUrl;
         }
 
         public java.util.List<String> getFileNames() {

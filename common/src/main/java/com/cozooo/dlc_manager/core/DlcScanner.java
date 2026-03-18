@@ -265,6 +265,9 @@ public class DlcScanner {
         DlcItem item = sources.isEmpty()
             ? new DlcItem(id, identifier, name, effectiveType, source, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType, alarm)
             : new DlcItem(id, identifier, name, effectiveType, source, sources, appliedTargetRaw, enabled, tips, displayNames, dependencies, conflicts, allowEnableByAll, hidden, configType, alarm);
+        if (tooltipData != null) {
+            item.setRedirectUrl(tooltipData.getRedirectUrl());
+        }
         if (detectInstalledState && enabled) {
             item.getAppliedTargets().addAll(detectAppliedTargets(name, fileNames, effectiveType, appliedTargetRaw, source, configType));
         }

@@ -22,6 +22,7 @@ public class DlcItem {
     private final boolean hidden;
     private final boolean configType;
     private final boolean alarm;
+    private String redirectUrl;
     private boolean dirty;
 
     public DlcItem(String id, String identifier, String name, DlcType type, Path sourcePath, String appliedTargetRaw, boolean enabled, java.util.Map<String, String> tooltips,
@@ -164,6 +165,14 @@ public class DlcItem {
 
     public boolean isAlarm() {
         return alarm;
+    }
+
+    public String getRedirectUrl() {
+        return redirectUrl;
+    }
+
+    public void setRedirectUrl(String redirectUrl) {
+        this.redirectUrl = redirectUrl;
     }
 
     public boolean isDirty() {

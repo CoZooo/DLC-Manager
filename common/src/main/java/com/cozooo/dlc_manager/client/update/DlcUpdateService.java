@@ -1440,6 +1440,7 @@ public final class DlcUpdateService {
         "file_name",
         "type",
         "appliedTarget",
+        "RedirectUrl",
         "isInList",
         "isHidden",
         "AllowEnableByAll",
@@ -1521,6 +1522,9 @@ public final class DlcUpdateService {
         }
         if ("dlc_name".equalsIgnoreCase(key)) {
             return "file_name";
+        }
+        if ("redirecturl".equalsIgnoreCase(key)) {
+            return "RedirectUrl";
         }
         return key;
     }
