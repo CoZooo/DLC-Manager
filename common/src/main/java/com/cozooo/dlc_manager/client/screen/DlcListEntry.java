@@ -28,8 +28,17 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private static final int COLOR_ITEM = 0xFFE6E6E6;
     private static final int COLOR_ENABLED = 0xFF7AC37A;
     private static final int COLOR_REDIRECT = 0xFFBFD7FF;
+    private static final int COLOR_ENABLED_BAR = 0xFF4CAF50;
+    private static final int COLOR_PENDING_BAR = 0xFFFFC24A;
+    private static final int COLOR_PENDING_BG = 0xCC4C3410;
+    private static final int COLOR_PENDING_BORDER = 0xFFFFC24A;
+    private static final int COLOR_PENDING_TEXT = 0xFFFFE2A6;
+    private static final int COLOR_GROUP_SEPARATOR = 0xCC6A88B8;
+    private static final int COLOR_PATH_SEPARATOR = 0x887A8B9D;
+    private static final int COLOR_ITEM_SEPARATOR = 0x33485460;
 
     private final DlcListRow row;
+    private final int listIndex;
     private ButtonGeneric toggleButton;
     private ButtonGeneric groupToggleButton;
     private ButtonGeneric redirectButton;
@@ -39,6 +48,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     public DlcListEntry(int x, int y, int width, int height, boolean isOdd, DlcListRow row, int listIndex) {
         super(x, y, width, height, row, listIndex);
         this.row = row;
+        this.listIndex = listIndex;
         if (row.getType() == DlcListRow.RowType.ITEM) {
             createToggleButton(width, height, row.getItem());
         } else if (row.getType() == DlcListRow.RowType.REDIRECT_ITEM) {
@@ -52,7 +62,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         int buttonWidth = 64;
         int buttonHeight = 18;
         int bx = this.x + width - buttonWidth - 6;
-        int by = this.y + (height - buttonHeight) / 2;
+        int by = getAlignedButtonY(this.y, height, buttonHeight);
         toggleButton = new ButtonGeneric(bx, by, buttonWidth, buttonHeight, getToggleLabel(item));
         addButton(toggleButton, new ToggleListener(item));
     }
@@ -62,9 +72,9 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             return;
         }
         groupToggleWidth = Math.max(86, Minecraft.getInstance().font.width(getGroupToggleState(items).label) + 16);
-        groupToggleHeight = 18;
+        groupToggleHeight = 16;
         int bx = this.x + width - groupToggleWidth - 6 - 64 - 6;
-        int by = this.y + (height - groupToggleHeight) / 2;
+        int by = getAlignedButtonY(this.y, height, groupToggleHeight);
         groupToggleButton = new ButtonGeneric(bx, by, groupToggleWidth, groupToggleHeight, getGroupToggleState(items).label);
         addButton(groupToggleButton, new GroupToggleListener(items));
     }
@@ -76,7 +86,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         int buttonWidth = 64;
         int buttonHeight = 18;
         int bx = this.x + width - buttonWidth - 6;
-        int by = this.y + (height - buttonHeight) / 2;
+        int by = getAlignedButtonY(this.y, height, buttonHeight);
         redirectButton = new ButtonGeneric(bx, by, buttonWidth, buttonHeight,
             Component.translatable("dlc_manager.redirect.open").getString());
         addButton(redirectButton, new RedirectListener(entry));
@@ -85,18 +95,21 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     @Override
     public void render(int mouseX, int mouseY, boolean hovered, GuiGraphics guiGraphics) {
         if (row.getType() == DlcListRow.RowType.GROUP_HEADER) {
+            drawGroupSeparator(guiGraphics);
             String label = Component.translatable(row.getGroupType().getDisplayKey()).getString();
             drawStringWithShadow(this.x + 6, this.y + 4, COLOR_GROUP, label, guiGraphics);
         } else if (row.getType() == DlcListRow.RowType.REDIRECT_HEADER) {
+            drawGroupSeparator(guiGraphics);
             drawStringWithShadow(this.x + 6, this.y + 4, COLOR_REDIRECT, row.getLabel(), guiGraphics);
         } else if (row.getType() == DlcListRow.RowType.PATH_HEADER) {
+            drawPathSeparator(guiGraphics);
             drawString(this.x + 10, this.y + 4, COLOR_PATH, row.getLabel(), guiGraphics);
             if (groupToggleButton != null) {
                 GroupToggleState state = getGroupToggleState(row.getItems());
                 if (state.show) {
                     groupToggleWidth = Math.max(86, Minecraft.getInstance().font.width(state.label) + 16);
                     int bx = this.x + this.width - groupToggleWidth - 6 - 64 - 6;
-                    int by = this.y + (this.height - groupToggleHeight) / 2;
+                    int by = getAlignedButtonY(this.y, this.height, groupToggleHeight);
                     groupToggleButton.setX(bx);
                     groupToggleButton.setY(by);
                     groupToggleButton.setWidth(groupToggleWidth);
@@ -111,34 +124,41 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 }
             }
         } else if (row.getType() == DlcListRow.RowType.REDIRECT_ITEM) {
+            drawItemSeparator(guiGraphics);
             DlcRedirectEntry entry = row.getRedirectEntry();
             String lang = Minecraft.getInstance().options.languageCode;
             String label = entry == null ? "" : entry.resolveDisplayName(lang);
+            int textY = this.y + (this.height - Minecraft.getInstance().font.lineHeight) / 2;
             guiGraphics.drawString(Minecraft.getInstance().font,
                 DlcTextFormatter.parse(label),
-                this.x + 10, this.y + 4, COLOR_ITEM, false);
+                this.x + 10, textY, COLOR_ITEM, false);
             if (redirectButton != null) {
                 int bx = this.x + this.width - redirectButton.getWidth() - 6;
-                int by = this.y + (this.height - redirectButton.getHeight()) / 2;
+                int by = getAlignedButtonY(this.y, this.height, redirectButton.getHeight());
                 redirectButton.setX(bx);
                 redirectButton.setY(by);
             }
         } else if (row.getType() == DlcListRow.RowType.ITEM) {
+            drawItemSeparator(guiGraphics);
             DlcItem item = row.getItem();
             boolean dirty = isDirty(item);
             item.setDirty(dirty);
-            int nameColor = item.isEnabled() ? COLOR_ENABLED : COLOR_ITEM;
             String displayName = DlcDisplayNameUtil.resolveDisplayName(item);
+            int textY = this.y + (this.height - Minecraft.getInstance().font.lineHeight) / 2;
             if (dirty) {
-                String suffix = DlcMaLiLibScreen.getPendingSuffix(item);
-                String label = displayName + suffix;
+                drawPendingAccent(guiGraphics);
+            } else if (item.isEnabled()) {
+                drawEnabledAccent(guiGraphics);
+            }
+            if (dirty) {
                 guiGraphics.drawString(Minecraft.getInstance().font,
-                    DlcTextFormatter.parse(label).copy().withStyle(style -> style.withItalic(true)),
-                    this.x + 10, this.y + 4, nameColor, false);
+                    DlcTextFormatter.parse(displayName),
+                    this.x + 10, textY, COLOR_ITEM, false);
+                drawPendingBadge(guiGraphics, DlcMaLiLibScreen.getPendingSuffix(item));
             } else {
                 guiGraphics.drawString(Minecraft.getInstance().font,
                     DlcTextFormatter.parse(displayName),
-                    this.x + 10, this.y + 4, nameColor, false);
+                    this.x + 10, textY, COLOR_ITEM, false);
             }
             if (toggleButton != null) {
                 toggleButton.setDisplayString(getToggleLabel(item));
@@ -173,6 +193,54 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
     }
 
+    private void drawPendingAccent(GuiGraphics guiGraphics) {
+        guiGraphics.fill(this.x + 1, this.y + 2, this.x + 4, this.y + this.height - 2, COLOR_PENDING_BAR);
+    }
+
+    private void drawEnabledAccent(GuiGraphics guiGraphics) {
+        guiGraphics.fill(this.x + 1, this.y + 2, this.x + 4, this.y + this.height - 2, COLOR_ENABLED_BAR);
+    }
+
+    private void drawGroupSeparator(GuiGraphics guiGraphics) {
+        if (this.listIndex > 0) {
+            guiGraphics.fill(this.x + 2, this.y + 1, this.x + this.width - 2, this.y + 3, COLOR_GROUP_SEPARATOR);
+        }
+    }
+
+    private void drawPathSeparator(GuiGraphics guiGraphics) {
+        if (!row.isRootPath()) {
+            guiGraphics.fill(this.x + 6, this.y + 1, this.x + this.width - 6, this.y + 2, COLOR_PATH_SEPARATOR);
+        }
+    }
+
+    private void drawItemSeparator(GuiGraphics guiGraphics) {
+        guiGraphics.fill(this.x + 10, this.y + this.height - 1, this.x + this.width - 6, this.y + this.height, COLOR_ITEM_SEPARATOR);
+    }
+
+    private int getAlignedButtonY(int rowY, int rowHeight, int buttonHeight) {
+        return rowY + (rowHeight - buttonHeight) / 2;
+    }
+
+    private void drawPendingBadge(GuiGraphics guiGraphics, String pendingText) {
+        if (pendingText == null || pendingText.isBlank()) {
+            return;
+        }
+        String label = pendingText.trim();
+        var font = Minecraft.getInstance().font;
+        int textWidth = font.width(label);
+        int badgeHeight = 14;
+        int badgeWidth = textWidth + 10;
+        int rightAnchor = toggleButton != null ? toggleButton.getX() - 6 : this.x + this.width - 6;
+        int badgeX = rightAnchor - badgeWidth;
+        int badgeY = this.y + (this.height - badgeHeight) / 2;
+        guiGraphics.fill(badgeX, badgeY, badgeX + badgeWidth, badgeY + badgeHeight, COLOR_PENDING_BG);
+        guiGraphics.fill(badgeX, badgeY, badgeX + badgeWidth, badgeY + 1, COLOR_PENDING_BORDER);
+        guiGraphics.fill(badgeX, badgeY + badgeHeight - 1, badgeX + badgeWidth, badgeY + badgeHeight, COLOR_PENDING_BORDER);
+        guiGraphics.fill(badgeX, badgeY, badgeX + 1, badgeY + badgeHeight, COLOR_PENDING_BORDER);
+        guiGraphics.fill(badgeX + badgeWidth - 1, badgeY, badgeX + badgeWidth, badgeY + badgeHeight, COLOR_PENDING_BORDER);
+        guiGraphics.drawString(font, label, badgeX + 5, badgeY + 3, COLOR_PENDING_TEXT, false);
+    }
+
     private boolean isMouseOverButton(int mouseX, int mouseY) {
         if (toggleButton != null && isMouseOverButton(toggleButton, mouseX, mouseY)) {
             return true;
@@ -193,7 +261,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
 
     private String getToggleLabel(DlcItem item) {
         return item.isEnabled()
-            ? Component.translatable("dlc_manager.toggle.on").getString()
+            ? "\u00A7a" + Component.translatable("dlc_manager.toggle.on").getString()
             : Component.translatable("dlc_manager.toggle.off").getString();
     }
 
@@ -452,7 +520,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private static void updateToggleButtonLabel(fi.dy.masa.malilib.gui.button.ButtonBase button, DlcItem item) {
         if (button instanceof ButtonGeneric generic) {
             generic.setDisplayString(item.isEnabled()
-                ? Component.translatable("dlc_manager.toggle.on").getString()
+                ? "\u00A7a" + Component.translatable("dlc_manager.toggle.on").getString()
                 : Component.translatable("dlc_manager.toggle.off").getString());
         }
     }
