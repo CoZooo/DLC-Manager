@@ -15,6 +15,9 @@ CHANGELOG_CANDIDATES = [
     "changelog",
     "CHANGELOG",
     "Changelog",
+    "changelog.md",
+    "CHANGELOG.md",
+    "Changelog.md",
 ]
 
 

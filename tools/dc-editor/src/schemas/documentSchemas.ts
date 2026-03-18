@@ -523,7 +523,12 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       {
-        ...localeTextareaSection("changelog", "[changelog]", "更新日志。")
+        ...localeTextareaSection("changelog", "[changelog]", "更新日志。"),
+        dynamicLocale: {
+          valueKind: "textarea",
+          help: "更新日志。",
+          toolbarMode: "mc-markdown"
+        }
       },
       {
         key: "file_del",
