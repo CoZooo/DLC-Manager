@@ -500,22 +500,26 @@ public class DlcUpdateManagerScreen extends Screen {
         if (result.hasRequiredAdd()) {
             List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
             if (!missing.isEmpty()) {
-                Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(this, missing));
+                Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(this, missing, result));
                 return true;
             }
-            return false;
         }
         if (result.hasRemoteAdd()) {
             List<DlcRemoteEntry> missing = DlcRemoteManager.collectMissing();
             if (!missing.isEmpty()) {
-                Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(this, missing));
+                Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(createSuccessResultScreen(result), missing));
                 return true;
             }
-            refreshData();
-            Minecraft.getInstance().setScreen(this);
-            return true;
+            return false;
         }
         return false;
+    }
+
+    private Screen createSuccessResultScreen(UpdateApplyResult result) {
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
+        return new DlcUpdateResultScreen(this, true, message);
     }
 
     private static String normalizeVersion(String value) {

@@ -4,6 +4,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
@@ -46,6 +48,7 @@ public class DlcRequiredDownloadScreen extends Screen {
     private static final int SWITCH_BUTTON_PAD = 4;
 
     private final Screen parent;
+    private final UpdateApplyResult postUpdateResult;
     private final List<DlcRequiredEntry> entries;
     private final List<DlcRequiredEntry> displayList = new ArrayList<>();
     private final List<DlcRequiredEntry> downloadQueue = new ArrayList<>();
@@ -81,8 +84,13 @@ public class DlcRequiredDownloadScreen extends Screen {
     private java.util.List<String> noticeLines = java.util.List.of();
 
     public DlcRequiredDownloadScreen(Screen parent, List<DlcRequiredEntry> entries) {
+        this(parent, entries, null);
+    }
+
+    public DlcRequiredDownloadScreen(Screen parent, List<DlcRequiredEntry> entries, UpdateApplyResult postUpdateResult) {
         super(Component.translatable("dlc_manager.required.title"));
         this.parent = parent;
+        this.postUpdateResult = postUpdateResult;
         this.entries = entries == null ? List.of() : entries;
         this.forceRequired = DlcRequiredManager.hasForceMarker();
         this.forceRestartRequired = DlcRequiredManager.hasForceRestartMarker();
@@ -95,7 +103,13 @@ public class DlcRequiredDownloadScreen extends Screen {
     @Override
     protected void init() {
         if (entries.isEmpty()) {
-            Minecraft.getInstance().setScreen(parent);
+            if (postUpdateResult != null) {
+                if (!tryShowPostUpdateDownloads(postUpdateResult)) {
+                    Minecraft.getInstance().setScreen(createPostUpdateResultScreen(postUpdateResult));
+                }
+            } else {
+                Minecraft.getInstance().setScreen(parent);
+            }
             return;
         }
         int buttonWidth = 140;
@@ -112,7 +126,13 @@ public class DlcRequiredDownloadScreen extends Screen {
         skipButton = Button.builder(Component.translatable("dlc_manager.required.skip"), button -> {
             DlcRequiredManager.markPrompted();
             DlcRequiredManager.markSkipped();
-            Minecraft.getInstance().setScreen(parent);
+            if (postUpdateResult != null) {
+                if (!tryShowPostUpdateDownloads(postUpdateResult)) {
+                    Minecraft.getInstance().setScreen(createPostUpdateResultScreen(postUpdateResult));
+                }
+            } else {
+                Minecraft.getInstance().setScreen(parent);
+            }
         }).bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight).build();
         skipButton.visible = !forceRequired;
         skipButton.active = !forceRequired;
@@ -802,6 +822,13 @@ public class DlcRequiredDownloadScreen extends Screen {
             Minecraft.getInstance().execute(() -> minecraft.setScreen(parent));
             return;
         }
+        if (postUpdateResult != null) {
+            if (tryShowPostUpdateDownloads(postUpdateResult)) {
+                return;
+            }
+            Minecraft.getInstance().execute(() -> minecraft.setScreen(createPostUpdateResultScreen(postUpdateResult)));
+            return;
+        }
         if (forceRestartRequired) {
             Minecraft.getInstance().execute(() -> minecraft.setScreen(new Screen(Component.translatable("dlc_manager.title")) {
                 @Override
@@ -869,12 +896,25 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (result.hasRequiredAdd()) {
             List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
             if (!missing.isEmpty()) {
-                Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing)));
+                Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing, result)));
                 return true;
             }
-            return false;
+        }
+        if (result.hasRemoteAdd()) {
+            List<DlcRemoteEntry> missing = DlcRemoteManager.collectMissing();
+            if (!missing.isEmpty()) {
+                Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(createPostUpdateResultScreen(result), missing)));
+                return true;
+            }
         }
         return false;
+    }
+
+    private Screen createPostUpdateResultScreen(UpdateApplyResult result) {
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
+        return new DlcUpdateResultScreen(parent, true, message);
     }
 
     private boolean hasUpdatePackageTargets(List<DlcRequiredEntry> entries) {

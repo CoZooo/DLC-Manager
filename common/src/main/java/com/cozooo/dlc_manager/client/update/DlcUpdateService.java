@@ -1259,7 +1259,7 @@ public final class DlcUpdateService {
             if (!shouldRedownload) {
                 continue;
             }
-            DownloadedFile downloaded = downloadRemoteEntry(entry);
+            DownloadedFile downloaded = downloadRemoteEntry(entry, true);
             if (downloaded == null) {
                 throw new IOException("remote update download failed");
             }
@@ -1331,7 +1331,7 @@ public final class DlcUpdateService {
             if (!shouldRedownload) {
                 continue;
             }
-            DownloadedFile downloaded = downloadRequiredEntry(entry);
+            DownloadedFile downloaded = downloadRequiredEntry(entry, true);
             if (downloaded == null) {
                 throw new IOException("required update download failed");
             }
@@ -1945,6 +1945,10 @@ public final class DlcUpdateService {
     }
 
     private static DownloadedFile downloadRemoteEntry(DlcRemoteEntry entry) throws IOException, InterruptedException {
+        return downloadRemoteEntry(entry, false);
+    }
+
+    private static DownloadedFile downloadRemoteEntry(DlcRemoteEntry entry, boolean ignoreExistingFileName) throws IOException, InterruptedException {
         if (entry == null) {
             return null;
         }
@@ -1952,10 +1956,14 @@ public final class DlcUpdateService {
         if (candidates.isEmpty()) {
             throw new IOException("missing download url");
         }
-        return downloadWithRetry(entry, candidates);
+        return downloadWithRetry(entry, candidates, ignoreExistingFileName);
     }
 
     private static DownloadedFile downloadRequiredEntry(DlcRequiredEntry entry) throws IOException, InterruptedException {
+        return downloadRequiredEntry(entry, false);
+    }
+
+    private static DownloadedFile downloadRequiredEntry(DlcRequiredEntry entry, boolean ignoreExistingFileName) throws IOException, InterruptedException {
         if (entry == null) {
             return null;
         }
@@ -1963,7 +1971,7 @@ public final class DlcUpdateService {
         if (candidates.isEmpty()) {
             throw new IOException("missing download url");
         }
-        return downloadWithRetry(entry, candidates);
+        return downloadWithRetry(entry, candidates, ignoreExistingFileName);
     }
 
     private static List<DownloadCandidate> buildRemoteCandidates(DlcRemoteEntry entry) throws IOException, InterruptedException {
@@ -2038,14 +2046,14 @@ public final class DlcUpdateService {
         }
     }
 
-    private static DownloadedFile downloadWithRetry(Object entry, List<DownloadCandidate> candidates)
+    private static DownloadedFile downloadWithRetry(Object entry, List<DownloadCandidate> candidates, boolean ignoreExistingFileName)
         throws IOException {
         int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
         IOException lastError = null;
         for (DownloadCandidate candidate : candidates) {
             for (int attempt = 1; attempt <= maxRetry; attempt++) {
                 try {
-                    return downloadCandidate(entry, candidate);
+                    return downloadCandidate(entry, candidate, ignoreExistingFileName);
                 } catch (IOException ex) {
                     lastError = ex;
                 }
@@ -2057,7 +2065,7 @@ public final class DlcUpdateService {
         throw new IOException("missing download url");
     }
 
-    private static DownloadedFile downloadCandidate(Object entry, DownloadCandidate candidate) throws IOException {
+    private static DownloadedFile downloadCandidate(Object entry, DownloadCandidate candidate, boolean ignoreExistingFileName) throws IOException {
         String fileName = null;
         boolean fileNameExplicit = false;
         if (entry instanceof DlcRemoteEntry remote) {
@@ -2066,6 +2074,10 @@ public final class DlcUpdateService {
         } else if (entry instanceof DlcRequiredEntry required) {
             fileName = required.getRequiredFileName();
             fileNameExplicit = fileName != null && !fileName.isBlank();
+        }
+        if (ignoreExistingFileName) {
+            fileNameExplicit = false;
+            fileName = null;
         }
         if (!fileNameExplicit) {
             if (candidate.fileName != null && !candidate.fileName.isBlank()) {
