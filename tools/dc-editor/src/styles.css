@@ -421,6 +421,11 @@ button:disabled {
   gap: 6px;
 }
 
+.update-dlcm-field {
+  display: grid;
+  gap: 8px;
+}
+
 .info-multi-file-editor {
   display: grid;
   gap: 12px;

@@ -36,28 +36,53 @@ public final class DlcSelfUpdateService {
     }
 
     public static SelfUpdateResult checkForUpdate() {
+        return checkForUpdate(null);
+    }
+
+    public static SelfUpdateResult checkForUpdate(String targetVersion) {
         String loader = CrossPlatformRuntime.loaderName();
         String mcVersion = CrossPlatformRuntime.mcVersion();
         String currentVersion = CrossPlatformRuntime.modVersion(MOD_ID);
+        String requestedVersion = targetVersion == null ? null : targetVersion.trim();
+        if (requestedVersion != null && requestedVersion.isBlank()) {
+            requestedVersion = null;
+        }
         if (loader == null || loader.isBlank() || mcVersion == null || mcVersion.isBlank()) {
             return SelfUpdateResult.none(currentVersion);
         }
+        if (requestedVersion != null && isSameVersion(currentVersion, requestedVersion)) {
+            SelfUpdateResult result = SelfUpdateResult.none(currentVersion);
+            result.latestVersion = requestedVersion;
+            result.requestedVersion = requestedVersion;
+            return result;
+        }
         try {
-            CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchLatestFile(PROJECT_ID, mcVersion, loader);
+            CurseForgeClient.CurseForgeFile file = requestedVersion == null
+                ? CurseForgeClient.fetchLatestFile(PROJECT_ID, mcVersion, loader)
+                : CurseForgeClient.fetchFileByIdOrVersion(PROJECT_ID, requestedVersion, mcVersion, loader);
+            if (requestedVersion != null && file == null) {
+                SelfUpdateResult result = SelfUpdateResult.none(currentVersion);
+                result.requestedVersion = requestedVersion;
+                result.missingRequestedVersion = true;
+                return result;
+            }
             if (file == null || file.url == null || file.url.isBlank()) {
                 return SelfUpdateResult.none(currentVersion);
             }
             String latestVersion = extractVersion(file.displayName, file.fileName);
-            boolean hasUpdate = isUpdateAvailable(currentVersion, latestVersion, file);
+            boolean hasUpdate = requestedVersion == null
+                ? isUpdateAvailable(currentVersion, latestVersion, file)
+                : !isSameVersion(currentVersion, latestVersion == null || latestVersion.isBlank() ? requestedVersion : latestVersion);
             SelfUpdateResult result = new SelfUpdateResult();
             result.currentVersion = currentVersion == null ? "" : currentVersion;
-            result.latestVersion = latestVersion == null ? "" : latestVersion;
+            result.latestVersion = latestVersion == null || latestVersion.isBlank() ? (requestedVersion == null ? "" : requestedVersion) : latestVersion;
             result.downloadUrl = file.url;
             result.fileName = file.fileName;
             result.fileId = file.id;
             result.displayName = file.displayName;
             result.fileDate = file.fileDate;
             result.hasUpdate = hasUpdate;
+            result.requestedVersion = requestedVersion;
             return result;
         } catch (Exception ignored) {
             return SelfUpdateResult.none(currentVersion);
@@ -481,6 +506,17 @@ public final class DlcSelfUpdateService {
         return true;
     }
 
+    private static boolean isSameVersion(String left, String right) {
+        if (left == null || left.isBlank() || right == null || right.isBlank()) {
+            return false;
+        }
+        try {
+            return DlcUpdateService.compareVersions(left, right) == 0;
+        } catch (Exception ignored) {
+            return left.trim().equalsIgnoreCase(right.trim());
+        }
+    }
+
     private static String extractVersion(String displayName, String fileName) {
         String candidate = null;
         if (fileName != null) {
@@ -516,6 +552,8 @@ public final class DlcSelfUpdateService {
         public boolean hasUpdate;
         public String currentVersion;
         public String latestVersion;
+        public String requestedVersion;
+        public boolean missingRequestedVersion;
         public String fileId;
         public String fileName;
         public String displayName;

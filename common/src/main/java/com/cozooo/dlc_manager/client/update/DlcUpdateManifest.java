@@ -27,6 +27,8 @@ public class DlcUpdateManifest {
     private VersionInfo version;
     private FileOps fileOps;
     private boolean hidden;
+    private boolean updateDLCM;
+    private String updateDLCMVersion;
     private Map<String, String> changelog = new java.util.LinkedHashMap<>();
     private UpdateOps updateOps = new UpdateOps();
 
@@ -68,6 +70,9 @@ public class DlcUpdateManifest {
         DlcUpdateManifest manifest = new DlcUpdateManifest();
         manifest.version = parseVersion(JsonCaseUtil.getObjectIgnoreCase(obj, "version"));
         manifest.hidden = getBoolean(obj, "isHidden", false);
+        UpdateDLCMConfig updateDLCMConfig = parseUpdateDLCM(JsonCaseUtil.getIgnoreCase(obj, "UpdateDLCM"));
+        manifest.updateDLCM = updateDLCMConfig.enabled;
+        manifest.updateDLCMVersion = updateDLCMConfig.version;
         JsonObject fileObj = JsonCaseUtil.getObjectIgnoreCase(obj, "file");
         manifest.fileOps = parseFileOps(fileObj);
         manifest.updateOps = parseUpdateOps(JsonCaseUtil.getIgnoreCase(obj, "update"));
@@ -88,6 +93,14 @@ public class DlcUpdateManifest {
 
     public boolean isHidden() {
         return hidden;
+    }
+
+    public boolean isUpdateDLCM() {
+        return updateDLCM;
+    }
+
+    public String getUpdateDLCMVersion() {
+        return updateDLCMVersion;
     }
 
     public Map<String, String> getChangelog() {
@@ -153,6 +166,35 @@ public class DlcUpdateManifest {
             }
         }
         return values;
+    }
+
+    private static UpdateDLCMConfig parseUpdateDLCM(JsonElement element) {
+        UpdateDLCMConfig config = new UpdateDLCMConfig();
+        if (element == null || element.isJsonNull()) {
+            return config;
+        }
+        if (!element.isJsonPrimitive()) {
+            return config;
+        }
+        if (element.getAsJsonPrimitive().isBoolean()) {
+            config.enabled = element.getAsBoolean();
+            return config;
+        }
+        String raw = element.getAsString();
+        if (raw == null) {
+            return config;
+        }
+        String value = raw.trim();
+        if (value.isBlank() || "false".equalsIgnoreCase(value)) {
+            return config;
+        }
+        if ("true".equalsIgnoreCase(value)) {
+            config.enabled = true;
+            return config;
+        }
+        config.enabled = true;
+        config.version = value;
+        return config;
     }
 
     private static FileOps parseFileOps(JsonObject obj) {
@@ -282,16 +324,22 @@ public class DlcUpdateManifest {
         JsonObject obj = element.getAsJsonObject();
         String curseforge = getString(obj, "curseforge");
         String modrinth = getString(obj, "modrinth");
+        JsonElement directUrl = JsonCaseUtil.getIgnoreCase(obj, "directUrl");
         Map<String, JsonElement> extraFields = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             String key = entry.getKey();
             if (key == null || key.isBlank()) {
                 continue;
             }
-            if ("curseforge".equalsIgnoreCase(key) || "modrinth".equalsIgnoreCase(key)) {
+            if ("curseforge".equalsIgnoreCase(key)
+                || "modrinth".equalsIgnoreCase(key)
+                || "directUrl".equalsIgnoreCase(key)) {
                 continue;
             }
             flattenUpdateField(key, entry.getValue(), extraFields);
+        }
+        if (directUrl != null && !extraFields.containsKey("download.directUrl")) {
+            extraFields.put("download.directUrl", directUrl.deepCopy());
         }
         if ((curseforge == null || curseforge.isBlank())
             && (modrinth == null || modrinth.isBlank())
@@ -515,6 +563,11 @@ public class DlcUpdateManifest {
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
         return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
+    }
+
+    private static final class UpdateDLCMConfig {
+        private boolean enabled;
+        private String version;
     }
 
     private static String normalizePlatform(String value) {

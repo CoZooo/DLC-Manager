@@ -61,12 +61,14 @@ zh_cn = """更新说明第1行
     "mod1":
       curseforge = "1234567"
       modrinth = "AbCdEf12"
+      directUrl = ["https://example.com/mod1.jar"]
       basic.RedirectUrl = "https://example.com/project-page"
 
   [required]
     "mod2":
       curseforge = "7654321"
       modrinth = "ZyXwVu98"
+      directUrl = ["https://example.com/mod2.zip"]
       basic.RedirectUrl = "https://example.com/required-resource-guide"
 ```
 
@@ -75,6 +77,11 @@ zh_cn = """更新说明第1行
 #### `isHidden`
 - **Purpose**: Hide this update package in manager list.
 - **Allowed**: Boolean.
+
+#### `UpdateDLCM`
+- **Purpose**: Update DLC Manager.
+- **Allowed**: Boolean or version string.
+- **Default**: Omitted means `false`.
 
 #### `[version]`
 - `platform`: `client` / `server` / `universal` (default `universal`)
@@ -122,6 +129,7 @@ zh_cn = """更新说明第1行
 - **Value keys**:
   - `curseforge`
   - `modrinth`
+  - `directUrl`
   - `basic.RedirectUrl`
 
 #### `[update].required`
@@ -130,6 +138,7 @@ zh_cn = """更新说明第1行
 - **Value keys**:
   - `curseforge`
   - `modrinth`
+  - `directUrl`
   - `basic.RedirectUrl`
 
 ## Execution Rules

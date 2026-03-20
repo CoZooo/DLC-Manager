@@ -154,6 +154,27 @@ function parseValueByKind(valueText: string, kind: FieldKind): StructuredValue {
   return parseQuoted(valueText);
 }
 
+function parseUpdateDLCMValue(valueText: string): StructuredValue {
+  const normalized = valueText.trim();
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+  const parsed = parseQuoted(normalized).trim();
+  if (!parsed) {
+    return false;
+  }
+  if (parsed === "true") {
+    return true;
+  }
+  if (parsed === "false") {
+    return false;
+  }
+  return parsed;
+}
+
 export function parseStructuredDocument(text: string, schema: DocumentSchema): {
   model: StructuredModel | null;
   issues: ValidationIssue[];
@@ -233,6 +254,11 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       continue;
     }
 
+    if (schema.type === "update" && currentSection === ROOT_SECTION_KEY && key === "UpdateDLCM") {
+      model[currentSection][key] = parseUpdateDLCMValue(valueText);
+      continue;
+    }
+
     const kind = fieldKinds[`${currentSection}.${key}`] || "text";
     model[currentSection][key] = parseValueByKind(valueText, kind);
   }
@@ -292,6 +318,13 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
           ? field.options?.[0]?.value
           : rawValue;
       if (value === undefined) {
+        continue;
+      }
+      if (schema.type === "update" && sectionKey === ROOT_SECTION_KEY && field.key === "UpdateDLCM") {
+        const serialized = serializeUpdateDLCMValue(value);
+        if (serialized !== null) {
+          out.push(`${field.key} = ${serialized}`);
+        }
         continue;
       }
       out.push(`${field.key} = ${serializeValue(value)}`);
@@ -376,6 +409,23 @@ function serializeValue(value: StructuredValue): string {
     return formatString("");
   }
   return formatString(value);
+}
+
+function serializeUpdateDLCMValue(value: StructuredValue): string | null {
+  if (typeof value === "boolean") {
+    return value ? "true" : null;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    if (!normalized || normalized === "false") {
+      return null;
+    }
+    if (normalized === "true") {
+      return "true";
+    }
+    return formatString(normalized);
+  }
+  return null;
 }
 
 function extractPreservedUpdateBlocks(rawText: string): string[] {

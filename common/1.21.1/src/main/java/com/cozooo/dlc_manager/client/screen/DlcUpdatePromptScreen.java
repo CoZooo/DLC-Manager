@@ -32,6 +32,7 @@ public class DlcUpdatePromptScreen extends Screen {
     private int scrollIndex;
     private boolean applying;
     private String statusText;
+    private float progress = -1f;
 
     public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result) {
         this(parent, result, false);
@@ -99,6 +100,7 @@ public class DlcUpdatePromptScreen extends Screen {
         Component message = Component.translatable("dlc_manager.update.confirm_apply");
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
+                Minecraft.getInstance().setScreen(this);
                 startApply(false);
             } else {
                 Minecraft.getInstance().setScreen(this);
@@ -132,6 +134,12 @@ public class DlcUpdatePromptScreen extends Screen {
             String text = statusText == null ? "" : statusText;
             guiGraphics.drawCenteredString(this.font, text, centerX, y, 0xE6E6E6);
             y += 12;
+            if (progress >= 0f) {
+                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, progress);
+                int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
+                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 12, 0xC8C8C8);
+                y += 24;
+            }
         } else {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.desc"), centerX, y, 0xE6E6E6);
             y += 12;
@@ -293,6 +301,7 @@ public class DlcUpdatePromptScreen extends Screen {
         }
         applying = true;
         statusText = Component.translatable("dlc_manager.update.applying").getString();
+        progress = -1f;
         if (applyButton != null) {
             applyButton.active = false;
         }
@@ -303,9 +312,20 @@ public class DlcUpdatePromptScreen extends Screen {
             skipThisUpdateButton.active = false;
         }
         new Thread(() -> {
-            UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing);
+            UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing, (status, value) ->
+                Minecraft.getInstance().execute(() -> {
+                    statusText = status;
+                    progress = value;
+                }));
             Minecraft.getInstance().execute(() -> handleApplyResult(result));
         }, "dlc-update-apply").start();
+    }
+
+    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float value) {
+        float clamped = Math.max(0f, Math.min(1f, value));
+        int filled = (int) (width * clamped);
+        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);
+        guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50);
     }
 
     private void handleApplyResult(UpdateApplyResult result) {

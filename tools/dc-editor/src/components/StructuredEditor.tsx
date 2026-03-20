@@ -1,6 +1,6 @@
 import { ChangeEvent, InputHTMLAttributes, KeyboardEvent as ReactKeyboardEvent, MouseEvent, ReactElement, ReactNode, TextareaHTMLAttributes, cloneElement, isValidElement, useEffect, useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import { DocumentSchema, StructuredModel, StructuredValue } from "../models/editor";
+import { DocumentSchema, ROOT_SECTION_KEY, StructuredModel, StructuredValue } from "../models/editor";
 import { EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 interface StructuredEditorProps {
@@ -23,6 +23,19 @@ function withValue(
       ...(model[sectionKey] || {}),
       [fieldKey]: value
     }
+  };
+}
+
+function withoutValue(
+  model: StructuredModel,
+  sectionKey: string,
+  fieldKey: string
+): StructuredModel {
+  const sectionValues = model[sectionKey] || {};
+  const { [fieldKey]: _, ...rest } = sectionValues;
+  return {
+    ...model,
+    [sectionKey]: rest
   };
 }
 
@@ -86,6 +99,20 @@ export function StructuredEditor(props: StructuredEditorProps) {
                 return (
                   <div key={`${section.key}.${field.key}`} className="field">
                     {label}
+                    {props.schema.type === "update" && section.key === ROOT_SECTION_KEY && field.key === "UpdateDLCM" && (
+                      <UpdateDLCMField
+                        locale={props.locale}
+                        value={value}
+                        placeholder={field.placeholder}
+                        onChange={(nextValue) => {
+                          if (nextValue === undefined) {
+                            props.onChange(withoutValue(model, section.key, field.key));
+                            return;
+                          }
+                          props.onChange(withValue(model, section.key, field.key, nextValue));
+                        }}
+                      />
+                    )}
                     {field.kind === "textarea" && (
                       <FormattedTextarea
                         locale={props.locale}
@@ -95,7 +122,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
                         onChangeValue={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
                       />
                     )}
-                    {field.kind === "text" && (
+                    {field.kind === "text" && !(props.schema.type === "update" && section.key === ROOT_SECTION_KEY && field.key === "UpdateDLCM") && (
                       <>
                         <UndoableInput
                           type="text"
@@ -240,6 +267,70 @@ export function StructuredEditor(props: StructuredEditorProps) {
         ))}
       </div>
     </section>
+  );
+}
+
+interface UpdateDLCMFieldProps {
+  locale: EditorLocale;
+  value: StructuredValue | undefined;
+  placeholder?: string;
+  onChange(nextValue: StructuredValue | undefined): void;
+}
+
+function UpdateDLCMField(props: UpdateDLCMFieldProps) {
+  const currentMode = props.value === true
+    ? "latest"
+    : typeof props.value === "string"
+      ? "version"
+      : "off";
+  const [mode, setMode] = useState<"off" | "latest" | "version">(currentMode);
+  const [versionDraft, setVersionDraft] = useState(typeof props.value === "string" ? props.value : "");
+
+  useEffect(() => {
+    const nextMode = props.value === true
+      ? "latest"
+      : typeof props.value === "string"
+        ? "version"
+        : "off";
+    setMode(nextMode);
+    setVersionDraft(typeof props.value === "string" ? props.value : "");
+  }, [props.value]);
+
+  return (
+    <div className="update-dlcm-field">
+      <select
+        className="compact-select"
+        value={mode}
+        onChange={(event) => {
+          const nextMode = event.target.value as "off" | "latest" | "version";
+          setMode(nextMode);
+          if (nextMode === "off") {
+            props.onChange(undefined);
+            return;
+          }
+          if (nextMode === "latest") {
+            props.onChange(true);
+            return;
+          }
+        }}
+      >
+        <option value="off">{t(props.locale, "updateDLCMOff")}</option>
+        <option value="latest">{t(props.locale, "updateDLCMLatest")}</option>
+        <option value="version">{t(props.locale, "updateDLCMVersion")}</option>
+      </select>
+      {mode === "version" && (
+        <UndoableInput
+          type="text"
+          value={versionDraft}
+          onChangeValue={(nextValue) => {
+            setVersionDraft(nextValue);
+          }}
+          onBlur={() => {
+            props.onChange(versionDraft.trim());
+          }}
+        />
+      )}
+    </div>
   );
 }
 

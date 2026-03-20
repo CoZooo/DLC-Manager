@@ -13,6 +13,9 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
+import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
+import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.DownloadResult;
+import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPendingFileOpsHelper;
@@ -53,6 +56,7 @@ public final class DlcUpdateService {
     private static final String PLATFORM_SERVER = "server";
     private static final String PLATFORM_UNIVERSAL = "universal";
     private static final ThreadLocal<UpdateContext> CURRENT_UPDATE_CONTEXT = new ThreadLocal<>();
+    private static final ThreadLocal<ApplyProgressListener> CURRENT_PROGRESS_LISTENER = new ThreadLocal<>();
 
     private DlcUpdateService() {
     }
@@ -152,14 +156,48 @@ public final class DlcUpdateService {
     }
 
     public static UpdateApplyResult applyUpdates(List<DlcUpdatePackage> packages, boolean forceMissing) {
+        return applyUpdates(packages, forceMissing, null);
+    }
+
+    public static UpdateApplyResult applyUpdates(List<DlcUpdatePackage> packages, boolean forceMissing, ApplyProgressListener progressListener) {
+        CURRENT_PROGRESS_LISTENER.set(progressListener);
+        try {
+            return applyUpdatesInternal(packages, forceMissing);
+        } finally {
+            CURRENT_PROGRESS_LISTENER.remove();
+        }
+    }
+
+    private static UpdateApplyResult applyUpdatesInternal(List<DlcUpdatePackage> packages, boolean forceMissing) {
         if (packages == null || packages.isEmpty()) {
             return UpdateApplyResult.empty();
         }
+        notifyApplyProgress("Applying update...", -1f);
         Path dlcRoot = getDlcRoot();
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
         boolean addedRequired = false;
         boolean addedRemote = false;
         boolean helperScheduled = false;
+        boolean dlcManagerUpdated = false;
+        boolean requiresDlcManagerUpdate = packages.stream().anyMatch(pkg ->
+            pkg != null && pkg.getManifest() != null && pkg.getManifest().isUpdateDLCM());
+        LinkedHashSet<String> requestedDlcManagerVersions = collectRequestedDlcManagerVersions(packages);
+        if (requestedDlcManagerVersions.size() > 1) {
+            return UpdateApplyResult.failed("Conflicting UpdateDLCM versions in update chain");
+        }
+        String requiredDlcManagerVersion = requestedDlcManagerVersions.stream().findFirst().orElse(null);
+        if (requiresDlcManagerUpdate) {
+            String progressMessage = requiredDlcManagerVersion == null
+                ? "Downloading DLC Manager update..."
+                : "Downloading DLC Manager update " + requiredDlcManagerVersion + "...";
+            notifyApplyProgress(progressMessage, -1f);
+            UpdateApplyResult managerResult = applyRequiredDlcManagerUpdate(requiredDlcManagerVersion);
+            if (!managerResult.success) {
+                return managerResult;
+            }
+            helperScheduled = helperScheduled || managerResult.helperScheduled;
+            dlcManagerUpdated = managerResult.dlcManagerUpdated;
+        }
         for (DlcUpdatePackage pkg : packages) {
             UpdateApplyResult result = applyUpdate(pkg, current, forceMissing);
             if (!result.success) {
@@ -171,7 +209,48 @@ public final class DlcUpdateService {
             current = DlcUpdateVersion.load(dlcRoot);
         }
         clearUpdatePromptSkipMarker();
-        return UpdateApplyResult.success("OK", addedRequired, addedRemote, helperScheduled);
+        return UpdateApplyResult.success("OK", addedRequired, addedRemote, helperScheduled, dlcManagerUpdated);
+    }
+
+    private static UpdateApplyResult applyRequiredDlcManagerUpdate(String targetVersion) {
+        SelfUpdateResult check = DlcSelfUpdateService.checkForUpdate(targetVersion);
+        if (check == null) {
+            return UpdateApplyResult.failed("Failed to check DLC Manager update");
+        }
+        if (check.missingRequestedVersion) {
+            return UpdateApplyResult.failed("Failed to find DLC Manager version: " + targetVersion);
+        }
+        if (!check.hasUpdate) {
+            return UpdateApplyResult.success("OK", false, false, false, false);
+        }
+        DownloadResult downloadResult = DlcSelfUpdateService.downloadUpdate(check);
+        if (downloadResult == null || !downloadResult.success) {
+            String message = downloadResult == null ? "" : downloadResult.reason;
+            if (message == null || message.isBlank()) {
+                message = "Failed to update DLC Manager";
+            } else {
+                message = "Failed to update DLC Manager: " + message;
+            }
+            return UpdateApplyResult.failed(message);
+        }
+        return UpdateApplyResult.success("OK", false, false, false, true);
+    }
+
+    private static LinkedHashSet<String> collectRequestedDlcManagerVersions(List<DlcUpdatePackage> packages) {
+        LinkedHashSet<String> versions = new LinkedHashSet<>();
+        if (packages == null) {
+            return versions;
+        }
+        for (DlcUpdatePackage pkg : packages) {
+            if (pkg == null || pkg.getManifest() == null || !pkg.getManifest().isUpdateDLCM()) {
+                continue;
+            }
+            String version = pkg.getManifest().getUpdateDLCMVersion();
+            if (version != null && !version.isBlank()) {
+                versions.add(version.trim());
+            }
+        }
+        return versions;
     }
 
     public static UpdateApplyResult applyUpdate(DlcUpdatePackage pkg, DlcUpdateVersion current, boolean forceMissing) {
@@ -244,7 +323,7 @@ public final class DlcUpdateService {
             refreshPresetRuntimeState();
 
             pkg.cleanupStaging();
-            return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, context.helperScheduled);
+            return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, context.helperScheduled, false);
         } catch (Exception ex) {
             rollbackUpdate(context);
             pkg.cleanupStaging();
@@ -1127,15 +1206,16 @@ public final class DlcUpdateService {
             if (entry == null) {
                 continue;
             }
-            if (context != null) {
+            boolean shouldRedownload = hasRemoteDownloadSourceChanges(entry, update.getValue());
+            if (context != null && shouldRedownload) {
                 context.addedRemote = true;
             }
             boolean wasEnabled = isRemoteEnabled(entry);
             Path oldTarget = entry.getTargetPath();
-            if (wasEnabled && oldTarget != null) {
+            if (shouldRedownload && wasEnabled && oldTarget != null) {
                 uninstallDlcPath(oldTarget, context.dlcRoot, context);
             }
-            if (oldTarget != null && Files.exists(oldTarget)) {
+            if (shouldRedownload && oldTarget != null && Files.exists(oldTarget)) {
                 backupAndDelete(oldTarget, context);
             }
             DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
@@ -1148,6 +1228,9 @@ public final class DlcUpdateService {
                 if (entry == null) {
                     continue;
                 }
+            }
+            if (!shouldRedownload) {
+                continue;
             }
             DownloadedFile downloaded = downloadRemoteEntry(entry);
             if (downloaded == null) {
@@ -1185,10 +1268,11 @@ public final class DlcUpdateService {
             if (entry == null) {
                 continue;
             }
+            boolean shouldRedownload = hasRequiredDownloadSourceChanges(entry, update.getValue());
             String oldFileName = resolveRequiredFileName(entry, context.dlcRoot);
             List<AppliedTarget> appliedTargets = collectExistingRequiredTargets(entry, oldFileName);
             boolean wasApplied = !appliedTargets.isEmpty();
-            if (wasApplied) {
+            if (shouldRedownload && wasApplied) {
                 for (AppliedTarget target : appliedTargets) {
                     Path resolved = target.directory
                         ? (oldFileName == null ? null : target.path.resolve(oldFileName))
@@ -1198,7 +1282,7 @@ public final class DlcUpdateService {
                     }
                 }
             }
-            if (oldFileName != null) {
+            if (shouldRedownload && oldFileName != null) {
                 Path oldDownload = entry.resolveRequiredPath(oldFileName);
                 if (oldDownload != null && Files.exists(oldDownload)) {
                     backupAndDelete(oldDownload, context);
@@ -1214,6 +1298,9 @@ public final class DlcUpdateService {
                 if (entry == null) {
                     continue;
                 }
+            }
+            if (!shouldRedownload) {
+                continue;
             }
             DownloadedFile downloaded = downloadRequiredEntry(entry);
             if (downloaded == null) {
@@ -1232,6 +1319,88 @@ public final class DlcUpdateService {
                 applyRequiredTargets(downloaded.path, downloaded.fileName, appliedTargets, context);
             }
         }
+    }
+
+    private static boolean hasRemoteDownloadSourceChanges(DlcRemoteEntry entry, DlcUpdateManifest.UpdateEntry update) {
+        if (entry == null || update == null) {
+            return false;
+        }
+        if (update.getCurseforge() != null
+            && !java.util.Objects.equals(normalizeNullable(update.getCurseforge()), normalizeNullable(entry.getCurseforgeFileId()))) {
+            return true;
+        }
+        if (update.getModrinth() != null
+            && !java.util.Objects.equals(normalizeNullable(update.getModrinth()), normalizeNullable(entry.getModrinthVersionId()))) {
+            return true;
+        }
+        if (update.getFields().containsKey("download.directUrl")) {
+            return !normalizeStringList(readStringArray(update.getFields().get("download.directUrl")))
+                .equals(normalizeStringList(entry.getDirectUrls()));
+        }
+        return false;
+    }
+
+    private static boolean hasRequiredDownloadSourceChanges(DlcRequiredEntry entry, DlcUpdateManifest.UpdateEntry update) {
+        if (entry == null || update == null) {
+            return false;
+        }
+        if (update.getCurseforge() != null
+            && !java.util.Objects.equals(normalizeNullable(update.getCurseforge()), normalizeNullable(entry.getCurseforgeFileId()))) {
+            return true;
+        }
+        if (update.getModrinth() != null
+            && !java.util.Objects.equals(normalizeNullable(update.getModrinth()), normalizeNullable(entry.getModrinthVersionId()))) {
+            return true;
+        }
+        if (update.getFields().containsKey("download.directUrl")) {
+            return !normalizeStringList(readStringArray(update.getFields().get("download.directUrl")))
+                .equals(normalizeStringList(entry.getDirectUrls()));
+        }
+        return false;
+    }
+
+    private static String normalizeNullable(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? "" : trimmed;
+    }
+
+    private static List<String> normalizeStringList(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String value : values) {
+            if (value == null) {
+                continue;
+            }
+            String trimmed = value.trim();
+            if (!trimmed.isEmpty()) {
+                normalized.add(trimmed);
+            }
+        }
+        return normalized;
+    }
+
+    private static List<String> readStringArray(JsonElement element) {
+        List<String> values = new ArrayList<>();
+        if (element == null || element.isJsonNull()) {
+            return values;
+        }
+        if (element.isJsonPrimitive()) {
+            values.add(element.getAsString());
+            return values;
+        }
+        if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) {
+                if (child != null && !child.isJsonNull() && child.isJsonPrimitive()) {
+                    values.add(child.getAsString());
+                }
+            }
+        }
+        return values;
     }
 
     private static Map<String, DlcRemoteEntry> loadRemoteEntries(Path dlcRoot) {
@@ -1835,6 +2004,7 @@ public final class DlcUpdateService {
             throw new IOException("invalid file name");
         }
         fileName = sanitizeFileName(fileName);
+        notifyApplyProgress("Downloading " + fileName + "...", 0f);
         Path target;
         if (entry instanceof DlcRemoteEntry remote) {
             target = remote.resolveTargetPath(fileName);
@@ -1861,11 +2031,22 @@ public final class DlcUpdateService {
         if (parent == null) {
             throw new IOException("invalid target path");
         }
-        Path downloaded = DlcDownloadService.download(url, parent, target.getFileName().toString(), null, null);
+        String displayName = target.getFileName() == null ? "download" : target.getFileName().toString();
+        Path downloaded = DlcDownloadService.download(url, parent, displayName, (done, total) -> {
+            float progress = total > 0 ? Math.max(0f, Math.min(1f, done / (float) total)) : -1f;
+            notifyApplyProgress("Downloading " + displayName + "...", progress);
+        }, null);
         if (!downloaded.equals(target)) {
             if (!moveWithHelperFallback(downloaded, target, true)) {
                 throw new IOException("failed to finalize downloaded file");
             }
+        }
+    }
+
+    private static void notifyApplyProgress(String status, float progress) {
+        ApplyProgressListener listener = CURRENT_PROGRESS_LISTENER.get();
+        if (listener != null) {
+            listener.onProgress(status, progress);
         }
     }
 
@@ -3434,9 +3615,10 @@ public final class DlcUpdateService {
         private final boolean addedRequired;
         private final boolean addedRemote;
         private final boolean helperScheduled;
+        private final boolean dlcManagerUpdated;
 
         private UpdateApplyResult(boolean success, boolean missing, String message, List<String> missingPaths,
-            boolean addedRequired, boolean addedRemote, boolean helperScheduled) {
+            boolean addedRequired, boolean addedRemote, boolean helperScheduled, boolean dlcManagerUpdated) {
             this.success = success;
             this.missing = missing;
             this.message = message;
@@ -3444,22 +3626,23 @@ public final class DlcUpdateService {
             this.addedRequired = addedRequired;
             this.addedRemote = addedRemote;
             this.helperScheduled = helperScheduled;
+            this.dlcManagerUpdated = dlcManagerUpdated;
         }
 
-        static UpdateApplyResult success(String message, boolean addedRequired, boolean addedRemote, boolean helperScheduled) {
-            return new UpdateApplyResult(true, false, message, List.of(), addedRequired, addedRemote, helperScheduled);
+        static UpdateApplyResult success(String message, boolean addedRequired, boolean addedRemote, boolean helperScheduled, boolean dlcManagerUpdated) {
+            return new UpdateApplyResult(true, false, message, List.of(), addedRequired, addedRemote, helperScheduled, dlcManagerUpdated);
         }
 
         static UpdateApplyResult failed(String message) {
-            return new UpdateApplyResult(false, false, message, List.of(), false, false, false);
+            return new UpdateApplyResult(false, false, message, List.of(), false, false, false, false);
         }
 
         static UpdateApplyResult missing(List<String> missingPaths) {
-            return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false);
+            return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false, false);
         }
 
         static UpdateApplyResult empty() {
-            return new UpdateApplyResult(true, false, "empty", List.of(), false, false, false);
+            return new UpdateApplyResult(true, false, "empty", List.of(), false, false, false, false);
         }
 
         public boolean isSuccess() {
@@ -3489,6 +3672,15 @@ public final class DlcUpdateService {
         public boolean isHelperScheduled() {
             return helperScheduled;
         }
+
+        public boolean isDlcManagerUpdated() {
+            return dlcManagerUpdated;
+        }
+    }
+
+    @FunctionalInterface
+    public interface ApplyProgressListener {
+        void onProgress(String status, float progress);
     }
 
     public static class UpdateRollbackResult {

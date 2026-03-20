@@ -490,6 +490,12 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             kind: "boolean",
             help: "是否在更新列表中隐藏该热更新包。",
             toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
+          },
+          {
+            key: "UpdateDLCM",
+            label: "UpdateDLCM",
+            kind: "text",
+            help: "更新 DLC 管理器。"
           }
         ]
       },
