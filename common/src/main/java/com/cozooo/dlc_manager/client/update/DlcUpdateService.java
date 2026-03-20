@@ -1188,6 +1188,32 @@ public final class DlcUpdateService {
         if (!ops.getRequired().isEmpty()) {
             applyRequiredUpdateOps(ops.getRequired(), context);
         }
+        if (!ops.getInfo().isEmpty()) {
+            applyInfoUpdateOps(ops.getInfo(), context);
+        }
+    }
+
+    private static void applyInfoUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context) {
+        Map<String, Path> infoByIdentifier = loadInfoConfigPathByIdentifier(context.dlcRoot);
+        if (infoByIdentifier.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, DlcUpdateManifest.UpdateEntry> update : updates.entrySet()) {
+            String identifier = update.getKey();
+            if (identifier == null || identifier.isBlank()) {
+                continue;
+            }
+            Path infoPath = infoByIdentifier.get(identifier);
+            if (infoPath == null || !Files.exists(infoPath)) {
+                continue;
+            }
+            DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
+            if (updateEntry == null) {
+                continue;
+            }
+            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            updateInfoConfigFields(infoPath, updateEntry);
+        }
     }
 
     private static void applyRemoteUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context)
@@ -1206,6 +1232,7 @@ public final class DlcUpdateService {
             if (entry == null) {
                 continue;
             }
+            Path infoPath = infoByIdentifier.get(identifier);
             boolean shouldRedownload = hasRemoteDownloadSourceChanges(entry, update.getValue());
             if (context != null && shouldRedownload) {
                 context.addedRemote = true;
@@ -1223,7 +1250,7 @@ public final class DlcUpdateService {
             if (configPath != null && Files.exists(configPath)) {
                 backupPath(toGameRelativePath(configPath), configPath, context);
                 updateRemoteConfigFields(configPath, updateEntry);
-                syncInfoConfigFields(infoByIdentifier.get(identifier), updateEntry);
+                syncInfoConfigFields(infoPath, updateEntry, context);
                 entry = DlcRemoteLoader.loadSingle(configPath, context.dlcRoot);
                 if (entry == null) {
                     continue;
@@ -1242,8 +1269,9 @@ public final class DlcUpdateService {
                     context.meta.getCreatedPaths().add(created);
                 }
             }
-            if (!entry.isFileNameExplicit()) {
+            if (downloaded.fileName != null && !downloaded.fileName.isBlank()) {
                 updateRemoteFileName(configPath, downloaded.fileName);
+                rewriteInfoFileWithNewFileName(infoPath, downloaded.fileName, context);
             }
             if (wasEnabled) {
                 List<Path> applied = applyRemoteTargets(entry, downloaded.path, context);
@@ -1268,6 +1296,7 @@ public final class DlcUpdateService {
             if (entry == null) {
                 continue;
             }
+            Path infoPath = infoByIdentifier.get(identifier);
             boolean shouldRedownload = hasRequiredDownloadSourceChanges(entry, update.getValue());
             String oldFileName = resolveRequiredFileName(entry, context.dlcRoot);
             List<AppliedTarget> appliedTargets = collectExistingRequiredTargets(entry, oldFileName);
@@ -1293,7 +1322,7 @@ public final class DlcUpdateService {
             if (configPath != null && Files.exists(configPath)) {
                 backupPath(toGameRelativePath(configPath), configPath, context);
                 updateRequiredConfigFields(configPath, updateEntry);
-                syncInfoConfigFields(infoByIdentifier.get(identifier), updateEntry);
+                syncInfoConfigFields(infoPath, updateEntry, context);
                 entry = DlcRequiredLoader.loadSingle(configPath, context.dlcRoot);
                 if (entry == null) {
                     continue;
@@ -1312,8 +1341,9 @@ public final class DlcUpdateService {
                     context.meta.getCreatedPaths().add(created);
                 }
             }
-            if (entry.getRequiredFileName() == null || entry.getRequiredFileName().isBlank()) {
+            if (downloaded.fileName != null && !downloaded.fileName.isBlank()) {
                 updateRequiredFileName(configPath, downloaded.fileName);
+                rewriteInfoFileWithNewFileName(infoPath, downloaded.fileName, context);
             }
             if (wasApplied) {
                 applyRequiredTargets(downloaded.path, downloaded.fileName, appliedTargets, context);
@@ -1570,7 +1600,7 @@ public final class DlcUpdateService {
         writeJson(configPath, obj);
     }
 
-    private static void syncInfoConfigFields(Path infoPath, DlcUpdateManifest.UpdateEntry update) {
+    private static void syncInfoConfigFields(Path infoPath, DlcUpdateManifest.UpdateEntry update, UpdateContext context) {
         if (infoPath == null || update == null || !Files.exists(infoPath)) {
             return;
         }
@@ -1579,6 +1609,20 @@ public final class DlcUpdateService {
             return;
         }
         if (applyEntryFieldUpdates(info, update, FieldUpdateMode.INFO_ALLOWED)) {
+            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            writeJson(infoPath, info);
+        }
+    }
+
+    private static void updateInfoConfigFields(Path infoPath, DlcUpdateManifest.UpdateEntry update) {
+        if (infoPath == null || update == null || !Files.exists(infoPath)) {
+            return;
+        }
+        JsonObject info = readJson(infoPath);
+        if (info == null) {
+            return;
+        }
+        if (applyEntryFieldUpdates(info, update, FieldUpdateMode.NORMAL)) {
             writeJson(infoPath, info);
         }
     }
@@ -1835,6 +1879,46 @@ public final class DlcUpdateService {
         if (dlcRoot != null) {
             DlcRequiredLoader.loadSingle(configPath, dlcRoot);
         }
+    }
+
+    private static void rewriteInfoFileWithNewFileName(Path infoPath, String fileName, UpdateContext context) {
+        if (infoPath == null || fileName == null || fileName.isBlank() || !Files.exists(infoPath)) {
+            return;
+        }
+        JsonObject info = readJson(infoPath);
+        if (info == null) {
+            return;
+        }
+        upsertCaseInsensitive(info, "file_name", safeCopy(new com.google.gson.JsonPrimitive(fileName)));
+        Path infoDir = infoPath.getParent();
+        if (infoDir == null) {
+            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            writeJson(infoPath, info);
+            return;
+        }
+        Path targetPath = Json5Util.resolveConfigPath(infoDir, fileName);
+        if (targetPath == null) {
+            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            writeJson(infoPath, info);
+            return;
+        }
+        backupPath(toGameRelativePath(infoPath), infoPath, context);
+        if (!targetPath.normalize().equals(infoPath.normalize()) && Files.exists(targetPath)) {
+            backupPath(toGameRelativePath(targetPath), targetPath, context);
+            try {
+                Files.deleteIfExists(targetPath);
+            } catch (IOException ex) {
+                throw new IllegalStateException("Failed to replace info file: " + targetPath, ex);
+            }
+        }
+        if (!targetPath.normalize().equals(infoPath.normalize())) {
+            try {
+                Files.deleteIfExists(infoPath);
+            } catch (IOException ex) {
+                throw new IllegalStateException("Failed to remove old info file: " + infoPath, ex);
+            }
+        }
+        writeJson(targetPath, info);
     }
 
     private static JsonObject readJson(Path path) {

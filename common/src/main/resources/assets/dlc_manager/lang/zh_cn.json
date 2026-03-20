@@ -311,6 +311,8 @@
   "dlc_manager.update.current_full": "当前版本：%s",
   "dlc_manager.update.rollback_info": "已回溯：%s -> %s",
   "dlc_manager.update.manager_prefix": "DLC管理器：",
+  "dlc_manager.update.base_prefix": "底包：",
+  "dlc_manager.update.dlc_prefix": "DLC：",
   "dlc_manager.update.confirm_apply": "确定开始更新吗？",
   "dlc_manager.update.confirm_reapply": "确定重新更新 %s -> %s 吗？",
   "dlc_manager.update.confirm_rollback": "确定回溯到 %s 吗？",

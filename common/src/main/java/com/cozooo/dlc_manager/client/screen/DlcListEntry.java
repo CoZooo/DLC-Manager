@@ -238,7 +238,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     }
 
     private void drawPathSeparator(GuiGraphics guiGraphics) {
-        if (!row.isRootPath()) {
+        if (!row.shouldHideTopSeparator()) {
             guiGraphics.fill(this.x + 6, this.y + 1, this.x + this.width - 6, this.y + 2, COLOR_PATH_SEPARATOR);
         }
     }

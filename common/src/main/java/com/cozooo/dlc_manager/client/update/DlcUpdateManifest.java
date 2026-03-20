@@ -288,6 +288,19 @@ public class DlcUpdateManifest {
             return ops;
         }
         JsonObject obj = element.getAsJsonObject();
+        JsonObject infoObj = JsonCaseUtil.getObjectIgnoreCase(obj, "info");
+        if (infoObj != null) {
+            for (var entry : infoObj.entrySet()) {
+                String key = entry.getKey();
+                if (key == null || key.isBlank()) {
+                    continue;
+                }
+                UpdateEntry updateEntry = parseUpdateEntry(entry.getValue());
+                if (updateEntry != null) {
+                    ops.info.put(key, updateEntry);
+                }
+            }
+        }
         JsonObject remoteObj = JsonCaseUtil.getObjectIgnoreCase(obj, "remote");
         if (remoteObj != null) {
             for (var entry : remoteObj.entrySet()) {
@@ -633,8 +646,13 @@ public class DlcUpdateManifest {
     }
 
     public static class UpdateOps {
+        private final Map<String, UpdateEntry> info = new LinkedHashMap<>();
         private final Map<String, UpdateEntry> remote = new LinkedHashMap<>();
         private final Map<String, UpdateEntry> required = new LinkedHashMap<>();
+
+        public Map<String, UpdateEntry> getInfo() {
+            return info;
+        }
 
         public Map<String, UpdateEntry> getRemote() {
             return remote;

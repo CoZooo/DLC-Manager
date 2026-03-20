@@ -311,6 +311,8 @@
   "dlc_manager.update.current_full": "Current version: %s",
   "dlc_manager.update.rollback_info": "Rolled back: %s -> %s",
   "dlc_manager.update.manager_prefix": "DLC Manager: ",
+  "dlc_manager.update.base_prefix": "Base: ",
+  "dlc_manager.update.dlc_prefix": "DLC: ",
   "dlc_manager.update.confirm_apply": "Apply updates now?",
   "dlc_manager.update.confirm_reapply": "Re-apply update %s -> %s?",
   "dlc_manager.update.confirm_rollback": "Rollback to %s?",

@@ -229,7 +229,7 @@ public class DlcUpdateManagerScreen extends Screen {
             }
             String oldDisplay = i < rowDisplayOld.size() ? rowDisplayOld.get(i) : normalizeVersion(sourceBase) + "+" + normalizeVersion(sourceDlc);
             String newDisplay = i < rowDisplayNew.size() ? rowDisplayNew.get(i) : normalizeVersion(targetBase) + "+" + normalizeVersion(targetDlc);
-            String label = oldDisplay + " -> " + newDisplay;
+            String label = formatUpdateRowLabel(sourceBase, sourceDlc, targetBase, targetDlc, oldDisplay, newDisplay);
             DlcUpdateRowPlanner.Type type = i < rowTypes.size() ? rowTypes.get(i) : DlcUpdateRowPlanner.Type.UPDATE;
             if (type == DlcUpdateRowPlanner.Type.MANAGER) {
                 label = Component.translatable("dlc_manager.update.manager_prefix").getString() + label;
@@ -275,6 +275,21 @@ public class DlcUpdateManagerScreen extends Screen {
         }
         renderChangelogTooltip(guiGraphics, listTop, listBottom, lineHeight, totalLines, maxVisible, maxScroll, mouseX, mouseY, history);
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
+    }
+
+    private String formatUpdateRowLabel(String sourceBase, String sourceDlc, String targetBase, String targetDlc,
+                                        String oldDisplay, String newDisplay) {
+        boolean baseChanged = !normalizeVersion(sourceBase).equals(normalizeVersion(targetBase));
+        boolean dlcChanged = !normalizeVersion(sourceDlc).equals(normalizeVersion(targetDlc));
+        if (baseChanged && !dlcChanged) {
+            return Component.translatable("dlc_manager.update.base_prefix").getString()
+                + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase);
+        }
+        if (!baseChanged && dlcChanged) {
+            return Component.translatable("dlc_manager.update.dlc_prefix").getString()
+                + normalizeVersion(sourceDlc) + " -> " + normalizeVersion(targetDlc);
+        }
+        return oldDisplay + " -> " + newDisplay;
     }
 
     private void renderChangelogTooltip(GuiGraphics guiGraphics, int listTop, int listBottom, int lineHeight,

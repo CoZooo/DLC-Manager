@@ -57,6 +57,11 @@ zh_cn = """更新说明第1行
       which = "all"
 
 [update]
+  [info]
+    "mod0":
+      basic.RedirectUrl = "https://example.com/new-page"
+      DisplayName.en_us = "New Name"
+
   [remote]
     "mod1":
       curseforge = "1234567"
@@ -132,6 +137,15 @@ zh_cn = """更新说明第1行
   - `directUrl`
   - `basic.RedirectUrl`
 
+#### `[update].info`
+- **Purpose**: Update existing info entries by identifier.
+- **Key**: entry identifier.
+- **Value keys**:
+  - `basic.RedirectUrl`
+  - `DisplayName.en_us`
+  - `tip.en_us`
+  - Other direct info field paths
+
 #### `[update].required`
 - **Purpose**: Update existing required entries by identifier.
 - **Key**: entry identifier.
@@ -148,6 +162,7 @@ zh_cn = """更新说明第1行
   3. `[file].add`
   4. `[file].modify`
   5. `[update].remote` and `[update].required`
+  6. `[update].info`
 - Version matching is based on current `DLC/info/version.dc`.
 - If update content contains `remote/` or `required/` and they are not explicitly mapped in `[file].add`, they are copied implicitly.
 - Adding required resources clears `DLC/required/SKIP`.

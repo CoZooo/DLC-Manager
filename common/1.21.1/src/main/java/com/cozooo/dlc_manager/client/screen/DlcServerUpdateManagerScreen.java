@@ -301,7 +301,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
             }
             String oldText = i < displayOld.size() ? displayOld.get(i) : normalizeVersion(sourceBase) + "+" + normalizeVersion(sourceDlc);
             String newText = i < displayNew.size() ? displayNew.get(i) : normalizeVersion(targetBase) + "+" + normalizeVersion(targetDlc);
-            String label = oldText + " -> " + newText;
+            String label = formatUpdateRowLabel(sourceBase, sourceDlc, targetBase, targetDlc, oldText, newText);
             if (i < rowActions.size() && rowActions.get(i) == DlcUpdateRowPlanner.Action.REUPDATE) {
                 label = label + " " + Component.translatable("dlc_manager.update.rolled_back").getString();
             }
@@ -343,6 +343,21 @@ public class DlcServerUpdateManagerScreen extends Screen {
         }
         renderChangelogTooltip(guiGraphics, listTop, listBottom, lineHeight, totalLines, maxVisible, mouseX, mouseY, rows);
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
+    }
+
+    private String formatUpdateRowLabel(String sourceBase, String sourceDlc, String targetBase, String targetDlc,
+                                        String oldText, String newText) {
+        boolean baseChanged = !normalizeVersion(sourceBase).equals(normalizeVersion(targetBase));
+        boolean dlcChanged = !normalizeVersion(sourceDlc).equals(normalizeVersion(targetDlc));
+        if (baseChanged && !dlcChanged) {
+            return Component.translatable("dlc_manager.update.base_prefix").getString()
+                + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase);
+        }
+        if (!baseChanged && dlcChanged) {
+            return Component.translatable("dlc_manager.update.dlc_prefix").getString()
+                + normalizeVersion(sourceDlc) + " -> " + normalizeVersion(targetDlc);
+        }
+        return oldText + " -> " + newText;
     }
 
     private void renderChangelogTooltip(GuiGraphics guiGraphics, int listTop, int listBottom, int lineHeight,

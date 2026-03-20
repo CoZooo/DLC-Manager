@@ -20,9 +20,10 @@ public class DlcListRow {
     private final java.util.List<DlcItem> items;
     private final DlcRedirectEntry redirectEntry;
     private final boolean rootPath;
+    private final boolean hideTopSeparator;
 
     private DlcListRow(RowType type, String label, DlcType groupType, DlcItem item, java.util.List<DlcItem> items,
-                       DlcRedirectEntry redirectEntry, boolean rootPath) {
+                       DlcRedirectEntry redirectEntry, boolean rootPath, boolean hideTopSeparator) {
         this.type = type;
         this.label = label;
         this.groupType = groupType;
@@ -30,26 +31,27 @@ public class DlcListRow {
         this.items = items;
         this.redirectEntry = redirectEntry;
         this.rootPath = rootPath;
+        this.hideTopSeparator = hideTopSeparator;
     }
 
     public static DlcListRow groupHeader(DlcType type) {
-        return new DlcListRow(RowType.GROUP_HEADER, null, type, null, null, null, false);
+        return new DlcListRow(RowType.GROUP_HEADER, null, type, null, null, null, false, false);
     }
 
-    public static DlcListRow pathHeader(String label, java.util.List<DlcItem> items, boolean rootPath) {
-        return new DlcListRow(RowType.PATH_HEADER, label, null, null, items, null, rootPath);
+    public static DlcListRow pathHeader(String label, java.util.List<DlcItem> items, boolean rootPath, boolean hideTopSeparator) {
+        return new DlcListRow(RowType.PATH_HEADER, label, null, null, items, null, rootPath, hideTopSeparator);
     }
 
     public static DlcListRow item(DlcItem item) {
-        return new DlcListRow(RowType.ITEM, null, null, item, null, null, false);
+        return new DlcListRow(RowType.ITEM, null, null, item, null, null, false, false);
     }
 
     public static DlcListRow redirectHeader(String label) {
-        return new DlcListRow(RowType.REDIRECT_HEADER, label, null, null, null, null, false);
+        return new DlcListRow(RowType.REDIRECT_HEADER, label, null, null, null, null, false, false);
     }
 
     public static DlcListRow redirectItem(DlcRedirectEntry entry) {
-        return new DlcListRow(RowType.REDIRECT_ITEM, null, null, null, null, entry, false);
+        return new DlcListRow(RowType.REDIRECT_ITEM, null, null, null, null, entry, false, false);
     }
 
     public RowType getType() {
@@ -78,5 +80,9 @@ public class DlcListRow {
 
     public boolean isRootPath() {
         return rootPath;
+    }
+
+    public boolean shouldHideTopSeparator() {
+        return hideTopSeparator;
     }
 }

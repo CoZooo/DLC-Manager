@@ -57,6 +57,11 @@ zh_cn = """更新说明第1行
       which = "all"
 
 [update]
+  [info]
+    "mod0":
+      basic.RedirectUrl = "https://example.com/new-page"
+      DisplayName.en_us = "New Name"
+
   [remote]
     "mod1":
       curseforge = "1234567"
@@ -132,6 +137,15 @@ zh_cn = """更新说明第1行
   - `directUrl`
   - `basic.RedirectUrl`
 
+#### `[update].info`
+- **用途**：按 identifier 更新已有 info 条目。
+- **键**：条目 identifier。
+- **值键**：
+  - `basic.RedirectUrl`
+  - `DisplayName.en_us`
+  - `tip.en_us`
+  - 其他直接 info 字段路径
+
 #### `[update].required`
 - **用途**：按 identifier 更新 required 配置中的平台 ID。
 - **键**：条目 identifier。
@@ -148,6 +162,7 @@ zh_cn = """更新说明第1行
   3. `[file].add`
   4. `[file].modify`
   5. `[update].remote` 和 `[update].required`
+  6. `[update].info`
 - 版本匹配基于 `DLC/info/version.dc`。
 - 若更新包包含 `remote/` 或 `required/`，且未在 `[file].add` 显式映射，会按默认规则隐式复制。
 - 添加 required 资源时会清理 `DLC/required/SKIP`。

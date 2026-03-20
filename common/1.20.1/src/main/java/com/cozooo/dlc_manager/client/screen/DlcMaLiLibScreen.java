@@ -523,13 +523,16 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             }
             Map<String, List<DlcItem>> byPath = groupByRelativeFolder(visibleItems);
             boolean hasSubDir = byPath.keySet().stream().anyMatch(key -> !"__root__".equals(key));
+            boolean firstPathHeader = true;
             for (Map.Entry<String, List<DlcItem>> entry : byPath.entrySet()) {
                 if ("__root__".equals(entry.getKey())) {
                     if (hasSubDir) {
-                        rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true));
+                        rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true, firstPathHeader));
+                        firstPathHeader = false;
                     }
                 } else {
-                    rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false));
+                    rows.add(DlcListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false, firstPathHeader));
+                    firstPathHeader = false;
                 }
                 for (DlcItem item : entry.getValue()) {
                     boolean enabled = enabledById.getOrDefault(item.getId(), item.isEnabled());

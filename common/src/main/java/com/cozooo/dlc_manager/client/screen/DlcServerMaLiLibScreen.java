@@ -185,13 +185,16 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
                 rows.add(DlcServerListRow.groupHeader(type));
                 Map<String, List<DlcServerItem>> byPath = groupByRelativeFolder(group);
                 boolean hasSubDir = byPath.keySet().stream().anyMatch(key -> !"__root__".equals(key));
+                boolean firstPathHeader = true;
                 for (Map.Entry<String, List<DlcServerItem>> entry : byPath.entrySet()) {
                     if ("__root__".equals(entry.getKey())) {
                         if (hasSubDir) {
-                            rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true));
+                            rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true, firstPathHeader));
+                            firstPathHeader = false;
                         }
                     } else {
-                        rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false));
+                        rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false, firstPathHeader));
+                        firstPathHeader = false;
                     }
                     for (DlcServerItem item : entry.getValue()) {
                         rows.add(DlcServerListRow.item(item));
@@ -203,13 +206,16 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             if (group != null && !group.isEmpty()) {
                 Map<String, List<DlcServerItem>> byPath = groupByRelativeFolder(group);
                 boolean hasSubDir = byPath.keySet().stream().anyMatch(key -> !"__root__".equals(key));
+                boolean firstPathHeader = true;
                 for (Map.Entry<String, List<DlcServerItem>> entry : byPath.entrySet()) {
                     if ("__root__".equals(entry.getKey())) {
                         if (hasSubDir) {
-                            rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true));
+                            rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), true, firstPathHeader));
+                            firstPathHeader = false;
                         }
                     } else {
-                        rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false));
+                        rows.add(DlcServerListRow.pathHeader(resolvePathLabel(entry.getKey()), entry.getValue(), false, firstPathHeader));
+                        firstPathHeader = false;
                     }
                     for (DlcServerItem item : entry.getValue()) {
                         rows.add(DlcServerListRow.item(item));
