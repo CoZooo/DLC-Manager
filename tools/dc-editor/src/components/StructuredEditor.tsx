@@ -627,12 +627,12 @@ function useUndoableTextController<T extends HTMLInputElement | HTMLTextAreaElem
     historyIndexRef.current = historyRef.current.length - 1;
   };
 
-  const commitValue = (nextValue: string, nextSelectionStart: number, nextSelectionEnd: number) => {
+  const commitValue = (nextValue: string, nextSelectionStart: number, nextSelectionEnd: number, forceFocus = false) => {
     selectionStartRef.current = nextSelectionStart;
     selectionEndRef.current = nextSelectionEnd;
     pushSnapshot(nextValue, nextSelectionStart, nextSelectionEnd);
     pendingSelectionRef.current = { start: nextSelectionStart, end: nextSelectionEnd };
-    shouldRestoreFocusRef.current = typeof window !== "undefined" && window.document.activeElement === elementRef.current;
+    shouldRestoreFocusRef.current = forceFocus || (typeof window !== "undefined" && window.document.activeElement === elementRef.current);
     localEchoRef.current = nextValue;
     setDraft(nextValue);
     onChangeValue(nextValue);
@@ -1135,8 +1135,28 @@ function FormattedTextarea(props: FormattedTextareaProps) {
     controller.syncSelection();
   };
 
-  const commitTextareaValue = (nextValue: string, nextSelectionStart: number, nextSelectionEnd: number) => {
-    controller.commitValue(nextValue, nextSelectionStart, nextSelectionEnd);
+  const commitTextareaValue = (nextValue: string, nextSelectionStart: number, nextSelectionEnd: number, forceFocus = false) => {
+    controller.commitValue(nextValue, nextSelectionStart, nextSelectionEnd, forceFocus);
+  };
+
+  const restoreTextareaCursor = (position: number) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const apply = () => {
+      const element = controller.elementRef.current;
+      if (!element) {
+        return;
+      }
+      element.focus();
+      element.setSelectionRange(position, position);
+      controller.selectionStartRef.current = position;
+      controller.selectionEndRef.current = position;
+    };
+    window.requestAnimationFrame(() => {
+      apply();
+      window.requestAnimationFrame(apply);
+    });
   };
 
   const applyWrap = (prefix: string, suffix = "") => {
@@ -1156,6 +1176,25 @@ function FormattedTextarea(props: FormattedTextareaProps) {
     const nextValue = `${currentValue.slice(0, start)}${snippet}${currentValue.slice(end)}`;
     const nextCursor = start + snippet.length;
     commitTextareaValue(nextValue, nextCursor, nextCursor);
+  };
+
+  const applyColorInsert = (colorCode: string) => {
+    const currentValue = controller.draft ?? "";
+    const start = Math.min(controller.selectionStartRef.current, currentValue.length);
+    const end = Math.min(controller.selectionEndRef.current, currentValue.length);
+    if (end > start) {
+      const selected = currentValue.slice(start, end);
+      const resetCode = "§r";
+      const nextValue = `${currentValue.slice(0, start)}${colorCode}${selected}${resetCode}${currentValue.slice(end)}`;
+      const nextCursor = start + colorCode.length + selected.length + resetCode.length;
+      commitTextareaValue(nextValue, nextCursor, nextCursor, true);
+      restoreTextareaCursor(nextCursor);
+      return;
+    }
+    const nextCursor = start + colorCode.length;
+    const nextValue = `${currentValue.slice(0, start)}${colorCode}${currentValue.slice(end)}`;
+    commitTextareaValue(nextValue, nextCursor, nextCursor, true);
+    restoreTextareaCursor(nextCursor);
   };
 
   const applyMarkdownWrap = (prefix: string, suffix = prefix) => {
@@ -1329,7 +1368,7 @@ function FormattedTextarea(props: FormattedTextareaProps) {
                   const draftValue = colorDraftInputRef.current?.value ?? colorDraft;
                   const normalized = normalizeMcHexColor(draftValue, selectedColorRef.current);
                   updateSelectedColor(normalized);
-                  applyWrap(`&#${normalized.slice(1)}`);
+                  applyColorInsert(`&#${normalized.slice(1)}`);
                   setShowColorPicker(false);
                 }}
               >

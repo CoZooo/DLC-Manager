@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "DLC配置生成器",
+  "productName": "DC Editor",
   "version": "0.1.0",
   "identifier": "com.cozooo.dlc-config-generator",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "DLC配置生成器",
+        "title": "DC Editor",
         "width": 1440,
         "height": 920,
         "minWidth": 1100,
