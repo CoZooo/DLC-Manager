@@ -220,7 +220,7 @@ def detect_remote_required_kind(path: str) -> str | None:
         return None
     kind: str | None = None
     for seg in parts[:-1]:
-        if seg in {"remote", "required"}:
+        if seg in {"remote", "required", "info"}:
             kind = seg
     return kind
 
@@ -410,6 +410,7 @@ def parse_legacy_flat_map(text: str, path: str) -> dict[str, object]:
         "priority",
         "type",
         "file_name",
+        "RedirectUrl",
         "isInList",
         "isHidden",
         "AllowEnableByAll",
@@ -456,6 +457,7 @@ def canonicalize_config_map(raw: dict[str, object], path: str) -> dict[str, obje
         "type": "type",
         "isinlist": "isInList",
         "ishidden": "isHidden",
+        "redirecturl": "RedirectUrl",
         "allowenablebyall": "AllowEnableByAll",
         "dependencies": "dependencies",
         "conflicts": "conflicts",
@@ -512,6 +514,9 @@ def extract_update_fields_from_diff(before: dict[str, object], after: dict[str, 
             if value:
                 fields["modrinth"] = value
             continue
+        if key == "download.directUrl":
+            fields["directUrl"] = new_value
+            continue
         if key.startswith("download.") or key.startswith("basic.") or key.startswith("DisplayName.") or key.startswith("tip."):
             fields[key] = new_value
     return fields
@@ -521,9 +526,10 @@ def build_auto_update_ops(
     from_ref: str,
     to_ref: str,
     add_paths: list[str],
-) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]], set[str]]:
+) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]], dict[str, dict[str, object]], set[str]]:
     remote_updates: dict[str, dict[str, object]] = {}
     required_updates: dict[str, dict[str, object]] = {}
+    info_updates: dict[str, dict[str, object]] = {}
     converted_paths: set[str] = set()
 
     for path in add_paths:
@@ -546,12 +552,17 @@ def build_auto_update_ops(
         fields = extract_update_fields_from_diff(before, after)
         if not fields:
             continue
-        target = remote_updates if kind == "remote" else required_updates
+        if kind == "remote":
+            target = remote_updates
+        elif kind == "required":
+            target = required_updates
+        else:
+            target = info_updates
         bucket = target.setdefault(identifier, {})
         bucket.update(fields)
         converted_paths.add(path)
 
-    return remote_updates, required_updates, converted_paths
+    return remote_updates, required_updates, info_updates, converted_paths
 
 
 def render_update_dc(
@@ -561,16 +572,20 @@ def render_update_dc(
     base_new: str,
     dlc: str,
     dlc_new: str,
+    update_dlcm: str,
     changelog: str,
     add_paths: list[str],
     del_paths: list[str],
     remote_updates: dict[str, dict[str, object]],
     required_updates: dict[str, dict[str, object]],
+    info_updates: dict[str, dict[str, object]],
 ) -> str:
     lines: list[str] = []
     same_base = base.strip() == base_new.strip()
     same_dlc = dlc.strip() == dlc_new.strip()
     lines.append("isHidden = false")
+    if update_dlcm.strip():
+        lines.append(f"UpdateDLCM = {dc_value(parse_scalar(update_dlcm))}")
     lines.append("")
     lines.append("[version]")
     lines.append(f"platform = {dc_quote(platform)}")
@@ -602,7 +617,7 @@ def render_update_dc(
             lines.pop()
     if not add_paths and not del_paths:
         lines.append("  [del]")
-    if remote_updates or required_updates:
+    if remote_updates or required_updates or info_updates:
         lines.append("")
         lines.append("[update]")
         if remote_updates:
@@ -619,6 +634,17 @@ def render_update_dc(
                 lines.append("")
             lines.append("  [required]")
             for identifier, fields in required_updates.items():
+                lines.append(f"    {dc_quote(identifier)}:")
+                for key, value in fields.items():
+                    lines.append(f"      {key} = {dc_value(value)}")
+                lines.append("")
+            if lines and lines[-1] == "":
+                lines.pop()
+        if info_updates:
+            if remote_updates or required_updates:
+                lines.append("")
+            lines.append("  [info]")
+            for identifier, fields in info_updates.items():
                 lines.append(f"    {dc_quote(identifier)}:")
                 for key, value in fields.items():
                     lines.append(f"      {key} = {dc_value(value)}")
@@ -661,6 +687,7 @@ def main() -> int:
     parser.add_argument("--base-new", required=True)
     parser.add_argument("--dlc", required=True)
     parser.add_argument("--dlc-new", required=True)
+    parser.add_argument("--update-dlcm", default="")
     parser.add_argument("--out-dir", default="out")
     parser.add_argument("--work-dir", default="work")
     args = parser.parse_args()
@@ -679,12 +706,12 @@ def main() -> int:
 
     add_or_modify, deleted = parse_diff(args.from_ref, args.to_ref)
     add_paths, del_paths = filter_paths(add_or_modify, deleted)
-    remote_updates, required_updates, converted_paths = build_auto_update_ops(args.from_ref, args.to_ref, add_paths)
+    remote_updates, required_updates, info_updates, converted_paths = build_auto_update_ops(args.from_ref, args.to_ref, add_paths)
     if converted_paths:
         add_paths = [p for p in add_paths if p not in converted_paths]
         del_paths = [p for p in del_paths if p not in converted_paths]
 
-    if not add_paths and not del_paths and not remote_updates and not required_updates:
+    if not add_paths and not del_paths and not remote_updates and not required_updates and not info_updates:
         print("No changed files after filtering; nothing to package.", file=sys.stderr)
         return 2
 
@@ -707,11 +734,13 @@ def main() -> int:
         base_new=args.base_new,
         dlc=args.dlc,
         dlc_new=args.dlc_new,
+        update_dlcm=args.update_dlcm,
         changelog=changelog,
         add_paths=add_paths,
         del_paths=del_paths,
         remote_updates=remote_updates,
         required_updates=required_updates,
+        info_updates=info_updates,
     )
     (stage_dir / "update.dc").write_text(update_dc, encoding="utf-8")
     copy_added_files(args.to_ref, add_paths, stage_dir)
@@ -752,6 +781,7 @@ def main() -> int:
     print(f"del_count={len(del_paths)}")
     print(f"update_remote_count={len(remote_updates)}")
     print(f"update_required_count={len(required_updates)}")
+    print(f"update_info_count={len(info_updates)}")
     print(f"summary_path={summary_path.as_posix()}")
     print(f"changelog_path={changelog_path.as_posix()}")
     print(f"release_notes_path={notes_path.as_posix()}")

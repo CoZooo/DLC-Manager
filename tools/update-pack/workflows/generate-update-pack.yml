@@ -32,6 +32,10 @@ on:
       dlc_new:
         description: "New DLC version"
         required: true
+      update_dlcm:
+        description: "UpdateDLCM value (empty/true/version)"
+        required: false
+        default: ""
       sync_to_gitee:
         description: "Sync generated release to Gitee"
         required: true
@@ -167,7 +171,8 @@ jobs:
               --base "${{ inputs.base }}" \
               --base-new "${{ inputs.base_new }}" \
               --dlc "${{ inputs.dlc }}" \
-              --dlc-new "${{ inputs.dlc_new }}"
+              --dlc-new "${{ inputs.dlc_new }}" \
+              --update-dlcm "${{ inputs.update_dlcm }}"
           )"
           echo "$result"
           while IFS= read -r line; do

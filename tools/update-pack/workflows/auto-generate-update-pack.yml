@@ -23,6 +23,10 @@ on:
           - client
           - server
         default: universal
+      update_dlcm:
+        description: "UpdateDLCM value (empty/true/version)"
+        required: false
+        default: ""
       sync_to_gitee:
         description: "Sync generated release to Gitee"
         required: true
@@ -317,7 +321,8 @@ jobs:
               --base "${{ steps.detect.outputs.base }}" \
               --base-new "${{ steps.detect.outputs.base_new }}" \
               --dlc "${{ steps.detect.outputs.dlc }}" \
-              --dlc-new "${{ steps.detect.outputs.dlc_new }}"
+              --dlc-new "${{ steps.detect.outputs.dlc_new }}" \
+              --update-dlcm "${{ inputs.update_dlcm }}"
           )"
           echo "$result"
           while IFS= read -r line; do

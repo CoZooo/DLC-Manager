@@ -9,3 +9,8 @@ lightspeed-cache/
 options.txt
 config/oculus.properties
 DLC/tmp/
+setup_github_repo.bat
+setup_github_repo.ps1
+setup_github_repo.state.json
+**/__pycache__/
+config/dlc_manager/
