@@ -163,6 +163,8 @@ def filter_paths(
         basename = segments[-1] if segments else low
         if low in {"changelog", "changelog.md"}:
             return False
+        if low in {"readme", "readme.md"}:
+            return False
         if basename == "version.dc":
             return False
         if low == "config/dlc_manager" or low.startswith("config/dlc_manager/"):

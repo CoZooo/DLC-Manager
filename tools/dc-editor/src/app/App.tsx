@@ -708,6 +708,7 @@ export function App() {
             <div className="editor-grid">
               {activeView === "form" && (
                 <StructuredEditor
+                  key={`form-${editingDocument.id}`}
                   locale={locale}
                   schema={schema}
                   model={editingDocument.structuredModel}
@@ -720,6 +721,7 @@ export function App() {
                 <section className="panel">
                   <div className="panel-title">{t(locale, "rawTitle")}</div>
                   <RawDcEditor
+                    key={`raw-${editingDocument.id}`}
                     value={editingDocument.rawText}
                     onChange={updateRawText}
                   />
@@ -727,7 +729,12 @@ export function App() {
               )}
 
               {activeView === "preview" && (
-                <NoticePreview locale={locale} model={editingDocument.structuredModel} backend={backend} />
+                <NoticePreview
+                  key={`preview-${editingDocument.id}`}
+                  locale={locale}
+                  model={editingDocument.structuredModel}
+                  backend={backend}
+                />
               )}
 
               {activeView === "validation" && (
