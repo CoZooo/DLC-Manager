@@ -11,6 +11,15 @@ fn write_text_file_direct(path: String, text: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn write_binary_file_direct(path: String, bytes: Vec<u8>) -> Result<(), String> {
+  let target = Path::new(&path);
+  if let Some(parent) = target.parent() {
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+  }
+  fs::write(target, bytes).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn fetch_notice_content(url: String) -> Result<Option<String>, String> {
   let normalized = url.trim();
   if normalized.is_empty() {
@@ -46,7 +55,7 @@ fn fetch_notice_content(url: String) -> Result<Option<String>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![write_text_file_direct, fetch_notice_content])
+    .invoke_handler(tauri::generate_handler![write_text_file_direct, write_binary_file_direct, fetch_notice_content])
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .setup(|app| {

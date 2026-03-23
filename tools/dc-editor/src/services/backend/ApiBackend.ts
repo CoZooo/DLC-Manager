@@ -2,6 +2,7 @@ import {
   DocumentType,
   OpenDocumentResult,
   PickedFileResult,
+  SaveArchiveRequest,
   SaveDocumentRequest,
   SaveDocumentResult,
   StructuredModel,
@@ -135,11 +136,16 @@ export class ApiBackend implements EditorBackend {
   }
 
   async openWithPicker(): Promise<OpenDocumentResult | null> {
+    const opened = await this.openManyWithPicker();
+    return opened[0] || null;
+  }
+
+  async openManyWithPicker(): Promise<OpenDocumentResult[]> {
     this.ensureConfigured();
     const listing = await this.request<ApiRootListResponse>("GET", "/api/dlc/root/list");
     const choices = this.collectRemoteChoices(listing);
     const promptLines = [
-      "请输入要打开的远程配置路径。",
+      "请输入要打开的远程配置路径，可填写多行。",
       "单根目录可直接填写相对路径；多根目录请使用 rootIndex:path。",
       ""
     ];
@@ -148,24 +154,29 @@ export class ApiBackend implements EditorBackend {
       promptLines.push(...choices.slice(0, 40).map((choice) => `- ${choice}`));
     }
     const selected = window.prompt(promptLines.join("\n"), choices[0] || "");
-    const parsed = decodeRemotePath(selected || "");
-    if (!parsed) {
-      return null;
+    const targets = (selected || "")
+      .split(/\r?\n/)
+      .map((item) => decodeRemotePath(item))
+      .filter((item): item is RemotePathSelection => Boolean(item && item.relativePath));
+    if (targets.length === 0) {
+      return [];
     }
-    const response = await this.request<{
-      name?: string;
-      path?: string;
-      rootIndex?: number;
-      content?: string;
-    }>("POST", "/api/dc/read", {
-      path: parsed.relativePath,
-      rootIndex: parsed.rootIndex
-    });
-    return {
-      name: response.name || this.getPathName(parsed.relativePath),
-      path: encodeRemotePath(response.path || parsed.relativePath, response.rootIndex),
-      text: response.content || ""
-    };
+    return Promise.all(targets.map(async (parsed) => {
+      const response = await this.request<{
+        name?: string;
+        path?: string;
+        rootIndex?: number;
+        content?: string;
+      }>("POST", "/api/dc/read", {
+        path: parsed.relativePath,
+        rootIndex: parsed.rootIndex
+      });
+      return {
+        name: response.name || this.getPathName(parsed.relativePath),
+        path: encodeRemotePath(response.path || parsed.relativePath, response.rootIndex),
+        text: response.content || ""
+      };
+    }));
   }
 
   async pickFile(): Promise<PickedFileResult | null> {
@@ -256,6 +267,20 @@ export class ApiBackend implements EditorBackend {
     return {
       name: response.name || this.getPathName(target.relativePath),
       path: encodeRemotePath(response.path || target.relativePath, response.rootIndex)
+    };
+  }
+
+  async saveArchive(request: SaveArchiveRequest): Promise<SaveDocumentResult> {
+    const blob = new Blob([Uint8Array.from(request.data)], { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = request.suggestedName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    return {
+      name: request.suggestedName,
+      path: request.suggestedName
     };
   }
 

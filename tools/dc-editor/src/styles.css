@@ -216,6 +216,78 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: var(--muted);
+  min-width: 0;
+  position: relative;
+}
+
+.doc-name-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-name-button:hover {
+  color: var(--ink);
+}
+
+.doc-name-static {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-clear-button {
+  padding: 4px 8px;
+  border-radius: 999px;
+}
+
+.doc-switch-dropdown {
+  top: calc(100% + 8px);
+  left: 0;
+  right: auto;
+  min-width: 260px;
+  max-width: 420px;
+}
+
+.doc-switch-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.doc-switch-name {
+  min-width: 0;
+}
+
+.doc-switch-remove {
+  white-space: nowrap;
+  padding: 8px 10px;
+}
+
+.document-switch-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.document-switch-inline .toolbar-locale-trigger {
+  min-width: 64px;
+  height: 44px;
+  font-size: 18px;
+}
+
+.document-switch-index {
+  min-width: 52px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .workspace {
@@ -259,6 +331,25 @@ button:disabled {
   transition:
     transform 220ms ease,
     opacity 180ms ease;
+}
+
+.sidebar-topbar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.sidebar-locale-menu {
+  height: 42px;
+}
+
+.sidebar-locale-trigger {
+  min-width: 64px;
+  padding: 0 14px;
+}
+
+.sidebar-locale-dropdown {
+  left: 0;
+  right: auto;
 }
 
 .sidebar-shell.sidebar-shell-collapsed .sidebar {

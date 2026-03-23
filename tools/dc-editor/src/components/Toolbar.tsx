@@ -1,35 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { EditorDocument } from "../models/editor";
-import { EditorLocale, t } from "../i18n/editorI18n";
+import { t } from "../i18n/editorI18n";
 
 interface ToolbarProps {
+  documents: EditorDocument[];
   document: EditorDocument | null;
+  activeDocumentIndex: number;
   activeView: "form" | "raw" | "preview" | "validation";
   allowPreview: boolean;
   sidebarVisible: boolean;
-  locale: EditorLocale;
+  locale: "zh_cn" | "en_us";
   onGoHome(): void;
   onToggleSidebar(): void;
-  onChangeLocale(locale: EditorLocale): void;
   onChangeView(view: "form" | "raw" | "preview" | "validation"): void;
+  onSelectDocument(id: string): void;
+  onSelectPreviousDocument(): void;
+  onSelectNextDocument(): void;
+  onRemoveDocument(id: string): void;
+  onClearDocuments(): void;
+  onSaveCurrent(): void;
   onSave(): void;
 }
 
 export function Toolbar(props: ToolbarProps) {
-  const [localeMenuOpen, setLocaleMenuOpen] = useState(false);
-  const localeMenuRef = useRef<HTMLDivElement | null>(null);
+  const [documentMenuOpen, setDocumentMenuOpen] = useState(false);
+  const documentMenuRef = useRef<HTMLDivElement | null>(null);
   const disabled = !props.document;
+  const multiDocument = props.documents.length > 1;
   const views = props.allowPreview
     ? (["form", "raw", "preview", "validation"] as const)
     : (["form", "raw", "validation"] as const);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      if (!localeMenuRef.current) {
-        return;
-      }
-      if (!localeMenuRef.current.contains(event.target as Node)) {
-        setLocaleMenuOpen(false);
+      if (documentMenuRef.current && !documentMenuRef.current.contains(event.target as Node)) {
+        setDocumentMenuOpen(false);
       }
     };
     window.addEventListener("mousedown", onPointerDown);
@@ -52,10 +57,56 @@ export function Toolbar(props: ToolbarProps) {
           <div className="brand">{t(props.locale, "appTitle")}</div>
         </button>
         {props.document && (
-          <div className="doc-meta">
-            <span>{props.document.name}</span>
+          <div className="doc-meta" ref={documentMenuRef}>
+            {multiDocument ? (
+              <button
+                type="button"
+                className="doc-name-button"
+                onClick={() => setDocumentMenuOpen((previous) => !previous)}
+                title={t(props.locale, "switchDocuments")}
+              >
+                {props.document.name}
+              </button>
+            ) : (
+              <span className="doc-name-static">{props.document.name}</span>
+            )}
             <span className="doc-meta-type">{props.document.type}</span>
+            {multiDocument && (
+              <button type="button" className="doc-clear-button" onClick={props.onClearDocuments}>
+                {t(props.locale, "clearDocuments")}
+              </button>
+            )}
             {props.document.isDirty && <span className="dirty-dot">{t(props.locale, "dirty")}</span>}
+            {multiDocument && <span className="doc-meta-type">{props.documents.length}</span>}
+            {multiDocument && documentMenuOpen && (
+              <div className="toolbar-locale-dropdown doc-switch-dropdown" role="menu">
+                {props.documents.map((item) => (
+                  <div key={item.id} className="doc-switch-row">
+                    <button
+                      type="button"
+                      className={props.document?.id === item.id ? "active doc-switch-name" : "doc-switch-name"}
+                      onClick={() => {
+                        props.onSelectDocument(item.id);
+                        setDocumentMenuOpen(false);
+                      }}
+                    >
+                      {item.name}
+                    </button>
+                    <button
+                      type="button"
+                      className="doc-switch-remove"
+                      title={t(props.locale, "removeDocument")}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        props.onRemoveDocument(item.id);
+                      }}
+                    >
+                      {t(props.locale, "removeDocument")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -79,49 +130,31 @@ export function Toolbar(props: ToolbarProps) {
       </div>
 
       <div className="toolbar-right">
-        <div className="toolbar-locale-menu" ref={localeMenuRef}>
-          <button
-            type="button"
-            className="toolbar-locale-trigger"
-            aria-label={props.locale === "zh_cn" ? "切换界面语言" : "Switch UI language"}
-            title={props.locale === "zh_cn" ? "切换界面语言" : "Switch UI language"}
-            aria-haspopup="menu"
-            aria-expanded={localeMenuOpen}
-            onClick={() => setLocaleMenuOpen((previous) => !previous)}
-          >
-            <span className="toolbar-locale-icon">🌐</span>
-            <span className="toolbar-locale-caret">▾</span>
-          </button>
-          {localeMenuOpen && (
-            <div className="toolbar-locale-dropdown" role="menu">
-              <button
-                type="button"
-                className={props.locale === "zh_cn" ? "active" : ""}
-                role="menuitemradio"
-                aria-checked={props.locale === "zh_cn"}
-                onClick={() => {
-                  props.onChangeLocale("zh_cn");
-                  setLocaleMenuOpen(false);
-                }}
-              >
-                {t(props.locale, "languageZhCn")}
-              </button>
-              <button
-                type="button"
-                className={props.locale === "en_us" ? "active" : ""}
-                role="menuitemradio"
-                aria-checked={props.locale === "en_us"}
-                onClick={() => {
-                  props.onChangeLocale("en_us");
-                  setLocaleMenuOpen(false);
-                }}
-              >
-                {t(props.locale, "languageEnUs")}
-              </button>
-            </div>
-          )}
-        </div>
-        <button disabled={disabled} onClick={props.onSave}>{t(props.locale, "export")}</button>
+        {props.document && multiDocument && (
+          <div className="document-switch-inline">
+            <button
+              type="button"
+              className="toolbar-locale-trigger"
+              aria-label={t(props.locale, "switchDocuments")}
+              title={t(props.locale, "switchDocuments")}
+              onClick={props.onSelectPreviousDocument}
+            >
+              <span className="toolbar-locale-caret">←</span>
+            </button>
+            <span className="document-switch-index">{props.activeDocumentIndex + 1}/{props.documents.length}</span>
+            <button
+              type="button"
+              className="toolbar-locale-trigger"
+              aria-label={t(props.locale, "switchDocuments")}
+              title={t(props.locale, "switchDocuments")}
+              onClick={props.onSelectNextDocument}
+            >
+              <span className="toolbar-locale-caret">→</span>
+            </button>
+          </div>
+        )}
+        {multiDocument && <button disabled={disabled} onClick={props.onSaveCurrent}>{t(props.locale, "exportCurrent")}</button>}
+        <button disabled={disabled} onClick={props.onSave}>{multiDocument ? t(props.locale, "exportAll") : t(props.locale, "export")}</button>
       </div>
     </header>
   );

@@ -106,6 +106,11 @@ export interface OpenDocumentResult {
   text: string;
 }
 
+export interface SaveArchiveRequest {
+  suggestedName: string;
+  data: Uint8Array;
+}
+
 export interface PickedFileResult {
   name: string;
   path?: string;

@@ -2,6 +2,7 @@ import {
   DocumentType,
   OpenDocumentResult,
   PickedFileResult,
+  SaveArchiveRequest,
   SaveDocumentRequest,
   SaveDocumentResult,
   StructuredModel,
@@ -20,7 +21,7 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 declare global {
   interface Window {
     showOpenFilePicker?: (options?: unknown) => Promise<Array<{ getFile(): Promise<File> }>>;
-    showSaveFilePicker?: (options?: unknown) => Promise<{ createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }> }>;
+    showSaveFilePicker?: (options?: unknown) => Promise<{ createWritable(): Promise<{ write(data: string | Blob | BufferSource): Promise<void>; close(): Promise<void> }> }>;
   }
 }
 
@@ -28,27 +29,34 @@ export class LocalBackend implements EditorBackend {
   readonly mode = "local" as const;
 
   async openWithPicker(): Promise<OpenDocumentResult | null> {
+    const opened = await this.openManyWithPicker();
+    return opened[0] || null;
+  }
+
+  async openManyWithPicker(): Promise<OpenDocumentResult[]> {
     if (isTauriRuntime()) {
-      return this.openWithTauriDialog();
+      return this.openManyWithTauriDialog();
     }
     if (window.showOpenFilePicker) {
-      const [handle] = await window.showOpenFilePicker({
+      const handles = await window.showOpenFilePicker({
         types: [{ description: "DC Config", accept: { "text/plain": [".dc"] } }],
         excludeAcceptAllOption: false,
-        multiple: false
+        multiple: true
       });
-      if (!handle) {
-        return null;
+      if (!handles || handles.length === 0) {
+        return [];
       }
-      const file = await handle.getFile();
-      return {
-        name: file.name,
-        path: file.name,
-        text: await file.text()
-      };
+      return Promise.all(handles.map(async (handle) => {
+        const file = await handle.getFile();
+        return {
+          name: file.name,
+          path: file.name,
+          text: await file.text()
+        };
+      }));
     }
 
-    return this.openWithInputPicker(".dc,text/plain");
+    return this.openManyWithInputPicker(".dc,text/plain");
   }
 
   async pickFile(): Promise<PickedFileResult | null> {
@@ -131,6 +139,33 @@ export class LocalBackend implements EditorBackend {
     return this.saveWithDownload(request);
   }
 
+  async saveArchive(request: SaveArchiveRequest): Promise<SaveDocumentResult> {
+    const archiveBytes = Uint8Array.from(request.data);
+    if (isTauriRuntime()) {
+      return this.saveArchiveWithTauriDialog({
+        ...request,
+        data: archiveBytes
+      });
+    }
+    if (window.showSaveFilePicker) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: request.suggestedName,
+        types: [{ description: "ZIP Archive", accept: { "application/zip": [".zip"] } }]
+      });
+      const writable = await handle.createWritable();
+      await writable.write(archiveBytes);
+      await writable.close();
+      return {
+        name: request.suggestedName,
+        path: request.suggestedName
+      };
+    }
+    return this.saveArchiveWithDownload({
+      ...request,
+      data: archiveBytes
+    });
+  }
+
   async fetchNoticeContent(url: string): Promise<string | null> {
     const normalized = url.trim();
     if (!normalized) {
@@ -154,22 +189,23 @@ export class LocalBackend implements EditorBackend {
     return text && text.trim() ? text : null;
   }
 
-  private openWithInputPicker(accept: string): Promise<OpenDocumentResult | null> {
+  private openManyWithInputPicker(accept: string): Promise<OpenDocumentResult[]> {
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = accept;
+      input.multiple = true;
       input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) {
-          resolve(null);
+        const files = Array.from(input.files || []);
+        if (files.length === 0) {
+          resolve([]);
           return;
         }
-        resolve({
+        resolve(await Promise.all(files.map(async (file) => ({
           name: file.name,
           path: file.name,
           text: await file.text()
-        });
+        }))));
       };
       input.click();
     });
@@ -208,21 +244,36 @@ export class LocalBackend implements EditorBackend {
     };
   }
 
-  private async openWithTauriDialog(): Promise<OpenDocumentResult | null> {
+  private saveArchiveWithDownload(request: SaveArchiveRequest): SaveDocumentResult {
+    const blob = new Blob([Uint8Array.from(request.data)], { type: "application/zip" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = request.suggestedName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    return {
+      name: request.suggestedName,
+      path: request.suggestedName
+    };
+  }
+
+  private async openManyWithTauriDialog(): Promise<OpenDocumentResult[]> {
     const selected = await tauriOpen({
       title: "打开 .dc 配置",
       directory: false,
-      multiple: false,
+      multiple: true,
       filters: [{ name: "DC Config", extensions: ["dc"] }]
     });
-    if (!selected || Array.isArray(selected)) {
-      return null;
+    if (!selected) {
+      return [];
     }
-    return {
-      name: this.getPathName(selected),
-      path: selected,
-      text: await readTextFile(selected)
-    };
+    const paths = Array.isArray(selected) ? selected : [selected];
+    return Promise.all(paths.map(async (path) => ({
+      name: this.getPathName(path),
+      path,
+      text: await readTextFile(path)
+    })));
   }
 
   private async pickWithTauriDialog(): Promise<PickedFileResult | null> {
@@ -250,6 +301,22 @@ export class LocalBackend implements EditorBackend {
       throw new Error("用户取消了导出。");
     }
     await invoke("write_text_file_direct", { path: target, text: request.text });
+    return {
+      name: this.getPathName(target),
+      path: target
+    };
+  }
+
+  private async saveArchiveWithTauriDialog(request: SaveArchiveRequest): Promise<SaveDocumentResult> {
+    const target = await tauriSave({
+      title: "导出 ZIP 压缩包",
+      defaultPath: request.suggestedName,
+      filters: [{ name: "ZIP Archive", extensions: ["zip"] }]
+    });
+    if (!target) {
+      throw new Error("用户取消了导出。");
+    }
+    await invoke("write_binary_file_direct", { path: target, bytes: Array.from(request.data) });
     return {
       name: this.getPathName(target),
       path: target

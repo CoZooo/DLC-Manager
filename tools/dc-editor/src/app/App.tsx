@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import JSZip from "jszip";
 import { Sidebar } from "../components/Sidebar";
 import { NoticePreview } from "../components/NoticePreview";
 import { RawDcEditor } from "../components/RawDcEditor";
@@ -67,7 +68,8 @@ type EditorView = "form" | "raw" | "preview" | "validation";
 
 interface PersistedAppState {
   currentType: DocumentType;
-  document: EditorDocument | null;
+  documents: EditorDocument[];
+  activeDocumentId: string | null;
   activeView: EditorView;
   sidebarVisible: boolean;
   homeVisible: boolean;
@@ -108,14 +110,21 @@ function loadPersistedState(): PersistedAppState | null {
     const currentType = isDocumentTypeValue(parsed.currentType) ? parsed.currentType : "info";
     const activeView = isEditorViewValue(parsed.activeView) ? parsed.activeView : "form";
     const sidebarVisible = typeof parsed.sidebarVisible === "boolean" ? parsed.sidebarVisible : true;
-    const homeVisible = typeof parsed.homeVisible === "boolean" ? parsed.homeVisible : !parsed.document;
+    const legacyDocument = (parsed as { document?: EditorDocument | null }).document;
+    const documents = Array.isArray(parsed.documents)
+      ? parsed.documents.filter((item) => item && isDocumentTypeValue(item.type))
+      : legacyDocument && isDocumentTypeValue(legacyDocument.type)
+        ? [legacyDocument]
+        : [];
+    const activeDocumentId = typeof parsed.activeDocumentId === "string"
+      ? parsed.activeDocumentId
+      : documents[0]?.id ?? null;
+    const homeVisible = typeof parsed.homeVisible === "boolean" ? parsed.homeVisible : documents.length === 0;
     const status = typeof parsed.status === "string" ? parsed.status : "就绪。";
-    const document = parsed.document && isDocumentTypeValue(parsed.document.type)
-      ? parsed.document
-      : null;
     return {
       currentType,
-      document,
+      documents,
+      activeDocumentId,
       activeView,
       sidebarVisible,
       homeVisible,
@@ -262,24 +271,48 @@ export function App() {
   }, [backendMode]);
 
   const [currentType, setCurrentType] = useState<DocumentType>(persisted?.currentType ?? "info");
-  const [document, setDocument] = useState<EditorDocument | null>(persisted?.document ?? null);
+  const [documents, setDocuments] = useState<EditorDocument[]>(persisted?.documents ?? []);
+  const [activeDocumentId, setActiveDocumentId] = useState<string | null>(persisted?.activeDocumentId ?? persisted?.documents?.[0]?.id ?? null);
   const [activeView, setActiveView] = useState<EditorView>(persisted?.activeView ?? "form");
   const [sidebarVisible, setSidebarVisible] = useState(persisted?.sidebarVisible ?? true);
-  const [homeVisible, setHomeVisible] = useState(persisted?.homeVisible ?? !(persisted?.document));
+  const [homeVisible, setHomeVisible] = useState(persisted?.homeVisible ?? !(persisted?.documents?.length));
   const [status, setStatus] = useState(persisted?.status ?? t(initialLocale, "ready"));
   const [history, setHistory] = useState<DocumentHistoryState>({
-    docId: persisted?.document?.id ?? null,
+    docId: persisted?.activeDocumentId ?? persisted?.documents?.[0]?.id ?? null,
     past: [],
     future: []
   });
 
-  const editingDocument = homeVisible ? null : document;
+  const editingDocument = useMemo(() => {
+    if (homeVisible) {
+      return null;
+    }
+    return documents.find((item) => item.id === activeDocumentId) || null;
+  }, [documents, activeDocumentId, homeVisible]);
+  const activeDocumentIndex = useMemo(() => {
+    if (!editingDocument) {
+      return -1;
+    }
+    return documents.findIndex((item) => item.id === editingDocument.id);
+  }, [documents, editingDocument]);
   const schema = editingDocument ? documentSchemas[editingDocument.type] : documentSchemas[currentType];
   const allowPreview = editingDocument?.type === "notice";
 
   useEffect(() => {
-    currentDocumentIdRef.current = document?.id ?? null;
-  }, [document?.id]);
+    currentDocumentIdRef.current = editingDocument?.id ?? null;
+  }, [editingDocument?.id]);
+
+  useEffect(() => {
+    if (!documents.length) {
+      if (activeDocumentId !== null) {
+        setActiveDocumentId(null);
+      }
+      return;
+    }
+    if (!activeDocumentId || !documents.some((item) => item.id === activeDocumentId)) {
+      setActiveDocumentId(documents[0].id);
+    }
+  }, [documents, activeDocumentId]);
 
   useEffect(() => {
     if (!allowPreview && activeView === "preview") {
@@ -293,14 +326,15 @@ export function App() {
     }
     const snapshot: PersistedAppState = {
       currentType,
-      document,
+      documents,
+      activeDocumentId,
       activeView,
       sidebarVisible,
       homeVisible,
       status
     };
     window.sessionStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(snapshot));
-  }, [currentType, document, activeView, sidebarVisible, homeVisible, status]);
+  }, [currentType, documents, activeDocumentId, activeView, sidebarVisible, homeVisible, status]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -324,41 +358,48 @@ export function App() {
   }, [locale]);
 
   useEffect(() => {
-    if (!document) {
+    if (!editingDocument) {
       return;
     }
     let cancelled = false;
-      backend.parse(document.type, document.rawText).then((parsed) => {
+      backend.parse(editingDocument.type, editingDocument.rawText).then((parsed) => {
         if (cancelled) {
           return;
         }
-        backend.validate(document.type, document.rawText, parsed.model).then((issues) => {
+        backend.validate(editingDocument.type, editingDocument.rawText, parsed.model).then((issues) => {
         if (cancelled) {
           return;
         }
-        setDocument((previous) => {
-          if (!previous || previous.id !== document.id) {
+        setDocuments((previous) => {
+          const index = previous.findIndex((item) => item.id === editingDocument.id);
+          if (index < 0) {
             return previous;
           }
-          const keepStructuredDraft = preserveStructuredDraftRef.current === previous.id;
-          return {
-            ...previous,
-            name: deriveDocumentName(previous.type, keepStructuredDraft ? previous.structuredModel : parsed.model, previous.name),
-            structuredModel: keepStructuredDraft ? previous.structuredModel : parsed.model,
+          const current = previous[index];
+          const keepStructuredDraft = preserveStructuredDraftRef.current === current.id;
+          const next = {
+            ...current,
+            name: deriveDocumentName(current.type, keepStructuredDraft ? current.structuredModel : parsed.model, current.name),
+            structuredModel: keepStructuredDraft ? current.structuredModel : parsed.model,
             issues
           };
+          const copy = [...previous];
+          copy[index] = next;
+          return copy;
         });
       });
     }).catch((error: Error) => {
       if (cancelled) {
         return;
       }
-      setDocument((previous) => {
-        if (!previous || previous.id !== document.id) {
+      setDocuments((previous) => {
+        const index = previous.findIndex((item) => item.id === editingDocument.id);
+        if (index < 0) {
           return previous;
         }
-        return {
-          ...previous,
+        const copy = [...previous];
+        copy[index] = {
+          ...copy[index],
           issues: [
             {
               severity: "error",
@@ -367,24 +408,25 @@ export function App() {
             }
           ]
         };
+        return copy;
       });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [backend, document?.id, document?.rawText, document?.type]);
+  }, [backend, editingDocument?.id, editingDocument?.rawText, editingDocument?.type]);
 
   useEffect(() => {
-    if (history.docId === (document?.id ?? null)) {
+    if (history.docId === (editingDocument?.id ?? null)) {
       return;
     }
     setHistory({
-      docId: document?.id ?? null,
+      docId: editingDocument?.id ?? null,
       past: [],
       future: []
     });
-  }, [document?.id, history.docId]);
+  }, [editingDocument?.id, history.docId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -411,7 +453,7 @@ export function App() {
           past: history.past.slice(0, -1),
           future: [snapshotDocument(editingDocument), ...history.future]
         });
-        setDocument(restoreDocumentSnapshot(editingDocument, previous));
+        setDocuments((current) => current.map((item) => item.id === editingDocument.id ? restoreDocumentSnapshot(editingDocument, previous) : item));
         return;
       }
       if ((key === "z" && event.shiftKey) || key === "y") {
@@ -426,47 +468,73 @@ export function App() {
           past: [...history.past, snapshotDocument(editingDocument)],
           future: history.future.slice(1)
         });
-        setDocument(restoreDocumentSnapshot(editingDocument, next));
+        setDocuments((current) => current.map((item) => item.id === editingDocument.id ? restoreDocumentSnapshot(editingDocument, next) : item));
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [editingDocument, history, homeVisible]);
 
+  const mergeDocuments = (incoming: EditorDocument[]) => {
+    if (incoming.length === 0) {
+      return;
+    }
+    setDocuments((previous) => {
+      const next = [...previous];
+      for (const doc of incoming) {
+        const index = next.findIndex((item) => item.path && doc.path && item.path === doc.path);
+        if (index >= 0) {
+          next[index] = doc;
+        } else {
+          next.push(doc);
+        }
+      }
+      return next;
+    });
+    const active = incoming[incoming.length - 1];
+    setActiveDocumentId(active.id);
+    setCurrentType(active.type);
+    setHomeVisible(false);
+    setSidebarVisible(false);
+    setActiveView(documentSchemas[active.type].supportsStructured ? "form" : "raw");
+  };
+
   const commitDocumentEdit = (nextDocument: EditorDocument) => {
-    if (!document || document.id !== nextDocument.id) {
-      setDocument(nextDocument);
+    if (!editingDocument || editingDocument.id !== nextDocument.id) {
+      setDocuments((previous) => previous.map((item) => item.id === nextDocument.id ? nextDocument : item));
       return;
     }
     setHistory((previous) => ({
-      docId: document.id,
+      docId: editingDocument.id,
       past: [
-        ...(previous.docId === document.id ? previous.past : []),
-        snapshotDocument(document)
+        ...(previous.docId === editingDocument.id ? previous.past : []),
+        snapshotDocument(editingDocument)
       ].slice(-100),
       future: []
     }));
-    setDocument(nextDocument);
+    setDocuments((previous) => previous.map((item) => item.id === nextDocument.id ? nextDocument : item));
   };
 
   const importDocument = async () => {
     try {
-      const opened = await backend.openWithPicker();
-      if (!opened) {
+      const opened = await backend.openManyWithPicker();
+      if (!opened.length) {
         return;
       }
-      const type = await backend.detectType(opened.path, opened.text);
-      if (!isConfigurableType(type)) {
-        setStatus(t(locale, "typeNotEditable", { type: documentSchemas[type].label }));
+      const importedDocs: EditorDocument[] = [];
+      for (const item of opened) {
+        const type = await backend.detectType(item.path, item.text);
+        if (!isConfigurableType(type)) {
+          setStatus(t(locale, "typeNotEditable", { type: documentSchemas[type].label }));
+          continue;
+        }
+        importedDocs.push(buildDocument(type, item.name, item.text, documentSchemas[type], "imported", backendMode, item.path));
+      }
+      if (!importedDocs.length) {
         return;
       }
-      const next = buildDocument(type, opened.name, opened.text, documentSchemas[type], "imported", backendMode, opened.path);
-      setCurrentType(type);
-      setDocument(next);
-      setHomeVisible(false);
-      setSidebarVisible(false);
-      setActiveView(documentSchemas[type].supportsStructured ? "form" : "raw");
-      setStatus(t(locale, "importedFile", { name: opened.name }));
+      mergeDocuments(importedDocs);
+      setStatus(t(locale, "importedFile", { name: importedDocs[importedDocs.length - 1].name }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t(locale, "importFailed"));
     }
@@ -477,10 +545,7 @@ export function App() {
       const created = await backend.createNew(currentType);
       const type = detectDocumentType(created.path, created.text);
       const next = buildDocument(type, created.name, created.text, documentSchemas[type], "new", backendMode, created.path);
-      setDocument(next);
-      setHomeVisible(false);
-      setSidebarVisible(false);
-      setActiveView(documentSchemas[type].supportsStructured ? "form" : "raw");
+      mergeDocuments([next]);
       setStatus(t(locale, "createdType", { type: documentSchemas[type].label }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t(locale, "createFailed"));
@@ -506,10 +571,7 @@ export function App() {
       if (!model.basic) {
         setStatus(t(locale, "noPrefillFallback", { type: targetSchema.label }));
         const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
-        setDocument(next);
-        setHomeVisible(false);
-        setSidebarVisible(false);
-        setActiveView(targetSchema.supportsStructured ? "form" : "raw");
+        mergeDocuments([next]);
         return;
       }
 
@@ -520,10 +582,7 @@ export function App() {
       if (!canFillFileName && !canFillIdentifier && !canFillType) {
         setStatus(t(locale, "noPrefillFallback", { type: targetSchema.label }));
         const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
-        setDocument(next);
-        setHomeVisible(false);
-        setSidebarVisible(false);
-        setActiveView(targetSchema.supportsStructured ? "form" : "raw");
+        mergeDocuments([next]);
         return;
       }
 
@@ -552,10 +611,7 @@ export function App() {
       );
       next.structuredModel = model;
       next.isDirty = next.rawText !== next.originalText;
-      setDocument(next);
-      setHomeVisible(false);
-      setSidebarVisible(false);
-      setActiveView(targetSchema.supportsStructured ? "form" : "raw");
+      mergeDocuments([next]);
       setStatus(t(locale, "createdFromDlc", { name: picked.name, type: targetSchema.label }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t(locale, "createFromDlcFailed"));
@@ -564,39 +620,39 @@ export function App() {
 
   const updateRawText = (rawText: string) => {
     preserveStructuredDraftRef.current = null;
-    if (!document) {
+    if (!editingDocument) {
       return;
     }
     commitDocumentEdit({
-      ...document,
+      ...editingDocument,
       rawText,
-      isDirty: rawText !== document.originalText
+      isDirty: rawText !== editingDocument.originalText
     });
   };
 
   const updateStructured = async (model: StructuredModel) => {
-    if (!document) {
+    if (!editingDocument) {
       return;
     }
-    const nextRaw = document.type === "update"
-      ? serializeStructuredDocumentWithPreservedRaw(document.rawText, model, documentSchemas[document.type], { applyImplicitDefaultLocale: true })
-      : await backend.serializeForSave(document.type, model);
-    preserveStructuredDraftRef.current = document.id;
+    const nextRaw = editingDocument.type === "update"
+      ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, model, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
+      : await backend.serializeForSave(editingDocument.type, model);
+    preserveStructuredDraftRef.current = editingDocument.id;
     commitDocumentEdit({
-      ...document,
-      name: deriveDocumentName(document.type, model, document.name),
+      ...editingDocument,
+      name: deriveDocumentName(editingDocument.type, model, editingDocument.name),
       structuredModel: model,
       rawText: nextRaw,
-      isDirty: nextRaw !== document.originalText
+      isDirty: nextRaw !== editingDocument.originalText
     });
   };
 
-  const saveDocument = async () => {
-    if (!document) {
+  const saveCurrentDocument = async () => {
+    if (!editingDocument) {
       return;
     }
-    const savingDocumentId = document.id;
-    const errorCount = document.issues.filter((item) => item.severity === "error").length;
+    const savingDocumentId = editingDocument.id;
+    const errorCount = editingDocument.issues.filter((item) => item.severity === "error").length;
     if (errorCount > 0) {
       setActiveView("validation");
       const message = t(locale, "validationBlocked", { count: errorCount });
@@ -605,35 +661,67 @@ export function App() {
       return;
     }
     try {
-      const textToSave = document.structuredEnabled && document.structuredModel
-        ? document.type === "update"
-          ? serializeStructuredDocumentWithPreservedRaw(document.rawText, document.structuredModel, documentSchemas[document.type], { applyImplicitDefaultLocale: true })
-          : await backend.serializeForSave(document.type, document.structuredModel)
-        : document.rawText;
-      if (document.structuredEnabled && document.structuredModel) {
-        preserveStructuredDraftRef.current = document.id;
+      const textToSave = editingDocument.structuredEnabled && editingDocument.structuredModel
+        ? editingDocument.type === "update"
+          ? serializeStructuredDocumentWithPreservedRaw(editingDocument.rawText, editingDocument.structuredModel, documentSchemas[editingDocument.type], { applyImplicitDefaultLocale: true })
+          : await backend.serializeForSave(editingDocument.type, editingDocument.structuredModel)
+        : editingDocument.rawText;
+      if (editingDocument.structuredEnabled && editingDocument.structuredModel) {
+        preserveStructuredDraftRef.current = editingDocument.id;
       }
       const result = await backend.save({
-        suggestedName: document.name,
-        path: document.path,
+        suggestedName: editingDocument.name,
+        path: editingDocument.path,
         text: textToSave
       });
       if (currentDocumentIdRef.current === savingDocumentId) {
-        setDocument((previous) => {
-          if (!previous || previous.id !== savingDocumentId) {
+        setDocuments((previous) => {
+          const index = previous.findIndex((item) => item.id === savingDocumentId);
+          if (index < 0) {
             return previous;
           }
-          return {
-            ...previous,
+          const copy = [...previous];
+          copy[index] = {
+            ...copy[index],
             name: result.name,
             path: result.path,
             rawText: textToSave,
             originalText: textToSave,
             isDirty: false
           };
+          return copy;
         });
         setStatus(t(locale, "savedFile", { name: result.name }));
       }
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : t(locale, "saveFailed"));
+    }
+  };
+
+  const saveDocument = async () => {
+    if (!editingDocument) {
+      return;
+    }
+    if (documents.length <= 1) {
+      await saveCurrentDocument();
+      return;
+    }
+    try {
+      const zip = new JSZip();
+      for (const doc of documents) {
+        const textToSave = doc.structuredEnabled && doc.structuredModel
+          ? doc.type === "update"
+            ? serializeStructuredDocumentWithPreservedRaw(doc.rawText, doc.structuredModel, documentSchemas[doc.type], { applyImplicitDefaultLocale: true })
+            : await backend.serializeForSave(doc.type, doc.structuredModel)
+          : doc.rawText;
+        zip.file(doc.name, textToSave);
+      }
+      const data = await zip.generateAsync({ type: "uint8array" });
+      const result = await backend.saveArchive({
+        suggestedName: "dc-files.zip",
+        data
+      });
+      setStatus(t(locale, "savedFile", { name: result.name }));
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t(locale, "saveFailed"));
     }
@@ -647,7 +735,7 @@ export function App() {
       info: issues.filter((item) => item.severity === "info").length
     };
     return counts;
-  }, [document?.issues]);
+  }, [editingDocument?.issues]);
 
   useLayoutEffect(() => {
     const panel = mainPanelRef.current;
@@ -666,10 +754,69 @@ export function App() {
     setActiveView(nextView);
   };
 
+  const selectDocument = (id: string) => {
+    setActiveDocumentId(id);
+    setHomeVisible(false);
+  };
+
+  const selectPreviousDocument = () => {
+    if (documents.length <= 1 || activeDocumentIndex < 0) {
+      return;
+    }
+    const nextIndex = (activeDocumentIndex - 1 + documents.length) % documents.length;
+    selectDocument(documents[nextIndex].id);
+  };
+
+  const selectNextDocument = () => {
+    if (documents.length <= 1 || activeDocumentIndex < 0) {
+      return;
+    }
+    const nextIndex = (activeDocumentIndex + 1) % documents.length;
+    selectDocument(documents[nextIndex].id);
+  };
+
+  const removeDocument = (id: string) => {
+    const index = documents.findIndex((item) => item.id === id);
+    if (index < 0) {
+      return;
+    }
+    const remaining = documents.filter((item) => item.id !== id);
+    setDocuments(remaining);
+    if (remaining.length === 0) {
+      setActiveDocumentId(null);
+      setHomeVisible(true);
+      setSidebarVisible(true);
+      setHistory({
+        docId: null,
+        past: [],
+        future: []
+      });
+      return;
+    }
+    if (activeDocumentId === id) {
+      const nextIndex = Math.min(index, remaining.length - 1);
+      setActiveDocumentId(remaining[nextIndex].id);
+    }
+  };
+
+  const clearDocuments = () => {
+    setDocuments([]);
+    setActiveDocumentId(null);
+    setHomeVisible(true);
+    setSidebarVisible(true);
+    setHistory({
+      docId: null,
+      past: [],
+      future: []
+    });
+  };
+
   return (
     <div className="app-shell">
       <Toolbar
+        documents={documents}
         document={editingDocument}
+        activeDocumentIndex={activeDocumentIndex}
         activeView={activeView}
         allowPreview={allowPreview}
         sidebarVisible={sidebarVisible}
@@ -680,8 +827,13 @@ export function App() {
           setStatus(t(locale, "goHomeStatus"));
         }}
         onToggleSidebar={() => setSidebarVisible((previous) => !previous)}
-        onChangeLocale={setLocale}
         onChangeView={changeActiveView}
+        onSelectDocument={selectDocument}
+        onSelectPreviousDocument={selectPreviousDocument}
+        onSelectNextDocument={selectNextDocument}
+        onRemoveDocument={removeDocument}
+        onClearDocuments={clearDocuments}
+        onSaveCurrent={saveCurrentDocument}
         onSave={saveDocument}
       />
 
@@ -694,6 +846,7 @@ export function App() {
             orderedTypes={configurableDocumentTypes}
             showDocumentActions={!homeVisible}
             onTypeSelect={setCurrentType}
+            onChangeLocale={setLocale}
             onNew={createNew}
             onImport={importDocument}
           />
