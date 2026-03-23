@@ -340,8 +340,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
     supportsStructured: true,
     sections: [
       {
-        key: "basic",
-        label: "[basic]",
+        key: ROOT_SECTION_KEY,
+        label: "根级字段",
         fields: [
           {
             key: "enable",

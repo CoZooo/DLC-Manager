@@ -287,6 +287,9 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
   if (schema.type === "info") {
     normalizeInfoMultiFileModel(model);
   }
+  if (schema.type === "preset") {
+    normalizePresetModel(model);
+  }
   if (schema.type === "update") {
     hydrateUpdateFileSections(text, model);
   }
@@ -414,6 +417,20 @@ function normalizeInfoMultiFileModel(model: StructuredModel) {
     __multiFileEnabled: true,
     fileNames: extras
   };
+}
+
+function normalizePresetModel(model: StructuredModel) {
+  const root = model[ROOT_SECTION_KEY] || {};
+  const basic = model.basic || {};
+  const nextRoot = {
+    ...root
+  };
+  for (const key of ["enable", "conflicts", "alarm"] as const) {
+    if (nextRoot[key] === undefined && basic[key] !== undefined) {
+      nextRoot[key] = basic[key];
+    }
+  }
+  model[ROOT_SECTION_KEY] = nextRoot;
 }
 
 function serializeValue(value: StructuredValue): string {

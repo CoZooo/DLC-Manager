@@ -81,8 +81,6 @@ export function createEmptyTemplate(type: DocumentType): string {
       ].join("\n");
     case "preset":
       return [
-        "[basic]",
-        'identifier = ""',
         "enable = []",
         "conflicts = []",
         "alarm = false",
