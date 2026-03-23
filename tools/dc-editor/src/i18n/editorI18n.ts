@@ -380,5 +380,10 @@ export function translateStaticText(locale: EditorLocale, text?: string): string
     return `[${match[1]}].${match[2]} must be text.`;
   }
 
+  match = text.match(/^\[([^\]]+)\]\.directUrl 包含非法链接：(.+)$/);
+  if (match) {
+    return `[${match[1]}].directUrl contains an invalid URL: ${match[2]}`;
+  }
+
   return text;
 }

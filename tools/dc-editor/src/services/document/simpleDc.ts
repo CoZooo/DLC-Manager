@@ -154,6 +154,10 @@ function parseValueByKind(valueText: string, kind: FieldKind): StructuredValue {
   return parseQuoted(valueText);
 }
 
+function isBracketListKind(kind: FieldKind): boolean {
+  return kind === "list" || kind === "ordered-select-list" || kind === "language-visibility";
+}
+
 function parseUpdateDLCMValue(valueText: string): StructuredValue {
   const normalized = valueText.trim();
   if (normalized === "true") {
@@ -234,6 +238,24 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       model[currentSection] = model[currentSection] || {};
     }
 
+    const kind = fieldKinds[`${currentSection}.${key}`] || "text";
+
+    if (isBracketListKind(kind) && valueText.startsWith("[") && !valueText.endsWith("]")) {
+      let block = valueText;
+      while (index + 1 < lines.length) {
+        index += 1;
+        const nextLine = stripComment(lines[index]).trim();
+        if (!nextLine) {
+          continue;
+        }
+        block += ` ${nextLine}`;
+        if (nextLine.endsWith("]")) {
+          break;
+        }
+      }
+      valueText = block;
+    }
+
     if (valueText.startsWith("\"\"\"")) {
       let block = valueText.slice(3);
       while (!block.endsWith("\"\"\"") && index + 1 < lines.length) {
@@ -259,7 +281,6 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       continue;
     }
 
-    const kind = fieldKinds[`${currentSection}.${key}`] || "text";
     model[currentSection][key] = parseValueByKind(valueText, kind);
   }
 
@@ -886,6 +907,7 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
         source: "schema"
       });
     }
+    validateDirectUrls(issues, "download", download);
     return;
   }
 
@@ -900,6 +922,7 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
         source: "schema"
       });
     }
+    validateDirectUrls(issues, "download", download);
     return;
   }
 
@@ -968,6 +991,35 @@ function requireNonEmptyString(
     issues.push({
       severity,
       message,
+      source: "schema"
+    });
+  }
+}
+
+function isValidHttpUrl(value: string): boolean {
+  if (!value) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function validateDirectUrls(
+  issues: ValidationIssue[],
+  sectionKey: string,
+  values: Record<string, StructuredValue>
+) {
+  for (const item of readList(values.directUrl)) {
+    if (isValidHttpUrl(item)) {
+      continue;
+    }
+    issues.push({
+      severity: "error",
+      message: `[${sectionKey}].directUrl 包含非法链接：${item}`,
       source: "schema"
     });
   }
