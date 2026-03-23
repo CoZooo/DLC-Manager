@@ -253,6 +253,7 @@ export function App() {
     validation: 0
   });
   const preserveStructuredDraftRef = useRef<string | null>(null);
+  const currentDocumentIdRef = useRef<string | null>(null);
   const persisted = loadPersistedState();
   const [locale, setLocale] = useState<EditorLocale>(initialLocale);
   const [backendMode] = useState<BackendMode>(initialBackendMode);
@@ -275,6 +276,10 @@ export function App() {
   const editingDocument = homeVisible ? null : document;
   const schema = editingDocument ? documentSchemas[editingDocument.type] : documentSchemas[currentType];
   const allowPreview = editingDocument?.type === "notice";
+
+  useEffect(() => {
+    currentDocumentIdRef.current = document?.id ?? null;
+  }, [document?.id]);
 
   useEffect(() => {
     if (!allowPreview && activeView === "preview") {
@@ -590,6 +595,7 @@ export function App() {
     if (!document) {
       return;
     }
+    const savingDocumentId = document.id;
     const errorCount = document.issues.filter((item) => item.severity === "error").length;
     if (errorCount > 0) {
       setActiveView("validation");
@@ -612,15 +618,22 @@ export function App() {
         path: document.path,
         text: textToSave
       });
-      setDocument({
-        ...document,
-        name: result.name,
-        path: result.path,
-        rawText: textToSave,
-        originalText: textToSave,
-        isDirty: false
-      });
-      setStatus(t(locale, "savedFile", { name: result.name }));
+      if (currentDocumentIdRef.current === savingDocumentId) {
+        setDocument((previous) => {
+          if (!previous || previous.id !== savingDocumentId) {
+            return previous;
+          }
+          return {
+            ...previous,
+            name: result.name,
+            path: result.path,
+            rawText: textToSave,
+            originalText: textToSave,
+            isDirty: false
+          };
+        });
+        setStatus(t(locale, "savedFile", { name: result.name }));
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t(locale, "saveFailed"));
     }
