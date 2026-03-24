@@ -18,7 +18,6 @@ import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.DownloadRes
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcConfig;
-import com.cozooo.dlc_manager.core.DlcPendingFileOpsHelper;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
@@ -177,7 +176,6 @@ public final class DlcUpdateService {
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
         boolean addedRequired = false;
         boolean addedRemote = false;
-        boolean helperScheduled = false;
         boolean dlcManagerUpdated = false;
         boolean requiresDlcManagerUpdate = packages.stream().anyMatch(pkg ->
             pkg != null && pkg.getManifest() != null && pkg.getManifest().isUpdateDLCM());
@@ -195,7 +193,6 @@ public final class DlcUpdateService {
             if (!managerResult.success) {
                 return managerResult;
             }
-            helperScheduled = helperScheduled || managerResult.helperScheduled;
             dlcManagerUpdated = managerResult.dlcManagerUpdated;
         }
         for (DlcUpdatePackage pkg : packages) {
@@ -205,11 +202,10 @@ public final class DlcUpdateService {
             }
             addedRequired = addedRequired || result.addedRequired;
             addedRemote = addedRemote || result.addedRemote;
-            helperScheduled = helperScheduled || result.helperScheduled;
             current = DlcUpdateVersion.load(dlcRoot);
         }
         clearUpdatePromptSkipMarker();
-        return UpdateApplyResult.success("OK", addedRequired, addedRemote, helperScheduled, dlcManagerUpdated);
+        return UpdateApplyResult.success("OK", addedRequired, addedRemote, dlcManagerUpdated);
     }
 
     private static UpdateApplyResult applyRequiredDlcManagerUpdate(String targetVersion) {
@@ -221,7 +217,7 @@ public final class DlcUpdateService {
             return UpdateApplyResult.failed("Failed to find DLC Manager version: " + targetVersion);
         }
         if (!check.hasUpdate) {
-            return UpdateApplyResult.success("OK", false, false, false, false);
+            return UpdateApplyResult.success("OK", false, false, false);
         }
         DownloadResult downloadResult = DlcSelfUpdateService.downloadUpdate(check);
         if (downloadResult == null || !downloadResult.success) {
@@ -233,7 +229,7 @@ public final class DlcUpdateService {
             }
             return UpdateApplyResult.failed(message);
         }
-        return UpdateApplyResult.success("OK", false, false, false, true);
+        return UpdateApplyResult.success("OK", false, false, true);
     }
 
     private static LinkedHashSet<String> collectRequestedDlcManagerVersions(List<DlcUpdatePackage> packages) {
@@ -323,7 +319,7 @@ public final class DlcUpdateService {
             refreshPresetRuntimeState();
 
             pkg.cleanupStaging();
-            return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, context.helperScheduled, false);
+            return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, false);
         } catch (Exception ex) {
             rollbackUpdate(context);
             pkg.cleanupStaging();
@@ -2832,13 +2828,7 @@ public final class DlcUpdateService {
         try {
             return Files.deleteIfExists(path) || !Files.exists(path);
         } catch (IOException ignored) {
-            boolean scheduled = Files.exists(path)
-                && DlcPendingFileOpsHelper.isSupported()
-                && DlcPendingFileOpsHelper.scheduleDelete(List.of(path));
-            if (scheduled) {
-                markHelperScheduled();
-            }
-            return scheduled;
+            return false;
         }
     }
 
@@ -2857,12 +2847,7 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
-            boolean scheduled = DlcPendingFileOpsHelper.isSupported()
-                && DlcPendingFileOpsHelper.scheduleCopy(source, target, replaceExisting);
-            if (scheduled) {
-                markHelperScheduled();
-            }
-            return scheduled;
+            return false;
         }
     }
 
@@ -2881,12 +2866,7 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
-            boolean scheduled = DlcPendingFileOpsHelper.isSupported()
-                && DlcPendingFileOpsHelper.scheduleMove(source, target, replaceExisting);
-            if (scheduled) {
-                markHelperScheduled();
-            }
-            return scheduled;
+            return false;
         }
     }
 
@@ -3043,19 +3023,6 @@ public final class DlcUpdateService {
             }
             Files.writeString(path, content == null ? "" : content, StandardCharsets.UTF_8);
         } catch (IOException ignored) {
-            if (DlcPendingFileOpsHelper.isSupported()) {
-                boolean scheduled = DlcPendingFileOpsHelper.scheduleWriteString(path, content);
-                if (scheduled) {
-                    markHelperScheduled();
-                }
-            }
-        }
-    }
-
-    private static void markHelperScheduled() {
-        UpdateContext context = CURRENT_UPDATE_CONTEXT.get();
-        if (context != null) {
-            context.helperScheduled = true;
         }
     }
 
@@ -3632,7 +3599,6 @@ public final class DlcUpdateService {
         private final DlcUpdateMeta meta;
         private boolean addedRequired;
         private boolean addedRemote;
-        private boolean helperScheduled;
         private final List<String> failureMessages = new ArrayList<>();
 
         UpdateContext(Path dlcRoot, Path stagingRoot, Path backupRoot, DlcUpdateMeta meta) {
@@ -3645,9 +3611,6 @@ public final class DlcUpdateService {
 
     private static void recordFileOpFailure(UpdateContext context, String operation, Path path) {
         if (context == null || path == null) {
-            return;
-        }
-        if (DlcPendingFileOpsHelper.isSupported()) {
             return;
         }
         String relative = toGameRelativePath(path);
@@ -3710,35 +3673,33 @@ public final class DlcUpdateService {
         private final List<String> missingPaths;
         private final boolean addedRequired;
         private final boolean addedRemote;
-        private final boolean helperScheduled;
         private final boolean dlcManagerUpdated;
 
         private UpdateApplyResult(boolean success, boolean missing, String message, List<String> missingPaths,
-            boolean addedRequired, boolean addedRemote, boolean helperScheduled, boolean dlcManagerUpdated) {
+            boolean addedRequired, boolean addedRemote, boolean dlcManagerUpdated) {
             this.success = success;
             this.missing = missing;
             this.message = message;
             this.missingPaths = missingPaths == null ? List.of() : missingPaths;
             this.addedRequired = addedRequired;
             this.addedRemote = addedRemote;
-            this.helperScheduled = helperScheduled;
             this.dlcManagerUpdated = dlcManagerUpdated;
         }
 
-        static UpdateApplyResult success(String message, boolean addedRequired, boolean addedRemote, boolean helperScheduled, boolean dlcManagerUpdated) {
-            return new UpdateApplyResult(true, false, message, List.of(), addedRequired, addedRemote, helperScheduled, dlcManagerUpdated);
+        static UpdateApplyResult success(String message, boolean addedRequired, boolean addedRemote, boolean dlcManagerUpdated) {
+            return new UpdateApplyResult(true, false, message, List.of(), addedRequired, addedRemote, dlcManagerUpdated);
         }
 
         static UpdateApplyResult failed(String message) {
-            return new UpdateApplyResult(false, false, message, List.of(), false, false, false, false);
+            return new UpdateApplyResult(false, false, message, List.of(), false, false, false);
         }
 
         static UpdateApplyResult missing(List<String> missingPaths) {
-            return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false, false);
+            return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false);
         }
 
         static UpdateApplyResult empty() {
-            return new UpdateApplyResult(true, false, "empty", List.of(), false, false, false, false);
+            return new UpdateApplyResult(true, false, "empty", List.of(), false, false, false);
         }
 
         public boolean isSuccess() {
@@ -3763,10 +3724,6 @@ public final class DlcUpdateService {
 
         public boolean hasRemoteAdd() {
             return addedRemote;
-        }
-
-        public boolean isHelperScheduled() {
-            return helperScheduled;
         }
 
         public boolean isDlcManagerUpdated() {

@@ -185,26 +185,14 @@ public class DlcApplier {
             restoreConfigItem(item, previous);
             return new RemovalResult(messages);
         }
-        List<Path> delayedDeletePaths = new ArrayList<>();
         List<String> failedPaths = new ArrayList<>();
         for (String pathString : previous.appliedTargets) {
             Path resolved = resolveStoredPath(pathString);
             try {
                 deleteRecursive(resolved);
             } catch (IOException ignored) {
-                if (resolved != null && Files.exists(resolved) && DlcPendingFileOpsHelper.isSupported()) {
-                    delayedDeletePaths.add(resolved);
-                } else if (resolved != null) {
+                if (resolved != null) {
                     failedPaths.add(toGameRelativePath(resolved));
-                }
-            }
-        }
-        if (!delayedDeletePaths.isEmpty()) {
-            if (DlcPendingFileOpsHelper.scheduleDelete(delayedDeletePaths)) {
-                messages.add("Scheduled delayed removal after process exit for " + item.getName());
-            } else {
-                for (Path delayedDeletePath : delayedDeletePaths) {
-                    failedPaths.add(toGameRelativePath(delayedDeletePath));
                 }
             }
         }
@@ -367,32 +355,17 @@ public class DlcApplier {
         if (source == null || target == null) {
             return;
         }
-        try {
-            if (target.getParent() != null) {
-                Files.createDirectories(target.getParent());
-            }
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException error) {
-            if (!DlcPendingFileOpsHelper.isSupported()
-                || !DlcPendingFileOpsHelper.scheduleCopy(source, target, true)) {
-                throw error;
-            }
+        if (target.getParent() != null) {
+            Files.createDirectories(target.getParent());
         }
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
     }
 
     private static void deleteWithHelperFallback(Path path) throws IOException {
         if (path == null) {
             return;
         }
-        try {
-            Files.deleteIfExists(path);
-        } catch (IOException error) {
-            if (!Files.exists(path)
-                || !DlcPendingFileOpsHelper.isSupported()
-                || !DlcPendingFileOpsHelper.scheduleDelete(List.of(path))) {
-                throw error;
-            }
-        }
+        Files.deleteIfExists(path);
     }
 
     private static String toGameRelativePath(Path path) {

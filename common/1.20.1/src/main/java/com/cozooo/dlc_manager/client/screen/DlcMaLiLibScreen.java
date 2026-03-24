@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DlcPendingFileOpsHelper;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
@@ -766,10 +765,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private boolean shouldShowApplyFailureScreen(DlcApplier.ApplyResult result) {
-        if (!hasFailureMessage(result)) {
-            return false;
-        }
-        return !(DlcPendingFileOpsHelper.isSupported() && hasDelayedRemovalMessage(result));
+        return hasFailureMessage(result);
     }
 
     private boolean hasFailureMessage(DlcApplier.ApplyResult result) {
@@ -778,18 +774,6 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         }
         for (String message : result.messages()) {
             if (message != null && message.startsWith("Failed to ")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private boolean hasDelayedRemovalMessage(DlcApplier.ApplyResult result) {
-        if (result.messages() == null) {
-            return false;
-        }
-        for (String message : result.messages()) {
-            if (message != null && message.startsWith("Scheduled delayed removal after process exit")) {
                 return true;
             }
         }

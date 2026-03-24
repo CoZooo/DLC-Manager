@@ -345,9 +345,7 @@ public class DlcUpdatePromptScreen extends Screen {
         if (tryShowPostUpdateDownloads(result)) {
             return;
         }
-        Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+        Component message = Component.translatable("dlc_manager.update.success");
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
     }
 
@@ -374,9 +372,7 @@ public class DlcUpdatePromptScreen extends Screen {
     }
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
-        Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+        Component message = Component.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 }

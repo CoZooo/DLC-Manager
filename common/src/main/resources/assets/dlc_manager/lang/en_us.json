@@ -320,7 +320,6 @@
   "dlc_manager.update.cancel": "Skip",
   "dlc_manager.update.applying": "Applying update...",
   "dlc_manager.update.success": "Update completed.",
-  "dlc_manager.update.deferred_restart": "Some file operations are scheduled after process exit. Restart to finish the update.",
   "dlc_manager.update.failed": "Update failed.",
   "dlc_manager.update.restart": "Please restart Minecraft to apply changes.",
   "dlc_manager.server.update.restart": "Please restart the server to apply changes.",

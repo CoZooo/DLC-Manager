@@ -320,7 +320,6 @@
   "dlc_manager.update.cancel": "跳过",
   "dlc_manager.update.applying": "正在应用更新...",
   "dlc_manager.update.success": "更新完成。",
-  "dlc_manager.update.deferred_restart": "部分文件操作已安排在退出后处理。请重启完成更新。",
   "dlc_manager.update.failed": "更新失败。",
   "dlc_manager.update.restart": "请重启游戏以应用更新。",
   "dlc_manager.server.update.restart": "请重启服务器以应用更新。",

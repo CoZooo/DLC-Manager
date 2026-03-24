@@ -911,9 +911,7 @@ public class DlcRequiredDownloadScreen extends Screen {
     }
 
     private Screen createPostUpdateResultScreen(UpdateApplyResult result) {
-        Component message = result != null && result.isHelperScheduled()
-            ? Component.translatable("dlc_manager.update.deferred_restart")
-            : Component.translatable("dlc_manager.update.success");
+        Component message = Component.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 
