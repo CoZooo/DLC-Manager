@@ -9,6 +9,7 @@ lightspeed-cache/
 options.txt
 config/oculus.properties
 DLC/tmp/
+DLC/update/
 setup_github_repo.bat
 setup_github_repo.ps1
 setup_github_repo.state.json
