@@ -182,6 +182,63 @@ def filter_paths(
     return adds, dels
 
 
+def is_mod_path(path: str) -> bool:
+    normalized = normalize_relpath(path).lower()
+    return normalized.startswith("mods/") and len(normalized) > len("mods/")
+
+
+def list_paths_at_ref_under_prefix(ref: str, prefix: str) -> set[str]:
+    cp = subprocess.run(
+        [
+            "git",
+            "-c",
+            "core.quotepath=false",
+            "ls-tree",
+            "-r",
+            "--name-only",
+            "-z",
+            ref,
+            "--",
+            prefix,
+        ],
+        check=True,
+        capture_output=True,
+        text=False,
+    )
+    paths: set[str] = set()
+    for raw in cp.stdout.split(b"\0"):
+        if not raw:
+            continue
+        path = normalize_relpath(raw.decode("utf-8", errors="surrogateescape"))
+        if path:
+            paths.add(path)
+    return paths
+
+
+def filter_same_mod_filename_paths(
+    from_ref: str,
+    to_ref: str,
+    add_paths: list[str],
+    del_paths: list[str],
+) -> tuple[list[str], list[str], list[str]]:
+    from_mod_names = {Path(path).name.casefold() for path in list_paths_at_ref_under_prefix(from_ref, "mods") if is_mod_path(path)}
+    to_mod_names = {Path(path).name.casefold() for path in list_paths_at_ref_under_prefix(to_ref, "mods") if is_mod_path(path)}
+    unchanged_mod_names = from_mod_names & to_mod_names
+
+    skipped: list[str] = []
+
+    def filter_one(paths: list[str]) -> list[str]:
+        kept: list[str] = []
+        for path in paths:
+            if is_mod_path(path) and Path(path).name.casefold() in unchanged_mod_names:
+                skipped.append(path)
+            else:
+                kept.append(path)
+        return kept
+
+    return filter_one(add_paths), filter_one(del_paths), sorted(skipped)
+
+
 def dc_quote(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
@@ -708,6 +765,7 @@ def main() -> int:
 
     add_or_modify, deleted = parse_diff(args.from_ref, args.to_ref)
     add_paths, del_paths = filter_paths(add_or_modify, deleted)
+    add_paths, del_paths, same_mod_name_paths = filter_same_mod_filename_paths(args.from_ref, args.to_ref, add_paths, del_paths)
     remote_updates, required_updates, info_updates, converted_paths = build_auto_update_ops(args.from_ref, args.to_ref, add_paths)
     if converted_paths:
         add_paths = [p for p in add_paths if p not in converted_paths]
@@ -764,6 +822,7 @@ def main() -> int:
                 f"zip_path={zip_path.as_posix()}",
                 f"add_count={len(add_paths)}",
                 f"del_count={len(del_paths)}",
+                f"same_mod_name_skip_count={len(same_mod_name_paths)}",
             ]
         )
         + "\n",
@@ -781,6 +840,7 @@ def main() -> int:
     print(f"release_tag={release_tag}")
     print(f"add_count={len(add_paths)}")
     print(f"del_count={len(del_paths)}")
+    print(f"same_mod_name_skip_count={len(same_mod_name_paths)}")
     print(f"update_remote_count={len(remote_updates)}")
     print(f"update_required_count={len(required_updates)}")
     print(f"update_info_count={len(info_updates)}")
