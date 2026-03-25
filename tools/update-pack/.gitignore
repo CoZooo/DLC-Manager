@@ -14,3 +14,5 @@ setup_github_repo.ps1
 setup_github_repo.state.json
 **/__pycache__/
 config/dlc_manager/
+track_large_files_lfs.bat
+track_large_files_lfs.ps1

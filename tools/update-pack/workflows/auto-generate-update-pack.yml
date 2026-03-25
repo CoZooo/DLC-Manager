@@ -51,26 +51,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
-
-      - name: Fetch Git LFS objects
-        shell: bash
-        run: |
-          if [ ! -f .gitattributes ]; then
-            echo "No .gitattributes found, skip LFS fetch."
-            exit 0
-          fi
-          if ! grep -qi "filter=lfs" .gitattributes; then
-            echo "No LFS patterns in .gitattributes, skip LFS fetch."
-            exit 0
-          fi
-          if ! command -v git-lfs >/dev/null 2>&1; then
-            echo "git-lfs not found on runner, skip LFS fetch."
-            exit 0
-          fi
-          git lfs install --local || true
-          git lfs fetch --all || true
-          git lfs pull || true
+          lfs: false
 
       - name: Detect version change from version.dc
         id: detect
@@ -307,6 +288,50 @@ jobs:
           echo "dlc=${{ steps.detect.outputs.dlc }}"
           echo "dlc_new=${{ steps.detect.outputs.dlc_new }}"
           echo "reason=${{ steps.detect.outputs.reason }}"
+
+      - name: Fetch changed Git LFS objects
+        if: ${{ steps.detect.outputs.changed == 'true' }}
+        shell: bash
+        run: |
+          FROM_REF="${{ steps.detect.outputs.from_ref }}"
+          TO_REF="${{ steps.detect.outputs.to_ref }}"
+
+          if [ ! -f .gitattributes ]; then
+            echo "No .gitattributes found, skip selective LFS fetch."
+            exit 0
+          fi
+          if ! grep -qi "filter=lfs" .gitattributes; then
+            echo "No LFS patterns in .gitattributes, skip selective LFS fetch."
+            exit 0
+          fi
+          if ! command -v git-lfs >/dev/null 2>&1; then
+            echo "git-lfs not found on runner, skip selective LFS fetch."
+            exit 0
+          fi
+
+          mapfile -d '' changed_paths < <(
+            git -c core.quotepath=false diff --name-only -z --diff-filter=ACMRTUXB "$FROM_REF" "$TO_REF" -- .
+          )
+
+          if [ "${#changed_paths[@]}" -eq 0 ]; then
+            echo "No changed files detected, skip selective LFS fetch."
+            exit 0
+          fi
+
+          include_list="$(
+            printf '%s\n' "${changed_paths[@]}" \
+              | sed '/^$/d' \
+              | paste -sd, -
+          )"
+
+          if [ -z "$include_list" ]; then
+            echo "No eligible changed paths for LFS fetch."
+            exit 0
+          fi
+
+          echo "Fetching LFS objects only for changed paths..."
+          git lfs install --local
+          git lfs fetch origin "$TO_REF" --include="$include_list"
 
       - name: Generate update package
         if: ${{ steps.detect.outputs.changed == 'true' }}

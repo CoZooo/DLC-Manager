@@ -6,7 +6,6 @@
     [string]$GitUserName = "",
     [string]$GitUserEmail = "",
     [string]$DefaultBranch = "main",
-    [string]$LfsPatterns = "*.jar,*.zip",
     [string]$NewRepo = "",
     [ValidateSet("private", "public")]
     [string]$RepoVisibility = "private",
@@ -586,8 +585,7 @@ function Setup-Repository {
         [string]$TargetPath,
         [string]$RemoteUrl,
         [string]$ExpectedRepoSlug,
-        [string]$Branch,
-        [string]$Patterns
+        [string]$Branch
     )
 
     if (Test-LooksLikeUrl $TargetPath) {
@@ -634,9 +632,13 @@ function Setup-Repository {
 
     git lfs install --local | Out-Null
 
-    $splitPatterns = $Patterns.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
-    foreach ($pattern in $splitPatterns) {
-        git lfs track $pattern | Out-Null
+    $largeFileTrackerScript = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "track_large_files_lfs.ps1"
+    if (-not (Test-Path -LiteralPath $largeFileTrackerScript -PathType Leaf)) {
+        throw (BI "未找到大文件 Git LFS 扫描脚本：track_large_files_lfs.ps1" "Large-file Git LFS scan script was not found: track_large_files_lfs.ps1")
+    }
+    & $largeFileTrackerScript -UiLanguage $UiLanguage -RepoPath $repoDir
+    if ($LASTEXITCODE -ne 0) {
+        throw (BI "执行大文件 Git LFS 扫描失败。" "Large-file Git LFS scan failed.")
     }
 
     if (Test-Path ".gitattributes") {
@@ -687,7 +689,6 @@ function Run-InteractiveWizard {
         [ref]$GitUserNameRef,
         [ref]$GitUserEmailRef,
         [ref]$DefaultBranchRef,
-        [ref]$LfsPatternsRef,
         [ref]$NewRepoRef,
         [ref]$RepoVisibilityRef,
         [ref]$RepoVarAutoUpdateWorkflowRef,
@@ -710,7 +711,6 @@ function Run-InteractiveWizard {
     $RepoPathRef.Value = Ask-Input -Prompt (BI "本地路径（留空则当前目录）" "Local path (leave empty to use current directory)") -Default $RepoPathRef.Value
     $NewRepoRef.Value = Ask-Input -Prompt (BI "请输入新仓库（owner/repo 或 repo）" "New repository (owner/repo or repo)") -Default $NewRepoRef.Value
     $RepoVisibilityRef.Value = Ask-Visibility -Default $RepoVisibilityRef.Value
-    $LfsPatternsRef.Value = "*.jar,*.zip"
 
     $GitUserNameRef.Value = Ask-Input -Prompt (BI "Git 用户名" "Git user name") -Default $GitUserNameRef.Value
     $GitUserEmailRef.Value = Ask-Input -Prompt (BI "Git 邮箱" "Git email") -Default $GitUserEmailRef.Value
@@ -750,7 +750,6 @@ if (-not $ForceWizard) {
     $GitUserName = Use-SavedValue -Current $GitUserName -DefaultValue "" -SavedValue $savedState["GitUserName"]
     $GitUserEmail = Use-SavedValue -Current $GitUserEmail -DefaultValue "" -SavedValue $savedState["GitUserEmail"]
     $DefaultBranch = Use-SavedValue -Current $DefaultBranch -DefaultValue "main" -SavedValue $savedState["DefaultBranch"]
-    $LfsPatterns = Use-SavedValue -Current $LfsPatterns -DefaultValue "*.jar,*.zip" -SavedValue $savedState["LfsPatterns"]
     $NewRepo = Use-SavedValue -Current $NewRepo -DefaultValue "" -SavedValue $savedState["NewRepo"]
     $RepoVisibility = Use-SavedValue -Current $RepoVisibility -DefaultValue "private" -SavedValue $savedState["RepoVisibility"]
     $InstallGitHubDesktop = Use-SavedValue -Current $InstallGitHubDesktop -DefaultValue "true" -SavedValue $savedState["InstallGitHubDesktop"]
@@ -776,7 +775,6 @@ if ($ForceWizard -or
     [string]::IsNullOrWhiteSpace($GitUserName) -and
     [string]::IsNullOrWhiteSpace($GitUserEmail) -and
     $DefaultBranch -eq "main" -and
-    $LfsPatterns -eq "*.jar,*.zip" -and
     [string]::IsNullOrWhiteSpace($NewRepo) -and
     $RepoVisibility -eq "private" -and
     (-not $SkipRepoSetup) -and
@@ -787,7 +785,6 @@ if ($ForceWizard -or
         -GitUserNameRef ([ref]$GitUserName) `
         -GitUserEmailRef ([ref]$GitUserEmail) `
         -DefaultBranchRef ([ref]$DefaultBranch) `
-        -LfsPatternsRef ([ref]$LfsPatterns) `
         -NewRepoRef ([ref]$NewRepo) `
         -RepoVisibilityRef ([ref]$RepoVisibility) `
         -RepoVarAutoUpdateWorkflowRef ([ref]$RepoVar_AUTO_UPDATE_WORKFLOW) `
@@ -810,7 +807,6 @@ Write-ScriptState @{
     GitUserName = $GitUserName
     GitUserEmail = $GitUserEmail
     DefaultBranch = $DefaultBranch
-    LfsPatterns = $LfsPatterns
     NewRepo = $NewRepo
     RepoVisibility = $RepoVisibility
     InstallGitHubDesktop = $InstallGitHubDesktop
@@ -856,7 +852,7 @@ Ensure-RepoMatchesTarget -TargetPath $resolvedRepoPath -ExpectedRepoSlug $expect
 
 if (-not $SkipRepoSetup) {
     Write-Step (BI "配置仓库" "Configure repository")
-    Setup-Repository -TargetPath $resolvedRepoPath -RemoteUrl $RepoUrl -ExpectedRepoSlug $expectedRepoSlug -Branch $DefaultBranch -Patterns $LfsPatterns
+    Setup-Repository -TargetPath $resolvedRepoPath -RemoteUrl $RepoUrl -ExpectedRepoSlug $expectedRepoSlug -Branch $DefaultBranch
 }
 
 Write-Step (BI "写入 Actions Repository Variables（空值自动跳过）" "Write Actions repository variables (empty values are skipped)")
