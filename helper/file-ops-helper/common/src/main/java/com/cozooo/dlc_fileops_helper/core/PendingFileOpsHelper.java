@@ -110,7 +110,10 @@ public final class PendingFileOpsHelper {
         Path indexFile = taskRoot.resolve(INDEX_FILE_NAME);
         try {
             Files.createDirectories(taskRoot);
-            Files.writeString(taskRoot.resolve(SCRIPT_NAME), buildPowerShellScript(), StandardCharsets.UTF_8);
+            Path scriptFile = taskRoot.resolve(SCRIPT_NAME);
+            if (!Files.exists(scriptFile)) {
+                Files.writeString(scriptFile, buildPowerShellScript(), StandardCharsets.UTF_8);
+            }
 
             synchronized (INDEX_MUTEX) {
                 PendingFileOpsIndex index = readIndex(indexFile);
@@ -127,7 +130,7 @@ public final class PendingFileOpsHelper {
                 writeIndex(indexFile, index);
             }
 
-            startWorker(taskRoot.resolve(SCRIPT_NAME), indexFile);
+            startWorker(scriptFile, indexFile);
             return ScheduleResult.success(indexFile, normalizedOps.size());
         } catch (IOException e) {
             return ScheduleResult.error("Failed to schedule pending file operations: " + safeMessage(e));
@@ -535,6 +538,7 @@ try {
   if ($null -ne $lockHandle) {
     $lockHandle.Dispose()
   }
+  Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
 }
 """;
     }
