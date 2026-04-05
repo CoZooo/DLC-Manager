@@ -1,12 +1,12 @@
 package com.cozooo.dlc_manager.client.helper;
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadService;
-import com.cozooo.dlc_manager.client.screen.DlcFileOpsHelperDownloadScreen;
-import com.cozooo.dlc_manager.client.screen.DlcSingleButtonScreen;
+// import com.cozooo.dlc_manager.client.download.DlcDownloadService;
+// import com.cozooo.dlc_manager.client.screen.DlcFileOpsHelperDownloadScreen;
+// import com.cozooo.dlc_manager.client.screen.DlcSingleButtonScreen;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.ConfirmScreen;
+// import net.minecraft.client.Minecraft;
+// import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -61,6 +61,7 @@ public final class DlcFileOpsHelperClient {
     }
 
     public static boolean showInstallPromptIfNeeded(Screen returnScreen, Component title) {
+        /*
         HelperState state = detectState();
         if (state == HelperState.NOT_REQUIRED || state == HelperState.READY) {
             return false;
@@ -91,11 +92,15 @@ public final class DlcFileOpsHelperClient {
             Component.translatable("dlc_manager.remote.download"),
             Component.translatable("dlc_manager.back")));
         return true;
+        */
+        return false;
     }
 
+    /*
     public static String helperDownloadUrl() {
         return HELPER_DOWNLOAD_BASE + helperFileName();
     }
+    */
 
     public static String helperFileName() {
         String loader = normalizeLoaderName(CrossPlatformRuntime.loaderName());
@@ -109,6 +114,7 @@ public final class DlcFileOpsHelperClient {
         return "DLC-FileOps-Helper-" + loader + "-" + mcVersion + "-" + HELPER_VERSION + ".jar";
     }
 
+    /*
     public static Path helperDownloadTarget() {
         return DlcPaths.modsDir().resolve(helperFileName());
     }
@@ -118,6 +124,7 @@ public final class DlcFileOpsHelperClient {
         Files.createDirectories(modsDir);
         return DlcDownloadService.download(helperDownloadUrl(), modsDir, helperFileName(), listener, null);
     }
+    */
 
     public static FileOpResult scheduleDelete(Path path) {
         if (path == null) {

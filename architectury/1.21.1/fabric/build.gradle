@@ -4,6 +4,14 @@ plugins {
     id 'com.github.johnrengelman.shadow'
 }
 
+def helperProps = new Properties()
+def helperPropsFile = rootProject.file('../../helper/file-ops-helper/gradle.properties')
+if (helperPropsFile.exists()) {
+    helperPropsFile.withInputStream { helperProps.load(it) }
+}
+def helperVersion = helperProps.getProperty('mod_version', '0.1.0')
+def embeddedHelperJar = rootProject.file("../../helper/file-ops-helper/output/${helperVersion}/DLC-FileOps-Helper-fabric-${rootProject.minecraft_version}-${helperVersion}.jar")
+
 architectury {
     platformSetupLoomIde()
     fabric()
@@ -87,6 +95,7 @@ shadowJar {
 remapJar {
     inputFile = shadowJar.archiveFile
     dependsOn shadowJar
+    nestedJars.from(embeddedHelperJar)
     archiveFileName.set("DLC-Manager-fabric-${rootProject.minecraft_version}-${rootProject.mod_version}.jar")
     destinationDirectory.set(rootProject.layout.projectDirectory.dir("../../output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
 }

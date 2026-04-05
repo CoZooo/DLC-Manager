@@ -42,10 +42,10 @@ public final class DlcUpdateClient {
         if (!DlcUpdateRuntime.isUpdateManagerEnabled()) {
             return;
         }
-        if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(parent,
-            Component.translatable("dlc_manager.update.manager_title"))) {
-            return;
-        }
+        // if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(parent,
+        //     Component.translatable("dlc_manager.update.manager_title"))) {
+        //     return;
+        // }
         Minecraft.getInstance().setScreen(new DlcUpdateManagerScreen(parent));
     }
 }

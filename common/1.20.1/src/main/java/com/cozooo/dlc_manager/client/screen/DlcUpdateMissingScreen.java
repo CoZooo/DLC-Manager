@@ -122,9 +122,9 @@ public class DlcUpdateMissingScreen extends Screen {
     }
 
     private void startApply() {
-        if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.update.title"))) {
-            return;
-        }
+        // if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.update.title"))) {
+        //     return;
+        // }
         if (applying) {
             return;
         }

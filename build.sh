@@ -104,16 +104,13 @@ run_export() {
 
 case "${MODE}" in
   helperBuild)
-    "${ROOT_DIR}/helper/file-ops-helper/build.sh" build
-    exit 0
+    TASKS=(helperBuild)
     ;;
   helperCheck)
-    "${ROOT_DIR}/helper/file-ops-helper/build.sh" check
-    exit 0
+    TASKS=(helperCheck)
     ;;
   helperClean)
-    "${ROOT_DIR}/helper/file-ops-helper/build.sh" clean
-    exit 0
+    TASKS=(helperClean)
     ;;
   build)
     TASKS=(build)

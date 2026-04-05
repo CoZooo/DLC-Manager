@@ -284,9 +284,9 @@ public class DlcUpdateUrlScreen extends Screen {
     }
 
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.update.title"))) {
-            return;
-        }
+        // if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.update.title"))) {
+        //     return;
+        // }
         var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));

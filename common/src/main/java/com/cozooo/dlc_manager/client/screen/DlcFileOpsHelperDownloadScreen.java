@@ -1,3 +1,4 @@
+/*
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
@@ -90,3 +91,4 @@ public class DlcFileOpsHelperDownloadScreen extends Screen {
         guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50);
     }
 }
+*/
