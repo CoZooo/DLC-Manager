@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
@@ -296,6 +297,9 @@ public class DlcUpdatePromptScreen extends Screen {
     }
 
     private void startApply(boolean forceMissing) {
+        if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.update.title"))) {
+            return;
+        }
         if (applying) {
             return;
         }
@@ -344,7 +348,9 @@ public class DlcUpdatePromptScreen extends Screen {
         if (tryShowPostUpdateDownloads(result)) {
             return;
         }
-        Component message = Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
         Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, message));
     }
 
@@ -371,7 +377,9 @@ public class DlcUpdatePromptScreen extends Screen {
     }
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
-        Component message = Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 }

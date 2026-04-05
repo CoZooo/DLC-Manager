@@ -1,0 +1,41 @@
+ext.configureArchitecturyShared = { int defaultJavaVersion ->
+    allprojects {
+        group = mod_group
+        version = mod_version
+
+        repositories {
+            mavenCentral()
+            maven { url = 'https://maven.architectury.dev/' }
+            maven { url = 'https://maven.fabricmc.net/' }
+            maven { url = 'https://maven.minecraftforge.net/' }
+            maven { url = 'https://maven.neoforged.net/releases/' }
+        }
+    }
+
+    subprojects {
+        apply plugin: 'dev.architectury.loom'
+        apply plugin: 'maven-publish'
+
+        def javaVersion = (project.findProperty('java_version') ?: String.valueOf(defaultJavaVersion)) as int
+
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(javaVersion)
+            }
+        }
+
+        tasks.withType(JavaCompile).configureEach {
+            options.release = javaVersion
+        }
+
+        loom {
+            silentMojangMappingsLicense()
+        }
+
+        dependencies {
+            minecraft "com.mojang:minecraft:${minecraft_version}"
+            mappings loom.officialMojangMappings()
+        }
+    }
+}
+

@@ -1,4 +1,5 @@
 package com.cozooo.dlc_manager.client.update;
+import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
@@ -17,6 +18,7 @@ import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.DownloadResult;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult;
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -176,6 +178,7 @@ public final class DlcUpdateService {
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
         boolean addedRequired = false;
         boolean addedRemote = false;
+        boolean helperScheduled = false;
         boolean dlcManagerUpdated = false;
         boolean requiresDlcManagerUpdate = packages.stream().anyMatch(pkg ->
             pkg != null && pkg.getManifest() != null && pkg.getManifest().isUpdateDLCM());
@@ -193,6 +196,7 @@ public final class DlcUpdateService {
             if (!managerResult.success) {
                 return managerResult;
             }
+            helperScheduled = helperScheduled || managerResult.helperScheduled;
             dlcManagerUpdated = managerResult.dlcManagerUpdated;
         }
         for (DlcUpdatePackage pkg : packages) {
@@ -202,10 +206,11 @@ public final class DlcUpdateService {
             }
             addedRequired = addedRequired || result.addedRequired;
             addedRemote = addedRemote || result.addedRemote;
+            helperScheduled = helperScheduled || result.helperScheduled;
             current = DlcUpdateVersion.load(dlcRoot);
         }
         clearUpdatePromptSkipMarker();
-        return UpdateApplyResult.success("OK", addedRequired, addedRemote, dlcManagerUpdated);
+        return UpdateApplyResult.success("OK", addedRequired, addedRemote, helperScheduled, dlcManagerUpdated);
     }
 
     private static UpdateApplyResult applyRequiredDlcManagerUpdate(String targetVersion) {
@@ -217,7 +222,7 @@ public final class DlcUpdateService {
             return UpdateApplyResult.failed("Failed to find DLC Manager version: " + targetVersion);
         }
         if (!check.hasUpdate) {
-            return UpdateApplyResult.success("OK", false, false, false);
+            return UpdateApplyResult.success("OK", false, false, false, false);
         }
         DownloadResult downloadResult = DlcSelfUpdateService.downloadUpdate(check);
         if (downloadResult == null || !downloadResult.success) {
@@ -229,7 +234,7 @@ public final class DlcUpdateService {
             }
             return UpdateApplyResult.failed(message);
         }
-        return UpdateApplyResult.success("OK", false, false, true);
+        return UpdateApplyResult.success("OK", false, false, false, true);
     }
 
     private static LinkedHashSet<String> collectRequestedDlcManagerVersions(List<DlcUpdatePackage> packages) {
@@ -319,7 +324,7 @@ public final class DlcUpdateService {
             refreshPresetRuntimeState();
 
             pkg.cleanupStaging();
-            return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, false);
+            return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, context.helperScheduled, false);
         } catch (Exception ex) {
             rollbackUpdate(context);
             pkg.cleanupStaging();
@@ -1063,7 +1068,6 @@ public final class DlcUpdateService {
                 if (moveWithHelperFallback(from, to, true)) {
                     continue;
                 }
-                recordFileOpFailure(context, "move", to);
             } catch (IOException ignored) {
                 try {
                     copyRecursive(from, to);
@@ -1127,7 +1131,6 @@ public final class DlcUpdateService {
                 Files.createDirectories(actualTarget.getParent());
             }
             if (!copyWithHelperFallback(source, actualTarget, true)) {
-                recordFileOpFailure(context, "copy", actualTarget);
                 return;
             }
             if (isNoticePath(actualTarget, context.dlcRoot)) {
@@ -1901,17 +1904,13 @@ public final class DlcUpdateService {
         backupPath(toGameRelativePath(infoPath), infoPath, context);
         if (!targetPath.normalize().equals(infoPath.normalize()) && Files.exists(targetPath)) {
             backupPath(toGameRelativePath(targetPath), targetPath, context);
-            try {
-                Files.deleteIfExists(targetPath);
-            } catch (IOException ex) {
-                throw new IllegalStateException("Failed to replace info file: " + targetPath, ex);
+            if (!deleteWithHelperFallback(targetPath)) {
+                throw new IllegalStateException(latestFailureMessage("Failed to replace info file: " + targetPath));
             }
         }
         if (!targetPath.normalize().equals(infoPath.normalize())) {
-            try {
-                Files.deleteIfExists(infoPath);
-            } catch (IOException ex) {
-                throw new IllegalStateException("Failed to remove old info file: " + infoPath, ex);
+            if (!deleteWithHelperFallback(infoPath)) {
+                throw new IllegalStateException(latestFailureMessage("Failed to remove old info file: " + infoPath));
             }
         }
         writeJson(targetPath, info);
@@ -1925,7 +1924,20 @@ public final class DlcUpdateService {
         if (path == null || obj == null) {
             return;
         }
-        DcConfigIO.write(path, obj, layoutForPath(path));
+        if (DcConfigIO.write(path, obj, layoutForPath(path))) {
+            return;
+        }
+        Path target = DcConfigIO.toDcPath(path);
+        String serialized = serializeJsonForPath(target, obj);
+        DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleWriteText(target, serialized);
+        if (result.ok()) {
+            markHelperScheduled();
+            if (!target.equals(path)) {
+                deleteWithHelperFallback(path);
+            }
+            return;
+        }
+        recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), result.message(), target, "write");
     }
 
     private static DcConfigIO.Layout layoutForPath(Path path) {
@@ -2113,7 +2125,7 @@ public final class DlcUpdateService {
         deleteWithHelperFallback(tempFile);
         downloadToFile(candidate.url, tempFile);
         if (!moveWithHelperFallback(tempFile, target, true)) {
-            throw new IOException("failed to move downloaded file");
+            throw new IOException(latestFailureMessage("failed to move downloaded file"));
         }
         return new DownloadedFile(target, fileName);
     }
@@ -2130,7 +2142,7 @@ public final class DlcUpdateService {
         }, null);
         if (!downloaded.equals(target)) {
             if (!moveWithHelperFallback(downloaded, target, true)) {
-                throw new IOException("failed to finalize downloaded file");
+                throw new IOException(latestFailureMessage("failed to finalize downloaded file"));
             }
         }
     }
@@ -2181,7 +2193,6 @@ public final class DlcUpdateService {
                 Path resolved = target.resolve(fileName);
                 backupOrCreate(resolved, context);
                 if (!copyWithHelperFallback(source, resolved, true)) {
-                    recordFileOpFailure(context, "copy", resolved);
                     return targets;
                 }
                 targets.add(resolved);
@@ -2191,7 +2202,6 @@ public final class DlcUpdateService {
                 }
                 backupOrCreate(target, context);
                 if (!copyWithHelperFallback(source, target, true)) {
-                    recordFileOpFailure(context, "copy", target);
                     return targets;
                 }
                 targets.add(target);
@@ -2209,7 +2219,9 @@ public final class DlcUpdateService {
                 Files.createDirectories(targetDir);
                 Path target = targetDir.resolve(fileName);
                 backupOrCreate(target, context);
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                if (!copyWithHelperFallback(source, target, true)) {
+                    return targets;
+                }
                 targets.add(target);
             }
         } catch (IOException ignored) {
@@ -2232,7 +2244,6 @@ public final class DlcUpdateService {
                 }
                 backupOrCreate(target, context);
                 if (!copyWithHelperFallback(source, target, true)) {
-                    recordFileOpFailure(context, "copy", target);
                     continue;
                 }
             } catch (IOException ignored) {
@@ -2828,6 +2839,12 @@ public final class DlcUpdateService {
         try {
             return Files.deleteIfExists(path) || !Files.exists(path);
         } catch (IOException ignored) {
+            DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleDelete(path);
+            if (result.ok()) {
+                markHelperScheduled();
+                return true;
+            }
+            recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), result.message(), path, "delete");
             return false;
         }
     }
@@ -2847,6 +2864,12 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
+            DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleCopy(source, target, replaceExisting);
+            if (result.ok()) {
+                markHelperScheduled();
+                return true;
+            }
+            recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), result.message(), target, "copy");
             return false;
         }
     }
@@ -2866,6 +2889,12 @@ public final class DlcUpdateService {
             }
             return true;
         } catch (IOException ignored) {
+            DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleMove(source, target, replaceExisting);
+            if (result.ok()) {
+                markHelperScheduled();
+                return true;
+            }
+            recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), result.message(), target, "move");
             return false;
         }
     }
@@ -3023,6 +3052,12 @@ public final class DlcUpdateService {
             }
             Files.writeString(path, content == null ? "" : content, StandardCharsets.UTF_8);
         } catch (IOException ignored) {
+            DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleWriteText(path, content == null ? "" : content);
+            if (result.ok()) {
+                markHelperScheduled();
+                return;
+            }
+            recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), result.message(), path, "write");
         }
     }
 
@@ -3599,6 +3634,7 @@ public final class DlcUpdateService {
         private final DlcUpdateMeta meta;
         private boolean addedRequired;
         private boolean addedRemote;
+        private boolean helperScheduled;
         private final List<String> failureMessages = new ArrayList<>();
 
         UpdateContext(Path dlcRoot, Path stagingRoot, Path backupRoot, DlcUpdateMeta meta) {
@@ -3615,7 +3651,92 @@ public final class DlcUpdateService {
         }
         String relative = toGameRelativePath(path);
         String label = relative == null || relative.isBlank() ? path.toString() : relative;
-        context.failureMessages.add("Failed to " + operation + ": " + label);
+        recordFileOpFailure(context, "Failed to " + operation + ": " + label, path, operation);
+    }
+
+    private static void recordFileOpFailure(UpdateContext context, String message, Path path, String operation) {
+        if (context == null) {
+            return;
+        }
+        String finalMessage = message;
+        if (finalMessage == null || finalMessage.isBlank()) {
+            String relative = path == null ? "" : toGameRelativePath(path);
+            String label = relative == null || relative.isBlank()
+                ? (path == null ? "" : path.toString())
+                : relative;
+            finalMessage = "Failed to " + operation + ": " + label;
+        }
+        if (!context.failureMessages.contains(finalMessage)) {
+            context.failureMessages.add(finalMessage);
+        }
+    }
+
+    private static void markHelperScheduled() {
+        UpdateContext context = CURRENT_UPDATE_CONTEXT.get();
+        if (context != null) {
+            context.helperScheduled = true;
+        }
+    }
+
+    private static String latestFailureMessage(String fallback) {
+        UpdateContext context = CURRENT_UPDATE_CONTEXT.get();
+        if (context == null || context.failureMessages.isEmpty()) {
+            return fallback;
+        }
+        return context.failureMessages.get(context.failureMessages.size() - 1);
+    }
+
+    private static String serializeJsonForPath(Path path, JsonObject obj) {
+        if (obj == null) {
+            return "";
+        }
+        JsonObject source = obj;
+        if (layoutForPath(path) == DcConfigIO.Layout.DLC_STRUCTURED && isInfoPathForWrite(path)) {
+            source = stripDownloadKeysForInfo(obj);
+        }
+        if (layoutForPath(path) == DcConfigIO.Layout.DLC_STRUCTURED && !isNoticeConfigPathForWrite(path)) {
+            return DcFormatUtil.write(source);
+        }
+        return DcFormatUtil.writeGeneric(source);
+    }
+
+    private static boolean isInfoPathForWrite(Path path) {
+        if (path == null) {
+            return false;
+        }
+        String normalized = path.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
+        return normalized.contains("/info/");
+    }
+
+    private static boolean isNoticeConfigPathForWrite(Path path) {
+        if (path == null || path.getFileName() == null) {
+            return false;
+        }
+        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        return "notice".equalsIgnoreCase(base);
+    }
+
+    private static JsonObject stripDownloadKeysForInfo(JsonObject input) {
+        JsonObject out = new JsonObject();
+        if (input == null) {
+            return out;
+        }
+        for (var entry : input.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            if ("modrinth_projectid".equalsIgnoreCase(key)
+                || "modrinth_versionid".equalsIgnoreCase(key)
+                || "curseforge_projectid".equalsIgnoreCase(key)
+                || "curseforge_fileid".equalsIgnoreCase(key)
+                || "directUrl".equalsIgnoreCase(key)
+                || "priority".equalsIgnoreCase(key)) {
+                continue;
+            }
+            out.add(key, entry.getValue());
+        }
+        return out;
     }
 
     private static class JsonObjectHolder {
@@ -3673,33 +3794,35 @@ public final class DlcUpdateService {
         private final List<String> missingPaths;
         private final boolean addedRequired;
         private final boolean addedRemote;
+        private final boolean helperScheduled;
         private final boolean dlcManagerUpdated;
 
         private UpdateApplyResult(boolean success, boolean missing, String message, List<String> missingPaths,
-            boolean addedRequired, boolean addedRemote, boolean dlcManagerUpdated) {
+            boolean addedRequired, boolean addedRemote, boolean helperScheduled, boolean dlcManagerUpdated) {
             this.success = success;
             this.missing = missing;
             this.message = message;
             this.missingPaths = missingPaths == null ? List.of() : missingPaths;
             this.addedRequired = addedRequired;
             this.addedRemote = addedRemote;
+            this.helperScheduled = helperScheduled;
             this.dlcManagerUpdated = dlcManagerUpdated;
         }
 
-        static UpdateApplyResult success(String message, boolean addedRequired, boolean addedRemote, boolean dlcManagerUpdated) {
-            return new UpdateApplyResult(true, false, message, List.of(), addedRequired, addedRemote, dlcManagerUpdated);
+        static UpdateApplyResult success(String message, boolean addedRequired, boolean addedRemote, boolean helperScheduled, boolean dlcManagerUpdated) {
+            return new UpdateApplyResult(true, false, message, List.of(), addedRequired, addedRemote, helperScheduled, dlcManagerUpdated);
         }
 
         static UpdateApplyResult failed(String message) {
-            return new UpdateApplyResult(false, false, message, List.of(), false, false, false);
+            return new UpdateApplyResult(false, false, message, List.of(), false, false, false, false);
         }
 
         static UpdateApplyResult missing(List<String> missingPaths) {
-            return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false);
+            return new UpdateApplyResult(false, true, "missing", missingPaths, false, false, false, false);
         }
 
         static UpdateApplyResult empty() {
-            return new UpdateApplyResult(true, false, "empty", List.of(), false, false, false);
+            return new UpdateApplyResult(true, false, "empty", List.of(), false, false, false, false);
         }
 
         public boolean isSuccess() {
@@ -3724,6 +3847,10 @@ public final class DlcUpdateService {
 
         public boolean hasRemoteAdd() {
             return addedRemote;
+        }
+
+        public boolean isHelperScheduled() {
+            return helperScheduled;
         }
 
         public boolean isDlcManagerUpdated() {

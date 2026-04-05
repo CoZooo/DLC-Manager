@@ -1,0 +1,22 @@
+tasks.register('helperBuild') {
+    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':common:build')
+    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':fabric:build')
+    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':forge:build')
+    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':common:build')
+    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':fabric:build')
+    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':neoforge:build')
+}
+
+tasks.register('helperCheck') {
+    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':common:compileJava')
+    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':fabric:compileJava')
+    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':forge:compileJava')
+    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':common:compileJava')
+    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':fabric:compileJava')
+    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':neoforge:compileJava')
+}
+
+tasks.register('helperClean') {
+    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':clean')
+    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':clean')
+}

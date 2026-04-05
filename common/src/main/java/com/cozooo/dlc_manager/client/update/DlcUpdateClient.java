@@ -1,10 +1,12 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
 import com.cozooo.dlc_manager.client.screen.DlcUpdateManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdatePromptScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 public final class DlcUpdateClient {
     private DlcUpdateClient() {
@@ -38,6 +40,10 @@ public final class DlcUpdateClient {
 
     public static void openUpdateManager(Screen parent) {
         if (!DlcUpdateRuntime.isUpdateManagerEnabled()) {
+            return;
+        }
+        if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(parent,
+            Component.translatable("dlc_manager.update.manager_title"))) {
             return;
         }
         Minecraft.getInstance().setScreen(new DlcUpdateManagerScreen(parent));

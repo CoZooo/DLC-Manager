@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
+import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
@@ -124,6 +125,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     @Override
     public void initGui() {
+        if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(parent, Component.translatable("dlc_manager.title"))) {
+            return;
+        }
         if (DlcRemoteManager.tryShowFromManager(this)) {
             return;
         }
@@ -669,6 +673,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private void applyChanges() {
+        if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.title"))) {
+            return;
+        }
         boolean applyNeeded = computeApplyChanges();
         boolean modReloadNeeded = computeModReloadChanges();
         boolean otherReloadNeeded = computeNonModReloadChanges();
@@ -697,6 +704,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         DlcApplier.ApplyResult applyResult = null;
         if (applyNeeded) {
             applyResult = DlcApplier.apply(allItems, applyMode);
+            if (applyResult != null && applyResult.helperScheduled()) {
+                modReloadNeeded = true;
+                otherReloadNeeded = false;
+            }
             updateResourcePackSelection();
             if (shouldShowApplyFailureScreen(applyResult)) {
                 showApplyFailureScreen(applyResult);
@@ -724,8 +735,11 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             return;
         }
 
+        boolean helperScheduled = applyResult != null && applyResult.helperScheduled();
         String message;
-        if (modReloadNeeded) {
+        if (helperScheduled) {
+            message = "dlc_manager.apply.deferred_restart";
+        } else if (modReloadNeeded) {
             message = "dlc_manager.message.restart";
         } else if (otherReloadNeeded && applyMode == ApplyMode.TRY_HOT_RELOAD) {
             message = "dlc_manager.message.reload_prompt";

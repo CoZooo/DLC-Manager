@@ -103,6 +103,18 @@ run_export() {
 }
 
 case "${MODE}" in
+  helperBuild)
+    "${ROOT_DIR}/helper/file-ops-helper/build.sh" build
+    exit 0
+    ;;
+  helperCheck)
+    "${ROOT_DIR}/helper/file-ops-helper/build.sh" check
+    exit 0
+    ;;
+  helperClean)
+    "${ROOT_DIR}/helper/file-ops-helper/build.sh" clean
+    exit 0
+    ;;
   build)
     TASKS=(build)
     ;;
@@ -135,7 +147,7 @@ case "${MODE}" in
     exit 0
     ;;
   *)
-    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|archPublish|all|export]"
+    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|archPublish|all|export|helperBuild|helperCheck|helperClean]"
     exit 1
     ;;
 esac
