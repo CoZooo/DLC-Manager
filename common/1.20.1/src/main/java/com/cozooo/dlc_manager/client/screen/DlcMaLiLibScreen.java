@@ -8,7 +8,6 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
-import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
@@ -125,9 +124,6 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
 
     @Override
     public void initGui() {
-        // if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(parent, Component.translatable("dlc_manager.title"))) {
-        //     return;
-        // }
         if (DlcRemoteManager.tryShowFromManager(this)) {
             return;
         }
@@ -673,9 +669,6 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private void applyChanges() {
-        // if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.title"))) {
-        //     return;
-        // }
         boolean applyNeeded = computeApplyChanges();
         boolean modReloadNeeded = computeModReloadChanges();
         boolean otherReloadNeeded = computeNonModReloadChanges();

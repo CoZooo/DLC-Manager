@@ -14,6 +14,10 @@ public class DlcPaths {
         return DlcPathConfig.getDlcRoot();
     }
 
+    public static Path tmpRoot() {
+        return dlcRoot().resolve("tmp");
+    }
+
     public static Path modsDir() {
         return gameDir().resolve("mods");
     }

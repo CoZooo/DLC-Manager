@@ -1,22 +1,48 @@
+plugins {
+    id 'java-library'
+}
+
+group = providers.gradleProperty('mod_group').get()
+version = providers.gradleProperty('mod_version').get()
+
+base {
+    archivesName = 'dlc-fileops-helper'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+sourceSets {
+    main {
+        java.srcDirs = ['common/src/main/java']
+        resources.srcDirs = ['common/src/main/resources']
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "com.google.code.gson:gson:2.10.1"
+    compileOnly "org.slf4j:slf4j-api:2.0.13"
+}
+
 tasks.register('helperBuild') {
-    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':common:build')
-    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':fabric:build')
-    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':forge:build')
-    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':common:build')
-    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':fabric:build')
-    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':neoforge:build')
+    group = 'build'
+    dependsOn(tasks.named('build'))
 }
 
 tasks.register('helperCheck') {
-    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':common:compileJava')
-    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':fabric:compileJava')
-    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':forge:compileJava')
-    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':common:compileJava')
-    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':fabric:compileJava')
-    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':neoforge:compileJava')
+    group = 'verification'
+    dependsOn(tasks.named('check'))
 }
 
 tasks.register('helperClean') {
-    dependsOn gradle.includedBuild('fileOpsHelper1201').task(':clean')
-    dependsOn gradle.includedBuild('fileOpsHelper1211').task(':clean')
+    group = 'build'
+    dependsOn(tasks.named('clean'))
 }

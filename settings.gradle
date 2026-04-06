@@ -19,4 +19,7 @@ includeBuild('architectury/1.21.1') {
 
 includeBuild('helper/file-ops-helper') {
     name = 'fileOpsHelperRoot'
+    dependencySubstitution {
+        substitute module('com.cozooo.dlc_fileops_helper:dlc-fileops-helper') using project(':')
+    }
 }

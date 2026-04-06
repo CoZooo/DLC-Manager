@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
-import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -411,9 +410,6 @@ public class DlcUpdateManagerScreen extends Screen {
     }
 
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        // if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.update.manager_title"))) {
-        //     return;
-        // }
         var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
@@ -427,9 +423,6 @@ public class DlcUpdateManagerScreen extends Screen {
     }
 
     private void startApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        // if (DlcFileOpsHelperClient.showInstallPromptIfNeeded(this, Component.translatable("dlc_manager.update.manager_title"))) {
-        //     return;
-        // }
         var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));

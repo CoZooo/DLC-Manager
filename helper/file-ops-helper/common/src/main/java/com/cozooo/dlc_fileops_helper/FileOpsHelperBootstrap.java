@@ -1,5 +1,7 @@
 package com.cozooo.dlc_fileops_helper;
 
+import com.cozooo.dlc_fileops_helper.core.HelperPaths;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +13,8 @@ public final class FileOpsHelperBootstrap {
     private FileOpsHelperBootstrap() {
     }
 
-    public static void initialize() {
+    public static void initialize(Path gameDir, Path tmpRoot) {
+        HelperPaths.configure(gameDir, tmpRoot);
         if (!INITIALIZED.compareAndSet(false, true)) {
             return;
         }

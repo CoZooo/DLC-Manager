@@ -1,9 +1,1 @@
-rootProject.name = 'DLC-FileOps-Helper'
-
-includeBuild('architectury/1.20.1') {
-    name = 'fileOpsHelper1201'
-}
-
-includeBuild('architectury/1.21.1') {
-    name = 'fileOpsHelper1211'
-}
+rootProject.name = 'dlc-fileops-helper'

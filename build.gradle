@@ -108,23 +108,23 @@ tasks.register('exportObfClasspathAll') {
 
 tasks.register('helperBuild') {
     group = 'build'
-    description = 'Build all helper target jars.'
+    description = 'Build helper library.'
 
-    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':helperBuild'))
+    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':build'))
 }
 
 tasks.register('helperCheck') {
     group = 'verification'
-    description = 'Compile-check all helper targets.'
+    description = 'Compile-check helper library.'
 
-    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':helperCheck'))
+    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':check'))
 }
 
 tasks.register('helperClean') {
     group = 'build'
-    description = 'Clean helper build outputs.'
+    description = 'Clean helper library outputs.'
 
-    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':helperClean'))
+    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':clean'))
 }
 
 tasks.register('obfuscateForge1201Yguard') {
@@ -210,7 +210,6 @@ tasks.register('archBuild') {
     group = 'build'
     description = 'Build remapped jars for all Architectury targets.'
 
-    dependsOn(tasks.named('helperBuild'))
     dependsOn(gradle.includedBuild('arch1201').task(':fabric:remapJar'))
     dependsOn(gradle.includedBuild('arch1201').task(':forge:remapJar'))
     dependsOn(gradle.includedBuild('arch1211').task(':fabric:remapJar'))
