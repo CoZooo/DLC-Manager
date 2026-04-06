@@ -112,6 +112,9 @@ case "${MODE}" in
   helperClean)
     TASKS=(helperClean)
     ;;
+  helperPublish)
+    TASKS=(helperPublish)
+    ;;
   build)
     TASKS=(build)
     ;;
@@ -144,7 +147,7 @@ case "${MODE}" in
     exit 0
     ;;
   *)
-    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|archPublish|all|export|helperBuild|helperCheck|helperClean]"
+    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|archPublish|all|export|helperBuild|helperCheck|helperClean|helperPublish]"
     exit 1
     ;;
 esac

@@ -16,8 +16,11 @@ case "${MODE}" in
   clean)
     TASK="helperClean"
     ;;
+  publish)
+    TASK="publish"
+    ;;
   *)
-    echo "Usage: ./helper/file-ops-helper/build.sh [build|check|clean]"
+    echo "Usage: ./helper/file-ops-helper/build.sh [build|check|clean|publish]"
     exit 1
     ;;
 esac

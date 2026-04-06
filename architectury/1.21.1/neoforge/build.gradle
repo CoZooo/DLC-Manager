@@ -28,7 +28,7 @@ dependencies {
     neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
     modImplementation "dev.architectury:architectury-neoforge:${rootProject.architectury_api_version}"
     modCompileOnly "curse.maven:mafglib-910766:${rootProject.mafglib_curse_file}"
-    include(implementation("com.cozooo.dlc_fileops_helper:dlc-fileops-helper:1.0.0"))
+    include(implementation("com.cozooo.dlc_manager:dlc-fileops-helper:1.0.0"))
     include(implementation("de.marhali:json5-java:3.0.0"))
     include(implementation("org.commonmark:commonmark:0.21.0"))
     include(implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"))

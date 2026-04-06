@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'maven-publish'
 }
 
 group = providers.gradleProperty('mod_group').get()
@@ -13,7 +14,6 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
     }
-    withSourcesJar()
 }
 
 sourceSets {
@@ -25,6 +25,9 @@ sourceSets {
 
 repositories {
     mavenCentral()
+    maven {
+        url = uri('https://maven.cozozjw.cn/repository/maven-public/')
+    }
 }
 
 dependencies {
@@ -45,4 +48,26 @@ tasks.register('helperCheck') {
 tasks.register('helperClean') {
     group = 'build'
     dependsOn(tasks.named('clean'))
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            groupId = project.group
+            artifactId = 'dlc-fileops-helper'
+            version = project.version
+        }
+    }
+
+    repositories {
+        maven {
+            name = 'CozoooNexus'
+            url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
+            credentials {
+                username = findProperty('mavenUsername') ?: System.getenv('MAVEN_USERNAME')
+                password = findProperty('mavenPassword') ?: System.getenv('MAVEN_PASSWORD')
+            }
+        }
+    }
 }

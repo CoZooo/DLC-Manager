@@ -106,25 +106,32 @@ tasks.register('exportObfClasspathAll') {
     dependsOn(gradle.includedBuild('arch1211').task(':exportObfClasspathAll'))
 }
 
-tasks.register('helperBuild') {
+tasks.register('helperBuild', GradleBuild) {
     group = 'build'
     description = 'Build helper library.'
-
-    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':build'))
+    dir = file('helper/file-ops-helper')
+    tasks = ['build']
 }
 
-tasks.register('helperCheck') {
+tasks.register('helperCheck', GradleBuild) {
     group = 'verification'
     description = 'Compile-check helper library.'
-
-    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':check'))
+    dir = file('helper/file-ops-helper')
+    tasks = ['check']
 }
 
-tasks.register('helperClean') {
+tasks.register('helperClean', GradleBuild) {
     group = 'build'
     description = 'Clean helper library outputs.'
+    dir = file('helper/file-ops-helper')
+    tasks = ['clean']
+}
 
-    dependsOn(gradle.includedBuild('fileOpsHelperRoot').task(':clean'))
+tasks.register('helperPublish', GradleBuild) {
+    group = 'publishing'
+    description = 'Publish helper library to configured Maven repository.'
+    dir = file('helper/file-ops-helper')
+    tasks = ['publish']
 }
 
 tasks.register('obfuscateForge1201Yguard') {

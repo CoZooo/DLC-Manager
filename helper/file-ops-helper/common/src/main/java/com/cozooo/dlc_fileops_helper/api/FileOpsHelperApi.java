@@ -52,9 +52,9 @@ public final class FileOpsHelperApi {
                 }
                 PendingFileOp op = new PendingFileOp();
                 op.type = asString(raw.get("type"));
-                op.path = asString(raw.get("path"));
-                op.source = asString(raw.get("source"));
-                op.target = asString(raw.get("target"));
+                op.path = resolvePathString(raw.get("path"));
+                op.source = resolvePathString(raw.get("source"));
+                op.target = resolvePathString(raw.get("target"));
                 op.replaceExisting = asBoolean(raw.get("replaceExisting"));
                 op.contentBase64 = resolveContentBase64(raw);
                 mapped.add(op);
@@ -72,7 +72,7 @@ public final class FileOpsHelperApi {
                 }
                 PendingFileOp op = new PendingFileOp();
                 op.type = "delete";
-                op.path = path;
+                op.path = resolvePathString(path);
                 operations.add(op);
             }
         }
@@ -82,8 +82,8 @@ public final class FileOpsHelperApi {
     public static Map<String, Object> scheduleMove(String source, String target, boolean replaceExisting) {
         PendingFileOp op = new PendingFileOp();
         op.type = "move";
-        op.source = source;
-        op.target = target;
+        op.source = resolvePathString(source);
+        op.target = resolvePathString(target);
         op.replaceExisting = replaceExisting;
         return toResult(PendingFileOpsHelper.schedule(List.of(op)));
     }
@@ -91,8 +91,8 @@ public final class FileOpsHelperApi {
     public static Map<String, Object> scheduleCopy(String source, String target, boolean replaceExisting) {
         PendingFileOp op = new PendingFileOp();
         op.type = "copy";
-        op.source = source;
-        op.target = target;
+        op.source = resolvePathString(source);
+        op.target = resolvePathString(target);
         op.replaceExisting = replaceExisting;
         return toResult(PendingFileOpsHelper.schedule(List.of(op)));
     }
@@ -100,7 +100,7 @@ public final class FileOpsHelperApi {
     public static Map<String, Object> scheduleWriteText(String target, String content) {
         PendingFileOp op = new PendingFileOp();
         op.type = "write_text";
-        op.target = target;
+        op.target = resolvePathString(target);
         op.contentBase64 = Base64.getEncoder().encodeToString(
             (content == null ? "" : content).getBytes(StandardCharsets.UTF_8)
         );
@@ -110,7 +110,7 @@ public final class FileOpsHelperApi {
     public static Map<String, Object> scheduleWriteBytes(String target, byte[] content) {
         PendingFileOp op = new PendingFileOp();
         op.type = "write_bytes";
-        op.target = target;
+        op.target = resolvePathString(target);
         op.contentBase64 = Base64.getEncoder().encodeToString(content == null ? new byte[0] : content);
         return toResult(PendingFileOpsHelper.schedule(List.of(op)));
     }
@@ -150,7 +150,10 @@ public final class FileOpsHelperApi {
                     continue;
                 }
                 try {
-                    resolved.add(Path.of(path));
+                    Path resolvedPath = resolvePath(path);
+                    if (resolvedPath != null) {
+                        resolved.add(resolvedPath);
+                    }
                 } catch (InvalidPathException ignored) {
                 }
             }
@@ -223,5 +226,25 @@ public final class FileOpsHelperApi {
             return false;
         }
         return Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private static String resolvePathString(Object value) {
+        Path path = resolvePath(asString(value));
+        return path == null ? null : path.toString();
+    }
+
+    private static Path resolvePath(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            Path path = Path.of(raw);
+            if (!path.isAbsolute()) {
+                path = HelperPaths.gameDir().resolve(path);
+            }
+            return path.toAbsolutePath().normalize();
+        } catch (InvalidPathException ignored) {
+            return null;
+        }
     }
 }

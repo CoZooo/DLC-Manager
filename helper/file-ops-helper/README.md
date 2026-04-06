@@ -30,6 +30,7 @@
 ./helper/file-ops-helper/build.sh build
 ./helper/file-ops-helper/build.sh check
 ./helper/file-ops-helper/build.sh clean
+./helper/file-ops-helper/build.sh publish
 ```
 
 根目录转调命令：
@@ -38,4 +39,29 @@
 ./build.sh helperBuild
 ./build.sh helperCheck
 ./build.sh helperClean
+./build.sh helperPublish
+```
+
+Maven 使用：
+
+- 读取仓库：
+
+```gradle
+repositories {
+    maven {
+        url = uri("https://maven.cozozjw.cn/repository/maven-public/")
+    }
+}
+```
+
+- 依赖坐标：
+
+```gradle
+implementation "com.cozooo.dlc_manager:dlc-fileops-helper:1.0.0"
+```
+
+- 发布地址：
+
+```text
+https://maven.cozozjw.cn/repository/maven-releases/
 ```

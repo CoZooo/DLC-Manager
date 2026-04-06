@@ -16,10 +16,3 @@ includeBuild('architectury/1.20.1') {
 includeBuild('architectury/1.21.1') {
     name = 'arch1211'
 }
-
-includeBuild('helper/file-ops-helper') {
-    name = 'fileOpsHelperRoot'
-    dependencySubstitution {
-        substitute module('com.cozooo.dlc_fileops_helper:dlc-fileops-helper') using project(':')
-    }
-}

@@ -6,6 +6,9 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
         repositories {
             mavenCentral()
             maven {
+                url = uri('https://maven.cozozjw.cn/repository/maven-public/')
+            }
+            maven {
                 name = 'ParchmentMC'
                 url = 'https://maven.parchmentmc.org'
             }
