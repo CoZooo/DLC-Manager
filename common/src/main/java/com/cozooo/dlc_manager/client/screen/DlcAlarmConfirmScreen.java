@@ -108,7 +108,9 @@ public class DlcAlarmConfirmScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.fill(0, 0, this.width, this.height, 0xC0101010);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
         int remaining = getRemainingSeconds();
         if (remaining > 0) {
             Component remainingText = Component.translatable("dlc_manager.alarm.remaining", remaining);
@@ -154,8 +156,6 @@ public class DlcAlarmConfirmScreen extends Screen {
         }
         guiGraphics.drawString(this.font, Component.translatable("dlc_manager.alarm.read_ack"),
             checkboxX + checkboxSize + 6, checkboxY + (checkboxSize - this.font.lineHeight) / 2, waiting ? 0xA0A0A0 : 0xE6E6E6, false);
-
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private int getRemainingSeconds() {

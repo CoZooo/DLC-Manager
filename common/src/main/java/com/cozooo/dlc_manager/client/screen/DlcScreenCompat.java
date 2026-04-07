@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
@@ -15,6 +16,7 @@ public final class DlcScreenCompat {
         Screen.class, "renderBackground", GuiGraphics.class);
     private static final Method ADD_OR_UPDATE_PERIODIC_NOTIFICATION = findAddOrUpdateMethod();
     private static final Object PERIODIC_NOTIFICATION_ID = findPeriodicNotificationId();
+    private static final Field RENDERABLES_FIELD = findField(Screen.class, "renderables");
 
     private DlcScreenCompat() {
     }
@@ -44,9 +46,37 @@ public final class DlcScreenCompat {
         }
     }
 
+    public static void renderWidgets(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        if (RENDERABLES_FIELD == null) {
+            throw new IllegalStateException("Failed to resolve Screen.renderables compatibility");
+        }
+        try {
+            Object value = RENDERABLES_FIELD.get(screen);
+            if (value instanceof Iterable<?> iterable) {
+                for (Object candidate : iterable) {
+                    if (candidate instanceof Renderable renderable) {
+                        renderable.render(guiGraphics, mouseX, mouseY, partialTick);
+                    }
+                }
+            }
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Failed to render compatible widgets", ex);
+        }
+    }
+
     private static Method findMethod(Class<?> owner, String name, Class<?>... parameterTypes) {
         try {
             return owner.getMethod(name, parameterTypes);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private static Field findField(Class<?> owner, String name) {
+        try {
+            Field field = owner.getDeclaredField(name);
+            field.setAccessible(true);
+            return field;
         } catch (ReflectiveOperationException ignored) {
             return null;
         }
