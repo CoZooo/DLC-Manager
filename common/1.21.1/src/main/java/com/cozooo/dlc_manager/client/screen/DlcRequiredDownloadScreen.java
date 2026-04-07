@@ -240,7 +240,6 @@ public class DlcRequiredDownloadScreen extends Screen {
             y = this.height - 70;
             guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B);
         }
-
     }
 
     @Override

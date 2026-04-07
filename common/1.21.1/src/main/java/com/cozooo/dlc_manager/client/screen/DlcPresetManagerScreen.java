@@ -97,7 +97,6 @@ public class DlcPresetManagerScreen extends Screen {
             rowY += ROW_HEIGHT;
         }
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
-
     }
 
     @Override
