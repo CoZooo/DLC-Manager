@@ -136,8 +136,14 @@ case "${MODE}" in
   publish)
     TASKS=(archPublish)
     ;;
+  publishMaven)
+    TASKS=(archPublishMaven)
+    ;;
   archPublish)
     TASKS=(archPublish)
+    ;;
+  archPublishMaven)
+    TASKS=(archPublishMaven)
     ;;
   all)
     TASKS=(check build obfuscateAllYguard)
@@ -147,7 +153,7 @@ case "${MODE}" in
     exit 0
     ;;
   *)
-    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|archPublish|all|export|helperBuild|helperCheck|helperClean|helperPublish]"
+    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|publishMaven|archPublish|archPublishMaven|all|export|helperBuild|helperCheck|helperClean|helperPublish]"
     exit 1
     ;;
 esac

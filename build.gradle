@@ -235,6 +235,18 @@ tasks.register('archPublish') {
     dependsOn(gradle.includedBuild('arch1211').task(':neoforge:publish'))
 }
 
+tasks.register('archPublishMaven') {
+    group = 'publishing'
+    description = 'Publish all Architectury artifacts to Cozooo Nexus.'
+
+    dependsOn(gradle.includedBuild('arch1201').task(':common:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1201').task(':fabric:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1201').task(':forge:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1211').task(':common:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1211').task(':fabric:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:publishMavenJavaPublicationToCozoooNexusRepository'))
+}
+
 tasks.named('check') {
     dependsOn(tasks.named('archCheck'))
 }
@@ -247,4 +259,10 @@ tasks.register('publish') {
     group = 'publishing'
     description = 'Publish all Architectury artifacts.'
     dependsOn(tasks.named('archPublish'))
+}
+
+tasks.register('publishMaven') {
+    group = 'publishing'
+    description = 'Publish all Architectury artifacts to Cozooo Nexus.'
+    dependsOn(tasks.named('archPublishMaven'))
 }

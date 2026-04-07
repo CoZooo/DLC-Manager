@@ -67,3 +67,4 @@ tools/dc-editor/tsconfig.node.tsbuildinfo
 
 **/__pycache__/
 tools/dc-editor/OPERATION_TRACKING.txt
+debug.log

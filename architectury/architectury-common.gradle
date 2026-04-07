@@ -71,6 +71,14 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
             }
 
             repositories {
+                maven {
+                    name = 'CozoooNexus'
+                    url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
+                    credentials {
+                        username = findProperty('mavenUsername') ?: System.getenv('MAVEN_USERNAME')
+                        password = findProperty('mavenPassword') ?: System.getenv('MAVEN_PASSWORD')
+                    }
+                }
                 def ghRepo = System.getenv('GITHUB_REPOSITORY')
                 def ghUser = System.getenv('USERNAME')
                 def ghToken = System.getenv('TOKEN')
