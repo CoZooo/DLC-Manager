@@ -272,10 +272,21 @@ public final class PendingFileOpsHelper {
             return null;
         }
         return switch (op.type) {
-            case "delete" -> op.path;
-            case "move", "copy", "write_text", "write_bytes", "mkdir" -> op.target;
+            case "delete" -> normalizeKey(op.path);
+            case "move", "copy", "write_text", "write_bytes", "mkdir" -> normalizeKey(op.target);
             default -> null;
         };
+    }
+
+    private static String normalizeKey(String raw) {
+        Path normalized = resolvePath(raw);
+        if (normalized != null) {
+            return normalized.toString();
+        }
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return raw;
     }
 
     private static PendingFileOp copyOperation(PendingFileOp raw) {

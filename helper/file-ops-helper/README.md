@@ -21,8 +21,51 @@
 返回值：
 
 - 使用 `Map<String, Object>`，便于主项目统一处理结果
-- 成功时包含 `ok=true`
-- 失败时包含 `ok=false` 和 `message`
+- 所有方法都会返回 `ok` 和 `message`
+- `ok=true` 表示本次 helper 调用成功
+- `ok=false` 表示本次 helper 调用失败，失败原因写在 `message`
+
+返回结构：
+
+- 通用字段：
+  - `ok: boolean`
+  - `message: String`
+- `getCapabilities()` 额外返回：
+  - `modId`
+  - `modName`
+  - `apiVersion`
+  - `supported`
+  - `os`
+  - `pid`
+  - `gameDir`
+  - `taskRoot`
+  - `supportedTypes`
+- `scheduleOperations(...)`、`scheduleDelete(...)`、`scheduleMove(...)`、`scheduleCopy(...)`、`scheduleWriteText(...)`、`scheduleWriteBytes(...)` 额外返回：
+  - `supported`
+  - `operationCount`
+  - `taskFile`
+  - `indexFile`
+- `getPendingOperations()` 额外返回：
+  - `supported`
+  - `operationCount`
+  - `taskFile`
+  - `indexFile`
+  - `operations`
+- `operations` 中每个元素包含：
+  - `id`
+  - `type`
+  - `path`
+  - `source`
+  - `target`
+  - `replaceExisting`
+  - `contentBase64`
+  - `createdAt`
+  - `updatedAt`
+- `cancelPendingOperationsByTarget(...)` 额外返回：
+  - `supported`
+  - `removedCount`
+  - `taskFile`
+  - `indexFile`
 
 统一构建命令：
 
@@ -57,7 +100,7 @@ repositories {
 - 依赖坐标：
 
 ```gradle
-implementation "com.cozooo.dlc_manager:dlc-fileops-helper:1.0.0"
+implementation "com.cozooo.dlc_manager:dlc-fileops-helper:1.0.1"
 ```
 
 - 发布地址：

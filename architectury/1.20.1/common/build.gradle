@@ -29,5 +29,5 @@ dependencies {
     implementation "de.marhali:json5-java:3.0.0"
     implementation "org.commonmark:commonmark:0.21.0"
     implementation "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
-    implementation "com.cozooo.dlc_manager:dlc-fileops-helper:1.0.0"
+    implementation "com.cozooo.dlc_manager:dlc-fileops-helper:${file_ops_helper_version}"
 }

@@ -218,7 +218,11 @@ public final class DlcFileOpsHelperClient {
             return "";
         }
         try {
-            return Path.of(path).toAbsolutePath().normalize().toString();
+            Path normalized = Path.of(path);
+            if (!normalized.isAbsolute()) {
+                normalized = DlcPaths.gameDir().resolve(normalized);
+            }
+            return normalized.toAbsolutePath().normalize().toString();
         } catch (Throwable ignored) {
             return safeTrim(path);
         }
