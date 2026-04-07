@@ -3,7 +3,6 @@ package com.cozooo.dlc_manager.client.helper;
 import com.cozooo.dlc_fileops_helper.FileOpsHelperBootstrap;
 import com.cozooo.dlc_fileops_helper.api.FileOpsHelperApi;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -35,7 +34,7 @@ public final class DlcFileOpsHelperClient {
     }
 
     public static boolean shouldUseHelper() {
-        return isWindows() && "fabric".equalsIgnoreCase(safeTrim(CrossPlatformRuntime.loaderName()));
+        return isWindows();
     }
 
     public static HelperState detectState() {
