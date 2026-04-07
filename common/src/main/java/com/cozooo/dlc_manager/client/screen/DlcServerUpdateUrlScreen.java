@@ -2,8 +2,8 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
-import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
+import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import net.minecraft.client.Minecraft;
@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -73,13 +74,12 @@ public class DlcServerUpdateUrlScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = this.height / 2 - 80;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
         y += 18;
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.url_prompt"), centerX, y, 0xC8C8C8);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         if (downloading) {
             int barY = this.height / 2 + 60;
@@ -91,6 +91,7 @@ public class DlcServerUpdateUrlScreen extends Screen {
         } else if (errorText != null && !errorText.isBlank()) {
             guiGraphics.drawCenteredString(this.font, errorText, centerX, this.height / 2 + 60, 0xFF6B6B);
         }
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -224,6 +225,7 @@ public class DlcServerUpdateUrlScreen extends Screen {
             progress = total > 0 ? (done / (float) total) : 0f;
         }, null);
     }
+
     private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
         int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));
         guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);

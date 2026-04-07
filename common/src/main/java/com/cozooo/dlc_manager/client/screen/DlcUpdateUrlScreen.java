@@ -1,26 +1,26 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
-import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
-import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
-import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
+import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -81,13 +81,12 @@ public class DlcUpdateUrlScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = this.height / 2 - 80;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
         y += 18;
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.url_prompt"), centerX, y, 0xC8C8C8);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         if (downloading) {
             int barY = this.height / 2 + 60;
@@ -99,6 +98,7 @@ public class DlcUpdateUrlScreen extends Screen {
         } else if (errorText != null && !errorText.isBlank()) {
             guiGraphics.drawCenteredString(this.font, errorText, centerX, this.height / 2 + 60, 0xFF6B6B);
         }
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -398,7 +398,7 @@ public class DlcUpdateUrlScreen extends Screen {
 
     private void showToast(Component title, Component desc) {
         Minecraft minecraft = Minecraft.getInstance();
-        SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION, title, desc);
+        DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.getToasts(), title, desc);
     }
 
     private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {

@@ -1,18 +1,17 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
-import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -77,15 +76,15 @@ public class DlcServerPasswordScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, this.height / 2 - 60, 0xFFFFFF);
         String address = entry.host == null ? "" : entry.host;
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.address", address), centerX, this.height / 2 - 48, 0xC8C8C8);
         drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField);
         drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
         updateButtonState();
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawFieldLabel(GuiGraphics guiGraphics, String key, EditBox field) {
@@ -125,7 +124,7 @@ public class DlcServerPasswordScreen extends Screen {
                 connecting = false;
                 updateButtonState();
                 if (info == null) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.connect_failed"), Component.empty());
                     return;
                 }
@@ -146,6 +145,7 @@ public class DlcServerPasswordScreen extends Screen {
         }
         return null;
     }
+
     private void saveEntry(DlcServerEntry entry) {
         DlcServerList.load();
         List<DlcServerEntry> list = new ArrayList<>(DlcServerList.getEntries());
@@ -181,13 +181,13 @@ public class DlcServerPasswordScreen extends Screen {
         try {
             int port = Integer.parseInt(value);
             if (port < 1 || port > 65535) {
-                SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                     Component.translatable("dlc_manager.server.port_invalid"), Component.empty());
                 return -1;
             }
             return port;
         } catch (NumberFormatException ex) {
-            SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+            DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                 Component.translatable("dlc_manager.server.port_invalid"), Component.empty());
             return -1;
         }

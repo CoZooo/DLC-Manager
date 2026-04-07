@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult;
@@ -8,15 +9,14 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Side;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DlcPackReleaseUpdateScreen extends Screen {
@@ -102,7 +102,7 @@ public class DlcPackReleaseUpdateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         updateButtons();
         int centerX = this.width / 2;
         int y = this.height / 2 - 78;
@@ -131,7 +131,6 @@ public class DlcPackReleaseUpdateScreen extends Screen {
         } else if (!checkResult.canDownload()) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack_update.asset_missing"), centerX, y, 0xD7B56D);
         }
-
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
@@ -277,12 +276,9 @@ public class DlcPackReleaseUpdateScreen extends Screen {
             DlcUpdateClient.showPrompt(parent, check);
             return;
         }
-        SystemToast.addOrUpdate(
-            Minecraft.getInstance().getToasts(),
-            SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+        DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
             Component.translatable("dlc_manager.update.manager_title"),
-            Component.translatable("dlc_manager.pack_update.download_success")
-        );
+            Component.translatable("dlc_manager.pack_update.download_success"));
         Minecraft.getInstance().setScreen(parent);
     }
 

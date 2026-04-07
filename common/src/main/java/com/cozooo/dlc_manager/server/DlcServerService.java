@@ -26,7 +26,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
-import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -133,15 +132,7 @@ public class DlcServerService {
         } else {
             combined = motd + "\n" + label;
         }
-        try {
-            Object status = server.getStatus();
-            if (status == null) {
-                return;
-            }
-            java.lang.reflect.Method setDescription = status.getClass().getMethod("setDescription", Component.class);
-            setDescription.invoke(status, Component.literal(combined));
-        } catch (Throwable ignored) {
-        }
+        DlcServerCompat.setStatusDescription(server, Component.literal(combined));
     }
 
     public static String getServerVersionLabel() {
@@ -1177,24 +1168,7 @@ public class DlcServerService {
     }
 
     private static boolean executeServerCommand(String command) {
-        MinecraftServer server = currentServer;
-        if (server == null || command == null || command.isBlank()) {
-            return false;
-        }
-        try {
-            CommandSourceStack source = server.createCommandSourceStack();
-            Object commands = server.getCommands();
-            try {
-                java.lang.reflect.Method method = commands.getClass().getMethod("performPrefixedCommand", CommandSourceStack.class, String.class);
-                method.invoke(commands, source, command);
-            } catch (NoSuchMethodException ignored) {
-                java.lang.reflect.Method method = commands.getClass().getMethod("performCommand", CommandSourceStack.class, String.class);
-                method.invoke(commands, source, command);
-            }
-            return true;
-        } catch (Throwable ignored) {
-            return false;
-        }
+        return DlcServerCompat.executeCommand(currentServer, command);
     }
 
     private static Path safeResolve(Path root, String raw) {

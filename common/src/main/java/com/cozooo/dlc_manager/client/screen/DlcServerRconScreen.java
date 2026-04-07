@@ -1,18 +1,17 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.server.DlcServerRconInfo;
-import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -123,7 +122,7 @@ public class DlcServerRconScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 20, 0xFFFFFF);
 
         String hostValue = entry == null || entry.host == null ? "" : entry.host;
@@ -149,7 +148,6 @@ public class DlcServerRconScreen extends Screen {
                 guiGraphics.drawString(this.font, passwordLabel, labelX, passwordField.getY() + 6, 0xC8C8C8, false);
             }
         }
-
         super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
@@ -191,7 +189,7 @@ public class DlcServerRconScreen extends Screen {
                 if (response == null) {
                     connected = false;
                     statusText = Component.translatable("dlc_manager.server.rcon_connect_failed").getString();
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.rcon_connect_failed"), Component.empty());
                 } else {
                     connected = true;
@@ -285,6 +283,7 @@ public class DlcServerRconScreen extends Screen {
             quickButton.active = enable;
         }
     }
+
     private void loadSavedRcon() {
         if (entry == null) {
             return;
