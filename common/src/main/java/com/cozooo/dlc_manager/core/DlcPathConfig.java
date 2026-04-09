@@ -599,7 +599,7 @@ public class DlcPathConfig {
     }
 
     public static void setApiPort(int value) {
-        apiPort = clampInt(value, 1, 65535, DEFAULT_API_PORT);
+        apiPort = clampInt(value, 0, 65535, DEFAULT_API_PORT);
     }
 
     public static void setApiToken(String value) {
@@ -1035,7 +1035,7 @@ public class DlcPathConfig {
     private static Map<String, Consumer<JsonElement>> buildApiReaders() {
         Map<String, Consumer<JsonElement>> map = new HashMap<>();
         map.put("apiEnabled", value -> apiEnabled = asBoolean(value, DEFAULT_API_ENABLED));
-        map.put("apiPort", value -> apiPort = clampInt(asInt(value, DEFAULT_API_PORT), 1, 65535, DEFAULT_API_PORT));
+        map.put("apiPort", value -> apiPort = clampInt(asInt(value, DEFAULT_API_PORT), 0, 65535, DEFAULT_API_PORT));
         map.put("apiToken", value -> apiToken = asString(value, DEFAULT_API_TOKEN));
         return map;
     }

@@ -26,7 +26,7 @@ public final class DlcPathConfigClient {
     private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
     private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
     private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcPathConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
-    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 1, 65535, "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
+    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 0, 65535, "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
     private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", DlcPathConfig.DEFAULT_API_TOKEN, "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
     private static final ConfigString NOTICE_DISPLAY_MODE = new DlcConfigString("noticeDisplayMode", DlcPathConfig.DEFAULT_NOTICE_DISPLAY_MODE, "dlc_manager.config.comment.ui.noticeDisplayMode", "dlc_manager.config.ui.noticeDisplayMode");
     private static final ConfigString NOTICE_BUTTON_ANCHOR = new DlcConfigString("noticeButtonAnchor", DlcPathConfig.DEFAULT_NOTICE_BUTTON_ANCHOR, "dlc_manager.config.comment.ui.noticeButtonAnchor", "dlc_manager.config.ui.noticeButtonAnchor");
