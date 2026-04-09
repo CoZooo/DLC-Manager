@@ -592,7 +592,6 @@ public class DlcRemoteDownloadScreen extends Screen {
                         setEntryProgress(progressKey, currentAttemptId, 1f);
                         entry.setFileNameHint(fileName);
                         DlcRemoteManager.updateFileNameKey(entry, fileName);
-                        DlcRemoteManager.writeInfoFile(entry.getDlcRoot(), entry, fileName);
                         return;
                     } catch (DlcDownloadService.DownloadCanceledException ex) {
                         if (isSwitchRequested(progressKey)) {

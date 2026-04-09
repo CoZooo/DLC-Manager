@@ -460,6 +460,7 @@ public final class DlcRemoteLoader {
         entry.setFileNameHint(resolvedFileName);
         entry.setFileNameExplicit(fileNameExplicit);
         entry.setType(type);
+        entry.setConfigType("config".equalsIgnoreCase(typeRaw == null ? null : typeRaw.trim()));
         entry.setAppliedTargetRaw(appliedTarget);
         entry.setRedirectUrl(redirectUrl);
         entry.setInList(inList);

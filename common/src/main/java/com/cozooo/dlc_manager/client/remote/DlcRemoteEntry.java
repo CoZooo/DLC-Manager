@@ -24,6 +24,7 @@ public class DlcRemoteEntry {
     private String curseforgeProjectId;
     private String curseforgeFileId;
     private DlcType type;
+    private boolean configType;
     private String appliedTargetRaw;
     private boolean inList;
     private boolean hidden;
@@ -231,6 +232,14 @@ public class DlcRemoteEntry {
 
     public void setType(DlcType type) {
         this.type = type;
+    }
+
+    public boolean isConfigType() {
+        return configType;
+    }
+
+    public void setConfigType(boolean configType) {
+        this.configType = configType;
     }
 
     public String getAppliedTargetRaw() {

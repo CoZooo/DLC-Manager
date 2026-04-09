@@ -176,7 +176,6 @@ public final class DlcServerDownloadService {
                     (downloaded, total) -> updateProgress(item, downloaded, total));
                 if (fileName != null) {
                     updateRemoteFileNameKey(item.entry, fileName);
-                    writeInfoFile(dlcRoot, item.entry, fileName);
                 }
                 markDone(item, true, null);
             } catch (Exception ex) {
@@ -793,7 +792,6 @@ public final class DlcServerDownloadService {
                 if (fileName != null) {
                     result.downloadedCount++;
                     updateRemoteFileNameKey(entry, fileName);
-                    writeInfoFile(dlcRoot, entry, fileName);
                 }
             } catch (Exception ex) {
                 result.success = false;
@@ -2054,126 +2052,6 @@ public final class DlcServerDownloadService {
             }
         }
         return values;
-    }
-
-    private static void writeInfoFile(Path dlcRoot, DlcRemoteEntry entry, String fileName) {
-        if (dlcRoot == null || entry == null || fileName == null || fileName.isBlank()) {
-            return;
-        }
-        Path infoDir = dlcRoot.resolve("info");
-        try {
-            Files.createDirectories(infoDir);
-        } catch (IOException ignored) {
-            return;
-        }
-        JsonObject configObj = readConfigObject(entry.getConfigPath());
-        JsonObject info = new JsonObject();
-        info.addProperty("file_name", fileName);
-
-        String identifier = null;
-        if (configObj != null) {
-            identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "identifier");
-            if (identifier == null || identifier.isBlank()) {
-                identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "dlc_identifier");
-            }
-            if (identifier == null || identifier.isBlank()) {
-                identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "file_name");
-            }
-            if (identifier == null || identifier.isBlank()) {
-                identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "dlc_name");
-            }
-            if (identifier == null || identifier.isBlank()) {
-                identifier = JsonCaseUtil.getStringIgnoreCase(configObj, "name");
-            }
-        }
-        if (identifier == null || identifier.isBlank()) {
-            identifier = entry.getDlcIdentifier();
-        }
-        if (identifier == null || identifier.isBlank()) {
-            identifier = fileName;
-        }
-        info.addProperty("identifier", identifier);
-
-        Map<String, String> displayNames = new HashMap<>();
-        if (configObj != null) {
-            JsonObject displayObj = JsonCaseUtil.getObjectIgnoreCase(configObj, "DisplayName");
-            displayNames.putAll(readLocalizedMap(displayObj));
-            if (displayNames.isEmpty()) {
-                String display = JsonCaseUtil.getStringIgnoreCase(configObj, "DisplayName");
-                if (display != null && !display.isBlank()) {
-                    displayNames.put("en_us", display);
-                }
-            }
-        }
-        if (displayNames.isEmpty()) {
-            displayNames.putAll(resolveDisplayNames(entry, fileName));
-        }
-        JsonObject displayObj = new JsonObject();
-        for (Map.Entry<String, String> e : displayNames.entrySet()) {
-            displayObj.addProperty(e.getKey(), e.getValue());
-        }
-        info.add("DisplayName", displayObj);
-
-        DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
-        info.addProperty("type", DlcTooltipLoader.toTypeString(type));
-        if (type == DlcType.UNKNOWN) {
-            String appliedTarget = entry.getAppliedTargetRaw();
-            if (appliedTarget != null && !appliedTarget.isBlank()) {
-                info.addProperty("appliedTarget", appliedTarget);
-            }
-        }
-        String redirectUrl = entry.getRedirectUrl();
-        if ((redirectUrl == null || redirectUrl.isBlank()) && configObj != null) {
-            redirectUrl = JsonCaseUtil.getStringIgnoreCase(configObj, "RedirectUrl");
-        }
-        if (redirectUrl != null && !redirectUrl.isBlank()) {
-            info.addProperty("RedirectUrl", redirectUrl);
-        }
-        info.addProperty("isInList", entry.isInList());
-        info.addProperty("isHidden", entry.isHidden());
-        info.addProperty("AllowEnableByAll", entry.isAllowEnableByAll());
-
-        JsonElement deps = configObj == null ? null : JsonCaseUtil.getIgnoreCase(configObj, "dependencies");
-        if (deps != null && !deps.isJsonNull()) {
-            info.add("dependencies", normalizeRelationElement(deps));
-        } else {
-            info.addProperty("dependencies", String.join(",", entry.getResolvedDependencyNames()));
-        }
-        JsonElement conflicts = configObj == null ? null : JsonCaseUtil.getIgnoreCase(configObj, "conflicts");
-        if (conflicts != null && !conflicts.isJsonNull()) {
-            info.add("conflicts", normalizeRelationElement(conflicts));
-        } else {
-            info.addProperty("conflicts", String.join(",", entry.getConflictNames()));
-        }
-        boolean alarm = entry.isAlarm();
-        if (configObj != null && JsonCaseUtil.hasIgnoreCase(configObj, "alarm")) {
-            alarm = JsonCaseUtil.getBooleanIgnoreCase(configObj, "alarm", alarm);
-        }
-        info.addProperty("alarm", alarm);
-
-        Map<String, String> tips = new HashMap<>();
-        if (configObj != null) {
-            JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(configObj, "tip");
-            tips.putAll(readLocalizedMap(tipObj));
-            if (tips.isEmpty()) {
-                String tip = JsonCaseUtil.getStringIgnoreCase(configObj, "tip");
-                if (tip != null && !tip.isBlank()) {
-                    tips.put("en_us", tip);
-                }
-            }
-        }
-        if (tips.isEmpty()) {
-            tips.putAll(resolveTips(entry));
-        }
-        JsonObject tipObj = new JsonObject();
-        for (Map.Entry<String, String> e : tips.entrySet()) {
-            tipObj.addProperty(e.getKey(), e.getValue());
-        }
-        info.add("tip", tipObj);
-        Path legacy = infoDir.resolve(fileName + Json5Util.JSON_EXTENSION);
-        Json5Util.migrateLegacy(legacy, PRETTY_GSON);
-        Path out = Json5Util.resolveConfigPath(infoDir, fileName);
-        DcConfigIO.write(out, info, DcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     private static boolean isNoticeConfig(String fileName) {

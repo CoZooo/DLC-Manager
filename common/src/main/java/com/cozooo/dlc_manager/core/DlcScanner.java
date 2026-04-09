@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.core;
 
+import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.server.packs.repository.PackRepository;
 import java.io.IOException;
@@ -64,6 +66,7 @@ public class DlcScanner {
         Path localTmpDir = DlcTmpPaths.root(root);
         Path localLegacyTmpDir = DlcTmpPaths.legacyRoot(root);
         Map<String, String> groupedOwners = buildGroupedOwners(tooltips);
+        RemoteMetadataLookup remoteMetadata = buildRemoteMetadata(root);
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -92,7 +95,7 @@ public class DlcScanner {
 
                     DlcType type = classifyDirectory(dir);
                     if (type != null) {
-                        addItem(grouped, root, dir, type, tooltips, tooltipLoader, infoDir, detectInstalledState);
+                        addItem(grouped, root, dir, type, tooltips, remoteMetadata, tooltipLoader, infoDir, detectInstalledState);
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     return FileVisitResult.CONTINUE;
@@ -125,16 +128,16 @@ public class DlcScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     if (name.endsWith(".jar")) {
-                        addItem(grouped, root, file, DlcType.MOD, tooltips, tooltipLoader, infoDir, detectInstalledState);
+                        addItem(grouped, root, file, DlcType.MOD, tooltips, remoteMetadata, tooltipLoader, infoDir, detectInstalledState);
                         return FileVisitResult.CONTINUE;
                     }
                     if (name.endsWith(".zip")) {
                         DlcType type = classifyZip(file);
-                        addItem(grouped, root, file, type != null ? type : DlcType.UNKNOWN, tooltips, tooltipLoader, infoDir, detectInstalledState);
+                        addItem(grouped, root, file, type != null ? type : DlcType.UNKNOWN, tooltips, remoteMetadata, tooltipLoader, infoDir, detectInstalledState);
                         return FileVisitResult.CONTINUE;
                     }
-                    if (tooltips != null && tooltips.containsKey(name)) {
-                        addItem(grouped, root, file, DlcType.UNKNOWN, tooltips, tooltipLoader, infoDir, detectInstalledState);
+                    if ((tooltips != null && tooltips.containsKey(name)) || remoteMetadata.contains(name)) {
+                        addItem(grouped, root, file, DlcType.UNKNOWN, tooltips, remoteMetadata, tooltipLoader, infoDir, detectInstalledState);
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -200,11 +203,15 @@ public class DlcScanner {
     }
 
     private void addItem(Map<DlcType, List<DlcItem>> grouped, Path root, Path source, DlcType detectedType,
-        Map<String, DlcTooltipLoader.TooltipData> tooltips, DlcTooltipLoader tooltipLoader, Path infoDir, boolean detectInstalledState) {
+        Map<String, DlcTooltipLoader.TooltipData> tooltips, RemoteMetadataLookup remoteMetadata,
+        DlcTooltipLoader tooltipLoader, Path infoDir, boolean detectInstalledState) {
         String relative = root.relativize(source).toString().replace('\\', '/');
         String rootId = toGameRelativePath(root).replace('\\', '/');
         String name = source.getFileName().toString();
-        DlcTooltipLoader.TooltipData tooltipData = tooltips != null ? tooltips.get(name) : null;
+        DlcTooltipLoader.TooltipData tooltipData = remoteMetadata.get(name);
+        if (tooltipData == null && tooltips != null) {
+            tooltipData = tooltips.get(name);
+        }
         java.util.List<String> fileNames = tooltipData != null ? tooltipData.getFileNames() : java.util.List.of();
         if (!fileNames.isEmpty() && fileNames.stream().noneMatch(name::equals)) {
             java.util.List<String> merged = new java.util.ArrayList<>(fileNames);
@@ -548,13 +555,91 @@ public class DlcScanner {
                 stream.forEach(path -> {
                     String name = path.getFileName().toString();
                     if (Files.isDirectory(path)) {
-                        addItem(grouped, root, path, DlcType.TACZ_PACK, tooltips, tooltipLoader, mainInfoDir, detectInstalledState);
+                        addItem(grouped, root, path, DlcType.TACZ_PACK, java.util.Map.of(), RemoteMetadataLookup.empty(), tooltipLoader, mainInfoDir, detectInstalledState);
                     } else if (name.endsWith(".zip")) {
-                        addItem(grouped, root, path, DlcType.TACZ_PACK, tooltips, tooltipLoader, mainInfoDir, detectInstalledState);
+                        addItem(grouped, root, path, DlcType.TACZ_PACK, java.util.Map.of(), RemoteMetadataLookup.empty(), tooltipLoader, mainInfoDir, detectInstalledState);
                     }
                 });
             } catch (IOException ignored) {
             }
+        }
+    }
+
+    private RemoteMetadataLookup buildRemoteMetadata(Path root) {
+        if (root == null || !Files.isDirectory(root)) {
+            return RemoteMetadataLookup.empty();
+        }
+        List<DlcRemoteEntry> entries = DlcRemoteLoader.load(root);
+        if (entries.isEmpty()) {
+            return RemoteMetadataLookup.empty();
+        }
+        Map<String, DlcTooltipLoader.TooltipData> byFileName = new java.util.HashMap<>();
+        java.util.Set<String> ambiguousFileNames = new java.util.HashSet<>();
+        for (DlcRemoteEntry entry : entries) {
+            if (entry == null) {
+                continue;
+            }
+            String fileName = entry.getFileNameHint();
+            if (fileName == null || fileName.isBlank()) {
+                continue;
+            }
+            String identifier = entry.getDlcIdentifier();
+            if (identifier == null || identifier.isBlank()) {
+                identifier = fileName;
+            }
+            DlcType type = entry.getType() == null ? DlcType.MOD : entry.getType();
+            DlcTooltipLoader.TooltipData data = new DlcTooltipLoader.TooltipData(
+                identifier,
+                entry.getTips(),
+                entry.getDisplayNames(),
+                type,
+                true,
+                true,
+                entry.isConfigType(),
+                entry.isInList(),
+                entry.isHidden(),
+                entry.isAllowEnableByAll(),
+                entry.getResolvedDependencyNames(),
+                entry.getConflictNames(),
+                entry.getAppliedTargetRaw(),
+                entry.getRedirectUrl(),
+                java.util.List.of(),
+                entry.isAlarm()
+            );
+            if (ambiguousFileNames.contains(fileName)) {
+                continue;
+            }
+            DlcTooltipLoader.TooltipData existing = byFileName.get(fileName);
+            if (existing == null) {
+                byFileName.put(fileName, data);
+            } else {
+                byFileName.remove(fileName);
+                ambiguousFileNames.add(fileName);
+            }
+        }
+        return new RemoteMetadataLookup(byFileName);
+    }
+
+    private static final class RemoteMetadataLookup {
+        private final Map<String, DlcTooltipLoader.TooltipData> byFileName;
+
+        private RemoteMetadataLookup(Map<String, DlcTooltipLoader.TooltipData> byFileName) {
+            this.byFileName = byFileName == null ? java.util.Map.of() : byFileName;
+        }
+
+        private static RemoteMetadataLookup empty() {
+            return new RemoteMetadataLookup(java.util.Map.of());
+        }
+
+        private DlcTooltipLoader.TooltipData get(String fileName) {
+            if (fileName == null || fileName.isBlank()) {
+                return null;
+            }
+            return byFileName.get(fileName);
+        }
+
+        private boolean contains(String fileName) {
+            return get(fileName) != null;
         }
     }
 

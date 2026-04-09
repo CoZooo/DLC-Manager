@@ -67,63 +67,6 @@ public final class DlcRemoteRuntime {
         return missing;
     }
 
-    public static void writeInfoFile(Path dlcRoot, DlcRemoteEntry entry, String fileName) {
-        if (entry == null || fileName == null || fileName.isBlank()) {
-            return;
-        }
-        Path root = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
-        if (root == null) {
-            return;
-        }
-        Path infoDir = root.resolve("info");
-        try {
-            Files.createDirectories(infoDir);
-        } catch (IOException ignored) {
-            return;
-        }
-        JsonObject obj = new JsonObject();
-        obj.addProperty("file_name", fileName);
-        String identifier = entry.getDlcIdentifier();
-        if (identifier == null || identifier.isBlank()) {
-            identifier = fileName;
-        }
-        obj.addProperty("identifier", identifier);
-        Map<String, String> displayNames = resolveDisplayNames(entry);
-        if (displayNames.isEmpty()) {
-            displayNames.put("en_us", fileName);
-        }
-        JsonObject displayObj = new JsonObject();
-        for (var e : displayNames.entrySet()) {
-            displayObj.addProperty(e.getKey(), e.getValue());
-        }
-        obj.add("DisplayName", displayObj);
-        DlcType type = entry.getType() == null ? DlcType.UNKNOWN : entry.getType();
-        obj.addProperty("type", DlcTooltipLoader.toTypeString(type));
-        if (type == DlcType.UNKNOWN) {
-            String appliedTarget = entry.getAppliedTargetRaw();
-            if (appliedTarget != null && !appliedTarget.isBlank()) {
-                obj.addProperty("appliedTarget", appliedTarget);
-            }
-        }
-        if (entry.getRedirectUrl() != null && !entry.getRedirectUrl().isBlank()) {
-            obj.addProperty("RedirectUrl", entry.getRedirectUrl());
-        }
-        obj.addProperty("isInList", entry.isInList());
-        obj.addProperty("isHidden", entry.isHidden());
-        obj.addProperty("AllowEnableByAll", entry.isAllowEnableByAll());
-        obj.addProperty("dependencies", String.join(",", entry.getResolvedDependencyNames()));
-        obj.addProperty("conflicts", String.join(",", entry.getConflictNames()));
-        obj.addProperty("alarm", entry.isAlarm());
-        Map<String, String> tips = resolveTips(entry);
-        JsonObject tipObj = new JsonObject();
-        for (var e : tips.entrySet()) {
-            tipObj.addProperty(e.getKey(), e.getValue());
-        }
-        obj.add("tip", tipObj);
-        Path out = Json5Util.resolveConfigPath(infoDir, fileName);
-        DcConfigIO.write(out, obj, DcConfigIO.Layout.DLC_STRUCTURED);
-    }
-
     public static void updateFileNameKey(DlcRemoteEntry entry, String fileName) {
         if (entry == null) {
             return;
