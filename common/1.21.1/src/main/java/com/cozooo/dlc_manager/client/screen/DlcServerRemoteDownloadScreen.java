@@ -268,7 +268,6 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             int percent = Math.round(totalProgress * 100f);
             guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
         }
-
     }
 
     private String resolveDisplayName(DlcServerRemoteItem item) {

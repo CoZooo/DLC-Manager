@@ -232,6 +232,10 @@ public class DlcUpdateManagerScreen extends Screen {
             String label = formatUpdateRowLabel(sourceBase, sourceDlc, targetBase, targetDlc, oldDisplay, newDisplay);
             DlcUpdateRowPlanner.Type type = i < rowTypes.size() ? rowTypes.get(i) : DlcUpdateRowPlanner.Type.UPDATE;
             if (type == DlcUpdateRowPlanner.Type.MANAGER) {
+                String dlcPrefix = Component.translatable("dlc_manager.update.dlc_prefix").getString();
+                if (label.startsWith(dlcPrefix)) {
+                    label = label.substring(dlcPrefix.length());
+                }
                 label = Component.translatable("dlc_manager.update.manager_prefix").getString() + label;
             }
             if (i < rowActions.size() && rowActions.get(i) == DlcUpdateRowPlanner.Action.REUPDATE) {
@@ -484,13 +488,20 @@ public class DlcUpdateManagerScreen extends Screen {
             return;
         }
         if (!result.isSuccess()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
+            String message = result == null ? "" : result.getMessage();
+            Component component = (message == null || message.isBlank())
+                ? Component.translatable("dlc_manager.update.failed")
+                : Component.literal(message);
+            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, component));
             return;
         }
         if (tryShowPostUpdateDownloads(result)) {
             return;
         }
-        Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, true, Component.translatable("dlc_manager.update.success")));
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
+        Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, true, message));
     }
 
     private boolean tryShowPostUpdateDownloads(UpdateApplyResult result) {
@@ -516,7 +527,9 @@ public class DlcUpdateManagerScreen extends Screen {
     }
 
     private Screen createSuccessResultScreen(UpdateApplyResult result) {
-        Component message = Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(this, true, message);
     }
 

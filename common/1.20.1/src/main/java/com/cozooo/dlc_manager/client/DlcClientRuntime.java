@@ -29,7 +29,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.client.DlcStartupStateSync;
-import com.cozooo.dlc_manager.server.DlcApiService;
+import com.cozooo.dlc_manager.server.DlcServerApi;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcNoticeConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
@@ -671,8 +671,8 @@ public final class DlcClientRuntime {
     }
 
     public static void runStartupChecksAsync(Screen screen) {
-        DlcApiService.start(null);
-        DlcApiService.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen));
+        DlcServerApi.start(null);
+        DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen));
         if (startupCheckRunning || startupChecksCompleted) {
             return;
         }

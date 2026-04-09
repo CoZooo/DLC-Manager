@@ -106,6 +106,34 @@ tasks.register('exportObfClasspathAll') {
     dependsOn(gradle.includedBuild('arch1211').task(':exportObfClasspathAll'))
 }
 
+tasks.register('helperBuild', GradleBuild) {
+    group = 'build'
+    description = 'Build helper library.'
+    dir = file('helper/file-ops-helper')
+    tasks = ['build']
+}
+
+tasks.register('helperCheck', GradleBuild) {
+    group = 'verification'
+    description = 'Compile-check helper library.'
+    dir = file('helper/file-ops-helper')
+    tasks = ['check']
+}
+
+tasks.register('helperClean', GradleBuild) {
+    group = 'build'
+    description = 'Clean helper library outputs.'
+    dir = file('helper/file-ops-helper')
+    tasks = ['clean']
+}
+
+tasks.register('helperPublish', GradleBuild) {
+    group = 'publishing'
+    description = 'Publish helper library to configured Maven repository.'
+    dir = file('helper/file-ops-helper')
+    tasks = ['publish']
+}
+
 tasks.register('obfuscateForge1201Yguard') {
     group = 'build'
     description = 'Obfuscate Forge 1.20.1 output jar with yGuard.'
@@ -207,6 +235,18 @@ tasks.register('archPublish') {
     dependsOn(gradle.includedBuild('arch1211').task(':neoforge:publish'))
 }
 
+tasks.register('archPublishMaven') {
+    group = 'publishing'
+    description = 'Publish all Architectury artifacts to Cozooo Nexus.'
+
+    dependsOn(gradle.includedBuild('arch1201').task(':common:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1201').task(':fabric:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1201').task(':forge:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1211').task(':common:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1211').task(':fabric:publishMavenJavaPublicationToCozoooNexusRepository'))
+    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:publishMavenJavaPublicationToCozoooNexusRepository'))
+}
+
 tasks.named('check') {
     dependsOn(tasks.named('archCheck'))
 }
@@ -219,4 +259,10 @@ tasks.register('publish') {
     group = 'publishing'
     description = 'Publish all Architectury artifacts.'
     dependsOn(tasks.named('archPublish'))
+}
+
+tasks.register('publishMaven') {
+    group = 'publishing'
+    description = 'Publish all Architectury artifacts to Cozooo Nexus.'
+    dependsOn(tasks.named('archPublishMaven'))
 }

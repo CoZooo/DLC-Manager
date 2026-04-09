@@ -2,32 +2,25 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.client.server.DlcServerConnection;
+import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
-import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
-import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
-import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
-import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
-import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
-public class DlcUpdateUrlScreen extends Screen {
+public class DlcServerUpdateUrlScreen extends Screen {
     private final Screen parent;
+    private final DlcServerEntry entry;
     private EditBox urlField;
     private Button downloadButton;
     private Button pasteButton;
@@ -39,11 +32,11 @@ public class DlcUpdateUrlScreen extends Screen {
     private volatile long totalBytes;
     private volatile long downloadedBytes;
     private String urlValue = "";
-    private boolean applyingUpdates;
 
-    public DlcUpdateUrlScreen(Screen parent) {
+    public DlcServerUpdateUrlScreen(Screen parent, DlcServerEntry entry) {
         super(Component.translatable("dlc_manager.update.import_url_title"));
         this.parent = parent;
+        this.entry = entry;
     }
 
     @Override
@@ -81,7 +74,7 @@ public class DlcUpdateUrlScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = this.height / 2 - 80;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -98,6 +91,7 @@ public class DlcUpdateUrlScreen extends Screen {
         } else if (errorText != null && !errorText.isBlank()) {
             guiGraphics.drawCenteredString(this.font, errorText, centerX, this.height / 2 + 60, 0xFF6B6B);
         }
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -165,8 +159,6 @@ public class DlcUpdateUrlScreen extends Screen {
                     || !DlcUpdateService.isImportPackageValid(downloaded)) {
                     Files.deleteIfExists(downloaded);
                     Minecraft.getInstance().execute(() -> {
-                        showToast(Component.translatable("dlc_manager.update.manager_title"),
-                            Component.translatable("dlc_manager.update.import_invalid"));
                         errorText = Component.translatable("dlc_manager.update.import_invalid").getString();
                         downloading = false;
                         downloadButton.active = true;
@@ -175,24 +167,21 @@ public class DlcUpdateUrlScreen extends Screen {
                     });
                     return;
                 }
-                boolean imported = DlcUpdateService.importUpdatePackage(downloaded);
-                if (!imported) {
-                    showToast(Component.translatable("dlc_manager.update.manager_title"),
-                        Component.translatable("dlc_manager.update.dlc_root_missing"));
-                    Minecraft.getInstance().execute(() -> {
-                        errorText = Component.translatable("dlc_manager.update.dlc_root_missing").getString();
-                        downloading = false;
-                        downloadButton.active = true;
-                        pasteButton.active = true;
-                        backButton.active = true;
-                    });
-                    return;
-                }
+                boolean imported = DlcServerConnection.importUpdatePackage(entry, 8000, downloaded);
                 Minecraft.getInstance().execute(() -> {
                     downloading = false;
-                    promptImportedUpdate();
+                    downloadButton.active = true;
+                    pasteButton.active = true;
+                    backButton.active = true;
+                    if (!imported) {
+                        errorText = Component.translatable("dlc_manager.update.failed").getString();
+                        return;
+                    }
+                    if (parent instanceof DlcServerUpdateManagerScreen manager) {
+                        manager.refreshData();
+                    }
+                    Minecraft.getInstance().setScreen(parent);
                 });
-                return;
             } catch (Exception ex) {
                 Path toDelete = downloaded;
                 if (toDelete != null) {
@@ -210,18 +199,7 @@ public class DlcUpdateUrlScreen extends Screen {
                     backButton.active = true;
                 });
             }
-        }, "dlc-update-url-download").start();
-    }
-
-    private void promptImportedUpdate() {
-        UpdateCheckResult check = DlcUpdateService.checkForUpdates(true);
-        if (check != null && check.hasUpdates()) {
-            Minecraft.getInstance().setScreen(new DlcUpdatePromptScreen(parent, check));
-            return;
-        }
-        showToast(Component.translatable("dlc_manager.update.manager_title"),
-            Component.translatable("dlc_manager.update.no_updates"));
-        Minecraft.getInstance().setScreen(parent);
+        }, "dlc-server-update-url-download").start();
     }
 
     private Path downloadToUpdateDir(String url) throws IOException {
@@ -246,149 +224,6 @@ public class DlcUpdateUrlScreen extends Screen {
             totalBytes = total;
             progress = total > 0 ? (done / (float) total) : 0f;
         }, null);
-    }
-
-    private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        String changelog = DlcUpdateService.buildChangelogText(
-            DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
-            CrossPlatformRuntime.languageCode());
-        confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog);
-    }
-
-    private void confirmReupdateNow(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = buildReupdateMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
-            if (accepted) {
-                startReupdate(baseOld, dlcOld, baseNew, dlcNew);
-            } else {
-                Minecraft.getInstance().setScreen(parent);
-            }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
-    }
-
-    private Component buildReupdateMessage(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
-        String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
-        Component base = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
-        if (changelog == null || changelog.isBlank()) {
-            return base;
-        }
-        return Component.empty()
-            .append(base)
-            .append("\n\n")
-            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
-            .append("\n")
-            .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog));
-    }
-
-    private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
-        if (chain == null || chain.isEmpty()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));
-            return;
-        }
-        setApplyingUpdates(true);
-        new Thread(() -> {
-            UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
-            Minecraft.getInstance().execute(() -> handleReupdateResult(result, null));
-        }, "dlc-update-url-apply").start();
-    }
-
-    private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {
-        setApplyingUpdates(false);
-        if (result.isMissing()) {
-            UpdateCheckResult missingCheck = check == null ? DlcUpdateService.checkForUpdates(true) : check;
-            Minecraft.getInstance().setScreen(new DlcUpdateMissingScreen(parent, missingCheck, result.getMissingPaths()));
-            return;
-        }
-        if (!result.isSuccess()) {
-            Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));
-            return;
-        }
-        if (tryShowPostUpdateDownloads(result)) {
-            return;
-        }
-        Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, true, Component.translatable("dlc_manager.update.success")));
-    }
-
-    private void setApplyingUpdates(boolean applying) {
-        applyingUpdates = applying;
-        if (downloadButton != null) {
-            downloadButton.active = !applying;
-        }
-        if (pasteButton != null) {
-            pasteButton.active = !applying;
-        }
-        if (backButton != null) {
-            backButton.active = !applying;
-        }
-    }
-
-    @Override
-    public boolean shouldCloseOnEsc() {
-        return !applyingUpdates;
-    }
-
-    @Override
-    public void onClose() {
-        if (!applyingUpdates) {
-            super.onClose();
-        }
-    }
-
-    private static String normalizeVersion(String value) {
-        return value == null || value.isBlank() ? "1.0.0" : value.trim();
-    }
-
-    private static String[] compactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
-        String sourceBase = normalizeVersion(oldBase);
-        String sourceDlc = normalizeVersion(oldDlc);
-        String targetBase = normalizeVersion(newBase == null || newBase.isBlank() ? sourceBase : newBase);
-        String targetDlc = normalizeVersion(newDlc == null || newDlc.isBlank() ? sourceDlc : newDlc);
-        boolean baseChanged = !sourceBase.equals(targetBase);
-        boolean dlcChanged = !sourceDlc.equals(targetDlc);
-        if (baseChanged && dlcChanged) {
-            return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
-        }
-        if (baseChanged) {
-            return new String[] {sourceBase, targetBase};
-        }
-        if (dlcChanged) {
-            return new String[] {sourceDlc, targetDlc};
-        }
-        return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
-    }
-
-    private boolean tryShowPostUpdateDownloads(UpdateApplyResult result) {
-        if (result == null || !result.isSuccess()) {
-            return false;
-        }
-        if (result.hasRequiredAdd()) {
-            java.util.List<DlcRequiredEntry> missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
-            if (!missing.isEmpty()) {
-                Minecraft.getInstance().setScreen(new DlcRequiredDownloadScreen(parent, missing, result));
-                return true;
-            }
-        }
-        if (result.hasRemoteAdd()) {
-            java.util.List<DlcRemoteEntry> missing = DlcRemoteManager.collectMissing();
-            if (!missing.isEmpty()) {
-                Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(createSuccessResultScreen(result), missing));
-                return true;
-            }
-            return false;
-        }
-        return false;
-    }
-
-    private Screen createSuccessResultScreen(UpdateApplyResult result) {
-        Component message = Component.translatable("dlc_manager.update.success");
-        return new DlcUpdateResultScreen(parent, true, message);
-    }
-
-    private void showToast(Component title, Component desc) {
-        Minecraft minecraft = Minecraft.getInstance();
-        SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title, desc);
     }
 
     private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {

@@ -46,7 +46,7 @@ public class DlcUpdateResultScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 40;
         int titleX = (this.width - this.font.width(getTitle())) / 2;
@@ -61,5 +61,6 @@ public class DlcUpdateResultScreen extends Screen {
             y += 14;
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.restart"), centerX, y, 0xC8C8C8);
         }
+        super.render(guiGraphics, mouseX, mouseY, partialTick);
     }
 }

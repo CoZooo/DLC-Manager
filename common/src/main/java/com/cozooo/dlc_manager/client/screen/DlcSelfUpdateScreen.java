@@ -68,7 +68,7 @@ public class DlcSelfUpdateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 30;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);

@@ -697,6 +697,10 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         DlcApplier.ApplyResult applyResult = null;
         if (applyNeeded) {
             applyResult = DlcApplier.apply(allItems, applyMode);
+            if (applyResult != null && applyResult.helperScheduled()) {
+                modReloadNeeded = true;
+                otherReloadNeeded = false;
+            }
             updateResourcePackSelection();
             if (shouldShowApplyFailureScreen(applyResult)) {
                 showApplyFailureScreen(applyResult);
@@ -724,8 +728,11 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             return;
         }
 
+        boolean helperScheduled = applyResult != null && applyResult.helperScheduled();
         String message;
-        if (modReloadNeeded) {
+        if (helperScheduled) {
+            message = "dlc_manager.apply.deferred_restart";
+        } else if (modReloadNeeded) {
             message = "dlc_manager.message.restart";
         } else if (otherReloadNeeded && applyMode == ApplyMode.TRY_HOT_RELOAD) {
             message = "dlc_manager.message.reload_prompt";

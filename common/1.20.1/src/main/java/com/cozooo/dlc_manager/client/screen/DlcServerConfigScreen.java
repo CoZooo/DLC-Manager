@@ -367,7 +367,7 @@ public class DlcServerConfigScreen extends Screen {
 
         JsonObject api = new JsonObject();
         api.addProperty("apiEnabled", apiEnabled);
-        api.addProperty("apiPort", clampInt(parseInt(apiPortField.getValue(), DlcPathConfig.getApiPort()), 1, 65535));
+        api.addProperty("apiPort", clampInt(parseInt(apiPortField.getValue(), DlcPathConfig.getApiPort()), 0, 65535));
         api.addProperty("apiToken", apiTokenField.getValue());
         root.add("api", api);
 

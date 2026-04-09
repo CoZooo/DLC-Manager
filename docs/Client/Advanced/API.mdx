@@ -1,10 +1,14 @@
-# External API
+# API
 
-This page documents the currently implemented DLC Manager external API.
+This page documents the currently implemented DLC Manager API.
 
 The API is available on both:
 - client
 - dedicated server
+
+There are now two access modes:
+- Java API: in-process calls through `DlcApiService`
+- HTTP API: external calls through `/api/...`
 
 ## Enable API
 
@@ -18,21 +22,56 @@ apiToken = "your_token_here"
 ```
 
 Fields:
-- `apiEnabled`: whether to enable the API service
-- `apiPort`: API port, default `10086`
-- `apiToken`: bearer token used for authentication
+- `apiEnabled`: total API switch. When `false`, both Java API and HTTP API are disabled
+- `apiPort`: HTTP API port. Default `10086`. Set to `0` to disable only the HTTP API while keeping the Java API enabled
+- `apiToken`: bearer token used for HTTP authentication
+
+Effective behavior:
+- `apiEnabled = false`: Java API disabled, HTTP API disabled
+- `apiEnabled = true` and `apiPort = 0`: Java API enabled, HTTP API disabled
+- `apiEnabled = true` and `apiPort > 0`: Java API enabled, HTTP API enabled
 
 ## Authentication
 
-All routes require:
+All HTTP routes require:
 
 ```http
 Authorization: Bearer <apiToken>
 ```
 
-If `apiToken` is empty, all requests are rejected.
+If `apiToken` is empty, all HTTP requests are rejected.
 
-## Common Rules
+The Java API does not use HTTP bearer authentication.
+
+## Java API
+
+The in-process API entry is:
+
+- `com.cozooo.dlc_manager.server.DlcApiService`
+
+Current direct Java methods include:
+- `ping()`
+- `version()`
+- `state()`
+- `listDlc()`
+- `listPendingDlc()`
+- `setDlcEnabled(JsonObject request, boolean enabled)`
+- `applyDlc(JsonObject request)`
+
+Each Java method returns:
+
+```java
+DlcApiService.ApiResult
+```
+
+The result structure matches the HTTP response model:
+- `status`
+- `body`
+- `ok()`
+- `data()`
+- `error()`
+
+## HTTP API Rules
 
 - Base path: `/api`
 - Response format:
@@ -70,6 +109,7 @@ Health check.
 Response fields:
 - `service`
 - `running`
+- `httpRunning`
 - `mode`
 
 ### `GET /api/version`

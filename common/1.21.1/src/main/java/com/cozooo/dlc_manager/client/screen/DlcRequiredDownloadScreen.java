@@ -240,7 +240,6 @@ public class DlcRequiredDownloadScreen extends Screen {
             y = this.height - 70;
             guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B);
         }
-
     }
 
     @Override
@@ -817,15 +816,15 @@ public class DlcRequiredDownloadScreen extends Screen {
                 }
             }
         }
-        if (!didApply && !updateApplied) {
-            Minecraft.getInstance().execute(() -> minecraft.setScreen(parent));
-            return;
-        }
         if (postUpdateResult != null) {
             if (tryShowPostUpdateDownloads(postUpdateResult)) {
                 return;
             }
             Minecraft.getInstance().execute(() -> minecraft.setScreen(createPostUpdateResultScreen(postUpdateResult)));
+            return;
+        }
+        if (!didApply && !updateApplied) {
+            Minecraft.getInstance().execute(() -> minecraft.setScreen(parent));
             return;
         }
         if (forceRestartRequired) {
@@ -909,7 +908,9 @@ public class DlcRequiredDownloadScreen extends Screen {
     }
 
     private Screen createPostUpdateResultScreen(UpdateApplyResult result) {
-        Component message = Component.translatable("dlc_manager.update.success");
+        Component message = result != null && result.isHelperScheduled()
+            ? Component.translatable("dlc_manager.update.deferred_restart")
+            : Component.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
 

@@ -19,7 +19,7 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword");
     private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcPathConfig.DEFAULT_API_ENABLED,
         "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
-    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 1, 65535,
+    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 0, 65535,
         "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
     private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", "",
         "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");

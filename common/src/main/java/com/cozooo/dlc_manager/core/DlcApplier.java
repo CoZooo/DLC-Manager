@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.core;
 
+import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
+
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -12,48 +14,56 @@ import java.util.List;
 
 public class DlcApplier {
     private static final String CONFIG_MISSING_MARKER = "__dlc_config_missing__";
+    private static final ThreadLocal<ApplyContext> CURRENT_APPLY_CONTEXT = new ThreadLocal<>();
 
     public static ApplyResult apply(List<DlcItem> items, ApplyMode mode) {
         List<String> messages = new ArrayList<>();
         boolean requiresRestart = false;
         boolean attemptedHotReload = false;
+        ApplyContext context = new ApplyContext(messages);
+        CURRENT_APPLY_CONTEXT.set(context);
 
-        for (DlcItem item : items) {
-            DlcConfig.DlcState previous = DlcConfig.getState(item.getId());
-            boolean wasEnabled = previous != null && previous.enabled;
-            if (item.isEnabled() != wasEnabled && requiresRestartOnToggle(item)) {
-                requiresRestart = true;
-            }
-
-            if (item.isEnabled()) {
-                if (!wasEnabled) {
-                    messages.add("Enabled " + item.getName());
+        try {
+            for (DlcItem item : items) {
+                DlcConfig.DlcState previous = DlcConfig.getState(item.getId());
+                boolean wasEnabled = previous != null && previous.enabled;
+                if (item.isEnabled() != wasEnabled && requiresRestartOnToggle(item)) {
+                    requiresRestart = true;
                 }
-                List<Path> statePaths = applyItem(item, wasEnabled);
-                if (!statePaths.isEmpty()) {
+
+                if (item.isEnabled()) {
+                    if (!wasEnabled) {
+                        messages.add("Enabled " + item.getName());
+                    }
+                    List<Path> statePaths = applyItem(item, wasEnabled);
+                    if (!statePaths.isEmpty()) {
+                        DlcConfig.DlcState state = new DlcConfig.DlcState();
+                        state.enabled = true;
+                        state.appliedTargets = statePaths.stream()
+                            .map(DlcApplier::toGameRelativePath)
+                            .toList();
+                        DlcConfig.setState(item.getId(), state);
+                    }
+                } else {
+                    if (wasEnabled) {
+                        messages.add("Disabled " + item.getName());
+                        RemovalResult removal = removeItem(item, previous);
+                        messages.addAll(removal.messages());
+                    }
                     DlcConfig.DlcState state = new DlcConfig.DlcState();
-                    state.enabled = true;
-                    state.appliedTargets = statePaths.stream()
-                        .map(DlcApplier::toGameRelativePath)
-                        .toList();
+                    state.enabled = false;
+                    state.appliedTargets = List.of();
                     DlcConfig.setState(item.getId(), state);
                 }
-            } else {
-                if (wasEnabled) {
-                    messages.add("Disabled " + item.getName());
-                    RemovalResult removal = removeItem(item, previous);
-                    messages.addAll(removal.messages());
-                }
-                DlcConfig.DlcState state = new DlcConfig.DlcState();
-                state.enabled = false;
-                state.appliedTargets = List.of();
-                DlcConfig.setState(item.getId(), state);
             }
+        } finally {
+            CURRENT_APPLY_CONTEXT.remove();
         }
 
+        requiresRestart = requiresRestart || context.helperScheduled;
         DlcConfig.save();
 
-        return new ApplyResult(messages, requiresRestart, attemptedHotReload);
+        return new ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled);
     }
 
     private static boolean requiresRestartOnToggle(DlcItem item) {
@@ -125,6 +135,7 @@ public class DlcApplier {
                 statePaths.add(target);
             }
         } catch (IOException ignored) {
+            recordApplyFailure(ignored);
         }
 
         return statePaths;
@@ -182,7 +193,7 @@ public class DlcApplier {
             return new RemovalResult(messages);
         }
         if (DlcConfigDlcSupport.isConfigType(item)) {
-            restoreConfigItem(item, previous);
+            restoreConfigItem(item, previous, messages);
             return new RemovalResult(messages);
         }
         List<String> failedPaths = new ArrayList<>();
@@ -191,6 +202,11 @@ public class DlcApplier {
             try {
                 deleteRecursive(resolved);
             } catch (IOException ignored) {
+                String message = ignored.getMessage();
+                if (message != null && message.startsWith("Failed to ")) {
+                    messages.add(message);
+                    continue;
+                }
                 if (resolved != null) {
                     failedPaths.add(toGameRelativePath(resolved));
                 }
@@ -202,7 +218,7 @@ public class DlcApplier {
         return new RemovalResult(messages);
     }
 
-    private static void restoreConfigItem(DlcItem item, DlcConfig.DlcState previous) {
+    private static void restoreConfigItem(DlcItem item, DlcConfig.DlcState previous, List<String> messages) {
         List<Path> targets = resolveConfigTargets(item);
         List<String> stored = previous.appliedTargets == null ? List.of() : previous.appliedTargets;
         for (int i = 0; i < targets.size(); i++) {
@@ -234,6 +250,12 @@ public class DlcApplier {
                 deleteRecursiveIfExists(backupPath);
                 deleteRecursiveIfExists(markerPath);
             } catch (IOException ignored) {
+                String message = ignored.getMessage();
+                if (message != null && message.startsWith("Failed to ")) {
+                    messages.add(message);
+                } else if (target != null) {
+                    messages.add("Failed to restore: " + toGameRelativePath(target));
+                }
             }
         }
     }
@@ -355,17 +377,60 @@ public class DlcApplier {
         if (source == null || target == null) {
             return;
         }
+        if (DlcFileOpsHelperClient.cancelPendingDelete(target) && Files.exists(target)) {
+            return;
+        }
         if (target.getParent() != null) {
             Files.createDirectories(target.getParent());
         }
-        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        try {
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleCopy(source, target, true);
+            if (result.ok()) {
+                markHelperScheduled();
+                return;
+            }
+            throw new IOException(result.message(), exception);
+        }
     }
 
     private static void deleteWithHelperFallback(Path path) throws IOException {
         if (path == null) {
             return;
         }
-        Files.deleteIfExists(path);
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException exception) {
+            DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleDelete(path);
+            if (result.ok()) {
+                markHelperScheduled();
+                return;
+            }
+            throw new IOException(result.message(), exception);
+        }
+    }
+
+    private static void recordApplyFailure(IOException exception) {
+        if (exception == null) {
+            return;
+        }
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) {
+            return;
+        }
+        ApplyContext context = CURRENT_APPLY_CONTEXT.get();
+        if (context == null || context.messages.contains(message)) {
+            return;
+        }
+        context.messages.add(message);
+    }
+
+    private static void markHelperScheduled() {
+        ApplyContext context = CURRENT_APPLY_CONTEXT.get();
+        if (context != null) {
+            context.helperScheduled = true;
+        }
     }
 
     private static String toGameRelativePath(Path path) {
@@ -404,5 +469,14 @@ public class DlcApplier {
 
     private record RemovalResult(List<String> messages) {}
 
-    public record ApplyResult(List<String> messages, boolean requiresRestart, boolean hotReloaded) {}
+    private static final class ApplyContext {
+        private final List<String> messages;
+        private boolean helperScheduled;
+
+        private ApplyContext(List<String> messages) {
+            this.messages = messages;
+        }
+    }
+
+    public record ApplyResult(List<String> messages, boolean requiresRestart, boolean hotReloaded, boolean helperScheduled) {}
 }

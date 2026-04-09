@@ -103,6 +103,18 @@ run_export() {
 }
 
 case "${MODE}" in
+  helperBuild)
+    TASKS=(helperBuild)
+    ;;
+  helperCheck)
+    TASKS=(helperCheck)
+    ;;
+  helperClean)
+    TASKS=(helperClean)
+    ;;
+  helperPublish)
+    TASKS=(helperPublish)
+    ;;
   build)
     TASKS=(build)
     ;;
@@ -124,8 +136,14 @@ case "${MODE}" in
   publish)
     TASKS=(archPublish)
     ;;
+  publishMaven)
+    TASKS=(archPublishMaven)
+    ;;
   archPublish)
     TASKS=(archPublish)
+    ;;
+  archPublishMaven)
+    TASKS=(archPublishMaven)
     ;;
   all)
     TASKS=(check build obfuscateAllYguard)
@@ -135,7 +153,7 @@ case "${MODE}" in
     exit 0
     ;;
   *)
-    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|archPublish|all|export]"
+    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|publishMaven|archPublish|archPublishMaven|all|export|helperBuild|helperCheck|helperClean|helperPublish]"
     exit 1
     ;;
 esac

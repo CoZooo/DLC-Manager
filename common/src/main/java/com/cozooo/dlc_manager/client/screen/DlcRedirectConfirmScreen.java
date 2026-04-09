@@ -8,6 +8,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+
 import java.util.List;
 
 public class DlcRedirectConfirmScreen extends Screen {
@@ -76,7 +77,7 @@ public class DlcRedirectConfirmScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int y = textTop;
         int centerX = this.width / 2;
         Component header = Component.translatable("dlc_manager.redirect.header").withStyle(net.minecraft.ChatFormatting.BOLD);
