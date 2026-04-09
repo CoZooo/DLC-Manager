@@ -51,22 +51,6 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   if (name === "version.dc") {
     return "version";
   }
-  if (name === "meta.dc") {
-    return "meta";
-  }
-  if (name === "state.dc") {
-    return "state";
-  }
-  if (name === "update_skip.dc") {
-    return "update_skip";
-  }
-  if (name === "config.dc") {
-    return "config_client";
-  }
-  if (name === "server-config.dc" || name === "server_config.dc") {
-    return "config_server";
-  }
-
   if (lowerPath.includes("/remote/") || lowerPath.includes("\\remote\\")) {
     return "remote";
   }
@@ -100,12 +84,6 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   }
   if (hasAssignment(body, "enable") && body.includes("[displayname]") && body.includes("[tip]")) {
     return "preset";
-  }
-  if (body.includes("[server]") && body.includes("serverport")) {
-    return "config_server";
-  }
-  if (body.includes("[downloads]") && body.includes("maxconcurrentdownloads")) {
-    return "config_client";
   }
   if (body.includes("redirecturl")) {
     return "redirect";

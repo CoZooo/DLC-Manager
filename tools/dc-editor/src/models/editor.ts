@@ -9,12 +9,7 @@ export type DocumentType =
   | "notice"
   | "redirect"
   | "update"
-  | "version"
-  | "meta"
-  | "state"
-  | "update_skip"
-  | "config_client"
-  | "config_server";
+  | "version";
 
 export type FieldKind =
   | "text"

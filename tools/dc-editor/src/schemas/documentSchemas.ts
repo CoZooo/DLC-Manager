@@ -618,149 +618,6 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       }
     ]
-  },
-  meta: {
-    type: "meta",
-    label: "Meta",
-    summary: "编辑 meta.dc。第一阶段以原文模式为主。",
-    defaultFileName: "meta.dc",
-    supportsStructured: false,
-    sections: []
-  },
-  state: {
-    type: "state",
-    label: "State",
-    summary: "编辑 state.dc。第一阶段以原文模式为主。",
-    defaultFileName: "state.dc",
-    supportsStructured: false,
-    sections: []
-  },
-  update_skip: {
-    type: "update_skip",
-    label: "Update Skip",
-    summary: "编辑 update_skip.dc。第一阶段以原文模式为主。",
-    defaultFileName: "update_skip.dc",
-    supportsStructured: false,
-    sections: []
-  },
-  config_client: {
-    type: "config_client",
-    label: "Client Config",
-    summary: "编辑客户端 config/dlc_manager/config.dc。",
-    defaultFileName: "config.dc",
-    supportsStructured: true,
-    sections: [
-      {
-        key: "paths",
-        label: "[paths]",
-        fields: [
-          { key: "dlcRoot", label: "dlcRoot", kind: "text" },
-          { key: "taczRoot", label: "taczRoot", kind: "text" },
-          { key: "resourcepackRoot", label: "resourcepackRoot", kind: "text" },
-          { key: "datapackRoot", label: "datapackRoot", kind: "text" }
-        ]
-      },
-      {
-        key: "ui",
-        label: "[ui]",
-        fields: [
-          { key: "isEnableAllButtonShown", label: "isEnableAllButtonShown", kind: "boolean" },
-          { key: "isConfigButtonShown", label: "isConfigButtonShown", kind: "boolean" },
-          { key: "isUButtomShown", label: "isUButtomShown", kind: "boolean" },
-          { key: "isUpdateManagerOn", label: "isUpdateManagerOn", kind: "boolean" },
-          { key: "isSelfUpdateAutoCheckOn", label: "isSelfUpdateAutoCheckOn", kind: "boolean" },
-          { key: "isPresetFuncOn", label: "isPresetFuncOn", kind: "boolean" },
-          { key: "ShowOnFirstRun", label: "ShowOnFirstRun", kind: "boolean" },
-          { key: "WaitingTime", label: "WaitingTime", kind: "number" },
-          { key: "serverSupport", label: "serverSupport", kind: "boolean" },
-          { key: "titleAnchor", label: "titleAnchor", kind: "text" },
-          { key: "titleOffsetX", label: "titleOffsetX", kind: "number" },
-          { key: "titleOffsetY", label: "titleOffsetY", kind: "number" },
-          { key: "titleUpdateAnchor", label: "titleUpdateAnchor", kind: "text" },
-          { key: "titleUpdateOffsetX", label: "titleUpdateOffsetX", kind: "number" },
-          { key: "titleUpdateOffsetY", label: "titleUpdateOffsetY", kind: "number" },
-          { key: "noticeDisplayMode", label: "noticeDisplayMode", kind: "text" },
-          { key: "noticeButtonAnchor", label: "noticeButtonAnchor", kind: "text" },
-          { key: "noticeButtonOffsetX", label: "noticeButtonOffsetX", kind: "number" },
-          { key: "noticeButtonOffsetY", label: "noticeButtonOffsetY", kind: "number" },
-          { key: "noticePanelAnchor", label: "noticePanelAnchor", kind: "text" },
-          { key: "noticePanelOffsetX", label: "noticePanelOffsetX", kind: "number" },
-          { key: "noticePanelOffsetY", label: "noticePanelOffsetY", kind: "number" },
-          { key: "noticePanelWidth", label: "noticePanelWidth", kind: "number" },
-          { key: "noticePanelHeight", label: "noticePanelHeight", kind: "number" },
-          { key: "modpackUrl", label: "modpackUrl", kind: "text" },
-          { key: "updateGithubRepo", label: "updateGithubRepo", kind: "textarea" }
-        ]
-      },
-      {
-        key: "downloads",
-        label: "[downloads]",
-        fields: [
-          { key: "maxConcurrentDownloads", label: "maxConcurrentDownloads", kind: "number" },
-          { key: "maxSegmentsPerFile", label: "maxSegmentsPerFile", kind: "number" },
-          { key: "minSegmentMB", label: "minSegmentMB", kind: "number" },
-          { key: "maxRetryCount", label: "maxRetryCount", kind: "number" },
-          { key: "connectTimeoutSeconds", label: "connectTimeoutSeconds", kind: "number" },
-          { key: "taskTimeoutSeconds", label: "taskTimeoutSeconds", kind: "number" }
-        ]
-      }
-    ]
-  },
-  config_server: {
-    type: "config_server",
-    label: "Server Config",
-    summary: "编辑服务端配置 dc 文件。",
-    defaultFileName: "server-config.dc",
-    supportsStructured: true,
-    sections: [
-      {
-        key: "server",
-        label: "[server]",
-        fields: [
-          { key: "serverSupport", label: "serverSupport", kind: "boolean" },
-          { key: "serverPort", label: "serverPort", kind: "number" },
-          { key: "serverPassword", label: "serverPassword", kind: "text" },
-          { key: "modpackUrl", label: "modpackUrl", kind: "text" },
-          { key: "updateGithubRepo", label: "updateGithubRepo", kind: "textarea" },
-          { key: "rconHost", label: "rconHost", kind: "text" },
-          { key: "rconPort", label: "rconPort", kind: "number" },
-          { key: "rconPassword", label: "rconPassword", kind: "text" }
-        ]
-      },
-      {
-        key: "ui",
-        label: "[ui]",
-        fields: [
-          { key: "isEnableAllButtonShown", label: "isEnableAllButtonShown", kind: "boolean" },
-          { key: "isUpdateManagerOn", label: "isUpdateManagerOn", kind: "boolean" },
-          { key: "isSelfUpdateAutoCheckOn", label: "isSelfUpdateAutoCheckOn", kind: "boolean" },
-          { key: "isPresetFuncOn", label: "isPresetFuncOn", kind: "boolean" },
-          { key: "WaitingTime", label: "WaitingTime", kind: "number" }
-        ]
-      },
-      {
-        key: "paths",
-        label: "[paths]",
-        fields: [
-          { key: "dlcRoot", label: "dlcRoot", kind: "text" },
-          { key: "taczRoot", label: "taczRoot", kind: "text" },
-          { key: "resourcepackRoot", label: "resourcepackRoot", kind: "text" },
-          { key: "datapackRoot", label: "datapackRoot", kind: "text" }
-        ]
-      },
-      {
-        key: "downloads",
-        label: "[downloads]",
-        fields: [
-          { key: "maxConcurrentDownloads", label: "maxConcurrentDownloads", kind: "number" },
-          { key: "maxSegmentsPerFile", label: "maxSegmentsPerFile", kind: "number" },
-          { key: "minSegmentMB", label: "minSegmentMB", kind: "number" },
-          { key: "maxRetryCount", label: "maxRetryCount", kind: "number" },
-          { key: "connectTimeoutSeconds", label: "connectTimeoutSeconds", kind: "number" },
-          { key: "taskTimeoutSeconds", label: "taskTimeoutSeconds", kind: "number" }
-        ]
-      }
-    ]
   }
 };
 
@@ -773,12 +630,7 @@ export const orderedDocumentTypes: DocumentType[] = [
   "notice",
   "redirect",
   "update",
-  "version",
-  "meta",
-  "state",
-  "update_skip",
-  "config_client",
-  "config_server"
+  "version"
 ];
 
 export const configurableDocumentTypes: DocumentType[] = [
@@ -793,10 +645,5 @@ export const configurableDocumentTypes: DocumentType[] = [
 ];
 
 export const internalDocumentTypes = new Set<DocumentType>([
-  "required_notice",
-  "meta",
-  "state",
-  "update_skip",
-  "config_client",
-  "config_server"
+  "required_notice"
 ]);
