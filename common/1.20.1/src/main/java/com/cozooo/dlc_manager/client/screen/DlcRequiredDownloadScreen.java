@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.client.DlcClientRuntime;
 import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
@@ -108,7 +109,9 @@ public class DlcRequiredDownloadScreen extends Screen {
                     Minecraft.getInstance().setScreen(createPostUpdateResultScreen(postUpdateResult));
                 }
             } else {
-                Minecraft.getInstance().setScreen(parent);
+                if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
+                    Minecraft.getInstance().setScreen(parent);
+                }
             }
             return;
         }
@@ -131,7 +134,9 @@ public class DlcRequiredDownloadScreen extends Screen {
                     Minecraft.getInstance().setScreen(createPostUpdateResultScreen(postUpdateResult));
                 }
             } else {
-                Minecraft.getInstance().setScreen(parent);
+                if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
+                    Minecraft.getInstance().setScreen(parent);
+                }
             }
         }).bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight).build();
         skipButton.visible = !forceRequired;
@@ -342,7 +347,9 @@ public class DlcRequiredDownloadScreen extends Screen {
         scrollIndex = 0;
         Minecraft.getInstance().execute(() -> {
             if (downloadQueue.isEmpty() && applyQueue.isEmpty()) {
-                Minecraft.getInstance().setScreen(parent);
+                if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
+                    Minecraft.getInstance().setScreen(parent);
+                }
                 return;
             }
             if (downloadButton != null) {
@@ -826,7 +833,11 @@ public class DlcRequiredDownloadScreen extends Screen {
             return;
         }
         if (!didApply && !updateApplied) {
-            Minecraft.getInstance().execute(() -> minecraft.setScreen(parent));
+            Minecraft.getInstance().execute(() -> {
+                if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
+                    minecraft.setScreen(parent);
+                }
+            });
             return;
         }
         if (forceRestartRequired) {
@@ -864,7 +875,9 @@ public class DlcRequiredDownloadScreen extends Screen {
             if (accepted) {
                 minecraft.stop();
             } else {
-                minecraft.setScreen(parent);
+                if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
+                    minecraft.setScreen(parent);
+                }
             }
         }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.required.restart_prompt"),
             Component.translatable("dlc_manager.restart_now"),

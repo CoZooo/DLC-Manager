@@ -126,10 +126,13 @@ public final class DlcClientRuntime {
             return;
         }
         Path markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME);
+        if (Files.exists(markerPath)) {
+            return;
+        }
+        if (DlcRequiredManager.tryShowFromTitle(parent)) {
+            return;
+        }
         try {
-            if (Files.exists(markerPath)) {
-                return;
-            }
             Files.createDirectories(dlcRoot);
             Files.createFile(markerPath);
         } catch (IOException ignored) {
@@ -140,6 +143,35 @@ public final class DlcClientRuntime {
             return;
         }
         Minecraft.getInstance().setScreen(managerScreen);
+    }
+
+    public static boolean tryContinueFirstRun(Screen parent) {
+        if (parent == null || !(parent instanceof net.minecraft.client.gui.screens.TitleScreen)) {
+            return false;
+        }
+        if (!DlcPathConfig.isShowOnFirstRun()) {
+            return false;
+        }
+        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        if (dlcRoot == null) {
+            return false;
+        }
+        Path markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME);
+        if (Files.exists(markerPath)) {
+            return false;
+        }
+        try {
+            Files.createDirectories(dlcRoot);
+            Files.createFile(markerPath);
+        } catch (IOException ignored) {
+            return false;
+        }
+        Screen managerScreen = new DlcMaLiLibScreen(parent);
+        if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
+            return true;
+        }
+        Minecraft.getInstance().setScreen(managerScreen);
+        return true;
     }
 
     public static void renderTitleNoticePanel(Screen screen, GuiGraphics guiGraphics) {
