@@ -1,9 +1,9 @@
 package com.cozooo.dlc_manager.client.required;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -34,9 +34,7 @@ public final class DlcRequiredNotice {
             return new DlcRequiredNotice(download, manage);
         }
         Path requiredDir = dlcRoot.resolve("required");
-        Json5Util.migrateLegacy(requiredDir.resolve("notice.json"), GSON);
-        Path noticePath = Json5Util.resolveConfigPath(requiredDir, "notice");
-        noticePath = Json5Util.migrateLegacy(noticePath, GSON);
+        Path noticePath = DcFormatUtil.resolveConfigPath(requiredDir, "notice");
         ensureNoticeFile(noticePath);
         if (!Files.exists(noticePath)) {
             return new DlcRequiredNotice(download, manage);

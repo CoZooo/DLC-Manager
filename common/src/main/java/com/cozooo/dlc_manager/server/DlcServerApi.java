@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.ApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
@@ -19,7 +20,6 @@ import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -1347,7 +1347,7 @@ public final class DlcServerApi {
         Path temp = null;
         try {
             String fileName = (name == null || name.isBlank()) ? defaultFileName(type) : name;
-            temp = Files.createTempFile(stripExtension(fileName), Json5Util.DC_EXTENSION);
+            temp = Files.createTempFile(stripExtension(fileName), DcFormatUtil.DC_EXTENSION);
             Files.writeString(temp, content, StandardCharsets.UTF_8);
             DcConfigIO.Layout layout = usesStructuredLayout(type) ? DcConfigIO.Layout.DLC_STRUCTURED : DcConfigIO.Layout.GENERIC;
             return DcConfigIO.read(temp, layout);

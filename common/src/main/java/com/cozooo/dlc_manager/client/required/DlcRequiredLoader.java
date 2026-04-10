@@ -1,14 +1,11 @@
 package com.cozooo.dlc_manager.client.required;
 
 import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -17,8 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class DlcRequiredLoader {
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
-
     private DlcRequiredLoader() {
     }
 
@@ -37,14 +32,13 @@ public final class DlcRequiredLoader {
                     continue;
                 }
                 String fileName = path.getFileName().toString();
-                if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                if (!DcFormatUtil.isDcName(fileName)) {
                     continue;
                 }
                 if (isNoticeConfig(fileName)) {
                     continue;
                 }
-                Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
-                DlcRequiredEntry entry = readEntry(migrated, requiredDir);
+                DlcRequiredEntry entry = readEntry(path, requiredDir);
                 if (entry != null && entry.isInList()) {
                     entries.add(entry);
                 }
@@ -66,8 +60,7 @@ public final class DlcRequiredLoader {
         if (!Files.exists(configPath)) {
             return null;
         }
-        Path migrated = Json5Util.migrateLegacy(configPath, PRETTY_GSON);
-        return readEntry(migrated, requiredDir);
+        return readEntry(configPath, requiredDir);
     }
 
     private static DlcRequiredEntry readEntry(Path path, Path requiredDir) {
@@ -86,15 +79,6 @@ public final class DlcRequiredLoader {
             if (needsKeyMigration(obj) || needsDcLayoutMigration(path)) {
                 DcFormatUtil.write(path, normalized.ordered);
             }
-        } else {
-            Path dcPath = Json5Util.toDcPath(path);
-            if (dcPath != null && DcFormatUtil.write(dcPath, normalized.ordered)) {
-                try {
-                    Files.deleteIfExists(path);
-                    path = dcPath;
-                } catch (IOException ignored) {
-                }
-            }
         }
         return normalized.entry;
     }
@@ -105,10 +89,6 @@ public final class DlcRequiredLoader {
         }
         if (DcFormatUtil.isDcName(path.getFileName().toString())) {
             return DcFormatUtil.read(path);
-        }
-        JsonElement element = Json5Util.readElement(path);
-        if (element != null && element.isJsonObject()) {
-            return element.getAsJsonObject();
         }
         return null;
     }
@@ -121,22 +101,14 @@ public final class DlcRequiredLoader {
             return configPath;
         }
         String name = configPath.getFileName().toString();
-        String base = Json5Util.stripJsonExtension(name);
+        String base = DcFormatUtil.stripConfigExtension(name);
         Path parent = configPath.getParent();
         if (parent == null) {
             return configPath;
         }
-        Path dc = parent.resolve(base + Json5Util.DC_EXTENSION);
+        Path dc = parent.resolve(base + DcFormatUtil.DC_EXTENSION);
         if (Files.exists(dc)) {
             return dc;
-        }
-        Path json5 = parent.resolve(base + Json5Util.JSON5_EXTENSION);
-        if (Files.exists(json5)) {
-            return json5;
-        }
-        Path json = parent.resolve(base + Json5Util.JSON_EXTENSION);
-        if (Files.exists(json)) {
-            return json;
         }
         return configPath;
     }
@@ -145,7 +117,7 @@ public final class DlcRequiredLoader {
         if (fileName == null || fileName.isBlank()) {
             return false;
         }
-        return "notice".equalsIgnoreCase(Json5Util.stripJsonExtension(fileName));
+        return "notice".equalsIgnoreCase(DcFormatUtil.stripConfigExtension(fileName));
     }
 
     public static DlcRequiredEntry fromJsonObject(JsonObject obj, Path requiredDir, Path configPath, String defaultIdentifier) {

@@ -5,7 +5,6 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.Json5Util;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -503,7 +502,7 @@ public final class DlcRequiredRuntime {
         try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
             for (Path path : stream) {
                 String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (!Json5Util.isJsonLikeName(name) && !name.endsWith(".part")) {
+                if (!DcFormatUtil.isDcName(name) && !name.endsWith(".part")) {
                     return name;
                 }
             }
@@ -593,7 +592,7 @@ public final class DlcRequiredRuntime {
         if (config == null || ordered == null) {
             return null;
         }
-        Path target = Json5Util.toDcPath(config);
+        Path target = DcFormatUtil.toDcPath(config);
         if (target == null) {
             return null;
         }
@@ -724,7 +723,7 @@ public final class DlcRequiredRuntime {
         if (trimmed.isEmpty()) {
             return null;
         }
-        if (Json5Util.isJsonLikeName(trimmed)) {
+        if (DcFormatUtil.isDcName(trimmed)) {
             return null;
         }
         return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");

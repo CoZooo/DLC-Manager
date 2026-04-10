@@ -7,7 +7,6 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -84,7 +83,7 @@ public final class DlcRemoteRuntime {
             return;
         }
         JsonObject reordered = reorderRemoteJson(obj, normalized);
-        Path target = Json5Util.toDcPath(config);
+        Path target = DcFormatUtil.toDcPath(config);
         if (target != null && DcFormatUtil.write(target, reordered)) {
             if (!target.equals(config)) {
                 try {
@@ -306,7 +305,7 @@ public final class DlcRemoteRuntime {
         if (trimmed.isEmpty()) {
             return null;
         }
-        if (Json5Util.isJsonLikeName(trimmed)) {
+        if (DcFormatUtil.isDcName(trimmed)) {
             return null;
         }
         return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");

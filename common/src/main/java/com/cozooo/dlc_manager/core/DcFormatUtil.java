@@ -43,17 +43,18 @@ public final class DcFormatUtil {
         return parent.resolve(base + DC_EXTENSION);
     }
 
+    public static Path resolveConfigPath(Path dir, String baseName) {
+        if (dir == null || baseName == null || baseName.isBlank()) {
+            return null;
+        }
+        return dir.resolve(baseName + DC_EXTENSION);
+    }
+
     public static String stripConfigExtension(String name) {
         if (name == null) {
             return "";
         }
         String lower = name.toLowerCase(Locale.ROOT);
-        if (lower.endsWith(".json5")) {
-            return name.substring(0, name.length() - 6);
-        }
-        if (lower.endsWith(".json")) {
-            return name.substring(0, name.length() - 5);
-        }
         if (lower.endsWith(DC_EXTENSION)) {
             return name.substring(0, name.length() - DC_EXTENSION.length());
         }
@@ -69,12 +70,6 @@ public final class DcFormatUtil {
             lines = Files.readAllLines(path);
         } catch (IOException ignored) {
             return null;
-        }
-        if (looksLikeJsonObject(lines)) {
-            JsonElement parsed = Json5Util.readElement(path);
-            if (parsed != null && parsed.isJsonObject()) {
-                return parsed.getAsJsonObject();
-            }
         }
         DlcNode root = new DlcNode();
         ArrayDeque<Frame> stack = new ArrayDeque<>();
@@ -156,28 +151,6 @@ public final class DcFormatUtil {
         return root.toJsonObject();
     }
 
-    private static boolean looksLikeJsonObject(List<String> lines) {
-        if (lines == null) {
-            return false;
-        }
-        for (int i = 0; i < lines.size(); i++) {
-            String raw = lines.get(i);
-            if (raw == null) {
-                continue;
-            }
-            if (i == 0 && raw.startsWith("\uFEFF")) {
-                raw = raw.substring(1);
-            }
-            String noComment = stripComment(raw);
-            if (noComment.isBlank()) {
-                continue;
-            }
-            String trimmed = noComment.stripLeading();
-            return trimmed.startsWith("{");
-        }
-        return false;
-    }
-
     public static String write(JsonObject ordered) {
         if (ordered == null) {
             return "";
@@ -213,6 +186,21 @@ public final class DcFormatUtil {
             return null;
         }
         return readGenericLines(lines);
+    }
+
+    public static JsonElement readElement(Path path) {
+        if (path == null || !Files.exists(path) || !isDcName(path.getFileName() == null ? null : path.getFileName().toString())) {
+            return null;
+        }
+        return readGeneric(path);
+    }
+
+    public static JsonObject readObject(Path path) {
+        JsonElement element = readElement(path);
+        if (element != null && element.isJsonObject()) {
+            return element.getAsJsonObject();
+        }
+        return null;
     }
 
     public static JsonObject readGenericText(String text) {

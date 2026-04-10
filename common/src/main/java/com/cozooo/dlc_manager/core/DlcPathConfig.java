@@ -2,8 +2,6 @@ package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -16,12 +14,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
-import com.cozooo.dlc_manager.core.Json5Util;
-
 public class DlcPathConfig {
     public static final String MOD_ID = "dlc_manager";
-
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String CONFIG_DIR = "dlc_manager";
     private static final String CONFIG_NAME = "config";
     private static final String CONFIG_SERVER_NAME = "config-server";
@@ -895,32 +889,10 @@ public class DlcPathConfig {
     }
 
     private static Path managerConfigPath(Path configDir, String baseName) {
-        return configDir.resolve(baseName + Json5Util.DC_EXTENSION);
+        return configDir.resolve(baseName + DcFormatUtil.DC_EXTENSION);
     }
 
     private static void migrateManagerLegacyJson(Path configDir, String baseName) {
-        Path dcPath = managerConfigPath(configDir, baseName);
-        if (dcPath == null || Files.exists(dcPath)) {
-            return;
-        }
-        Path legacyJson5 = configDir.resolve(baseName + Json5Util.JSON5_EXTENSION);
-        Path legacyJson = configDir.resolve(baseName + Json5Util.JSON_EXTENSION);
-        Path source = Files.exists(legacyJson5) ? legacyJson5 : (Files.exists(legacyJson) ? legacyJson : null);
-        if (source == null) {
-            return;
-        }
-        JsonObject root = DcConfigIO.read(source, DcConfigIO.Layout.GENERIC);
-        if (root == null) {
-            return;
-        }
-        if (!DcConfigIO.write(dcPath, root, DcConfigIO.Layout.GENERIC)) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(legacyJson5);
-            Files.deleteIfExists(legacyJson);
-        } catch (IOException ignored) {
-        }
     }
 
     private static void writePaths(JsonObject root) {
@@ -1267,11 +1239,9 @@ public class DlcPathConfig {
         try (var stream = Files.walk(configDir)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
                 .filter(path -> !isManagerConfigFile(path))
                 .forEach(path -> {
-                    Path migrated = Json5Util.migrateLegacy(path, GSON);
-                    Json5Util.normalizeLegacyKeys(migrated, GSON);
                 });
         } catch (IOException ignored) {
         }
@@ -1281,7 +1251,7 @@ public class DlcPathConfig {
         if (path == null || path.getFileName() == null) {
             return false;
         }
-        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        String base = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
         return CONFIG_NAME.equalsIgnoreCase(base) || CONFIG_SERVER_NAME.equalsIgnoreCase(base);
     }
 
@@ -1309,10 +1279,8 @@ public class DlcPathConfig {
         try (var stream = Files.walk(root)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
-                    Path migrated = Json5Util.migrateLegacy(path, GSON);
-                    Json5Util.normalizeLegacyKeys(migrated, GSON);
                 });
         } catch (IOException ignored) {
         }
@@ -1325,12 +1293,10 @@ public class DlcPathConfig {
         try (var stream = Files.walk(infoRoot)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
-                    String baseName = Json5Util.stripJsonExtension(path.getFileName().toString());
+                    String baseName = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
                     if ("version".equalsIgnoreCase(baseName) || "notice".equalsIgnoreCase(baseName)) {
-                        Path migrated = Json5Util.migrateLegacy(path, GSON);
-                        Json5Util.normalizeLegacyKeys(migrated, GSON);
                         return;
                     }
                     migrateInfoEntryConfig(path);
@@ -1343,16 +1309,13 @@ public class DlcPathConfig {
         if (path == null || !Files.exists(path) || path.getFileName() == null) {
             return;
         }
-        Path migrated = Json5Util.migrateLegacy(path, GSON);
-        Json5Util.normalizeLegacyKeys(migrated, GSON);
-        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
-        JsonObject normalizedElement = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
-        String fallbackName = Json5Util.stripJsonExtension(migrated.getFileName().toString());
-        JsonObject normalized = normalizeInfoEntry(normalizedElement, fallbackName);
-        DcConfigIO.write(migrated, normalized, DcConfigIO.Layout.DLC_STRUCTURED);
+        String fallbackName = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
+        JsonObject normalized = normalizeInfoEntry(obj, fallbackName);
+        DcConfigIO.write(path, normalized, DcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     private static JsonObject normalizeInfoEntry(JsonObject input, String fallbackName) {
@@ -1448,12 +1411,10 @@ public class DlcPathConfig {
         try (var stream = Files.walk(remoteRoot)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
+                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
                     Path normalized = path.normalize();
                     if (normalized.startsWith(redirectRoot)) {
-                        Path migrated = Json5Util.migrateLegacy(path, GSON);
-                        Json5Util.normalizeLegacyKeys(migrated, GSON);
                         return;
                     }
                     migrateRemoteEntryConfig(path);
@@ -1467,50 +1428,18 @@ public class DlcPathConfig {
             return;
         }
         String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (lower.endsWith(Json5Util.JSON_EXTENSION) || lower.endsWith(Json5Util.JSON5_EXTENSION)) {
-            JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
-            if (obj == null) {
-                return;
-            }
-            JsonObject normalized = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
-            Path out = Json5Util.toDcPath(path);
-            if (DcFormatUtil.write(out, normalized)) {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (IOException ignored) {
-                }
-            }
-            return;
-        }
-        if (lower.endsWith(Json5Util.DC_EXTENSION)) {
+        if (lower.endsWith(DcFormatUtil.DC_EXTENSION)) {
             JsonObject obj = readRemoteDcObject(path);
             if (obj == null) {
                 return;
             }
-            JsonObject normalized = Json5Util.normalizeLegacyKeys(obj).getAsJsonObject();
-            DcFormatUtil.write(path, normalized);
+            DcFormatUtil.write(path, obj);
         }
     }
 
     private static JsonObject readRemoteDcObject(Path path) {
         if (path == null || !Files.exists(path)) {
             return null;
-        }
-        String content;
-        try {
-            content = Files.readString(path);
-        } catch (IOException ignored) {
-            return null;
-        }
-        if (content != null) {
-            String trimmed = content.stripLeading();
-            if (trimmed.startsWith("{")) {
-                JsonElement parsed = Json5Util.readElement(path);
-                if (parsed != null && parsed.isJsonObject()) {
-                    return parsed.getAsJsonObject();
-                }
-                return null;
-            }
         }
         return DcFormatUtil.read(path);
     }

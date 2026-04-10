@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.Json5Util;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -73,8 +73,6 @@ public final class DlcUpdateSkipStore {
             return null;
         }
         Path dir = configDir.resolve("dlc_manager");
-        Json5Util.migrateLegacy(dir.resolve(baseName + Json5Util.JSON_EXTENSION), GSON);
-        Path path = Json5Util.resolveConfigPath(dir, baseName);
-        return Json5Util.migrateLegacy(path, GSON);
+        return DcFormatUtil.resolveConfigPath(dir, baseName);
     }
 }

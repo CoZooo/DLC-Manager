@@ -14,12 +14,12 @@ import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredProgressItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -1171,7 +1171,7 @@ public final class DlcServerDownloadService {
                 try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
                     for (Path path : stream) {
                         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!Json5Util.isJsonLikeName(name)) {
+                        if (!DcFormatUtil.isDcName(name)) {
                             return name;
                         }
                     }
@@ -1201,14 +1201,13 @@ public final class DlcServerDownloadService {
                     continue;
                 }
                 String fileName = path.getFileName().toString();
-                if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                if (!DcFormatUtil.isDcName(fileName)) {
                     continue;
                 }
                 if (isNoticeConfig(fileName)) {
                     continue;
                 }
-                Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
-                DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(migrated, dlcRoot);
+                DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(path, dlcRoot);
                 if (entry != null) {
                     fallback.add(entry);
                 }
@@ -1293,7 +1292,7 @@ public final class DlcServerDownloadService {
         if (fileName == null) {
             return false;
         }
-        return Json5Util.isJsonLikeName(fileName);
+        return DcFormatUtil.isDcName(fileName);
     }
 
     private static boolean isTempFileName(String fileName) {
@@ -1738,13 +1737,12 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
-        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
         JsonObject reordered = reorderRemoteJson(obj, normalized);
-        DcConfigIO.write(migrated, reordered, DcConfigIO.Layout.DLC_STRUCTURED);
+        DcConfigIO.write(config, reordered, DcConfigIO.Layout.DLC_STRUCTURED);
         entry.setFileNameHint(normalized);
     }
 
@@ -1831,13 +1829,12 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
-        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
         JsonObject ordered = reorderRequiredJson(obj, normalized);
-        DcConfigIO.write(migrated, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
+        DcConfigIO.write(config, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     private static void updateRequiredUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
@@ -1848,8 +1845,7 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        Path migrated = Json5Util.migrateLegacy(config, PRETTY_GSON);
-        JsonObject obj = DcConfigIO.read(migrated, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
@@ -1860,7 +1856,7 @@ public final class DlcServerDownloadService {
             obj.remove("userRemoved");
         }
         JsonObject ordered = reorderRequiredJson(obj, entry.getRequiredFileName());
-        DcConfigIO.write(migrated, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
+        DcConfigIO.write(config, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
         entry.setUserRemoved(userRemoved);
     }
 
@@ -2058,7 +2054,7 @@ public final class DlcServerDownloadService {
         if (fileName == null || fileName.isBlank()) {
             return false;
         }
-        return "notice".equalsIgnoreCase(Json5Util.stripJsonExtension(fileName));
+        return "notice".equalsIgnoreCase(DcFormatUtil.stripConfigExtension(fileName));
     }
 
     private static final class DownloadCandidate {

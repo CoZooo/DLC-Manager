@@ -1,10 +1,8 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.Json5Util;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -16,8 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class DlcRedirectLoader {
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
-
     private DlcRedirectLoader() {
     }
 
@@ -31,11 +27,9 @@ public final class DlcRedirectLoader {
         }
         List<DlcRedirectEntry> entries = new ArrayList<>();
         try (var stream = Files.walk(redirectRoot)) {
-            stream.filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
-                .filter(path -> !Json5Util.shouldSkipLegacy(path))
+            stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
-                    Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
-                    DlcRedirectEntry entry = readEntry(migrated);
+                    DlcRedirectEntry entry = readEntry(path);
                     if (entry != null) {
                         entries.add(entry);
                     }
@@ -61,7 +55,7 @@ public final class DlcRedirectLoader {
         entry.setAvailable(JsonCaseUtil.getIgnoreCase(obj, "available"));
 
         String fileName = path.getFileName() == null ? "" : path.getFileName().toString();
-        entry.setFallbackName(Json5Util.stripJsonExtension(fileName));
+        entry.setFallbackName(DcFormatUtil.stripConfigExtension(fileName));
 
         entry.getDisplayNames().putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName")));
         entry.getNotices().putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "notice")));

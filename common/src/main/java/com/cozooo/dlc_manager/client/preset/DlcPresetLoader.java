@@ -1,11 +1,9 @@
 package com.cozooo.dlc_manager.client.preset;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -20,8 +18,6 @@ import java.util.Map;
 import java.util.Set;
 
 public final class DlcPresetLoader {
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
-
     private DlcPresetLoader() {
     }
 
@@ -45,11 +41,9 @@ public final class DlcPresetLoader {
                 continue;
             }
             try (var stream = Files.walk(presetRoot)) {
-                stream.filter(path -> Json5Util.isJsonLikeName(path.getFileName().toString()))
-                    .filter(path -> !Json5Util.shouldSkipLegacy(path))
+                stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
                     .forEach(path -> {
-                        Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
-                        DlcPresetEntry entry = readEntry(migrated, presetRoot);
+                        DlcPresetEntry entry = readEntry(path, presetRoot);
                         if (entry != null) {
                             entries.add(entry);
                         }
@@ -151,27 +145,7 @@ public final class DlcPresetLoader {
     }
 
     private static String stripExtension(String name) {
-        return Json5Util.stripJsonExtension(name);
+        return DcFormatUtil.stripConfigExtension(name);
     }
 
-    private static void ensurePrettyJson5(Path path, JsonObject obj) {
-        if (path == null || obj == null || path.getFileName() == null) {
-            return;
-        }
-        String name = path.getFileName().toString().toLowerCase();
-        if (!name.endsWith(Json5Util.JSON5_EXTENSION)) {
-            return;
-        }
-        try {
-            String raw = Files.readString(path);
-            if (raw.indexOf('\n') >= 0 || raw.indexOf('\r') >= 0) {
-                return;
-            }
-            String pretty = PRETTY_GSON.toJson(obj);
-            if (!pretty.equals(raw)) {
-                Files.writeString(path, pretty);
-            }
-        } catch (IOException ignored) {
-        }
-    }
 }

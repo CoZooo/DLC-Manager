@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.cozooo.dlc_manager.platform.PlatformServices;
-import com.cozooo.dlc_manager.core.Json5Util;
 
 public class DlcConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -24,10 +23,7 @@ public class DlcConfig {
 
     public static void load() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        Path legacy = configDir.resolve("state.json");
-        Json5Util.migrateLegacy(legacy, GSON);
-        configPath = Json5Util.resolveConfigPath(configDir, "state");
-        configPath = Json5Util.migrateLegacy(configPath, GSON);
+        configPath = DcFormatUtil.resolveConfigPath(configDir, "state");
         boolean migrateLegacyStateSection = false;
         if (configPath != null && Files.exists(configPath)) {
             try {

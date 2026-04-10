@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.core;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,24 +19,20 @@ public final class DcConfigIO {
         if (path == null || !Files.exists(path)) {
             return null;
         }
-        if (isDc(path)) {
-            if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)) {
-                return DcFormatUtil.read(path);
-            }
-            return DcFormatUtil.readGeneric(path);
+        if (!isDc(path)) {
+            return null;
         }
-        JsonElement element = Json5Util.readElement(path);
-        if (element != null && element.isJsonObject()) {
-            return element.getAsJsonObject();
+        if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)) {
+            return DcFormatUtil.read(path);
         }
-        return null;
+        return DcFormatUtil.readGeneric(path);
     }
 
     public static boolean write(Path originalPath, JsonObject obj, Layout layout) {
         if (originalPath == null || obj == null) {
             return false;
         }
-        Path target = Json5Util.toDcPath(originalPath);
+        Path target = DcFormatUtil.toDcPath(originalPath);
         if (target == null) {
             return false;
         }
@@ -61,7 +56,7 @@ public final class DcConfigIO {
     }
 
     public static Path toDcPath(Path path) {
-        return Json5Util.toDcPath(path);
+        return DcFormatUtil.toDcPath(path);
     }
 
     public static boolean isDc(Path path) {
@@ -82,7 +77,7 @@ public final class DcConfigIO {
         if (path == null || path.getFileName() == null) {
             return false;
         }
-        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        String base = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
         return "notice".equalsIgnoreCase(base);
     }
 

@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;

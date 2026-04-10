@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.cozooo.dlc_manager.core.Json5Util;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +14,6 @@ import com.cozooo.dlc_manager.core.JsonCaseUtil;
 
 public class DlcTooltipLoader {
     private static final Gson GSON = new GsonBuilder().create();
-    private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Map<String, DlcType> TYPE_MAP = Map.of(
         "mod", DlcType.MOD,
         "resourcepack", DlcType.RESOURCE_PACK,
@@ -32,12 +30,10 @@ public class DlcTooltipLoader {
             return result;
         }
         try (var stream = Files.list(infoDir)) {
-            stream.filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
+            stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
                 .filter(path -> !isInfoMetaFile(path))
-                .filter(path -> !Json5Util.shouldSkipLegacy(path))
                 .forEach(path -> {
-                    Path migrated = Json5Util.migrateLegacy(path, PRETTY_GSON);
-                    TooltipEntry entry = readEntry(migrated);
+                    TooltipEntry entry = readEntry(path);
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
                             entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.alarm);
@@ -53,7 +49,7 @@ public class DlcTooltipLoader {
         if (path == null || path.getFileName() == null) {
             return false;
         }
-        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        String base = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
         return "version".equalsIgnoreCase(base);
     }
 
@@ -66,10 +62,8 @@ public class DlcTooltipLoader {
         } catch (IOException ignored) {
             return;
         }
-        Json5Util.migrateLegacy(infoDir.resolve(dlcName + Json5Util.JSON_EXTENSION), PRETTY_GSON);
-        Path path = Json5Util.resolveConfigPath(infoDir, dlcName);
+        Path path = DcFormatUtil.resolveConfigPath(infoDir, dlcName);
         if (path != null && Files.exists(path)) {
-            path = Json5Util.migrateLegacy(path, PRETTY_GSON);
             updateTooltipFile(path, dlcName, type, updateExistingType);
             return;
         }
@@ -78,7 +72,7 @@ public class DlcTooltipLoader {
             updateTooltipFile(existingByDlcName, dlcName, type, updateExistingType);
             return;
         }
-        path = Json5Util.resolveConfigPath(infoDir, dlcName);
+        path = DcFormatUtil.resolveConfigPath(infoDir, dlcName);
         JsonObject obj = buildOrderedTooltipObject(
             null,
             dlcName,
@@ -104,9 +98,7 @@ public class DlcTooltipLoader {
         }
         try (var stream = Files.list(infoDir)) {
             return stream
-                .filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
-                .filter(path -> !Json5Util.shouldSkipLegacy(path))
-                .map(path -> Json5Util.migrateLegacy(path, PRETTY_GSON))
+                .filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
                 .filter(path -> {
                     TooltipEntry entry = readEntry(path);
                     return entry != null && dlcName.equals(entry.dlcName);
@@ -164,7 +156,7 @@ public class DlcTooltipLoader {
         TooltipEntry entry = new TooltipEntry();
         entry.dlcName = getFileName(obj);
         if ((entry.dlcName == null || entry.dlcName.isBlank()) && path != null && path.getFileName() != null) {
-            entry.dlcName = Json5Util.stripJsonExtension(path.getFileName().toString());
+            entry.dlcName = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
         }
         if (entry.dlcName == null || entry.dlcName.isBlank()) {
             return null;

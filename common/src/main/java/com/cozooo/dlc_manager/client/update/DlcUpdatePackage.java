@@ -49,12 +49,6 @@ public class DlcUpdatePackage {
                 entry = zipFile.getEntry("./update.dc");
             }
             if (entry == null) {
-                entry = zipFile.getEntry("update.json5");
-            }
-            if (entry == null) {
-                entry = zipFile.getEntry("./update.json5");
-            }
-            if (entry == null) {
                 entry = zipFile.getEntry("update.json");
                 if (entry == null) {
                     entry = zipFile.getEntry("./update.json");
@@ -67,7 +61,7 @@ public class DlcUpdatePackage {
                         continue;
                     }
                     String name = candidate.getName().toLowerCase(Locale.ROOT);
-                    if (name.endsWith("update.dc") || name.endsWith("update.json5") || name.endsWith("update.json")) {
+                    if (name.endsWith("update.dc") || name.endsWith("update.json")) {
                         entry = candidate;
                         break;
                     }

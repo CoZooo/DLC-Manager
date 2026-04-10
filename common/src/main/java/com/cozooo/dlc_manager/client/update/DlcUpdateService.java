@@ -25,7 +25,6 @@ import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -1458,7 +1457,7 @@ public final class DlcUpdateService {
                     continue;
                 }
                 String fileName = path.getFileName().toString();
-                if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                if (!DcFormatUtil.isDcName(fileName)) {
                     continue;
                 }
                 if (isNoticeConfig(fileName)) {
@@ -1823,10 +1822,10 @@ public final class DlcUpdateService {
                         return;
                     }
                     String fileName = path.getFileName().toString();
-                    if (!Json5Util.isJsonLikeName(fileName) || Json5Util.shouldSkipLegacy(path)) {
+                    if (!DcFormatUtil.isDcName(fileName)) {
                         return;
                     }
-                    String baseName = Json5Util.stripJsonExtension(fileName);
+                    String baseName = DcFormatUtil.stripConfigExtension(fileName);
                     if ("version".equalsIgnoreCase(baseName) || "notice".equalsIgnoreCase(baseName)) {
                         return;
                     }
@@ -1895,7 +1894,7 @@ public final class DlcUpdateService {
             writeJson(infoPath, info);
             return;
         }
-        Path targetPath = Json5Util.resolveConfigPath(infoDir, fileName);
+        Path targetPath = DcFormatUtil.resolveConfigPath(infoDir, fileName);
         if (targetPath == null) {
             backupPath(toGameRelativePath(infoPath), infoPath, context);
             writeJson(infoPath, info);
@@ -2386,7 +2385,7 @@ public final class DlcUpdateService {
         if (isUnderDir(normalized, dlcRoot.resolve("preset"))) {
             if (Files.isDirectory(normalized)) {
                 uninstallPresetConfigsInDir(normalized, dlcRoot);
-            } else if (normalized.getFileName() != null && Json5Util.isJsonLikeName(normalized.getFileName().toString())) {
+            } else if (normalized.getFileName() != null && DcFormatUtil.isDcName(normalized.getFileName().toString())) {
                 uninstallPresetConfig(normalized, dlcRoot);
             }
             return;
@@ -2447,7 +2446,7 @@ public final class DlcUpdateService {
         if (configPath == null || dlcRoot == null || !Files.exists(configPath)) {
             return;
         }
-        if (configPath.getFileName() == null || !Json5Util.isJsonLikeName(configPath.getFileName().toString())) {
+        if (configPath.getFileName() == null || !DcFormatUtil.isDcName(configPath.getFileName().toString())) {
             return;
         }
         String presetId = resolvePresetId(configPath, dlcRoot);
@@ -2468,7 +2467,7 @@ public final class DlcUpdateService {
             return;
         }
         try (var stream = Files.walk(dir)) {
-            stream.filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
+            stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> uninstallPresetConfig(path, dlcRoot));
         } catch (IOException ignored) {
         }
@@ -2480,13 +2479,13 @@ public final class DlcUpdateService {
         }
         Path presetRoot = dlcRoot.resolve("preset").normalize();
         Path normalized = configPath.normalize();
-        String fallback = Json5Util.stripJsonExtension(configPath.getFileName().toString());
+        String fallback = DcFormatUtil.stripConfigExtension(configPath.getFileName().toString());
         if (!normalized.startsWith(presetRoot)) {
             return fallback;
         }
         try {
             String relative = presetRoot.relativize(normalized).toString().replace('\\', '/');
-            return Json5Util.stripJsonExtension(relative);
+            return DcFormatUtil.stripConfigExtension(relative);
         } catch (Exception ignored) {
             return fallback;
         }
@@ -2556,7 +2555,7 @@ public final class DlcUpdateService {
         }
         try (var stream = Files.newDirectoryStream(requiredDir, base + ".*")) {
             for (Path file : stream) {
-                if (file != null && !Json5Util.isJsonLikeName(file.getFileName().toString())) {
+                if (file != null && !DcFormatUtil.isDcName(file.getFileName().toString())) {
                     return file.getFileName().toString();
                 }
             }
@@ -2588,13 +2587,13 @@ public final class DlcUpdateService {
                 if (isUnderDir(target, requiredRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, true);
-                    } else if (target.getFileName() != null && Json5Util.isJsonLikeName(target.getFileName().toString())) {
+                    } else if (target.getFileName() != null && DcFormatUtil.isDcName(target.getFileName().toString())) {
                         uninstallRequiredConfig(target, dlcRoot, null);
                     }
                 } else if (isUnderDir(target, remoteRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, false);
-                    } else if (target.getFileName() != null && Json5Util.isJsonLikeName(target.getFileName().toString())) {
+                    } else if (target.getFileName() != null && DcFormatUtil.isDcName(target.getFileName().toString())) {
                         uninstallRemoteConfig(target, dlcRoot, null);
                     }
                 }
@@ -2616,7 +2615,7 @@ public final class DlcUpdateService {
             return;
         }
         try (var stream = Files.walk(dir)) {
-            stream.filter(path -> path.getFileName() != null && Json5Util.isJsonLikeName(path.getFileName().toString()))
+            stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
                     if (required) {
                         uninstallRequiredConfig(path, dlcRoot, null);
@@ -2717,8 +2716,7 @@ public final class DlcUpdateService {
             return false;
         }
         Path infoDir = dlcRoot.resolve("info");
-        Path notice = Json5Util.resolveConfigPath(infoDir, "notice");
-        notice = Json5Util.migrateLegacy(notice, UPDATE_GSON);
+        Path notice = DcFormatUtil.resolveConfigPath(infoDir, "notice");
         if (notice == null) {
             return false;
         }
@@ -2730,18 +2728,16 @@ public final class DlcUpdateService {
             return false;
         }
         Path infoDir = dlcRoot.resolve("info");
-        Path dc = infoDir.resolve("version" + Json5Util.DC_EXTENSION).normalize();
-        Path json5 = infoDir.resolve("version" + Json5Util.JSON5_EXTENSION).normalize();
-        Path json = infoDir.resolve("version.json").normalize();
+        Path dc = infoDir.resolve("version" + DcFormatUtil.DC_EXTENSION).normalize();
         Path normalized = path.normalize();
-        return normalized.equals(dc) || normalized.equals(json5) || normalized.equals(json);
+        return normalized.equals(dc);
     }
 
     private static boolean isNoticeConfig(String fileName) {
         if (fileName == null || fileName.isBlank()) {
             return false;
         }
-        return "notice".equalsIgnoreCase(Json5Util.stripJsonExtension(fileName));
+        return "notice".equalsIgnoreCase(DcFormatUtil.stripConfigExtension(fileName));
     }
 
     private static boolean isRequiredPath(Path target, Path dlcRoot) {
@@ -3163,9 +3159,7 @@ public final class DlcUpdateService {
         if (metaRoot == null) {
             return null;
         }
-        Json5Util.migrateLegacy(metaRoot.resolve("meta.json"), UPDATE_GSON);
-        Path metaPath = Json5Util.resolveConfigPath(metaRoot, "meta");
-        return Json5Util.migrateLegacy(metaPath, UPDATE_GSON);
+        return DcFormatUtil.resolveConfigPath(metaRoot, "meta");
     }
 
     private static DlcUpdateMeta loadMetaFromRoot(Path metaRoot) {
@@ -3712,7 +3706,7 @@ public final class DlcUpdateService {
         if (path == null || path.getFileName() == null) {
             return false;
         }
-        String base = Json5Util.stripJsonExtension(path.getFileName().toString());
+        String base = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
         return "notice".equalsIgnoreCase(base);
     }
 

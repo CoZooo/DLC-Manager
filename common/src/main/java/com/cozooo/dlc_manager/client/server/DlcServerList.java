@@ -2,9 +2,9 @@ package com.cozooo.dlc_manager.client.server;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.cozooo.dlc_manager.core.Json5Util;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,9 +20,7 @@ public class DlcServerList {
 
     public static void load() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
-        configPath = Json5Util.resolveConfigPath(configDir, "servers");
-        configPath = Json5Util.migrateLegacy(configPath, GSON);
+        configPath = DcFormatUtil.resolveConfigPath(configDir, "servers");
         entries = new ArrayList<>();
         lastSelectedKey = null;
         if (!Files.exists(configPath)) {
@@ -44,9 +42,7 @@ public class DlcServerList {
     public static void save() {
         if (configPath == null) {
             Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-            Json5Util.migrateLegacy(configDir.resolve("servers.json"), GSON);
-            configPath = Json5Util.resolveConfigPath(configDir, "servers");
-            configPath = Json5Util.migrateLegacy(configPath, GSON);
+            configPath = DcFormatUtil.resolveConfigPath(configDir, "servers");
         }
         try {
             Files.createDirectories(configPath.getParent());

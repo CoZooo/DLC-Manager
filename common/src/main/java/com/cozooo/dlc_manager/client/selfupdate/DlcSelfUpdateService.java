@@ -5,9 +5,9 @@ import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -398,9 +398,7 @@ public final class DlcSelfUpdateService {
             return null;
         }
         Path dir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
-        Json5Util.migrateLegacy(dir.resolve("self_update_history.json"), GSON);
-        Path path = Json5Util.resolveConfigPath(dir, "self_update_history");
-        return Json5Util.migrateLegacy(path, GSON);
+        return DcFormatUtil.resolveConfigPath(dir, "self_update_history");
     }
 
     private static void clearPendingMarker() {
@@ -440,9 +438,7 @@ public final class DlcSelfUpdateService {
             return null;
         }
         Path dir = configDir.resolve("dlc_manager");
-        Json5Util.migrateLegacy(dir.resolve("self_update.json"), GSON);
-        Path path = Json5Util.resolveConfigPath(dir, "self_update");
-        return Json5Util.migrateLegacy(path, GSON);
+        return DcFormatUtil.resolveConfigPath(dir, "self_update");
     }
 
     private static String readString(JsonObject obj, String key) {

@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import com.cozooo.dlc_manager.core.Json5Util;
 
 public class DlcNoticeConfig {
     public enum ShowFrequency {
@@ -202,9 +201,7 @@ public class DlcNoticeConfig {
             return null;
         }
         Path infoDir = root.resolve("info");
-        Json5Util.migrateLegacy(infoDir.resolve("notice.json"), GSON);
-        Path noticePath = Json5Util.resolveConfigPath(infoDir, "notice");
-        return Json5Util.migrateLegacy(noticePath, GSON);
+        return DcFormatUtil.resolveConfigPath(infoDir, "notice");
     }
 
     private static void ensureNoticeFiles() {
@@ -213,9 +210,7 @@ public class DlcNoticeConfig {
             return;
         }
         Path infoDir = root.resolve("info");
-        Json5Util.migrateLegacy(infoDir.resolve("notice.json"), GSON);
-        Path noticePath = Json5Util.resolveConfigPath(infoDir, "notice");
-        noticePath = Json5Util.migrateLegacy(noticePath, GSON);
+        Path noticePath = DcFormatUtil.resolveConfigPath(infoDir, "notice");
         if (Files.exists(noticePath)) {
             return;
         }

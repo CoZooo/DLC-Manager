@@ -15,9 +15,9 @@ import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -982,7 +982,7 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (fileName == null) {
             return false;
         }
-        return Json5Util.isJsonLikeName(fileName);
+        return DcFormatUtil.isDcName(fileName);
     }
 
     private boolean isTempFileName(String fileName) {
@@ -1050,7 +1050,7 @@ public class DlcRequiredDownloadScreen extends Screen {
                 try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
                     for (Path path : stream) {
                         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!Json5Util.isJsonLikeName(name)) {
+                        if (!DcFormatUtil.isDcName(name)) {
                             return name;
                         }
                     }

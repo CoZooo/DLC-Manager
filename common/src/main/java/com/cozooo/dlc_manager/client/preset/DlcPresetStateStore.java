@@ -1,9 +1,9 @@
 package com.cozooo.dlc_manager.client.preset;
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -23,9 +23,7 @@ public final class DlcPresetStateStore {
 
     public static Path getStatePath() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        Json5Util.migrateLegacy(configDir.resolve(STATE_BASE_NAME + Json5Util.JSON_EXTENSION), PRETTY_GSON);
-        Path path = Json5Util.resolveConfigPath(configDir, STATE_BASE_NAME);
-        return Json5Util.migrateLegacy(path, PRETTY_GSON);
+        return DcFormatUtil.resolveConfigPath(configDir, STATE_BASE_NAME);
     }
 
     public static Map<String, DlcPresetStatus> loadPresetStatus() {

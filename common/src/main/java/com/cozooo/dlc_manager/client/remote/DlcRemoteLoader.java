@@ -3,7 +3,6 @@ package com.cozooo.dlc_manager.client.remote;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
-import com.cozooo.dlc_manager.core.Json5Util;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
@@ -45,7 +44,6 @@ public final class DlcRemoteLoader {
             stream.filter(Files::isRegularFile)
                 .filter(path -> isRemoteConfigName(path.getFileName().toString()))
                 .filter(path -> !path.normalize().startsWith(redirectRoot))
-                .filter(path -> !shouldSkipFile(path))
                 .forEach(path -> {
                     String rel = remoteRoot.relativize(path).toString().replace('\\', '/');
                     String key = DcFormatUtil.stripConfigExtension(rel);
@@ -199,18 +197,7 @@ public final class DlcRemoteLoader {
     }
 
     private static boolean isRemoteConfigName(String fileName) {
-        return Json5Util.isJsonLikeName(fileName) || DcFormatUtil.isDcName(fileName);
-    }
-
-    private static boolean shouldSkipFile(Path path) {
-        if (path == null || path.getFileName() == null) {
-            return true;
-        }
-        String name = path.getFileName().toString();
-        if (DcFormatUtil.isDcName(name)) {
-            return false;
-        }
-        return Json5Util.shouldSkipLegacy(path);
+        return DcFormatUtil.isDcName(fileName);
     }
 
     private static int configPriority(Path path) {
@@ -219,13 +206,7 @@ public final class DlcRemoteLoader {
         }
         String name = path.getFileName().toString().toLowerCase();
         if (name.endsWith(DcFormatUtil.DC_EXTENSION)) {
-            return 3;
-        }
-        if (name.endsWith(Json5Util.JSON5_EXTENSION)) {
             return 2;
-        }
-        if (name.endsWith(Json5Util.JSON_EXTENSION)) {
-            return 1;
         }
         return 0;
     }
@@ -238,16 +219,10 @@ public final class DlcRemoteLoader {
             return path;
         }
         String name = path.getFileName().toString();
-        if (DcFormatUtil.isDcName(name) || Json5Util.isJsonLikeName(name)) {
+        if (DcFormatUtil.isDcName(name)) {
             Path dc = DcFormatUtil.toDcPath(path);
             if (dc != null && Files.exists(dc)) {
                 return dc;
-            }
-            if (Json5Util.isJsonLikeName(name)) {
-                Path json5 = Json5Util.toJson5Path(path);
-                if (json5 != null && Files.exists(json5)) {
-                    return json5;
-                }
             }
             return path;
         }
@@ -259,14 +234,6 @@ public final class DlcRemoteLoader {
         Path dc = dir.resolve(base + DcFormatUtil.DC_EXTENSION);
         if (Files.exists(dc)) {
             return dc;
-        }
-        Path json5 = dir.resolve(base + Json5Util.JSON5_EXTENSION);
-        if (Files.exists(json5)) {
-            return json5;
-        }
-        Path json = dir.resolve(base + Json5Util.JSON_EXTENSION);
-        if (Files.exists(json)) {
-            return json;
         }
         return dc;
     }

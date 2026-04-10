@@ -266,7 +266,7 @@ def dc_value(value: object) -> str:
 
 def strip_config_extension(name: str) -> str:
     low = (name or "").lower()
-    for suffix in (".dc", ".json5", ".json"):
+    for suffix in (".dc",):
         if low.endswith(suffix):
             return name[: -len(suffix)]
     return name
@@ -275,7 +275,7 @@ def strip_config_extension(name: str) -> str:
 def detect_remote_required_kind(path: str) -> str | None:
     normalized = normalize_relpath(path).lower()
     parts = [p for p in normalized.split("/") if p]
-    if len(parts) < 2 or not parts[-1].endswith((".dc", ".json5", ".json")):
+    if len(parts) < 2 or not parts[-1].endswith(".dc"):
         return None
     kind: str | None = None
     for seg in parts[:-1]:
