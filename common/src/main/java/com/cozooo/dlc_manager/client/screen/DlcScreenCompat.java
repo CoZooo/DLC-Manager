@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.components.toasts.SystemToast;
@@ -47,16 +48,27 @@ public final class DlcScreenCompat {
     }
 
     public static void renderWidgets(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        boolean renderedAny = false;
+        for (GuiEventListener child : screen.children()) {
+            if (child instanceof Renderable renderable) {
+                renderable.render(guiGraphics, mouseX, mouseY, partialTick);
+                renderedAny = true;
+            }
+        }
+        if (renderedAny) {
+            return;
+        }
         if (RENDERABLES_FIELD == null) {
-            throw new IllegalStateException("Failed to resolve Screen.renderables compatibility");
+            return;
         }
         try {
             Object value = RENDERABLES_FIELD.get(screen);
-            if (value instanceof Iterable<?> iterable) {
-                for (Object candidate : iterable) {
-                    if (candidate instanceof Renderable renderable) {
-                        renderable.render(guiGraphics, mouseX, mouseY, partialTick);
-                    }
+            if (!(value instanceof Iterable<?> iterable)) {
+                return;
+            }
+            for (Object candidate : iterable) {
+                if (candidate instanceof Renderable renderable) {
+                    renderable.render(guiGraphics, mouseX, mouseY, partialTick);
                 }
             }
         } catch (ReflectiveOperationException ex) {
