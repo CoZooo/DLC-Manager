@@ -216,7 +216,18 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       continue;
     }
 
-    if (schema.type === "update" && (currentSection === "file" || currentSection.startsWith("file.") || currentSection === "update" || currentSection.startsWith("update."))) {
+  if (
+    schema.type === "update"
+    && (
+      currentSection === "file"
+      || currentSection === "del"
+      || currentSection === "add"
+      || currentSection === "move"
+      || currentSection === "modify"
+      || currentSection.startsWith("file.")
+      || currentSection.startsWith("update.")
+    )
+  ) {
       continue;
     }
 
@@ -291,7 +302,7 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     normalizePresetModel(model);
   }
   if (schema.type === "update") {
-    hydrateUpdateFileSections(text, model);
+    hydrateUpdateFileSections(text, model, issues);
   }
 
   return { model, issues };
@@ -526,7 +537,7 @@ function trimTrailingBlankLines(lines: string[]): string[] {
   return next;
 }
 
-function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
+function hydrateUpdateFileSections(rawText: string, model: StructuredModel, issues: ValidationIssue[]) {
   const lines = rawText.replace(/\r\n/g, "\n").split("\n");
   const del: string[] = [];
   const add: string[] = [];
@@ -537,19 +548,47 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
   let pendingSource = "";
   let pendingTarget = "";
   let pendingOverride = "";
+  let pendingSourceLine = 0;
+  let pendingTargetLine = 0;
   let pendingModifyTarget = "";
   let pendingFind = "";
   let pendingReplace = "";
   let pendingWhich = "";
 
-  const flushAdd = () => {
+  const flushAdd = (lineNumber?: number) => {
+    const line = lineNumber || pendingTargetLine || pendingSourceLine || 0;
     if (!pendingSource) {
+      if (pendingTarget || pendingOverride) {
+        issues.push({
+          severity: "error",
+          message: "[file].add 缺少源路径。",
+          line: line || undefined,
+          source: "syntax"
+        });
+      }
+      pendingTarget = "";
+      pendingOverride = "";
+      pendingTargetLine = 0;
+      return;
+    }
+    if (!pendingTarget) {
+      issues.push({
+        severity: "error",
+        message: "[file].add 缺少目标路径。",
+        line: line || undefined,
+        source: "syntax"
+      });
+      pendingSource = "";
+      pendingOverride = "";
+      pendingSourceLine = 0;
       return;
     }
     add.push([pendingSource, pendingTarget, pendingOverride].map((item) => item.trim()).join(" => "));
     pendingSource = "";
     pendingTarget = "";
     pendingOverride = "";
+    pendingSourceLine = 0;
+    pendingTargetLine = 0;
   };
 
   const flushModify = () => {
@@ -563,10 +602,12 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
     pendingWhich = "";
   };
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
     const stripped = stripComment(line);
     const indent = countLeadingSpaces(stripped);
     const trimmed = stripped.trim();
+    const lineNumber = index + 1;
     if (!trimmed) {
       continue;
     }
@@ -574,7 +615,7 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
       const header = trimmed.slice(1, -1).trim();
       if (indent === 0) {
         if (inFile) {
-          flushAdd();
+          flushAdd(lineNumber);
           flushModify();
         }
         inFile = header === "file";
@@ -584,7 +625,7 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
       if (!inFile) {
         continue;
       }
-      flushAdd();
+      flushAdd(lineNumber);
       flushModify();
       currentSub = header === "del" || header === "add" || header === "move" || header === "modify" ? header : "";
       continue;
@@ -611,8 +652,10 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
     }
     if (currentSub === "add") {
       if (trimmed.endsWith(":") && !trimmed.includes("=")) {
-        flushAdd();
+        flushAdd(lineNumber);
         pendingSource = unquoteUpdateKey(trimmed.slice(0, -1).trim());
+        pendingSourceLine = lineNumber;
+        pendingTargetLine = 0;
         continue;
       }
       const eq = trimmed.indexOf("=");
@@ -623,6 +666,7 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
       const value = parseUpdateInlineValue(trimmed.slice(eq + 1).trim());
       if ("appliedTarget" === key) {
         pendingTarget = value;
+        pendingTargetLine = lineNumber;
       } else if ("override" === key) {
         pendingOverride = value;
       }
@@ -650,7 +694,7 @@ function hydrateUpdateFileSections(rawText: string, model: StructuredModel) {
     }
   }
 
-  flushAdd();
+  flushAdd(lines.length);
   flushModify();
 
   model.file_del = { entries: del.join("\n") };
