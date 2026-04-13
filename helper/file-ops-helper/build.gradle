@@ -61,12 +61,16 @@ publishing {
     }
 
     repositories {
-        maven {
-            name = 'CozoooNexus'
-            url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
-            credentials {
-                username = findProperty('mavenUsername') ?: System.getenv('MAVEN_USERNAME')
-                password = findProperty('mavenPassword') ?: System.getenv('MAVEN_PASSWORD')
+        def mavenUsername = findProperty('mavenUsername') ?: System.getenv('MAVEN_USERNAME')
+        def mavenPassword = findProperty('mavenPassword') ?: System.getenv('MAVEN_PASSWORD')
+        if (mavenUsername && mavenPassword) {
+            maven {
+                name = 'CozoooNexus'
+                url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
+                credentials {
+                    username = mavenUsername
+                    password = mavenPassword
+                }
             }
         }
     }
