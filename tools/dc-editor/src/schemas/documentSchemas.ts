@@ -385,13 +385,13 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             help: "是否启用公告功能。",
             toggleLabels: { checked: "启用", unchecked: "启用" }
           },
-          {
-            key: "neverShow",
-            label: "neverShow",
-            kind: "boolean",
-            help: "是否永不显示该公告。",
-            toggleLabels: { checked: "永不显示", unchecked: "永不显示" }
-          },
+          //{
+          //  key: "neverShow",
+          //  label: "neverShow",
+          //  kind: "boolean",
+          //  help: "是否永不显示该公告。",
+          //  toggleLabels: { checked: "永不显示", unchecked: "永不显示" }
+          //},
           {
             key: "ShowFrequency",
             label: "ShowFrequency",
