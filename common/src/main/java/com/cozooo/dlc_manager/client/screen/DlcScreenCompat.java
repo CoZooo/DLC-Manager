@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
@@ -49,6 +51,27 @@ public final class DlcScreenCompat {
             ADD_OR_UPDATE_PERIODIC_NOTIFICATION.invoke(null, toasts, PERIODIC_NOTIFICATION_ID, title, description);
         } catch (ReflectiveOperationException ex) {
             throw new IllegalStateException("Failed to show compatible periodic notification", ex);
+        }
+    }
+
+    public static Checkbox createCheckbox(Font font, int x, int y, int width, int height, Component label, boolean selected) {
+        try {
+            Method builderMethod = findMethod(Checkbox.class, "builder", Component.class, Font.class);
+            if (builderMethod != null) {
+                Object builder = builderMethod.invoke(null, label, font);
+                builder = invokeBuilder(builder, "pos", int.class, int.class, x, y);
+                builder = invokeBuilder(builder, "selected", boolean.class, selected);
+                Method buildMethod = builder.getClass().getMethod("build");
+                Object checkbox = buildMethod.invoke(builder);
+                if (checkbox instanceof Checkbox result) {
+                    return result;
+                }
+            }
+            return Checkbox.class
+                .getConstructor(int.class, int.class, int.class, int.class, Component.class, boolean.class)
+                .newInstance(x, y, width, height, label, selected);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Failed to create compatible checkbox", ex);
         }
     }
 
@@ -101,6 +124,17 @@ public final class DlcScreenCompat {
             }
         }
         throw new IllegalStateException("Failed to resolve compatible mouse scroll handler: " + methodName);
+    }
+
+    private static Object invokeBuilder(Object builder, String methodName, Class<?> parameterType, Object argument) throws ReflectiveOperationException {
+        Method method = builder.getClass().getMethod(methodName, parameterType);
+        return method.invoke(builder, argument);
+    }
+
+    private static Object invokeBuilder(Object builder, String methodName, Class<?> firstType, Class<?> secondType, Object firstArgument, Object secondArgument)
+        throws ReflectiveOperationException {
+        Method method = builder.getClass().getMethod(methodName, firstType, secondType);
+        return method.invoke(builder, firstArgument, secondArgument);
     }
 
     private static Method findMethod(Class<?> owner, String name, Class<?>... parameterTypes) {

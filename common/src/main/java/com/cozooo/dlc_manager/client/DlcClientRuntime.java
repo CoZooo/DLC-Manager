@@ -649,9 +649,8 @@ public final class DlcClientRuntime {
         Minecraft minecraft = Minecraft.getInstance();
         UpdateCheckResult result = DlcUpdateService.checkForUpdates();
         if (result == null || !result.hasUpdates()) {
-            SystemToast.addOrUpdate(
+            com.cozooo.dlc_manager.client.screen.DlcScreenCompat.addOrUpdatePeriodicNotification(
                 minecraft.getToasts(),
-                SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
                 Component.translatable("dlc_manager.update.no_updates"),
                 Component.empty()
             );

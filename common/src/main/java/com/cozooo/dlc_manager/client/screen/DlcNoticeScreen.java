@@ -11,6 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,8 +64,15 @@ public class DlcNoticeScreen extends Screen {
         int checkboxY = panelTop + panelHeight - 34;
         int checkboxX = panelLeft + 14;
         if (showNeverBox) {
-            neverShowBox = new Checkbox(checkboxX, checkboxY, 56, 20,
-                Component.translatable("dlc_manager.notice.never_show"), config.isNeverShow());
+            neverShowBox = DlcScreenCompat.createCheckbox(
+                this.font,
+                checkboxX,
+                checkboxY,
+                56,
+                20,
+                Component.translatable("dlc_manager.notice.never_show"),
+                config.isNeverShow()
+            );
             addRenderableWidget(neverShowBox);
         } else {
             neverShowBox = null;
@@ -102,7 +110,7 @@ public class DlcNoticeScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        renderBackground(guiGraphics);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         layoutText();
 
         int panelRight = panelLeft + panelWidth;
@@ -166,8 +174,7 @@ public class DlcNoticeScreen extends Screen {
         }
 
         drawScrollBar(guiGraphics);
-
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void layoutText() {
@@ -177,7 +184,6 @@ public class DlcNoticeScreen extends Screen {
         panelLeft = (this.width - panelWidth) / 2;
         panelTop = margin;
         int contentWidth = panelWidth - 28;
-        int footerHeight = 36;
 
         String lang = Minecraft.getInstance().options.languageCode;
         if (!java.util.Objects.equals(lang, contentLang)) {
@@ -275,10 +281,17 @@ public class DlcNoticeScreen extends Screen {
         this.minecraft.setScreen(parent);
     }
 
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(mouseX, mouseY, deltaY);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double delta) {
         if (maxScroll <= 0) {
-            return super.mouseScrolled(mouseX, mouseY, delta);
+            return false;
         }
         scrollOffset -= (int) (delta * lineStep);
         if (scrollOffset < 0) {
@@ -367,44 +380,35 @@ public class DlcNoticeScreen extends Screen {
         return result[0];
     }
 
-    private void drawScrollBar(GuiGraphics guiGraphics) {
-        if (maxScroll <= 0 || totalContentHeight <= 0) {
-            return;
-        }
-        int trackHeight = contentBottom - contentTop;
-        if (trackHeight <= 0) {
-            return;
-        }
-        scrollbarX = panelLeft + panelWidth - 10;
-        scrollbarTop = contentTop;
-        scrollbarBottom = contentBottom;
-        int barWidth = 4;
-        scrollbarHeight = Math.max(12, trackHeight * visibleHeight / Math.max(1, totalContentHeight));
-        int maxTrack = Math.max(1, trackHeight - scrollbarHeight);
-        int barY = scrollbarTop + (int) ((scrollOffset / (float) maxScroll) * maxTrack);
-        guiGraphics.fill(scrollbarX, scrollbarTop, scrollbarX + barWidth, scrollbarBottom, 0xFF2B2B2B);
-        guiGraphics.fill(scrollbarX, barY, scrollbarX + barWidth, barY + scrollbarHeight, 0xFF6B6B6B);
-    }
-
     private boolean isOverScrollbar(double mouseX, double mouseY) {
-        if (maxScroll <= 0) {
-            return false;
-        }
-        int barWidth = 4;
-        int barX = panelLeft + panelWidth - 10;
-        return mouseX >= barX - 2 && mouseX <= barX + barWidth + 2
+        return maxScroll > 0
+            && mouseX >= scrollbarX - 2 && mouseX <= scrollbarX + 6
             && mouseY >= scrollbarTop && mouseY <= scrollbarBottom;
     }
 
     private void updateScrollFromDrag(double mouseY) {
-        int trackHeight = contentBottom - contentTop;
-        if (trackHeight <= 0 || totalContentHeight <= 0) {
+        if (maxScroll <= 0) {
+            scrollOffset = 0;
             return;
         }
-        int barHeight = Math.max(12, trackHeight * visibleHeight / Math.max(1, totalContentHeight));
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barCenter = (int) mouseY - contentTop - (barHeight / 2);
-        int next = (int) Math.round((barCenter / (double) maxTrack) * maxScroll);
-        scrollOffset = Math.max(0, Math.min(maxScroll, next));
+        int trackHeight = Math.max(1, scrollbarBottom - scrollbarTop - scrollbarHeight);
+        int knobTop = (int) mouseY - scrollbarHeight / 2;
+        int rel = Math.max(0, Math.min(trackHeight, knobTop - scrollbarTop));
+        scrollOffset = (int) Math.round(rel * (maxScroll / (double) trackHeight));
+    }
+
+    private void drawScrollBar(GuiGraphics guiGraphics) {
+        if (maxScroll <= 0) {
+            return;
+        }
+        int trackHeight = Math.max(1, scrollbarBottom - scrollbarTop);
+        scrollbarHeight = Math.max(18, (int) (trackHeight * (visibleHeight / (double) totalContentHeight)));
+        if (scrollbarHeight > trackHeight) {
+            scrollbarHeight = trackHeight;
+        }
+        int travel = Math.max(1, trackHeight - scrollbarHeight);
+        int knobTop = scrollbarTop + (int) Math.round((scrollOffset / (double) maxScroll) * travel);
+        guiGraphics.fill(scrollbarX, scrollbarTop, scrollbarX + 4, scrollbarBottom, 0x663A3F48);
+        guiGraphics.fill(scrollbarX, knobTop, scrollbarX + 4, knobTop + scrollbarHeight, 0xFF8A95A8);
     }
 }

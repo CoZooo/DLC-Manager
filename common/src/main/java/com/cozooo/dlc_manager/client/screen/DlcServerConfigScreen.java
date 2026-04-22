@@ -11,9 +11,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +34,7 @@ public class DlcServerConfigScreen extends Screen {
     private final List<LabelEntry> labels = new ArrayList<>();
 
     private boolean serverSupport;
+    private boolean apiEnabled;
     private boolean uiEnableAll;
     private boolean uiUpdateManagerOn;
     private boolean uiSelfUpdateAutoCheckOn;
@@ -41,6 +42,8 @@ public class DlcServerConfigScreen extends Screen {
 
     private EditBox serverPortField;
     private EditBox serverPasswordField;
+    private EditBox apiPortField;
+    private EditBox apiTokenField;
     private EditBox dlcRootField;
     private EditBox taczRootField;
     private EditBox resourcepackRootField;
@@ -53,6 +56,7 @@ public class DlcServerConfigScreen extends Screen {
     private EditBox taskTimeoutField;
 
     private Button serverSupportButton;
+    private Button apiEnabledButton;
     private Button uiEnableAllButton;
     private Button uiUpdateManagerButton;
     private Button uiSelfUpdateButton;
@@ -84,6 +88,7 @@ public class DlcServerConfigScreen extends Screen {
         int row = 22;
 
         serverSupport = DlcPathConfig.isServerSupportOnServer();
+        apiEnabled = DlcPathConfig.isApiEnabled();
         uiEnableAll = DlcPathConfig.isEnableAllButtonShown();
         uiUpdateManagerOn = DlcPathConfig.isUpdateManagerOn();
         uiSelfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn();
@@ -107,6 +112,26 @@ public class DlcServerConfigScreen extends Screen {
         serverPasswordField = new EditBox(this.font, fieldX, y, fieldWidth, 20, Component.translatable("dlc_manager.config.ui.serverPassword"));
         serverPasswordField.setMaxLength(256);
         addRenderableWidget(serverPasswordField);
+        y += row + 6;
+
+        addLabel("dlc_manager.config.ui.apiEnabled", y);
+        apiEnabledButton = Button.builder(toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled), btn -> {
+            apiEnabled = !apiEnabled;
+            btn.setMessage(toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled));
+        }).bounds(fieldX, y, fieldWidth, 20).build();
+        addRenderableWidget(apiEnabledButton);
+        y += row;
+
+        addLabel("dlc_manager.config.ui.apiPort", y);
+        apiPortField = new EditBox(this.font, fieldX, y, fieldWidth, 20, Component.translatable("dlc_manager.config.ui.apiPort"));
+        apiPortField.setMaxLength(8);
+        addRenderableWidget(apiPortField);
+        y += row;
+
+        addLabel("dlc_manager.config.ui.apiToken", y);
+        apiTokenField = new EditBox(this.font, fieldX, y, fieldWidth, 20, Component.translatable("dlc_manager.config.ui.apiToken"));
+        apiTokenField.setMaxLength(256);
+        addRenderableWidget(apiTokenField);
         y += row + 6;
 
         addLabel("dlc_manager.config.ui.isEnableAllButtonShown", y);
@@ -228,11 +253,12 @@ public class DlcServerConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 16, 0xFFFFFF);
         for (LabelEntry entry : labels) {
             guiGraphics.drawString(this.font, entry.label, labelX, entry.y + 6, 0xC8C8C8, false);
         }
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void addLabel(String key, int y) {
@@ -249,6 +275,9 @@ public class DlcServerConfigScreen extends Screen {
     private void populateFromDefaults() {
         serverPortField.setValue(Integer.toString(DlcPathConfig.getServerPort()));
         serverPasswordField.setValue(DlcPathConfig.getServerPassword());
+        apiEnabledButton.setMessage(toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled));
+        apiPortField.setValue(Integer.toString(DlcPathConfig.getApiPort()));
+        apiTokenField.setValue(DlcPathConfig.getApiToken());
         dlcRootField.setValue(DlcPathConfig.getDlcRootRaw());
         taczRootField.setValue(DlcPathConfig.getTaczRootRaw());
         resourcepackRootField.setValue(DlcPathConfig.getResourcepackRootRaw());
@@ -292,6 +321,13 @@ public class DlcServerConfigScreen extends Screen {
             serverPasswordField.setValue(getString(server, "serverPassword", ""));
             serverSupportButton.setMessage(toggleLabel("dlc_manager.config.ui.serverSupport", serverSupport));
         }
+        JsonObject api = JsonCaseUtil.getObjectIgnoreCase(root, "api");
+        if (api != null) {
+            apiEnabled = getBoolean(api, "apiEnabled", apiEnabled);
+            apiPortField.setValue(Integer.toString(getInt(api, "apiPort", DlcPathConfig.getApiPort())));
+            apiTokenField.setValue(getString(api, "apiToken", DlcPathConfig.getApiToken()));
+            apiEnabledButton.setMessage(toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled));
+        }
         JsonObject ui = JsonCaseUtil.getObjectIgnoreCase(root, "ui");
         if (ui != null) {
             uiEnableAll = getBoolean(ui, "isEnableAllButtonShown", uiEnableAll);
@@ -329,6 +365,12 @@ public class DlcServerConfigScreen extends Screen {
         server.addProperty("serverPassword", serverPasswordField.getValue());
         root.add("server", server);
 
+        JsonObject api = new JsonObject();
+        api.addProperty("apiEnabled", apiEnabled);
+        api.addProperty("apiPort", clampInt(parseInt(apiPortField.getValue(), DlcPathConfig.getApiPort()), 0, 65535));
+        api.addProperty("apiToken", apiTokenField.getValue());
+        root.add("api", api);
+
         JsonObject ui = new JsonObject();
         ui.addProperty("isEnableAllButtonShown", uiEnableAll);
         ui.addProperty("isUpdateManagerOn", uiUpdateManagerOn);
@@ -356,11 +398,17 @@ public class DlcServerConfigScreen extends Screen {
             .supplyAsync(() -> submitConfig(root))
             .whenComplete((ok, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (ok != null && ok) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-                        Component.translatable("dlc_manager.server.config_save_success"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(
+                        Minecraft.getInstance().getToasts(),
+                        Component.translatable("dlc_manager.server.config_save_success"),
+                        Component.empty()
+                    );
                 } else {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
-                        Component.translatable("dlc_manager.server.config_save_failed"), Component.empty());
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(
+                        Minecraft.getInstance().getToasts(),
+                        Component.translatable("dlc_manager.server.config_save_failed"),
+                        Component.empty()
+                    );
                 }
             }));
     }

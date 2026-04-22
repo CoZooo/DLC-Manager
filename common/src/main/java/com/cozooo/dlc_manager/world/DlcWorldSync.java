@@ -13,10 +13,10 @@ import dev.architectury.event.events.common.LifecycleEvent;
 import dev.architectury.event.events.common.PlayerEvent;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.StringTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -96,7 +96,7 @@ public final class DlcWorldSync {
         }
 
         try {
-            CompoundTag root = NbtIo.readCompressed(levelDat.toFile());
+            CompoundTag root = DlcNbtCompat.readCompressed(levelDat);
             CompoundTag data = root.getCompound("Data");
             CompoundTag dataPacksTag = data.getCompound("DataPacks");
             ListTag enabled = dataPacksTag.getList("Enabled", 8);
@@ -136,7 +136,7 @@ public final class DlcWorldSync {
             data.put("DataPacks", dataPacksTag);
             root.put("Data", data);
 
-            NbtIo.writeCompressed(root, levelDat.toFile());
+            DlcNbtCompat.writeCompressed(root, levelDat);
         } catch (IOException ignored) {
         }
     }

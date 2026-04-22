@@ -11,7 +11,9 @@ architectury {
 
 sourceSets {
     main {
+        java.srcDir '../../../fabric/src/main/java'
         java.srcDir '../../../fabric/1.21.1/src/main/java'
+        resources.srcDir '../../../common/src/main/resources'
         resources.srcDir '../../../fabric/1.21.1/src/main/resources'
     }
 }
