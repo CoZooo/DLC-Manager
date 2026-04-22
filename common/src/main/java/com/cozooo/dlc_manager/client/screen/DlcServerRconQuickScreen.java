@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
@@ -100,17 +99,25 @@ public class DlcServerRconQuickScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 16, 0xFFFFFF);
         if (statusText != null && !statusText.isBlank()) {
             guiGraphics.drawCenteredString(this.font, statusText, this.width / 2, this.height - 52, 0xC8C8C8);
         }
         drawSeparators(guiGraphics);
         drawScrollbar(guiGraphics);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        return handleMouseScrolled(mouseX, mouseY, vertical);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double vertical) {
         if (mouseX >= panelLeft && mouseX <= panelRight && mouseY >= panelTop && mouseY <= panelBottom) {
             int maxScroll = getMaxScroll();
             if (maxScroll > 0) {
@@ -119,7 +126,7 @@ public class DlcServerRconQuickScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+        return false;
     }
 
     @Override
@@ -153,7 +160,7 @@ public class DlcServerRconQuickScreen extends Screen {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, command, 15000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.rcon_exec_failed"), Component.empty());
                 } else {
                     statusText = Component.translatable("dlc_manager.server.rcon_response", response).getString();

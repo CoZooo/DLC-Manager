@@ -11,7 +11,6 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
@@ -132,12 +131,10 @@ public class DlcServerRemoteDownloadScreen extends Screen {
                         boolean ok = isStatusOk(next);
                         Minecraft.getInstance().execute(() -> {
                             if (ok) {
-                                SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(),
-                                    SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                                DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                                     Component.translatable("dlc_manager.server.remote_missing_success"), Component.empty());
                             } else {
-                                SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(),
-                                    SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                                DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                                     Component.translatable("dlc_manager.server.remote_missing_failed"), Component.empty());
                             }
                             if (parent instanceof DlcServerManagerScreen manager) {
@@ -202,7 +199,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -268,6 +265,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             int percent = Math.round(totalProgress * 100f);
             guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
         }
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private String resolveDisplayName(DlcServerRemoteItem item) {
@@ -335,8 +333,15 @@ public class DlcServerRemoteDownloadScreen extends Screen {
         return 0f;
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(deltaY);
+    }
+
+    private boolean handleMouseScrolled(double deltaY) {
         int listTop = getListTop() + LINE_HEIGHT;
         int listBottom = this.height - 70;
         int maxVisible = Math.max(1, (listBottom - listTop) / LINE_HEIGHT);
@@ -347,7 +352,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return false;
     }
 
     @Override

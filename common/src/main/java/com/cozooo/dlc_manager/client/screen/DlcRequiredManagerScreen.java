@@ -16,7 +16,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -92,7 +91,7 @@ public class DlcRequiredManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -105,7 +104,7 @@ public class DlcRequiredManagerScreen extends Screen {
 
         int listTop = y;
         int listBottom = this.height - 70;
-        int lineHeight = 14;
+        int lineHeight = 18;
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int totalLines = visibleEntries.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
@@ -137,28 +136,31 @@ public class DlcRequiredManagerScreen extends Screen {
         }
         drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
 
-        for (var child : this.children()) {
-            if (child instanceof net.minecraft.client.gui.components.Renderable renderable) {
-                renderable.render(guiGraphics, mouseX, mouseY, partialTick);
-            }
-        }
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
         renderInstallOverlays(guiGraphics);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(mouseX, mouseY, deltaY);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double delta) {
         int listTop = getListTop();
         int listBottom = this.height - 70;
-        int lineHeight = 14;
+        int lineHeight = 18;
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int totalLines = visibleEntries.size();
         int maxScroll = Math.max(0, totalLines - maxVisible);
         if (maxScroll > 0) {
-            int step = deltaY > 0 ? -1 : 1;
+            int step = delta > 0 ? -1 : 1;
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return false;
     }
 
     private int getListTop() {
@@ -677,9 +679,8 @@ public class DlcRequiredManagerScreen extends Screen {
     private void showRequiredErrorToast(String reason) {
         String safeReason = reason == null || reason.isBlank() ? "unknown" : reason;
         Minecraft minecraft = Minecraft.getInstance();
-        SystemToast.addOrUpdate(
+        DlcScreenCompat.addOrUpdatePeriodicNotification(
             minecraft.getToasts(),
-            SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
             Component.translatable("dlc_manager.required.manage_title"),
             Component.translatable("dlc_manager.required.error", safeReason)
         );

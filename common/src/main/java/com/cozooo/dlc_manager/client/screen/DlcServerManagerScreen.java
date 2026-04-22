@@ -16,7 +16,6 @@ import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -329,7 +328,7 @@ public class DlcServerManagerScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         this.lastMouseX = mouseX;
         this.lastMouseY = mouseY;
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         drawPanel(guiGraphics);
         int panelLeft = panelLeft();
         guiGraphics.drawString(this.font, getTitle(), 8, 6, 0xFFFFFF, false);
@@ -337,6 +336,7 @@ public class DlcServerManagerScreen extends Screen {
             guiGraphics.drawString(this.font, headerLine, 8, 16, 0xC8C8C8, false);
         }
         renderServerTab(guiGraphics);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawPanel(GuiGraphics guiGraphics) {
@@ -411,9 +411,12 @@ public class DlcServerManagerScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return false;
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return false;
     }
 
     private void rebuildDisplayEntries() {
@@ -768,7 +771,7 @@ public class DlcServerManagerScreen extends Screen {
                         baseline.put(item.id, item.enabled);
                     }
                 } else {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.apply_failed"), Component.empty());
                 }
                 updateApplyState();
@@ -844,14 +847,17 @@ public class DlcServerManagerScreen extends Screen {
         if (connecting) {
             return;
         }
-        connecting = true;
         DlcServerEntry target = entry;
+        if (target == null) {
+            return;
+        }
+        connecting = true;
         CompletableFuture
             .supplyAsync(() -> fetchInfo(target))
             .whenComplete((info, throwable) -> Minecraft.getInstance().execute(() -> {
                 connecting = false;
                 if (info == null) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.connect_failed"), Component.empty());
                     return;
                 }

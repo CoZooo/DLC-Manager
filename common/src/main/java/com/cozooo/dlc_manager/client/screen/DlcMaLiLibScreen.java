@@ -158,12 +158,19 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         DlcTooltipContext.render(guiGraphics, Minecraft.getInstance().font);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, 0.0, delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(mouseX, mouseY, deltaX, deltaY);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
         if (isOverAnyButton(mouseX, mouseY)) {
             return true;
         }
-        return this.onMouseScrolled((int) mouseX, (int) mouseY, deltaX, deltaY);
+        return DlcScreenCompat.invokeCompatibleMouseScroll(this, "onMouseScrolled", (int) mouseX, (int) mouseY, deltaX, deltaY);
     }
 
     private boolean isOverAnyButton(double mouseX, double mouseY) {
@@ -1075,12 +1082,12 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     private java.util.concurrent.CompletableFuture<Void> tryReloadResources() {
         Minecraft minecraft = Minecraft.getInstance();
         try {
-            SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+            DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.getToasts(),
                 Component.translatable("dlc_manager.toast.reload_title"),
                 Component.translatable("dlc_manager.toast.reload_start"));
             var future = minecraft.reloadResourcePacks();
             future.thenRun(() -> minecraft.execute(() ->
-                SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.getToasts(),
                     Component.translatable("dlc_manager.toast.reload_title"),
                     Component.translatable("dlc_manager.toast.reload_done"))));
             return future;

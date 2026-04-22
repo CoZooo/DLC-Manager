@@ -17,7 +17,6 @@ import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -237,7 +236,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -258,7 +257,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
             y += 12;
         }
         drawHistoryList(guiGraphics, y, mouseX, mouseY);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawHistoryList(GuiGraphics guiGraphics, int startY, int mouseX, int mouseY) {
@@ -387,8 +386,15 @@ public class DlcServerUpdateManagerScreen extends Screen {
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        return handleMouseScrolled(vertical);
+    }
+
+    private boolean handleMouseScrolled(double vertical) {
         int listTop = 20 + 16 + 14
             + (rolledBackMode ? 12 : 0)
             + (hasVisibleUpdates ? 12 : 0);
@@ -398,11 +404,11 @@ public class DlcServerUpdateManagerScreen extends Screen {
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int maxScroll = Math.max(0, totalLines - maxVisible);
         if (maxScroll > 0) {
-            int step = delta > 0 ? -1 : 1;
+            int step = vertical > 0 ? -1 : 1;
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return false;
     }
 
     private void confirmRollback(String targetVersion) {
@@ -596,7 +602,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
 
     private void showToast(Component title, Component desc) {
         Minecraft minecraft = Minecraft.getInstance();
-        SystemToast.addOrUpdate(minecraft.getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION, title, desc);
+        DlcScreenCompat.addOrUpdatePeriodicNotification(minecraft.getToasts(), title, desc);
     }
 
     private void pushUpdates() {

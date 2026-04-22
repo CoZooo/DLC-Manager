@@ -47,7 +47,7 @@ public class DlcUpdateMissingScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         int titleX = (this.width - this.font.width(getTitle())) / 2;
@@ -56,7 +56,7 @@ public class DlcUpdateMissingScreen extends Screen {
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.missing_desc"), centerX, y, 0xE6E6E6);
         y += 12;
         drawMissingList(guiGraphics, y);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawMissingList(GuiGraphics guiGraphics, int startY) {
@@ -92,8 +92,15 @@ public class DlcUpdateMissingScreen extends Screen {
         guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
     }
 
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(deltaY);
+    }
+
+    private boolean handleMouseScrolled(double deltaY) {
         int listTop = 20 + 16 + 12;
         int listBottom = this.height - 70;
         int lineHeight = 12;
@@ -101,11 +108,11 @@ public class DlcUpdateMissingScreen extends Screen {
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int maxScroll = Math.max(0, totalLines - maxVisible);
         if (maxScroll > 0) {
-            int step = delta > 0 ? -1 : 1;
+            int step = deltaY > 0 ? -1 : 1;
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return false;
     }
 
     @Override

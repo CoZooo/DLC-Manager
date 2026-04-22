@@ -151,7 +151,7 @@ public class DlcRequiredDownloadScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = 20;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -245,10 +245,19 @@ public class DlcRequiredDownloadScreen extends Screen {
             y = this.height - 70;
             guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B);
         }
+
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(deltaY);
+    }
+
+    private boolean handleMouseScrolled(double deltaY) {
         int listTop = getListTop();
         int listBottom = this.height - 70;
         int lineHeight = 10;
@@ -260,7 +269,7 @@ public class DlcRequiredDownloadScreen extends Screen {
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return false;
     }
 
     @Override
@@ -852,13 +861,14 @@ public class DlcRequiredDownloadScreen extends Screen {
 
                 @Override
                 public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-                    super.render(guiGraphics, mouseX, mouseY, partialTick);
+                    DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
                     int centerX = this.width / 2;
                     int y = 40;
                     int titleX = (this.width - this.font.width(getTitle())) / 2;
                     guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
                     y += 20;
                     guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.required.restart_prompt"), centerX, y, 0xC8C8C8);
+                    DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
                 }
 
                 @Override

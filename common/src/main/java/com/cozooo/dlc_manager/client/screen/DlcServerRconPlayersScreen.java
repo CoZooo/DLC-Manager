@@ -5,7 +5,6 @@ import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
@@ -87,13 +86,13 @@ public class DlcServerRconPlayersScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 12, 0xFFFFFF);
         if (!statusText.isBlank()) {
             guiGraphics.drawString(this.font, statusText, listLeft, 48, 0xC8C8C8, false);
         }
         drawList(guiGraphics);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawList(GuiGraphics guiGraphics) {
@@ -146,18 +145,25 @@ public class DlcServerRconPlayersScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        return handleMouseScrolled(mouseX, mouseY, vertical);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double vertical) {
         if (mouseX >= listLeft && mouseX <= listRight && mouseY >= listTop && mouseY <= listBottom) {
             int height = listBottom - listTop;
             int maxVisible = Math.max(1, height / ROW_HEIGHT);
             int maxScroll = Math.max(0, players.size() - maxVisible);
             if (maxScroll > 0) {
-                scroll = Math.max(0, Math.min(maxScroll, scroll + (delta > 0 ? -1 : 1)));
+                scroll = Math.max(0, Math.min(maxScroll, scroll + (vertical > 0 ? -1 : 1)));
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return false;
     }
 
     @Override
@@ -223,7 +229,7 @@ public class DlcServerRconPlayersScreen extends Screen {
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
                     statusText = Component.translatable("dlc_manager.server.rcon_connect_failed").getString();
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.rcon_connect_failed"), Component.empty());
                 } else {
                     statusText = "";
@@ -291,7 +297,7 @@ public class DlcServerRconPlayersScreen extends Screen {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, command, 15000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.rcon_exec_failed"), Component.empty());
                 } else if (refreshAfter) {
                     refreshPlayers();

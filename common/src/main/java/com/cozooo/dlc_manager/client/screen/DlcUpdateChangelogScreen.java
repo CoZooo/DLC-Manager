@@ -44,13 +44,13 @@ public class DlcUpdateChangelogScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int y = 20;
         int titleX = (this.width - this.font.width(getTitle())) / 2;
         guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
         y += 18;
         drawLines(guiGraphics, y);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawLines(GuiGraphics guiGraphics, int startY) {
@@ -122,9 +122,16 @@ public class DlcUpdateChangelogScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        int step = delta > 0 ? -1 : 1;
+        return handleMouseScrolled(delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(deltaY);
+    }
+
+    private boolean handleMouseScrolled(double deltaY) {
+        int step = deltaY > 0 ? -1 : 1;
         scrollIndex = Math.max(0, scrollIndex + step);
         return true;
     }

@@ -6,7 +6,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
@@ -78,10 +77,10 @@ public class DlcServerRconConsoleScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 16, 0xFFFFFF);
         drawConsole(guiGraphics);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawConsole(GuiGraphics guiGraphics) {
@@ -101,18 +100,25 @@ public class DlcServerRconConsoleScreen extends Screen {
         drawScrollbar(guiGraphics, maxVisible, maxScroll);
     }
 
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        return handleMouseScrolled(mouseX, mouseY, vertical);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double vertical) {
         if (mouseX >= listLeft && mouseX <= listRight && mouseY >= listTop && mouseY <= listBottom) {
             int lineHeight = this.font.lineHeight + 1;
             int maxVisible = Math.max(1, (listBottom - listTop - 4) / lineHeight);
             int maxScroll = Math.max(0, lines.size() - maxVisible);
             if (maxScroll > 0) {
-                scroll = Math.max(0, Math.min(maxScroll, scroll + (delta > 0 ? -1 : 1)));
+                scroll = Math.max(0, Math.min(maxScroll, scroll + (vertical > 0 ? -1 : 1)));
                 return true;
             }
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return false;
     }
 
     @Override
@@ -196,7 +202,7 @@ public class DlcServerRconConsoleScreen extends Screen {
             .supplyAsync(() -> DlcRconClient.execute(host, port, password, command, 15000))
             .whenComplete((response, throwable) -> Minecraft.getInstance().execute(() -> {
                 if (response == null) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastIds.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.rcon_exec_failed"), Component.empty());
                 } else {
                     appendResponse(response);

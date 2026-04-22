@@ -7,7 +7,6 @@ import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -103,7 +102,7 @@ public class DlcServerPushScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 20, 0xFFFFFF);
         guiGraphics.drawString(this.font,
@@ -143,6 +142,7 @@ public class DlcServerPushScreen extends Screen {
             String text = statusText == null ? "" : statusText;
             guiGraphics.drawCenteredString(this.font, text, centerX, this.height - 48, 0xC8C8C8);
         }
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -190,13 +190,20 @@ public class DlcServerPushScreen extends Screen {
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(deltaY);
+    }
+
+    private boolean handleMouseScrolled(double deltaY) {
         if (deltaY != 0) {
             scrollIndex = Math.max(0, scrollIndex - (int) Math.signum(deltaY));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return false;
     }
 
     private void updateScrollFromDrag(double mouseY) {
@@ -249,7 +256,7 @@ public class DlcServerPushScreen extends Screen {
 
     private void confirmPush() {
         if (selectedFiles.isEmpty()) {
-            SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+            DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                 Component.translatable("dlc_manager.server.push_no_selection"), Component.empty());
             return;
         }
@@ -288,10 +295,10 @@ public class DlcServerPushScreen extends Screen {
             .whenComplete((ok, throwable) -> Minecraft.getInstance().execute(() -> {
                 pushing = false;
                 if (ok != null && ok) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.push_success"), Component.empty());
                 } else {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.push_failed"), Component.empty());
                 }
                 updateLabels();

@@ -9,7 +9,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -101,7 +100,7 @@ public class DlcServerFileManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 16, 0xFFFFFF);
         guiGraphics.drawString(this.font, Component.translatable("dlc_manager.server.files_path"), pathField.getX(), pathField.getY() - 10, 0xC8C8C8, false);
@@ -109,6 +108,7 @@ public class DlcServerFileManagerScreen extends Screen {
         if (loading) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.files_loading"), centerX, this.height - 62, 0xC8C8C8);
         }
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void renderList(GuiGraphics guiGraphics) {
@@ -202,12 +202,19 @@ public class DlcServerFileManagerScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        return handleMouseScrolled(mouseX, mouseY, verticalAmount);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double verticalAmount) {
         int listTop = 90;
         int listBottom = this.height - 40;
         if (mouseY < listTop || mouseY > listBottom) {
-            return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+            return false;
         }
         int maxVisible = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
         int maxScroll = Math.max(0, entries.size() - maxVisible);
@@ -216,7 +223,7 @@ public class DlcServerFileManagerScreen extends Screen {
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        return false;
     }
 
     private void refresh() {
@@ -289,7 +296,7 @@ public class DlcServerFileManagerScreen extends Screen {
                 if (ok != null && ok) {
                     refresh();
                 } else {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.files_upload_failed"), Component.empty());
                 }
             }));
@@ -354,10 +361,10 @@ public class DlcServerFileManagerScreen extends Screen {
             .whenComplete((ok, throwable) -> Minecraft.getInstance().execute(() -> {
                 loading = false;
                 if (ok != null && ok) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.files_save_success"), Component.empty());
                 } else {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.files_save_failed"), Component.empty());
                 }
             }));
@@ -416,7 +423,7 @@ public class DlcServerFileManagerScreen extends Screen {
                 if (ok != null && ok) {
                     refresh();
                 } else {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.files_delete_failed"), Component.empty());
                 }
             }));

@@ -11,7 +11,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.List;
@@ -93,7 +92,7 @@ public class DlcServerListScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 20, 0xFFFFFF);
         int listTop = 50;
@@ -133,6 +132,7 @@ public class DlcServerListScreen extends Screen {
         if (connecting) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.connecting"), centerX, listBottom + 4, 0xC8C8C8);
         }
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -164,12 +164,19 @@ public class DlcServerListScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(mouseX, mouseY, delta);
+    }
+
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(mouseX, mouseY, deltaY);
+    }
+
+    private boolean handleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         int listTop = 50;
         int listBottom = this.height - 70;
         if (mouseY < listTop || mouseY > listBottom) {
-            return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+            return false;
         }
         int maxVisible = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
         int maxScroll = Math.max(0, servers.size() - maxVisible);
@@ -178,7 +185,7 @@ public class DlcServerListScreen extends Screen {
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        return false;
     }
 
     @Override
@@ -240,7 +247,7 @@ public class DlcServerListScreen extends Screen {
         }
         DlcServerEntry entry = getSelectedEntry();
         if (entry == null) {
-            SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+            DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                 Component.translatable("dlc_manager.server.select_required"), Component.empty());
             return;
         }
@@ -252,7 +259,7 @@ public class DlcServerListScreen extends Screen {
                 connecting = false;
                 updateButtonStates();
                 if (info == null) {
-                    SystemToast.addOrUpdate(Minecraft.getInstance().getToasts(), SystemToast.SystemToastId.PERIODIC_NOTIFICATION,
+                    DlcScreenCompat.addOrUpdatePeriodicNotification(Minecraft.getInstance().getToasts(),
                         Component.translatable("dlc_manager.server.connect_failed"), Component.empty());
                     return;
                 }

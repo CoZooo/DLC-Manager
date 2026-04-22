@@ -110,7 +110,7 @@ public class DlcUpdatePromptScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.renderBackground(guiGraphics);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         if (applyButton != null) {
             applyButton.active = !applying;
         }
@@ -145,7 +145,7 @@ public class DlcUpdatePromptScreen extends Screen {
             y += 12;
         }
         drawUpdateList(guiGraphics, y);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawUpdateList(GuiGraphics guiGraphics, int startY) {
@@ -256,8 +256,15 @@ public class DlcUpdatePromptScreen extends Screen {
         guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
     }
 
-    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+        return handleMouseScrolled(delta);
+    }
+
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleMouseScrolled(deltaY);
+    }
+
+    private boolean handleMouseScrolled(double deltaY) {
         int listTop = 20 + 16 + 14 + 12;
         int listBottom = this.height - 70;
         int lineHeight = 12;
@@ -265,11 +272,11 @@ public class DlcUpdatePromptScreen extends Screen {
         int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
         int maxScroll = Math.max(0, totalLines - maxVisible);
         if (maxScroll > 0) {
-            int step = delta > 0 ? -1 : 1;
+            int step = deltaY > 0 ? -1 : 1;
             scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
             return true;
         }
-        return super.mouseScrolled(mouseX, mouseY, delta);
+        return false;
     }
 
     @Override

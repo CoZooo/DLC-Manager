@@ -81,12 +81,48 @@ public final class DlcScreenCompat {
         }
     }
 
+    public static boolean invokeCompatibleMouseScroll(Object target, String methodName, int mouseX, int mouseY, double deltaX, double deltaY) {
+        Method modern = findDeclaredMethod(target.getClass(), methodName, int.class, int.class, double.class, double.class);
+        if (modern != null) {
+            try {
+                Object value = modern.invoke(target, mouseX, mouseY, deltaX, deltaY);
+                return value instanceof Boolean result && result;
+            } catch (ReflectiveOperationException ex) {
+                throw new IllegalStateException("Failed to invoke compatible mouse scroll handler", ex);
+            }
+        }
+        Method legacy = findDeclaredMethod(target.getClass(), methodName, int.class, int.class, double.class);
+        if (legacy != null) {
+            try {
+                Object value = legacy.invoke(target, mouseX, mouseY, deltaY);
+                return value instanceof Boolean result && result;
+            } catch (ReflectiveOperationException ex) {
+                throw new IllegalStateException("Failed to invoke compatible mouse scroll handler", ex);
+            }
+        }
+        throw new IllegalStateException("Failed to resolve compatible mouse scroll handler: " + methodName);
+    }
+
     private static Method findMethod(Class<?> owner, String name, Class<?>... parameterTypes) {
         try {
             return owner.getMethod(name, parameterTypes);
         } catch (ReflectiveOperationException ignored) {
             return null;
         }
+    }
+
+    private static Method findDeclaredMethod(Class<?> owner, String name, Class<?>... parameterTypes) {
+        Class<?> current = owner;
+        while (current != null) {
+            try {
+                Method method = current.getDeclaredMethod(name, parameterTypes);
+                method.setAccessible(true);
+                return method;
+            } catch (ReflectiveOperationException ignored) {
+                current = current.getSuperclass();
+            }
+        }
+        return null;
     }
 
     private static Field findField(Class<?> owner, String name) {
