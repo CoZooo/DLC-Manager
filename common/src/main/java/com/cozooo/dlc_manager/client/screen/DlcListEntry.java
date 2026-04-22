@@ -599,6 +599,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         }
         if (item.isAlarm()) {
             Screen returnScreen = Minecraft.getInstance().screen;
+            DlcReturnPositionHost.remember(returnScreen);
             String tip = resolveLocalized(item.getTooltips());
             Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(returnScreen, tip, () -> {
                 attemptEnable(item, button);
@@ -668,6 +669,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
 
     private static void showBatchAlarmPrompt(java.util.List<DlcItem> alarmItems, Runnable onConfirm) {
         Screen returnScreen = Minecraft.getInstance().screen;
+        DlcReturnPositionHost.remember(returnScreen);
         String tip = buildBatchAlarmTip(alarmItems);
         Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(returnScreen, tip, () -> {
             if (onConfirm != null) {

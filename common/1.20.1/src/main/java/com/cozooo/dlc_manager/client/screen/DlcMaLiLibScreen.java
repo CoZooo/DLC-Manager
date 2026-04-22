@@ -46,7 +46,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 
-public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcListWidget> {
+public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcListWidget> implements DlcReturnPositionHost {
     public static void refreshCurrentOpenScreen() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || !(minecraft.screen instanceof DlcMaLiLibScreen screen)) {
@@ -1749,6 +1749,11 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             return false;
         }
         return !DlcPresetRuntimeState.getEnabledPresetIds().equals(presetSnapshot);
+    }
+
+    @Override
+    public void rememberReturnPosition() {
+        rememberListScroll();
     }
 
     void rememberListScroll() {

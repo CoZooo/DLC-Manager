@@ -35,7 +35,7 @@ import java.util.Set;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcServerListEntry, DlcServerListWidget> {
+public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcServerListEntry, DlcServerListWidget> implements DlcReturnPositionHost {
     private static final String PRESET_REF_PREFIX = "preset:";
     private static final Set<String> REMOTE_PROMPTED = new HashSet<>();
     private final Screen parent;
@@ -51,6 +51,9 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     private boolean presetSnapshotCaptured;
     private final Set<String> presetAppliedIdentifiers = new LinkedHashSet<>();
     private final Map<String, DlcPresetStatus> presetStatusById = new LinkedHashMap<>();
+    private int savedScrollOffset;
+    private DlcType savedScrollFilter;
+    private boolean restoreScrollPending;
 
     private ButtonGeneric applyButton;
     private ButtonGeneric backButton;
@@ -452,6 +455,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         }
         if (item.alarm) {
             String tip = getTooltipText(item);
+            rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, tip, () -> continueEnableWithChecks(item)));
             return;
         }
@@ -466,6 +470,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         if (!conflicts.conflicts.isEmpty()) {
             Component message = Component.translatable("dlc_manager.conflict.prompt_prefix",
                 DlcTextFormatter.parse(String.join(", ", conflicts.conflictNames)));
+            rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
@@ -478,6 +483,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         if (!deps.missing.isEmpty()) {
             Component message = Component.translatable("dlc_manager.dependency.prompt",
                 DlcTextFormatter.parse(String.join(", ", deps.missingNames)));
+            rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
@@ -508,6 +514,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         if (!deps.missing.isEmpty()) {
             Component message = Component.translatable("dlc_manager.dependency.prompt",
                 DlcTextFormatter.parse(String.join(", ", deps.missingNames)));
+            rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
@@ -1379,6 +1386,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             getListWidget().setSize(getBrowserWidth(), getBrowserHeight());
             getListWidget().initGui();
         }
+        restoreListScroll();
     }
 
     private int getListTop() {
@@ -1426,6 +1434,36 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
     private int maxTextWidth(String a, String b) {
         return Math.max(StringUtils.getStringWidth(a), StringUtils.getStringWidth(b));
+    }
+
+    @Override
+    public void rememberReturnPosition() {
+        rememberListScroll();
+    }
+
+    private void rememberListScroll() {
+        if (getListWidget() == null || getListWidget().getScrollbar() == null) {
+            return;
+        }
+        savedScrollOffset = getListWidget().getScrollbar().getValue();
+        savedScrollFilter = activeFilter;
+        restoreScrollPending = true;
+    }
+
+    private void restoreListScroll() {
+        if (!restoreScrollPending) {
+            return;
+        }
+        if (getListWidget() == null || getListWidget().getScrollbar() == null) {
+            return;
+        }
+        if (savedScrollFilter != activeFilter) {
+            restoreScrollPending = false;
+            return;
+        }
+        var scrollBar = getListWidget().getScrollbar();
+        scrollBar.setValue(Math.min(savedScrollOffset, scrollBar.getMaxValue()));
+        restoreScrollPending = false;
     }
 
     private void renderTitle(GuiGraphics guiGraphics) {
