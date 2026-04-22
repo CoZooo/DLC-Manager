@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -10,7 +12,9 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 public class DlcApplier {
     private static final String CONFIG_MISSING_MARKER = "__dlc_config_missing__";
@@ -56,6 +60,13 @@ public class DlcApplier {
                     DlcConfig.setState(item.getId(), state);
                 }
             }
+            PresetConflictPathResult presetPathResult = applyPresetConflictPaths();
+            if (!presetPathResult.messages().isEmpty()) {
+                messages.addAll(presetPathResult.messages());
+            }
+            if (presetPathResult.changed()) {
+                requiresRestart = true;
+            }
         } finally {
             CURRENT_APPLY_CONTEXT.remove();
         }
@@ -64,6 +75,158 @@ public class DlcApplier {
         DlcConfig.save();
 
         return new ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled);
+    }
+
+    private static PresetConflictPathResult applyPresetConflictPaths() {
+        Set<String> desired = DlcPathConfig.isPresetFuncOn()
+            ? new LinkedHashSet<>(DlcPresetRuntimeState.getDesiredDisabledRelativePaths())
+            : new LinkedHashSet<>();
+        Set<String> current = new LinkedHashSet<>(DlcPresetStateStore.loadDisabledConflictPaths());
+        if (desired.equals(current)) {
+            return new PresetConflictPathResult(List.of(), false);
+        }
+
+        List<String> messages = new ArrayList<>();
+        boolean changed = false;
+
+        Set<String> toRestore = new LinkedHashSet<>(current);
+        toRestore.removeAll(desired);
+        Set<String> applied = new LinkedHashSet<>(current);
+        for (String relative : toRestore) {
+            if (restorePresetConflictPath(relative, messages)) {
+                applied.remove(relative);
+                changed = true;
+            }
+        }
+
+        Set<String> toDisable = new LinkedHashSet<>(desired);
+        toDisable.removeAll(current);
+        for (String relative : toDisable) {
+            if (disablePresetConflictPath(relative, messages)) {
+                applied.add(relative);
+                changed = true;
+            }
+        }
+        DlcPresetStateStore.saveDisabledConflictPaths(applied);
+        return new PresetConflictPathResult(messages, changed);
+    }
+
+    private static boolean disablePresetConflictPath(String relative, List<String> messages) {
+        Path target = resolvePresetConflictTarget(relative);
+        Path backup = resolvePresetConflictBackup(relative);
+        if (target == null || backup == null) {
+            return false;
+        }
+        if (!Files.exists(target)) {
+            return false;
+        }
+        try {
+            deleteRecursiveIfExists(backup);
+            if (backup.getParent() != null) {
+                Files.createDirectories(backup.getParent());
+            }
+            moveWithHelperFallback(target, backup, true);
+            cleanupEmptyParents(target.getParent(), DlcPaths.gameDir());
+            cleanupEmptyParents(backup.getParent(), DlcTmpPaths.resolve(DlcPaths.dlcRoot(), "disabled"));
+            return true;
+        } catch (IOException ignored) {
+            String message = ignored.getMessage();
+            if (message != null && !message.isBlank()) {
+                messages.add(message);
+            } else {
+                messages.add("Failed to disable preset conflict path: " + relative);
+            }
+            recordApplyFailure(ignored);
+            return false;
+        }
+    }
+
+    private static boolean restorePresetConflictPath(String relative, List<String> messages) {
+        Path target = resolvePresetConflictTarget(relative);
+        Path backup = resolvePresetConflictBackup(relative);
+        if (target == null || backup == null) {
+            return false;
+        }
+        if (!Files.exists(backup)) {
+            return false;
+        }
+        try {
+            deleteRecursiveIfExists(target);
+            if (target.getParent() != null) {
+                Files.createDirectories(target.getParent());
+            }
+            moveWithHelperFallback(backup, target, true);
+            cleanupEmptyParents(backup.getParent(), DlcTmpPaths.resolve(DlcPaths.dlcRoot(), "disabled"));
+            return true;
+        } catch (IOException ignored) {
+            String message = ignored.getMessage();
+            if (message != null && !message.isBlank()) {
+                messages.add(message);
+            } else {
+                messages.add("Failed to restore preset conflict path: " + relative);
+            }
+            recordApplyFailure(ignored);
+            return false;
+        }
+    }
+
+    private static Path resolvePresetConflictTarget(String relative) {
+        if (relative == null || relative.isBlank()) {
+            return null;
+        }
+        Path gameDir = DlcPaths.gameDir();
+        if (gameDir == null) {
+            return null;
+        }
+        Path resolved = DlcPaths.resolveAgainstGameDir(relative);
+        if (resolved == null) {
+            return null;
+        }
+        Path normalizedGameDir = gameDir.toAbsolutePath().normalize();
+        if (!resolved.startsWith(normalizedGameDir)) {
+            return null;
+        }
+        return resolved;
+    }
+
+    private static Path resolvePresetConflictBackup(String relative) {
+        if (relative == null || relative.isBlank()) {
+            return null;
+        }
+        Path dlcRoot = DlcPaths.dlcRoot();
+        if (dlcRoot == null) {
+            return null;
+        }
+        Path disabledRoot = DlcTmpPaths.resolve(dlcRoot, "disabled");
+        if (disabledRoot == null) {
+            return null;
+        }
+        return disabledRoot.resolve(relative).normalize();
+    }
+
+    private static void cleanupEmptyParents(Path start, Path stopExclusive) {
+        if (start == null) {
+            return;
+        }
+        Path stop = stopExclusive == null ? null : stopExclusive.toAbsolutePath().normalize();
+        Path current = start.toAbsolutePath().normalize();
+        while (current != null && !current.equals(stop)) {
+            try {
+                if (!Files.isDirectory(current) || !isDirectoryEmpty(current)) {
+                    break;
+                }
+                Files.deleteIfExists(current);
+            } catch (IOException ignored) {
+                break;
+            }
+            current = current.getParent();
+        }
+    }
+
+    private static boolean isDirectoryEmpty(Path path) throws IOException {
+        try (var stream = Files.list(path)) {
+            return stream.findAny().isEmpty();
+        }
     }
 
     private static boolean requiresRestartOnToggle(DlcItem item) {
@@ -395,6 +558,29 @@ public class DlcApplier {
         }
     }
 
+    private static void moveWithHelperFallback(Path source, Path target, boolean replaceExisting) throws IOException {
+        if (source == null || target == null) {
+            return;
+        }
+        if (target.getParent() != null) {
+            Files.createDirectories(target.getParent());
+        }
+        try {
+            if (replaceExisting) {
+                Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                Files.move(source, target);
+            }
+        } catch (IOException exception) {
+            DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleMove(source, target, replaceExisting);
+            if (result.ok()) {
+                markHelperScheduled();
+                return;
+            }
+            throw new IOException(result.message(), exception);
+        }
+    }
+
     private static void deleteWithHelperFallback(Path path) throws IOException {
         if (path == null) {
             return;
@@ -477,6 +663,8 @@ public class DlcApplier {
             this.messages = messages;
         }
     }
+
+    private record PresetConflictPathResult(List<String> messages, boolean changed) {}
 
     public record ApplyResult(List<String> messages, boolean requiresRestart, boolean hotReloaded, boolean helperScheduled) {}
 }

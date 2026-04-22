@@ -1,7 +1,9 @@
 package com.cozooo.dlc_manager.client.preset;
 
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -237,6 +239,25 @@ public final class DlcPresetRuntimeState {
         applyOverrides();
     }
 
+    public static Set<String> getDesiredDisabledRelativePaths() {
+        Map<String, Set<String>> enableCache = new LinkedHashMap<>();
+        Map<String, Set<String>> conflictCache = new LinkedHashMap<>();
+        Set<String> result = new LinkedHashSet<>();
+        for (String presetId : ENABLED_PRESETS) {
+            for (String token : resolveConflictTokensForPreset(presetId, enableCache, conflictCache, new LinkedHashSet<>(), new LinkedHashSet<>())) {
+                String relativePath = normalizeRelativeConflictPath(token);
+                if (relativePath != null && !relativePath.isBlank()) {
+                    result.add(relativePath);
+                }
+            }
+        }
+        return result;
+    }
+
+    public static boolean hasPendingFileConflictChanges() {
+        return !DlcPresetStateStore.loadDisabledConflictPaths().equals(getDesiredDisabledRelativePaths());
+    }
+
     private static void rebuildBlocks() {
         Map<String, Set<String>> dlcBlockers = new LinkedHashMap<>();
         Map<String, Set<String>> presetBlockers = new LinkedHashMap<>();
@@ -358,7 +379,7 @@ public final class DlcPresetRuntimeState {
 
     private static void applyOverrides() {
         Set<String> desiredEnable = new LinkedHashSet<>();
-        Set<String> desiredDisable = new LinkedHashSet<>();
+        Set<String> desiredDisableIdentifiers = new LinkedHashSet<>();
         Map<String, Set<String>> enableCache = new LinkedHashMap<>();
         Map<String, Set<String>> conflictCache = new LinkedHashMap<>();
         for (String presetId : ENABLED_PRESETS) {
@@ -384,16 +405,16 @@ public final class DlcPresetRuntimeState {
                 if (conflict == null || conflict.isBlank()) {
                     continue;
                 }
-                desiredDisable.add(conflict);
+                desiredDisableIdentifiers.add(conflict);
             }
         }
-        desiredDisable.addAll(collectInfoConflicts(desiredEnable));
-        desiredDisable = expandDisabledByDependents(desiredDisable);
-        desiredEnable.removeAll(desiredDisable);
+        desiredDisableIdentifiers.addAll(collectInfoConflicts(desiredEnable));
+        desiredDisableIdentifiers = expandDisabledByDependents(desiredDisableIdentifiers);
+        desiredEnable.removeAll(desiredDisableIdentifiers);
 
         Set<String> toDisable = new LinkedHashSet<>(LAST_APPLIED_IDENTIFIERS);
         Set<String> desiredAll = new LinkedHashSet<>(desiredEnable);
-        desiredAll.addAll(desiredDisable);
+        desiredAll.addAll(desiredDisableIdentifiers);
         toDisable.removeAll(desiredAll);
 
         for (String identifier : desiredEnable) {
@@ -402,7 +423,7 @@ public final class DlcPresetRuntimeState {
                 DlcRuntimeState.setOverride(item.getId(), true);
             }
         }
-        for (String identifier : desiredDisable) {
+        for (String identifier : desiredDisableIdentifiers) {
             DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
             if (item != null) {
                 DlcRuntimeState.setOverride(item.getId(), false);
@@ -470,11 +491,11 @@ public final class DlcPresetRuntimeState {
         return unmodifiable;
     }
 
-    private static Set<String> resolveConflictIdentifiersForPreset(String presetId,
-                                                                   Map<String, Set<String>> enableCache,
-                                                                   Map<String, Set<String>> conflictCache,
-                                                                   Set<String> stack,
-                                                                   Set<String> enableStack) {
+    private static Set<String> resolveConflictTokensForPreset(String presetId,
+                                                              Map<String, Set<String>> enableCache,
+                                                              Map<String, Set<String>> conflictCache,
+                                                              Set<String> stack,
+                                                              Set<String> enableStack) {
         if (presetId == null || presetId.isBlank()) {
             return Set.of();
         }
@@ -507,6 +528,24 @@ public final class DlcPresetRuntimeState {
         Set<String> unmodifiable = java.util.Collections.unmodifiableSet(new LinkedHashSet<>(result));
         conflictCache.put(presetId, unmodifiable);
         return unmodifiable;
+    }
+
+    private static Set<String> resolveConflictIdentifiersForPreset(String presetId,
+                                                                   Map<String, Set<String>> enableCache,
+                                                                   Map<String, Set<String>> conflictCache,
+                                                                   Set<String> stack,
+                                                                   Set<String> enableStack) {
+        Set<String> tokens = resolveConflictTokensForPreset(presetId, enableCache, conflictCache, stack, enableStack);
+        if (tokens.isEmpty()) {
+            return tokens;
+        }
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (String token : tokens) {
+            if (isIdentifierConflictToken(token)) {
+                identifiers.add(token);
+            }
+        }
+        return java.util.Collections.unmodifiableSet(identifiers);
     }
 
     private static String resolvePresetReference(String token) {
@@ -556,6 +595,41 @@ public final class DlcPresetRuntimeState {
             return "";
         }
         return token.trim();
+    }
+
+    private static boolean isIdentifierConflictToken(String token) {
+        String value = normalizeToken(token);
+        if (value.isBlank()) {
+            return false;
+        }
+        return DlcRuntimeState.getItemByIdentifier(value) != null;
+    }
+
+    private static String normalizeRelativeConflictPath(String token) {
+        String value = normalizeToken(token);
+        if (value.isBlank()) {
+            return null;
+        }
+        if (DlcRuntimeState.getItemByIdentifier(value) != null) {
+            return null;
+        }
+        Path rawPath = DlcPaths.parsePathLenient(value);
+        if (rawPath == null || rawPath.isAbsolute()) {
+            return null;
+        }
+        Path gameDir = DlcPaths.gameDir();
+        if (gameDir == null) {
+            return null;
+        }
+        Path resolved = DlcPaths.resolveAgainstGameDir(value);
+        if (resolved == null) {
+            return null;
+        }
+        Path normalizedGameDir = gameDir.toAbsolutePath().normalize();
+        if (!resolved.startsWith(normalizedGameDir)) {
+            return null;
+        }
+        return normalizedGameDir.relativize(resolved).toString().replace('\\', '/');
     }
 
     private static Set<String> collectInfoConflicts(Set<String> enabledIdentifiers) {

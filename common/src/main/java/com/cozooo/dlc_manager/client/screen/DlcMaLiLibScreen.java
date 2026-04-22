@@ -704,6 +704,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         DlcApplier.ApplyResult applyResult = null;
         if (applyNeeded) {
             applyResult = DlcApplier.apply(allItems, applyMode);
+            if (applyResult != null && applyResult.requiresRestart()) {
+                modReloadNeeded = true;
+            }
             if (applyResult != null && applyResult.helperScheduled()) {
                 modReloadNeeded = true;
                 otherReloadNeeded = false;
@@ -986,6 +989,9 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private boolean computeApplyChanges() {
+        if (DlcPresetRuntimeState.hasPendingFileConflictChanges()) {
+            return true;
+        }
         for (DlcItem item : allItems) {
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
                 return true;
