@@ -166,7 +166,7 @@
   "dlc_manager.config.comment.ui.apiPort": "HTTP 端口，范围 0～65535，默认 10086。设为 0 仅关闭 HTTP API",
   "dlc_manager.config.comment.ui.apiToken": "Bearer 令牌，留空则外部 API 请求会被拒绝",
   "dlc_manager.config.comment.ui.modpackUrl": "整合包主页链接（用于更新页跳转）",
-  "dlc_manager.config.comment.ui.updateGithubRepo": "整合包版本仓库链接（支持 GitHub / GitLab / Gitee；可用逗号分隔多个仓库）",
+  "dlc_manager.config.comment.ui.updateGithubRepo": "整合包版本仓库链接（支持 GitHub / GitCode / GitLab / Gitee；可用逗号分隔多个仓库）",
   "dlc_manager.config.comment.ui.noticeDisplayMode": "公告显示模式：manager_button、main_menu_button、main_menu_panel",
   "dlc_manager.config.comment.ui.noticeButtonAnchor": "支持的锚点：左上, 顶部居中, 右上, 左侧居中, 居中, 右侧居中, 左下, 底部居中, 右下",
   "dlc_manager.config.comment.ui.noticeButtonOffsetX": "单位：像素，范围 -1000～1000",

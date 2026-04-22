@@ -34,6 +34,17 @@ public final class DlcPackReleaseUpdateService {
     private static final String DEFAULT_VERSION = "1.0.0";
     private static final String UNIVERSAL_PREFIX = "Universal_";
     private static final String[] VERSION_PAIR_DELIMITERS = new String[] {"+", "_", "@", "~", "-", " "};
+    private static final int RELEASES_PER_PAGE = 100;
+    private static final int RELEASES_MAX_PAGES = 10;
+    private static final int GITCODE_TOKEN_SHIFT = 5;
+    private static final byte GITCODE_TOKEN_MASK = (byte) 0x33;
+    private static final byte[] GITCODE_TOKEN_PART1 = new byte[] {
+        (byte) 0x60, (byte) 0x80, (byte) 0x30, (byte) 0x33, (byte) 0xE9, (byte) 0x58, (byte) 0x6A, (byte) 0xEB,
+        (byte) 0x34, (byte) 0x7D, (byte) 0x53, (byte) 0x17, (byte) 0xD0, (byte) 0x69, (byte) 0xC6, (byte) 0x88,
+        (byte) 0xE6, (byte) 0xC5, (byte) 0xA7, (byte) 0x16, (byte) 0x34, (byte) 0xF9, (byte) 0x9F, (byte) 0x47
+    };
+    private static final int GITCODE_TOKEN_PART2_SEED = 0x6D;
+    private static String GITCODE_TOKEN_CACHE;
 
     private DlcPackReleaseUpdateService() {
     }
@@ -231,7 +242,7 @@ public final class DlcPackReleaseUpdateService {
         }
         JsonArray releases;
         try {
-            releases = fetchReleases(repo);
+            releases = fetchReleases(repo, result.currentBase, result.currentDlc);
         } catch (Exception ex) {
             result.error = ex.getMessage() == null ? "release_fetch_failed" : ex.getMessage();
             return result;
@@ -718,12 +729,12 @@ public final class DlcPackReleaseUpdateService {
         return new String[0];
     }
 
-    private static JsonArray fetchReleases(RepoCoordinates repo) throws IOException {
+    private static JsonArray fetchReleases(RepoCoordinates repo, String currentBase, String currentDlc) throws IOException {
         List<ApiEndpoint> endpoints = buildReleaseApiEndpoints(repo);
         IOException lastException = null;
         for (ApiEndpoint endpoint : endpoints) {
             try {
-                return fetchReleasesFromEndpoint(endpoint);
+                return fetchReleasesFromEndpoint(endpoint, currentBase, currentDlc);
             } catch (IOException ex) {
                 lastException = ex;
             }
@@ -734,14 +745,35 @@ public final class DlcPackReleaseUpdateService {
         throw new IOException("release_fetch_failed");
     }
 
-    private static JsonArray fetchReleasesFromEndpoint(ApiEndpoint endpoint) throws IOException {
-        String api = endpoint.url;
+    private static JsonArray fetchReleasesFromEndpoint(ApiEndpoint endpoint, String currentBase, String currentDlc) throws IOException {
+        JsonArray collected = new JsonArray();
+        String safeCurrentBase = safeVersion(currentBase);
+        String safeCurrentDlc = safeVersion(currentDlc);
+        for (int page = 1; page <= RELEASES_MAX_PAGES; page++) {
+            JsonArray pageReleases = fetchReleasePage(endpoint, page);
+            if (pageReleases == null || pageReleases.isEmpty()) {
+                break;
+            }
+            boolean shouldStop = appendReleasesUntilCurrentBoundary(collected, pageReleases, safeCurrentBase, safeCurrentDlc);
+            if (shouldStop || pageReleases.size() < RELEASES_PER_PAGE) {
+                break;
+            }
+        }
+        return collected;
+    }
+
+    private static JsonArray fetchReleasePage(ApiEndpoint endpoint, int page) throws IOException {
+        String api = appendPageParameter(endpoint.url, page);
         HttpURLConnection connection = (HttpURLConnection) new URL(api).openConnection();
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
         if (endpoint.accept != null && !endpoint.accept.isBlank()) {
             connection.setRequestProperty("Accept", endpoint.accept);
+        }
+        if (endpoint.authHeaderName != null && endpoint.authHeaderValue != null
+            && !endpoint.authHeaderName.isBlank() && !endpoint.authHeaderValue.isBlank()) {
+            connection.setRequestProperty(endpoint.authHeaderName, endpoint.authHeaderValue);
         }
         connection.connect();
         try {
@@ -771,6 +803,53 @@ public final class DlcPackReleaseUpdateService {
         } finally {
             connection.disconnect();
         }
+    }
+
+    private static boolean appendReleasesUntilCurrentBoundary(JsonArray collected, JsonArray pageReleases, String currentBase, String currentDlc) {
+        if (collected == null || pageReleases == null || pageReleases.isEmpty()) {
+            return false;
+        }
+        for (JsonElement element : pageReleases) {
+            if (element == null || !element.isJsonObject()) {
+                collected.add(element);
+                continue;
+            }
+            JsonObject release = element.getAsJsonObject();
+            collected.add(release);
+            String tag = getString(release, "tag_name");
+            if (tag.isBlank()) {
+                tag = getString(release, "name");
+            }
+            ParsedTag parsed = parseTag(tag);
+            if (parsed == null) {
+                continue;
+            }
+            int compare = compareState(parsed.oldBase, parsed.oldDlc, currentBase, currentDlc);
+            if (compare == 0) {
+                return true;
+            }
+            if (compare < 0) {
+                collected.remove(collected.size() - 1);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int compareState(String baseA, String dlcA, String baseB, String dlcB) {
+        int compareBase = DlcUpdateService.compareVersions(safeVersion(baseA), safeVersion(baseB));
+        if (compareBase != 0) {
+            return compareBase;
+        }
+        return DlcUpdateService.compareVersions(safeVersion(dlcA), safeVersion(dlcB));
+    }
+
+    private static String appendPageParameter(String url, int page) {
+        if (url == null || url.isBlank()) {
+            return "";
+        }
+        String separator = url.contains("?") ? "&" : "?";
+        return url + separator + "page=" + Math.max(page, 1);
     }
 
     private static JsonArray parseReleaseArray(String payload, String api) throws IOException {
@@ -907,6 +986,9 @@ public final class DlcPackReleaseUpdateService {
         if (host.endsWith("github.com")) {
             return Provider.GITHUB;
         }
+        if (host.endsWith("gitcode.com")) {
+            return Provider.GITCODE;
+        }
         if (host.endsWith("gitee.com")) {
             return Provider.GITEE;
         }
@@ -930,23 +1012,28 @@ public final class DlcPackReleaseUpdateService {
         List<ApiEndpoint> endpoints = new ArrayList<>();
         switch (repo.provider) {
             case GITHUB -> endpoints.add(new ApiEndpoint(
-                "https://api.github.com/repos/" + owner + "/" + project + "/releases?per_page=100",
+                "https://api.github.com/repos/" + owner + "/" + project + "/releases?per_page=" + RELEASES_PER_PAGE,
                 "application/vnd.github+json"));
+            case GITCODE -> endpoints.add(new ApiEndpoint(
+                "https://api.gitcode.com/api/v5/repos/" + owner + "/" + project + "/releases?per_page=" + RELEASES_PER_PAGE,
+                "application/json",
+                "PRIVATE-TOKEN",
+                getGitCodeAccessToken()));
             case GITEE -> endpoints.add(new ApiEndpoint(
-                "https://gitee.com/api/v5/repos/" + owner + "/" + project + "/releases?per_page=100",
+                "https://gitee.com/api/v5/repos/" + owner + "/" + project + "/releases?per_page=" + RELEASES_PER_PAGE,
                 "application/json"));
             case GITLAB -> endpoints.add(new ApiEndpoint(
-                "https://" + host + "/api/v4/projects/" + projectPath + "/releases?per_page=100",
+                "https://" + host + "/api/v4/projects/" + projectPath + "/releases?per_page=" + RELEASES_PER_PAGE,
                 "application/json"));
             case GENERIC -> {
                 endpoints.add(new ApiEndpoint(
-                    "https://" + host + "/api/v5/repos/" + owner + "/" + project + "/releases?per_page=100",
+                    "https://" + host + "/api/v5/repos/" + owner + "/" + project + "/releases?per_page=" + RELEASES_PER_PAGE,
                     "application/json"));
                 endpoints.add(new ApiEndpoint(
-                    "https://api." + host + "/repos/" + owner + "/" + project + "/releases?per_page=100",
+                    "https://api." + host + "/repos/" + owner + "/" + project + "/releases?per_page=" + RELEASES_PER_PAGE,
                     "application/json"));
                 endpoints.add(new ApiEndpoint(
-                    "https://" + host + "/api/v4/projects/" + projectPath + "/releases?per_page=100",
+                    "https://" + host + "/api/v4/projects/" + projectPath + "/releases?per_page=" + RELEASES_PER_PAGE,
                     "application/json"));
             }
         }
@@ -1140,6 +1227,35 @@ public final class DlcPackReleaseUpdateService {
         }
     }
 
+    private static String getGitCodeAccessToken() {
+        if (GITCODE_TOKEN_CACHE != null) {
+            return GITCODE_TOKEN_CACHE;
+        }
+        int length = GITCODE_TOKEN_PART1.length;
+        byte[] part2 = generateGitCodeTokenPart2(length);
+        byte[] decoded = new byte[length];
+        for (int i = 0; i < length; i++) {
+            byte mixed = (byte) (GITCODE_TOKEN_PART1[i] ^ part2[i]);
+            decoded[i] = (byte) (mixed ^ GITCODE_TOKEN_MASK ^ ((i * 17) & 0xFF));
+        }
+        byte[] shifted = new byte[length];
+        for (int i = 0; i < length; i++) {
+            shifted[i] = decoded[(i + GITCODE_TOKEN_SHIFT) % length];
+        }
+        GITCODE_TOKEN_CACHE = new String(shifted, StandardCharsets.UTF_8);
+        return GITCODE_TOKEN_CACHE;
+    }
+
+    private static byte[] generateGitCodeTokenPart2(int length) {
+        byte[] bytes = new byte[length];
+        int seed = GITCODE_TOKEN_PART2_SEED;
+        for (int i = 0; i < length; i++) {
+            seed = (seed * 73 + 41) & 0xFF;
+            bytes[i] = (byte) seed;
+        }
+        return bytes;
+    }
+
     private static final class RepoCoordinates {
         private String host;
         private String owner;
@@ -1150,6 +1266,7 @@ public final class DlcPackReleaseUpdateService {
 
     private enum Provider {
         GITHUB,
+        GITCODE,
         GITEE,
         GITLAB,
         GENERIC
@@ -1158,10 +1275,18 @@ public final class DlcPackReleaseUpdateService {
     private static final class ApiEndpoint {
         private final String url;
         private final String accept;
+        private final String authHeaderName;
+        private final String authHeaderValue;
 
         private ApiEndpoint(String url, String accept) {
+            this(url, accept, null, null);
+        }
+
+        private ApiEndpoint(String url, String accept, String authHeaderName, String authHeaderValue) {
             this.url = url;
             this.accept = accept;
+            this.authHeaderName = authHeaderName;
+            this.authHeaderValue = authHeaderValue;
         }
     }
 
