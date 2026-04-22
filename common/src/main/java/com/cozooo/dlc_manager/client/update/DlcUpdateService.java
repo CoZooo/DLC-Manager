@@ -1217,7 +1217,6 @@ public final class DlcUpdateService {
     private static void applyRemoteUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context)
         throws IOException, InterruptedException {
         Map<String, DlcRemoteEntry> entries = loadRemoteEntries(context.dlcRoot);
-        Map<String, Path> infoByIdentifier = loadInfoConfigPathByIdentifier(context.dlcRoot);
         if (entries.isEmpty()) {
             return;
         }
@@ -1230,7 +1229,6 @@ public final class DlcUpdateService {
             if (entry == null) {
                 continue;
             }
-            Path infoPath = infoByIdentifier.get(identifier);
             boolean shouldRedownload = hasRemoteDownloadSourceChanges(entry, update.getValue());
             if (context != null && shouldRedownload) {
                 context.addedRemote = true;
@@ -1248,7 +1246,6 @@ public final class DlcUpdateService {
             if (configPath != null && Files.exists(configPath)) {
                 backupPath(toGameRelativePath(configPath), configPath, context);
                 updateRemoteConfigFields(configPath, updateEntry);
-                syncInfoConfigFields(infoPath, updateEntry, context);
                 entry = DlcRemoteLoader.loadSingle(configPath, context.dlcRoot);
                 if (entry == null) {
                     continue;
@@ -1269,7 +1266,6 @@ public final class DlcUpdateService {
             }
             if (downloaded.fileName != null && !downloaded.fileName.isBlank()) {
                 updateRemoteFileName(configPath, downloaded.fileName);
-                rewriteInfoFileWithNewFileName(infoPath, downloaded.fileName, context);
             }
             if (wasEnabled) {
                 List<Path> applied = applyRemoteTargets(entry, downloaded.path, context);
