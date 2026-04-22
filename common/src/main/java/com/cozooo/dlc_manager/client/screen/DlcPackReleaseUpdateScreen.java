@@ -102,7 +102,7 @@ public class DlcPackReleaseUpdateScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         updateButtons();
         int centerX = this.width / 2;
         int y = this.height / 2 - 78;
@@ -131,7 +131,7 @@ public class DlcPackReleaseUpdateScreen extends Screen {
         } else if (!checkResult.canDownload()) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack_update.asset_missing"), centerX, y, 0xD7B56D);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private int renderChangelog(GuiGraphics guiGraphics, int centerX, int y) {

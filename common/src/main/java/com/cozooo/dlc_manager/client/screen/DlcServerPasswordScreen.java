@@ -76,7 +76,7 @@ public class DlcServerPasswordScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, this.height / 2 - 60, 0xFFFFFF);
         String address = entry.host == null ? "" : entry.host;
@@ -84,7 +84,7 @@ public class DlcServerPasswordScreen extends Screen {
         drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField);
         drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField);
         updateButtonState();
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     private void drawFieldLabel(GuiGraphics guiGraphics, String key, EditBox field) {

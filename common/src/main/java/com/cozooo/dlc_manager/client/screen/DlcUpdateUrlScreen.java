@@ -81,7 +81,7 @@ public class DlcUpdateUrlScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
         int y = this.height / 2 - 80;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
@@ -98,7 +98,7 @@ public class DlcUpdateUrlScreen extends Screen {
         } else if (errorText != null && !errorText.isBlank()) {
             guiGraphics.drawCenteredString(this.font, errorText, centerX, this.height / 2 + 60, 0xFF6B6B);
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override

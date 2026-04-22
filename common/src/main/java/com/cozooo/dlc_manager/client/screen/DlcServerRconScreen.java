@@ -122,7 +122,7 @@ public class DlcServerRconScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 20, 0xFFFFFF);
 
         String hostValue = entry == null || entry.host == null ? "" : entry.host;
@@ -148,7 +148,7 @@ public class DlcServerRconScreen extends Screen {
                 guiGraphics.drawString(this.font, passwordLabel, labelX, passwordField.getY() + 6, 0xC8C8C8, false);
             }
         }
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
     @Override

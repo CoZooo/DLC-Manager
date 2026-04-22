@@ -36,6 +36,11 @@ public final class DlcScreenCompat {
         }
     }
 
+    public static void renderModalBackground(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        renderBackground(screen, guiGraphics, mouseX, mouseY, partialTick);
+        guiGraphics.fill(0, 0, screen.width, screen.height, 0xC0101010);
+    }
+
     public static void addOrUpdatePeriodicNotification(Object toasts, Component title, Component description) {
         if (ADD_OR_UPDATE_PERIODIC_NOTIFICATION == null || PERIODIC_NOTIFICATION_ID == null) {
             throw new IllegalStateException("Failed to resolve SystemToast periodic notification compatibility");
