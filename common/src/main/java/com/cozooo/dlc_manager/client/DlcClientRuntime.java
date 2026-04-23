@@ -702,11 +702,11 @@ public final class DlcClientRuntime {
     }
 
     public static void runStartupChecksAsync(Screen screen) {
-        DlcServerApi.start(null);
-        DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen));
         if (startupCheckRunning || startupChecksCompleted) {
             return;
         }
+        DlcServerApi.start(null);
+        DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen));
         DlcStartupStateSync.syncOnStartup();
         startupCheckRunning = true;
         startupChecksCompleted = true;
