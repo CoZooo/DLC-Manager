@@ -154,12 +154,11 @@ public class DlcServerUpdateUrlScreen extends Screen {
                 if (downloaded == null) {
                     throw new IOException("download failed");
                 }
-                DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(downloaded);
-                if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null
-                    || !DlcUpdateService.isImportPackageValid(downloaded)) {
+                DlcUpdateService.ImportValidationResult validation = DlcUpdateService.validateImportPackage(downloaded);
+                if (!validation.isValid()) {
                     Files.deleteIfExists(downloaded);
                     Minecraft.getInstance().execute(() -> {
-                        errorText = Component.translatable("dlc_manager.update.import_invalid").getString();
+                        errorText = DlcUpdateService.toImportValidationComponent(validation).getString();
                         downloading = false;
                         downloadButton.active = true;
                         pasteButton.active = true;

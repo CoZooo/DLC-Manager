@@ -161,14 +161,14 @@ public class DlcUpdateUrlScreen extends Screen {
                 if (downloaded == null) {
                     throw new IOException("download failed");
                 }
-                DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(downloaded);
-                if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null
-                    || !DlcUpdateService.isImportPackageValid(downloaded)) {
+                DlcUpdateService.ImportValidationResult validation = DlcUpdateService.validateImportPackage(downloaded);
+                if (!validation.isValid()) {
                     Files.deleteIfExists(downloaded);
                     Minecraft.getInstance().execute(() -> {
+                        Component message = DlcUpdateService.toImportValidationComponent(validation);
                         showToast(Component.translatable("dlc_manager.update.manager_title"),
-                            Component.translatable("dlc_manager.update.import_invalid"));
-                        errorText = Component.translatable("dlc_manager.update.import_invalid").getString();
+                            message);
+                        errorText = message.getString();
                         downloading = false;
                         downloadButton.active = true;
                         pasteButton.active = true;
@@ -303,10 +303,7 @@ public class DlcUpdateUrlScreen extends Screen {
             return;
         }
         if (!result.isSuccess()) {
-            String message = result == null ? "" : result.getMessage();
-            Component component = (message == null || message.isBlank())
-                ? Component.translatable("dlc_manager.update.failed")
-                : Component.literal(message);
+            Component component = DlcUpdateService.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, component));
             return;
         }

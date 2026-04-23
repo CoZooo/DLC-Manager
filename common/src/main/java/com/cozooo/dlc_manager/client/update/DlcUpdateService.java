@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.network.chat.Component;
 
 public final class DlcUpdateService {
     private static final Gson UPDATE_GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -166,6 +167,30 @@ public final class DlcUpdateService {
         } finally {
             CURRENT_PROGRESS_LISTENER.remove();
         }
+    }
+
+    public static Component toFailureComponent(UpdateApplyResult result) {
+        String message = result == null ? "" : result.getMessage();
+        if (message == null || message.isBlank()) {
+            return Component.translatable("dlc_manager.update.failed");
+        }
+        if ("Version mismatch".equalsIgnoreCase(message.trim())) {
+            return Component.translatable("dlc_manager.update.failed_version_mismatch");
+        }
+        return Component.literal(message);
+    }
+
+    public static Component toImportValidationComponent(ImportValidationResult result) {
+        if (result == null) {
+            return Component.translatable("dlc_manager.update.import_invalid");
+        }
+        return switch (result) {
+            case VALID -> Component.empty();
+            case DLC_ROOT_MISSING -> Component.translatable("dlc_manager.update.dlc_root_missing");
+            case PLATFORM_MISMATCH -> Component.translatable("dlc_manager.update.import_platform_mismatch");
+            case VERSION_MISMATCH -> Component.translatable("dlc_manager.update.import_version_mismatch");
+            case INVALID_PACKAGE -> Component.translatable("dlc_manager.update.import_invalid");
+        };
     }
 
     private static UpdateApplyResult applyUpdatesInternal(List<DlcUpdatePackage> packages, boolean forceMissing) {
@@ -503,23 +528,35 @@ public final class DlcUpdateService {
     }
 
     public static boolean isImportPackageValid(Path zipPath) {
+        return validateImportPackage(zipPath).isValid();
+    }
+
+    public static ImportValidationResult validateImportPackage(Path zipPath) {
         if (zipPath == null) {
-            return false;
+            return ImportValidationResult.INVALID_PACKAGE;
         }
         DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(zipPath);
         if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
-            return false;
+            return ImportValidationResult.INVALID_PACKAGE;
         }
         Path dlcRoot = getDlcRoot();
         if (dlcRoot == null) {
-            return false;
+            return ImportValidationResult.DLC_ROOT_MISSING;
         }
         DlcUpdateVersion current = DlcUpdateVersion.load(dlcRoot);
         DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
-        return hasVersionTransition(info)
-            && isPlatformCompatible(info)
-            && safeVersion(current.getBase()).equals(sourceBaseVersion(info))
-            && safeVersion(current.getDlc()).equals(sourceDlcVersion(info));
+        if (!hasVersionTransition(info)) {
+            return ImportValidationResult.INVALID_PACKAGE;
+        }
+        if (!isPlatformCompatible(info)) {
+            return ImportValidationResult.PLATFORM_MISMATCH;
+        }
+        String currentBase = safeVersion(current == null ? null : current.getBase());
+        String currentDlc = safeVersion(current == null ? null : current.getDlc());
+        if (!currentBase.equals(sourceBaseVersion(info)) || !currentDlc.equals(sourceDlcVersion(info))) {
+            return ImportValidationResult.VERSION_MISMATCH;
+        }
+        return ImportValidationResult.VALID;
     }
 
     public static boolean importUpdatePackage(Path zipPath) {
@@ -3882,6 +3919,18 @@ public final class DlcUpdateService {
 
         public String getMessage() {
             return message;
+        }
+    }
+
+    public enum ImportValidationResult {
+        VALID,
+        INVALID_PACKAGE,
+        DLC_ROOT_MISSING,
+        PLATFORM_MISMATCH,
+        VERSION_MISMATCH;
+
+        public boolean isValid() {
+            return this == VALID;
         }
     }
 }

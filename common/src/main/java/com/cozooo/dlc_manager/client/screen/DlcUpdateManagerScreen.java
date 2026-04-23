@@ -494,10 +494,7 @@ public class DlcUpdateManagerScreen extends Screen {
             return;
         }
         if (!result.isSuccess()) {
-            String message = result == null ? "" : result.getMessage();
-            Component component = (message == null || message.isBlank())
-                ? Component.translatable("dlc_manager.update.failed")
-                : Component.literal(message);
+            Component component = DlcUpdateService.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, component));
             return;
         }
@@ -595,11 +592,10 @@ public class DlcUpdateManagerScreen extends Screen {
         if (picked == null) {
             return;
         }
-        DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(picked);
-        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null
-            || !DlcUpdateService.isImportPackageValid(picked)) {
+        DlcUpdateService.ImportValidationResult validation = DlcUpdateService.validateImportPackage(picked);
+        if (!validation.isValid()) {
             showToast(Component.translatable("dlc_manager.update.manager_title"),
-                Component.translatable("dlc_manager.update.import_invalid"));
+                DlcUpdateService.toImportValidationComponent(validation));
             return;
         }
         if (!DlcUpdateService.importUpdatePackage(picked)) {
@@ -655,7 +651,7 @@ public class DlcUpdateManagerScreen extends Screen {
                 }
                 if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {
                     showToast(Component.translatable("dlc_manager.update.manager_title"),
-                        Component.translatable("dlc_manager.pack_update.check_failed", finalResult.error));
+                        DlcPackReleaseUpdateService.toCheckFailureComponent(finalResult.error));
                     return;
                 }
                 showToast(Component.translatable("dlc_manager.update.manager_title"),

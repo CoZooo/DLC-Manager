@@ -342,10 +342,7 @@ public class DlcUpdatePromptScreen extends Screen {
             return;
         }
         if (!result.isSuccess()) {
-            String message = result == null ? "" : result.getMessage();
-            Component component = (message == null || message.isBlank())
-                ? Component.translatable("dlc_manager.update.failed")
-                : Component.literal(message);
+            Component component = DlcUpdateService.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, component));
             return;
         }

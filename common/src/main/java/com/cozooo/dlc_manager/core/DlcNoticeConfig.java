@@ -304,8 +304,8 @@ public class DlcNoticeConfig {
         try {
             java.net.URL url = new java.net.URL(normalizedUrl);
             connection = (java.net.HttpURLConnection) url.openConnection();
-            connection.setConnectTimeout(3000);
-            connection.setReadTimeout(5000);
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(10000);
             connection.setInstanceFollowRedirects(true);
             connection.setRequestProperty("User-Agent", "DLC-Manager-Notice/1.0");
             int code = connection.getResponseCode();

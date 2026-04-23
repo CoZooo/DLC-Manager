@@ -11,9 +11,12 @@ import com.google.gson.stream.JsonReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.InterruptedIOException;
 import java.io.StringReader;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -26,8 +29,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.minecraft.network.chat.Component;
 
 public final class DlcPackReleaseUpdateService {
     private static final Pattern SSH_REPO_PATTERN = Pattern.compile("^git@([^:]+):(.+?)(?:\\.git)?/?$", Pattern.CASE_INSENSITIVE);
@@ -81,15 +86,18 @@ public final class DlcPackReleaseUpdateService {
         public String currentDlc;
         public String targetBase;
         public String targetDlc;
+        public String downloadBase;
+        public String downloadDlc;
+        public List<ReleaseStep> fullSteps = List.of();
         public List<ReleaseStep> steps = List.of();
         public String error;
 
         public boolean hasUpdate() {
-            return steps != null && !steps.isEmpty();
+            return compareState(currentBase, currentDlc, targetBase, targetDlc) < 0;
         }
 
         public boolean canDownload() {
-            if (!hasUpdate()) {
+            if (compareState(currentBase, currentDlc, downloadBase, downloadDlc) >= 0) {
                 return false;
             }
             for (ReleaseStep step : steps) {
@@ -98,6 +106,20 @@ public final class DlcPackReleaseUpdateService {
                 }
             }
             return true;
+        }
+
+        public boolean hasPartialDownload() {
+            return hasUpdate()
+                && compareState(currentBase, currentDlc, downloadBase, downloadDlc) < 0
+                && compareState(downloadBase, downloadDlc, targetBase, targetDlc) < 0;
+        }
+
+        public boolean hasLatestGap() {
+            return hasUpdate() && compareState(downloadBase, downloadDlc, targetBase, targetDlc) < 0;
+        }
+
+        public boolean isLatestFullyDownloadable() {
+            return hasUpdate() && compareState(downloadBase, downloadDlc, targetBase, targetDlc) == 0;
         }
 
         public String resolveCombinedChangelog(String lang) {
@@ -125,6 +147,22 @@ public final class DlcPackReleaseUpdateService {
         }
     }
 
+    private static final class RepoQueryResult {
+        private final String error;
+        private final boolean validRepo;
+        private final Map<String, List<ReleaseStep>> fullTransitions;
+        private final Map<String, List<ReleaseStep>> downloadableTransitions;
+
+        private RepoQueryResult(String error, boolean validRepo,
+                                Map<String, List<ReleaseStep>> fullTransitions,
+                                Map<String, List<ReleaseStep>> downloadableTransitions) {
+            this.error = error;
+            this.validRepo = validRepo;
+            this.fullTransitions = fullTransitions == null ? Map.of() : fullTransitions;
+            this.downloadableTransitions = downloadableTransitions == null ? Map.of() : downloadableTransitions;
+        }
+    }
+
     public static final class ReleaseStep {
         public String tag;
         public String oldBase;
@@ -133,6 +171,9 @@ public final class DlcPackReleaseUpdateService {
         public String newDlc;
         public String assetName;
         public String assetUrl;
+        public int repoIndex = Integer.MAX_VALUE;
+        public String repoUrl = "";
+        public List<AssetCandidate> assetCandidates = List.of();
         public String rawChangelog = "";
         public Map<String, String> changelog = Map.of();
 
@@ -151,6 +192,20 @@ public final class DlcPackReleaseUpdateService {
                 return changelog.get("en_us");
             }
             return changelog.values().stream().findFirst().orElse("");
+        }
+    }
+
+    private static final class AssetCandidate {
+        private final int repoIndex;
+        private final String repoUrl;
+        private final String assetName;
+        private final String assetUrl;
+
+        private AssetCandidate(int repoIndex, String repoUrl, String assetName, String assetUrl) {
+            this.repoIndex = repoIndex;
+            this.repoUrl = normalizeString(repoUrl);
+            this.assetName = normalizeString(assetName);
+            this.assetUrl = normalizeString(assetUrl);
         }
     }
 
@@ -181,6 +236,24 @@ public final class DlcPackReleaseUpdateService {
         }
     }
 
+    public static Component toCheckFailureComponent(String error) {
+        if (isTimeoutFailureMessage(error)) {
+            return Component.translatable("dlc_manager.pack_update.check_failed",
+                Component.translatable("dlc_manager.pack_update.check_timeout"));
+        }
+        String safeError = error == null || error.isBlank() ? "failed" : error;
+        return Component.translatable("dlc_manager.pack_update.check_failed", safeError);
+    }
+
+    public static Component toDownloadFailureComponent(String error) {
+        if (isTimeoutFailureMessage(error)) {
+            return Component.translatable("dlc_manager.pack_update.download_failed",
+                Component.translatable("dlc_manager.pack_update.download_timeout"));
+        }
+        String safeError = error == null || error.isBlank() ? "failed" : error;
+        return Component.translatable("dlc_manager.pack_update.download_failed", safeError);
+    }
+
     public static CheckResult checkForUpdates(String modpackUrl, String githubRepoUrl, String currentBase, String currentDlc, Side side) {
         CheckResult result = new CheckResult();
         result.modpackUrl = normalizeString(modpackUrl);
@@ -189,15 +262,28 @@ public final class DlcPackReleaseUpdateService {
         result.currentDlc = safeVersion(currentDlc);
         result.targetBase = result.currentBase;
         result.targetDlc = result.currentDlc;
+        result.downloadBase = result.currentBase;
+        result.downloadDlc = result.currentDlc;
         if (side == null || result.repoUrl.isBlank()) {
             return result;
         }
         List<String> repoUrls = splitRepoUrls(result.repoUrl);
+        if (repoUrls.isEmpty()) {
+            return result;
+        }
+        List<CompletableFuture<RepoQueryResult>> futures = new ArrayList<>();
+        for (int i = 0; i < repoUrls.size(); i++) {
+            String repoUrl = repoUrls.get(i);
+            int repoIndex = i;
+            futures.add(CompletableFuture.supplyAsync(() -> querySingleRepo(result, repoUrl, repoIndex, side)));
+        }
+        CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
         String lastError = null;
-        CheckResult firstSuccessfulNoUpdate = null;
         boolean hasValidRepo = false;
-        for (String repoUrl : repoUrls) {
-            CheckResult single = checkSingleRepo(result, repoUrl, side);
+        Map<String, List<ReleaseStep>> fullTransitions = new HashMap<>();
+        Map<String, List<ReleaseStep>> downloadableTransitions = new HashMap<>();
+        for (CompletableFuture<RepoQueryResult> future : futures) {
+            RepoQueryResult single = future.join();
             if (single == null) {
                 continue;
             }
@@ -205,16 +291,29 @@ public final class DlcPackReleaseUpdateService {
                 lastError = single.error;
                 continue;
             }
+            if (!single.validRepo) {
+                continue;
+            }
             hasValidRepo = true;
-            if (single.hasUpdate()) {
-                return single;
-            }
-            if (firstSuccessfulNoUpdate == null) {
-                firstSuccessfulNoUpdate = single;
-            }
+            mergeTransitions(fullTransitions, single.fullTransitions, false);
+            mergeTransitions(downloadableTransitions, single.downloadableTransitions, true);
         }
-        if (firstSuccessfulNoUpdate != null) {
-            return firstSuccessfulNoUpdate;
+        if (hasValidRepo) {
+            List<ReleaseStep> fullChain = buildUpdateChain(result.currentBase, result.currentDlc, fullTransitions);
+            List<ReleaseStep> downloadableChain = buildUpdateChain(result.currentBase, result.currentDlc, downloadableTransitions);
+            result.fullSteps = fullChain;
+            result.steps = downloadableChain;
+            if (!fullChain.isEmpty()) {
+                ReleaseStep tail = fullChain.get(fullChain.size() - 1);
+                result.targetBase = safeVersion(tail.newBase);
+                result.targetDlc = safeVersion(tail.newDlc);
+            }
+            if (!downloadableChain.isEmpty()) {
+                ReleaseStep tail = downloadableChain.get(downloadableChain.size() - 1);
+                result.downloadBase = safeVersion(tail.newBase);
+                result.downloadDlc = safeVersion(tail.newDlc);
+            }
+            return result;
         }
         if (!hasValidRepo) {
             result.error = lastError == null || lastError.isBlank() ? "invalid_repo_url" : lastError;
@@ -224,33 +323,31 @@ public final class DlcPackReleaseUpdateService {
         return result;
     }
 
-    private static CheckResult checkSingleRepo(CheckResult base, String repoUrl, Side side) {
+    private static RepoQueryResult querySingleRepo(CheckResult base, String repoUrl, int repoIndex, Side side) {
         if (base == null || repoUrl == null || repoUrl.isBlank()) {
             return null;
         }
-        CheckResult result = new CheckResult();
-        result.modpackUrl = base.modpackUrl;
-        result.repoUrl = normalizeString(repoUrl);
-        result.currentBase = safeVersion(base.currentBase);
-        result.currentDlc = safeVersion(base.currentDlc);
-        result.targetBase = result.currentBase;
-        result.targetDlc = result.currentDlc;
-        RepoCoordinates repo = parseRepoCoordinates(result.repoUrl);
+        String normalizedRepoUrl = normalizeString(repoUrl);
+        RepoCoordinates repo = parseRepoCoordinates(repoUrl);
         if (repo == null) {
-            result.error = "invalid_repo_url";
-            return result;
+            return new RepoQueryResult("invalid_repo_url", false, Map.of(), Map.of());
         }
         JsonArray releases;
         try {
-            releases = fetchReleases(repo, result.currentBase, result.currentDlc);
+            releases = fetchReleases(repo, safeVersion(base.currentBase), safeVersion(base.currentDlc));
         } catch (Exception ex) {
-            result.error = ex.getMessage() == null ? "release_fetch_failed" : ex.getMessage();
-            return result;
+            return new RepoQueryResult(
+                ex.getMessage() == null ? "release_fetch_failed" : ex.getMessage(),
+                true,
+                Map.of(),
+                Map.of()
+            );
         }
         if (releases == null || releases.isEmpty()) {
-            return result;
+            return new RepoQueryResult(null, true, Map.of(), Map.of());
         }
-        Map<String, ReleaseStep> nextByState = new HashMap<>();
+        Map<String, List<ReleaseStep>> fullTransitions = new HashMap<>();
+        Map<String, List<ReleaseStep>> downloadableTransitions = new HashMap<>();
         for (JsonElement element : releases) {
             if (element == null || !element.isJsonObject()) {
                 continue;
@@ -273,41 +370,129 @@ public final class DlcPackReleaseUpdateService {
             candidate.oldDlc = parsed.oldDlc;
             candidate.newBase = parsed.newBase;
             candidate.newDlc = parsed.newDlc;
+            candidate.repoIndex = repoIndex;
+            candidate.repoUrl = normalizedRepoUrl;
             AssetChoice asset = resolvePreferredAsset(release, side, parsed.newBase, parsed.newDlc);
             candidate.assetName = asset.name;
             candidate.assetUrl = asset.url;
+            if (candidate.assetUrl != null && !candidate.assetUrl.isBlank()) {
+                candidate.assetCandidates = new ArrayList<>(List.of(
+                    new AssetCandidate(repoIndex, normalizedRepoUrl, candidate.assetName, candidate.assetUrl)
+                ));
+            } else {
+                candidate.assetCandidates = new ArrayList<>();
+            }
             candidate.rawChangelog = resolveReleaseChangelog(release);
-            String key = stateKey(candidate.oldBase, candidate.oldDlc);
-            ReleaseStep current = nextByState.get(key);
-            if (shouldReplace(current, candidate)) {
-                nextByState.put(key, candidate);
+            addTransition(fullTransitions, candidate, false);
+            addTransition(downloadableTransitions, candidate, true);
+        }
+        return new RepoQueryResult(null, true, fullTransitions, downloadableTransitions);
+    }
+
+    private static void mergeTransitions(Map<String, List<ReleaseStep>> merged, Map<String, List<ReleaseStep>> incoming, boolean requireDownloadable) {
+        if (merged == null || incoming == null || incoming.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, List<ReleaseStep>> entry : incoming.entrySet()) {
+            List<ReleaseStep> candidates = entry.getValue();
+            if (candidates == null || candidates.isEmpty()) {
+                continue;
+            }
+            for (ReleaseStep candidate : candidates) {
+                addTransition(merged, candidate, requireDownloadable);
             }
         }
+    }
 
-        String currentKey = stateKey(result.currentBase, result.currentDlc);
-        List<ReleaseStep> chain = new ArrayList<>();
+    private static void addTransition(Map<String, List<ReleaseStep>> transitions, ReleaseStep candidate, boolean requireDownloadable) {
+        if (transitions == null || candidate == null) {
+            return;
+        }
+        if (requireDownloadable && (candidate.assetUrl == null || candidate.assetUrl.isBlank())) {
+            return;
+        }
+        String key = stateKey(candidate.oldBase, candidate.oldDlc);
+        List<ReleaseStep> candidates = transitions.computeIfAbsent(key, ignored -> new ArrayList<>());
+        for (ReleaseStep existing : candidates) {
+            if (sameTransition(existing, candidate)) {
+                mergeAssetCandidates(existing, candidate);
+                if (shouldReplace(existing, candidate)) {
+                    copyTransitionMetadata(existing, candidate);
+                }
+                return;
+            }
+        }
+        candidates.add(candidate);
+    }
+
+    private static List<ReleaseStep> buildUpdateChain(String currentBase, String currentDlc, Map<String, List<ReleaseStep>> transitions) {
+        if (transitions == null || transitions.isEmpty()) {
+            return List.of();
+        }
+        String currentKey = stateKey(currentBase, currentDlc);
         Set<String> visited = new HashSet<>();
         visited.add(currentKey);
-        while (true) {
-            ReleaseStep next = nextByState.get(currentKey);
-            if (next == null) {
-                break;
+        return buildBestUpdateChain(currentKey, transitions, visited);
+    }
+
+    private static List<ReleaseStep> buildBestUpdateChain(String currentKey, Map<String, List<ReleaseStep>> transitions, Set<String> visited) {
+        List<ReleaseStep> candidates = transitions.get(currentKey);
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+        List<ReleaseStep> best = List.of();
+        for (ReleaseStep candidate : candidates) {
+            if (candidate == null) {
+                continue;
             }
-            String nextKey = stateKey(next.newBase, next.newDlc);
+            String nextKey = stateKey(candidate.newBase, candidate.newDlc);
             if (nextKey.equals(currentKey) || visited.contains(nextKey)) {
-                break;
+                continue;
             }
-            chain.add(next);
             visited.add(nextKey);
-            currentKey = nextKey;
+            List<ReleaseStep> tail = buildBestUpdateChain(nextKey, transitions, visited);
+            visited.remove(nextKey);
+            List<ReleaseStep> chain = new ArrayList<>();
+            chain.add(candidate);
+            chain.addAll(tail);
+            if (isBetterChain(chain, best)) {
+                best = chain;
+            }
         }
-        result.steps = chain;
-        if (!chain.isEmpty()) {
-            ReleaseStep tail = chain.get(chain.size() - 1);
-            result.targetBase = safeVersion(tail.newBase);
-            result.targetDlc = safeVersion(tail.newDlc);
+        return best;
+    }
+
+    private static boolean isBetterChain(List<ReleaseStep> candidate, List<ReleaseStep> current) {
+        if (candidate == null || candidate.isEmpty()) {
+            return false;
         }
-        return result;
+        if (current == null || current.isEmpty()) {
+            return true;
+        }
+        ReleaseStep candidateTail = candidate.get(candidate.size() - 1);
+        ReleaseStep currentTail = current.get(current.size() - 1);
+        int compare = compareState(candidateTail.newBase, candidateTail.newDlc, currentTail.newBase, currentTail.newDlc);
+        if (compare != 0) {
+            return compare > 0;
+        }
+        int lengthCompare = Integer.compare(candidate.size(), current.size());
+        if (lengthCompare != 0) {
+            return lengthCompare > 0;
+        }
+        int count = Math.min(candidate.size(), current.size());
+        for (int i = 0; i < count; i++) {
+            ReleaseStep left = candidate.get(i);
+            ReleaseStep right = current.get(i);
+            int targetCompare = compareState(left.newBase, left.newDlc, right.newBase, right.newDlc);
+            if (targetCompare != 0) {
+                return targetCompare > 0;
+            }
+            int repoCompare = Integer.compare(left.repoIndex, right.repoIndex);
+            if (repoCompare != 0) {
+                return repoCompare < 0;
+            }
+        }
+        return false;
     }
 
     private static List<String> splitRepoUrls(String raw) {
@@ -392,9 +577,7 @@ public final class DlcPackReleaseUpdateService {
             ReleaseStep step = result.steps.get(i);
             final int stepIndex = i;
             try {
-                Path path = DlcDownloadService.download(step.assetUrl, updateDir, step.assetName,
-                    (done, total) -> notifyProgress(progress, stepIndex, totalSteps, step.assetName, done, total),
-                    () -> cancelChecker != null && cancelChecker.isCanceled());
+                Path path = downloadClientStepWithFallback(step, updateDir, stepIndex, totalSteps, progress, cancelChecker);
                 downloaded.add(path);
                 if (!DlcUpdateService.importUpdatePackage(path)) {
                     return DownloadResult.failed("import_failed");
@@ -452,8 +635,7 @@ public final class DlcPackReleaseUpdateService {
             ReleaseStep step = result.steps.get(i);
             final int stepIndex = i;
             try {
-                notifyProgress(progress, stepIndex, totalSteps, step.assetName, 0L, 1L);
-                boolean imported = DlcServerConnection.importUpdatePackageFromUrl(entry, timeoutMs, step.assetUrl, step.assetName);
+                boolean imported = downloadServerStepWithFallback(step, entry, timeoutMs, stepIndex, totalSteps, progress, cancelChecker);
                 if (!imported) {
                     return DownloadResult.failed("server_import_failed");
                 }
@@ -464,6 +646,86 @@ public final class DlcPackReleaseUpdateService {
         }
         clearSkipPromptMarker(Side.SERVER);
         return DownloadResult.success(List.of());
+    }
+
+    private static Path downloadClientStepWithFallback(ReleaseStep step, Path updateDir, int stepIndex, int totalSteps,
+                                                       ProgressListener progress, CancelChecker cancelChecker) throws IOException {
+        IOException lastError = null;
+        for (AssetCandidate candidate : resolveAssetCandidates(step)) {
+            try {
+                return DlcDownloadService.download(candidate.assetUrl, updateDir, candidate.assetName,
+                    (done, total) -> notifyProgress(progress, stepIndex, totalSteps, candidate.assetName, done, total),
+                    () -> cancelChecker != null && cancelChecker.isCanceled());
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                throw ex;
+            } catch (IOException ex) {
+                lastError = ex;
+                if (!isRetryableDownloadFailure(ex)) {
+                    throw ex;
+                }
+            }
+        }
+        throw lastError == null ? new IOException("download_failed") : lastError;
+    }
+
+    private static boolean downloadServerStepWithFallback(ReleaseStep step, DlcServerEntry entry, int timeoutMs, int stepIndex,
+                                                          int totalSteps, ProgressListener progress, CancelChecker cancelChecker) throws Exception {
+        Exception lastError = null;
+        for (AssetCandidate candidate : resolveAssetCandidates(step)) {
+            if (cancelChecker != null && cancelChecker.isCanceled()) {
+                throw new DlcDownloadService.DownloadCanceledException("canceled");
+            }
+            try {
+                notifyProgress(progress, stepIndex, totalSteps, candidate.assetName, 0L, 1L);
+                return DlcServerConnection.importUpdatePackageFromUrl(entry, timeoutMs, candidate.assetUrl, candidate.assetName);
+            } catch (Exception ex) {
+                lastError = ex;
+                if (!isRetryableDownloadFailure(ex)) {
+                    throw ex;
+                }
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        return false;
+    }
+
+    private static List<AssetCandidate> resolveAssetCandidates(ReleaseStep step) {
+        if (step == null) {
+            return List.of();
+        }
+        if (step.assetCandidates != null && !step.assetCandidates.isEmpty()) {
+            return step.assetCandidates;
+        }
+        if (step.assetUrl == null || step.assetUrl.isBlank()) {
+            return List.of();
+        }
+        return List.of(new AssetCandidate(step.repoIndex, step.repoUrl, step.assetName, step.assetUrl));
+    }
+
+    private static boolean isRetryableDownloadFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SocketTimeoutException
+                || current instanceof ConnectException
+                || current instanceof InterruptedIOException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean isTimeoutFailureMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        String normalized = message.trim().toLowerCase();
+        return normalized.contains("timed out")
+            || normalized.contains("timeout")
+            || normalized.contains("connect timed out")
+            || normalized.contains("read timed out");
     }
 
     private static void notifyProgress(ProgressListener progress, int stepIndex, int stepCount, String fileName, long downloaded, long total) {
@@ -512,10 +774,70 @@ public final class DlcPackReleaseUpdateService {
         if (candidateHasAsset && !currentHasAsset) {
             return true;
         }
-        if (!candidateHasAsset || !currentHasAsset) {
+        return false;
+    }
+
+    private static void copyTransitionMetadata(ReleaseStep target, ReleaseStep source) {
+        if (target == null || source == null) {
+            return;
+        }
+        List<AssetCandidate> mergedCandidates = target.assetCandidates;
+        target.tag = source.tag;
+        target.oldBase = source.oldBase;
+        target.oldDlc = source.oldDlc;
+        target.newBase = source.newBase;
+        target.newDlc = source.newDlc;
+        target.assetName = source.assetName;
+        target.assetUrl = source.assetUrl;
+        target.repoIndex = source.repoIndex;
+        target.repoUrl = source.repoUrl;
+        target.rawChangelog = source.rawChangelog;
+        target.changelog = source.changelog;
+        target.assetCandidates = mergedCandidates;
+    }
+
+    private static boolean sameTransition(ReleaseStep left, ReleaseStep right) {
+        if (left == null || right == null) {
             return false;
         }
-        return assetPriority(candidate.assetName) > assetPriority(current.assetName);
+        return safeVersion(left.oldBase).equals(safeVersion(right.oldBase))
+            && safeVersion(left.oldDlc).equals(safeVersion(right.oldDlc))
+            && safeVersion(left.newBase).equals(safeVersion(right.newBase))
+            && safeVersion(left.newDlc).equals(safeVersion(right.newDlc));
+    }
+
+    private static void mergeAssetCandidates(ReleaseStep target, ReleaseStep candidate) {
+        if (target == null || candidate == null) {
+            return;
+        }
+        List<AssetCandidate> merged = new ArrayList<>();
+        appendAssetCandidates(merged, target.assetCandidates);
+        appendAssetCandidates(merged, candidate.assetCandidates);
+        target.assetCandidates = merged;
+    }
+
+    private static void appendAssetCandidates(List<AssetCandidate> merged, List<AssetCandidate> candidates) {
+        if (merged == null || candidates == null || candidates.isEmpty()) {
+            return;
+        }
+        for (AssetCandidate candidate : candidates) {
+            if (candidate == null || candidate.assetUrl == null || candidate.assetUrl.isBlank()) {
+                continue;
+            }
+            boolean exists = false;
+            for (AssetCandidate existing : merged) {
+                if (existing == null) {
+                    continue;
+                }
+                if (existing.repoIndex == candidate.repoIndex && existing.assetUrl.equals(candidate.assetUrl)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                merged.add(candidate);
+            }
+        }
     }
 
     private static AssetChoice resolvePreferredAsset(JsonObject release, Side side, String base, String dlc) {
@@ -765,7 +1087,7 @@ public final class DlcPackReleaseUpdateService {
     private static JsonArray fetchReleasePage(ApiEndpoint endpoint, int page) throws IOException {
         String api = appendPageParameter(endpoint.url, page);
         HttpURLConnection connection = (HttpURLConnection) new URL(api).openConnection();
-        connection.setConnectTimeout(15000);
+        connection.setConnectTimeout(5000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");
         if (endpoint.accept != null && !endpoint.accept.isBlank()) {
@@ -809,27 +1131,50 @@ public final class DlcPackReleaseUpdateService {
         if (collected == null || pageReleases == null || pageReleases.isEmpty()) {
             return false;
         }
+        boolean hasRelevantRelease = hasRelevantRelease(collected, currentBase, currentDlc);
         for (JsonElement element : pageReleases) {
             if (element == null || !element.isJsonObject()) {
                 collected.add(element);
                 continue;
             }
             JsonObject release = element.getAsJsonObject();
-            collected.add(release);
             String tag = getString(release, "tag_name");
             if (tag.isBlank()) {
                 tag = getString(release, "name");
             }
             ParsedTag parsed = parseTag(tag);
             if (parsed == null) {
+                collected.add(release);
                 continue;
             }
             int compare = compareState(parsed.oldBase, parsed.oldDlc, currentBase, currentDlc);
-            if (compare == 0) {
-                return true;
-            }
             if (compare < 0) {
-                collected.remove(collected.size() - 1);
+                if (hasRelevantRelease) {
+                    return true;
+                }
+                continue;
+            }
+            collected.add(release);
+            hasRelevantRelease = true;
+        }
+        return false;
+    }
+
+    private static boolean hasRelevantRelease(JsonArray releases, String currentBase, String currentDlc) {
+        if (releases == null || releases.isEmpty()) {
+            return false;
+        }
+        for (JsonElement element : releases) {
+            if (element == null || !element.isJsonObject()) {
+                continue;
+            }
+            JsonObject release = element.getAsJsonObject();
+            String tag = getString(release, "tag_name");
+            if (tag.isBlank()) {
+                tag = getString(release, "name");
+            }
+            ParsedTag parsed = parseTag(tag);
+            if (parsed != null && compareState(parsed.oldBase, parsed.oldDlc, currentBase, currentDlc) >= 0) {
                 return true;
             }
         }

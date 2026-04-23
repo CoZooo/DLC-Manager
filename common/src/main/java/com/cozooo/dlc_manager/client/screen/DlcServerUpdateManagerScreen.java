@@ -591,7 +591,7 @@ public class DlcServerUpdateManagerScreen extends Screen {
                 }
                 if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {
                     showToast(Component.translatable("dlc_manager.update.manager_title"),
-                        Component.translatable("dlc_manager.pack_update.check_failed", finalResult.error));
+                        DlcPackReleaseUpdateService.toCheckFailureComponent(finalResult.error));
                     return;
                 }
                 showToast(Component.translatable("dlc_manager.update.manager_title"),
