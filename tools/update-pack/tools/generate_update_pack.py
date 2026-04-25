@@ -279,7 +279,7 @@ def detect_remote_required_kind(path: str) -> str | None:
         return None
     kind: str | None = None
     for seg in parts[:-1]:
-        if seg in {"remote", "required", "info"}:
+        if seg in {"remote", "required", "info", "preset"}:
             kind = seg
     return kind
 
@@ -473,6 +473,7 @@ def parse_legacy_flat_map(text: str, path: str) -> dict[str, object]:
         "isInList",
         "isHidden",
         "AllowEnableByAll",
+        "enable",
         "dependencies",
         "conflicts",
         "alarm",
@@ -506,7 +507,14 @@ def canonicalize_config_map(raw: dict[str, object], path: str) -> dict[str, obje
             identifier = value.strip()
             break
     if not identifier:
-        identifier = strip_config_extension(Path(path).name)
+        normalized = normalize_relpath(path)
+        parts = [p for p in normalized.split("/") if p]
+        if "preset" in parts:
+            preset_index = parts.index("preset")
+            if preset_index + 1 < len(parts):
+                identifier = strip_config_extension("/".join(parts[preset_index + 1 :]))
+        if not identifier:
+            identifier = strip_config_extension(Path(path).name)
     canonical["basic.identifier"] = identifier
 
     basic_keys = {
@@ -518,6 +526,7 @@ def canonicalize_config_map(raw: dict[str, object], path: str) -> dict[str, obje
         "ishidden": "isHidden",
         "redirecturl": "RedirectUrl",
         "allowenablebyall": "AllowEnableByAll",
+        "enable": "enable",
         "dependencies": "dependencies",
         "conflicts": "conflicts",
         "alarm": "alarm",
@@ -585,10 +594,17 @@ def build_auto_update_ops(
     from_ref: str,
     to_ref: str,
     add_paths: list[str],
-) -> tuple[dict[str, dict[str, object]], dict[str, dict[str, object]], dict[str, dict[str, object]], set[str]]:
+) -> tuple[
+    dict[str, dict[str, object]],
+    dict[str, dict[str, object]],
+    dict[str, dict[str, object]],
+    dict[str, dict[str, object]],
+    set[str],
+]:
     remote_updates: dict[str, dict[str, object]] = {}
     required_updates: dict[str, dict[str, object]] = {}
     info_updates: dict[str, dict[str, object]] = {}
+    preset_updates: dict[str, dict[str, object]] = {}
     converted_paths: set[str] = set()
 
     for path in add_paths:
@@ -615,13 +631,15 @@ def build_auto_update_ops(
             target = remote_updates
         elif kind == "required":
             target = required_updates
+        elif kind == "preset":
+            target = preset_updates
         else:
             target = info_updates
         bucket = target.setdefault(identifier, {})
         bucket.update(fields)
         converted_paths.add(path)
 
-    return remote_updates, required_updates, info_updates, converted_paths
+    return remote_updates, required_updates, info_updates, preset_updates, converted_paths
 
 
 def render_update_dc(
@@ -638,6 +656,7 @@ def render_update_dc(
     remote_updates: dict[str, dict[str, object]],
     required_updates: dict[str, dict[str, object]],
     info_updates: dict[str, dict[str, object]],
+    preset_updates: dict[str, dict[str, object]],
 ) -> str:
     lines: list[str] = []
     same_base = base.strip() == base_new.strip()
@@ -676,7 +695,7 @@ def render_update_dc(
             lines.pop()
     if not add_paths and not del_paths:
         lines.append("  [del]")
-    if remote_updates or required_updates or info_updates:
+    if remote_updates or required_updates or info_updates or preset_updates:
         lines.append("")
         lines.append("[update]")
         if remote_updates:
@@ -704,6 +723,17 @@ def render_update_dc(
                 lines.append("")
             lines.append("  [info]")
             for identifier, fields in info_updates.items():
+                lines.append(f"    {dc_quote(identifier)}:")
+                for key, value in fields.items():
+                    lines.append(f"      {key} = {dc_value(value)}")
+                lines.append("")
+            if lines and lines[-1] == "":
+                lines.pop()
+        if preset_updates:
+            if remote_updates or required_updates or info_updates:
+                lines.append("")
+            lines.append("  [preset]")
+            for identifier, fields in preset_updates.items():
                 lines.append(f"    {dc_quote(identifier)}:")
                 for key, value in fields.items():
                     lines.append(f"      {key} = {dc_value(value)}")
@@ -766,12 +796,12 @@ def main() -> int:
     add_or_modify, deleted = parse_diff(args.from_ref, args.to_ref)
     add_paths, del_paths = filter_paths(add_or_modify, deleted)
     add_paths, del_paths, same_mod_name_paths = filter_same_mod_filename_paths(args.from_ref, args.to_ref, add_paths, del_paths)
-    remote_updates, required_updates, info_updates, converted_paths = build_auto_update_ops(args.from_ref, args.to_ref, add_paths)
+    remote_updates, required_updates, info_updates, preset_updates, converted_paths = build_auto_update_ops(args.from_ref, args.to_ref, add_paths)
     if converted_paths:
         add_paths = [p for p in add_paths if p not in converted_paths]
         del_paths = [p for p in del_paths if p not in converted_paths]
 
-    if not add_paths and not del_paths and not remote_updates and not required_updates and not info_updates:
+    if not add_paths and not del_paths and not remote_updates and not required_updates and not info_updates and not preset_updates:
         print("No changed files after filtering; nothing to package.", file=sys.stderr)
         return 2
 
@@ -801,6 +831,7 @@ def main() -> int:
         remote_updates=remote_updates,
         required_updates=required_updates,
         info_updates=info_updates,
+        preset_updates=preset_updates,
     )
     (stage_dir / "update.dc").write_text(update_dc, encoding="utf-8")
     copy_added_files(args.to_ref, add_paths, stage_dir)
@@ -844,6 +875,7 @@ def main() -> int:
     print(f"update_remote_count={len(remote_updates)}")
     print(f"update_required_count={len(required_updates)}")
     print(f"update_info_count={len(info_updates)}")
+    print(f"update_preset_count={len(preset_updates)}")
     print(f"summary_path={summary_path.as_posix()}")
     print(f"changelog_path={changelog_path.as_posix()}")
     print(f"release_notes_path={notes_path.as_posix()}")

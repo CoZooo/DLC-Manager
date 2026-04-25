@@ -327,6 +327,19 @@ public class DlcUpdateManifest {
                 }
             }
         }
+        JsonObject presetObj = JsonCaseUtil.getObjectIgnoreCase(obj, "preset");
+        if (presetObj != null) {
+            for (var entry : presetObj.entrySet()) {
+                String key = entry.getKey();
+                if (key == null || key.isBlank()) {
+                    continue;
+                }
+                UpdateEntry updateEntry = parseUpdateEntry(entry.getValue());
+                if (updateEntry != null) {
+                    ops.preset.put(key, updateEntry);
+                }
+            }
+        }
         return ops;
     }
 
@@ -649,6 +662,7 @@ public class DlcUpdateManifest {
         private final Map<String, UpdateEntry> info = new LinkedHashMap<>();
         private final Map<String, UpdateEntry> remote = new LinkedHashMap<>();
         private final Map<String, UpdateEntry> required = new LinkedHashMap<>();
+        private final Map<String, UpdateEntry> preset = new LinkedHashMap<>();
 
         public Map<String, UpdateEntry> getInfo() {
             return info;
@@ -660,6 +674,10 @@ public class DlcUpdateManifest {
 
         public Map<String, UpdateEntry> getRequired() {
             return required;
+        }
+
+        public Map<String, UpdateEntry> getPreset() {
+            return preset;
         }
     }
 

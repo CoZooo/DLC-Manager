@@ -9,6 +9,8 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
+import com.cozooo.dlc_manager.client.preset.DlcPresetLoader;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
@@ -19,9 +21,14 @@ import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.DownloadRes
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.ApplyMode;
+import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
@@ -322,6 +329,7 @@ public final class DlcUpdateService {
         Path metaPath = resolveMetaPath(backupRoot);
 
         UpdateContext context = new UpdateContext(dlcRoot, staging, backupRoot, meta);
+        PresetUpdateSession presetSession = preparePresetUpdateSession(manifest.getUpdateOps(), dlcRoot);
 
         CURRENT_UPDATE_CONTEXT.set(context);
         try {
@@ -329,6 +337,7 @@ public final class DlcUpdateService {
             applyMoveOps(manifest.getFileOps(), context);
             applyAddOps(manifest.getFileOps(), context);
             applyModifyOps(manifest.getFileOps(), context, forceMissing);
+            disablePresetUpdatesForApply(presetSession);
             applyUpdateOps(manifest.getUpdateOps(), context);
             if (!context.failureMessages.isEmpty()) {
                 throw new IllegalStateException(String.join("\n", context.failureMessages));
@@ -345,12 +354,13 @@ public final class DlcUpdateService {
             if (context.addedRemote) {
                 DlcRemoteMarker.clearPartMarker(dlcRoot);
             }
-            refreshPresetRuntimeState();
+            finalizePresetUpdateSession(presetSession);
 
             pkg.cleanupStaging();
             return UpdateApplyResult.success("OK", context.addedRequired, context.addedRemote, context.helperScheduled, false);
         } catch (Exception ex) {
             rollbackUpdate(context);
+            restorePresetUpdatesAfterRollback(presetSession);
             pkg.cleanupStaging();
             String message = ex == null || ex.getMessage() == null ? "" : ex.getMessage().trim();
             if (message.isBlank() && !context.failureMessages.isEmpty()) {
@@ -1226,6 +1236,9 @@ public final class DlcUpdateService {
         if (!ops.getInfo().isEmpty()) {
             applyInfoUpdateOps(ops.getInfo(), context);
         }
+        if (!ops.getPreset().isEmpty()) {
+            applyPresetUpdateOps(ops.getPreset(), context);
+        }
     }
 
     private static void applyInfoUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context) {
@@ -1248,6 +1261,29 @@ public final class DlcUpdateService {
             }
             backupPath(toGameRelativePath(infoPath), infoPath, context);
             updateInfoConfigFields(infoPath, updateEntry);
+        }
+    }
+
+    private static void applyPresetUpdateOps(Map<String, DlcUpdateManifest.UpdateEntry> updates, UpdateContext context) {
+        Map<String, Path> presetById = loadPresetConfigPathById(context.dlcRoot);
+        if (presetById.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, DlcUpdateManifest.UpdateEntry> update : updates.entrySet()) {
+            String presetId = update.getKey();
+            if (presetId == null || presetId.isBlank()) {
+                continue;
+            }
+            Path presetPath = findPresetConfigPath(presetById, presetId);
+            if (presetPath == null || !Files.exists(presetPath)) {
+                continue;
+            }
+            DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
+            if (updateEntry == null) {
+                continue;
+            }
+            backupPath(toGameRelativePath(presetPath), presetPath, context);
+            updatePresetConfigFields(presetPath, updateEntry);
         }
     }
 
@@ -1658,6 +1694,19 @@ public final class DlcUpdateService {
         }
     }
 
+    private static void updatePresetConfigFields(Path presetPath, DlcUpdateManifest.UpdateEntry update) {
+        if (presetPath == null || update == null || !Files.exists(presetPath)) {
+            return;
+        }
+        JsonObject preset = readJson(presetPath);
+        if (preset == null) {
+            return;
+        }
+        if (applyEntryFieldUpdates(preset, update, FieldUpdateMode.NORMAL)) {
+            writeJson(presetPath, preset);
+        }
+    }
+
     private static boolean applyEntryFieldUpdates(JsonObject obj, DlcUpdateManifest.UpdateEntry update, FieldUpdateMode mode) {
         if (obj == null || update == null || update.getFields().isEmpty()) {
             return false;
@@ -1878,6 +1927,42 @@ public final class DlcUpdateService {
         } catch (IOException ignored) {
         }
         return map;
+    }
+
+    private static Map<String, Path> loadPresetConfigPathById(Path dlcRoot) {
+        Map<String, Path> map = new LinkedHashMap<>();
+        if (dlcRoot == null) {
+            return map;
+        }
+        for (DlcPresetEntry entry : DlcPresetLoader.loadAll(List.of(dlcRoot))) {
+            if (entry == null || entry.getSourcePath() == null) {
+                continue;
+            }
+            if (entry.getId() != null && !entry.getId().isBlank()) {
+                map.putIfAbsent(entry.getId(), entry.getSourcePath());
+            }
+            if (entry.getFileName() != null && !entry.getFileName().isBlank()) {
+                map.putIfAbsent(entry.getFileName(), entry.getSourcePath());
+            }
+        }
+        return map;
+    }
+
+    private static Path findPresetConfigPath(Map<String, Path> presetById, String key) {
+        if (presetById == null || presetById.isEmpty() || key == null || key.isBlank()) {
+            return null;
+        }
+        Path exact = presetById.get(key);
+        if (exact != null) {
+            return exact;
+        }
+        for (Map.Entry<String, Path> entry : presetById.entrySet()) {
+            String candidate = entry.getKey();
+            if (candidate != null && candidate.equalsIgnoreCase(key)) {
+                return entry.getValue();
+            }
+        }
+        return null;
     }
 
     private static void updateRemoteFileName(Path configPath, String fileName) {
@@ -2363,6 +2448,12 @@ public final class DlcUpdateService {
 
     private record AppliedTarget(Path path, boolean directory) {}
 
+    private record PresetUpdateSession(Set<String> temporarilyDisabledPresetIds) {
+        private static PresetUpdateSession empty() {
+            return new PresetUpdateSession(Set.of());
+        }
+    }
+
     private static void applyImplicitRemoteAndRequired(UpdateContext context, List<Path> addedRequiredFiles, boolean hasRemoteAdd, boolean hasRequiredAdd) {
         if (context.stagingRoot == null || context.dlcRoot == null) {
             return;
@@ -2795,6 +2886,152 @@ public final class DlcUpdateService {
             DlcPresetRuntimeState.reload();
         } catch (Throwable ignored) {
         }
+    }
+
+    private static PresetUpdateSession preparePresetUpdateSession(DlcUpdateManifest.UpdateOps ops, Path dlcRoot) {
+        if (CrossPlatformRuntime.isDedicatedServer() || !DlcPathConfig.isPresetFuncOn() || ops == null || ops.getPreset().isEmpty()) {
+            return PresetUpdateSession.empty();
+        }
+        Map<String, Path> presetById = loadPresetConfigPathById(dlcRoot);
+        if (presetById.isEmpty()) {
+            return PresetUpdateSession.empty();
+        }
+        Set<String> temporarilyDisabled = new LinkedHashSet<>();
+        for (String rawId : ops.getPreset().keySet()) {
+            Path presetPath = findPresetConfigPath(presetById, rawId);
+            if (presetPath == null) {
+                continue;
+            }
+            String presetId = resolvePresetId(presetPath, dlcRoot);
+            if (presetId == null || presetId.isBlank()) {
+                continue;
+            }
+            if (DlcPresetRuntimeState.isPresetEnabled(presetId)) {
+                temporarilyDisabled.add(presetId);
+            }
+        }
+        return new PresetUpdateSession(temporarilyDisabled);
+    }
+
+    private static void disablePresetUpdatesForApply(PresetUpdateSession session) throws IOException {
+        if (session == null || session.temporarilyDisabledPresetIds().isEmpty() || CrossPlatformRuntime.isDedicatedServer()) {
+            return;
+        }
+        scanDlcItemsForLocalIndex();
+        boolean changed = false;
+        for (String presetId : session.temporarilyDisabledPresetIds()) {
+            if (presetId == null || presetId.isBlank()) {
+                continue;
+            }
+            if (DlcPresetRuntimeState.isPresetEnabled(presetId)) {
+                DlcPresetRuntimeState.setPresetEnabled(presetId, false);
+                changed = true;
+            }
+        }
+        if (changed) {
+            applyLocalPresetState();
+        }
+    }
+
+    private static void finalizePresetUpdateSession(PresetUpdateSession session) throws IOException {
+        if (CrossPlatformRuntime.isDedicatedServer()) {
+            return;
+        }
+        refreshPresetRuntimeState();
+        if (session == null || session.temporarilyDisabledPresetIds().isEmpty()) {
+            return;
+        }
+        scanDlcItemsForLocalIndex();
+        DlcPresetRuntimeState.restoreEnabledPresets(session.temporarilyDisabledPresetIds());
+        applyLocalPresetState();
+    }
+
+    private static void restorePresetUpdatesAfterRollback(PresetUpdateSession session) {
+        if (CrossPlatformRuntime.isDedicatedServer()) {
+            return;
+        }
+        try {
+            refreshPresetRuntimeState();
+            if (session == null || session.temporarilyDisabledPresetIds().isEmpty()) {
+                return;
+            }
+            scanDlcItemsForLocalIndex();
+            DlcPresetRuntimeState.restoreEnabledPresets(session.temporarilyDisabledPresetIds());
+            applyLocalPresetState();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void applyLocalPresetState() throws IOException {
+        if (CrossPlatformRuntime.isDedicatedServer()) {
+            return;
+        }
+        List<DlcItem> items = scanDlcItemsForLocalIndex();
+        if (DlcPathConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.applyOverridesToRuntime();
+        }
+        boolean pending = DlcPathConfig.isPresetFuncOn() && DlcPresetRuntimeState.hasPendingFileConflictChanges();
+        for (DlcItem item : items) {
+            if (item == null || item.getId() == null || item.getId().isBlank()) {
+                continue;
+            }
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            if (override != null) {
+                item.setEnabled(override);
+            }
+            if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
+                pending = true;
+            }
+        }
+        if (pending) {
+            DlcApplier.ApplyResult result = DlcApplier.apply(items, ApplyMode.RESTART_ONLY);
+            String failureMessage = extractApplyFailureMessage(result);
+            if (!failureMessage.isBlank()) {
+                throw new IOException(failureMessage);
+            }
+            for (DlcItem item : items) {
+                if (item == null || item.getId() == null || item.getId().isBlank()) {
+                    continue;
+                }
+                DlcRuntimeState.updateBaseline(item.getId(), item.isEnabled());
+                DlcRuntimeState.clearOverride(item.getId());
+            }
+        }
+        if (DlcPathConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.syncStatusFromRuntime();
+        }
+    }
+
+    private static List<DlcItem> scanDlcItemsForLocalIndex() {
+        Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
+        List<DlcItem> items = new ArrayList<>();
+        for (List<DlcItem> group : grouped.values()) {
+            if (group == null) {
+                continue;
+            }
+            for (DlcItem item : group) {
+                if (item == null || item.getId() == null || item.getId().isBlank()) {
+                    continue;
+                }
+                items.add(item);
+                DlcRuntimeState.ensureBaseline(item.getId(), item.isEnabled());
+            }
+        }
+        DlcRuntimeState.updateItemIndex(items);
+        return items;
+    }
+
+    private static String extractApplyFailureMessage(DlcApplier.ApplyResult result) {
+        if (result == null || result.messages() == null || result.messages().isEmpty()) {
+            return "";
+        }
+        List<String> failures = new ArrayList<>();
+        for (String message : result.messages()) {
+            if (message != null && message.startsWith("Failed to ")) {
+                failures.add(message);
+            }
+        }
+        return String.join("\n", failures);
     }
 
     private static void resetNoticeNeverShow(Path noticePath) {
