@@ -243,7 +243,7 @@ public class DlcScanner {
             return;
         }
         boolean enabled = detectInstalledState
-            ? isEnabledInTargets(name, fileNames, effectiveType, appliedTargetRaw, source, configType)
+            ? isEnabledInTargets(id, name, fileNames, effectiveType, appliedTargetRaw, source, configType)
             : isEnabledInState(id);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
         boolean inList = tooltipData == null || tooltipData.isInList();
@@ -276,7 +276,7 @@ public class DlcScanner {
             item.setRedirectUrl(tooltipData.getRedirectUrl());
         }
         if (detectInstalledState && enabled) {
-            item.getAppliedTargets().addAll(detectAppliedTargets(name, fileNames, effectiveType, appliedTargetRaw, source, configType));
+            item.getAppliedTargets().addAll(detectAppliedTargets(id, name, fileNames, effectiveType, appliedTargetRaw, source, configType));
         }
         grouped.get(effectiveType).add(item);
         // if (tooltipLoader != null && infoDir != null) {
@@ -285,7 +285,7 @@ public class DlcScanner {
         // }
     }
 
-    private boolean isEnabledInTargets(String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {
+    private boolean isEnabledInTargets(String itemId, String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {
         if (type == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
             if (target == null) {
@@ -303,7 +303,8 @@ public class DlcScanner {
                     String normalized = entry.replace('\\', '/');
                     Path check = dirTarget ? target.resolve(normalized) : target;
                     if (configType) {
-                        if (!DlcConfigDlcSupport.hasBackupForTarget(check)) {
+                        if (!DlcConfigDlcSupport.hasBackupForItemTarget(itemId, check)
+                            && !DlcConfigDlcSupport.hasBackupForTarget(check)) {
                             return false;
                         }
                     } else if (!Files.exists(check)) {
@@ -317,9 +318,13 @@ public class DlcScanner {
             }
             if (dirTarget) {
                 Path check = target.resolve(fileName);
-                return configType ? DlcConfigDlcSupport.hasBackupForTarget(check) : Files.exists(check);
+                return configType
+                    ? DlcConfigDlcSupport.hasBackupForItemTarget(itemId, check) || DlcConfigDlcSupport.hasBackupForTarget(check)
+                    : Files.exists(check);
             }
-            return configType ? DlcConfigDlcSupport.hasBackupForTarget(target) : Files.exists(target);
+            return configType
+                ? DlcConfigDlcSupport.hasBackupForItemTarget(itemId, target) || DlcConfigDlcSupport.hasBackupForTarget(target)
+                : Files.exists(target);
         }
         List<Path> targetDirs = switch (type) {
             case MOD -> List.of(DlcPaths.modsDir());
@@ -347,7 +352,7 @@ public class DlcScanner {
         return state != null && state.enabled;
     }
 
-    private List<Path> detectAppliedTargets(String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {
+    private List<Path> detectAppliedTargets(String itemId, String fileName, java.util.List<String> fileNames, DlcType type, String appliedTargetRaw, Path source, boolean configType) {
         if (type == DlcType.UNKNOWN) {
             Path target = DlcPaths.resolveAppliedTarget(appliedTargetRaw);
             if (target == null) {
@@ -366,7 +371,7 @@ public class DlcScanner {
                     String normalized = entry.replace('\\', '/');
                     Path check = dirTarget ? target.resolve(normalized) : target;
                     if (configType) {
-                        Path stored = detectConfigStatePath(check);
+                        Path stored = detectConfigStatePath(itemId, check);
                         if (stored == null) {
                             return List.of();
                         }
@@ -385,7 +390,7 @@ public class DlcScanner {
             }
             Path check = dirTarget ? target.resolve(fileName) : target;
             if (configType) {
-                Path stored = detectConfigStatePath(check);
+                Path stored = detectConfigStatePath(itemId, check);
                 return stored == null ? List.of() : List.of(stored);
             }
             return Files.exists(check) ? List.of(check) : List.of();
@@ -411,14 +416,22 @@ public class DlcScanner {
         return result;
     }
 
-    private Path detectConfigStatePath(Path target) {
-        Path backup = DlcConfigDlcSupport.backupPathForTarget(target);
+    private Path detectConfigStatePath(String itemId, Path target) {
+        Path backup = DlcConfigDlcSupport.backupPathForItemTarget(itemId, target);
         Path marker = DlcConfigDlcSupport.missingMarkerPath(backup);
         if (Files.exists(marker)) {
             return marker;
         }
         if (Files.exists(backup)) {
             return backup;
+        }
+        Path legacyBackup = DlcConfigDlcSupport.backupPathForTarget(target);
+        Path legacyMarker = DlcConfigDlcSupport.missingMarkerPath(legacyBackup);
+        if (Files.exists(legacyMarker)) {
+            return legacyMarker;
+        }
+        if (Files.exists(legacyBackup)) {
+            return legacyBackup;
         }
         return null;
     }

@@ -20,6 +20,18 @@ public final class DlcConfigDlcSupport {
         return DlcTmpPaths.resolve(base, "config_backup");
     }
 
+    public static Path backupRootForItem(String itemId) {
+        String key = itemId == null || itemId.isBlank() ? "unknown" : sanitizeFilePart(itemId);
+        return backupRoot().resolve(key);
+    }
+
+    public static Path backupPathForItemTarget(String itemId, Path target) {
+        Path normalized = target.toAbsolutePath().normalize();
+        String digest = sha1(normalized.toString());
+        String leaf = normalized.getFileName() == null ? "root" : sanitizeFilePart(normalized.getFileName().toString());
+        return backupRootForItem(itemId).resolve(digest + "_" + leaf + ".bak");
+    }
+
     public static Path backupPathForTarget(Path target) {
         Path normalized = target.toAbsolutePath().normalize();
         String digest = sha1(normalized.toString());
@@ -29,6 +41,11 @@ public final class DlcConfigDlcSupport {
 
     public static Path missingMarkerPath(Path backupPath) {
         return backupPath.resolveSibling(backupPath.getFileName().toString() + ".missing");
+    }
+
+    public static boolean hasBackupForItemTarget(String itemId, Path target) {
+        Path backup = backupPathForItemTarget(itemId, target);
+        return java.nio.file.Files.exists(backup) || java.nio.file.Files.exists(missingMarkerPath(backup));
     }
 
     public static boolean hasBackupForTarget(Path target) {

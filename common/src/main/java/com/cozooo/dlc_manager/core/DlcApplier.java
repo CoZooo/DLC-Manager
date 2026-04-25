@@ -39,7 +39,7 @@ public class DlcApplier {
                     if (!wasEnabled) {
                         messages.add("Enabled " + item.getName());
                     }
-                    List<Path> statePaths = applyItem(item, wasEnabled);
+                List<Path> statePaths = applyItem(item, wasEnabled);
                     if (!statePaths.isEmpty()) {
                         DlcConfig.DlcState state = new DlcConfig.DlcState();
                         state.enabled = true;
@@ -78,23 +78,26 @@ public class DlcApplier {
     }
 
     private static PresetConflictPathResult applyPresetConflictPaths() {
-        Set<String> desired = DlcPathConfig.isPresetFuncOn()
-            ? new LinkedHashSet<>(DlcPresetRuntimeState.getDesiredDisabledRelativePaths())
-            : new LinkedHashSet<>();
-        Set<String> current = new LinkedHashSet<>(DlcPresetStateStore.loadDisabledConflictPaths());
-        if (desired.equals(current)) {
+        java.util.Map<String, java.util.Set<String>> desiredByPreset = DlcPathConfig.isPresetFuncOn()
+            ? DlcPresetRuntimeState.getDesiredDisabledRelativePathsByPreset()
+            : java.util.Map.of();
+        java.util.Map<String, java.util.Set<String>> currentByPreset = DlcPresetRuntimeState.getAppliedDisabledRelativePathsByPreset();
+        if (currentByPreset.equals(desiredByPreset)) {
             return new PresetConflictPathResult(List.of(), false);
         }
 
         List<String> messages = new ArrayList<>();
         boolean changed = false;
+        Set<String> current = unionRelativePaths(currentByPreset);
+        Set<String> desired = unionRelativePaths(desiredByPreset);
+        Set<String> restored = new LinkedHashSet<>();
+        Set<String> disabled = new LinkedHashSet<>();
 
         Set<String> toRestore = new LinkedHashSet<>(current);
         toRestore.removeAll(desired);
-        Set<String> applied = new LinkedHashSet<>(current);
         for (String relative : toRestore) {
             if (restorePresetConflictPath(relative, messages)) {
-                applied.remove(relative);
+                restored.add(relative);
                 changed = true;
             }
         }
@@ -103,11 +106,12 @@ public class DlcApplier {
         toDisable.removeAll(current);
         for (String relative : toDisable) {
             if (disablePresetConflictPath(relative, messages)) {
-                applied.add(relative);
+                disabled.add(relative);
                 changed = true;
             }
         }
-        DlcPresetStateStore.saveDisabledConflictPaths(applied);
+        DlcPresetRuntimeState.setAppliedDisabledRelativePathsByPreset(
+            updateAppliedRelativePathsByPreset(currentByPreset, desiredByPreset, restored, disabled));
         return new PresetConflictPathResult(messages, changed);
     }
 
@@ -118,6 +122,12 @@ public class DlcApplier {
             return false;
         }
         if (!Files.exists(target)) {
+            if (Files.exists(backup)) {
+                return true;
+            }
+            if (DlcFileOpsHelperClient.cancelPendingOperation(target, "move") && Files.exists(backup)) {
+                return true;
+            }
             return false;
         }
         try {
@@ -148,6 +158,12 @@ public class DlcApplier {
             return false;
         }
         if (!Files.exists(backup)) {
+            if (Files.exists(target)) {
+                return true;
+            }
+            if (DlcFileOpsHelperClient.cancelPendingOperation(backup, "move") && Files.exists(target)) {
+                return true;
+            }
             return false;
         }
         try {
@@ -202,6 +218,64 @@ public class DlcApplier {
             return null;
         }
         return disabledRoot.resolve(relative).normalize();
+    }
+
+    private static Set<String> unionRelativePaths(java.util.Map<String, java.util.Set<String>> byPreset) {
+        Set<String> result = new LinkedHashSet<>();
+        if (byPreset == null || byPreset.isEmpty()) {
+            return result;
+        }
+        for (java.util.Set<String> paths : byPreset.values()) {
+            if (paths != null) {
+                result.addAll(paths);
+            }
+        }
+        return result;
+    }
+
+    private static java.util.Map<String, java.util.Set<String>> updateAppliedRelativePathsByPreset(
+        java.util.Map<String, java.util.Set<String>> currentByPreset,
+        java.util.Map<String, java.util.Set<String>> desiredByPreset,
+        java.util.Set<String> restored,
+        java.util.Set<String> disabled
+    ) {
+        java.util.Map<String, java.util.Set<String>> next = new java.util.LinkedHashMap<>();
+        Set<String> current = unionRelativePaths(currentByPreset);
+        Set<String> desired = unionRelativePaths(desiredByPreset);
+        Set<String> all = new LinkedHashSet<>(current);
+        all.addAll(desired);
+        for (String relative : all) {
+            boolean currentHas = current.contains(relative);
+            boolean desiredHas = desired.contains(relative);
+            if (currentHas && desiredHas) {
+                assignRelativePathOwners(next, desiredByPreset, relative);
+            } else if (!currentHas && desiredHas) {
+                if (disabled.contains(relative)) {
+                    assignRelativePathOwners(next, desiredByPreset, relative);
+                }
+            } else if (currentHas && !desiredHas) {
+                if (!restored.contains(relative)) {
+                    assignRelativePathOwners(next, currentByPreset, relative);
+                }
+            }
+        }
+        return next;
+    }
+
+    private static void assignRelativePathOwners(
+        java.util.Map<String, java.util.Set<String>> target,
+        java.util.Map<String, java.util.Set<String>> ownersByPreset,
+        String relative
+    ) {
+        if (relative == null || relative.isBlank() || ownersByPreset == null || ownersByPreset.isEmpty()) {
+            return;
+        }
+        for (java.util.Map.Entry<String, java.util.Set<String>> entry : ownersByPreset.entrySet()) {
+            if (entry.getKey() == null || entry.getKey().isBlank() || entry.getValue() == null || !entry.getValue().contains(relative)) {
+                continue;
+            }
+            target.computeIfAbsent(entry.getKey(), key -> new LinkedHashSet<>()).add(relative);
+        }
     }
 
     private static void cleanupEmptyParents(Path start, Path stopExclusive) {
@@ -313,7 +387,7 @@ public class DlcApplier {
                     continue;
                 }
                 Path target = targetRoot.resolve(source.getFileName().toString());
-                Path statePath = backupConfigTarget(target, !wasEnabled);
+                Path statePath = backupConfigTarget(item.getId(), target, !wasEnabled);
                 copyRecursive(source, target);
                 statePaths.add(statePath);
             }
@@ -324,19 +398,19 @@ public class DlcApplier {
             Files.createDirectories(parent);
         }
         Path source = sources.get(0);
-        Path statePath = backupConfigTarget(targetRoot, !wasEnabled);
+        Path statePath = backupConfigTarget(item.getId(), targetRoot, !wasEnabled);
         copyRecursive(source, targetRoot);
         statePaths.add(statePath);
         return statePaths;
     }
 
-    private static Path backupConfigTarget(Path target, boolean shouldCreate) throws IOException {
-        Path backupPath = DlcConfigDlcSupport.backupPathForTarget(target);
+    private static Path backupConfigTarget(String itemId, Path target, boolean shouldCreate) throws IOException {
+        Path backupPath = DlcConfigDlcSupport.backupPathForItemTarget(itemId, target);
         Path markerPath = DlcConfigDlcSupport.missingMarkerPath(backupPath);
         if (shouldCreate) {
             deleteRecursiveIfExists(backupPath);
             deleteRecursiveIfExists(markerPath);
-            Files.createDirectories(DlcConfigDlcSupport.backupRoot());
+            Files.createDirectories(DlcConfigDlcSupport.backupRootForItem(itemId));
             if (Files.exists(target)) {
                 copyRecursive(target, backupPath);
                 return backupPath;
@@ -386,19 +460,32 @@ public class DlcApplier {
         List<String> stored = previous.appliedTargets == null ? List.of() : previous.appliedTargets;
         for (int i = 0; i < targets.size(); i++) {
             Path target = targets.get(i);
-            Path fallbackBackup = DlcConfigDlcSupport.backupPathForTarget(target);
+            Path fallbackBackup = DlcConfigDlcSupport.backupPathForItemTarget(item.getId(), target);
             Path fallbackMarker = DlcConfigDlcSupport.missingMarkerPath(fallbackBackup);
             Path statePath = i < stored.size() ? resolveStoredPath(stored.get(i)) : null;
             if (statePath == null || statePath.toString().isBlank()) {
-                statePath = Files.exists(fallbackMarker) ? fallbackMarker : fallbackBackup;
+                if (Files.exists(fallbackMarker)) {
+                    statePath = fallbackMarker;
+                } else if (Files.exists(fallbackBackup)) {
+                    statePath = fallbackBackup;
+                } else {
+                    Path legacyBackup = DlcConfigDlcSupport.backupPathForTarget(target);
+                    Path legacyMarker = DlcConfigDlcSupport.missingMarkerPath(legacyBackup);
+                    statePath = Files.exists(legacyMarker) ? legacyMarker : legacyBackup;
+                }
             }
             Path backupPath = statePath;
             Path markerPath = statePath;
             if (Files.exists(statePath) && statePath.getFileName() != null
                 && statePath.getFileName().toString().endsWith(".missing")) {
                 backupPath = fallbackBackup;
+                if (!Files.exists(backupPath)) {
+                    backupPath = DlcConfigDlcSupport.backupPathForTarget(target);
+                }
             } else if (statePath.equals(fallbackBackup)) {
                 markerPath = fallbackMarker;
+            } else if (statePath.equals(DlcConfigDlcSupport.backupPathForTarget(target))) {
+                markerPath = DlcConfigDlcSupport.missingMarkerPath(statePath);
             } else {
                 markerPath = DlcConfigDlcSupport.missingMarkerPath(statePath);
             }

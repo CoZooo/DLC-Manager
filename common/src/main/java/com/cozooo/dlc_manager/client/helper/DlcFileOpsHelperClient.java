@@ -79,6 +79,10 @@ public final class DlcFileOpsHelperClient {
     }
 
     public static boolean cancelPendingDelete(Path target) {
+        return cancelPendingOperation(target, "delete");
+    }
+
+    public static boolean cancelPendingOperation(Path target, String requiredType) {
         if (target == null) {
             return false;
         }
@@ -95,7 +99,7 @@ public final class DlcFileOpsHelperClient {
             if (!(rawPending instanceof Map<?, ?> pendingMap) || !asBoolean(pendingMap.get("ok"))) {
                 return false;
             }
-            if (!hasPendingDelete(pendingMap.get("operations"), normalizedTarget)) {
+            if (!hasPendingOperation(pendingMap.get("operations"), normalizedTarget, requiredType)) {
                 return false;
             }
             Object rawCancel = FileOpsHelperApi.cancelPendingOperationsByTarget(List.of(normalizedTarget));
@@ -182,20 +186,23 @@ public final class DlcFileOpsHelperClient {
         return value == null ? "" : value.trim();
     }
 
-    private static boolean hasPendingDelete(Object operationsRaw, String normalizedTarget) {
+    private static boolean hasPendingOperation(Object operationsRaw, String normalizedTarget, String requiredType) {
         if (!(operationsRaw instanceof Iterable<?> iterable)) {
             return false;
         }
+        String normalizedType = safeTrim(requiredType).toLowerCase(Locale.ROOT);
         for (Object entry : iterable) {
             if (!(entry instanceof Map<?, ?> op)) {
                 continue;
             }
             String type = safeTrim(asString(op.get("type"))).toLowerCase(Locale.ROOT);
-            if (!"delete".equals(type)) {
+            if (!normalizedType.isBlank() && !normalizedType.equals(type)) {
                 continue;
             }
-            String target = normalizePath(asString(op.get("path")));
-            if (normalizedTarget.equals(target)) {
+            String path = normalizePath(asString(op.get("path")));
+            String source = normalizePath(asString(op.get("source")));
+            String target = normalizePath(asString(op.get("target")));
+            if (normalizedTarget.equals(path) || normalizedTarget.equals(source) || normalizedTarget.equals(target)) {
                 return true;
             }
         }

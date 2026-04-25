@@ -16,6 +16,7 @@ public final class DlcPresetRuntimeState {
     private static final Map<String, DlcPresetEntry> PRESETS_BY_ID = new LinkedHashMap<>();
     private static final Set<String> ENABLED_PRESETS = new LinkedHashSet<>();
     private static final Set<String> LAST_APPLIED_IDENTIFIERS = new LinkedHashSet<>();
+    private static final Map<String, Set<String>> APPLIED_DISABLED_RELATIVE_PATHS = new LinkedHashMap<>();
     private static Map<String, Set<String>> BLOCKED_DLC = new LinkedHashMap<>();
     private static Map<String, Set<String>> BLOCKED_PRESET = new LinkedHashMap<>();
     private static boolean presetDirty;
@@ -57,8 +58,10 @@ public final class DlcPresetRuntimeState {
                     ENABLED_PRESETS.add(entry.getId());
                 }
             }
+            APPLIED_DISABLED_RELATIVE_PATHS.clear();
             presetDirty = false;
         }
+        filterAppliedDisabledRelativePaths();
         updateEntryStatusesFromRuntime();
         rebuildBlocks();
         applyOverrides();
@@ -182,6 +185,7 @@ public final class DlcPresetRuntimeState {
         PRESETS_BY_ID.clear();
         ENABLED_PRESETS.clear();
         LAST_APPLIED_IDENTIFIERS.clear();
+        APPLIED_DISABLED_RELATIVE_PATHS.clear();
         BLOCKED_DLC = new LinkedHashMap<>();
         BLOCKED_PRESET = new LinkedHashMap<>();
         presetDirty = false;
@@ -239,23 +243,38 @@ public final class DlcPresetRuntimeState {
         applyOverrides();
     }
 
-    public static Set<String> getDesiredDisabledRelativePaths() {
+    public static Map<String, Set<String>> getDesiredDisabledRelativePathsByPreset() {
         Map<String, Set<String>> enableCache = new LinkedHashMap<>();
         Map<String, Set<String>> conflictCache = new LinkedHashMap<>();
-        Set<String> result = new LinkedHashSet<>();
+        Map<String, Set<String>> result = new LinkedHashMap<>();
         for (String presetId : ENABLED_PRESETS) {
+            Set<String> paths = new LinkedHashSet<>();
             for (String token : resolveConflictTokensForPreset(presetId, enableCache, conflictCache, new LinkedHashSet<>(), new LinkedHashSet<>())) {
                 String relativePath = normalizeRelativeConflictPath(token);
                 if (relativePath != null && !relativePath.isBlank()) {
-                    result.add(relativePath);
+                    paths.add(relativePath);
                 }
+            }
+            if (!paths.isEmpty()) {
+                result.put(presetId, Set.copyOf(paths));
             }
         }
         return result;
     }
 
     public static boolean hasPendingFileConflictChanges() {
-        return !DlcPresetStateStore.loadDisabledConflictPaths().equals(getDesiredDisabledRelativePaths());
+        return !normalizeRelativePathMap(APPLIED_DISABLED_RELATIVE_PATHS).equals(
+            normalizeRelativePathMap(getDesiredDisabledRelativePathsByPreset()));
+    }
+
+    public static Map<String, Set<String>> getAppliedDisabledRelativePathsByPreset() {
+        return copyRelativePathMap(APPLIED_DISABLED_RELATIVE_PATHS);
+    }
+
+    public static void setAppliedDisabledRelativePathsByPreset(Map<String, Set<String>> applied) {
+        APPLIED_DISABLED_RELATIVE_PATHS.clear();
+        APPLIED_DISABLED_RELATIVE_PATHS.putAll(normalizeRelativePathMap(applied));
+        filterAppliedDisabledRelativePaths();
     }
 
     private static void rebuildBlocks() {
@@ -711,5 +730,40 @@ public final class DlcPresetRuntimeState {
                 DlcRuntimeState.clearOverride(item.getId());
             }
         }
+    }
+
+    private static void filterAppliedDisabledRelativePaths() {
+        APPLIED_DISABLED_RELATIVE_PATHS.entrySet().removeIf(entry ->
+            entry.getKey() == null || !PRESETS_BY_ID.containsKey(entry.getKey()));
+    }
+
+    private static Map<String, Set<String>> copyRelativePathMap(Map<String, Set<String>> source) {
+        return normalizeRelativePathMap(source);
+    }
+
+    private static Map<String, Set<String>> normalizeRelativePathMap(Map<String, Set<String>> source) {
+        Map<String, Set<String>> normalized = new LinkedHashMap<>();
+        if (source == null || source.isEmpty()) {
+            return normalized;
+        }
+        for (Map.Entry<String, Set<String>> entry : source.entrySet()) {
+            String presetId = entry.getKey();
+            if (presetId == null || presetId.isBlank()) {
+                continue;
+            }
+            Set<String> values = new LinkedHashSet<>();
+            if (entry.getValue() != null) {
+                for (String value : entry.getValue()) {
+                    if (value == null || value.isBlank()) {
+                        continue;
+                    }
+                    values.add(value.replace('\\', '/'));
+                }
+            }
+            if (!values.isEmpty()) {
+                normalized.put(presetId, Set.copyOf(values));
+            }
+        }
+        return normalized;
     }
 }
