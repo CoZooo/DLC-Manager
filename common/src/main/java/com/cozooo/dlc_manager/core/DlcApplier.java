@@ -31,8 +31,15 @@ public class DlcApplier {
             for (DlcItem item : items) {
                 DlcConfig.DlcState previous = DlcConfig.getState(item.getId());
                 boolean wasEnabled = previous != null && previous.enabled;
-                if (item.isEnabled() != wasEnabled && requiresRestartOnToggle(item)) {
-                    requiresRestart = true;
+                if (requiresRestartOnToggle(item)) {
+                    Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());
+                    if (baseline != null) {
+                        if (baseline != item.isEnabled()) {
+                            requiresRestart = true;
+                        }
+                    } else if (item.isEnabled() != wasEnabled) {
+                        requiresRestart = true;
+                    }
                 }
 
                 if (item.isEnabled()) {
@@ -64,7 +71,7 @@ public class DlcApplier {
             if (!presetPathResult.messages().isEmpty()) {
                 messages.addAll(presetPathResult.messages());
             }
-            if (presetPathResult.changed()) {
+            if (presetPathResult.changed() && DlcPresetRuntimeState.hasAppliedFileConflictChangesFromBaseline()) {
                 requiresRestart = true;
             }
         } finally {

@@ -16,10 +16,12 @@ public final class DlcPresetRuntimeState {
     private static final Map<String, DlcPresetEntry> PRESETS_BY_ID = new LinkedHashMap<>();
     private static final Set<String> ENABLED_PRESETS = new LinkedHashSet<>();
     private static final Set<String> LAST_APPLIED_IDENTIFIERS = new LinkedHashSet<>();
+    private static final Map<String, Set<String>> BASELINE_DISABLED_RELATIVE_PATHS = new LinkedHashMap<>();
     private static final Map<String, Set<String>> APPLIED_DISABLED_RELATIVE_PATHS = new LinkedHashMap<>();
     private static Map<String, Set<String>> BLOCKED_DLC = new LinkedHashMap<>();
     private static Map<String, Set<String>> BLOCKED_PRESET = new LinkedHashMap<>();
     private static boolean presetDirty;
+    private static boolean baselineDisabledRelativePathsInitialized;
 
     private DlcPresetRuntimeState() {
     }
@@ -58,8 +60,15 @@ public final class DlcPresetRuntimeState {
                     ENABLED_PRESETS.add(entry.getId());
                 }
             }
-            APPLIED_DISABLED_RELATIVE_PATHS.clear();
             presetDirty = false;
+        }
+        if (!baselineDisabledRelativePathsInitialized) {
+            Map<String, Set<String>> baseline = normalizeRelativePathMap(getDesiredDisabledRelativePathsByPreset());
+            BASELINE_DISABLED_RELATIVE_PATHS.clear();
+            BASELINE_DISABLED_RELATIVE_PATHS.putAll(baseline);
+            APPLIED_DISABLED_RELATIVE_PATHS.clear();
+            APPLIED_DISABLED_RELATIVE_PATHS.putAll(copyRelativePathMap(baseline));
+            baselineDisabledRelativePathsInitialized = true;
         }
         filterAppliedDisabledRelativePaths();
         updateEntryStatusesFromRuntime();
@@ -185,10 +194,12 @@ public final class DlcPresetRuntimeState {
         PRESETS_BY_ID.clear();
         ENABLED_PRESETS.clear();
         LAST_APPLIED_IDENTIFIERS.clear();
+        BASELINE_DISABLED_RELATIVE_PATHS.clear();
         APPLIED_DISABLED_RELATIVE_PATHS.clear();
         BLOCKED_DLC = new LinkedHashMap<>();
         BLOCKED_PRESET = new LinkedHashMap<>();
         presetDirty = false;
+        baselineDisabledRelativePathsInitialized = false;
     }
 
     public static void syncStatusFromRuntime() {
@@ -265,6 +276,11 @@ public final class DlcPresetRuntimeState {
     public static boolean hasPendingFileConflictChanges() {
         return !normalizeRelativePathMap(APPLIED_DISABLED_RELATIVE_PATHS).equals(
             normalizeRelativePathMap(getDesiredDisabledRelativePathsByPreset()));
+    }
+
+    public static boolean hasAppliedFileConflictChangesFromBaseline() {
+        return !normalizeRelativePathMap(BASELINE_DISABLED_RELATIVE_PATHS).equals(
+            normalizeRelativePathMap(APPLIED_DISABLED_RELATIVE_PATHS));
     }
 
     public static Map<String, Set<String>> getAppliedDisabledRelativePathsByPreset() {
