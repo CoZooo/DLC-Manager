@@ -76,7 +76,7 @@ jobs:
           SYNC_ALL: ${{ inputs.sync_all }}
           GITEE_USERNAME_VAR: ${{ vars.GITEE_USERNAME }}
           GITEE_REPO_VAR: ${{ vars.GITEE_REPO }}
-          SYNC_FILE_VAR: ${{ vars.SYNC_FILE }}
+          GITEE_SYNC_FILE_VAR: ${{ vars.GITEE_SYNC_FILE }}
           OVERWRITE_ASSETS: ${{ inputs.overwrite_assets }}
         run: |
           python - <<'PY'
@@ -95,7 +95,7 @@ jobs:
           sync_all = os.environ.get("SYNC_ALL", "false").strip().lower() == "true"
           gitee_owner = (os.environ.get("GITEE_USERNAME_VAR", "") or "").strip()
           gitee_repo = (os.environ.get("GITEE_REPO_VAR", "") or "").strip()
-          sync_file_var = os.environ.get("SYNC_FILE_VAR", "").strip().lower()
+          sync_file_var = os.environ.get("GITEE_SYNC_FILE_VAR", "").strip().lower()
           overwrite_assets = os.environ.get("OVERWRITE_ASSETS", "true").strip().lower() == "true"
           output_path = os.environ.get("GITHUB_OUTPUT", "").strip()
 
@@ -120,6 +120,12 @@ jobs:
 
           gh_base = "https://api.github.com"
 
+          def release_sort_key(item):
+              return (
+                  (item.get("published_at") or item.get("created_at") or "").strip(),
+                  (item.get("tag_name") or "").strip(),
+              )
+
           def load_target_releases():
               if sync_all:
                   all_items = []
@@ -136,7 +142,7 @@ jobs:
                       if len(items) < 100:
                           break
                       page += 1
-                  return all_items
+                  return sorted(all_items, key=release_sort_key)
 
               if target_tag:
                   url = f"{gh_base}/repos/{source_repo}/releases/tags/{target_tag}"

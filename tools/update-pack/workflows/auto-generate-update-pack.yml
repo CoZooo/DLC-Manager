@@ -35,6 +35,14 @@ on:
           - "false"
           - "true"
         default: "false"
+      sync_to_gitcode:
+        description: "Sync generated release to GitCode"
+        required: true
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
 
 jobs:
   generate:
@@ -45,6 +53,7 @@ jobs:
       changed: ${{ steps.detect.outputs.changed }}
       release_tag: ${{ steps.generate.outputs.release_tag }}
       sync_to_gitee: ${{ steps.detect.outputs.sync_to_gitee }}
+      sync_to_gitcode: ${{ steps.detect.outputs.sync_to_gitcode }}
 
     steps:
       - name: Checkout repository
@@ -64,11 +73,13 @@ jobs:
           INPUT_TO_REF: ${{ inputs.to_ref }}
           INPUT_PLATFORM: ${{ inputs.platform }}
           INPUT_SYNC_TO_GITEE: ${{ inputs.sync_to_gitee }}
+          INPUT_SYNC_TO_GITCODE: ${{ inputs.sync_to_gitcode }}
           VAR_VERSION_FILE: ${{ vars.VERSION_DC_PATH }}
           VAR_PLATFORM: ${{ vars.AUTO_UPDATE_PLATFORM }}
           VAR_CLIENT_BRANCH: ${{ vars.CLIENT_BRANCH }}
           VAR_SERVER_BRANCH: ${{ vars.SERVER_BRANCH }}
           VAR_SYNC_TO_GITEE: ${{ vars.AUTO_SYNC_TO_GITEE }}
+          VAR_SYNC_TO_GITCODE: ${{ vars.AUTO_SYNC_TO_GITCODE }}
           VAR_AUTO_UPDATE_WORKFLOW: ${{ vars.AUTO_UPDATE_WORKFLOW }}
         shell: bash
         run: |
@@ -142,6 +153,7 @@ jobs:
           client_branch_set = parse_csv_set(os.environ.get("VAR_CLIENT_BRANCH", ""))
           server_branch_set = parse_csv_set(os.environ.get("VAR_SERVER_BRANCH", ""))
           sync_to_gitee = normalize_bool(pick(os.environ.get("INPUT_SYNC_TO_GITEE"), os.environ.get("VAR_SYNC_TO_GITEE"), default="false"))
+          sync_to_gitcode = normalize_bool(pick(os.environ.get("INPUT_SYNC_TO_GITCODE"), os.environ.get("VAR_SYNC_TO_GITCODE"), default="false"))
           auto_update_workflow_enabled = normalize_enabled_default_true(os.environ.get("VAR_AUTO_UPDATE_WORKFLOW"))
 
           if event_name == "push":
@@ -188,6 +200,7 @@ jobs:
             print(f"version_file={version_file}")
             print(f"platform={platform}")
             print(f"sync_to_gitee={sync_to_gitee}")
+            print(f"sync_to_gitcode={sync_to_gitcode}")
             print("reason=auto_workflow_disabled")
             sys.exit(0)
 
@@ -201,6 +214,7 @@ jobs:
             print(f"version_file={version_file}")
             print(f"platform={platform}")
             print(f"sync_to_gitee={sync_to_gitee}")
+            print(f"sync_to_gitcode={sync_to_gitcode}")
             print("reason=no_before_commit")
             sys.exit(0)
 
@@ -209,6 +223,7 @@ jobs:
             print(f"version_file={version_file}")
             print(f"platform={platform}")
             print(f"sync_to_gitee={sync_to_gitee}")
+            print(f"sync_to_gitcode={sync_to_gitcode}")
             print("reason=version_file_missing")
             sys.exit(0)
 
@@ -227,6 +242,7 @@ jobs:
             print(f"version_file={version_file}")
             print(f"platform={platform}")
             print(f"sync_to_gitee={sync_to_gitee}")
+            print(f"sync_to_gitcode={sync_to_gitcode}")
             print("reason=version_unchanged")
             sys.exit(0)
 
@@ -252,6 +268,7 @@ jobs:
               print(f"version_file={version_file}")
               print(f"platform={platform}")
               print(f"sync_to_gitee={sync_to_gitee}")
+              print(f"sync_to_gitcode={sync_to_gitcode}")
               print("reason=from_ref_not_found")
               sys.exit(0)
             resolved_from_ref = first_old_commit
@@ -260,6 +277,7 @@ jobs:
           print(f"version_file={version_file}")
           print(f"platform={platform}")
           print(f"sync_to_gitee={sync_to_gitee}")
+          print(f"sync_to_gitcode={sync_to_gitcode}")
           print(f"from_ref={resolved_from_ref}")
           print(f"to_ref={event_after}")
           print(f"base={old_base}")
@@ -281,6 +299,7 @@ jobs:
           echo "version_file=${{ steps.detect.outputs.version_file }}"
           echo "platform=${{ steps.detect.outputs.platform }}"
           echo "sync_to_gitee=${{ steps.detect.outputs.sync_to_gitee }}"
+          echo "sync_to_gitcode=${{ steps.detect.outputs.sync_to_gitcode }}"
           echo "from_ref=${{ steps.detect.outputs.from_ref }}"
           echo "to_ref=${{ steps.detect.outputs.to_ref }}"
           echo "base=${{ steps.detect.outputs.base }}"
@@ -387,6 +406,16 @@ jobs:
     if: ${{ needs.generate.outputs.changed == 'true' && needs.generate.outputs.sync_to_gitee == 'true' }}
     needs: generate
     uses: ./.github/workflows/sync-github-release-to-gitee.yml
+    with:
+      tag: ${{ needs.generate.outputs.release_tag }}
+      sync_all: "false"
+      overwrite_assets: "true"
+    secrets: inherit
+
+  sync_gitcode:
+    if: ${{ needs.generate.outputs.changed == 'true' && needs.generate.outputs.sync_to_gitcode == 'true' }}
+    needs: generate
+    uses: ./.github/workflows/sync-github-release-to-gitcode.yml
     with:
       tag: ${{ needs.generate.outputs.release_tag }}
       sync_all: "false"

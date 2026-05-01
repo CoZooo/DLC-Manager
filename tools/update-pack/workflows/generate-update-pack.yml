@@ -44,6 +44,14 @@ on:
           - "false"
           - "true"
         default: "false"
+      sync_to_gitcode:
+        description: "Sync generated release to GitCode"
+        required: true
+        type: choice
+        options:
+          - "false"
+          - "true"
+        default: "false"
 
 jobs:
   generate:
@@ -245,6 +253,16 @@ jobs:
     if: ${{ inputs.sync_to_gitee == 'true' }}
     needs: generate
     uses: ./.github/workflows/sync-github-release-to-gitee.yml
+    with:
+      tag: ${{ needs.generate.outputs.release_tag }}
+      sync_all: "false"
+      overwrite_assets: "true"
+    secrets: inherit
+
+  sync_gitcode:
+    if: ${{ inputs.sync_to_gitcode == 'true' }}
+    needs: generate
+    uses: ./.github/workflows/sync-github-release-to-gitcode.yml
     with:
       tag: ${{ needs.generate.outputs.release_tag }}
       sync_all: "false"
