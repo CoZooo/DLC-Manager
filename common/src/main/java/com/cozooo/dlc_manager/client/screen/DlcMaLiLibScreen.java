@@ -647,6 +647,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
     }
 
     private void setFilter(DlcType type) {
+        syncVisibleItemOverrides();
         activeFilter = type;
         if (allFilterButton != null) {
             allFilterButton.setDisplayString(getFilterLabel(null));
@@ -674,6 +675,15 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         updateRemoteButtonLayout();
         updateRequiredButtonLayout();
         updateModeAvailability();
+    }
+
+    private void syncVisibleItemOverrides() {
+        for (DlcItem item : items) {
+            if (item == null || item.getId() == null || item.getId().isBlank()) {
+                continue;
+            }
+            DlcRuntimeState.setOverride(item.getId(), item.isEnabled());
+        }
     }
 
     private void applyChanges() {
