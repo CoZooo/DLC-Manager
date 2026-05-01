@@ -63,7 +63,6 @@ export function StructuredEditor(props: StructuredEditorProps) {
           <div className="field">
             <label className="field-label">
               <span>{t(props.locale, "fileName")}</span>
-              <span className="field-label-help">{t(props.locale, "fileNameHelp")}</span>
             </label>
             <UndoableInput
               type="text"

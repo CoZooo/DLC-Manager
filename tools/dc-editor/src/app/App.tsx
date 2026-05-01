@@ -221,10 +221,13 @@ function validateDocumentFileName(name: string): ValidationIssue[] {
       source: "filename"
     }];
   }
-  if (/[ .]$/.test(trimmed)) {
+  const dot = trimmed.lastIndexOf(".");
+  const baseName = dot > 0 ? trimmed.slice(0, dot) : trimmed;
+  const extension = dot > 0 ? trimmed.slice(dot + 1) : "";
+  if (/[ .]$/.test(trimmed) || /[ .]$/.test(baseName) || extension.endsWith(" ")) {
     return [{
       severity: "error",
-      message: "配置文件名不能以空格或点结尾。",
+      message: "配置文件名或扩展名前不能以空格或点结尾。",
       source: "filename"
     }];
   }
