@@ -158,6 +158,11 @@ function isBracketListKind(kind: FieldKind): boolean {
   return kind === "list" || kind === "ordered-select-list" || kind === "language-visibility";
 }
 
+function isPresetRootListField(sectionKey: string, key: string): boolean {
+  return (sectionKey === ROOT_SECTION_KEY || sectionKey === "basic")
+    && (key === "enable" || key === "conflicts");
+}
+
 function parseUpdateDLCMValue(valueText: string): StructuredValue {
   const normalized = valueText.trim();
   if (normalized === "true") {
@@ -412,6 +417,72 @@ export function serializeStructuredDocumentWithPreservedRaw(
     return `${generated}\n`;
   }
   return `${generated}\n\n${preserved}\n`;
+}
+
+export function formatPresetListFieldsInRaw(text: string): string {
+  const normalizedText = text.replace(/\r\n/g, "\n");
+  const lines = normalizedText.split("\n");
+  const out: string[] = [];
+  let currentSection = ROOT_SECTION_KEY;
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const stripped = stripComment(line);
+    const trimmed = stripped.trim();
+    const indent = line.match(/^\s*/)?.[0] ?? "";
+
+    if (!trimmed) {
+      out.push(line);
+      continue;
+    }
+
+    if (!indent && trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      currentSection = trimmed.slice(1, -1).trim();
+      out.push(line);
+      continue;
+    }
+
+    const eq = stripped.indexOf("=");
+    if (eq < 0) {
+      out.push(line);
+      continue;
+    }
+
+    const key = stripped.slice(0, eq).trim();
+    let valueText = stripped.slice(eq + 1).trim();
+    if (!isPresetRootListField(currentSection, key) || !valueText.startsWith("[")) {
+      out.push(line);
+      continue;
+    }
+
+    while (!valueText.endsWith("]") && index + 1 < lines.length) {
+      index += 1;
+      const nextLine = stripComment(lines[index]).trim();
+      if (nextLine) {
+        valueText += ` ${nextLine}`;
+      }
+    }
+
+    const values = parseStringArray(valueText);
+    if (!values) {
+      out.push(line);
+      continue;
+    }
+
+    if (values.length === 0) {
+      out.push(`${indent}${key} = []`);
+      continue;
+    }
+
+    out.push(`${indent}${key} = [`);
+    for (let valueIndex = 0; valueIndex < values.length; valueIndex++) {
+      const suffix = valueIndex === values.length - 1 ? "" : ",";
+      out.push(`${indent}  ${formatString(values[valueIndex])}${suffix}`);
+    }
+    out.push(`${indent}]`);
+  }
+
+  return out.join("\n");
 }
 
 function normalizeInfoMultiFileModel(model: StructuredModel) {

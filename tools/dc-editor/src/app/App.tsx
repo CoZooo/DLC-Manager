@@ -21,7 +21,7 @@ import { ApiBackend } from "../services/backend/ApiBackend";
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
 import { detectDocumentType } from "../services/document/typeDetection";
-import { serializeStructuredDocumentWithPreservedRaw } from "../services/document/simpleDc";
+import { formatPresetListFieldsInRaw, serializeStructuredDocumentWithPreservedRaw } from "../services/document/simpleDc";
 import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 const APP_STATE_STORAGE_KEY = "dlc-manager-dc-editor-state-v1";
@@ -366,7 +366,10 @@ export function App() {
         if (cancelled) {
           return;
         }
-        backend.validate(editingDocument.type, editingDocument.rawText, parsed.model).then((issues) => {
+        const formattedRawText = editingDocument.type === "preset"
+          ? formatPresetListFieldsInRaw(editingDocument.rawText)
+          : editingDocument.rawText;
+        backend.validate(editingDocument.type, formattedRawText, parsed.model).then((issues) => {
         if (cancelled) {
           return;
         }
@@ -380,7 +383,9 @@ export function App() {
           const next = {
             ...current,
             name: deriveDocumentName(current.type, keepStructuredDraft ? current.structuredModel : parsed.model, current.name),
+            rawText: formattedRawText,
             structuredModel: keepStructuredDraft ? current.structuredModel : parsed.model,
+            isDirty: formattedRawText !== current.originalText,
             issues
           };
           const copy = [...previous];
