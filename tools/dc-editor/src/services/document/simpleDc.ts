@@ -312,6 +312,12 @@ interface SerializeOptions {
   applyImplicitDefaultLocale?: boolean;
 }
 
+interface SerializeFieldContext {
+  schemaType: DocumentSchema["type"];
+  sectionKey: string;
+  fieldKey: string;
+}
+
 export function serializeStructuredDocument(model: StructuredModel, schema: DocumentSchema, options: SerializeOptions = {}): string {
   const out: string[] = [];
   for (let index = 0; index < schema.sections.length; index++) {
@@ -362,7 +368,11 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
         }
         continue;
       }
-      out.push(`${field.key} = ${serializeValue(value)}`);
+      out.push(`${field.key} = ${serializeValue(value, {
+        schemaType: schema.type,
+        sectionKey,
+        fieldKey: field.key
+      })}`);
     }
     if (section.dynamicLocale) {
       if (options.applyImplicitDefaultLocale && dynamicLocaleState?.hasSingleImplicitEnUs) {
@@ -444,7 +454,27 @@ function normalizePresetModel(model: StructuredModel) {
   model[ROOT_SECTION_KEY] = nextRoot;
 }
 
-function serializeValue(value: StructuredValue): string {
+function shouldUseExpandedListFormat(value: StructuredValue, context?: SerializeFieldContext): value is string[] {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  return context?.schemaType === "preset"
+    && context.sectionKey === ROOT_SECTION_KEY
+    && (context.fieldKey === "enable" || context.fieldKey === "conflicts");
+}
+
+function serializeExpandedStringList(value: string[]): string {
+  if (value.length === 0) {
+    return "[]";
+  }
+  return `[\n  ${value.map((item) => formatString(item)).join(",\n  ")}\n]`;
+}
+
+function serializeInlineStringList(value: string[]): string {
+  return `[${value.map((item) => formatString(item)).join(", ")}]`;
+}
+
+function serializeValue(value: StructuredValue, context?: SerializeFieldContext): string {
   if (typeof value === "boolean") {
     return value ? "true" : "false";
   }
@@ -452,7 +482,11 @@ function serializeValue(value: StructuredValue): string {
     return String(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((item) => formatString(item)).join(", ")}]`;
+    const listValue = value as string[];
+    if (shouldUseExpandedListFormat(listValue, context)) {
+      return serializeExpandedStringList(listValue);
+    }
+    return serializeInlineStringList(listValue);
   }
   if (typeof value !== "string") {
     return formatString("");
