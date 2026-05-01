@@ -8,6 +8,8 @@ interface StructuredEditorProps {
   model: StructuredModel | null;
   enabled: boolean;
   locale: EditorLocale;
+  fileName?: string;
+  onFileNameChange?(nextFileName: string): void;
   onChange(next: StructuredModel): void;
 }
 
@@ -56,6 +58,21 @@ export function StructuredEditor(props: StructuredEditorProps) {
   return (
     <section className="panel">
       <div className="panel-title">{t(props.locale, "formTitle")}</div>
+      {props.fileName !== undefined && props.onFileNameChange && (
+        <div className="section-card document-name-card">
+          <div className="field">
+            <label className="field-label">
+              <span>{t(props.locale, "fileName")}</span>
+              <span className="field-label-help">{t(props.locale, "fileNameHelp")}</span>
+            </label>
+            <UndoableInput
+              type="text"
+              value={props.fileName}
+              onChangeValue={props.onFileNameChange}
+            />
+          </div>
+        </div>
+      )}
       <div className="section-stack">
         {props.schema.sections.map((section) => (
           <div key={section.key} className="section-card">

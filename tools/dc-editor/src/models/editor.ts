@@ -31,7 +31,7 @@ export interface ValidationIssue {
   severity: "error" | "warning" | "info";
   message: string;
   line?: number;
-  source: "syntax" | "schema" | "backend" | "api-placeholder";
+  source: "syntax" | "schema" | "backend" | "api-placeholder" | "filename";
 }
 
 export interface FieldSchema {
@@ -83,6 +83,7 @@ export const ROOT_SECTION_KEY = "__root__";
 export interface EditorDocument {
   id: string;
   name: string;
+  originalName?: string;
   path?: string;
   type: DocumentType;
   rawText: string;

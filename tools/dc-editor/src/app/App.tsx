@@ -10,7 +10,8 @@ import {
   DocumentSchema,
   DocumentType,
   EditorDocument,
-  StructuredModel
+  StructuredModel,
+  ValidationIssue
 } from "../models/editor";
 import {
   configurableDocumentTypes,
@@ -167,7 +168,7 @@ function getIssueSeverityLabel(locale: EditorLocale, severity: "error" | "warnin
   return t(locale, "validationSeverityInfo");
 }
 
-function getIssueSourceLabel(locale: EditorLocale, source: "syntax" | "schema" | "backend" | "api-placeholder") {
+function getIssueSourceLabel(locale: EditorLocale, source: ValidationIssue["source"]) {
   if (source === "syntax") {
     return t(locale, "validationSourceSyntax");
   }
@@ -177,7 +178,57 @@ function getIssueSourceLabel(locale: EditorLocale, source: "syntax" | "schema" |
   if (source === "api-placeholder") {
     return t(locale, "validationSourceApiPlaceholder");
   }
+  if (source === "filename") {
+    return t(locale, "validationSourceFileName");
+  }
   return t(locale, "validationSourceSchema");
+}
+
+function validateDocumentFileName(name: string): ValidationIssue[] {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return [{
+      severity: "error",
+      message: "配置文件名为空。",
+      source: "filename"
+    }];
+  }
+  if (trimmed !== name) {
+    return [{
+      severity: "error",
+      message: "配置文件名不能包含首尾空格。",
+      source: "filename"
+    }];
+  }
+  if (trimmed === "." || trimmed === "..") {
+    return [{
+      severity: "error",
+      message: "配置文件名不能是 . 或 ..。",
+      source: "filename"
+    }];
+  }
+  if (/[\\/:*?"<>|]/.test(trimmed)) {
+    return [{
+      severity: "error",
+      message: "配置文件名包含非法字符：\\ / : * ? \" < > |",
+      source: "filename"
+    }];
+  }
+  if (/[\x00-\x1F]/.test(trimmed)) {
+    return [{
+      severity: "error",
+      message: "配置文件名包含控制字符。",
+      source: "filename"
+    }];
+  }
+  if (/[ .]$/.test(trimmed)) {
+    return [{
+      severity: "error",
+      message: "配置文件名不能以空格或点结尾。",
+      source: "filename"
+    }];
+  }
+  return [];
 }
 
 function isConfigurableType(type: DocumentType): boolean {
@@ -202,6 +253,7 @@ function buildDocument(
   return {
     id: makeDocumentId(),
     name,
+    originalName: name,
     path,
     type,
     rawText: text,
@@ -225,13 +277,14 @@ function snapshotDocument(document: EditorDocument): DocumentHistoryEntry {
 }
 
 function restoreDocumentSnapshot(document: EditorDocument, snapshot: DocumentHistoryEntry): EditorDocument {
+  const originalName = document.originalName ?? document.name;
   return {
     ...document,
     name: snapshot.name,
     rawText: snapshot.rawText,
     structuredModel: snapshot.structuredModel ? structuredClone(snapshot.structuredModel) : null,
     structuredEnabled: snapshot.structuredEnabled,
-    isDirty: snapshot.rawText !== document.originalText
+    isDirty: snapshot.rawText !== document.originalText || snapshot.name !== originalName
   };
 }
 
@@ -382,11 +435,10 @@ export function App() {
           const keepStructuredDraft = preserveStructuredDraftRef.current === current.id;
           const next = {
             ...current,
-            name: deriveDocumentName(current.type, keepStructuredDraft ? current.structuredModel : parsed.model, current.name),
             rawText: formattedRawText,
             structuredModel: keepStructuredDraft ? current.structuredModel : parsed.model,
-            isDirty: formattedRawText !== current.originalText,
-            issues
+            isDirty: formattedRawText !== current.originalText || current.name !== (current.originalName ?? current.name),
+            issues: [...issues, ...validateDocumentFileName(current.name)]
           };
           const copy = [...previous];
           copy[index] = next;
@@ -631,7 +683,23 @@ export function App() {
     commitDocumentEdit({
       ...editingDocument,
       rawText,
-      isDirty: rawText !== editingDocument.originalText
+      isDirty: rawText !== editingDocument.originalText || editingDocument.name !== (editingDocument.originalName ?? editingDocument.name)
+    });
+  };
+
+  const updateDocumentName = (name: string) => {
+    if (!editingDocument) {
+      return;
+    }
+    preserveStructuredDraftRef.current = editingDocument.id;
+    commitDocumentEdit({
+      ...editingDocument,
+      name,
+      isDirty: editingDocument.rawText !== editingDocument.originalText || name !== (editingDocument.originalName ?? editingDocument.name),
+      issues: [
+        ...editingDocument.issues.filter((issue) => issue.source !== "filename"),
+        ...validateDocumentFileName(name)
+      ]
     });
   };
 
@@ -645,10 +713,9 @@ export function App() {
     preserveStructuredDraftRef.current = editingDocument.id;
     commitDocumentEdit({
       ...editingDocument,
-      name: deriveDocumentName(editingDocument.type, model, editingDocument.name),
       structuredModel: model,
       rawText: nextRaw,
-      isDirty: nextRaw !== editingDocument.originalText
+      isDirty: nextRaw !== editingDocument.originalText || editingDocument.name !== (editingDocument.originalName ?? editingDocument.name)
     });
   };
 
@@ -689,6 +756,7 @@ export function App() {
           copy[index] = {
             ...copy[index],
             name: result.name,
+            originalName: result.name,
             path: result.path,
             rawText: textToSave,
             originalText: textToSave,
@@ -709,6 +777,15 @@ export function App() {
     }
     if (documents.length <= 1) {
       await saveCurrentDocument();
+      return;
+    }
+    const invalidDocument = documents.find((doc) => validateDocumentFileName(doc.name).some((issue) => issue.severity === "error"));
+    if (invalidDocument) {
+      setActiveDocumentId(invalidDocument.id);
+      setActiveView("validation");
+      const message = t(locale, "validationBlocked", { count: validateDocumentFileName(invalidDocument.name).length });
+      setStatus(message);
+      window.alert(message);
       return;
     }
     try {
@@ -884,6 +961,8 @@ export function App() {
                   schema={schema}
                   model={editingDocument.structuredModel}
                   enabled={editingDocument.structuredEnabled}
+                  fileName={editingDocument.name}
+                  onFileNameChange={updateDocumentName}
                   onChange={updateStructured}
                 />
               )}

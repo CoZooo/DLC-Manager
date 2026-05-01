@@ -393,6 +393,10 @@ button:disabled {
   background: rgba(255, 255, 255, 0.88);
 }
 
+.document-name-card {
+  margin-bottom: 16px;
+}
+
 .section-stack > .section-card + .section-card::before {
   content: "";
   position: absolute;
