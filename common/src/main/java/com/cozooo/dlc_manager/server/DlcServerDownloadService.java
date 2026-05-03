@@ -3,6 +3,7 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.CurseForgeClient;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.client.required.DlcRequiredDependency;
@@ -1759,7 +1760,7 @@ public final class DlcServerDownloadService {
         } else {
             ordered.add("directUrl", directUrl);
         }
-        ordered.addProperty("priority", getString(obj, "priority"));
+        ordered.addProperty("priority", DlcDownloadCandidate.readPriority(obj));
         ordered.addProperty("identifier", getIdentifier(obj));
         ordered.addProperty("type", getString(obj, "type"));
         String fileName = fileNameOverride == null || fileNameOverride.isBlank()
@@ -1872,7 +1873,7 @@ public final class DlcServerDownloadService {
         } else {
             ordered.add("directUrl", directUrl);
         }
-        ordered.addProperty("priority", getString(obj, "priority"));
+        ordered.addProperty("priority", DlcDownloadCandidate.readPriority(obj));
         ordered.addProperty("identifier", getString(obj, "identifier"));
         String fileName = fileNameOverride == null || fileNameOverride.isBlank()
             ? getString(obj, "file_name")

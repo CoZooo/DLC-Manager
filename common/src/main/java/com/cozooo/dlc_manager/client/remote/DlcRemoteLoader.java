@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.JsonCaseUtil;
@@ -293,7 +294,7 @@ public final class DlcRemoteLoader {
         String versionId = getString(obj, "modrinth_versionid");
         String curseProjectId = getString(obj, "curseforge_projectid");
         String curseFileId = getString(obj, "curseforge_fileid");
-        String priority = getString(obj, "priority");
+        String priority = DlcDownloadCandidate.readPriority(obj);
         String identifier = null;
         String fileName = getString(obj, "file_name");
         String appliedTarget = getString(obj, "appliedTarget");

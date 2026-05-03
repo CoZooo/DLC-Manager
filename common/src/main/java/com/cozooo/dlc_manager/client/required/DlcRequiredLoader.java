@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.required;
 
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -161,7 +162,7 @@ public final class DlcRequiredLoader {
         if (curseFileId != null && !curseFileId.isBlank()) {
             entry.setCurseforgeFileId(curseFileId);
         }
-        String priority = getString(obj, "priority");
+        String priority = DlcDownloadCandidate.readPriority(obj);
         if (priority != null && !priority.isBlank()) {
             entry.setDownloadPriority(priority);
         }

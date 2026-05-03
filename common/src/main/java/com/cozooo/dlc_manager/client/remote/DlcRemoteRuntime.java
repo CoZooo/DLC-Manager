@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
@@ -108,7 +109,7 @@ public final class DlcRemoteRuntime {
             ordered.add("directUrl", directUrl);
         }
 
-        String priority = getString(obj, "priority");
+        String priority = DlcDownloadCandidate.readPriority(obj);
         if (priority == null || priority.isBlank()) {
             priority = "curseforge";
         }

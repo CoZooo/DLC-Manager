@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.required;
 
 import com.cozooo.dlc_manager.client.download.ModrinthClient;
 import com.cozooo.dlc_manager.client.download.CurseForgeClient;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
@@ -642,7 +643,7 @@ public final class DlcRequiredRuntime {
             ordered.add("directUrl", directUrl);
         }
 
-        String priority = getString(obj, "priority");
+        String priority = DlcDownloadCandidate.readPriority(obj);
         if (priority == null || priority.isBlank()) {
             priority = "curseforge";
         }

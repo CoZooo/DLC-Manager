@@ -2,7 +2,11 @@ package com.cozooo.dlc_manager.client.download;
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
+import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -107,6 +111,47 @@ public final class DlcDownloadCandidate {
             addDirectCandidates(candidates, directUrls);
         }
         return candidates;
+    }
+
+    public static String readPriority(JsonObject obj) {
+        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, "priority");
+        return parsePriority(element);
+    }
+
+    public static String parsePriority(JsonElement element) {
+        if (element == null || element.isJsonNull()) {
+            return "";
+        }
+        if (element.isJsonPrimitive()) {
+            try {
+                return element.getAsString();
+            } catch (Exception ignored) {
+                return "";
+            }
+        }
+        if (!element.isJsonArray()) {
+            return "";
+        }
+        return parsePriorityArray(element.getAsJsonArray());
+    }
+
+    private static String parsePriorityArray(JsonArray array) {
+        List<String> values = new ArrayList<>();
+        for (JsonElement item : array) {
+            if (item == null || !item.isJsonPrimitive()) {
+                continue;
+            }
+            String value;
+            try {
+                value = item.getAsString();
+            } catch (Exception ignored) {
+                continue;
+            }
+            if (value != null && !value.isBlank()) {
+                values.add(value.trim());
+            }
+        }
+        return String.join(",", values);
     }
 
     private static List<String> resolveOrder(List<String> order) {
