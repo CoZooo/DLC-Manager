@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -122,16 +123,18 @@ public final class DlcDownloadService {
         if (listener != null) {
             listener.onProgress(0L, total);
         }
-        if (total > 0
+        RangeProbe rangeProbe = total > 0
             && total >= DlcPathConfig.getMinSegmentBytes()
             && DlcPathConfig.getMaxSegmentsPerFile() > 1
-            && supportsRangeRequest(url)) {
+            ? probeRangeSupport(url)
+            : RangeProbe.unsupported(url);
+        if (rangeProbe.supportsRanges) {
             Files.deleteIfExists(temp);
             try {
-                downloadSegmented(url, temp, total, listener, cancelChecker);
+                downloadSegmented(rangeProbe.url, temp, total, listener, cancelChecker);
             } catch (SegmentDownloadException ex) {
                 Files.deleteIfExists(temp);
-                downloadSingleWithRetry(url, temp, total, 0L, listener, cancelChecker);
+                downloadSingleWithRetry(rangeProbe.url, temp, total, 0L, listener, cancelChecker);
             } catch (IOException ex) {
                 Files.deleteIfExists(temp);
                 throw ex;
@@ -307,21 +310,79 @@ public final class DlcDownloadService {
         return new DownloadProbe(total, supportsRange, fileName);
     }
 
-    private static boolean supportsRangeRequest(String url) {
+    private static RangeProbe probeRangeSupport(String url) {
+        String resolved = resolveRedirectTarget(url, 0);
+        return probeFinalRangeSupport(resolved);
+    }
+
+    private static String resolveRedirectTarget(String url, int redirects) {
+        if (redirects > 8 || url == null || url.isBlank()) {
+            return url;
+        }
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection.setInstanceFollowRedirects(false);
+            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            int code = connection.getResponseCode();
+            if (!isRedirect(code)) {
+                return url;
+            }
+            String location = connection.getHeaderField("Location");
+            String redirected = resolveRedirectUrl(url, location);
+            closeQuietly(connection);
+            connection = null;
+            return resolveRedirectTarget(redirected, redirects + 1);
+        } catch (Exception ignored) {
+            return url;
+        } finally {
+            closeQuietly(connection);
+        }
+    }
+
+    private static RangeProbe probeFinalRangeSupport(String url) {
+        if (url == null || url.isBlank()) {
+            return RangeProbe.unsupported(url);
+        }
         HttpURLConnection range = null;
         try {
             range = (HttpURLConnection) new URL(url).openConnection();
-            range.setInstanceFollowRedirects(true);
+            range.setInstanceFollowRedirects(false);
             range.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
             range.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
             range.setRequestProperty("User-Agent", "DLC-Manager");
             range.setRequestProperty("Range", "bytes=0-0");
             range.connect();
-            return range.getResponseCode() == HttpURLConnection.HTTP_PARTIAL;
+            int code = range.getResponseCode();
+            return code == HttpURLConnection.HTTP_PARTIAL
+                ? RangeProbe.supported(url)
+                : RangeProbe.unsupported(url);
         } catch (Exception ignored) {
-            return false;
+            return RangeProbe.unsupported(url);
         } finally {
             closeQuietly(range);
+        }
+    }
+
+    private static boolean isRedirect(int code) {
+        return code == HttpURLConnection.HTTP_MOVED_PERM
+            || code == HttpURLConnection.HTTP_MOVED_TEMP
+            || code == HttpURLConnection.HTTP_SEE_OTHER
+            || code == 307
+            || code == 308;
+    }
+
+    private static String resolveRedirectUrl(String baseUrl, String location) {
+        if (location == null || location.isBlank()) {
+            return baseUrl;
+        }
+        try {
+            return URI.create(baseUrl).resolve(location).toString();
+        } catch (IllegalArgumentException ignored) {
+            return location;
         }
     }
 
@@ -424,6 +485,16 @@ public final class DlcDownloadService {
     }
 
     private record DownloadProbe(long totalBytes, boolean supportsRanges, String fileNameHint) {
+    }
+
+    private record RangeProbe(boolean supportsRanges, String url) {
+        private static RangeProbe supported(String url) {
+            return new RangeProbe(true, url);
+        }
+
+        private static RangeProbe unsupported(String url) {
+            return new RangeProbe(false, url);
+        }
     }
 
     public static class DownloadCanceledException extends IOException {
