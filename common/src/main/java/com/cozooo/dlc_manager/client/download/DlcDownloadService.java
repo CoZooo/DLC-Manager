@@ -122,8 +122,24 @@ public final class DlcDownloadService {
         if (listener != null) {
             listener.onProgress(0L, total);
         }
-        long existing = Files.exists(temp) ? Files.size(temp) : 0L;
-        downloadSingleWithRetry(url, temp, total, existing, listener, cancelChecker);
+        if (total > 0
+            && total >= DlcPathConfig.getMinSegmentBytes()
+            && DlcPathConfig.getMaxSegmentsPerFile() > 1
+            && supportsRangeRequest(url)) {
+            Files.deleteIfExists(temp);
+            try {
+                downloadSegmented(url, temp, total, listener, cancelChecker);
+            } catch (SegmentDownloadException ex) {
+                Files.deleteIfExists(temp);
+                downloadSingleWithRetry(url, temp, total, 0L, listener, cancelChecker);
+            } catch (IOException ex) {
+                Files.deleteIfExists(temp);
+                throw ex;
+            }
+        } else {
+            long existing = Files.exists(temp) ? Files.size(temp) : 0L;
+            downloadSingleWithRetry(url, temp, total, existing, listener, cancelChecker);
+        }
         if (cancelChecker != null && cancelChecker.isCanceled()) {
             Files.deleteIfExists(temp);
             throw new DownloadCanceledException("canceled");
@@ -289,6 +305,24 @@ public final class DlcDownloadService {
             closeQuietly(range);
         }
         return new DownloadProbe(total, supportsRange, fileName);
+    }
+
+    private static boolean supportsRangeRequest(String url) {
+        HttpURLConnection range = null;
+        try {
+            range = (HttpURLConnection) new URL(url).openConnection();
+            range.setInstanceFollowRedirects(true);
+            range.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
+            range.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            range.setRequestProperty("User-Agent", "DLC-Manager");
+            range.setRequestProperty("Range", "bytes=0-0");
+            range.connect();
+            return range.getResponseCode() == HttpURLConnection.HTTP_PARTIAL;
+        } catch (Exception ignored) {
+            return false;
+        } finally {
+            closeQuietly(range);
+        }
     }
 
     private static void downloadSegmented(String url, Path tempFile, long totalBytes, ProgressListener listener, CancelChecker cancelChecker)
