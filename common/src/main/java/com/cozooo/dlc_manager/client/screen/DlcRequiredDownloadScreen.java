@@ -1,13 +1,14 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.DlcClientRuntime;
-import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
+import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
-import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.client.download.ModrinthClient;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
@@ -633,12 +634,12 @@ public class DlcRequiredDownloadScreen extends Screen {
             activeDownloadEntry = entry;
         }
         try {
-            List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
+            List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
             IOException lastError = null;
             int attemptId = 0;
             boolean canceled = false;
             for (int candidateIndex = 0; candidateIndex < candidates.size(); candidateIndex++) {
-                DownloadCandidate candidate = candidates.get(candidateIndex);
+                DlcDownloadCandidate candidate = candidates.get(candidateIndex);
                 for (int attempt = 1; attempt <= maxRetry; attempt++) {
                     try {
                         checkCanceled();
@@ -1116,65 +1117,29 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (entry == null) {
             return null;
         }
-        if (entry.isDirectUrlPriority()) {
-            String directUrl = entry.getDirectUrl();
-            if (directUrl != null && !directUrl.isBlank()) {
-                return directUrl;
-            }
-            CurseForgeClient.CurseForgeFile curseFile = fetchCurseForgeFile(entry);
-            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                    entry.setResolvedFileName(curseFile.fileName);
+        for (String source : entry.getDownloadPriorityList()) {
+            if ("directurl".equals(source)) {
+                String directUrl = entry.getDirectUrl();
+                if (directUrl != null && !directUrl.isBlank()) {
+                    return directUrl;
                 }
-                return curseFile.url;
-            }
-            ModrinthClient.ModrinthVersion version = fetchModrinthVersion(entry);
-            if (version != null) {
-                if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                    entry.setResolvedFileName(version.fileName);
+            } else if ("curseforge".equals(source)) {
+                CurseForgeClient.CurseForgeFile curseFile = fetchCurseForgeFile(entry);
+                if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
+                    if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
+                        entry.setResolvedFileName(curseFile.fileName);
+                    }
+                    return curseFile.url;
                 }
-                return version.url;
-            }
-            return null;
-        }
-        if (entry.isCurseForgePriority()) {
-            CurseForgeClient.CurseForgeFile curseFile = fetchCurseForgeFile(entry);
-            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                    entry.setResolvedFileName(curseFile.fileName);
+            } else if ("modrinth".equals(source)) {
+                ModrinthClient.ModrinthVersion version = fetchModrinthVersion(entry);
+                if (version != null && version.url != null && !version.url.isBlank()) {
+                    if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
+                        entry.setResolvedFileName(version.fileName);
+                    }
+                    return version.url;
                 }
-                return curseFile.url;
             }
-            ModrinthClient.ModrinthVersion version = fetchModrinthVersion(entry);
-            if (version != null) {
-                if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                    entry.setResolvedFileName(version.fileName);
-                }
-                return version.url;
-            }
-            String directUrl = entry.getDirectUrl();
-            if (directUrl != null && !directUrl.isBlank()) {
-                return directUrl;
-            }
-            return null;
-        }
-        CurseForgeClient.CurseForgeFile curseFile = fetchCurseForgeFile(entry);
-        if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-            if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                entry.setResolvedFileName(curseFile.fileName);
-            }
-            return curseFile.url;
-        }
-        ModrinthClient.ModrinthVersion version = fetchModrinthVersion(entry);
-        if (version != null) {
-            if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                entry.setResolvedFileName(version.fileName);
-            }
-            return version.url;
-        }
-        String directUrl = entry.getDirectUrl();
-        if (directUrl != null && !directUrl.isBlank()) {
-            return directUrl;
         }
         return null;
     }
@@ -1183,50 +1148,24 @@ public class DlcRequiredDownloadScreen extends Screen {
         if (entry == null) {
             return null;
         }
-        if (entry.isDirectUrlPriority()) {
-            String directUrl = entry.getDirectUrl();
-            String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
-            if (name != null && !name.isBlank()) {
-                return name;
+        for (String source : entry.getDownloadPriorityList()) {
+            if ("directurl".equals(source)) {
+                String directUrl = entry.getDirectUrl();
+                String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
+                if (name != null && !name.isBlank()) {
+                    return name;
+                }
+            } else if ("curseforge".equals(source)) {
+                String curseName = fetchCurseForgeFileName(entry);
+                if (curseName != null && !curseName.isBlank()) {
+                    return curseName;
+                }
+            } else if ("modrinth".equals(source)) {
+                String modrinthName = fetchModrinthFileName(entry);
+                if (modrinthName != null && !modrinthName.isBlank()) {
+                    return modrinthName;
+                }
             }
-            String curseName = fetchCurseForgeFileName(entry);
-            if (curseName != null && !curseName.isBlank()) {
-                return curseName;
-            }
-            String modrinthName = fetchModrinthFileName(entry);
-            if (modrinthName != null && !modrinthName.isBlank()) {
-                return modrinthName;
-            }
-            return null;
-        }
-        if (entry.isCurseForgePriority()) {
-            String curseName = fetchCurseForgeFileName(entry);
-            if (curseName != null && !curseName.isBlank()) {
-                return curseName;
-            }
-            String modrinthName = fetchModrinthFileName(entry);
-            if (modrinthName != null && !modrinthName.isBlank()) {
-                return modrinthName;
-            }
-            String directUrl = entry.getDirectUrl();
-            String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
-            if (name != null && !name.isBlank()) {
-                return name;
-            }
-            return null;
-        }
-        String curseName = fetchCurseForgeFileName(entry);
-        if (curseName != null && !curseName.isBlank()) {
-            return curseName;
-        }
-        String modrinthName = fetchModrinthFileName(entry);
-        if (modrinthName != null && !modrinthName.isBlank()) {
-            return modrinthName;
-        }
-        String directUrl = entry.getDirectUrl();
-        String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
-        if (name != null && !name.isBlank()) {
-            return name;
         }
         return null;
     }
@@ -1457,106 +1396,6 @@ public class DlcRequiredDownloadScreen extends Screen {
         }
     }
 
-    private List<DownloadCandidate> buildDownloadCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        List<DownloadCandidate> candidates = new ArrayList<>();
-        if (entry == null) {
-            return candidates;
-        }
-        ModrinthClient.ModrinthVersion version = null;
-        String versionId = entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            version = fetchModrinthVersion(entry);
-        }
-        CurseForgeClient.CurseForgeFile curseFile = null;
-        String curseFileId = entry.getCurseforgeFileId();
-        if (curseFileId != null && !curseFileId.isBlank()) {
-            curseFile = fetchCurseForgeFile(entry);
-        }
-        List<String> directUrls = new ArrayList<>();
-        for (String url : entry.getDirectUrls()) {
-            if (url != null && !url.isBlank()) {
-                directUrls.add(url);
-            }
-        }
-        if (directUrls.isEmpty() && entry.getDirectUrl() != null && !entry.getDirectUrl().isBlank()) {
-            directUrls.add(entry.getDirectUrl());
-        }
-        String curseHashType = null;
-        String curseHashValue = null;
-        long curseSize = -1L;
-        if (curseFile != null) {
-            if (curseFile.sha1 != null && !curseFile.sha1.isBlank()) {
-                curseHashType = "sha1";
-                curseHashValue = curseFile.sha1;
-            } else if (curseFile.md5 != null && !curseFile.md5.isBlank()) {
-                curseHashType = "md5";
-                curseHashValue = curseFile.md5;
-            }
-            curseSize = curseFile.size;
-        }
-        String modrinthHashType = null;
-        String modrinthHashValue = null;
-        long modrinthSize = -1L;
-        if (version != null) {
-            if (version.sha1 != null && !version.sha1.isBlank()) {
-                modrinthHashType = "sha1";
-                modrinthHashValue = version.sha1;
-            } else if (version.sha512 != null && !version.sha512.isBlank()) {
-                modrinthHashType = "sha512";
-                modrinthHashValue = version.sha512;
-            }
-            modrinthSize = version.size;
-        }
-        if (entry.isDirectUrlPriority()) {
-            for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null, null, null, -1L));
-            }
-            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName, curseHashType, curseHashValue, curseSize));
-            }
-            if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
-            }
-        } else if (entry.isCurseForgePriority()) {
-            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName, curseHashType, curseHashValue, curseSize));
-            }
-            if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
-            }
-            for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null, null, null, -1L));
-            }
-        } else {
-            if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                candidates.add(new DownloadCandidate(curseFile.url, curseFile.fileName, curseHashType, curseHashValue, curseSize));
-            }
-            if (version != null && version.url != null && !version.url.isBlank()) {
-                candidates.add(new DownloadCandidate(version.url, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
-            }
-            for (String url : directUrls) {
-                candidates.add(new DownloadCandidate(url, null, null, null, -1L));
-            }
-        }
-        return candidates;
-    }
-
-    private static final class DownloadCandidate {
-        private final String url;
-        private final String fileNameOverride;
-        private final String hashType;
-        private final String hashValue;
-        private final long expectedSize;
-
-        private DownloadCandidate(String url, String fileNameOverride, String hashType, String hashValue, long expectedSize) {
-            this.url = url;
-            this.fileNameOverride = fileNameOverride;
-            this.hashType = hashType;
-            this.hashValue = hashValue;
-            this.expectedSize = expectedSize;
-        }
-    }
-
     private DownloadInfo openDownload(String url, long offset) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
@@ -1670,7 +1509,7 @@ public class DlcRequiredDownloadScreen extends Screen {
         }
     }
 
-    private void verifyDownloadedFile(Path tempFile, DownloadCandidate candidate, DownloadInfo info) throws IOException {
+    private void verifyDownloadedFile(Path tempFile, DlcDownloadCandidate candidate, DownloadInfo info) throws IOException {
         checkCanceled();
         String hashType = candidate == null ? null : candidate.hashType;
         String hashValue = candidate == null ? null : candidate.hashValue;

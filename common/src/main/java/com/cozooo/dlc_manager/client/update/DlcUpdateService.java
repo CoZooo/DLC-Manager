@@ -1,14 +1,13 @@
 package com.cozooo.dlc_manager.client.update;
 import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
-import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
-import com.cozooo.dlc_manager.client.remote.ModrinthClient;
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetLoader;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -2077,7 +2076,7 @@ public final class DlcUpdateService {
         if (entry == null) {
             return null;
         }
-        List<DownloadCandidate> candidates = buildRemoteCandidates(entry);
+        List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
         if (candidates.isEmpty()) {
             throw new IOException("missing download url");
         }
@@ -2092,90 +2091,18 @@ public final class DlcUpdateService {
         if (entry == null) {
             return null;
         }
-        List<DownloadCandidate> candidates = buildRequiredCandidates(entry);
+        List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
         if (candidates.isEmpty()) {
             throw new IOException("missing download url");
         }
         return downloadWithRetry(entry, candidates, ignoreExistingFileName);
     }
 
-    private static List<DownloadCandidate> buildRemoteCandidates(DlcRemoteEntry entry) throws IOException, InterruptedException {
-        List<DownloadCandidate> candidates = new ArrayList<>();
-        List<String> order = entry.getDownloadPriorityList();
-        addCandidatesForPriority(candidates, order, entry.getCurseforgeProjectId(), entry.getCurseforgeFileId(),
-            entry.getModrinthProjectId(), entry.getModrinthVersionId(), entry.getDirectUrls());
-        return candidates;
-    }
-
-    private static List<DownloadCandidate> buildRequiredCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        List<DownloadCandidate> candidates = new ArrayList<>();
-        List<String> order = entry.getDownloadPriorityList();
-        addCandidatesForPriority(candidates, order, entry.getCurseforgeProjectId(), entry.getCurseforgeFileId(),
-            entry.getModrinthProjectId(), entry.getModrinthVersionId(), entry.getDirectUrls());
-        return candidates;
-    }
-
-    private static void addCandidatesForPriority(List<DownloadCandidate> candidates, List<String> order,
-        String curseProjectId, String curseFileId, String modrinthProjectId, String modrinthVersionId, List<String> directUrls)
-        throws IOException, InterruptedException {
-        List<String> resolvedOrder = new ArrayList<>();
-        if (order != null) {
-            for (String key : order) {
-                if (key != null && !key.isBlank() && !resolvedOrder.contains(key)) {
-                    resolvedOrder.add(key);
-                }
-            }
-        }
-        if (resolvedOrder.isEmpty()) {
-            resolvedOrder.add("curseforge");
-            resolvedOrder.add("modrinth");
-            resolvedOrder.add("directurl");
-        }
-        for (String key : resolvedOrder) {
-            switch (key) {
-                case "curseforge" -> {
-                    if (curseFileId != null && !curseFileId.isBlank()) {
-                        CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
-                            curseProjectId, curseFileId, CrossPlatformRuntime.mcVersion(), CrossPlatformRuntime.loaderName());
-                        if (file != null && file.url != null && !file.url.isBlank()) {
-                            candidates.add(DownloadCandidate.fromCurseForge(file));
-                        }
-                    }
-                }
-                case "modrinth" -> {
-                    if (modrinthVersionId != null && !modrinthVersionId.isBlank()) {
-                        ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(
-                            modrinthProjectId, modrinthVersionId, CrossPlatformRuntime.mcVersion(), CrossPlatformRuntime.loaderName());
-                        if (version != null && version.url != null && !version.url.isBlank()) {
-                            candidates.add(DownloadCandidate.fromModrinth(version));
-                        }
-                    }
-                }
-                case "directurl" -> {
-                    if (directUrls != null) {
-                        for (String url : directUrls) {
-                            if (url != null && !url.isBlank()) {
-                                candidates.add(DownloadCandidate.fromDirect(url));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (candidates.isEmpty() && directUrls != null) {
-            for (String url : directUrls) {
-                if (url != null && !url.isBlank()) {
-                    candidates.add(DownloadCandidate.fromDirect(url));
-                }
-            }
-        }
-    }
-
-    private static DownloadedFile downloadWithRetry(Object entry, List<DownloadCandidate> candidates, boolean ignoreExistingFileName)
+    private static DownloadedFile downloadWithRetry(Object entry, List<DlcDownloadCandidate> candidates, boolean ignoreExistingFileName)
         throws IOException {
         int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
         IOException lastError = null;
-        for (DownloadCandidate candidate : candidates) {
+        for (DlcDownloadCandidate candidate : candidates) {
             for (int attempt = 1; attempt <= maxRetry; attempt++) {
                 try {
                     return downloadCandidate(entry, candidate, ignoreExistingFileName);
@@ -2190,7 +2117,7 @@ public final class DlcUpdateService {
         throw new IOException("missing download url");
     }
 
-    private static DownloadedFile downloadCandidate(Object entry, DownloadCandidate candidate, boolean ignoreExistingFileName) throws IOException {
+    private static DownloadedFile downloadCandidate(Object entry, DlcDownloadCandidate candidate, boolean ignoreExistingFileName) throws IOException {
         String fileName = null;
         boolean fileNameExplicit = false;
         if (entry instanceof DlcRemoteEntry remote) {
@@ -2205,8 +2132,8 @@ public final class DlcUpdateService {
             fileName = null;
         }
         if (!fileNameExplicit) {
-            if (candidate.fileName != null && !candidate.fileName.isBlank()) {
-                fileName = candidate.fileName;
+            if (candidate.fileNameOverride != null && !candidate.fileNameOverride.isBlank()) {
+                fileName = candidate.fileNameOverride;
             }
             if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
                 String urlName = DlcDownloadUtil.extractFileNameFromUrl(candidate.url);
@@ -2428,20 +2355,6 @@ public final class DlcUpdateService {
             return null;
         }
         return cleaned.replaceAll("[\\\\/:*?\"<>|]", "_");
-    }
-
-    private record DownloadCandidate(String url, String fileName) {
-        static DownloadCandidate fromCurseForge(CurseForgeClient.CurseForgeFile file) {
-            return new DownloadCandidate(file.url, file.fileName);
-        }
-
-        static DownloadCandidate fromModrinth(ModrinthClient.ModrinthVersion version) {
-            return new DownloadCandidate(version.url, version.fileName);
-        }
-
-        static DownloadCandidate fromDirect(String url) {
-            return new DownloadCandidate(url, null);
-        }
     }
 
     private record DownloadedFile(Path path, String fileName) {}

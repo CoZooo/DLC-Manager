@@ -1,17 +1,16 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
+import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
-import com.cozooo.dlc_manager.client.remote.CurseForgeClient;
-import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.client.download.ModrinthClient;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -541,12 +540,12 @@ public class DlcRemoteDownloadScreen extends Screen {
             activeDownloadEntry = entry;
         }
         try {
-            List<DownloadCandidate> candidates = buildDownloadCandidates(entry);
+            List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
             IOException lastError = null;
             int attemptId = 0;
             boolean canceled = false;
             for (int candidateIndex = 0; candidateIndex < candidates.size(); candidateIndex++) {
-                DownloadCandidate candidate = candidates.get(candidateIndex);
+                DlcDownloadCandidate candidate = candidates.get(candidateIndex);
                 for (int attempt = 1; attempt <= maxRetry; attempt++) {
                     try {
                         checkCanceled();
@@ -859,103 +858,6 @@ public class DlcRemoteDownloadScreen extends Screen {
         };
     }
 
-    private List<DownloadCandidate> buildDownloadCandidates(DlcRemoteEntry entry) throws IOException, InterruptedException {
-        List<DownloadCandidate> candidates = new ArrayList<>();
-        if (entry == null) {
-            return candidates;
-        }
-        ModrinthClient.ModrinthVersion version = null;
-        String versionId = entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            version = ModrinthClient.fetchVersionByIdOrVersion(
-                entry.getModrinthProjectId(),
-                versionId,
-                CrossPlatformRuntime.mcVersion(),
-                CrossPlatformRuntime.loaderName()
-            );
-        }
-        CurseForgeClient.CurseForgeFile curseFile = null;
-        String curseFileId = entry.getCurseforgeFileId();
-        if (curseFileId != null && !curseFileId.isBlank()) {
-            curseFile = CurseForgeClient.fetchFileByIdOrVersion(
-                entry.getCurseforgeProjectId(),
-                curseFileId,
-                CrossPlatformRuntime.mcVersion(),
-                CrossPlatformRuntime.loaderName()
-            );
-        }
-        List<String> directUrls = new ArrayList<>();
-        for (String url : entry.getDirectUrls()) {
-            if (url != null && !url.isBlank()) {
-                directUrls.add(url);
-            }
-        }
-        if (directUrls.isEmpty() && entry.getDirectUrl() != null && !entry.getDirectUrl().isBlank()) {
-            directUrls.add(entry.getDirectUrl());
-        }
-        String curseHashType = null;
-        String curseHashValue = null;
-        long curseSize = -1L;
-        if (curseFile != null) {
-            if (curseFile.sha1 != null && !curseFile.sha1.isBlank()) {
-                curseHashType = "sha1";
-                curseHashValue = curseFile.sha1;
-            } else if (curseFile.md5 != null && !curseFile.md5.isBlank()) {
-                curseHashType = "md5";
-                curseHashValue = curseFile.md5;
-            }
-            curseSize = curseFile.size;
-        }
-        String modrinthHashType = null;
-        String modrinthHashValue = null;
-        long modrinthSize = -1L;
-        if (version != null) {
-            if (version.sha1 != null && !version.sha1.isBlank()) {
-                modrinthHashType = "sha1";
-                modrinthHashValue = version.sha1;
-            } else if (version.sha512 != null && !version.sha512.isBlank()) {
-                modrinthHashType = "sha512";
-                modrinthHashValue = version.sha512;
-            }
-            modrinthSize = version.size;
-        }
-        List<String> order = entry.getDownloadPriorityList();
-        for (String source : order) {
-            if ("directurl".equals(source)) {
-                for (String url : directUrls) {
-                    candidates.add(new DownloadCandidate(url, true, null, null, null, -1L));
-                }
-            } else if ("curseforge".equals(source)) {
-                if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                    candidates.add(new DownloadCandidate(curseFile.url, false, curseFile.fileName, curseHashType, curseHashValue, curseSize));
-                }
-            } else if ("modrinth".equals(source)) {
-                if (version != null && version.url != null && !version.url.isBlank()) {
-                    candidates.add(new DownloadCandidate(version.url, false, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
-                }
-            }
-        }
-        return candidates;
-    }
-
-    private static final class DownloadCandidate {
-        private final String url;
-        private final boolean direct;
-        private final String fileNameOverride;
-        private final String hashType;
-        private final String hashValue;
-        private final long expectedSize;
-
-        private DownloadCandidate(String url, boolean direct, String fileNameOverride, String hashType, String hashValue, long expectedSize) {
-            this.url = url;
-            this.direct = direct;
-            this.fileNameOverride = fileNameOverride;
-            this.hashType = hashType;
-            this.hashValue = hashValue;
-            this.expectedSize = expectedSize;
-        }
-    }
-
     private void closeQuietly(HttpURLConnection connection) {
         if (connection != null) {
             try {
@@ -1254,7 +1156,7 @@ public class DlcRemoteDownloadScreen extends Screen {
         }
     }
 
-    private void verifyDownloadedFile(Path tempFile, DownloadCandidate candidate, DownloadInfo info) throws IOException {
+    private void verifyDownloadedFile(Path tempFile, DlcDownloadCandidate candidate, DownloadInfo info) throws IOException {
         checkCanceled();
         String hashType = candidate == null ? null : candidate.hashType;
         String hashValue = candidate == null ? null : candidate.hashValue;

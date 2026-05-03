@@ -110,7 +110,7 @@ public final class DlcRemoteRuntime {
 
         String priority = getString(obj, "priority");
         if (priority == null || priority.isBlank()) {
-            priority = "modrinth";
+            priority = "curseforge";
         }
         ordered.addProperty("priority", priority);
 

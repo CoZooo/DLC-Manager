@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.required;
 
-import com.cozooo.dlc_manager.client.remote.ModrinthClient;
+import com.cozooo.dlc_manager.client.download.ModrinthClient;
+import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
@@ -420,19 +421,7 @@ public final class DlcRequiredRuntime {
         }
         String fileName = normalizeFileName(entry.getResolvedFileName());
         if (fileName == null || fileName.isBlank()) {
-            fileName = normalizeFileName(guessFileName(entry));
-            if (fileName == null) {
-                String versionId = entry.getModrinthVersionId();
-                if (versionId != null && !versionId.isBlank()) {
-                    try {
-                        ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
-                        if (version != null && version.fileName != null && !version.fileName.isBlank()) {
-                            fileName = normalizeFileName(version.fileName);
-                        }
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
+            fileName = normalizeFileName(resolveFileName(entry));
             entry.setResolvedFileName(fileName);
         }
         if (isTempFileName(fileName)) {
@@ -466,19 +455,52 @@ public final class DlcRequiredRuntime {
     }
 
     private static String resolveFileName(DlcRequiredEntry entry) {
-        String versionId = entry == null ? null : entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            try {
-                ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
-                if (version != null && version.fileName != null && !version.fileName.isBlank()) {
-                    return version.fileName;
+        if (entry == null) {
+            return null;
+        }
+        for (String source : entry.getDownloadPriorityList()) {
+            if ("directurl".equals(source)) {
+                String fileName = guessFileName(entry);
+                if (fileName != null && !fileName.isBlank()) {
+                    return fileName;
                 }
-            } catch (Exception ignored) {
+            } else if ("curseforge".equals(source)) {
+                String fileName = fetchCurseForgeFileName(entry);
+                if (fileName != null && !fileName.isBlank()) {
+                    return fileName;
+                }
+            } else if ("modrinth".equals(source)) {
+                String versionId = entry.getModrinthVersionId();
+                if (versionId != null && !versionId.isBlank()) {
+                    try {
+                        ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
+                        if (version != null && version.fileName != null && !version.fileName.isBlank()) {
+                            return version.fileName;
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
             }
         }
-        String fileName = guessFileName(entry);
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName;
+        return null;
+    }
+
+    private static String fetchCurseForgeFileName(DlcRequiredEntry entry) {
+        String fileId = entry == null ? null : entry.getCurseforgeFileId();
+        if (fileId == null || fileId.isBlank()) {
+            return null;
+        }
+        try {
+            CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
+                entry.getCurseforgeProjectId(),
+                fileId,
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.mcVersion(),
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.loaderName()
+            );
+            if (file != null && file.fileName != null && !file.fileName.isBlank()) {
+                return file.fileName;
+            }
+        } catch (Exception ignored) {
         }
         return null;
     }
@@ -622,7 +644,7 @@ public final class DlcRequiredRuntime {
 
         String priority = getString(obj, "priority");
         if (priority == null || priority.isBlank()) {
-            priority = "modrinth";
+            priority = "curseforge";
         }
         ordered.addProperty("priority", priority);
 

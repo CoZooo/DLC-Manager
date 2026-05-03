@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.client.remote;
+package com.cozooo.dlc_manager.client.download;
 
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.google.gson.Gson;
