@@ -63,10 +63,14 @@ public final class DlcDownloadCandidate {
     }
 
     public static List<DlcDownloadCandidate> resolve(DlcRemoteEntry entry) throws IOException, InterruptedException {
+        return collect(resolver(entry));
+    }
+
+    public static Resolver resolver(DlcRemoteEntry entry) {
         if (entry == null) {
-            return List.of();
+            return Resolver.empty();
         }
-        return resolve(
+        return new Resolver(
             entry.getDownloadPriorityList(),
             entry.getCurseforgeProjectId(),
             entry.getCurseforgeFileId(),
@@ -77,10 +81,14 @@ public final class DlcDownloadCandidate {
     }
 
     public static List<DlcDownloadCandidate> resolve(DlcRequiredEntry entry) throws IOException, InterruptedException {
+        return collect(resolver(entry));
+    }
+
+    public static Resolver resolver(DlcRequiredEntry entry) {
         if (entry == null) {
-            return List.of();
+            return Resolver.empty();
         }
-        return resolve(
+        return new Resolver(
             entry.getDownloadPriorityList(),
             entry.getCurseforgeProjectId(),
             entry.getCurseforgeFileId(),
@@ -96,21 +104,77 @@ public final class DlcDownloadCandidate {
                                                      String modrinthProjectId,
                                                      String modrinthVersionId,
                                                      List<String> directUrls) throws IOException, InterruptedException {
+        return collect(new Resolver(order, curseProjectId, curseFileId, modrinthProjectId, modrinthVersionId, directUrls));
+    }
+
+    private static List<DlcDownloadCandidate> collect(Resolver resolver) throws IOException, InterruptedException {
         List<DlcDownloadCandidate> candidates = new ArrayList<>();
-        List<String> resolvedOrder = resolveOrder(order);
-        for (String source : resolvedOrder) {
-            if ("directurl".equals(source)) {
-                addDirectCandidates(candidates, directUrls);
-            } else if ("curseforge".equals(source)) {
-                addCurseForgeCandidate(candidates, curseProjectId, curseFileId);
-            } else if ("modrinth".equals(source)) {
-                addModrinthCandidate(candidates, modrinthProjectId, modrinthVersionId);
-            }
-        }
-        if (candidates.isEmpty()) {
-            addDirectCandidates(candidates, directUrls);
+        List<DlcDownloadCandidate> batch;
+        while (!(batch = resolver.next()).isEmpty()) {
+            candidates.addAll(batch);
         }
         return candidates;
+    }
+
+    public static final class Resolver {
+        private final List<String> order;
+        private final String curseProjectId;
+        private final String curseFileId;
+        private final String modrinthProjectId;
+        private final String modrinthVersionId;
+        private final List<String> directUrls;
+        private int index;
+        private boolean fallbackDirectTried;
+        private IOException lastError;
+
+        private Resolver(List<String> order, String curseProjectId, String curseFileId,
+                         String modrinthProjectId, String modrinthVersionId, List<String> directUrls) {
+            this.order = resolveOrder(order);
+            this.curseProjectId = curseProjectId;
+            this.curseFileId = curseFileId;
+            this.modrinthProjectId = modrinthProjectId;
+            this.modrinthVersionId = modrinthVersionId;
+            this.directUrls = directUrls == null ? List.of() : directUrls;
+        }
+
+        private static Resolver empty() {
+            return new Resolver(List.of(), null, null, null, null, List.of());
+        }
+
+        public List<DlcDownloadCandidate> next() throws IOException, InterruptedException {
+            while (index < order.size()) {
+                String source = order.get(index++);
+                List<DlcDownloadCandidate> candidates = new ArrayList<>();
+                try {
+                    if ("directurl".equals(source)) {
+                        addDirectCandidates(candidates, directUrls);
+                    } else if ("curseforge".equals(source)) {
+                        addCurseForgeCandidate(candidates, curseProjectId, curseFileId);
+                    } else if ("modrinth".equals(source)) {
+                        addModrinthCandidate(candidates, modrinthProjectId, modrinthVersionId);
+                    }
+                } catch (IOException ex) {
+                    lastError = ex;
+                    continue;
+                }
+                if (!candidates.isEmpty()) {
+                    return candidates;
+                }
+            }
+            if (!fallbackDirectTried && !order.contains("directurl")) {
+                fallbackDirectTried = true;
+                List<DlcDownloadCandidate> candidates = new ArrayList<>();
+                addDirectCandidates(candidates, directUrls);
+                if (!candidates.isEmpty()) {
+                    return candidates;
+                }
+            }
+            return List.of();
+        }
+
+        public IOException lastError() {
+            return lastError;
+        }
     }
 
     public static String readPriority(JsonObject obj) {

@@ -5,10 +5,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.DlcClientRuntime;
-import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
-import com.cozooo.dlc_manager.client.download.ModrinthClient;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
@@ -20,7 +18,6 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -634,12 +631,13 @@ public class DlcRequiredDownloadScreen extends Screen {
             activeDownloadEntry = entry;
         }
         try {
-            List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
+            DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
             IOException lastError = null;
             int attemptId = 0;
             boolean canceled = false;
-            for (int candidateIndex = 0; candidateIndex < candidates.size(); candidateIndex++) {
-                DlcDownloadCandidate candidate = candidates.get(candidateIndex);
+            List<DlcDownloadCandidate> candidates;
+            while (!(candidates = resolver.next()).isEmpty()) {
+                for (DlcDownloadCandidate candidate : candidates) {
                 for (int attempt = 1; attempt <= maxRetry; attempt++) {
                     try {
                         checkCanceled();
@@ -707,13 +705,10 @@ public class DlcRequiredDownloadScreen extends Screen {
                         if (isSwitchRequested(progressKey)) {
                             lastError = new DownloadSwitchException("switch");
                             clearSwitchRequest(progressKey);
-                            if (candidateIndex < candidates.size() - 1) {
-                                if (!canceled) {
-                                    setEntryProgress(progressKey, attemptId, 0f);
-                                }
-                                break;
+                            if (!canceled) {
+                                setEntryProgress(progressKey, attemptId, 0f);
                             }
-                            continue;
+                            break;
                         }
                         canceled = true;
                         throw new DownloadCanceledException("canceled");
@@ -724,13 +719,10 @@ public class DlcRequiredDownloadScreen extends Screen {
                         if (isSwitchException(ex)) {
                             lastError = ex;
                             clearSwitchRequest(progressKey);
-                            if (candidateIndex < candidates.size() - 1) {
-                                if (!canceled) {
-                                    setEntryProgress(progressKey, attemptId, 0f);
-                                }
-                                break;
+                            if (!canceled) {
+                                setEntryProgress(progressKey, attemptId, 0f);
                             }
-                            continue;
+                            break;
                         }
                         if (ex.getCause() instanceof DownloadCanceledException) {
                             canceled = true;
@@ -751,11 +743,15 @@ public class DlcRequiredDownloadScreen extends Screen {
                     }
                 }
             }
+            }
             if (cancelRequested || canceled) {
                 throw new DownloadCanceledException("canceled");
             }
             if (attemptId > 0) {
                 setEntryProgress(progressKey, attemptId, 0f);
+            }
+            if (lastError == null) {
+                lastError = resolver.lastError();
             }
             if (lastError != null) {
                 throw lastError;
@@ -1125,122 +1121,28 @@ public class DlcRequiredDownloadScreen extends Screen {
         return fileName;
     }
 
-    private String resolveDownloadUrl(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        if (entry == null) {
-            return null;
-        }
-        for (String source : entry.getDownloadPriorityList()) {
-            if ("directurl".equals(source)) {
-                String directUrl = entry.getDirectUrl();
-                if (directUrl != null && !directUrl.isBlank()) {
-                    return directUrl;
-                }
-            } else if ("curseforge".equals(source)) {
-                CurseForgeClient.CurseForgeFile curseFile = fetchCurseForgeFile(entry);
-                if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                    if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                        entry.setResolvedFileName(curseFile.fileName);
-                    }
-                    return curseFile.url;
-                }
-            } else if ("modrinth".equals(source)) {
-                ModrinthClient.ModrinthVersion version = fetchModrinthVersion(entry);
-                if (version != null && version.url != null && !version.url.isBlank()) {
-                    if (entry.getResolvedFileName() == null || entry.getResolvedFileName().isBlank()) {
-                        entry.setResolvedFileName(version.fileName);
-                    }
-                    return version.url;
-                }
-            }
-        }
-        return null;
-    }
-
     private String resolveFileName(DlcRequiredEntry entry) {
         if (entry == null) {
             return null;
         }
-        for (String source : entry.getDownloadPriorityList()) {
-            if ("directurl".equals(source)) {
-                String directUrl = entry.getDirectUrl();
-                String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
-                if (name != null && !name.isBlank()) {
-                    return name;
-                }
-            } else if ("curseforge".equals(source)) {
-                String curseName = fetchCurseForgeFileName(entry);
-                if (curseName != null && !curseName.isBlank()) {
-                    return curseName;
-                }
-            } else if ("modrinth".equals(source)) {
-                String modrinthName = fetchModrinthFileName(entry);
-                if (modrinthName != null && !modrinthName.isBlank()) {
-                    return modrinthName;
+        DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
+        try {
+            List<DlcDownloadCandidate> candidates;
+            while (!(candidates = resolver.next()).isEmpty()) {
+                for (DlcDownloadCandidate candidate : candidates) {
+                    String name = candidate.fileNameOverride;
+                    if (!DlcDownloadUtil.isLikelyFileName(name) && candidate.direct) {
+                        name = DlcDownloadUtil.extractFileNameFromUrl(candidate.url);
+                    }
+                    name = DlcDownloadUtil.sanitizeFileName(name);
+                    if (DlcDownloadUtil.isLikelyFileName(name)) {
+                        return name;
+                    }
                 }
             }
-        }
-        return null;
-    }
-
-    private ModrinthClient.ModrinthVersion fetchModrinthVersion(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        String versionId = entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            return ModrinthClient.fetchVersionByIdOrVersion(
-                entry.getModrinthProjectId(),
-                versionId,
-                CrossPlatformRuntime.mcVersion(),
-                CrossPlatformRuntime.loaderName()
-            );
-        }
-        return null;
-    }
-
-    private String fetchModrinthFileName(DlcRequiredEntry entry) {
-        String versionId = entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            try {
-                ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(
-                    entry.getModrinthProjectId(),
-                    versionId,
-                    CrossPlatformRuntime.mcVersion(),
-                    CrossPlatformRuntime.loaderName()
-                );
-                if (version != null && version.fileName != null && !version.fileName.isBlank()) {
-                    return version.fileName;
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        return null;
-    }
-
-    private CurseForgeClient.CurseForgeFile fetchCurseForgeFile(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        String fileId = entry.getCurseforgeFileId();
-        if (fileId != null && !fileId.isBlank()) {
-            return CurseForgeClient.fetchFileByIdOrVersion(
-                entry.getCurseforgeProjectId(),
-                fileId,
-                CrossPlatformRuntime.mcVersion(),
-                CrossPlatformRuntime.loaderName()
-            );
-        }
-        return null;
-    }
-
-    private String fetchCurseForgeFileName(DlcRequiredEntry entry) {
-        String fileId = entry.getCurseforgeFileId();
-        if (fileId != null && !fileId.isBlank()) {
-            try {
-                CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
-                    entry.getCurseforgeProjectId(),
-                    fileId,
-                    CrossPlatformRuntime.mcVersion(),
-                    CrossPlatformRuntime.loaderName()
-                );
-                if (file != null && file.fileName != null && !file.fileName.isBlank()) {
-                    return file.fileName;
-                }
-            } catch (Exception ignored) {
+        } catch (IOException | InterruptedException ignored) {
+            if (Thread.currentThread().isInterrupted()) {
+                Thread.currentThread().interrupt();
             }
         }
         return null;

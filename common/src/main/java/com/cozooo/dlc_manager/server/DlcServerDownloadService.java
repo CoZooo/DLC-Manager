@@ -2,14 +2,12 @@ package com.cozooo.dlc_manager.server;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
-import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.client.required.DlcRequiredDependency;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
-import com.cozooo.dlc_manager.client.download.ModrinthClient;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
@@ -1328,161 +1326,83 @@ public final class DlcServerDownloadService {
             return null;
         }
         checkRequiredCanceled();
-        List<DownloadCandidate> candidates = buildRequiredCandidates(entry);
+        DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
         IOException lastError = null;
-        for (DownloadCandidate candidate : candidates) {
-            for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
-                try {
-                    checkRequiredCanceled();
-                    String fileName = candidate.fileNameOverride;
-                    if (fileName == null || fileName.isBlank()) {
-                        fileName = entry.getRequiredFileName();
-                    }
-                    if (candidate.direct && !DlcDownloadUtil.isLikelyFileName(fileName)) {
-                        try {
-                            String suggested = DlcDownloadService.suggestFileName(candidate.url);
-                            if (suggested != null && !suggested.isBlank()) {
-                                fileName = suggested;
-                            }
-                        } catch (IOException ignored) {
+        List<DlcDownloadCandidate> candidates;
+        while (!(candidates = resolver.next()).isEmpty()) {
+            for (DlcDownloadCandidate candidate : candidates) {
+                for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
+                    try {
+                        checkRequiredCanceled();
+                        String fileName = candidate.fileNameOverride;
+                        if (fileName == null || fileName.isBlank()) {
+                            fileName = entry.getRequiredFileName();
                         }
-                    }
-                    fileName = finalizeFileName(fileName, entry, candidate.url);
-                    Path target = entry.resolveRequiredPath(fileName);
-                    if (target == null) {
-                        throw new IOException("invalid target path");
-                    }
-                    Files.createDirectories(target.getParent());
-                    if (Files.exists(target)) {
-                        return fileName;
-                    }
-                    Path downloaded = candidate.direct
-                        ? DlcDownloadService.download(
-                            candidate.url,
-                            target.getParent(),
-                            fileName,
-                            (downloadedBytes, totalBytes) -> {
-                                if (listener != null) {
-                                    listener.onProgress(downloadedBytes, totalBytes);
+                        if (candidate.direct && !DlcDownloadUtil.isLikelyFileName(fileName)) {
+                            try {
+                                String suggested = DlcDownloadService.suggestFileName(candidate.url);
+                                if (suggested != null && !suggested.isBlank()) {
+                                    fileName = suggested;
                                 }
-                            },
-                            () -> requiredCancelRequested || isRequiredCanceled()
-                        )
-                        : DlcDownloadService.downloadKnown(
-                            candidate.url,
-                            target.getParent(),
-                            fileName,
-                            candidate.expectedSize,
-                            (downloadedBytes, totalBytes) -> {
-                                if (listener != null) {
-                                    listener.onProgress(downloadedBytes, totalBytes);
-                                }
-                            },
-                            () -> requiredCancelRequested || isRequiredCanceled()
-                        );
-                    checkRequiredCanceled();
-                    verifyDownloadedFile(downloaded, candidate);
-                    return downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
-                } catch (DlcDownloadService.DownloadCanceledException ex) {
-                    throw new DownloadCanceledException("canceled");
-                } catch (DownloadCanceledException ex) {
-                    throw ex;
-                } catch (IOException ex) {
-                    lastError = ex;
-                    if (attempt >= DlcPathConfig.getMaxRetryCount()) {
-                        break;
+                            } catch (IOException ignored) {
+                            }
+                        }
+                        fileName = finalizeFileName(fileName, entry, candidate.url);
+                        Path target = entry.resolveRequiredPath(fileName);
+                        if (target == null) {
+                            throw new IOException("invalid target path");
+                        }
+                        Files.createDirectories(target.getParent());
+                        if (Files.exists(target)) {
+                            return fileName;
+                        }
+                        Path downloaded = candidate.direct
+                            ? DlcDownloadService.download(
+                                candidate.url,
+                                target.getParent(),
+                                fileName,
+                                (downloadedBytes, totalBytes) -> {
+                                    if (listener != null) {
+                                        listener.onProgress(downloadedBytes, totalBytes);
+                                    }
+                                },
+                                () -> requiredCancelRequested || isRequiredCanceled()
+                            )
+                            : DlcDownloadService.downloadKnown(
+                                candidate.url,
+                                target.getParent(),
+                                fileName,
+                                candidate.expectedSize,
+                                (downloadedBytes, totalBytes) -> {
+                                    if (listener != null) {
+                                        listener.onProgress(downloadedBytes, totalBytes);
+                                    }
+                                },
+                                () -> requiredCancelRequested || isRequiredCanceled()
+                            );
+                        checkRequiredCanceled();
+                        verifyDownloadedFile(downloaded, candidate);
+                        return downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
+                    } catch (DlcDownloadService.DownloadCanceledException ex) {
+                        throw new DownloadCanceledException("canceled");
+                    } catch (DownloadCanceledException ex) {
+                        throw ex;
+                    } catch (IOException ex) {
+                        lastError = ex;
+                        if (attempt >= DlcPathConfig.getMaxRetryCount()) {
+                            break;
+                        }
                     }
                 }
             }
+        }
+        if (lastError == null) {
+            lastError = resolver.lastError();
         }
         if (lastError != null) {
             throw lastError;
         }
         throw new IOException("missing download url");
-    }
-
-    private static List<DownloadCandidate> buildRequiredCandidates(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        List<DownloadCandidate> candidates = new ArrayList<>();
-        if (entry == null) {
-            return candidates;
-        }
-        ModrinthClient.ModrinthVersion version = null;
-        String versionId = entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            try {
-                version = ModrinthClient.fetchVersionByIdOrVersion(
-                    entry.getModrinthProjectId(),
-                    versionId,
-                    CrossPlatformRuntime.mcVersion(),
-                    CrossPlatformRuntime.loaderName()
-                );
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } catch (IOException ignored) {
-            }
-        }
-        CurseForgeClient.CurseForgeFile curseFile = null;
-        String curseFileId = entry.getCurseforgeFileId();
-        if (curseFileId != null && !curseFileId.isBlank()) {
-            try {
-                curseFile = CurseForgeClient.fetchFileByIdOrVersion(
-                    entry.getCurseforgeProjectId(),
-                    curseFileId,
-                    CrossPlatformRuntime.mcVersion(),
-                    CrossPlatformRuntime.loaderName()
-                );
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } catch (IOException ignored) {
-            }
-        }
-        List<String> directUrls = new ArrayList<>(entry.getDirectUrls());
-        if (directUrls.isEmpty() && entry.getDirectUrl() != null && !entry.getDirectUrl().isBlank()) {
-            directUrls.add(entry.getDirectUrl());
-        }
-        String curseHashType = null;
-        String curseHashValue = null;
-        long curseSize = -1L;
-        if (curseFile != null) {
-            if (curseFile.sha1 != null && !curseFile.sha1.isBlank()) {
-                curseHashType = "sha1";
-                curseHashValue = curseFile.sha1;
-            } else if (curseFile.md5 != null && !curseFile.md5.isBlank()) {
-                curseHashType = "md5";
-                curseHashValue = curseFile.md5;
-            }
-            curseSize = curseFile.size;
-        }
-        String modrinthHashType = null;
-        String modrinthHashValue = null;
-        long modrinthSize = -1L;
-        if (version != null) {
-            if (version.sha1 != null && !version.sha1.isBlank()) {
-                modrinthHashType = "sha1";
-                modrinthHashValue = version.sha1;
-            } else if (version.sha512 != null && !version.sha512.isBlank()) {
-                modrinthHashType = "sha512";
-                modrinthHashValue = version.sha512;
-            }
-            modrinthSize = version.size;
-        }
-        List<String> order = entry.getDownloadPriorityList();
-        for (String source : order) {
-            if ("directurl".equals(source)) {
-                for (String url : directUrls) {
-                    candidates.add(new DownloadCandidate(url, true, null, null, null, -1L));
-                }
-            } else if ("curseforge".equals(source)) {
-                if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                    candidates.add(new DownloadCandidate(curseFile.url, false, curseFile.fileName, curseHashType, curseHashValue, curseSize));
-                }
-            } else if ("modrinth".equals(source)) {
-                if (version != null && version.url != null && !version.url.isBlank()) {
-                    candidates.add(new DownloadCandidate(version.url, false, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
-                }
-            }
-        }
-        return candidates;
     }
 
     private static String downloadRemoteEntry(DlcRemoteEntry entry) throws IOException, InterruptedException {
@@ -1494,170 +1414,87 @@ public final class DlcServerDownloadService {
         if (entry == null) {
             return null;
         }
-        List<DownloadCandidate> candidates = buildRemoteCandidates(entry);
+        DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
         IOException lastError = null;
-        for (DownloadCandidate candidate : candidates) {
-            for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
-                try {
-                    String fileName = candidate.fileNameOverride;
-                    boolean fileNameExplicit = entry.isFileNameExplicit()
-                        && fileName != null && !fileName.isBlank();
-                    if (fileName == null || fileName.isBlank()) {
-                        fileName = entry.getFileNameHint();
-                    }
-                    String suggestedName = null;
-                    if (candidate.direct || !DlcDownloadUtil.isLikelyFileName(fileName)) {
-                        try {
-                            suggestedName = DlcDownloadService.suggestFileName(candidate.url);
-                        } catch (IOException ignored) {
+        List<DlcDownloadCandidate> candidates;
+        while (!(candidates = resolver.next()).isEmpty()) {
+            for (DlcDownloadCandidate candidate : candidates) {
+                for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
+                    try {
+                        String fileName = candidate.fileNameOverride;
+                        boolean fileNameExplicit = entry.isFileNameExplicit()
+                            && fileName != null && !fileName.isBlank();
+                        if (fileName == null || fileName.isBlank()) {
+                            fileName = entry.getFileNameHint();
                         }
-                    }
-                    if (!fileNameExplicit) {
-                        if (candidate.direct && suggestedName != null && !suggestedName.isBlank()) {
-                            fileName = suggestedName;
+                        String suggestedName = null;
+                        if (candidate.direct || !DlcDownloadUtil.isLikelyFileName(fileName)) {
+                            try {
+                                suggestedName = DlcDownloadService.suggestFileName(candidate.url);
+                            } catch (IOException ignored) {
+                            }
                         }
-                        if (!DlcDownloadUtil.isLikelyFileName(fileName) && suggestedName != null && !suggestedName.isBlank()) {
-                            fileName = suggestedName;
+                        if (!fileNameExplicit) {
+                            if (candidate.direct && suggestedName != null && !suggestedName.isBlank()) {
+                                fileName = suggestedName;
+                            }
+                            if (!DlcDownloadUtil.isLikelyFileName(fileName) && suggestedName != null && !suggestedName.isBlank()) {
+                                fileName = suggestedName;
+                            }
                         }
-                    }
-                    fileName = finalizeFileName(fileName, entry, candidate.url);
-                    Path target = entry.resolveTargetPath(fileName);
-                    if (target == null) {
-                        throw new IOException("invalid target path");
-                    }
-                    Files.createDirectories(target.getParent());
-                    if (Files.exists(target)) {
-                        return fileName;
-                    }
-                    Path downloaded = candidate.direct
-                        ? DlcDownloadService.download(
-                            candidate.url,
-                            target.getParent(),
-                            fileName,
-                            (downloadedBytes, totalBytes) -> {
-                                if (listener != null) {
-                                    listener.onProgress(downloadedBytes, totalBytes);
-                                }
-                            },
-                            null
-                        )
-                        : DlcDownloadService.downloadKnown(
-                            candidate.url,
-                            target.getParent(),
-                            fileName,
-                            candidate.expectedSize,
-                            (downloadedBytes, totalBytes) -> {
-                                if (listener != null) {
-                                    listener.onProgress(downloadedBytes, totalBytes);
-                                }
-                            },
-                            null
-                        );
-                    verifyDownloadedFile(downloaded, candidate);
-                    String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
-                    entry.setFileNameHint(actualName);
-                    return actualName;
-                } catch (IOException ex) {
-                    lastError = ex;
-                    if (attempt >= DlcPathConfig.getMaxRetryCount()) {
-                        break;
+                        fileName = finalizeFileName(fileName, entry, candidate.url);
+                        Path target = entry.resolveTargetPath(fileName);
+                        if (target == null) {
+                            throw new IOException("invalid target path");
+                        }
+                        Files.createDirectories(target.getParent());
+                        if (Files.exists(target)) {
+                            return fileName;
+                        }
+                        Path downloaded = candidate.direct
+                            ? DlcDownloadService.download(
+                                candidate.url,
+                                target.getParent(),
+                                fileName,
+                                (downloadedBytes, totalBytes) -> {
+                                    if (listener != null) {
+                                        listener.onProgress(downloadedBytes, totalBytes);
+                                    }
+                                },
+                                null
+                            )
+                            : DlcDownloadService.downloadKnown(
+                                candidate.url,
+                                target.getParent(),
+                                fileName,
+                                candidate.expectedSize,
+                                (downloadedBytes, totalBytes) -> {
+                                    if (listener != null) {
+                                        listener.onProgress(downloadedBytes, totalBytes);
+                                    }
+                                },
+                                null
+                            );
+                        verifyDownloadedFile(downloaded, candidate);
+                        String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
+                        entry.setFileNameHint(actualName);
+                        return actualName;
+                    } catch (IOException ex) {
+                        lastError = ex;
+                        if (attempt >= DlcPathConfig.getMaxRetryCount()) {
+                            break;
+                        }
                     }
                 }
             }
+        }
+        if (lastError == null) {
+            lastError = resolver.lastError();
         }
         if (lastError != null) {
             throw lastError;
         }
         throw new IOException("missing download url");
-    }
-
-    private static List<DownloadCandidate> buildRemoteCandidates(DlcRemoteEntry entry) throws IOException, InterruptedException {
-        List<DownloadCandidate> candidates = new ArrayList<>();
-        if (entry == null) {
-            return candidates;
-        }
-        ModrinthClient.ModrinthVersion version = null;
-        String versionId = entry.getModrinthVersionId();
-        if (versionId != null && !versionId.isBlank()) {
-            try {
-                version = ModrinthClient.fetchVersionByIdOrVersion(
-                    entry.getModrinthProjectId(),
-                    versionId,
-                    CrossPlatformRuntime.mcVersion(),
-                    CrossPlatformRuntime.loaderName()
-                );
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } catch (IOException ignored) {
-            }
-        }
-        CurseForgeClient.CurseForgeFile curseFile = null;
-        String curseFileId = entry.getCurseforgeFileId();
-        if (curseFileId != null && !curseFileId.isBlank()) {
-            try {
-                curseFile = CurseForgeClient.fetchFileByIdOrVersion(
-                    entry.getCurseforgeProjectId(),
-                    curseFileId,
-                    CrossPlatformRuntime.mcVersion(),
-                    CrossPlatformRuntime.loaderName()
-                );
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } catch (IOException ignored) {
-            }
-        }
-        List<String> directUrls = new ArrayList<>();
-        for (String url : entry.getDirectUrls()) {
-            if (url != null && !url.isBlank()) {
-                directUrls.add(url);
-            }
-        }
-        if (directUrls.isEmpty() && entry.getDirectUrl() != null && !entry.getDirectUrl().isBlank()) {
-            directUrls.add(entry.getDirectUrl());
-        }
-        String curseHashType = null;
-        String curseHashValue = null;
-        long curseSize = -1L;
-        if (curseFile != null) {
-            if (curseFile.sha1 != null && !curseFile.sha1.isBlank()) {
-                curseHashType = "sha1";
-                curseHashValue = curseFile.sha1;
-            } else if (curseFile.md5 != null && !curseFile.md5.isBlank()) {
-                curseHashType = "md5";
-                curseHashValue = curseFile.md5;
-            }
-            curseSize = curseFile.size;
-        }
-        String modrinthHashType = null;
-        String modrinthHashValue = null;
-        long modrinthSize = -1L;
-        if (version != null) {
-            if (version.sha1 != null && !version.sha1.isBlank()) {
-                modrinthHashType = "sha1";
-                modrinthHashValue = version.sha1;
-            } else if (version.sha512 != null && !version.sha512.isBlank()) {
-                modrinthHashType = "sha512";
-                modrinthHashValue = version.sha512;
-            }
-            modrinthSize = version.size;
-        }
-        List<String> order = entry.getDownloadPriorityList();
-        for (String source : order) {
-            if ("directurl".equals(source)) {
-                for (String url : directUrls) {
-                    candidates.add(new DownloadCandidate(url, true, null, null, null, -1L));
-                }
-            } else if ("curseforge".equals(source)) {
-                if (curseFile != null && curseFile.url != null && !curseFile.url.isBlank()) {
-                    candidates.add(new DownloadCandidate(curseFile.url, false, curseFile.fileName, curseHashType, curseHashValue, curseSize));
-                }
-            } else if ("modrinth".equals(source)) {
-                if (version != null && version.url != null && !version.url.isBlank()) {
-                    candidates.add(new DownloadCandidate(version.url, false, version.fileName, modrinthHashType, modrinthHashValue, modrinthSize));
-                }
-            }
-        }
-        return candidates;
     }
 
     private static void checkRequiredCanceled() throws DownloadCanceledException {
@@ -1670,7 +1507,7 @@ public final class DlcServerDownloadService {
         return requiredSession != null && requiredSession.cancelRequested.get();
     }
 
-    private static void verifyDownloadedFile(Path tempFile, DownloadCandidate candidate) throws IOException {
+    private static void verifyDownloadedFile(Path tempFile, DlcDownloadCandidate candidate) throws IOException {
         String hashType = candidate == null ? null : candidate.hashType;
         String hashValue = candidate == null ? null : candidate.hashValue;
         if (hashType != null && hashValue != null && !hashValue.isBlank()) {
@@ -2084,24 +1921,6 @@ public final class DlcServerDownloadService {
             return false;
         }
         return "notice".equalsIgnoreCase(DcFormatUtil.stripConfigExtension(fileName));
-    }
-
-    private static final class DownloadCandidate {
-        private final String url;
-        private final boolean direct;
-        private final String fileNameOverride;
-        private final String hashType;
-        private final String hashValue;
-        private final long expectedSize;
-
-        private DownloadCandidate(String url, boolean direct, String fileNameOverride, String hashType, String hashValue, long expectedSize) {
-            this.url = url;
-            this.direct = direct;
-            this.fileNameOverride = fileNameOverride;
-            this.hashType = hashType;
-            this.hashValue = hashValue;
-            this.expectedSize = expectedSize;
-        }
     }
 
 }

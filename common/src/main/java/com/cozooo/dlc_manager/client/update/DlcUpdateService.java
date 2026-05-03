@@ -2076,11 +2076,7 @@ public final class DlcUpdateService {
         if (entry == null) {
             return null;
         }
-        List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
-        if (candidates.isEmpty()) {
-            throw new IOException("missing download url");
-        }
-        return downloadWithRetry(entry, candidates, ignoreExistingFileName);
+        return downloadWithRetry(entry, DlcDownloadCandidate.resolver(entry), ignoreExistingFileName);
     }
 
     private static DownloadedFile downloadRequiredEntry(DlcRequiredEntry entry) throws IOException, InterruptedException {
@@ -2091,25 +2087,27 @@ public final class DlcUpdateService {
         if (entry == null) {
             return null;
         }
-        List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
-        if (candidates.isEmpty()) {
-            throw new IOException("missing download url");
-        }
-        return downloadWithRetry(entry, candidates, ignoreExistingFileName);
+        return downloadWithRetry(entry, DlcDownloadCandidate.resolver(entry), ignoreExistingFileName);
     }
 
-    private static DownloadedFile downloadWithRetry(Object entry, List<DlcDownloadCandidate> candidates, boolean ignoreExistingFileName)
-        throws IOException {
+    private static DownloadedFile downloadWithRetry(Object entry, DlcDownloadCandidate.Resolver resolver, boolean ignoreExistingFileName)
+        throws IOException, InterruptedException {
         int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
         IOException lastError = null;
-        for (DlcDownloadCandidate candidate : candidates) {
-            for (int attempt = 1; attempt <= maxRetry; attempt++) {
-                try {
-                    return downloadCandidate(entry, candidate, ignoreExistingFileName);
-                } catch (IOException ex) {
-                    lastError = ex;
+        List<DlcDownloadCandidate> candidates;
+        while (!(candidates = resolver.next()).isEmpty()) {
+            for (DlcDownloadCandidate candidate : candidates) {
+                for (int attempt = 1; attempt <= maxRetry; attempt++) {
+                    try {
+                        return downloadCandidate(entry, candidate, ignoreExistingFileName);
+                    } catch (IOException ex) {
+                        lastError = ex;
+                    }
                 }
             }
+        }
+        if (lastError == null) {
+            lastError = resolver.lastError();
         }
         if (lastError != null) {
             throw lastError;

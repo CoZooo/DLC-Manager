@@ -540,12 +540,13 @@ public class DlcRemoteDownloadScreen extends Screen {
             activeDownloadEntry = entry;
         }
         try {
-            List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
+            DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
             IOException lastError = null;
             int attemptId = 0;
             boolean canceled = false;
-            for (int candidateIndex = 0; candidateIndex < candidates.size(); candidateIndex++) {
-                DlcDownloadCandidate candidate = candidates.get(candidateIndex);
+            List<DlcDownloadCandidate> candidates;
+            while (!(candidates = resolver.next()).isEmpty()) {
+                for (DlcDownloadCandidate candidate : candidates) {
                 for (int attempt = 1; attempt <= maxRetry; attempt++) {
                     try {
                         checkCanceled();
@@ -615,13 +616,10 @@ public class DlcRemoteDownloadScreen extends Screen {
                         if (isSwitchRequested(progressKey)) {
                             lastError = new DownloadSwitchException("switch");
                             clearSwitchRequest(progressKey);
-                            if (candidateIndex < candidates.size() - 1) {
-                                if (!canceled) {
-                                    setEntryProgress(progressKey, attemptId, 0f);
-                                }
-                                break;
+                            if (!canceled) {
+                                setEntryProgress(progressKey, attemptId, 0f);
                             }
-                            continue;
+                            break;
                         }
                         canceled = true;
                         throw new DownloadCanceledException("canceled");
@@ -632,13 +630,10 @@ public class DlcRemoteDownloadScreen extends Screen {
                         if (isSwitchException(ex)) {
                             lastError = ex;
                             clearSwitchRequest(progressKey);
-                            if (candidateIndex < candidates.size() - 1) {
-                                if (!canceled) {
-                                    setEntryProgress(progressKey, attemptId, 0f);
-                                }
-                                break;
+                            if (!canceled) {
+                                setEntryProgress(progressKey, attemptId, 0f);
                             }
-                            continue;
+                            break;
                         }
                         if (ex.getCause() instanceof DownloadCanceledException) {
                             canceled = true;
@@ -659,11 +654,15 @@ public class DlcRemoteDownloadScreen extends Screen {
                     }
                 }
             }
+            }
             if (cancelRequested || canceled) {
                 throw new DownloadCanceledException("canceled");
             }
             if (attemptId > 0) {
                 setEntryProgress(progressKey, attemptId, 0f);
+            }
+            if (lastError == null) {
+                lastError = resolver.lastError();
             }
             if (lastError != null) {
                 throw lastError;
