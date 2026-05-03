@@ -653,11 +653,15 @@ public class DlcRequiredDownloadScreen extends Screen {
                         if (fileName == null) {
                             fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(candidate.url));
                         }
-                        DownloadInfo downloadInfo = openDownload(candidate.url, 0);
-                        if (fileName == null) {
-                            fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                        DownloadInfo downloadInfo = null;
+                        boolean shouldProbe = candidate.direct || !DlcDownloadUtil.isLikelyFileName(fileName);
+                        if (shouldProbe) {
+                            downloadInfo = openDownload(candidate.url, 0);
+                            if (fileName == null) {
+                                fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                            }
+                            closeQuietly(downloadInfo.connection);
                         }
-                        closeQuietly(downloadInfo.connection);
                         if (fileName == null) {
                             fileName = DlcDownloadService.suggestFileName(candidate.url);
                         }
@@ -675,13 +679,21 @@ public class DlcRequiredDownloadScreen extends Screen {
                             return;
                         }
                         final int currentAttemptId = attemptId;
-                        Path downloaded = DlcDownloadService.download(candidate.url, target.getParent(), fileName,
-                            (done, total) -> {
-                                if (total > 0) {
-                                    setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
-                                }
-                            },
-                            () -> cancelRequested || isSwitchRequested(progressKey));
+                        Path downloaded = shouldProbe
+                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName,
+                                (done, total) -> {
+                                    if (total > 0) {
+                                        setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
+                                    }
+                                },
+                                () -> cancelRequested || isSwitchRequested(progressKey))
+                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize,
+                                (done, total) -> {
+                                    if (total > 0) {
+                                        setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
+                                    }
+                                },
+                                () -> cancelRequested || isSwitchRequested(progressKey));
                         Path resolved = downloaded.equals(target)
                             ? downloaded
                             : Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING);

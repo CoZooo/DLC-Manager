@@ -552,9 +552,14 @@ public class DlcRemoteDownloadScreen extends Screen {
                         attemptId = attemptCounter.incrementAndGet();
                         attemptByKey.put(progressKey, attemptId);
                         markDownloadStart(progressKey);
-                        DownloadInfo downloadInfo = openDownload(candidate.url, 0);
-                        String headerName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
-                        closeQuietly(downloadInfo.connection);
+                        DownloadInfo downloadInfo = null;
+                        String headerName = null;
+                        boolean shouldProbe = candidate.direct || !DlcDownloadUtil.isLikelyFileName(candidate.fileNameOverride);
+                        if (shouldProbe) {
+                            downloadInfo = openDownload(candidate.url, 0);
+                            headerName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
+                            closeQuietly(downloadInfo.connection);
+                        }
                         String fileName = candidate.fileNameOverride;
                         boolean fileNameExplicit = entry.isFileNameExplicit()
                             && fileName != null && !fileName.isBlank();
@@ -583,13 +588,21 @@ public class DlcRemoteDownloadScreen extends Screen {
                             return;
                         }
                         final int currentAttemptId = attemptId;
-                        Path downloaded = DlcDownloadService.download(candidate.url, target.getParent(), fileName,
-                            (done, total) -> {
-                                if (total > 0) {
-                                    setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
-                                }
-                            },
-                            () -> cancelRequested || isSwitchRequested(progressKey));
+                        Path downloaded = shouldProbe
+                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName,
+                                (done, total) -> {
+                                    if (total > 0) {
+                                        setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
+                                    }
+                                },
+                                () -> cancelRequested || isSwitchRequested(progressKey))
+                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize,
+                                (done, total) -> {
+                                    if (total > 0) {
+                                        setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
+                                    }
+                                },
+                                () -> cancelRequested || isSwitchRequested(progressKey));
                         Path resolved = downloaded.equals(target)
                             ? downloaded
                             : Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING);

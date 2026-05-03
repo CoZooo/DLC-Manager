@@ -795,7 +795,7 @@ public class DlcRequiredManagerScreen extends Screen {
                 if (fileName == null && candidate.fileNameOverride != null) {
                     fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
                 }
-                if (fileName == null) {
+                if (fileName == null && candidate.direct) {
                     try {
                         fileName = DlcDownloadService.suggestFileName(candidate.url);
                     } catch (IOException ignored) {
@@ -814,18 +814,32 @@ public class DlcRequiredManagerScreen extends Screen {
                     DlcRequiredManager.ensureFileNameKey(entry, fileName);
                     return;
                 }
-                Path downloaded = DlcDownloadService.download(
-                    candidate.url,
-                    target.getParent(),
-                    fileName,
-                    (done, total) -> {
-                        if (total > 0) {
-                            float fraction = Math.min(1f, (float) done / (float) total);
-                            updateProgress(state, stepIndex, fraction, totalSteps);
-                        }
-                    },
-                    null
-                );
+                Path downloaded = candidate.direct
+                    ? DlcDownloadService.download(
+                        candidate.url,
+                        target.getParent(),
+                        fileName,
+                        (done, total) -> {
+                            if (total > 0) {
+                                float fraction = Math.min(1f, (float) done / (float) total);
+                                updateProgress(state, stepIndex, fraction, totalSteps);
+                            }
+                        },
+                        null
+                    )
+                    : DlcDownloadService.downloadKnown(
+                        candidate.url,
+                        target.getParent(),
+                        fileName,
+                        candidate.expectedSize,
+                        (done, total) -> {
+                            if (total > 0) {
+                                float fraction = Math.min(1f, (float) done / (float) total);
+                                updateProgress(state, stepIndex, fraction, totalSteps);
+                            }
+                        },
+                        null
+                    );
                 String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
                 entry.setResolvedFileName(actualName);
                 DlcRequiredManager.updateFileNameKey(entry, actualName);

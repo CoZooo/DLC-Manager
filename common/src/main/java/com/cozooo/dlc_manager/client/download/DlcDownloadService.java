@@ -99,6 +99,39 @@ public final class DlcDownloadService {
         return target;
     }
 
+    public static Path downloadKnown(String url, Path outputDir, String desiredFileName, long expectedSize,
+                                     ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        if (url == null || url.isBlank()) {
+            throw new IOException("empty url");
+        }
+        if (outputDir == null) {
+            throw new IOException("missing output dir");
+        }
+        Files.createDirectories(outputDir);
+        String fileName = desiredFileName;
+        if (fileName == null || fileName.isBlank()) {
+            fileName = DlcDownloadUtil.extractFileNameFromUrl(url);
+        }
+        fileName = DlcDownloadUtil.sanitizeFileName(fileName);
+        if (fileName == null || fileName.isBlank()) {
+            fileName = "download.bin";
+        }
+        Path target = outputDir.resolve(fileName);
+        Path temp = outputDir.resolve(fileName + ".part");
+        long total = expectedSize > 0 ? expectedSize : -1L;
+        if (listener != null) {
+            listener.onProgress(0L, total);
+        }
+        long existing = Files.exists(temp) ? Files.size(temp) : 0L;
+        downloadSingleWithRetry(url, temp, total, existing, listener, cancelChecker);
+        if (cancelChecker != null && cancelChecker.isCanceled()) {
+            Files.deleteIfExists(temp);
+            throw new DownloadCanceledException("canceled");
+        }
+        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        return target;
+    }
+
     private static void downloadSingleWithRetry(String url, Path temp, long knownTotal, long existing, ProgressListener listener,
                                                 CancelChecker cancelChecker) throws IOException {
         int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());

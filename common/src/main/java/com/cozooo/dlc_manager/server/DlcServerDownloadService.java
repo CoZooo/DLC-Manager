@@ -1338,7 +1338,7 @@ public final class DlcServerDownloadService {
                     if (fileName == null || fileName.isBlank()) {
                         fileName = entry.getRequiredFileName();
                     }
-                    if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
+                    if (candidate.direct && !DlcDownloadUtil.isLikelyFileName(fileName)) {
                         try {
                             String suggested = DlcDownloadService.suggestFileName(candidate.url);
                             if (suggested != null && !suggested.isBlank()) {
@@ -1356,17 +1356,30 @@ public final class DlcServerDownloadService {
                     if (Files.exists(target)) {
                         return fileName;
                     }
-                    Path downloaded = DlcDownloadService.download(
-                        candidate.url,
-                        target.getParent(),
-                        fileName,
-                        (downloadedBytes, totalBytes) -> {
-                            if (listener != null) {
-                                listener.onProgress(downloadedBytes, totalBytes);
-                            }
-                        },
-                        () -> requiredCancelRequested || isRequiredCanceled()
-                    );
+                    Path downloaded = candidate.direct
+                        ? DlcDownloadService.download(
+                            candidate.url,
+                            target.getParent(),
+                            fileName,
+                            (downloadedBytes, totalBytes) -> {
+                                if (listener != null) {
+                                    listener.onProgress(downloadedBytes, totalBytes);
+                                }
+                            },
+                            () -> requiredCancelRequested || isRequiredCanceled()
+                        )
+                        : DlcDownloadService.downloadKnown(
+                            candidate.url,
+                            target.getParent(),
+                            fileName,
+                            candidate.expectedSize,
+                            (downloadedBytes, totalBytes) -> {
+                                if (listener != null) {
+                                    listener.onProgress(downloadedBytes, totalBytes);
+                                }
+                            },
+                            () -> requiredCancelRequested || isRequiredCanceled()
+                        );
                     checkRequiredCanceled();
                     verifyDownloadedFile(downloaded, candidate);
                     return downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
@@ -1493,9 +1506,11 @@ public final class DlcServerDownloadService {
                         fileName = entry.getFileNameHint();
                     }
                     String suggestedName = null;
-                    try {
-                        suggestedName = DlcDownloadService.suggestFileName(candidate.url);
-                    } catch (IOException ignored) {
+                    if (candidate.direct || !DlcDownloadUtil.isLikelyFileName(fileName)) {
+                        try {
+                            suggestedName = DlcDownloadService.suggestFileName(candidate.url);
+                        } catch (IOException ignored) {
+                        }
                     }
                     if (!fileNameExplicit) {
                         if (candidate.direct && suggestedName != null && !suggestedName.isBlank()) {
@@ -1514,17 +1529,30 @@ public final class DlcServerDownloadService {
                     if (Files.exists(target)) {
                         return fileName;
                     }
-                    Path downloaded = DlcDownloadService.download(
-                        candidate.url,
-                        target.getParent(),
-                        fileName,
-                        (downloadedBytes, totalBytes) -> {
-                            if (listener != null) {
-                                listener.onProgress(downloadedBytes, totalBytes);
-                            }
-                        },
-                        null
-                    );
+                    Path downloaded = candidate.direct
+                        ? DlcDownloadService.download(
+                            candidate.url,
+                            target.getParent(),
+                            fileName,
+                            (downloadedBytes, totalBytes) -> {
+                                if (listener != null) {
+                                    listener.onProgress(downloadedBytes, totalBytes);
+                                }
+                            },
+                            null
+                        )
+                        : DlcDownloadService.downloadKnown(
+                            candidate.url,
+                            target.getParent(),
+                            fileName,
+                            candidate.expectedSize,
+                            (downloadedBytes, totalBytes) -> {
+                                if (listener != null) {
+                                    listener.onProgress(downloadedBytes, totalBytes);
+                                }
+                            },
+                            null
+                        );
                     verifyDownloadedFile(downloaded, candidate);
                     String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
                     entry.setFileNameHint(actualName);
