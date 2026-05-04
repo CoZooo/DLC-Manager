@@ -14,6 +14,24 @@ function hasAssignment(body: string, key: string): boolean {
   return pattern.test(body);
 }
 
+function hasRootAssignment(body: string, key: string): boolean {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^\\s*${escaped}\\s*=`);
+  for (const line of body.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("//")) {
+      continue;
+    }
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      return false;
+    }
+    if (pattern.test(line)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function detectDocumentType(path?: string, text?: string): DocumentType {
   const name = pathBaseName(path).toLowerCase();
   const lowerPath = (path || "").toLowerCase();
@@ -85,7 +103,7 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   if (hasAssignment(body, "enable") && body.includes("[displayname]") && body.includes("[tip]")) {
     return "preset";
   }
-  if (body.includes("redirecturl")) {
+  if (hasRootAssignment(body, "redirecturl") && (hasRootAssignment(body, "available") || body.includes("[notice]"))) {
     return "redirect";
   }
   return "info";
