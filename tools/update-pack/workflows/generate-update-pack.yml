@@ -3,12 +3,12 @@ name: Generate Update Pack
 on:
   workflow_dispatch:
     inputs:
-      from_ref:
-        description: "Diff base ref"
+      old_ref:
+        description: "Old ref"
         required: false
         default: ""
-      to_ref:
-        description: "Diff target ref"
+      new_ref:
+        description: "New ref"
         required: false
         default: ""
       platform:
@@ -85,56 +85,91 @@ jobs:
         id: base_ref
         shell: bash
         run: |
-          INPUT_FROM_REF="${{ inputs.from_ref }}"
-          INPUT_TO_REF="${{ inputs.to_ref }}"
+          INPUT_OLD_REF="${{ inputs.old_ref }}"
+          INPUT_NEW_REF="${{ inputs.new_ref }}"
           BASE="${{ inputs.base }}"
           DLC="${{ inputs.dlc }}"
-          if [ -n "$INPUT_TO_REF" ]; then
-            if ! git rev-parse --verify --quiet "$INPUT_TO_REF^{commit}" >/dev/null; then
-              echo "Invalid to_ref: $INPUT_TO_REF" >&2
+          if [ -n "$INPUT_NEW_REF" ]; then
+            if ! git rev-parse --verify --quiet "$INPUT_NEW_REF^{commit}" >/dev/null; then
+              echo "Invalid new_ref: $INPUT_NEW_REF" >&2
               exit 1
             fi
-            RESOLVED_TO_REF="$INPUT_TO_REF"
+            RESOLVED_TO_REF="$INPUT_NEW_REF"
           else
             RESOLVED_TO_REF="HEAD"
           fi
 
-          if [ -n "$INPUT_FROM_REF" ]; then
-            if ! git rev-parse --verify --quiet "$INPUT_FROM_REF^{commit}" >/dev/null; then
-              echo "Invalid from_ref: $INPUT_FROM_REF" >&2
+          if [ -n "$INPUT_OLD_REF" ]; then
+            if ! git rev-parse --verify --quiet "$INPUT_OLD_REF^{commit}" >/dev/null; then
+              echo "Invalid old_ref: $INPUT_OLD_REF" >&2
               exit 1
             fi
-            RESOLVED="$INPUT_FROM_REF"
+            RESOLVED="$INPUT_OLD_REF"
             SOURCE="input"
           else
-            TARGET_PAIR="${BASE}+${DLC}"
+            TARGET_PAIR_PLUS="${BASE}+${DLC}"
+            TARGET_PAIR_UNDERSCORE="${BASE}_${DLC}"
             RESOLVED=""
             SOURCE=""
 
+            tag_target_pair() {
+              local tag="$1"
+              if [[ "$tag" == */* ]]; then
+                printf '%s\n' "${tag#*/}"
+                return
+              fi
+              python3 - "$tag" <<'PY'
+          import sys
+
+          tag = sys.argv[1].strip()
+          pair_delimiters = ["+", "_", "@", "~", " "]
+
+          def parse_pair(value):
+              value = (value or "").strip()
+              for delimiter in pair_delimiters:
+                  if delimiter == " ":
+                      parts = value.split()
+                      if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+                          return parts[0].strip(), parts[1].strip()
+                      continue
+                  index = value.find(delimiter)
+                  if 0 < index < len(value) - len(delimiter):
+                      left = value[:index].strip()
+                      right = value[index + len(delimiter):].strip()
+                      if left and right:
+                          return left, right
+              return None
+
+          for index, ch in enumerate(tag):
+              if ch != "-" or index <= 0 or index >= len(tag) - 1:
+                  continue
+              old_pair = parse_pair(tag[:index])
+              new_pair = parse_pair(tag[index + 1:])
+              if old_pair and new_pair:
+                  print(f"{new_pair[0]}_{new_pair[1]}")
+                  sys.exit(0)
+          PY
+            }
+
             while IFS= read -r tag; do
               [ -z "$tag" ] && continue
-              case "$tag" in
-                */*)
-                  right="${tag#*/}"
-                  if [ "$right" = "$TARGET_PAIR" ]; then
-                    RESOLVED="$tag"
-                    SOURCE="target_pair_hot_update_tag"
-                    break
-                  fi
-                ;;
-              esac
+              right="$(tag_target_pair "$tag")"
+              if [ "$right" = "$TARGET_PAIR_PLUS" ] || [ "$right" = "$TARGET_PAIR_UNDERSCORE" ]; then
+                RESOLVED="$tag"
+                SOURCE="target_pair_hot_update_tag"
+                break
+              fi
             done < <(git for-each-ref --sort=-creatordate --format='%(refname:short)' refs/tags)
 
             if [ -z "$RESOLVED" ]; then
               while IFS= read -r tag; do
                 [ -z "$tag" ] && continue
-                case "$tag" in
-                  */*)
-                    RESOLVED="$tag"
-                    SOURCE="latest_hot_update_tag"
-                    break
-                  ;;
-                esac
+                right="$(tag_target_pair "$tag")"
+                if [ -n "$right" ]; then
+                  RESOLVED="$tag"
+                  SOURCE="latest_hot_update_tag"
+                  break
+                fi
               done < <(git for-each-ref --sort=-creatordate --format='%(refname:short)' refs/tags)
             fi
 
@@ -215,9 +250,9 @@ jobs:
 
       - name: Show generated info
         run: |
-          echo "Diff base ref: ${{ steps.base_ref.outputs.resolved_from_ref }}"
-          echo "Diff target ref: ${{ steps.base_ref.outputs.resolved_to_ref }}"
-          echo "Diff base source: ${{ steps.base_ref.outputs.resolved_from_ref_source }}"
+          echo "Old ref: ${{ steps.base_ref.outputs.resolved_from_ref }}"
+          echo "New ref: ${{ steps.base_ref.outputs.resolved_to_ref }}"
+          echo "Old ref source: ${{ steps.base_ref.outputs.resolved_from_ref_source }}"
           echo "Release tag suggestion: ${{ steps.generate.outputs.release_tag }}"
           echo "Asset name: ${{ steps.generate.outputs.asset_name }}"
           echo "Zip path: ${{ steps.generate.outputs.zip_path }}"
@@ -227,7 +262,7 @@ jobs:
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: update-package-${{ inputs.platform }}-${{ inputs.base_new }}-${{ inputs.dlc_new }}
+          name: update-package-${{ inputs.platform }}_${{ inputs.base_new }}_${{ inputs.dlc_new }}
           path: |
             ${{ steps.generate.outputs.zip_path }}
             ${{ steps.generate.outputs.summary_path }}

@@ -790,8 +790,8 @@ def main() -> int:
         "server": "Server",
         "universal": "Universal",
     }[args.platform]
-    version_pair = f"{args.base_new}+{args.dlc_new}"
-    release_tag = f"{args.base}+{args.dlc}/{args.base_new}+{args.dlc_new}"
+    version_pair = f"{args.base_new}_{args.dlc_new}"
+    release_tag = f"{args.base}_{args.dlc}-{args.base_new}_{args.dlc_new}"
 
     add_or_modify, deleted = parse_diff(args.from_ref, args.to_ref)
     add_paths, del_paths = filter_paths(add_or_modify, deleted)
