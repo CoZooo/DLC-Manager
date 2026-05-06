@@ -38,7 +38,7 @@ public final class DlcPackReleaseUpdateService {
     private static final Pattern SSH_REPO_PATTERN = Pattern.compile("^git@([^:]+):(.+?)(?:\\.git)?/?$", Pattern.CASE_INSENSITIVE);
     private static final String DEFAULT_VERSION = "1.0.0";
     private static final String UNIVERSAL_PREFIX = "Universal_";
-    private static final String[] VERSION_PAIR_DELIMITERS = new String[] {"+", "_", "@", "~", "-", " "};
+    private static final String[] VERSION_PAIR_DELIMITERS = new String[] {"_", "+", "@", "~", " "};
     private static final int RELEASES_PER_PAGE = 100;
     private static final int RELEASES_MAX_PAGES = 10;
     private static final int GITCODE_TOKEN_SHIFT = 5;
@@ -985,21 +985,52 @@ public final class DlcPackReleaseUpdateService {
         if (tag == null || tag.isBlank()) {
             return null;
         }
-        String[] parts = tag.trim().split("/", 2);
-        if (parts.length != 2) {
-            return null;
-        }
-        VersionPair oldPair = parseVersionPair(parts[0]);
-        VersionPair newPair = parseVersionPair(parts[1]);
-        if (oldPair == null || newPair == null) {
+        ParsedTagParts parts = parseTagParts(tag.trim());
+        if (parts == null) {
             return null;
         }
         ParsedTag parsed = new ParsedTag();
-        parsed.oldBase = oldPair.base;
-        parsed.oldDlc = oldPair.dlc;
-        parsed.newBase = newPair.base;
-        parsed.newDlc = newPair.dlc;
+        parsed.oldBase = parts.oldPair.base;
+        parsed.oldDlc = parts.oldPair.dlc;
+        parsed.newBase = parts.newPair.base;
+        parsed.newDlc = parts.newPair.dlc;
         return parsed;
+    }
+
+    private static ParsedTagParts parseTagParts(String tag) {
+        if (tag == null || tag.isBlank()) {
+            return null;
+        }
+        String[] slashParts = tag.split("/", 2);
+        if (slashParts.length == 2) {
+            ParsedTagParts parsed = parseTagParts(slashParts[0], slashParts[1]);
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+        int index = -1;
+        while ((index = tag.indexOf('-', index + 1)) >= 0) {
+            if (index <= 0 || index >= tag.length() - 1) {
+                continue;
+            }
+            ParsedTagParts parsed = parseTagParts(tag.substring(0, index), tag.substring(index + 1));
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
+    private static ParsedTagParts parseTagParts(String oldRaw, String newRaw) {
+        VersionPair oldPair = parseVersionPair(oldRaw);
+        VersionPair newPair = parseVersionPair(newRaw);
+        if (oldPair == null || newPair == null) {
+            return null;
+        }
+        ParsedTagParts parts = new ParsedTagParts();
+        parts.oldPair = oldPair;
+        parts.newPair = newPair;
+        return parts;
     }
 
     private static VersionPair parseVersionPair(String value) {
@@ -1646,6 +1677,11 @@ public final class DlcPackReleaseUpdateService {
         private String oldDlc;
         private String newBase;
         private String newDlc;
+    }
+
+    private static final class ParsedTagParts {
+        private VersionPair oldPair;
+        private VersionPair newPair;
     }
 
     private static final class VersionPair {
