@@ -1,10 +1,8 @@
 [package]
 name = "dlc-config-generator"
-version = "0.1.0"
+version = "1.0.0"
 description = "Desktop shell for the DLC Config Generator"
 authors = ["CoZooo"]
-license = "MIT"
-repository = "https://github.com/CoZooo/DLC-Manager"
 edition = "2021"
 rust-version = "1.77.2"
 
