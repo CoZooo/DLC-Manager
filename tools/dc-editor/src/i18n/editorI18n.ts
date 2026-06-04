@@ -4,8 +4,8 @@ export const EDITOR_LOCALE_STORAGE_KEY = "dlc-manager-dc-editor-locale-v1";
 
 const uiDictionary: Record<EditorLocale, Record<string, string>> = {
   zh_cn: {
-    appTitle: "DC Editor",
-    homeTitle: "DC 配置工作台",
+    appTitle: "DC编辑器",
+    homeTitle: "DLC 配置工作台",
     homeDescription: "新建一个 dc 配置，或导入现有文件后开始编辑。",
     homeNote: "可先新建或导入已有 dc 文件。",
     newConfig: "新建配置",
@@ -126,7 +126,7 @@ const uiDictionary: Record<EditorLocale, Record<string, string>> = {
   },
   en_us: {
     appTitle: "DC Editor",
-    homeTitle: "DC Config Workspace",
+    homeTitle: "DLC Config Workspace",
     homeDescription: "Create a dc config or import an existing file to start editing.",
     homeNote: "Create a new config or import an existing dc file.",
     newConfig: "New Config",
