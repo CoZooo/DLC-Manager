@@ -51,7 +51,12 @@ gradle-app.setting
 build/
 **/run/
 **/runs/
-.idea/
+.idea/*
+!.idea/compiler.xml
+!.idea/gradle.xml
+!.idea/modules.xml
+!.idea/modules/
+!.idea/vcs.xml
 output/
 /test/
 jar-obf-lib/

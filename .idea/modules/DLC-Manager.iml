@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module version="4">
+  <component name="AdditionalModuleElements">
+    <content url="file://$MODULE_DIR$/../.." dumb="true">
+      <excludeFolder url="file://$MODULE_DIR$/../../.architectury-transformer" />
+      <excludeFolder url="file://$MODULE_DIR$/../../.github" />
+      <excludeFolder url="file://$MODULE_DIR$/.." />
+      <excludeFolder url="file://$MODULE_DIR$/../../fabric/1.20.1/.gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../fabric/1.20.1/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../fabric/1.21.1/.gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../fabric/1.21.1/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../forge/1.20.1/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../forge/1.20.1/run" />
+      <excludeFolder url="file://$MODULE_DIR$/../../gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../helper/file-ops-helper/.gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../helper/file-ops-helper/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../neoforge/1.21.1/.gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../neoforge/1.21.1/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../neoforge/1.21.1/runs" />
+      <excludeFolder url="file://$MODULE_DIR$/../../common/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../architectury/1.20.1/.gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../architectury/1.20.1/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../architectury/1.21.1/.gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../architectury/1.21.1/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../../helper/file-ops-helper/output" />
+      <excludeFolder url="file://$MODULE_DIR$/../../jar-obf-lib" />
+      <excludeFolder url="file://$MODULE_DIR$/../../jar-obfuscator-temp" />
+      <excludeFolder url="file://$MODULE_DIR$/../../obf-lib" />
+      <excludeFolder url="file://$MODULE_DIR$/../../output" />
+      <excludeFolder url="file://$MODULE_DIR$/../../tools/dc-editor/dist" />
+      <excludeFolder url="file://$MODULE_DIR$/../../tools/dc-editor/node_modules" />
+      <excludeFolder url="file://$MODULE_DIR$/../../tools/dc-editor/src-tauri/gen/schemas" />
+      <excludeFolder url="file://$MODULE_DIR$/../../tools/dc-editor/src-tauri/target" />
+      <excludeFolder url="file://$MODULE_DIR$/../../tools/editor/dc-quicklook/Derived" />
+      <excludeFolder url="file://$MODULE_DIR$/../../tools/editor/jetbrains-dc-plugin/.gradle" />
+      <excludeFolder url="file://$MODULE_DIR$/../../tools/editor/jetbrains-dc-plugin/build" />
+    </content>
+  </component>
+</module>
