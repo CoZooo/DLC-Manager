@@ -1,0 +1,12 @@
+package com.cozooo.dlc_manager.client.server
+
+class DlcServerInfo {
+    @JvmField var baseVersion: String? = null
+    @JvmField var dlcVersion: String? = null
+    @JvmField var items: List<DlcServerItem>? = null
+    @JvmField var remoteMissing: Int = 0
+    @JvmField var requiredMissing: Int = 0
+    @JvmField var hasRequired: Boolean = false
+    @JvmField var modpackUrl: String? = null
+    @JvmField var updateGithubRepo: String? = null
+}

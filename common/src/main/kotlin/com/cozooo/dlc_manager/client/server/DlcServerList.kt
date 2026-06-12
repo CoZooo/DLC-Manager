@@ -1,0 +1,98 @@
+package com.cozooo.dlc_manager.client.server
+
+import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.google.gson.GsonBuilder
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.Path
+
+object DlcServerList {
+    private val gson = GsonBuilder().setPrettyPrinting().create()
+    private var configPath: Path? = null
+    private var entries: MutableList<DlcServerEntry> = ArrayList()
+    private var lastSelectedKey: String? = null
+
+    @JvmStatic
+    fun load() {
+        val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
+        configPath = DcConfigIO.toDcPath(configDir.resolve("servers"))
+        entries = ArrayList()
+        lastSelectedKey = null
+        val path = configPath ?: return
+        if (!Files.exists(path)) {
+            return
+        }
+        try {
+            val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC)
+            if (root != null) {
+                val data = gson.fromJson(root, DlcServerListData::class.java)
+                val servers = data?.servers
+                if (servers != null) {
+                    entries.addAll(servers)
+                    lastSelectedKey = data.lastSelected
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    @JvmStatic
+    fun save() {
+        if (configPath == null) {
+            val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
+            configPath = DcConfigIO.toDcPath(configDir.resolve("servers"))
+        }
+        val path = configPath ?: return
+        try {
+            Files.createDirectories(path.parent)
+            val data = DlcServerListData()
+            data.servers = entries
+            data.lastSelected = lastSelectedKey
+            val root = gson.toJsonTree(data).asJsonObject
+            DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC)
+        } catch (_: IOException) {
+        }
+    }
+
+    @JvmStatic
+    fun getEntries(): List<DlcServerEntry> {
+        return entries.toList()
+    }
+
+    @JvmStatic
+    fun setEntries(newEntries: List<DlcServerEntry>?) {
+        entries = ArrayList(newEntries ?: emptyList())
+    }
+
+    @JvmStatic
+    fun addEntry(entry: DlcServerEntry?) {
+        if (entry == null) {
+            return
+        }
+        entries.add(entry)
+    }
+
+    @JvmStatic
+    fun removeEntry(key: String?) {
+        if (key.isNullOrBlank()) {
+            return
+        }
+        entries.removeIf { key == it.getKey() }
+    }
+
+    @JvmStatic
+    fun getLastSelectedKey(): String? {
+        return lastSelectedKey
+    }
+
+    @JvmStatic
+    fun setLastSelectedKey(key: String?) {
+        lastSelectedKey = key
+    }
+
+    private class DlcServerListData {
+        var servers: List<DlcServerEntry>? = null
+        var lastSelected: String? = null
+    }
+}
