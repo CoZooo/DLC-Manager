@@ -5,4 +5,14 @@
       <excludeFolder url="file://$MODULE_DIR$/../../../../../architectury/1.21.1/common/logs" />
     </content>
   </component>
+  <component name="FacetManager">
+    <facet type="minecraft" name="Minecraft">
+      <configuration>
+        <autoDetectTypes>
+          <platformType>ARCHITECTURY</platformType>
+        </autoDetectTypes>
+        <projectReimportVersion>1</projectReimportVersion>
+      </configuration>
+    </facet>
+  </component>
 </module>
