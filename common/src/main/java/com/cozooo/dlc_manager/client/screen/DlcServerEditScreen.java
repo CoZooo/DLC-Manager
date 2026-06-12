@@ -40,6 +40,7 @@ public class DlcServerEditScreen extends Screen {
         hostField = new EditBox(this.font, centerX - fieldWidth / 2, startY + gap, fieldWidth, fieldHeight, Component.empty());
         portField = new EditBox(this.font, centerX - fieldWidth / 2, startY + gap * 2, fieldWidth, fieldHeight, Component.empty());
         passwordField = new EditBox(this.font, centerX - fieldWidth / 2, startY + gap * 3, fieldWidth, fieldHeight, Component.empty());
+        hostField.setMaxLength(255);
 
         if (editing != null) {
             if (editing.name != null) {
