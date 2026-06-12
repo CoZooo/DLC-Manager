@@ -7,17 +7,21 @@ architectury {
     common(rootProject.enabled_platforms.split(','))
 }
 
+def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+def kotlinMainDirs = [
+    '../../../common/src/main/kotlin',
+    '../../../common/1.20.1/src/main/kotlin'
+]
+
 sourceSets {
     main {
         java.srcDirs = [
             '../../../common/src/main/java',
             '../../../common/1.20.1/src/main/java'
         ]
-        if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
-            kotlin.srcDirs = [
-                '../../../common/src/main/kotlin',
-                '../../../common/1.20.1/src/main/kotlin'
-            ]
+        if (kotlinEnabled) {
+            kotlin.srcDirs = kotlinMainDirs
+            java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
         }
         resources.srcDirs = [
             '../../../common/src/main/resources',
@@ -33,6 +37,30 @@ sourceSets {
             '../../../common/src/test/resources',
             '../../../common/1.20.1/src/test/resources'
         ]
+    }
+}
+
+if (kotlinEnabled) {
+    tasks.named('compileJava').configure {
+        doFirst {
+            rootProject.deleteJavaClassesReplacedByKotlin(project, kotlinMainDirs, destinationDirectory.get().asFile)
+        }
+    }
+    tasks.named('jar').configure {
+        doFirst {
+            rootProject.deleteJavaClassesReplacedByKotlin(project, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+        }
+    }
+} else {
+    tasks.named('compileJava').configure {
+        doFirst {
+            rootProject.deleteKotlinClassesReplacedByJava(project, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+        }
+    }
+    tasks.named('jar').configure {
+        doFirst {
+            rootProject.deleteKotlinClassesReplacedByJava(project, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+        }
     }
 }
 

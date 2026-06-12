@@ -137,3 +137,58 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
         }
     }
 }
+
+ext.javaSourcesReplacedByKotlin = { Project targetProject, List<String> kotlinSourceDirs ->
+    def excludes = []
+    kotlinSourceDirs.each { String sourceDir ->
+        def root = targetProject.file(sourceDir)
+        if (!root.exists()) {
+            return
+        }
+        targetProject.fileTree(root) {
+            include '**/*.kt'
+        }.each { File kotlinFile ->
+            def relative = root.toPath().relativize(kotlinFile.toPath()).toString().replace(File.separatorChar, '/' as char)
+            excludes.add(relative.replaceFirst(/\.kt$/, '.java'))
+        }
+    }
+    return excludes
+}
+
+ext.deleteJavaClassesReplacedByKotlin = { Project targetProject, List<String> kotlinSourceDirs, File javaClassesDir ->
+    if (!javaClassesDir.exists()) {
+        return
+    }
+    rootProject.javaSourcesReplacedByKotlin(targetProject, kotlinSourceDirs).each { String javaPath ->
+        def classPath = javaPath.replaceFirst(/\.java$/, '')
+        def slash = classPath.lastIndexOf('/')
+        def classDir = slash >= 0 ? new File(javaClassesDir, classPath.substring(0, slash)) : javaClassesDir
+        def className = slash >= 0 ? classPath.substring(slash + 1) : classPath
+        if (!classDir.exists()) {
+            return
+        }
+        targetProject.delete(targetProject.fileTree(classDir) {
+            include "${className}.class"
+            include "${className}\$*.class"
+        })
+    }
+}
+
+ext.deleteKotlinClassesReplacedByJava = { Project targetProject, List<String> kotlinSourceDirs, File kotlinClassesDir ->
+    if (!kotlinClassesDir.exists()) {
+        return
+    }
+    rootProject.javaSourcesReplacedByKotlin(targetProject, kotlinSourceDirs).each { String javaPath ->
+        def classPath = javaPath.replaceFirst(/\.java$/, '')
+        def slash = classPath.lastIndexOf('/')
+        def classDir = slash >= 0 ? new File(kotlinClassesDir, classPath.substring(0, slash)) : kotlinClassesDir
+        def className = slash >= 0 ? classPath.substring(slash + 1) : classPath
+        if (!classDir.exists()) {
+            return
+        }
+        targetProject.delete(targetProject.fileTree(classDir) {
+            include "${className}.class"
+            include "${className}\$*.class"
+        })
+    }
+}
