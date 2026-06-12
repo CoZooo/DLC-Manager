@@ -345,6 +345,51 @@ def parse_scalar(token: str):
         return raw
 
 
+def is_multiline_value_start(raw: str) -> bool:
+    stripped = (raw or "").strip()
+    return stripped in {"[", "{"}
+
+
+def collect_multiline_value(lines: list[str], index: int, raw: str) -> tuple[str, int]:
+    stripped = (raw or "").strip()
+    if not is_multiline_value_start(stripped):
+        return raw, index
+    open_char = stripped
+    close_char = "]" if open_char == "[" else "}"
+    depth = 0
+    chunks: list[str] = []
+    in_string: str | None = None
+    escaped = False
+    i = index
+
+    while i < len(lines):
+        chunk = raw if i == index else lines[i].strip()
+        chunks.append(chunk)
+        for ch in chunk:
+            if escaped:
+                escaped = False
+                continue
+            if ch == "\\" and in_string is not None:
+                escaped = True
+                continue
+            if ch in {"'", '"'}:
+                if in_string is None:
+                    in_string = ch
+                elif in_string == ch:
+                    in_string = None
+                continue
+            if in_string is not None:
+                continue
+            if ch == open_char:
+                depth += 1
+            elif ch == close_char:
+                depth -= 1
+                if depth <= 0:
+                    return "\n".join(chunks), i
+        i += 1
+    return "\n".join(chunks), i - 1
+
+
 def extract_key_value(text: str, keys: list[str]):
     if not text or not keys:
         return None
@@ -354,7 +399,14 @@ def extract_key_value(text: str, keys: list[str]):
             rf'(?im)^\s*(?:"{re.escape(key)}"|\'{re.escape(key)}\'|{re.escape(key)})\s*[:=]\s*(.+?)\s*$'
         )
         for m in pattern.finditer(text):
-            value = parse_scalar(m.group(1))
+            token = m.group(1)
+            if is_multiline_value_start(token):
+                lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+                for index, line in enumerate(lines):
+                    if line == m.group(0):
+                        token, _ = collect_multiline_value(lines, index, token)
+                        break
+            value = parse_scalar(token)
     return value
 
 
@@ -425,6 +477,7 @@ def parse_dc_flat_map(text: str) -> dict[str, object]:
                     i += 1
             value: object = "\n".join(chunks)
         else:
+            rhs, i = collect_multiline_value(lines, i, rhs)
             value = parse_scalar(rhs)
         path = ".".join([*section, key]) if section else key
         out[path] = value
@@ -443,17 +496,33 @@ def parse_object_block_values(text: str, object_key: str) -> dict[str, object]:
     if match is None:
         return out
     body = match.group(1) or ""
-    pair = re.compile(
-        r'(?im)^\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|\'([^\'\\]*(?:\\.[^\'\\]*)*)\'|([A-Za-z0-9_.-]+))\s*[:=]\s*(.+?)\s*,?\s*$'
-    )
-    for m in pair.finditer(body):
+    lines = body.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("//"):
+            i += 1
+            continue
+        m = re.match(
+            r'^\s*(?:"([^"\\]*(?:\\.[^"\\]*)*)"|\'([^\'\\]*(?:\\.[^\'\\]*)*)\'|([A-Za-z0-9_.-]+))\s*[:=]\s*(.*?)\s*,?\s*$',
+            line,
+        )
+        if not m:
+            i += 1
+            continue
         if m.group(1) is not None:
             key = bytes(m.group(1), "utf-8").decode("unicode_escape")
         elif m.group(2) is not None:
             key = m.group(2)
         else:
             key = m.group(3) or ""
-        out[f"{object_key}.{key}"] = parse_scalar(m.group(4))
+        rhs, i = collect_multiline_value(lines, i, (m.group(4) or "").strip())
+        rhs = rhs.rstrip()
+        if rhs.endswith(","):
+            rhs = rhs[:-1].rstrip()
+        out[f"{object_key}.{key}"] = parse_scalar(rhs)
+        i += 1
     return out
 
 
