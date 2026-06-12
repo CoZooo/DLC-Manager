@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
@@ -314,21 +314,21 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private void applyConfig(JsonObject root) {
-        JsonObject server = JsonCaseUtil.getObjectIgnoreCase(root, "server");
+        JsonObject server = DcConfigIO.getObjectIgnoreCase(root, "server");
         if (server != null) {
             serverSupport = getBoolean(server, "serverSupport", serverSupport);
             serverPortField.setValue(Integer.toString(getInt(server, "serverPort", DlcPathConfig.getServerPort())));
             serverPasswordField.setValue(getString(server, "serverPassword", ""));
             serverSupportButton.setMessage(toggleLabel("dlc_manager.config.ui.serverSupport", serverSupport));
         }
-        JsonObject api = JsonCaseUtil.getObjectIgnoreCase(root, "api");
+        JsonObject api = DcConfigIO.getObjectIgnoreCase(root, "api");
         if (api != null) {
             apiEnabled = getBoolean(api, "apiEnabled", apiEnabled);
             apiPortField.setValue(Integer.toString(getInt(api, "apiPort", DlcPathConfig.getApiPort())));
             apiTokenField.setValue(getString(api, "apiToken", DlcPathConfig.getApiToken()));
             apiEnabledButton.setMessage(toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled));
         }
-        JsonObject ui = JsonCaseUtil.getObjectIgnoreCase(root, "ui");
+        JsonObject ui = DcConfigIO.getObjectIgnoreCase(root, "ui");
         if (ui != null) {
             uiEnableAll = getBoolean(ui, "isEnableAllButtonShown", uiEnableAll);
             uiUpdateManagerOn = getBoolean(ui, "isUpdateManagerOn", uiUpdateManagerOn);
@@ -339,14 +339,14 @@ public class DlcServerConfigScreen extends Screen {
             uiSelfUpdateButton.setMessage(toggleLabel("dlc_manager.config.ui.isSelfUpdateAutoCheckOn", uiSelfUpdateAutoCheckOn));
             uiPresetButton.setMessage(toggleLabel("dlc_manager.config.ui.isPresetFuncOn", uiPresetFuncOn));
         }
-        JsonObject paths = JsonCaseUtil.getObjectIgnoreCase(root, "paths");
+        JsonObject paths = DcConfigIO.getObjectIgnoreCase(root, "paths");
         if (paths != null) {
             dlcRootField.setValue(getString(paths, "dlcRoot", DlcPathConfig.getDlcRootRaw()));
             taczRootField.setValue(getString(paths, "taczRoot", DlcPathConfig.getTaczRootRaw()));
             resourcepackRootField.setValue(getString(paths, "resourcepackRoot", DlcPathConfig.getResourcepackRootRaw()));
             datapackRootField.setValue(getString(paths, "datapackRoot", DlcPathConfig.getDatapackRootRaw()));
         }
-        JsonObject downloads = JsonCaseUtil.getObjectIgnoreCase(root, "downloads");
+        JsonObject downloads = DcConfigIO.getObjectIgnoreCase(root, "downloads");
         if (downloads != null) {
             maxConcurrentField.setValue(Integer.toString(getInt(downloads, "maxConcurrentDownloads", DlcPathConfig.getMaxConcurrentDownloads())));
             maxSegmentsField.setValue(Integer.toString(getInt(downloads, "maxSegmentsPerFile", DlcPathConfig.getMaxSegmentsPerFile())));
@@ -443,7 +443,7 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private static int getInt(JsonObject obj, String key, int fallback) {
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsInt();
@@ -455,7 +455,7 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsBoolean();
@@ -467,7 +467,7 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private static String getString(JsonObject obj, String key, String fallback) {
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsString();

@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.config;
 
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import fi.dy.masa.malilib.config.IConfigBase;
@@ -200,7 +200,7 @@ public final class DlcServerConfigClient {
         if (root == null) {
             return new JsonObject();
         }
-        JsonElement element = JsonCaseUtil.getIgnoreCase(root, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(root, key);
         if (element != null && element.isJsonObject()) {
             return element.getAsJsonObject();
         }
@@ -208,7 +208,7 @@ public final class DlcServerConfigClient {
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsBoolean();
@@ -220,7 +220,7 @@ public final class DlcServerConfigClient {
     }
 
     private static int getInt(JsonObject obj, String key, int fallback) {
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsInt();
@@ -232,7 +232,7 @@ public final class DlcServerConfigClient {
     }
 
     private static String getString(JsonObject obj, String key, String fallback) {
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsString();

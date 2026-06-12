@@ -3,7 +3,6 @@ package com.cozooo.dlc_manager.client.preset;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -75,11 +74,11 @@ public final class DlcPresetLoader {
             return null;
         }
 
-        Map<String, String> displayName = readLangMap(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
-        Map<String, String> tip = readLangMap(JsonCaseUtil.getObjectIgnoreCase(obj, "tip"));
-        List<String> enable = readStringArray(JsonCaseUtil.getArrayIgnoreCase(obj, "enable"));
-        List<String> conflicts = readStringArray(JsonCaseUtil.getArrayIgnoreCase(obj, "conflicts"));
-        boolean alarm = JsonCaseUtil.getBooleanIgnoreCase(obj, "alarm", false);
+        Map<String, String> displayName = readLangMap(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName"));
+        Map<String, String> tip = readLangMap(DcConfigIO.getObjectIgnoreCase(obj, "tip"));
+        List<String> enable = readStringArray(DcConfigIO.getArrayIgnoreCase(obj, "enable"));
+        List<String> conflicts = readStringArray(DcConfigIO.getArrayIgnoreCase(obj, "conflicts"));
+        boolean alarm = DcConfigIO.getBooleanIgnoreCase(obj, "alarm", false);
 
         String fileName = stripExtension(path.getFileName().toString());
         String id = buildId(path, presetRoot);
@@ -98,7 +97,7 @@ public final class DlcPresetLoader {
             try {
                 String value = entry.getValue().getAsString();
                 if (value != null) {
-                    String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                    String key = DcConfigIO.normalizeLangKey(entry.getKey());
                     if (key != null) {
                         map.put(key, value);
                     }

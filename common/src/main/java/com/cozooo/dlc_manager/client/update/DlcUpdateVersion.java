@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -36,16 +35,16 @@ public class DlcUpdateVersion {
             if (obj == null) {
                 return version;
             }
-            version.base = JsonCaseUtil.getStringIgnoreCase(obj, "base");
-            version.dlc = JsonCaseUtil.getStringIgnoreCase(obj, "dlc");
-            String rollback = JsonCaseUtil.getStringIgnoreCase(obj, "rollback_from");
+            version.base = DcConfigIO.getStringIgnoreCase(obj, "base");
+            version.dlc = DcConfigIO.getStringIgnoreCase(obj, "dlc");
+            String rollback = DcConfigIO.getStringIgnoreCase(obj, "rollback_from");
             if (rollback == null || rollback.isBlank()) {
-                rollback = JsonCaseUtil.getStringIgnoreCase(obj, "rollbackFrom");
+                rollback = DcConfigIO.getStringIgnoreCase(obj, "rollbackFrom");
             }
             version.rollbackFrom = rollback;
-            String shown = JsonCaseUtil.getStringIgnoreCase(obj, "changelog_shown");
+            String shown = DcConfigIO.getStringIgnoreCase(obj, "changelog_shown");
             if (shown == null || shown.isBlank()) {
-                shown = JsonCaseUtil.getStringIgnoreCase(obj, "changelogShown");
+                shown = DcConfigIO.getStringIgnoreCase(obj, "changelogShown");
             }
             version.changelogShown = shown;
         } catch (Exception ignored) {

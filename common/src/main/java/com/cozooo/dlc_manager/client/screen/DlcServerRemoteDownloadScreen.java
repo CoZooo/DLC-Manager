@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -273,7 +273,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             return "";
         }
         if (item.displayNames != null && !item.displayNames.isEmpty()) {
-            String lang = JsonCaseUtil.normalizeLangKey(Minecraft.getInstance().options.languageCode);
+            String lang = DcConfigIO.normalizeLangKey(Minecraft.getInstance().options.languageCode);
             String name = lang == null ? null : item.displayNames.get(lang);
             if (name == null || name.isBlank()) {
                 name = item.displayNames.get("en_us");

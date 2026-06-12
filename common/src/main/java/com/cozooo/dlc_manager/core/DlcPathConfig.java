@@ -983,12 +983,12 @@ public class DlcPathConfig {
         if (root == null || keyMap.isEmpty()) {
             return;
         }
-        JsonObject obj = JsonCaseUtil.getObjectIgnoreCase(root, section);
+        JsonObject obj = DcConfigIO.getObjectIgnoreCase(root, section);
         if (obj == null) {
             return;
         }
         for (Map.Entry<String, Consumer<JsonElement>> entry : keyMap.entrySet()) {
-            JsonElement value = JsonCaseUtil.getIgnoreCase(obj, entry.getKey());
+            JsonElement value = DcConfigIO.getIgnoreCase(obj, entry.getKey());
             if (value != null) {
                 entry.getValue().accept(value);
             }
@@ -1333,40 +1333,40 @@ public class DlcPathConfig {
             }
         }
 
-        String fileName = JsonCaseUtil.getStringIgnoreCase(out, "file_name");
+        String fileName = DcConfigIO.getStringIgnoreCase(out, "file_name");
         if (fileName == null || fileName.isBlank()) {
             fileName = fallbackName == null ? "" : fallbackName;
-            JsonCaseUtil.removeIgnoreCase(out, "file_name");
+            DcConfigIO.removeIgnoreCase(out, "file_name");
             out.addProperty("file_name", fileName);
         }
 
-        String identifier = JsonCaseUtil.getStringIgnoreCase(out, "identifier");
+        String identifier = DcConfigIO.getStringIgnoreCase(out, "identifier");
         if (identifier == null || identifier.isBlank()) {
             identifier = fileName;
-            JsonCaseUtil.removeIgnoreCase(out, "identifier");
+            DcConfigIO.removeIgnoreCase(out, "identifier");
             out.addProperty("identifier", identifier == null ? "" : identifier);
         }
 
-        if (!JsonCaseUtil.hasIgnoreCase(out, "type")) {
+        if (!DcConfigIO.hasIgnoreCase(out, "type")) {
             out.addProperty("type", "others");
         }
-        if (!JsonCaseUtil.hasIgnoreCase(out, "isInList")) {
-            boolean legacyShown = JsonCaseUtil.getBooleanIgnoreCase(input, "isShownInList", true);
+        if (!DcConfigIO.hasIgnoreCase(out, "isInList")) {
+            boolean legacyShown = DcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true);
             out.addProperty("isInList", legacyShown);
         }
-        if (!JsonCaseUtil.hasIgnoreCase(out, "isHidden")) {
+        if (!DcConfigIO.hasIgnoreCase(out, "isHidden")) {
             out.addProperty("isHidden", false);
         }
-        if (!JsonCaseUtil.hasIgnoreCase(out, "AllowEnableByAll")) {
+        if (!DcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) {
             out.addProperty("AllowEnableByAll", true);
         }
-        if (!JsonCaseUtil.hasIgnoreCase(out, "dependencies")) {
+        if (!DcConfigIO.hasIgnoreCase(out, "dependencies")) {
             out.addProperty("dependencies", "");
         }
-        if (!JsonCaseUtil.hasIgnoreCase(out, "conflicts")) {
+        if (!DcConfigIO.hasIgnoreCase(out, "conflicts")) {
             out.addProperty("conflicts", "");
         }
-        if (!JsonCaseUtil.hasIgnoreCase(out, "alarm")) {
+        if (!DcConfigIO.hasIgnoreCase(out, "alarm")) {
             out.addProperty("alarm", false);
         }
 
@@ -1377,21 +1377,21 @@ public class DlcPathConfig {
 
     private static void normalizeLocalizedField(JsonObject obj, String key, String defaultEnUs) {
         JsonObject localized = new JsonObject();
-        JsonObject fromObject = JsonCaseUtil.getObjectIgnoreCase(obj, key);
+        JsonObject fromObject = DcConfigIO.getObjectIgnoreCase(obj, key);
         if (fromObject != null) {
             for (Map.Entry<String, JsonElement> entry : fromObject.entrySet()) {
                 JsonElement value = entry.getValue();
                 if (value == null || !value.isJsonPrimitive()) {
                     continue;
                 }
-                String lang = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                String lang = DcConfigIO.normalizeLangKey(entry.getKey());
                 if (lang == null || lang.isBlank()) {
                     continue;
                 }
                 localized.addProperty(lang, value.getAsString());
             }
         } else {
-            String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+            String single = DcConfigIO.getStringIgnoreCase(obj, key);
             if (single != null && !single.isBlank()) {
                 localized.addProperty("en_us", single);
             }
@@ -1399,7 +1399,7 @@ public class DlcPathConfig {
         if (localized.entrySet().isEmpty() && defaultEnUs != null && !defaultEnUs.isBlank()) {
             localized.addProperty("en_us", defaultEnUs);
         }
-        JsonCaseUtil.removeIgnoreCase(obj, key);
+        DcConfigIO.removeIgnoreCase(obj, key);
         obj.add(key, localized);
     }
 

@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -35,24 +34,24 @@ public class DlcUpdateMeta {
             return null;
         }
         DlcUpdateMeta meta = new DlcUpdateMeta();
-        meta.dlcOld = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_old");
-        meta.dlcNew = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_new");
-        meta.baseOld = JsonCaseUtil.getStringIgnoreCase(obj, "base_old");
-        meta.baseNew = JsonCaseUtil.getStringIgnoreCase(obj, "base_new");
-        meta.timestamp = JsonCaseUtil.getStringIgnoreCase(obj, "timestamp");
-        meta.hidden = JsonCaseUtil.getBooleanIgnoreCase(obj, "hidden", false);
-        JsonObject logObj = JsonCaseUtil.getObjectIgnoreCase(obj, "changelog");
+        meta.dlcOld = DcConfigIO.getStringIgnoreCase(obj, "dlc_old");
+        meta.dlcNew = DcConfigIO.getStringIgnoreCase(obj, "dlc_new");
+        meta.baseOld = DcConfigIO.getStringIgnoreCase(obj, "base_old");
+        meta.baseNew = DcConfigIO.getStringIgnoreCase(obj, "base_new");
+        meta.timestamp = DcConfigIO.getStringIgnoreCase(obj, "timestamp");
+        meta.hidden = DcConfigIO.getBooleanIgnoreCase(obj, "hidden", false);
+        JsonObject logObj = DcConfigIO.getObjectIgnoreCase(obj, "changelog");
         if (logObj != null) {
             for (var entry : logObj.entrySet()) {
                 if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
                     String raw = entry.getValue().getAsString();
                     if (raw != null && !raw.isBlank()) {
-                        meta.changelog.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), raw);
+                        meta.changelog.put(DcConfigIO.normalizeLangKey(entry.getKey()), raw);
                     }
                 }
             }
         }
-        var restoreArray = JsonCaseUtil.getArrayIgnoreCase(obj, "restore");
+        var restoreArray = DcConfigIO.getArrayIgnoreCase(obj, "restore");
         if (restoreArray != null) {
             restoreArray.forEach(el -> {
                 if (el != null && el.isJsonPrimitive()) {
@@ -60,7 +59,7 @@ public class DlcUpdateMeta {
                 }
             });
         }
-        var createdArray = JsonCaseUtil.getArrayIgnoreCase(obj, "created");
+        var createdArray = DcConfigIO.getArrayIgnoreCase(obj, "created");
         if (createdArray != null) {
             createdArray.forEach(el -> {
                 if (el != null && el.isJsonPrimitive()) {
@@ -169,7 +168,7 @@ public class DlcUpdateMeta {
         }
         for (Map.Entry<String, String> entry : values.entrySet()) {
             if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isBlank()) {
-                changelog.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), entry.getValue());
+                changelog.put(DcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue());
             }
         }
     }
@@ -178,7 +177,7 @@ public class DlcUpdateMeta {
         if (changelog.isEmpty()) {
             return "";
         }
-        String key = JsonCaseUtil.normalizeLangKey(lang);
+        String key = DcConfigIO.normalizeLangKey(lang);
         if (key != null && changelog.containsKey(key)) {
             return changelog.get(key);
         }

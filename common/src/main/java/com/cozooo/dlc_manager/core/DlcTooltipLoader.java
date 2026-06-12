@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 
 public class DlcTooltipLoader {
     private static final Gson GSON = new GsonBuilder().create();
@@ -116,7 +116,7 @@ public class DlcTooltipLoader {
             return;
         }
         boolean legacyShown = getBoolean(obj, "isShownInList", true);
-        JsonCaseUtil.removeIgnoreCase(obj, "isShownInList");
+        DcConfigIO.removeIgnoreCase(obj, "isShownInList");
         JsonObject displayName = localizedObjectFromAny(obj, "DisplayName");
         if (displayName.entrySet().isEmpty()) {
             displayName = buildDefaultDisplayName(dlcName);
@@ -133,8 +133,8 @@ public class DlcTooltipLoader {
         boolean inList = getBoolean(obj, "isInList", legacyShown);
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
-        JsonElement dependencies = normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "dependencies"));
-        JsonElement conflicts = normalizeRelationElement(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
+        JsonElement dependencies = normalizeRelationElement(DcConfigIO.getIgnoreCase(obj, "dependencies"));
+        JsonElement conflicts = normalizeRelationElement(DcConfigIO.getIgnoreCase(obj, "conflicts"));
         boolean alarm = getBoolean(obj, "alarm", false);
         JsonObject tip = localizedObjectFromAny(obj, "tip");
         String appliedTarget = getString(obj, "appliedTarget");
@@ -165,20 +165,20 @@ public class DlcTooltipLoader {
         if (entry.dlcIdentifier == null || entry.dlcIdentifier.isBlank()) {
             entry.dlcIdentifier = entry.dlcName;
         }
-        entry.hasTypeField = JsonCaseUtil.hasIgnoreCase(obj, "type");
+        entry.hasTypeField = DcConfigIO.hasIgnoreCase(obj, "type");
         boolean legacyShown = getBoolean(obj, "isShownInList", true);
         entry.inList = getBoolean(obj, "isInList", legacyShown);
         entry.hidden = getBoolean(obj, "isHidden", false);
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
-        entry.dependencies = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "dependencies"));
-        entry.conflicts = parseDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
+        entry.dependencies = parseDependencyNames(DcConfigIO.getIgnoreCase(obj, "dependencies"));
+        entry.conflicts = parseDependencyNames(DcConfigIO.getIgnoreCase(obj, "conflicts"));
         entry.alarm = getBoolean(obj, "alarm", false);
-        entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileNames"));
+        entry.fileNames = parseFileNames(DcConfigIO.getIgnoreCase(obj, "fileNames"));
         if (entry.fileNames.isEmpty()) {
-            entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "fileName"));
+            entry.fileNames = parseFileNames(DcConfigIO.getIgnoreCase(obj, "fileName"));
         }
         if (entry.fileNames.isEmpty()) {
-            entry.fileNames = parseFileNames(JsonCaseUtil.getIgnoreCase(obj, "files"));
+            entry.fileNames = parseFileNames(DcConfigIO.getIgnoreCase(obj, "files"));
         }
         entry.displayName = readLocalized(localizedObjectFromAny(obj, "DisplayName"));
         if (entry.displayName.isEmpty() && entry.dlcName != null) {
@@ -200,7 +200,7 @@ public class DlcTooltipLoader {
             Map<String, String> tips = new HashMap<>();
             for (Map.Entry<String, JsonElement> e : tipObj.entrySet()) {
                 if (e.getValue().isJsonPrimitive()) {
-                    String key = JsonCaseUtil.normalizeLangKey(e.getKey());
+                    String key = DcConfigIO.normalizeLangKey(e.getKey());
                     if (key != null) {
                         tips.put(key, e.getValue().getAsString());
                     }
@@ -215,22 +215,22 @@ public class DlcTooltipLoader {
         if (obj == null) {
             return false;
         }
-        return JsonCaseUtil.hasIgnoreCase(obj, "file_name")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_name")
-            || JsonCaseUtil.hasIgnoreCase(obj, "identifier")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
-            || JsonCaseUtil.hasIgnoreCase(obj, "DisplayName")
-            || JsonCaseUtil.hasIgnoreCase(obj, "tip")
-            || JsonCaseUtil.hasIgnoreCase(obj, "type")
-            || JsonCaseUtil.hasIgnoreCase(obj, "appliedTarget")
-            || JsonCaseUtil.hasIgnoreCase(obj, "RedirectUrl")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
-            || JsonCaseUtil.hasIgnoreCase(obj, "conflicts")
-            || JsonCaseUtil.hasIgnoreCase(obj, "isInList")
-            || JsonCaseUtil.hasIgnoreCase(obj, "isShownInList")
-            || JsonCaseUtil.hasIgnoreCase(obj, "isHidden")
-            || JsonCaseUtil.hasIgnoreCase(obj, "AllowEnableByAll")
-            || JsonCaseUtil.hasIgnoreCase(obj, "alarm");
+        return DcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DcConfigIO.hasIgnoreCase(obj, "dlc_name")
+            || DcConfigIO.hasIgnoreCase(obj, "identifier")
+            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+            || DcConfigIO.hasIgnoreCase(obj, "DisplayName")
+            || DcConfigIO.hasIgnoreCase(obj, "tip")
+            || DcConfigIO.hasIgnoreCase(obj, "type")
+            || DcConfigIO.hasIgnoreCase(obj, "appliedTarget")
+            || DcConfigIO.hasIgnoreCase(obj, "RedirectUrl")
+            || DcConfigIO.hasIgnoreCase(obj, "dependencies")
+            || DcConfigIO.hasIgnoreCase(obj, "conflicts")
+            || DcConfigIO.hasIgnoreCase(obj, "isInList")
+            || DcConfigIO.hasIgnoreCase(obj, "isShownInList")
+            || DcConfigIO.hasIgnoreCase(obj, "isHidden")
+            || DcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
+            || DcConfigIO.hasIgnoreCase(obj, "alarm");
     }
 
     private JsonObject readTooltipObject(Path path) {
@@ -263,7 +263,7 @@ public class DlcTooltipLoader {
     }
 
     private String getString(JsonObject obj, String key) {
-        return JsonCaseUtil.getStringIgnoreCase(obj, key);
+        return DcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private String getIdentifier(JsonObject obj) {
@@ -283,7 +283,7 @@ public class DlcTooltipLoader {
     }
 
     private boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
+        return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private boolean isValidDependencyElement(JsonElement element) {
@@ -297,22 +297,22 @@ public class DlcTooltipLoader {
         if (obj == null) {
             return false;
         }
-        if (JsonCaseUtil.hasIgnoreCase(obj, "dlc_name") || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")) {
+        if (DcConfigIO.hasIgnoreCase(obj, "dlc_name") || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
             return true;
         }
-        return !JsonCaseUtil.hasIgnoreCase(obj, "file_name") || !JsonCaseUtil.hasIgnoreCase(obj, "identifier");
+        return !DcConfigIO.hasIgnoreCase(obj, "file_name") || !DcConfigIO.hasIgnoreCase(obj, "identifier");
     }
 
     private boolean hasLegacyDownloadKeys(JsonObject obj) {
         if (obj == null) {
             return false;
         }
-        return JsonCaseUtil.hasIgnoreCase(obj, "modrinth_projectid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "modrinth_versionid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_projectid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_fileid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "directUrl")
-            || JsonCaseUtil.hasIgnoreCase(obj, "priority");
+        return DcConfigIO.hasIgnoreCase(obj, "modrinth_projectid")
+            || DcConfigIO.hasIgnoreCase(obj, "modrinth_versionid")
+            || DcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
+            || DcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
+            || DcConfigIO.hasIgnoreCase(obj, "directUrl")
+            || DcConfigIO.hasIgnoreCase(obj, "priority");
     }
 
     private JsonElement normalizeRelationElement(JsonElement element) {
@@ -457,7 +457,7 @@ public class DlcTooltipLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                String key = DcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     values.put(key, entry.getValue().getAsString());
                 }
@@ -473,7 +473,7 @@ public class DlcTooltipLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                String key = DcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     result.addProperty(key, entry.getValue().getAsString());
                 }
@@ -483,11 +483,11 @@ public class DlcTooltipLoader {
     }
 
     private JsonObject localizedObjectFromAny(JsonObject obj, String key) {
-        JsonObject localized = sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, key));
+        JsonObject localized = sanitizeLocalized(DcConfigIO.getObjectIgnoreCase(obj, key));
         if (!localized.entrySet().isEmpty()) {
             return localized;
         }
-        String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+        String single = DcConfigIO.getStringIgnoreCase(obj, key);
         if (single != null && !single.isBlank()) {
             localized.addProperty("en_us", single);
         }
@@ -568,7 +568,7 @@ public class DlcTooltipLoader {
             }
             if (name != null && !name.isBlank()) {
                 result.add(name.trim());
-                collectDependencyNames(JsonCaseUtil.getIgnoreCase(obj, "dependencies"), result);
+                collectDependencyNames(DcConfigIO.getIgnoreCase(obj, "dependencies"), result);
                 return;
             }
             for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {

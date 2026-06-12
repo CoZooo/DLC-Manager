@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.remote;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -334,7 +334,7 @@ public class DlcRemoteEntry {
         if (displayNames == null || displayNames.isEmpty()) {
             return fileNameHint != null ? fileNameHint : "";
         }
-        String lang = JsonCaseUtil.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
         if (displayNames.containsKey(lang)) {
             return displayNames.get(lang);
         }

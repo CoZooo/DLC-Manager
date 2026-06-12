@@ -19,7 +19,6 @@ import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -1657,7 +1656,7 @@ public final class DlcServerApi {
         if (obj == null) {
             return false;
         }
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element == null || element.isJsonNull()) {
             return false;
         }
@@ -1676,7 +1675,7 @@ public final class DlcServerApi {
         if (obj == null) {
             return null;
         }
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, key);
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
         if (element == null || element.isJsonNull()) {
             return null;
         }
@@ -1695,7 +1694,7 @@ public final class DlcServerApi {
     }
 
     private static List<String> readStringArray(JsonObject obj, String key) {
-        JsonArray array = obj == null ? null : JsonCaseUtil.getArrayIgnoreCase(obj, key);
+        JsonArray array = obj == null ? null : DcConfigIO.getArrayIgnoreCase(obj, key);
         List<String> values = new ArrayList<>();
         if (array == null) {
             return values;
@@ -1735,11 +1734,11 @@ public final class DlcServerApi {
     }
 
     private static JsonObject getSection(JsonObject root, String key) {
-        return root == null ? null : JsonCaseUtil.getObjectIgnoreCase(root, key);
+        return root == null ? null : DcConfigIO.getObjectIgnoreCase(root, key);
     }
 
     private static String getString(JsonObject obj, String key) {
-        return obj == null ? "" : blank(JsonCaseUtil.getStringIgnoreCase(obj, key));
+        return obj == null ? "" : blank(DcConfigIO.getStringIgnoreCase(obj, key));
     }
 
     private static JsonObject readJsonBody(HttpExchange exchange) throws IOException {

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.remote;
 
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import java.nio.file.Path;
@@ -89,7 +89,7 @@ public class DlcRedirectEntry {
         if (availableLangs.isEmpty()) {
             return true;
         }
-        String current = JsonCaseUtil.normalizeLangKey(lang);
+        String current = DcConfigIO.normalizeLangKey(lang);
         return current != null && availableLangs.contains(current);
     }
 
@@ -109,7 +109,7 @@ public class DlcRedirectEntry {
         if (values == null || values.isEmpty()) {
             return fallback == null ? "" : fallback;
         }
-        String key = JsonCaseUtil.normalizeLangKey(lang);
+        String key = DcConfigIO.normalizeLangKey(lang);
         if (key != null && values.containsKey(key)) {
             return values.get(key);
         }
@@ -142,7 +142,7 @@ public class DlcRedirectEntry {
                 availableLangs.clear();
                 return;
             }
-            String wanted = JsonCaseUtil.normalizeLangKey(trimmed);
+            String wanted = DcConfigIO.normalizeLangKey(trimmed);
             if (wanted != null) {
                 availableLangs.add(wanted);
             }
