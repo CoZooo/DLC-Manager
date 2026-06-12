@@ -13,6 +13,10 @@ sourceSets {
     main {
         java.srcDir '../../../fabric/src/main/java'
         java.srcDir '../../../fabric/1.21.1/src/main/java'
+        if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+            kotlin.srcDir '../../../fabric/src/main/kotlin'
+            kotlin.srcDir '../../../fabric/1.21.1/src/main/kotlin'
+        }
         resources.srcDir '../../../common/src/main/resources'
         resources.srcDir '../../../fabric/1.21.1/src/main/resources'
     }
@@ -31,6 +35,9 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
     modImplementation "dev.architectury:architectury-fabric:${rootProject.architectury_api_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${rootProject.fabric_api_version}"
+    if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+        modImplementation "net.fabricmc:fabric-language-kotlin:${rootProject.fabric_language_kotlin_version}"
+    }
     obfLib "net.fabricmc:intermediary:${rootProject.minecraft_version}:v2"
     modCompileOnly "maven.modrinth:malilib:${rootProject.malilib_version}"
     if (rootProject.modmenu_version) {
@@ -45,6 +52,7 @@ dependencies {
 }
 
 processResources {
+    def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
     def mcVersionRange = rootProject.findProperty('minecraft_version_range') ?: ">=${rootProject.minecraft_version}"
     inputs.properties([
         mod_id: rootProject.mod_id,
@@ -56,6 +64,8 @@ processResources {
         fabric_loader_version: rootProject.fabric_loader_version,
         fabric_api_version: rootProject.fabric_api_version,
         fabric_api_version_range: '0.100.0+1.21',
+        enable_kotlin: kotlinEnabled,
+        fabric_language_kotlin_version: rootProject.fabric_language_kotlin_version,
         malilib_version: rootProject.malilib_version,
         pack_format: rootProject.pack_format
     ])
@@ -74,6 +84,13 @@ processResources {
             malilib_version: rootProject.malilib_version,
             pack_format: rootProject.pack_format
         ])
+        if (kotlinEnabled) {
+            filter { line ->
+                line.contains('"architectury": "*"')
+                    ? line + "\n    \"fabric-language-kotlin\": \">=${rootProject.fabric_language_kotlin_version}\","
+                    : line
+            }
+        }
     }
 
     filesMatching('pack.mcmeta') {

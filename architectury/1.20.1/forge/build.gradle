@@ -12,6 +12,9 @@ architectury {
 sourceSets {
     main {
         java.srcDir '../../../forge/1.20.1/src/main/java'
+        if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+            kotlin.srcDir '../../../forge/1.20.1/src/main/kotlin'
+        }
         resources.srcDir '../../../forge/1.20.1/src/main/resources'
     }
 }
@@ -33,6 +36,9 @@ configurations {
 dependencies {
     forge "net.minecraftforge:forge:${rootProject.minecraft_version}-${rootProject.forge_version}"
     modImplementation "dev.architectury:architectury-forge:${rootProject.architectury_api_version}"
+    if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+        modImplementation "thedarkcolour:kotlinforforge:${rootProject.kotlin_for_forge_version}"
+    }
     modCompileOnly "curse.maven:mafglib-910766:${rootProject.mafglib_curse_file}"
     include(implementation("com.cozooo.dlc_manager:dlc-fileops-helper:${file_ops_helper_version}"))
     include(implementation("org.commonmark:commonmark:0.21.0"))
@@ -43,6 +49,15 @@ dependencies {
 }
 
 processResources {
+    def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+    def kotlinForForgeDependency = kotlinEnabled ? """
+[[dependencies.${rootProject.mod_id}]]
+modId="kotlinforforge"
+mandatory=true
+versionRange="${rootProject.kotlin_for_forge_version_range}"
+ordering="NONE"
+side="BOTH"
+""" : ""
     inputs.properties([
         mod_id: rootProject.mod_id,
         mod_name: rootProject.mod_name,
@@ -51,6 +66,7 @@ processResources {
         mc_version: rootProject.minecraft_version,
         forge_loader_version_range: '[47,)',
         forge_minecraft_version_range: '[1.20.1,1.20.2)',
+        kotlin_for_forge_dependency: kotlinForForgeDependency,
         mafglib_version_range: '[0.1.14,)',
         pack_format: rootProject.pack_format
     ])
@@ -64,6 +80,7 @@ processResources {
             mc_version: rootProject.minecraft_version,
             forge_loader_version_range: '[47,)',
             forge_minecraft_version_range: '[1.20.1,1.20.2)',
+            kotlin_for_forge_dependency: kotlinForForgeDependency,
             mafglib_version_range: '[0.1.14,)'
         ])
     }

@@ -16,6 +16,12 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
             maven { url = 'https://maven.fabricmc.net/' }
             maven { url = 'https://maven.minecraftforge.net/' }
             maven { url = 'https://maven.neoforged.net/releases/' }
+            if ((findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+                maven {
+                    name = 'Kotlin for Forge'
+                    url = 'https://thedarkcolour.github.io/KotlinForForge/'
+                }
+            }
             maven { url = 'https://api.modrinth.com/maven' }
             maven { url = 'https://maven.terraformersmc.com' }
             maven { url = 'https://cursemaven.com' }
@@ -27,6 +33,7 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
         apply plugin: 'maven-publish'
 
         def javaVersion = (project.findProperty('java_version') ?: String.valueOf(defaultJavaVersion)) as int
+        def kotlinEnabled = (project.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
         def useParchment = (project.findProperty('use_parchment') ?: 'false').toString().toBoolean()
         def parchmentVersion = (project.findProperty('parchment_mappings_version') ?: '').toString().trim()
 
@@ -38,6 +45,20 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
 
         tasks.withType(JavaCompile).configureEach {
             options.release = javaVersion
+        }
+
+        if (kotlinEnabled) {
+            apply plugin: 'org.jetbrains.kotlin.jvm'
+
+            kotlin {
+                jvmToolchain(javaVersion)
+            }
+
+            tasks.named('compileKotlin').configure {
+                compilerOptions {
+                    jvmTarget = "JVM_${javaVersion}"
+                }
+            }
         }
 
         loom {

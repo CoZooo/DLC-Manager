@@ -1,3 +1,15 @@
+buildscript {
+    if ((findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+        repositories {
+            gradlePluginPortal()
+            mavenCentral()
+        }
+        dependencies {
+            classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"
+        }
+    }
+}
+
 plugins {
     id 'architectury-plugin' version "${architectury_plugin_version}"
     id 'dev.architectury.loom' version "${architectury_loom_version}" apply false
