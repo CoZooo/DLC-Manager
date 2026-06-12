@@ -244,8 +244,9 @@ public final class DcFormatUtil {
                 continue;
             }
             if (content.startsWith("[") && content.endsWith("]") && content.length() >= 3) {
-                String header = content.substring(1, content.length() - 1).trim();
-                if (header.contains(".")) {
+                String rawHeader = content.substring(1, content.length() - 1).trim();
+                String header = unquoteKey(rawHeader);
+                if (!isQuotedKey(rawHeader) && header.contains(".")) {
                     JsonObject child = ensureGenericPath(root, header);
                     stack.clear();
                     stack.push(new GenericFrame(-1, root));
@@ -274,7 +275,7 @@ public final class DcFormatUtil {
                 index++;
                 continue;
             }
-            String key = content.substring(0, eq).trim();
+            String key = unquoteKey(content.substring(0, eq).trim());
             String valueText = content.substring(eq + 1).trim();
             ParseValue parsed = parseValue(lines, index, valueText);
             index = parsed.nextIndex + 1;
@@ -316,7 +317,7 @@ public final class DcFormatUtil {
             if (value != null && value.isJsonObject()) {
                 continue;
             }
-            out.append(entry.getKey())
+            out.append(formatGenericKey(entry.getKey()))
                 .append(" = ")
                 .append(formatGenericValue(entry.getKey(), value))
                 .append('\n');
@@ -337,7 +338,7 @@ public final class DcFormatUtil {
 
     private static void writeGenericSection(StringBuilder out, String name, JsonObject obj, int sectionIndent) {
         indentLine(out, sectionIndent);
-        out.append('[').append(name).append(']').append('\n');
+        out.append('[').append(formatGenericKey(name)).append(']').append('\n');
         boolean hasNestedSections = hasNestedGenericSections(obj);
         int bodyIndent = (sectionIndent > 0 || hasNestedSections) ? sectionIndent + 2 : 0;
         boolean wroteAny = false;
@@ -347,7 +348,7 @@ public final class DcFormatUtil {
                 continue;
             }
             indentLine(out, bodyIndent);
-            out.append(entry.getKey())
+            out.append(formatGenericKey(entry.getKey()))
                 .append(" = ")
                 .append(formatGenericValue(entry.getKey(), value))
                 .append('\n');
@@ -396,6 +397,25 @@ public final class DcFormatUtil {
             }
         }
         return current;
+    }
+
+    private static boolean isQuotedKey(String text) {
+        if (text == null) {
+            return false;
+        }
+        String key = text.trim();
+        return key.length() >= 2
+            && ((key.startsWith("\"") && key.endsWith("\"")) || (key.startsWith("'") && key.endsWith("'")));
+    }
+
+    private static String formatGenericKey(String key) {
+        if (key == null) {
+            return "\"\"";
+        }
+        if (key.matches("[A-Za-z_][A-Za-z0-9_-]*")) {
+            return key;
+        }
+        return "\"" + escapeString(key) + "\"";
     }
 
     private static String formatGenericValue(String key, JsonElement value) {
@@ -1091,10 +1111,8 @@ public final class DcFormatUtil {
             return "";
         }
         String key = text.trim();
-        if (key.length() >= 2) {
-            if ((key.startsWith("\"") && key.endsWith("\"")) || (key.startsWith("'") && key.endsWith("'"))) {
-                return key.substring(1, key.length() - 1);
-            }
+        if (isQuotedKey(key)) {
+            return unescapeQuoted(key.substring(1, key.length() - 1));
         }
         return key;
     }

@@ -36,6 +36,9 @@ public final class DlcDownloadUtil {
             return false;
         }
         String trimmed = name.trim();
+        if (trimmed.contains("/") || trimmed.contains("\\")) {
+            return false;
+        }
         int dot = trimmed.lastIndexOf('.');
         if (dot <= 0 || dot >= trimmed.length() - 1) {
             return false;
@@ -44,7 +47,7 @@ public final class DlcDownloadUtil {
         if (ext.length() > 10) {
             return false;
         }
-        return !ext.contains("/") && !ext.contains("\\");
+        return true;
     }
 
     public static String stripQuery(String name) {

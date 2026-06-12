@@ -24,6 +24,16 @@ sourceSets {
             '../../../common/1.20.1/src/main/resources'
         ]
     }
+    test {
+        java.srcDirs = [
+            '../../../common/src/test/java',
+            '../../../common/1.20.1/src/test/java'
+        ]
+        resources.srcDirs = [
+            '../../../common/src/test/resources',
+            '../../../common/1.20.1/src/test/resources'
+        ]
+    }
 }
 
 dependencies {

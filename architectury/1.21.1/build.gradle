@@ -1,6 +1,17 @@
 buildscript {
-    if ((findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+    def kotlinEnabledValue = gradle.startParameter.projectProperties['enable_kotlin']
+    if (kotlinEnabledValue == null) {
+        def rootPropsFile = file('../../gradle.properties')
+        if (rootPropsFile.exists()) {
+            def rootProps = new Properties()
+            rootPropsFile.withInputStream { rootProps.load(it) }
+            kotlinEnabledValue = rootProps.getProperty('enable_kotlin')
+        }
+    }
+    if ((kotlinEnabledValue ?: 'false').toString().toBoolean()) {
         repositories {
+            maven { url = 'https://maven.cozozjw.cn/repository/maven-public/' }
+            maven { url = 'https://maven.aliyun.com/repository/public' }
             gradlePluginPortal()
             mavenCentral()
         }
