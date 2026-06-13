@@ -41,6 +41,9 @@ sourceSets {
 }
 
 if (kotlinEnabled) {
+    tasks.named('compileKotlin').configure {
+        source(sourceSets.main.java)
+    }
     tasks.named('compileJava').configure {
         doFirst {
             rootProject.deleteJavaClassesReplacedByKotlin(project, kotlinMainDirs, destinationDirectory.get().asFile)
