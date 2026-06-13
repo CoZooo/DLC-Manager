@@ -5,7 +5,10 @@ plugins {
 }
 
 def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
-def kotlinMainDirs = ['../../../forge/1.20.1/src/main/kotlin']
+def kotlinMainDirs = [
+    '../../../forge/src/main/kotlin',
+    '../../../forge/1.20.1/src/main/kotlin'
+]
 def moduleProject = project
 
 architectury {
@@ -15,7 +18,10 @@ architectury {
 
 sourceSets {
     main {
-        java.srcDirs = ['../../../forge/1.20.1/src/main/java']
+        java.srcDirs = [
+            '../../../forge/src/main/java',
+            '../../../forge/1.20.1/src/main/java'
+        ]
         if (kotlinEnabled) {
             kotlin.srcDirs = kotlinMainDirs
             java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)

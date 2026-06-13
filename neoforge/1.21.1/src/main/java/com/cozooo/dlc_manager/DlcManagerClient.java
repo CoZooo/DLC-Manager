@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.client.screen.DlcConfigScreen;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -25,12 +24,8 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import org.slf4j.Logger;
 
 public class DlcManagerClient {
-    private static volatile boolean startupCheckRunning = false;
-    private static volatile boolean selfUpdatePrompted = false;
-    private static final Logger LOGGER = LogUtils.getLogger();
     public static void init(IEventBus modBus) {
         modBus.addListener(DlcManagerClient::onClientSetup);
         NeoForge.EVENT_BUS.register(new ClientEvents());
@@ -44,7 +39,6 @@ public class DlcManagerClient {
 
     public static class ClientEvents {
         private boolean resourcePackSynced = false;
-        private volatile boolean startupCheckRunning = false;
 
         @SubscribeEvent
         public void onTitleScreenInit(ScreenEvent.Init.Post event) {

@@ -5,7 +5,10 @@ plugins {
 }
 
 def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
-def kotlinMainDirs = ['../../../neoforge/1.21.1/src/main/kotlin']
+def kotlinMainDirs = [
+    '../../../neoforge/src/main/kotlin',
+    '../../../neoforge/1.21.1/src/main/kotlin'
+]
 def moduleProject = project
 
 architectury {
@@ -15,7 +18,10 @@ architectury {
 
 sourceSets {
     main {
-        java.srcDirs = ['../../../neoforge/1.21.1/src/main/java']
+        java.srcDirs = [
+            '../../../neoforge/src/main/java',
+            '../../../neoforge/1.21.1/src/main/java'
+        ]
         if (kotlinEnabled) {
             kotlin.srcDirs = kotlinMainDirs
             java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
