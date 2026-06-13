@@ -5,6 +5,7 @@ import com.cozooo.dlc_fileops_helper.api.FileOpsHelperApi;
 import com.cozooo.dlc_manager.core.DlcPaths;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -126,7 +127,7 @@ public final class DlcFileOpsHelperClient {
         }
         try {
             Object raw = switch (methodName) {
-                case "scheduleDelete" -> FileOpsHelperApi.scheduleDelete((List<String>) args[0]);
+                case "scheduleDelete" -> FileOpsHelperApi.scheduleDelete(asStringList(args[0]));
                 case "scheduleCopy" -> FileOpsHelperApi.scheduleCopy((String) args[0], (String) args[1], (Boolean) args[2]);
                 case "scheduleMove" -> FileOpsHelperApi.scheduleMove((String) args[0], (String) args[1], (Boolean) args[2]);
                 case "scheduleWriteText" -> FileOpsHelperApi.scheduleWriteText((String) args[0], (String) args[1]);
@@ -240,6 +241,17 @@ public final class DlcFileOpsHelperClient {
             return "";
         }
         return String.valueOf(value);
+    }
+
+    private static List<String> asStringList(Object value) {
+        if (!(value instanceof Iterable<?> iterable)) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (Object item : iterable) {
+            result.add(asString(item));
+        }
+        return result;
     }
 
     private static boolean asBoolean(Object value) {
