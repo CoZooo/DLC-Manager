@@ -33,6 +33,9 @@ jobs:
     - name: Resolve mod version
       run: echo "MOD_VERSION=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_ENV"
 
+    - name: Test Architectury
+      run: ./gradlew archTest --parallel
+
     - name: Build Architectury
       run: ./gradlew build --parallel
 
