@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.DlcClientRuntime;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
-import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
+import com.cozooo.dlc_manager.client.screen.DlcConfigScreen;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
@@ -48,7 +48,7 @@ public class DlcManagerClient {
     private static void onClientSetup(FMLClientSetupEvent event) {
         DlcUpdateService.ensureUpdateDir();
         ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
-            () -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> new DlcPathConfigScreen(parent)));
+            () -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> new DlcConfigScreen(parent)));
     }
 
     @Mod.EventBusSubscriber(modid = DlcManager.MOD_ID, value = Dist.CLIENT)

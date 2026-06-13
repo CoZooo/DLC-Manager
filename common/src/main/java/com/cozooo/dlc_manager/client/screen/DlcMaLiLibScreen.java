@@ -843,7 +843,7 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
             Minecraft.getInstance().setScreen(new DlcPresetManagerScreen(DlcMaLiLibScreen.this));
         } else if (button == configButton) {
             rememberListScroll();
-            Minecraft.getInstance().setScreen(new DlcPathConfigScreen(DlcMaLiLibScreen.this));
+            Minecraft.getInstance().setScreen(new DlcConfigScreen(DlcMaLiLibScreen.this));
         } else if (button == serverButton) {
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcServerListScreen(DlcMaLiLibScreen.this));

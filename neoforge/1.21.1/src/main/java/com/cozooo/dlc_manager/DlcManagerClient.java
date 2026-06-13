@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.client.DlcClientRuntime;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
-import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
+import com.cozooo.dlc_manager.client.screen.DlcConfigScreen;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
@@ -39,7 +39,7 @@ public class DlcManagerClient {
     private static void onClientSetup(FMLClientSetupEvent event) {
         DlcUpdateService.ensureUpdateDir();
         ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory.class,
-            () -> (modContainer, parent) -> new DlcPathConfigScreen(parent));
+            () -> (modContainer, parent) -> new DlcConfigScreen(parent));
     }
 
     public static class ClientEvents {
