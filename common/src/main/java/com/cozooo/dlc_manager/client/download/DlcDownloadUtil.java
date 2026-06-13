@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.download;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -15,7 +15,7 @@ public final class DlcDownloadUtil {
 
     public static String extractFileNameFromUrl(String url) {
         try {
-            String path = new URL(url).getPath();
+            String path = URI.create(url).getRawPath();
             int idx = path.lastIndexOf('/');
             if (idx >= 0 && idx + 1 < path.length()) {
                 String name = decodeUrlPathSegment(path.substring(idx + 1));

@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.download
 
 import java.io.IOException
-import java.net.URL
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -12,7 +12,7 @@ object DlcDownloadUtil {
     @JvmStatic
     fun extractFileNameFromUrl(url: String?): String? {
         return try {
-            val path = URL(url).path
+            val path = URI.create(url).rawPath
             val idx = path.lastIndexOf('/')
             if (idx >= 0 && idx + 1 < path.length) {
                 val name = decodeUrlPathSegment(path.substring(idx + 1))

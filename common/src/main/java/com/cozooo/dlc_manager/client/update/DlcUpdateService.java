@@ -37,7 +37,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -2198,7 +2198,7 @@ public final class DlcUpdateService {
     private static String fetchHeaderFileName(String url) {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(true);
             connection.setRequestMethod("HEAD");
             connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());

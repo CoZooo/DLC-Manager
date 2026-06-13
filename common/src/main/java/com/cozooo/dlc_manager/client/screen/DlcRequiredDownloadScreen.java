@@ -27,7 +27,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -1311,7 +1311,7 @@ public class DlcRequiredDownloadScreen extends Screen {
     }
 
     private DownloadInfo openDownload(String url, long offset) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setConnectTimeout(connectTimeoutMs);
         connection.setReadTimeout(taskTimeoutMs);

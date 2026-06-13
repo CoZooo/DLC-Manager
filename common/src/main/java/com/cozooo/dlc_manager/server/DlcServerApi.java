@@ -1625,8 +1625,7 @@ public final class DlcServerApi {
         }
         java.net.HttpURLConnection connection = null;
         try {
-            java.net.URL target = new java.net.URL(url);
-            connection = (java.net.HttpURLConnection) target.openConnection();
+            connection = (java.net.HttpURLConnection) java.net.URI.create(url).toURL().openConnection();
             connection.setConnectTimeout(3000);
             connection.setReadTimeout(5000);
             connection.setInstanceFollowRedirects(true);

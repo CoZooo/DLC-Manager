@@ -302,8 +302,7 @@ public class DlcNoticeConfig {
         contentUrlLoaded.add(normalizedUrl);
         java.net.HttpURLConnection connection = null;
         try {
-            java.net.URL url = new java.net.URL(normalizedUrl);
-            connection = (java.net.HttpURLConnection) url.openConnection();
+            connection = (java.net.HttpURLConnection) java.net.URI.create(normalizedUrl).toURL().openConnection();
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(10000);
             connection.setInstanceFollowRedirects(true);

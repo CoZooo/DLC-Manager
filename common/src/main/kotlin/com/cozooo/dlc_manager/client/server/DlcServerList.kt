@@ -29,7 +29,7 @@ object DlcServerList {
                 val data = gson.fromJson(root, DlcServerListData::class.java)
                 val servers = data?.servers
                 if (servers != null) {
-                    entries.addAll(servers)
+                    entries.addAll(servers.filterNotNull())
                     lastSelectedKey = data.lastSelected
                 }
             }
@@ -62,7 +62,7 @@ object DlcServerList {
 
     @JvmStatic
     fun setEntries(newEntries: List<DlcServerEntry>?) {
-        entries = ArrayList(newEntries ?: emptyList())
+        entries = ArrayList(newEntries?.filterNotNull() ?: emptyList())
     }
 
     @JvmStatic
@@ -92,7 +92,7 @@ object DlcServerList {
     }
 
     private class DlcServerListData {
-        var servers: List<DlcServerEntry>? = null
+        var servers: List<DlcServerEntry?>? = null
         var lastSelected: String? = null
     }
 }

@@ -8,6 +8,6 @@ class DlcServerUpdateState {
     @JvmField var rollbackFrom: String? = null
     @JvmField var modpackUrl: String? = null
     @JvmField var updateGithubRepo: String? = null
-    @JvmField var history: MutableList<DlcUpdateMeta>? = null
-    @JvmField var updates: MutableList<DlcServerUpdateInfo>? = null
+    @JvmField var history: MutableList<DlcUpdateMeta?>? = null
+    @JvmField var updates: MutableList<DlcServerUpdateInfo?>? = null
 }

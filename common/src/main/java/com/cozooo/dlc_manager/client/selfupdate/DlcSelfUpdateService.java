@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -456,7 +456,7 @@ public final class DlcSelfUpdateService {
     private static void downloadToFile(String url, Path target) throws IOException {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(true);
             connection.setConnectTimeout(20000);
             connection.setReadTimeout(180000);
