@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import fi.dy.masa.malilib.gui.GuiListBase;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Checkbox;
@@ -11,12 +12,24 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 
 public final class DlcScreenCompat {
     private static final Field RENDERABLES_FIELD = findField(Screen.class, "renderables");
 
     private DlcScreenCompat() {
+    }
+
+    public abstract static class MouseScroll extends Screen {
+        protected MouseScroll(Component title) {
+            super(title);
+        }
+
+        @Override
+        public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+            return handleCompatibleMouseScrolled(mouseX, mouseY, vertical);
+        }
+
+        protected abstract boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY);
     }
 
     public static void renderBackground(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
@@ -69,31 +82,8 @@ public final class DlcScreenCompat {
         }
     }
 
-    public static boolean invokeCompatibleMouseScroll(Object target, String methodName, int mouseX, int mouseY, double deltaX, double deltaY) {
-        Method method = findDeclaredMethod(target.getClass(), methodName, int.class, int.class, double.class, double.class);
-        if (method == null) {
-            throw new IllegalStateException("Failed to resolve compatible mouse scroll handler: " + methodName);
-        }
-        try {
-            Object value = method.invoke(target, mouseX, mouseY, deltaX, deltaY);
-            return value instanceof Boolean result && result;
-        } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException("Failed to invoke compatible mouse scroll handler", ex);
-        }
-    }
-
-    private static Method findDeclaredMethod(Class<?> owner, String name, Class<?>... parameterTypes) {
-        Class<?> current = owner;
-        while (current != null) {
-            try {
-                Method method = current.getDeclaredMethod(name, parameterTypes);
-                method.setAccessible(true);
-                return method;
-            } catch (ReflectiveOperationException ignored) {
-                current = current.getSuperclass();
-            }
-        }
-        return null;
+    public static boolean invokeCompatibleMouseScroll(GuiListBase<?, ?, ?> target, int mouseX, int mouseY, double deltaX, double deltaY) {
+        return target.onMouseScrolled(mouseX, mouseY, deltaX, deltaY);
     }
 
     private static Field findField(Class<?> owner, String name) {

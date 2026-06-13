@@ -18,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerFileManagerScreen extends Screen {
+public class DlcServerFileManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final int ROW_HEIGHT = 18;
 
     private final Screen parent;
@@ -202,12 +202,9 @@ public class DlcServerFileManagerScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(mouseX, mouseY, delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        return handleMouseScrolled(mouseX, mouseY, verticalAmount);
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
+        return handleMouseScrolled(mouseX, mouseY, deltaY);
     }
 
     private boolean handleMouseScrolled(double mouseX, double mouseY, double verticalAmount) {

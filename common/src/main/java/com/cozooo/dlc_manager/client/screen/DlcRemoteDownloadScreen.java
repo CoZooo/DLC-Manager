@@ -35,7 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public class DlcRemoteDownloadScreen extends Screen {
+public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     private static final int LINE_HEIGHT = 10;
     private static final int CHECKBOX_SIZE = 8;
     private static final int CHECKBOX_X = 12;
@@ -206,11 +206,8 @@ public class DlcRemoteDownloadScreen extends Screen {
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

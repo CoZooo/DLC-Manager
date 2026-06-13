@@ -41,7 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public class DlcRequiredDownloadScreen extends Screen {
+public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
     private static final long SWITCH_DELAY_MS = 20_000L;
     private static final int SWITCH_BUTTON_SIZE = 8;
     private static final int SWITCH_BUTTON_PAD = 4;
@@ -247,11 +247,8 @@ public class DlcRequiredDownloadScreen extends Screen {
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

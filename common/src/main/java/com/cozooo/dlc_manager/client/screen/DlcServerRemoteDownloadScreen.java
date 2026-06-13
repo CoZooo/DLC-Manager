@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DlcServerRemoteDownloadScreen extends Screen {
+public class DlcServerRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     private static final int LINE_HEIGHT = 10;
     private static final int CHECKBOX_SIZE = 8;
     private static final int CHECKBOX_X = 12;
@@ -333,11 +333,8 @@ public class DlcServerRemoteDownloadScreen extends Screen {
         return 0f;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

@@ -21,7 +21,7 @@ import net.minecraft.util.FormattedCharSequence;
 import java.util.List;
 import java.util.ArrayList;
 
-public class DlcUpdatePromptScreen extends Screen {
+public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
     private final Screen parent;
     private final UpdateCheckResult result;
     private final boolean forceUpdate;
@@ -256,11 +256,8 @@ public class DlcUpdatePromptScreen extends Screen {
         guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

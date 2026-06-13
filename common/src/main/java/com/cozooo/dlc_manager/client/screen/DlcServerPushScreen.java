@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerPushScreen extends Screen {
+public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
     private static final int LINE_HEIGHT = 10;
     private static final int CHECKBOX_SIZE = 8;
     private static final int CHECKBOX_X = 12;
@@ -190,11 +190,8 @@ public class DlcServerPushScreen extends Screen {
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

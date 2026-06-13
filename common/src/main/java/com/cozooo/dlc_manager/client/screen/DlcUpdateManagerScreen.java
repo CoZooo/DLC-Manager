@@ -32,7 +32,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DlcUpdateManagerScreen extends Screen {
+public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     private final Screen parent;
     private Button importButton;
     private Button urlButton;
@@ -321,12 +321,9 @@ public class DlcUpdateManagerScreen extends Screen {
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        return handleMouseScrolled(vertical);
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
+        return handleMouseScrolled(deltaY);
     }
 
     private boolean handleMouseScrolled(double vertical) {

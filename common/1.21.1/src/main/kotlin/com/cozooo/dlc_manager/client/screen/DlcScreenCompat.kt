@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.screen
 
+import fi.dy.masa.malilib.gui.GuiListBase
 import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Checkbox
@@ -10,10 +11,17 @@ import net.minecraft.client.gui.components.toasts.ToastComponent
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.lang.reflect.Field
-import java.lang.reflect.Method
 
 object DlcScreenCompat {
     private val RENDERABLES_FIELD: Field? = findField(Screen::class.java, "renderables")
+
+    abstract class MouseScroll(title: Component) : Screen(title) {
+        override fun mouseScrolled(mouseX: Double, mouseY: Double, horizontal: Double, vertical: Double): Boolean {
+            return handleCompatibleMouseScrolled(mouseX, mouseY, vertical)
+        }
+
+        protected abstract fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean
+    }
 
     @JvmStatic
     fun renderBackground(screen: Screen, guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
@@ -71,35 +79,8 @@ object DlcScreenCompat {
     }
 
     @JvmStatic
-    fun invokeCompatibleMouseScroll(target: Any, methodName: String, mouseX: Int, mouseY: Int, deltaX: Double, deltaY: Double): Boolean {
-        val method = findDeclaredMethod(
-            target.javaClass,
-            methodName,
-            Int::class.javaPrimitiveType!!,
-            Int::class.javaPrimitiveType!!,
-            Double::class.javaPrimitiveType!!,
-            Double::class.javaPrimitiveType!!,
-        ) ?: throw IllegalStateException("Failed to resolve compatible mouse scroll handler: $methodName")
-        return try {
-            val value = method.invoke(target, mouseX, mouseY, deltaX, deltaY)
-            value is Boolean && value
-        } catch (ex: ReflectiveOperationException) {
-            throw IllegalStateException("Failed to invoke compatible mouse scroll handler", ex)
-        }
-    }
-
-    private fun findDeclaredMethod(owner: Class<*>, name: String, vararg parameterTypes: Class<*>): Method? {
-        var current: Class<*>? = owner
-        while (current != null) {
-            try {
-                val method = current.getDeclaredMethod(name, *parameterTypes)
-                method.isAccessible = true
-                return method
-            } catch (_: ReflectiveOperationException) {
-                current = current.superclass
-            }
-        }
-        return null
+    fun invokeCompatibleMouseScroll(target: GuiListBase<*, *, *>, mouseX: Int, mouseY: Int, deltaX: Double, deltaY: Double): Boolean {
+        return target.onMouseScrolled(mouseX, mouseY, deltaX, deltaY)
     }
 
     private fun findField(owner: Class<*>, name: String): Field? {

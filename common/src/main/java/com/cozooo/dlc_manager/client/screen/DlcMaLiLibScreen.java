@@ -21,7 +21,6 @@ import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import fi.dy.masa.malilib.gui.GuiListBase;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
 import fi.dy.masa.malilib.util.StringUtils;
@@ -47,7 +46,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 
-public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcListWidget> implements DlcReturnPositionHost {
+public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry, DlcListWidget> implements DlcReturnPositionHost {
     public static void refreshCurrentOpenScreen() {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft == null || !(minecraft.screen instanceof DlcMaLiLibScreen screen)) {
@@ -159,19 +158,12 @@ public class DlcMaLiLibScreen extends GuiListBase<DlcListRow, DlcListEntry, DlcL
         DlcTooltipContext.render(guiGraphics, Minecraft.getInstance().font);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(mouseX, mouseY, 0.0, delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
-        return handleMouseScrolled(mouseX, mouseY, deltaX, deltaY);
-    }
-
-    private boolean handleMouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
         if (isOverAnyButton(mouseX, mouseY)) {
             return true;
         }
-        return DlcScreenCompat.invokeCompatibleMouseScroll(this, "onMouseScrolled", (int) mouseX, (int) mouseY, deltaX, deltaY);
+        return DlcScreenCompat.invokeCompatibleMouseScroll(this, (int) mouseX, (int) mouseY, deltaX, deltaY);
     }
 
     private boolean isOverAnyButton(double mouseX, double mouseY) {

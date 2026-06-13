@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerRconQuickScreen extends Screen {
+public class DlcServerRconQuickScreen extends DlcScreenCompat.MouseScroll {
     private final Screen parent;
     private final DlcServerEntry serverEntry;
     private final int port;
@@ -109,12 +109,9 @@ public class DlcServerRconQuickScreen extends Screen {
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(mouseX, mouseY, delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        return handleMouseScrolled(mouseX, mouseY, vertical);
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
+        return handleMouseScrolled(mouseX, mouseY, deltaY);
     }
 
     private boolean handleMouseScrolled(double mouseX, double mouseY, double vertical) {

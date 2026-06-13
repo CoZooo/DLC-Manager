@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerManagerScreen extends Screen {
+public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final int ROW_HEIGHT = 22;
     private static final int FILTER_TAB_HEIGHT = 18;
     private static final int FILTER_TAB_GAP = 6;
@@ -411,11 +411,8 @@ public class DlcServerManagerScreen extends Screen {
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return false;
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return false;
     }
 

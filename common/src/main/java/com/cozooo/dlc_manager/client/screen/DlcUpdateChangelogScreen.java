@@ -9,7 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import java.util.List;
 
-public class DlcUpdateChangelogScreen extends Screen {
+public class DlcUpdateChangelogScreen extends DlcScreenCompat.MouseScroll {
     private final Screen parent;
     private final String changelog;
     private final Runnable onDone;
@@ -122,11 +122,8 @@ public class DlcUpdateChangelogScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 
