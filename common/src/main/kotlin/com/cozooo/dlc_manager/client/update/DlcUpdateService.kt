@@ -2518,6 +2518,8 @@ object DlcUpdateService {
         state.enabled = true
         state.appliedTargets = applied.stream()
             .map<kotlin.String?> { obj: Path? -> DlcUpdateService.toGameRelativePath(obj) }
+            .filter { obj: kotlin.String? -> obj != null }
+            .map { obj: kotlin.String? -> obj!! }
             .toList()
         DlcConfig.setState(key, state)
         DlcConfig.save()
@@ -2749,7 +2751,7 @@ object DlcUpdateService {
                     backupAndDelete(applied, context)
                 }
                 state.enabled = false
-                state.appliedTargets = mutableListOf<kotlin.String?>()
+                state.appliedTargets = emptyList<kotlin.String>()
                 DlcConfig.setState(key, state)
             }
         }

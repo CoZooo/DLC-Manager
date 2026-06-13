@@ -39,7 +39,7 @@ object DlcServerUpdateNotifier {
         CompletableFuture.runAsync {
             val result = DlcSelfUpdateService.checkForUpdate()
             lastResult = result
-            if (result != null && result.hasUpdate) {
+            if (result.hasUpdate) {
                 server.execute { sendIfUpdate(player) }
             }
         }

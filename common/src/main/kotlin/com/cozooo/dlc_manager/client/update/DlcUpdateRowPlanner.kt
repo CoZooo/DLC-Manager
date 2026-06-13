@@ -45,13 +45,12 @@ object DlcUpdateRowPlanner {
         val rows = ArrayList<UpdateRow>()
         var hasVisibleUpdates = false
 
-        if (selfHistory != null
-            && selfHistory.oldVersion != null && selfHistory.oldVersion.isNotBlank()
-            && selfHistory.newVersion != null && selfHistory.newVersion.isNotBlank()
-        ) {
+        val selfOldVersion = selfHistory?.oldVersion
+        val selfNewVersion = selfHistory?.newVersion
+        if (!selfOldVersion.isNullOrBlank() && !selfNewVersion.isNullOrBlank()) {
             val managerMeta = DlcUpdateMeta()
-            managerMeta.setDlcOld(selfHistory.oldVersion)
-            managerMeta.setDlcNew(selfHistory.newVersion)
+            managerMeta.setDlcOld(selfOldVersion)
+            managerMeta.setDlcNew(selfNewVersion)
             rows.add(
                 UpdateRow(
                     managerMeta,

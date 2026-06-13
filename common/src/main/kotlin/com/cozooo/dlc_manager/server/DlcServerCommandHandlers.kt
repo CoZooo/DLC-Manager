@@ -87,7 +87,7 @@ object DlcServerCommandHandlers {
         sendSuccess(source, Component.translatable("dlc_manager.self_update.checking"))
         CompletableFuture.runAsync {
             val result = DlcSelfUpdateService.checkForUpdate()
-            if (result == null || !result.hasUpdate) {
+            if (!result.hasUpdate) {
                 execute(source) { sendSuccess(source, Component.translatable("dlc_manager.self_update.none")) }
                 return@runAsync
             }
