@@ -1,0 +1,472 @@
+package com.cozooo.dlc_manager.client.download
+
+import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.google.gson.Gson
+import com.google.gson.JsonObject
+import java.io.IOException
+import java.net.URI
+import java.net.URLEncoder
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+import java.nio.charset.StandardCharsets
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+
+object CurseForgeClient {
+    private val GSON = Gson()
+    private const val API_KEY_SHIFT = 7
+    private const val API_KEY_MASK: Byte = 0x5A
+    private val API_KEY_PART1 = byteArrayOf(
+        0x49.toByte(), 0x04.toByte(), 0xBC.toByte(), 0x56.toByte(), 0x16.toByte(), 0x94.toByte(), 0x84.toByte(), 0xB9.toByte(),
+        0x31.toByte(), 0xB9.toByte(), 0x9B.toByte(), 0x63.toByte(), 0x5F.toByte(), 0x5A.toByte(), 0x12.toByte(), 0xFF.toByte(),
+        0xFA.toByte(), 0x7F.toByte(), 0xE3.toByte(), 0xD6.toByte(), 0xF6.toByte(), 0x08.toByte(), 0xC4.toByte(), 0x30.toByte(),
+        0x42.toByte(), 0xA8.toByte(), 0x83.toByte(), 0xE3.toByte(), 0x9A.toByte(), 0x6C.toByte(), 0x42.toByte(), 0x53.toByte(),
+        0x0A.toByte(), 0xFE.toByte(), 0xDE.toByte(), 0x1F.toByte(), 0xC5.toByte(), 0x9C.toByte(), 0x7A.toByte(), 0x8A.toByte(),
+        0xC6.toByte(), 0x66.toByte(), 0x28.toByte(), 0x30.toByte(), 0x3B.toByte(), 0xA3.toByte(), 0xD4.toByte(), 0x7B.toByte(),
+        0x43.toByte(), 0x7C.toByte(), 0x19.toByte(), 0x57.toByte(), 0x03.toByte(), 0xC2.toByte(), 0x26.toByte(), 0x3F.toByte(),
+        0x54.toByte(), 0xFF.toByte(), 0x5C.toByte(), 0xF2.toByte(),
+    )
+    private const val API_KEY_PART2_SEED = 0xA5
+    private var API_KEY_CACHE: String? = null
+    private val CLIENT: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs().toLong()))
+        .build()
+    private val CACHE: MutableMap<String, CurseForgeFile> = ConcurrentHashMap()
+    private val PROJECT_ID_CACHE: MutableMap<String, String> = ConcurrentHashMap()
+    private const val MINECRAFT_GAME_ID = 432
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
+    fun fetchFile(projectId: String?, fileId: String?): CurseForgeFile? {
+        if (fileId.isNullOrBlank()) {
+            return null
+        }
+        val apiKey = getApiKey()
+        if (apiKey.isNullOrBlank()) {
+            return null
+        }
+        val cacheKey = (projectId ?: "") + ":" + fileId
+        CACHE[cacheKey]?.let { return it }
+        val data = fetchFileData(projectId, fileId, apiKey) ?: return null
+        val file = CurseForgeFile()
+        file.id = fileId
+        applyFileData(file, data)
+        if (file.url.isNullOrBlank()) {
+            file.url = fetchDownloadUrl(projectId, fileId, apiKey)
+        }
+        CACHE[cacheKey] = file
+        return file
+    }
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
+    fun fetchFileByIdOrVersion(projectIdOrSlug: String?, fileIdOrVersion: String?, mcVersion: String?, loader: String?): CurseForgeFile? {
+        if (fileIdOrVersion.isNullOrBlank()) {
+            return null
+        }
+        val trimmed = fileIdOrVersion.trim()
+        if (isNumeric(trimmed)) {
+            return fetchFile(resolveProjectId(projectIdOrSlug), trimmed)
+        }
+        val resolvedProjectId = resolveProjectId(projectIdOrSlug)
+        if (resolvedProjectId.isNullOrBlank()) {
+            return null
+        }
+        val cacheKey = resolvedProjectId +
+            ":" + (mcVersion ?: "") +
+            ":" + (loader ?: "") +
+            ":version:" + trimmed
+        CACHE[cacheKey]?.let { return it }
+        val matched = fetchFileByVersion(resolvedProjectId, trimmed, mcVersion, loader)
+        if (matched != null) {
+            CACHE[cacheKey] = matched
+        }
+        return matched
+    }
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
+    fun fetchLatestFile(projectId: String?, mcVersion: String?, loader: String?): CurseForgeFile? {
+        val resolvedProjectId = resolveProjectId(projectId)
+        if (resolvedProjectId.isNullOrBlank()) {
+            return null
+        }
+        val apiKey = getApiKey()
+        if (apiKey.isNullOrBlank()) {
+            return null
+        }
+        val cacheKey = resolvedProjectId + ":" + (mcVersion ?: "") + ":" + (loader ?: "")
+        CACHE[cacheKey]?.let { return it }
+        var endpoint = "https://api.curseforge.com/v1/mods/$resolvedProjectId/files?pageSize=50"
+        if (!mcVersion.isNullOrBlank()) {
+            endpoint += "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8)
+        }
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .header("x-api-key", apiKey)
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .GET()
+            .build()
+        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null
+        }
+        val root = GSON.fromJson(response.body(), JsonObject::class.java)
+        if (root == null || !root.has("data") || !root.get("data").isJsonArray) {
+            return null
+        }
+        var latest: CurseForgeFile? = null
+        var latestTime: Instant? = null
+        val targetLoader = loader?.trim() ?: ""
+        for (element in root.getAsJsonArray("data")) {
+            if (!element.isJsonObject) {
+                continue
+            }
+            val data = element.asJsonObject
+            if (!matchesGameVersion(data, mcVersion, targetLoader)) {
+                continue
+            }
+            val file = CurseForgeFile()
+            file.id = getString(data, "id")
+            applyFileData(file, data)
+            val time = parseInstant(file.fileDate)
+            if (latest == null || isAfter(time, latestTime)) {
+                latest = file
+                latestTime = time
+            }
+        }
+        val latestFile = latest ?: return null
+        if (latestFile.url.isNullOrBlank()) {
+            latestFile.url = fetchDownloadUrl(resolvedProjectId, latestFile.id, apiKey)
+        }
+        CACHE[cacheKey] = latestFile
+        return latestFile
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun fetchFileByVersion(projectId: String?, version: String?, mcVersion: String?, loader: String?): CurseForgeFile? {
+        if (projectId.isNullOrBlank() || version.isNullOrBlank()) {
+            return null
+        }
+        val apiKey = getApiKey()
+        if (apiKey.isNullOrBlank()) {
+            return null
+        }
+        var endpoint = "https://api.curseforge.com/v1/mods/$projectId/files?pageSize=50"
+        if (!mcVersion.isNullOrBlank()) {
+            endpoint += "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8)
+        }
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .header("x-api-key", apiKey)
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .GET()
+            .build()
+        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null
+        }
+        val root = GSON.fromJson(response.body(), JsonObject::class.java)
+        if (root == null || !root.has("data") || !root.get("data").isJsonArray) {
+            return null
+        }
+        var matched: CurseForgeFile? = null
+        var matchedTime: Instant? = null
+        val targetLoader = loader?.trim() ?: ""
+        val versionLower = version.trim().lowercase()
+        for (element in root.getAsJsonArray("data")) {
+            if (!element.isJsonObject) {
+                continue
+            }
+            val data = element.asJsonObject
+            if (!matchesGameVersion(data, mcVersion, targetLoader)) {
+                continue
+            }
+            val fileName = getString(data, "fileName")
+            val displayName = getString(data, "displayName")
+            if (!containsVersion(fileName, displayName, versionLower)) {
+                continue
+            }
+            val file = CurseForgeFile()
+            file.id = getString(data, "id")
+            applyFileData(file, data)
+            file.fileName = fileName
+            file.displayName = displayName
+            val time = parseInstant(file.fileDate)
+            if (matched == null || isAfter(time, matchedTime)) {
+                matched = file
+                matchedTime = time
+            }
+        }
+        val matchedFile = matched ?: return null
+        if (matchedFile.url.isNullOrBlank()) {
+            matchedFile.url = fetchDownloadUrl(projectId, matchedFile.id, apiKey)
+        }
+        return matchedFile
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun resolveProjectId(projectIdOrSlug: String?): String? {
+        if (projectIdOrSlug.isNullOrBlank()) {
+            return null
+        }
+        val trimmed = projectIdOrSlug.trim()
+        if (isNumeric(trimmed)) {
+            return trimmed
+        }
+        val lower = trimmed.lowercase()
+        PROJECT_ID_CACHE[lower]?.let { return if (it.isBlank()) null else it }
+        val apiKey = getApiKey()
+        if (apiKey.isNullOrBlank()) {
+            return null
+        }
+        val endpoint = "https://api.curseforge.com/v1/mods/search?gameId=$MINECRAFT_GAME_ID" +
+            "&slug=" + URLEncoder.encode(trimmed, StandardCharsets.UTF_8)
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .header("x-api-key", apiKey)
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .GET()
+            .build()
+        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            PROJECT_ID_CACHE[lower] = ""
+            return null
+        }
+        val root = GSON.fromJson(response.body(), JsonObject::class.java)
+        if (root == null || !root.has("data") || !root.get("data").isJsonArray) {
+            PROJECT_ID_CACHE[lower] = ""
+            return null
+        }
+        for (element in root.getAsJsonArray("data")) {
+            if (!element.isJsonObject) {
+                continue
+            }
+            val data = element.asJsonObject
+            val id = getString(data, "id")
+            if (!id.isNullOrBlank()) {
+                PROJECT_ID_CACHE[lower] = id
+                return id
+            }
+        }
+        PROJECT_ID_CACHE[lower] = ""
+        return null
+    }
+
+    private fun containsVersion(fileName: String?, displayName: String?, versionLower: String?): Boolean {
+        if (versionLower.isNullOrBlank()) {
+            return false
+        }
+        if (fileName != null && fileName.lowercase().contains(versionLower)) {
+            return true
+        }
+        return displayName != null && displayName.lowercase().contains(versionLower)
+    }
+
+    private fun isNumeric(value: String?): Boolean {
+        if (value.isNullOrBlank()) {
+            return false
+        }
+        for (c in value) {
+            if (c < '0' || c > '9') {
+                return false
+            }
+        }
+        return true
+    }
+
+    private fun getApiKey(): String? {
+        API_KEY_CACHE?.let { return it }
+        val part2 = generatePart2(API_KEY_PART1.size)
+        if (API_KEY_PART1.isEmpty() || part2.isEmpty() || API_KEY_PART1.size != part2.size) {
+            API_KEY_CACHE = ""
+            return API_KEY_CACHE
+        }
+        val len = API_KEY_PART1.size
+        val decoded = ByteArray(len)
+        for (i in 0 until len) {
+            val mixed = (API_KEY_PART1[i].toInt() xor part2[i].toInt()).toByte()
+            decoded[i] = (mixed.toInt() xor API_KEY_MASK.toInt() xor ((i * 31) and 0xFF)).toByte()
+        }
+        val shifted = ByteArray(len)
+        for (i in 0 until len) {
+            shifted[(i + API_KEY_SHIFT) % len] = decoded[i]
+        }
+        API_KEY_CACHE = String(shifted, StandardCharsets.UTF_8)
+        return API_KEY_CACHE
+    }
+
+    private fun generatePart2(length: Int): ByteArray {
+        if (length <= 0) {
+            return ByteArray(0)
+        }
+        val part2 = ByteArray(length)
+        var seed = API_KEY_PART2_SEED and 0xFF
+        for (i in 0 until length) {
+            seed = (seed * 1103515245 + 12345) and 0xFF
+            part2[i] = seed.toByte()
+        }
+        return part2
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun fetchFileData(projectId: String?, fileId: String, apiKey: String): JsonObject? {
+        val endpoint = if (!projectId.isNullOrBlank()) {
+            "https://api.curseforge.com/v1/mods/$projectId/files/$fileId"
+        } else {
+            "https://api.curseforge.com/v1/mods/files/$fileId"
+        }
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .header("x-api-key", apiKey)
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .GET()
+            .build()
+        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null
+        }
+        val root = GSON.fromJson(response.body(), JsonObject::class.java)
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject) {
+            return null
+        }
+        return root.getAsJsonObject("data")
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun fetchDownloadUrl(projectId: String?, fileId: String?, apiKey: String): String? {
+        if (projectId.isNullOrBlank() || fileId.isNullOrBlank()) {
+            return null
+        }
+        val endpoint = "https://api.curseforge.com/v1/mods/$projectId/files/$fileId/download-url"
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .header("x-api-key", apiKey)
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .GET()
+            .build()
+        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null
+        }
+        val root = GSON.fromJson(response.body(), JsonObject::class.java)
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject) {
+            return null
+        }
+        val data = root.getAsJsonObject("data")
+        return getString(data, "downloadUrl")
+    }
+
+    private fun getString(obj: JsonObject?, key: String): String? {
+        return if (obj != null && obj.has(key) && obj.get(key).isJsonPrimitive) {
+            obj.get(key).asString
+        } else {
+            null
+        }
+    }
+
+    private fun matchesGameVersion(data: JsonObject?, mcVersion: String?, loader: String?): Boolean {
+        if (data == null || !data.has("gameVersions") || !data.get("gameVersions").isJsonArray) {
+            return false
+        }
+        val versions = HashSet<String>()
+        for (entry in data.getAsJsonArray("gameVersions")) {
+            if (entry.isJsonPrimitive) {
+                versions.add(entry.asString)
+            }
+        }
+        if (!mcVersion.isNullOrBlank() && !versions.contains(mcVersion)) {
+            return false
+        }
+        if (!loader.isNullOrBlank()) {
+            for (value in versions) {
+                if (value.equals(loader, ignoreCase = true)) {
+                    return true
+                }
+            }
+            return false
+        }
+        return true
+    }
+
+    private fun parseInstant(value: String?): Instant? {
+        if (value.isNullOrBlank()) {
+            return null
+        }
+        return try {
+            Instant.parse(value)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun isAfter(candidate: Instant?, current: Instant?): Boolean {
+        if (candidate == null) {
+            return false
+        }
+        if (current == null) {
+            return true
+        }
+        return candidate.isAfter(current)
+    }
+
+    private fun applyFileData(file: CurseForgeFile?, data: JsonObject?) {
+        if (file == null || data == null) {
+            return
+        }
+        file.fileName = getString(data, "fileName")
+        file.displayName = getString(data, "displayName")
+        file.fileDate = getString(data, "fileDate")
+        file.url = getString(data, "downloadUrl")
+        if (data.has("fileLength") && data.get("fileLength").isJsonPrimitive) {
+            try {
+                file.size = data.get("fileLength").asLong
+            } catch (_: Exception) {
+                file.size = -1L
+            }
+        }
+        if (data.has("hashes") && data.get("hashes").isJsonArray) {
+            for (entry in data.getAsJsonArray("hashes")) {
+                if (!entry.isJsonObject) {
+                    continue
+                }
+                val hash = entry.asJsonObject
+                var algo = -1
+                if (hash.has("algo") && hash.get("algo").isJsonPrimitive) {
+                    try {
+                        algo = hash.get("algo").asInt
+                    } catch (_: Exception) {
+                        algo = -1
+                    }
+                }
+                val value = getString(hash, "value")
+                if (value.isNullOrBlank()) {
+                    continue
+                }
+                if (algo == 1 && file.sha1.isNullOrBlank()) {
+                    file.sha1 = value
+                } else if (algo == 2 && file.md5.isNullOrBlank()) {
+                    file.md5 = value
+                }
+            }
+        }
+    }
+
+    class CurseForgeFile {
+        @JvmField var id: String? = null
+        @JvmField var fileName: String? = null
+        @JvmField var displayName: String? = null
+        @JvmField var fileDate: String? = null
+        @JvmField var url: String? = null
+        @JvmField var sha1: String? = null
+        @JvmField var md5: String? = null
+        @JvmField var size: Long = 0L
+    }
+}
