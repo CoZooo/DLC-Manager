@@ -64,12 +64,6 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
             kotlin {
                 jvmToolchain(javaVersion)
             }
-
-            tasks.named('compileKotlin').configure {
-                compilerOptions {
-                    jvmTarget = "JVM_${javaVersion}"
-                }
-            }
         }
 
         loom {

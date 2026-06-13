@@ -12,6 +12,7 @@ def kotlinMainDirs = [
     '../../../common/src/main/kotlin',
     '../../../common/1.21.1/src/main/kotlin'
 ]
+def moduleProject = project
 
 sourceSets {
     main {
@@ -46,23 +47,23 @@ if (kotlinEnabled) {
     }
     tasks.named('compileJava').configure {
         doFirst {
-            rootProject.deleteJavaClassesReplacedByKotlin(project, kotlinMainDirs, destinationDirectory.get().asFile)
+            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, destinationDirectory.get().asFile)
         }
     }
     tasks.named('jar').configure {
         doFirst {
-            rootProject.deleteJavaClassesReplacedByKotlin(project, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
         }
     }
 } else {
     tasks.named('compileJava').configure {
         doFirst {
-            rootProject.deleteKotlinClassesReplacedByJava(project, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+            rootProject.deleteKotlinClassesReplacedByJava(moduleProject, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
         }
     }
     tasks.named('jar').configure {
         doFirst {
-            rootProject.deleteKotlinClassesReplacedByJava(project, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+            rootProject.deleteKotlinClassesReplacedByJava(moduleProject, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
         }
     }
 }
