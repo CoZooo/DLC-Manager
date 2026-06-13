@@ -4,6 +4,13 @@ plugins {
     id 'com.github.johnrengelman.shadow'
 }
 
+def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+def kotlinMainDirs = [
+    '../../../fabric/src/main/kotlin',
+    '../../../fabric/1.20.1/src/main/kotlin'
+]
+def moduleProject = project
+
 architectury {
     platformSetupLoomIde()
     fabric()
@@ -11,14 +18,43 @@ architectury {
 
 sourceSets {
     main {
-        java.srcDir '../../../fabric/src/main/java'
-        java.srcDir '../../../fabric/1.20.1/src/main/java'
-        if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
-            kotlin.srcDir '../../../fabric/src/main/kotlin'
-            kotlin.srcDir '../../../fabric/1.20.1/src/main/kotlin'
+        java.srcDirs = [
+            '../../../fabric/src/main/java',
+            '../../../fabric/1.20.1/src/main/java'
+        ]
+        if (kotlinEnabled) {
+            kotlin.srcDirs = kotlinMainDirs
+            java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
         }
         resources.srcDir '../../../common/src/main/resources'
         resources.srcDir '../../../fabric/1.20.1/src/main/resources'
+    }
+}
+
+if (kotlinEnabled) {
+    tasks.named('compileKotlin').configure {
+        source(sourceSets.main.java)
+    }
+    tasks.named('compileJava').configure {
+        doFirst {
+            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, destinationDirectory.get().asFile)
+        }
+    }
+    tasks.named('jar').configure {
+        doFirst {
+            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+        }
+    }
+} else {
+    tasks.named('compileJava').configure {
+        doFirst {
+            rootProject.deleteKotlinClassesReplacedByJava(moduleProject, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+        }
+    }
+    tasks.named('jar').configure {
+        doFirst {
+            rootProject.deleteKotlinClassesReplacedByJava(moduleProject, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+        }
     }
 }
 
@@ -52,7 +88,6 @@ dependencies {
 }
 
 processResources {
-    def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
     def mcVersionRange = rootProject.findProperty('minecraft_version_range') ?: ">=${rootProject.minecraft_version} <1.20.2"
     inputs.properties([
         mod_id: rootProject.mod_id,
