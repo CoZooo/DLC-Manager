@@ -167,7 +167,9 @@ def filter_paths(
             return False
         if basename == "version.dc":
             return False
-        if low == "config/dlc_manager" or low.startswith("config/dlc_manager/"):
+        if low == "config/dlc_manager" or (
+            low.startswith("config/dlc_manager/") and low != "config/dlc_manager/config.dc"
+        ):
             return False
         if ".github" in segments:
             return False

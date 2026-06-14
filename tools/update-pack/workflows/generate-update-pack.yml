@@ -279,6 +279,7 @@ jobs:
           NOTES="${{ steps.generate.outputs.release_notes_path }}"
 
           if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file "$NOTES"
             gh release upload "$TAG" "$ASSET" --clobber
           else
             gh release create "$TAG" "$ASSET" --title "$TAG" --notes-file "$NOTES"
