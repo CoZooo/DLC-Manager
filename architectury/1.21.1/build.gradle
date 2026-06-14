@@ -10,10 +10,10 @@ buildscript {
     }
     if ((kotlinEnabledValue ?: 'false').toString().toBoolean()) {
         repositories {
-            maven { url = 'https://maven.cozozjw.cn/repository/maven-public/' }
-            maven { url = 'https://maven.aliyun.com/repository/public' }
             gradlePluginPortal()
             mavenCentral()
+            maven { url = 'https://maven.cozozjw.cn/repository/maven-public/' }
+            maven { url = 'https://maven.aliyun.com/repository/public' }
         }
         dependencies {
             classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlin_version}"

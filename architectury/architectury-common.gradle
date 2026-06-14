@@ -15,10 +15,6 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
                 url = uri('https://maven.cozozjw.cn/repository/maven-public/')
             }
             maven {
-                name = 'Aliyun Maven Public'
-                url = 'https://maven.aliyun.com/repository/public'
-            }
-            maven {
                 name = 'ParchmentMC'
                 url = 'https://maven.parchmentmc.org'
             }
@@ -36,6 +32,10 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
             maven { url = 'https://maven.terraformersmc.com' }
             maven { url = 'https://cursemaven.com' }
             mavenCentral()
+            maven {
+                name = 'Aliyun Maven Public'
+                url = 'https://maven.aliyun.com/repository/public'
+            }
         }
     }
 
