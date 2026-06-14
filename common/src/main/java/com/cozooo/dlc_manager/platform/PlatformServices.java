@@ -7,6 +7,7 @@ public final class PlatformServices {
         Path gameDir();
         Path configDir();
         boolean isModLoaded(String modId);
+        boolean isDedicatedServer();
         String languageCode();
         String loaderName();
         String mcVersion();
@@ -47,6 +48,11 @@ public final class PlatformServices {
 
         @Override
         public boolean isModLoaded(String modId) {
+            return false;
+        }
+
+        @Override
+        public boolean isDedicatedServer() {
             return false;
         }
 

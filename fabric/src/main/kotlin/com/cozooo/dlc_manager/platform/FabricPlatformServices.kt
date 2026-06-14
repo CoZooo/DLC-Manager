@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.platform
 import net.fabricmc.api.EnvType
 import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.SharedConstants
+import net.minecraft.client.Minecraft
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -19,19 +20,16 @@ class FabricPlatformServices : PlatformServices.Provider {
         return FabricLoader.getInstance().isModLoaded(modId)
     }
 
+    override fun isDedicatedServer(): Boolean {
+        return FabricLoader.getInstance().environmentType == EnvType.SERVER
+    }
+
     override fun languageCode(): String {
         if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) {
             return "en_us"
         }
         return try {
-            val mcClass = Class.forName("net.minecraft.client.Minecraft")
-            val mc = mcClass.getMethod("getInstance").invoke(null)
-            val options = mcClass.getField("options").get(mc)
-            try {
-                options.javaClass.getField("languageCode").get(options) as String
-            } catch (_: NoSuchFieldException) {
-                options.javaClass.getMethod("getLanguage").invoke(options) as String
-            }
+            Minecraft.getInstance().options.languageCode
         } catch (_: Throwable) {
             readLangFromOptions() ?: "en_us"
         }
@@ -91,9 +89,7 @@ class FabricPlatformServices : PlatformServices.Provider {
         }
         return try {
             val player = currentPlayer() ?: return ""
-            val profile = player.javaClass.getMethod("getGameProfile").invoke(player)
-            val value = profile.javaClass.getMethod("getName").invoke(profile)
-            value?.toString() ?: ""
+            player.gameProfile.name ?: ""
         } catch (_: Throwable) {
             ""
         }
@@ -105,19 +101,13 @@ class FabricPlatformServices : PlatformServices.Provider {
         }
         return try {
             val player = currentPlayer() ?: return ""
-            val profile = player.javaClass.getMethod("getGameProfile").invoke(player)
-            val id = profile.javaClass.getMethod("getId").invoke(profile)
-            id?.toString() ?: ""
+            player.gameProfile.id?.toString() ?: ""
         } catch (_: Throwable) {
             ""
         }
     }
 
-    private fun currentPlayer(): Any? {
-        val mcClass = Class.forName("net.minecraft.client.Minecraft")
-        val mc = mcClass.getMethod("getInstance").invoke(null)
-        return mcClass.getField("player").get(mc)
-    }
+    private fun currentPlayer() = Minecraft.getInstance().player
 
     companion object {
         @JvmStatic

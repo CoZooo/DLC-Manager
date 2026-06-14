@@ -7,6 +7,7 @@ object PlatformServices {
         fun gameDir(): Path
         fun configDir(): Path
         fun isModLoaded(modId: String?): Boolean
+        fun isDedicatedServer(): Boolean
         fun languageCode(): String
         fun loaderName(): String
         fun mcVersion(): String
@@ -38,6 +39,10 @@ object PlatformServices {
         }
 
         override fun isModLoaded(modId: String?): Boolean {
+            return false
+        }
+
+        override fun isDedicatedServer(): Boolean {
             return false
         }
 

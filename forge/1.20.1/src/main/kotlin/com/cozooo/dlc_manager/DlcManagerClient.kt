@@ -162,10 +162,7 @@ class DlcManagerClient {
             if (screen !is net.minecraft.client.gui.screens.TitleScreen) {
                 return
             }
-            val mouseX = readEventDouble(event, "getMouseX")
-            val mouseY = readEventDouble(event, "getMouseY")
-            val button = readEventInt(event, "getButton")
-            if (DlcClientRuntime.handleTitleNoticePanelRelease(screen, mouseX, mouseY, button)) {
+            if (DlcClientRuntime.handleTitleNoticePanelRelease(screen, event.mouseX, event.mouseY, event.button)) {
                 event.isCanceled = true
             }
         }
@@ -177,12 +174,15 @@ class DlcManagerClient {
             if (screen !is net.minecraft.client.gui.screens.TitleScreen) {
                 return
             }
-            val mouseX = readEventDouble(event, "getMouseX")
-            val mouseY = readEventDouble(event, "getMouseY")
-            val button = readEventInt(event, "getMouseButton", "getButton")
-            val dragX = readEventDouble(event, "getDragX")
-            val dragY = readEventDouble(event, "getDragY")
-            if (DlcClientRuntime.handleTitleNoticePanelDrag(screen, mouseX, mouseY, button, dragX, dragY)) {
+            if (DlcClientRuntime.handleTitleNoticePanelDrag(
+                    screen,
+                    event.mouseX,
+                    event.mouseY,
+                    event.mouseButton,
+                    event.dragX,
+                    event.dragY,
+                )
+            ) {
                 event.isCanceled = true
             }
         }
@@ -194,11 +194,7 @@ class DlcManagerClient {
             if (screen !is net.minecraft.client.gui.screens.TitleScreen) {
                 return
             }
-            val mouseX = readEventDouble(event, "getMouseX")
-            val mouseY = readEventDouble(event, "getMouseY")
-            val horizontal = readEventDouble(event, "getScrollDeltaX", "getHorizontalScrollDelta")
-            val vertical = readEventDouble(event, "getScrollDeltaY", "getScrollDelta")
-            if (DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, horizontal, vertical)) {
+            if (DlcClientRuntime.handleTitleNoticePanelScroll(screen, event.mouseX, event.mouseY, 0.0, event.scrollDelta)) {
                 event.isCanceled = true
             }
         }
@@ -316,32 +312,6 @@ class DlcManagerClient {
 
         private fun syncEnabledResourcePacks() {
             DlcClientRuntime.syncEnabledResourcePacks()
-        }
-
-        private fun readEventDouble(event: Any, vararg methodNames: String): Double {
-            for (methodName in methodNames) {
-                try {
-                    val value = event.javaClass.getMethod(methodName).invoke(event)
-                    if (value is Number) {
-                        return value.toDouble()
-                    }
-                } catch (_: ReflectiveOperationException) {
-                }
-            }
-            return 0.0
-        }
-
-        private fun readEventInt(event: Any, vararg methodNames: String): Int {
-            for (methodName in methodNames) {
-                try {
-                    val value = event.javaClass.getMethod(methodName).invoke(event)
-                    if (value is Number) {
-                        return value.toInt()
-                    }
-                } catch (_: ReflectiveOperationException) {
-                }
-            }
-            return 0
         }
 
         private fun findButtonByKey(screen: Screen, key: String): AbstractWidget? {

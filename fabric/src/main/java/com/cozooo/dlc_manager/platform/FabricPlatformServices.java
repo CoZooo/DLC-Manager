@@ -6,6 +6,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.api.EnvType;
 import net.minecraft.SharedConstants;
+import net.minecraft.client.Minecraft;
 
 public final class FabricPlatformServices implements PlatformServices.Provider {
     public static void init() {
@@ -28,19 +29,17 @@ public final class FabricPlatformServices implements PlatformServices.Provider {
     }
 
     @Override
+    public boolean isDedicatedServer() {
+        return FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER;
+    }
+
+    @Override
     public String languageCode() {
         if (FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
             return "en_us";
         }
         try {
-            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-            Object mc = mcClass.getMethod("getInstance").invoke(null);
-            Object options = mcClass.getField("options").get(mc);
-            try {
-                return (String) options.getClass().getField("languageCode").get(options);
-            } catch (NoSuchFieldException ignored) {
-                return (String) options.getClass().getMethod("getLanguage").invoke(options);
-            }
+            return Minecraft.getInstance().options.languageCode;
         } catch (Throwable ignored) {
             String fromOptions = readLangFromOptions();
             return fromOptions == null ? "en_us" : fromOptions;
@@ -104,15 +103,11 @@ public final class FabricPlatformServices implements PlatformServices.Provider {
             return "";
         }
         try {
-            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-            Object mc = mcClass.getMethod("getInstance").invoke(null);
-            Object player = mcClass.getField("player").get(mc);
-            if (player == null) {
+            if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getGameProfile() == null) {
                 return "";
             }
-            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
-            Object value = profile.getClass().getMethod("getName").invoke(profile);
-            return value == null ? "" : String.valueOf(value);
+            String value = Minecraft.getInstance().player.getGameProfile().getName();
+            return value == null ? "" : value;
         } catch (Throwable ignored) {
             return "";
         }
@@ -124,15 +119,11 @@ public final class FabricPlatformServices implements PlatformServices.Provider {
             return "";
         }
         try {
-            Class<?> mcClass = Class.forName("net.minecraft.client.Minecraft");
-            Object mc = mcClass.getMethod("getInstance").invoke(null);
-            Object player = mcClass.getField("player").get(mc);
-            if (player == null) {
+            if (Minecraft.getInstance().player == null || Minecraft.getInstance().player.getGameProfile() == null
+                || Minecraft.getInstance().player.getGameProfile().getId() == null) {
                 return "";
             }
-            Object profile = player.getClass().getMethod("getGameProfile").invoke(player);
-            Object id = profile.getClass().getMethod("getId").invoke(profile);
-            return id == null ? "" : String.valueOf(id);
+            return Minecraft.getInstance().player.getGameProfile().getId().toString();
         } catch (Throwable ignored) {
             return "";
         }

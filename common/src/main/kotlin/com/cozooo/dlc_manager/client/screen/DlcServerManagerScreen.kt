@@ -96,9 +96,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     private fun setInfo(info: DlcServerInfo?) {
         items.clear()
         baseline.clear()
-        if (info?.items != null) {
-            items.addAll(info.items!!)
-        }
+        items.addAll(info?.items ?: emptyList())
         for (item in items) {
             baseline[item.id] = item.enabled
         }

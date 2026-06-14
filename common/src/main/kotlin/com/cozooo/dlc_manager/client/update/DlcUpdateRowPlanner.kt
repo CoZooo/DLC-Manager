@@ -144,8 +144,8 @@ object DlcUpdateRowPlanner {
             rows.add(UpdateRow(meta, action, Type.UPDATE, oldVersion, newVersion, rollbackTarget, display[0], display[1]))
         }
 
-        if (!rolledBackMode && updates != null) {
-            for (info in updates) {
+        if (!rolledBackMode) {
+            for (info in updates ?: emptyList()) {
                 if (info == null || info.hidden) {
                     continue
                 }

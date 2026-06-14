@@ -150,16 +150,14 @@ class DlcServerMaLiLibScreen(
         hasRequiredEntries = info?.hasRequired == true
         serverBaseVersion = info?.baseVersion ?: ""
         serverDlcVersion = info?.dlcVersion ?: ""
-        if (info?.items != null) {
-            for (item in info.items!!) {
-                items.add(item)
-                baseline[item.id] = item.enabled
-                val identifier = item.identifier
-                if (!identifier.isNullOrBlank()) {
-                    val key = normalizeIdentifier(identifier)
-                    if (key.isNotBlank()) {
-                        itemsByIdentifier[key] = item
-                    }
+        for (item in info?.items ?: emptyList()) {
+            items.add(item)
+            baseline[item.id] = item.enabled
+            val identifier = item.identifier
+            if (!identifier.isNullOrBlank()) {
+                val key = normalizeIdentifier(identifier)
+                if (key.isNotBlank()) {
+                    itemsByIdentifier[key] = item
                 }
             }
         }

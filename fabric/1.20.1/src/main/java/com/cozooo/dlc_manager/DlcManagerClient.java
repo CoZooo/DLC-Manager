@@ -319,7 +319,6 @@ public class DlcManagerClient implements ClientModInitializer {
             modsWidget.setX(rowX);
             modsWidget.setY(rowY);
             modsWidget.setWidth(halfWidth);
-            setWidgetHeight(modsWidget, rowH);
             int dlcX = rowX + halfWidth + gap;
             int dlcWidth = halfWidth;
             if (updateWidget != null) {
@@ -331,12 +330,10 @@ public class DlcManagerClient implements ClientModInitializer {
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);
                 updateWidget.setY(updatePos[1]);
-                setWidgetHeight(updateWidget, rowH);
             }
             dlcWidget.setX(dlcX);
             dlcWidget.setY(rowY);
             dlcWidget.setWidth(dlcWidth);
-            setWidgetHeight(dlcWidget, rowH);
 
             int optionsRowY = rowY + rowStep;
             moveBottomRow(screen, optionsRowY);
@@ -353,30 +350,10 @@ public class DlcManagerClient implements ClientModInitializer {
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);
                 updateWidget.setY(updatePos[1]);
-                setWidgetHeight(updateWidget, rowH);
             }
             dlcWidget.setX(rowX);
             dlcWidget.setY(rowY);
             dlcWidget.setWidth(dlcWidth);
-            setWidgetHeight(dlcWidget, rowH);
-        }
-    }
-
-    private static void setWidgetHeight(AbstractWidget widget, int height) {
-        if (widget == null) {
-            return;
-        }
-        try {
-            java.lang.reflect.Method method = widget.getClass().getMethod("setHeight", int.class);
-            method.invoke(widget, height);
-            return;
-        } catch (Exception ignored) {
-        }
-        try {
-            java.lang.reflect.Field field = AbstractWidget.class.getDeclaredField("height");
-            field.setAccessible(true);
-            field.setInt(widget, height);
-        } catch (Exception ignored) {
         }
     }
 

@@ -20,8 +20,6 @@ import net.minecraft.client.gui.screens.PauseScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.contents.TranslatableContents
-import java.lang.reflect.Field
-import java.lang.reflect.Method
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -379,21 +377,6 @@ class DlcManagerClient : ClientModInitializer {
         }
 
         private fun setWidgetHeight(widget: AbstractWidget?, height: Int) {
-            if (widget == null) {
-                return
-            }
-            try {
-                val method: Method = widget.javaClass.getMethod("setHeight", Int::class.javaPrimitiveType)
-                method.invoke(widget, height)
-                return
-            } catch (_: Exception) {
-            }
-            try {
-                val field: Field = AbstractWidget::class.java.getDeclaredField("height")
-                field.isAccessible = true
-                field.setInt(widget, height)
-            } catch (_: Exception) {
-            }
         }
 
         private fun syncEnabledResourcePacks() {

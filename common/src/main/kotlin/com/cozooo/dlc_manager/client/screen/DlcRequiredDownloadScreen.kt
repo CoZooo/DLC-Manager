@@ -813,7 +813,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         }
         if (updatePackageRequired) {
             val updateCheck: UpdateCheckResult = DlcUpdateService.checkForUpdates(true)
-            if (updateCheck.updates != null && updateCheck.updates!!.isNotEmpty()) {
+            if (updateCheck.updates.isNotEmpty()) {
                 val updateResult = DlcUpdateService.applyUpdates(updateCheck.updates, false)
                 if (updateResult.isMissing) {
                     Minecraft.getInstance().execute {

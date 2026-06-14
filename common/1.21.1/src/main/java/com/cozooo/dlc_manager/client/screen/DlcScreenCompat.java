@@ -5,17 +5,12 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.Renderable;
-import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.components.toasts.ToastComponent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-import java.lang.reflect.Field;
-
 public final class DlcScreenCompat {
-    private static final Field RENDERABLES_FIELD = findField(Screen.class, "renderables");
-
     private DlcScreenCompat() {
     }
 
@@ -57,42 +52,14 @@ public final class DlcScreenCompat {
     }
 
     public static void renderWidgets(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        boolean renderedAny = false;
-        for (GuiEventListener child : screen.children()) {
+        for (Object child : screen.children()) {
             if (child instanceof Renderable renderable) {
                 renderable.render(guiGraphics, mouseX, mouseY, partialTick);
-                renderedAny = true;
             }
-        }
-        if (renderedAny || RENDERABLES_FIELD == null) {
-            return;
-        }
-        try {
-            Object value = RENDERABLES_FIELD.get(screen);
-            if (!(value instanceof Iterable<?> iterable)) {
-                return;
-            }
-            for (Object candidate : iterable) {
-                if (candidate instanceof Renderable renderable) {
-                    renderable.render(guiGraphics, mouseX, mouseY, partialTick);
-                }
-            }
-        } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException("Failed to render compatible widgets", ex);
         }
     }
 
     public static boolean invokeCompatibleMouseScroll(GuiListBase<?, ?, ?> target, int mouseX, int mouseY, double deltaX, double deltaY) {
         return target.onMouseScrolled(mouseX, mouseY, deltaX, deltaY);
-    }
-
-    private static Field findField(Class<?> owner, String name) {
-        try {
-            Field field = owner.getDeclaredField(name);
-            field.setAccessible(true);
-            return field;
-        } catch (ReflectiveOperationException ignored) {
-            return null;
-        }
     }
 }

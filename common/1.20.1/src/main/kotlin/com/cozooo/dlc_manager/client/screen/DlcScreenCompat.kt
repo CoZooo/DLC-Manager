@@ -5,16 +5,12 @@ import net.minecraft.client.gui.Font
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Checkbox
 import net.minecraft.client.gui.components.Renderable
-import net.minecraft.client.gui.components.events.GuiEventListener
 import net.minecraft.client.gui.components.toasts.SystemToast
 import net.minecraft.client.gui.components.toasts.ToastComponent
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import java.lang.reflect.Field
 
 object DlcScreenCompat {
-    private val RENDERABLES_FIELD: Field? = findField(Screen::class.java, "renderables")
-
     abstract class MouseScroll(title: Component) : Screen(title) {
         override fun mouseScrolled(mouseX: Double, mouseY: Double, delta: Double): Boolean {
             return handleCompatibleMouseScrolled(mouseX, mouseY, delta)
@@ -56,22 +52,6 @@ object DlcScreenCompat {
                 renderedAny = true
             }
         }
-        if (renderedAny || RENDERABLES_FIELD == null) {
-            return
-        }
-        try {
-            val value = RENDERABLES_FIELD.get(screen)
-            if (value !is Iterable<*>) {
-                return
-            }
-            for (candidate in value) {
-                if (candidate is Renderable) {
-                    candidate.render(guiGraphics, mouseX, mouseY, partialTick)
-                }
-            }
-        } catch (ex: ReflectiveOperationException) {
-            throw IllegalStateException("Failed to render compatible widgets", ex)
-        }
     }
 
     @JvmStatic
@@ -79,13 +59,4 @@ object DlcScreenCompat {
         return target.onMouseScrolled(mouseX, mouseY, deltaY)
     }
 
-    private fun findField(owner: Class<*>, name: String): Field? {
-        return try {
-            val field = owner.getDeclaredField(name)
-            field.isAccessible = true
-            field
-        } catch (_: ReflectiveOperationException) {
-            null
-        }
-    }
 }

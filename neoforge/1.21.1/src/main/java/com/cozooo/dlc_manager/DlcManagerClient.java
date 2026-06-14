@@ -180,10 +180,7 @@ public class DlcManagerClient {
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
-            double mouseX = readEventDouble(event, "getMouseX");
-            double mouseY = readEventDouble(event, "getMouseY");
-            int button = readEventInt(event, "getButton");
-            if (DlcClientRuntime.handleTitleNoticePanelRelease(screen, mouseX, mouseY, button)) {
+            if (DlcClientRuntime.handleTitleNoticePanelRelease(screen, event.getMouseX(), event.getMouseY(), event.getButton())) {
                 event.setCanceled(true);
             }
         }
@@ -194,12 +191,9 @@ public class DlcManagerClient {
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
-            double mouseX = readEventDouble(event, "getMouseX");
-            double mouseY = readEventDouble(event, "getMouseY");
-            int button = readEventInt(event, "getMouseButton", "getButton");
-            double dragX = readEventDouble(event, "getDragX");
-            double dragY = readEventDouble(event, "getDragY");
-            if (DlcClientRuntime.handleTitleNoticePanelDrag(screen, mouseX, mouseY, button, dragX, dragY)) {
+            if (DlcClientRuntime.handleTitleNoticePanelDrag(
+                screen, event.getMouseX(), event.getMouseY(), event.getMouseButton(), event.getDragX(), event.getDragY()
+            )) {
                 event.setCanceled(true);
             }
         }
@@ -210,11 +204,9 @@ public class DlcManagerClient {
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
-            double mouseX = readEventDouble(event, "getMouseX");
-            double mouseY = readEventDouble(event, "getMouseY");
-            double horizontal = readEventDouble(event, "getScrollDeltaX", "getHorizontalScrollDelta");
-            double vertical = readEventDouble(event, "getScrollDeltaY", "getScrollDelta");
-            if (DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, horizontal, vertical)) {
+            if (DlcClientRuntime.handleTitleNoticePanelScroll(
+                screen, event.getMouseX(), event.getMouseY(), event.getScrollDeltaX(), event.getScrollDeltaY()
+            )) {
                 event.setCanceled(true);
             }
         }
@@ -319,32 +311,6 @@ public class DlcManagerClient {
 
         private static void syncEnabledResourcePacks() {
             DlcClientRuntime.syncEnabledResourcePacks();
-        }
-
-        private static double readEventDouble(Object event, String... methodNames) {
-            for (String methodName : methodNames) {
-                try {
-                    Object value = event.getClass().getMethod(methodName).invoke(event);
-                    if (value instanceof Number number) {
-                        return number.doubleValue();
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-            return 0.0D;
-        }
-
-        private static int readEventInt(Object event, String... methodNames) {
-            for (String methodName : methodNames) {
-                try {
-                    Object value = event.getClass().getMethod(methodName).invoke(event);
-                    if (value instanceof Number number) {
-                        return number.intValue();
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-            return 0;
         }
 
         private static boolean canOpenServerManager() {

@@ -29,6 +29,11 @@ public final class TestPlatformProvider implements PlatformServices.Provider {
     }
 
     @Override
+    public boolean isDedicatedServer() {
+        return false;
+    }
+
+    @Override
     public String languageCode() {
         return "en_us";
     }
