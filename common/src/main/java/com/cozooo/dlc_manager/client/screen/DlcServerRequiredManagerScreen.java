@@ -477,8 +477,11 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
         if (applied) {
             label = label.copy().withStyle(ChatFormatting.GREEN);
         } else if (pending) {
-            label = DlcTextFormatter.parse(name + " " + Component.translatable("dlc_manager.required.pending_restart").getString())
-                .copy().withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
+            label = DlcTextFormatter.parse(name)
+                .copy()
+                .append(Component.literal(" "))
+                .append(Component.translatable("dlc_manager.required.pending_restart"))
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
         }
         return label;
     }

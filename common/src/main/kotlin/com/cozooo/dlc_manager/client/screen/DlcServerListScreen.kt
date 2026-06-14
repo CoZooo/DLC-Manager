@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerList
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -121,7 +122,7 @@ class DlcServerListScreen(private val parent: Screen?) :
             }
             val label = entry.getDisplayName()
             val host = entry.getKey()
-            guiGraphics.drawString(font, label, 36, rowY + 4, 0xE6E6E6, false)
+            guiGraphics.drawString(font, DlcTextFormatter.parse(label), 36, rowY + 4, 0xE6E6E6, false)
             guiGraphics.drawString(font, host, 36, rowY + 13, 0x9A9A9A, false)
             rowY += ROW_HEIGHT
         }

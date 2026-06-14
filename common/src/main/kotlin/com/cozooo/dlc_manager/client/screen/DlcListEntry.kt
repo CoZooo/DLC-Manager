@@ -904,8 +904,8 @@ class DlcListEntry(
                 components.add(
                     Component.translatable(
                         "dlc_manager.batch.dependencies_line",
-                        DlcDisplayNameUtil.resolveDisplayName(line.getItemName()),
-                        DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName()),
+                        DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getItemName())),
+                        DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())),
                     )
                 )
             }
