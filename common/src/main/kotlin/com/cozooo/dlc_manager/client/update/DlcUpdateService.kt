@@ -1,5 +1,3 @@
-@file:Suppress("SENSELESS_COMPARISON")
-
 package com.cozooo.dlc_manager.client.update
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
@@ -146,7 +144,7 @@ object DlcUpdateService {
             targetNew = targetOld
         }
         for (pkg in packages) {
-            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            if (pkg == null || pkg.getManifest().getVersion() == null) {
                 continue
             }
             val info = pkg.getManifest().getVersion()
@@ -171,7 +169,7 @@ object DlcUpdateService {
         }
         val version = DlcUpdateVersion.load(dlcRoot)
         val packages: MutableList<DlcUpdatePackage?> = scanUpdatePackages(dlcRoot)
-        val currentBase: String? = if (version == null) null else version.getBase()
+        val currentBase: String? = version.getBase()
         return resolveUpdateChainTo(version, packages, currentBase, targetDlcNew, ignoreRollback)
     }
 
@@ -187,7 +185,7 @@ object DlcUpdateService {
         }
         val version = DlcUpdateVersion.load(dlcRoot)
         val packages: MutableList<DlcUpdatePackage?> = scanUpdatePackages(dlcRoot)
-        val currentBase: String? = if (version == null) null else version.getBase()
+        val currentBase: String? = version.getBase()
         return resolveUpdateChainTo(
             version,
             packages,
@@ -280,7 +278,7 @@ object DlcUpdateService {
         var helperScheduled = false
         var dlcManagerUpdated = false
         val requiresDlcManagerUpdate = packages.stream().anyMatch { pkg: DlcUpdatePackage? ->
-            pkg != null && pkg.getManifest() != null && pkg.getManifest().isUpdateDLCM()
+            pkg != null && pkg.getManifest().isUpdateDLCM()
         }
         val requestedDlcManagerVersions: LinkedHashSet<String?> = collectRequestedDlcManagerVersions(packages)
         if (requestedDlcManagerVersions.size > 1) {
@@ -316,9 +314,6 @@ object DlcUpdateService {
 
     private fun applyRequiredDlcManagerUpdate(targetVersion: String?): UpdateApplyResult {
         val check = DlcSelfUpdateService.checkForUpdate(targetVersion)
-        if (check == null) {
-            return UpdateApplyResult.Companion.failed("Failed to check DLC Manager update")
-        }
         if (check.missingRequestedVersion) {
             return UpdateApplyResult.Companion.failed("Failed to find DLC Manager version: " + targetVersion)
         }
@@ -326,9 +321,9 @@ object DlcUpdateService {
             return UpdateApplyResult.Companion.success("OK", false, false, false, false)
         }
         val downloadResult = DlcSelfUpdateService.downloadUpdate(check)
-        if (downloadResult == null || !downloadResult.success) {
-            var message = if (downloadResult == null) "" else downloadResult.reason
-            if (message == null || message.isBlank()) {
+        if (!downloadResult.success) {
+            var message = downloadResult.reason
+            if (message.isBlank()) {
                 message = "Failed to update DLC Manager"
             } else {
                 message = "Failed to update DLC Manager: " + message
@@ -344,7 +339,7 @@ object DlcUpdateService {
             return versions
         }
         for (pkg in packages) {
-            if (pkg == null || pkg.getManifest() == null || !pkg.getManifest().isUpdateDLCM()) {
+            if (pkg == null || !pkg.getManifest().isUpdateDLCM()) {
                 continue
             }
             val version = pkg.getManifest().getUpdateDLCMVersion()
@@ -357,7 +352,7 @@ object DlcUpdateService {
 
     @JvmStatic
     fun applyUpdate(pkg: DlcUpdatePackage?, current: DlcUpdateVersion?, forceMissing: Boolean): UpdateApplyResult {
-        if (pkg == null || pkg.getManifest() == null) {
+        if (pkg == null) {
             return UpdateApplyResult.Companion.failed("Missing update manifest")
         }
         val manifest = pkg.getManifest()
@@ -439,7 +434,7 @@ object DlcUpdateService {
             rollbackUpdate(context)
             restorePresetUpdatesAfterRollback(presetSession)
             pkg.cleanupStaging()
-            var message = if (ex == null || ex.message == null) "" else ex.message!!.trim { it <= ' ' }
+            var message = ex.message?.trim { it <= ' ' } ?: ""
             if (message.isBlank() && !context.failureMessages.isEmpty()) {
                 message = context.failureMessages.joinToString("\n")
             }
@@ -553,7 +548,7 @@ object DlcUpdateService {
             return null
         }
         val version = DlcUpdateVersion.load(dlcRoot)
-        val base: kotlin.String? = if (version == null) null else version.getBase()
+        val base: kotlin.String? = version.getBase()
         val meta = loadMetaForVersion(dlcRoot, base, dlcVersion)
         if (meta != null) {
             return meta
@@ -577,11 +572,11 @@ object DlcUpdateService {
         }
         val builder = StringBuilder()
         for (pkg in packages) {
-            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            if (pkg == null || pkg.getManifest().getVersion() == null) {
                 continue
             }
             val text = pkg.getManifest().resolveChangelog(lang)
-            if (text == null || text.isBlank()) {
+            if (text.isBlank()) {
                 continue
             }
             val info = pkg.getManifest().getVersion()
@@ -636,7 +631,7 @@ object DlcUpdateService {
             return ImportValidationResult.INVALID_PACKAGE
         }
         val pkg = DlcUpdatePackage.fromZip(zipPath)
-        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+        if (pkg == null || pkg.getManifest().getVersion() == null) {
             return ImportValidationResult.INVALID_PACKAGE
         }
         val dlcRoot: Path? = dlcRoot
@@ -651,8 +646,8 @@ object DlcUpdateService {
         if (!isPlatformCompatible(info)) {
             return ImportValidationResult.PLATFORM_MISMATCH
         }
-        val currentBase: kotlin.String = DlcUpdateService.safeVersion(if (current == null) null else current.getBase())
-        val currentDlc: kotlin.String = DlcUpdateService.safeVersion(if (current == null) null else current.getDlc())
+        val currentBase: kotlin.String = DlcUpdateService.safeVersion(current.getBase())
+        val currentDlc: kotlin.String = DlcUpdateService.safeVersion(current.getDlc())
         if (currentBase != sourceBaseVersion(info) || currentDlc != sourceDlcVersion(info)) {
             return ImportValidationResult.VERSION_MISMATCH
         }
@@ -665,7 +660,7 @@ object DlcUpdateService {
             return false
         }
         val pkg = DlcUpdatePackage.fromZip(zipPath)
-        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+        if (pkg == null || pkg.getManifest().getVersion() == null) {
             return false
         }
         val updateDir: Path? = updateDir
@@ -750,7 +745,7 @@ object DlcUpdateService {
         var tail: DlcUpdateManifest.VersionInfo? = null
         for (i in updates.indices.reversed()) {
             val pkg = updates.get(i)
-            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            if (pkg == null || pkg.getManifest().getVersion() == null) {
                 continue
             }
             tail = pkg.getManifest().getVersion()
@@ -782,12 +777,12 @@ object DlcUpdateService {
         val packages: MutableList<DlcUpdatePackage?> = ArrayList<DlcUpdatePackage?>()
         try {
             Files.list(updateDir).use { stream ->
-                stream.filter { path: Path? -> Files.isRegularFile(path) }
-                    .filter { path: Path? ->
-                        path!!.getFileName() != null && path.getFileName().toString().lowercase(Locale.getDefault())
+                stream.filter { path: Path -> Files.isRegularFile(path) }
+                    .filter { path: Path ->
+                        path.getFileName() != null && path.getFileName().toString().lowercase(Locale.getDefault())
                             .endsWith(".zip")
                     }
-                    .forEach { path: Path? ->
+                    .forEach { path: Path ->
                         val pkg = DlcUpdatePackage.fromZip(path)
                         if (pkg != null && isPackageCompatible(pkg)) {
                             packages.add(pkg)
@@ -806,7 +801,7 @@ object DlcUpdateService {
         val best: MutableMap<kotlin.String?, DlcUpdatePackage?> = LinkedHashMap<kotlin.String?, DlcUpdatePackage?>()
         val times: MutableMap<kotlin.String?, Long?> = HashMap<kotlin.String?, Long?>()
         for (pkg in packages) {
-            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            if (pkg == null || pkg.getManifest().getVersion() == null) {
                 continue
             }
             val info = pkg.getManifest().getVersion()
@@ -845,17 +840,17 @@ object DlcUpdateService {
         }
         try {
             Files.walk(updateDir).use { stream ->
-                stream.filter { path: Path? ->
-                    path!!.getFileName() != null && path.getFileName().toString().lowercase(
+                stream.filter { path: Path ->
+                    path.getFileName() != null && path.getFileName().toString().lowercase(
                         Locale.getDefault()
                     ).endsWith(".zip")
                 }
-                    .forEach { path: Path? ->
+                    .forEach { path: Path ->
                         if (path == keepPath) {
                             return@forEach
                         }
                         val pkg = DlcUpdatePackage.fromZip(path)
-                        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+                        if (pkg == null || pkg.getManifest().getVersion() == null) {
                             return@forEach
                         }
                         if (sameVersion(versionInfo, pkg.getManifest().getVersion())) {
@@ -887,7 +882,7 @@ object DlcUpdateService {
         }
         if (!ignoreRollback && version.getRollbackFrom() != null && !version.getRollbackFrom()!!.isBlank()) {
             val hasNewer = packages.stream().anyMatch { pkg: DlcUpdatePackage? ->
-                val info = pkg!!.getManifest().getVersion()
+                val info = pkg?.getManifest()?.getVersion()
                 info != null && DlcUpdateService.rollbackMarkerMatchesSource(
                     version.getRollbackFrom(),
                     sourceBaseVersion(info),
@@ -972,7 +967,7 @@ object DlcUpdateService {
         }
         val filtered: MutableList<DlcUpdatePackage> = ArrayList<DlcUpdatePackage>()
         for (pkg in packages) {
-            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            if (pkg == null || pkg.getManifest().getVersion() == null) {
                 continue
             }
             val info = pkg.getManifest().getVersion()
@@ -1052,7 +1047,7 @@ object DlcUpdateService {
         }
         var targetPkg: DlcUpdatePackage? = null
         for (pkg in packages) {
-            if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+            if (pkg == null || pkg.getManifest().getVersion() == null) {
                 continue
             }
             val info = pkg.getManifest().getVersion()
@@ -1112,9 +1107,6 @@ object DlcUpdateService {
         }
         val missing: MutableList<kotlin.String?> = ArrayList<kotlin.String?>()
         for (entry in manifest.getFileOps()!!.getModify()) {
-            if (entry == null) {
-                continue
-            }
             val target: Path? = resolveGamePath(gameDir, entry.getTargetPath())
             if (target == null || !Files.exists(target)) {
                 missing.add(entry.getTargetPath())
@@ -1128,7 +1120,7 @@ object DlcUpdateService {
             return
         }
         for (raw in ops.getDel()) {
-            if (raw == null || raw.isBlank()) {
+            if (raw.isBlank()) {
                 continue
             }
             val target: Path? = DlcUpdateService.resolveGamePath(DlcPaths.gameDir(), raw)
@@ -1151,9 +1143,6 @@ object DlcUpdateService {
         var hasRemoteAdd = false
         var hasRequiredAdd = false
         for (key in ops.getAdd().keys) {
-            if (key == null) {
-                continue
-            }
             val normalized = key.replace('\\', '/')
             if (normalized.startsWith("remote/")) {
                 hasRemoteAdd = true
@@ -1165,7 +1154,7 @@ object DlcUpdateService {
         for (entry in ops.getAdd().entries) {
             val sourceKey = entry.key
             val add = entry.value
-            if (add == null || sourceKey == null || sourceKey.isBlank()) {
+            if (sourceKey.isBlank()) {
                 continue
             }
             val source: Path? = resolveStagingPath(context.stagingRoot, sourceKey)
@@ -1208,7 +1197,7 @@ object DlcUpdateService {
         for (entry in ops.getMove().entries) {
             val rawFrom = entry.key
             val rawTo = entry.value
-            if (rawFrom == null || rawFrom.isBlank() || rawTo == null || rawTo.isBlank()) {
+            if (rawFrom.isBlank() || rawTo.isBlank()) {
                 continue
             }
             val from: Path? = resolveGamePath(gameDir, rawFrom)
@@ -1330,9 +1319,6 @@ object DlcUpdateService {
             return
         }
         for (entry in ops.getModify()) {
-            if (entry == null) {
-                continue
-            }
             val target: Path? = DlcUpdateService.resolveGamePath(DlcPaths.gameDir(), entry.getTargetPath())
             if (target == null || !Files.exists(target)) {
                 if (forceMissing) {
@@ -1388,7 +1374,7 @@ object DlcUpdateService {
         }
         for (update in updates.entries) {
             val identifier = update.key
-            if (identifier == null || identifier.isBlank()) {
+            if (identifier.isBlank()) {
                 continue
             }
             val infoPath = infoByIdentifier.get(identifier)
@@ -1396,9 +1382,6 @@ object DlcUpdateService {
                 continue
             }
             val updateEntry = update.value
-            if (updateEntry == null) {
-                continue
-            }
             backupPath(toGameRelativePath(infoPath), infoPath, context)
             updateInfoConfigFields(infoPath, updateEntry)
         }
@@ -1414,7 +1397,7 @@ object DlcUpdateService {
         }
         for (update in updates.entries) {
             val presetId = update.key
-            if (presetId == null || presetId.isBlank()) {
+            if (presetId.isBlank()) {
                 continue
             }
             val presetPath: Path? = findPresetConfigPath(presetById, presetId)
@@ -1422,9 +1405,6 @@ object DlcUpdateService {
                 continue
             }
             val updateEntry = update.value
-            if (updateEntry == null) {
-                continue
-            }
             backupPath(toGameRelativePath(presetPath), presetPath, context)
             updatePresetConfigFields(presetPath, updateEntry)
         }
@@ -1441,7 +1421,7 @@ object DlcUpdateService {
         }
         for (update in updates.entries) {
             val identifier = update.key
-            if (identifier == null || identifier.isBlank()) {
+            if (identifier.isBlank()) {
                 continue
             }
             var entry = entries.get(identifier)
@@ -1449,7 +1429,7 @@ object DlcUpdateService {
                 continue
             }
             val shouldRedownload = hasRemoteDownloadSourceChanges(entry, update.value)
-            if (context != null && shouldRedownload) {
+            if (shouldRedownload) {
                 context.addedRemote = true
             }
             val wasEnabled = isRemoteEnabled(entry)
@@ -1477,9 +1457,9 @@ object DlcUpdateService {
             if (downloaded == null) {
                 throw IOException("remote update download failed")
             }
-            if (context != null && downloaded.path != null) {
+            if (downloaded.path != null) {
                 val created: kotlin.String = toGameRelativePath(downloaded.path)
-                if (created != null && !created.isBlank() && !context.meta!!.getCreatedPaths().contains(created)) {
+                if (!created.isBlank() && !context.meta!!.getCreatedPaths().contains(created)) {
                     context.meta.getCreatedPaths().add(created)
                 }
             }
@@ -1505,7 +1485,7 @@ object DlcUpdateService {
         }
         for (update in updates.entries) {
             val identifier = update.key
-            if (identifier == null || identifier.isBlank()) {
+            if (identifier.isBlank()) {
                 continue
             }
             var entry = entries.get(identifier)
@@ -1552,9 +1532,9 @@ object DlcUpdateService {
             if (downloaded == null) {
                 throw IOException("required update download failed")
             }
-            if (context != null && downloaded.path != null) {
+            if (downloaded.path != null) {
                 val created: kotlin.String = toGameRelativePath(downloaded.path)
-                if (created != null && !created.isBlank() && !context.meta!!.getCreatedPaths().contains(created)) {
+                if (!created.isBlank() && !context.meta!!.getCreatedPaths().contains(created)) {
                     context.meta.getCreatedPaths().add(created)
                 }
             }
@@ -1663,9 +1643,6 @@ object DlcUpdateService {
     private fun loadRemoteEntries(dlcRoot: Path?): MutableMap<kotlin.String?, DlcRemoteEntry?> {
         val map: MutableMap<kotlin.String?, DlcRemoteEntry?> = HashMap<kotlin.String?, DlcRemoteEntry?>()
         for (entry in DlcRemoteLoader.load(dlcRoot)) {
-            if (entry == null) {
-                continue
-            }
             val id: kotlin.String? = entry.getDlcIdentifier()
             if (id != null && !id.isBlank()) {
                 map.put(id, entry)
@@ -1698,7 +1675,7 @@ object DlcUpdateService {
                         continue
                     }
                     val id = entry.getIdentifier()
-                    if (id != null && !id.isBlank()) {
+                    if (!id.isBlank()) {
                         map.put(id, entry)
                     }
                 }
@@ -1777,9 +1754,6 @@ object DlcUpdateService {
         }
         val targets: MutableList<AppliedTarget> = ArrayList<AppliedTarget>()
         for (target in entry.resolveAppliedTargets()) {
-            if (target == null) {
-                continue
-            }
             val dirTarget = Files.isDirectory(target)
                     || target.toString().endsWith("/")
                     || target.toString().endsWith("\\")
@@ -1885,7 +1859,7 @@ object DlcUpdateService {
         for (field in update.getFields().entries) {
             val path = field.key
             val value = field.value
-            if (path == null || path.isBlank()) {
+            if (path.isBlank()) {
                 continue
             }
             if (applyStructuredFieldPath(obj, path, value, if (mode == null) FieldUpdateMode.NORMAL else mode)) {
@@ -2112,7 +2086,7 @@ object DlcUpdateService {
             return map
         }
         for (entry in DlcPresetLoader.loadAll(mutableListOf(dlcRoot))) {
-            if (entry == null || entry.getSourcePath() == null) {
+            if (entry.getSourcePath() == null) {
                 continue
             }
             if (entry.getId() != null && !entry.getId()!!.isBlank()) {
@@ -2469,7 +2443,7 @@ object DlcUpdateService {
             return
         }
         for (applied in targets) {
-            if (applied == null || applied.path == null) {
+            if (applied.path == null) {
                 continue
             }
             val target: Path = if (applied.directory) applied.path.resolve(fileName) else applied.path
@@ -2637,9 +2611,6 @@ object DlcUpdateService {
         val requiredFileName: kotlin.String? = resolveRequiredFileName(entry, dlcRoot)
         deleteRequiredDownload(entry, dlcRoot, requiredFileName, context)
         for (target in entry.resolveAppliedTargets()) {
-            if (target == null) {
-                continue
-            }
             if (Files.isDirectory(target)) {
                 if (requiredFileName == null || requiredFileName.isBlank()) {
                     continue
@@ -2793,7 +2764,7 @@ object DlcUpdateService {
             return null
         }
         val base = entry.getBaseName()
-        if (base == null || base.isBlank()) {
+        if (base.isBlank()) {
             return null
         }
         try {
@@ -3158,12 +3129,12 @@ object DlcUpdateService {
     }
 
     private fun extractApplyFailureMessage(result: ApplyResult?): kotlin.String {
-        if (result == null || result.messages == null || result.messages.isEmpty()) {
+        if (result == null || result.messages.isEmpty()) {
             return ""
         }
         val failures: MutableList<kotlin.String?> = ArrayList<kotlin.String?>()
         for (message in result.messages) {
-            if (message != null && message.startsWith("Failed to ")) {
+            if (message.startsWith("Failed to ")) {
                 failures.add(message)
             }
         }
@@ -3504,9 +3475,6 @@ object DlcUpdateService {
         }
         val targetIndexes: MutableSet<Int?> = LinkedHashSet<Int?>()
         for (idx in which.getIndexes()) {
-            if (idx == null) {
-                continue
-            }
             if (idx <= 0) {
                 continue
             }
@@ -3687,7 +3655,7 @@ object DlcUpdateService {
             return PLATFORM_UNIVERSAL
         }
         val raw = info.getPlatform()
-        if (raw == null || raw.isBlank()) {
+        if (raw.isBlank()) {
             return PLATFORM_UNIVERSAL
         }
         val normalized = raw.trim { it <= ' ' }.lowercase()
@@ -3702,7 +3670,7 @@ object DlcUpdateService {
     }
 
     private fun isPackageCompatible(pkg: DlcUpdatePackage?): Boolean {
-        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+        if (pkg == null || pkg.getManifest().getVersion() == null) {
             return false
         }
         return isPlatformCompatible(pkg.getManifest().getVersion())
@@ -3931,7 +3899,7 @@ object DlcUpdateService {
             return
         }
         val relative: kotlin.String = toGameRelativePath(path)
-        val label = if (relative == null || relative.isBlank()) path.toString() else relative
+        val label = if (relative.isBlank()) path.toString() else relative
         recordFileOpFailure(context, "Failed to " + operation + ": " + label, path, operation)
     }
 
@@ -3947,7 +3915,7 @@ object DlcUpdateService {
         var finalMessage = message
         if (finalMessage == null || finalMessage.isBlank()) {
             val relative: kotlin.String = if (path == null) "" else toGameRelativePath(path)
-            val label = if (relative == null || relative.isBlank())
+            val label = if (relative.isBlank())
                 (if (path == null) "" else path.toString())
             else
                 relative
@@ -4245,14 +4213,14 @@ object DlcUpdateService {
         val current: DlcUpdateVersion?,
         updates: MutableList<DlcUpdatePackage?>?
     ) {
-        val updates: MutableList<DlcUpdatePackage?>?
+        val updates: MutableList<DlcUpdatePackage?>
 
         init {
             this.updates = if (updates == null) mutableListOf<DlcUpdatePackage?>() else updates
         }
 
         fun hasUpdates(): Boolean {
-            return updates != null && !updates.isEmpty()
+            return !updates.isEmpty()
         }
     }
 
