@@ -33,7 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.nio.file.StandardCopyOption;
 
-public class DlcRequiredManagerScreen extends Screen {
+public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final ExecutorService INSTALL_EXECUTOR = Executors.newFixedThreadPool(3, r -> {
         Thread thread = new Thread(r, "dlc-required-install");
         thread.setDaemon(true);
@@ -138,11 +138,8 @@ public class DlcRequiredManagerScreen extends Screen {
         renderInstallOverlays(guiGraphics);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(mouseX, mouseY, delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(mouseX, mouseY, deltaY);
     }
 

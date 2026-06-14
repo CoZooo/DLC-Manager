@@ -1,6 +1,7 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
+        maven { url = 'https://maven.cozozjw.cn/repository/maven-public/' }
         maven { url = 'https://maven.architectury.dev/' }
         maven { url = 'https://maven.fabricmc.net/' }
         maven { url = 'https://maven.minecraftforge.net/' }
@@ -33,4 +34,8 @@ gradle.beforeProject { project ->
 
 rootProject.name = 'DLC-Manager-Architectury-1.21.1'
 
-include ':common', ':fabric', ':neoforge'
+def commonOnly = (startParameter.projectProperties['common_only'] ?: 'false').toString().toBoolean()
+include ':common'
+if (!commonOnly) {
+    include ':fabric', ':neoforge'
+}

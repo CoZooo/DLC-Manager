@@ -118,6 +118,9 @@ case "${MODE}" in
   build)
     TASKS=(build)
     ;;
+  test)
+    TASKS=(test)
+    ;;
   obfuscate)
     TASKS=(obfuscateAllYguard)
     ;;
@@ -153,7 +156,7 @@ case "${MODE}" in
     exit 0
     ;;
   *)
-    echo "Usage: ./build.sh [build|obfuscate|buildObf|check|archBuild|archCheck|publish|publishMaven|archPublish|archPublishMaven|all|export|helperBuild|helperCheck|helperClean|helperPublish]"
+    echo "Usage: ./build.sh [build|test|obfuscate|buildObf|check|archBuild|archCheck|publish|publishMaven|archPublish|archPublishMaven|all|export|helperBuild|helperCheck|helperClean|helperPublish]"
     exit 1
     ;;
 esac
@@ -161,7 +164,14 @@ esac
 printf "==> Run tasks: %s\n" "${TASKS[*]}"
 "${ROOT_DIR}/gradlew" "${TASKS[@]}" --parallel
 
-printf "==> Done. Output in: %s/output/%s\n" "$ROOT_DIR" "$MOD_VERSION"
+case "${MODE}" in
+  test|check|archCheck|helperCheck)
+    printf "==> Verification finished.\n"
+    ;;
+  *)
+    printf "==> Done. Output in: %s/output/%s\n" "$ROOT_DIR" "$MOD_VERSION"
+    ;;
+esac
 for task in "${TASKS[@]}"; do
   if [[ "${task}" == "obfuscateAllYguard" ]]; then
     printf "==> yGuard output: %s/output/%s/yGuard\n" "$ROOT_DIR" "$MOD_VERSION"

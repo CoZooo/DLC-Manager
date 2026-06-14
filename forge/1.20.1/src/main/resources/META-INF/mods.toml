@@ -37,6 +37,7 @@ mandatory=true
 versionRange="[0,)"
 ordering="NONE"
 side="BOTH"
+${kotlin_for_forge_dependency}
 
 [[dependencies.${mod_id}]]
 modId="mafglib"

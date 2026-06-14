@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.client.preset;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -33,7 +32,7 @@ public final class DlcPresetStateStore {
         if (root == null) {
             return result;
         }
-        JsonObject presets = JsonCaseUtil.getObjectIgnoreCase(root, PRESETS_KEY);
+        JsonObject presets = DcConfigIO.getObjectIgnoreCase(root, PRESETS_KEY);
         if (presets == null) {
             return result;
         }
@@ -76,7 +75,7 @@ public final class DlcPresetStateStore {
             }
             presets.addProperty(entry.getKey(), entry.getValue().toConfigValue());
         }
-        JsonCaseUtil.removeIgnoreCase(root, PRESETS_KEY);
+        DcConfigIO.removeIgnoreCase(root, PRESETS_KEY);
         root.add(PRESETS_KEY, presets);
         DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
     }

@@ -19,7 +19,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -35,7 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-public class DlcRemoteDownloadScreen extends Screen {
+public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     private static final int LINE_HEIGHT = 10;
     private static final int CHECKBOX_SIZE = 8;
     private static final int CHECKBOX_X = 12;
@@ -206,11 +206,8 @@ public class DlcRemoteDownloadScreen extends Screen {
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 
@@ -819,7 +816,7 @@ public class DlcRemoteDownloadScreen extends Screen {
     }
 
     private DownloadInfo openDownload(String url, long offset) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setConnectTimeout(connectTimeoutMs);
         connection.setReadTimeout(taskTimeoutMs);

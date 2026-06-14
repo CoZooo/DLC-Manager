@@ -7,7 +7,6 @@ import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -260,13 +259,13 @@ public final class DlcRemoteRuntime {
         if (obj == null || key == null || key.isBlank()) {
             return values;
         }
-        JsonObject object = JsonCaseUtil.getObjectIgnoreCase(obj, key);
+        JsonObject object = DcConfigIO.getObjectIgnoreCase(obj, key);
         if (object != null) {
             for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
                 if (entry.getValue() == null || !entry.getValue().isJsonPrimitive()) {
                     continue;
                 }
-                String lang = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                String lang = DcConfigIO.normalizeLangKey(entry.getKey());
                 if (lang == null) {
                     continue;
                 }
@@ -276,7 +275,7 @@ public final class DlcRemoteRuntime {
         if (!values.isEmpty()) {
             return values;
         }
-        String single = JsonCaseUtil.getStringIgnoreCase(obj, key);
+        String single = DcConfigIO.getStringIgnoreCase(obj, key);
         if (single != null && !single.isBlank()) {
             values.put("en_us", single);
         }

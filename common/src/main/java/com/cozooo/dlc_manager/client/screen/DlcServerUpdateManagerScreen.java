@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class DlcServerUpdateManagerScreen extends Screen {
+public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final AtomicBoolean PACK_RELEASE_CHECKED_ONCE = new AtomicBoolean(false);
     private final Screen parent;
     private final DlcServerEntry entry;
@@ -386,12 +386,9 @@ public class DlcServerUpdateManagerScreen extends Screen {
         guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        return handleMouseScrolled(vertical);
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
+        return handleMouseScrolled(deltaY);
     }
 
     private boolean handleMouseScrolled(double vertical) {

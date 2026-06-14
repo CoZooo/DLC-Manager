@@ -1,22 +1,30 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import fi.dy.masa.malilib.gui.GuiListBase;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Checkbox;
 import net.minecraft.client.gui.components.Renderable;
-import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.components.toasts.SystemToast;
 import net.minecraft.client.gui.components.toasts.ToastComponent;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
 public final class DlcScreenCompat {
-    private static final Field RENDERABLES_FIELD = findField(Screen.class, "renderables");
-
     private DlcScreenCompat() {
+    }
+
+    public abstract static class MouseScroll extends Screen {
+        protected MouseScroll(Component title) {
+            super(title);
+        }
+
+        @Override
+        public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+            return handleCompatibleMouseScrolled(mouseX, mouseY, delta);
+        }
+
+        protected abstract boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY);
     }
 
     public static void renderBackground(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
@@ -40,65 +48,14 @@ public final class DlcScreenCompat {
     }
 
     public static void renderWidgets(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        boolean renderedAny = false;
-        for (GuiEventListener child : screen.children()) {
+        for (Object child : screen.children()) {
             if (child instanceof Renderable renderable) {
                 renderable.render(guiGraphics, mouseX, mouseY, partialTick);
-                renderedAny = true;
             }
-        }
-        if (renderedAny || RENDERABLES_FIELD == null) {
-            return;
-        }
-        try {
-            Object value = RENDERABLES_FIELD.get(screen);
-            if (!(value instanceof Iterable<?> iterable)) {
-                return;
-            }
-            for (Object candidate : iterable) {
-                if (candidate instanceof Renderable renderable) {
-                    renderable.render(guiGraphics, mouseX, mouseY, partialTick);
-                }
-            }
-        } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException("Failed to render compatible widgets", ex);
         }
     }
 
-    public static boolean invokeCompatibleMouseScroll(Object target, String methodName, int mouseX, int mouseY, double deltaX, double deltaY) {
-        Method method = findDeclaredMethod(target.getClass(), methodName, int.class, int.class, double.class);
-        if (method == null) {
-            throw new IllegalStateException("Failed to resolve compatible mouse scroll handler: " + methodName);
-        }
-        try {
-            Object value = method.invoke(target, mouseX, mouseY, deltaY);
-            return value instanceof Boolean result && result;
-        } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException("Failed to invoke compatible mouse scroll handler", ex);
-        }
-    }
-
-    private static Method findDeclaredMethod(Class<?> owner, String name, Class<?>... parameterTypes) {
-        Class<?> current = owner;
-        while (current != null) {
-            try {
-                Method method = current.getDeclaredMethod(name, parameterTypes);
-                method.setAccessible(true);
-                return method;
-            } catch (ReflectiveOperationException ignored) {
-                current = current.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    private static Field findField(Class<?> owner, String name) {
-        try {
-            Field field = owner.getDeclaredField(name);
-            field.setAccessible(true);
-            return field;
-        } catch (ReflectiveOperationException ignored) {
-            return null;
-        }
+    public static boolean invokeCompatibleMouseScroll(GuiListBase<?, ?, ?> target, int mouseX, int mouseY, double deltaX, double deltaY) {
+        return target.onMouseScrolled(mouseX, mouseY, deltaY);
     }
 }

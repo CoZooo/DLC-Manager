@@ -14,7 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.List;
 
-public class DlcUpdateMissingScreen extends Screen {
+public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
     private final Screen parent;
     private final UpdateCheckResult updateResult;
     private final List<String> missingPaths;
@@ -92,11 +92,8 @@ public class DlcUpdateMissingScreen extends Screen {
         guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

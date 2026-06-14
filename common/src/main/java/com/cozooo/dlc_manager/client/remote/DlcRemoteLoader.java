@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -322,7 +322,7 @@ public final class DlcRemoteLoader {
                 fileName = nameFallback;
             }
         }
-        JsonObject displayObj = sanitizeLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName"));
+        JsonObject displayObj = sanitizeLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName"));
         if (displayObj.entrySet().isEmpty()) {
             displayObj = new JsonObject();
             displayObj.addProperty("en_us", nameFallback == null ? "" : nameFallback);
@@ -330,7 +330,7 @@ public final class DlcRemoteLoader {
         if (identifier == null || identifier.isBlank()) {
             identifier = nameFallback == null ? "" : nameFallback;
         }
-        JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
+        JsonObject tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip");
         if (tipObj == null) {
             tipObj = new JsonObject();
         }
@@ -348,8 +348,8 @@ public final class DlcRemoteLoader {
             inList = false;
         }
 
-        DependencyResult deps = normalizeDependencies(JsonCaseUtil.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir);
-        DependencyResult conflicts = normalizeConflicts(JsonCaseUtil.getIgnoreCase(obj, "conflicts"));
+        DependencyResult deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir);
+        DependencyResult conflicts = normalizeConflicts(DcConfigIO.getIgnoreCase(obj, "conflicts"));
 
         JsonObject ordered = new JsonObject();
         ordered.addProperty("curseforge_projectid", curseProjectId == null ? "" : curseProjectId);
@@ -613,7 +613,7 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return List.of();
         }
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, "directUrl");
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, "directUrl");
         if (element == null) {
             return List.of();
         }
@@ -657,11 +657,11 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return false;
         }
-        boolean hasIdentifier = JsonCaseUtil.hasIgnoreCase(obj, "identifier")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
-            || JsonCaseUtil.hasIgnoreCase(obj, "file_name")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_name")
-            || JsonCaseUtil.hasIgnoreCase(obj, "name");
+        boolean hasIdentifier = DcConfigIO.hasIgnoreCase(obj, "identifier")
+            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+            || DcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DcConfigIO.hasIgnoreCase(obj, "dlc_name")
+            || DcConfigIO.hasIgnoreCase(obj, "name");
         if (!hasIdentifier) {
             return false;
         }
@@ -704,42 +704,42 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return false;
         }
-        return JsonCaseUtil.hasIgnoreCase(obj, "directUrl")
-            || JsonCaseUtil.hasIgnoreCase(obj, "modrinth_projectid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "modrinth_versionid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_projectid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "curseforge_fileid")
-            || JsonCaseUtil.hasIgnoreCase(obj, "identifier")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")
-            || JsonCaseUtil.hasIgnoreCase(obj, "file_name")
-            || JsonCaseUtil.hasIgnoreCase(obj, "type")
-            || JsonCaseUtil.hasIgnoreCase(obj, "appliedTarget")
-            || JsonCaseUtil.hasIgnoreCase(obj, "DisplayName")
-            || JsonCaseUtil.hasIgnoreCase(obj, "tip")
-            || JsonCaseUtil.hasIgnoreCase(obj, "isInList")
-            || JsonCaseUtil.hasIgnoreCase(obj, "isHidden")
-            || JsonCaseUtil.hasIgnoreCase(obj, "AllowEnableByAll")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dependencies")
-            || JsonCaseUtil.hasIgnoreCase(obj, "conflicts")
-            || JsonCaseUtil.hasIgnoreCase(obj, "alarm");
+        return DcConfigIO.hasIgnoreCase(obj, "directUrl")
+            || DcConfigIO.hasIgnoreCase(obj, "modrinth_projectid")
+            || DcConfigIO.hasIgnoreCase(obj, "modrinth_versionid")
+            || DcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
+            || DcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
+            || DcConfigIO.hasIgnoreCase(obj, "identifier")
+            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+            || DcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DcConfigIO.hasIgnoreCase(obj, "type")
+            || DcConfigIO.hasIgnoreCase(obj, "appliedTarget")
+            || DcConfigIO.hasIgnoreCase(obj, "DisplayName")
+            || DcConfigIO.hasIgnoreCase(obj, "tip")
+            || DcConfigIO.hasIgnoreCase(obj, "isInList")
+            || DcConfigIO.hasIgnoreCase(obj, "isHidden")
+            || DcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
+            || DcConfigIO.hasIgnoreCase(obj, "dependencies")
+            || DcConfigIO.hasIgnoreCase(obj, "conflicts")
+            || DcConfigIO.hasIgnoreCase(obj, "alarm");
     }
 
     private static boolean needsKeyMigration(JsonObject obj) {
         if (obj == null) {
             return false;
         }
-        if (JsonCaseUtil.hasIgnoreCase(obj, "dlc_name") || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier")) {
+        if (DcConfigIO.hasIgnoreCase(obj, "dlc_name") || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
             return true;
         }
-        return !JsonCaseUtil.hasIgnoreCase(obj, "file_name") || !JsonCaseUtil.hasIgnoreCase(obj, "identifier");
+        return !DcConfigIO.hasIgnoreCase(obj, "file_name") || !DcConfigIO.hasIgnoreCase(obj, "identifier");
     }
 
     private static String getString(JsonObject obj, String key) {
-        return JsonCaseUtil.getStringIgnoreCase(obj, key);
+        return DcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
+        return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private static JsonObject sanitizeLocalized(JsonObject obj) {
@@ -749,7 +749,7 @@ public final class DlcRemoteLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                String key = DcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     result.addProperty(key, entry.getValue().getAsString());
                 }
@@ -765,7 +765,7 @@ public final class DlcRemoteLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                String key = DcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     values.put(key, entry.getValue().getAsString());
                 }

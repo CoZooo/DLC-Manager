@@ -61,7 +61,7 @@ public class DlcNoticeConfig {
             if (values.isEmpty()) {
                 return "";
             }
-            String key = JsonCaseUtil.normalizeLangKey(lang);
+            String key = DcConfigIO.normalizeLangKey(lang);
             if (key != null && values.containsKey(key)) {
                 return values.get(key);
             }
@@ -112,14 +112,14 @@ public class DlcNoticeConfig {
         config.noticeEnabled = getBoolean(obj, "isNoticeEnabled", true);
         config.neverShow = getBoolean(obj, "neverShow", false);
         config.showFrequency = ShowFrequency.fromString(getString(obj, "ShowFrequency"));
-        config.title.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Title")));
-        JsonObject subheadObj = JsonCaseUtil.getObjectIgnoreCase(obj, "Subhead");
+        config.title.values.putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "Title")));
+        JsonObject subheadObj = DcConfigIO.getObjectIgnoreCase(obj, "Subhead");
         if (subheadObj != null) {
             config.subhead.enabled = getBoolean(subheadObj, "enabled", true);
             config.subhead.text.values.putAll(readLocalized(subheadObj));
         }
-        config.contentUrls.values.putAll(readLocalizedUrlValues(JsonCaseUtil.getIgnoreCase(obj, "ContentUrl")));
-        config.contents.values.putAll(readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "Contents")));
+        config.contentUrls.values.putAll(readLocalizedUrlValues(DcConfigIO.getIgnoreCase(obj, "ContentUrl")));
+        config.contents.values.putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "Contents")));
         config.ensureDefaults();
         return config;
     }
@@ -242,7 +242,7 @@ public class DlcNoticeConfig {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                values.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
+                values.put(DcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
             }
         }
         return values;
@@ -268,7 +268,7 @@ public class DlcNoticeConfig {
             if (entry.getValue().isJsonPrimitive()) {
                 String url = normalizeUrl(entry.getValue().getAsString());
                 if (!url.isBlank()) {
-                    values.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), url);
+                    values.put(DcConfigIO.normalizeLangKey(entry.getKey()), url);
                 }
             }
         }
@@ -284,11 +284,11 @@ public class DlcNoticeConfig {
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        return JsonCaseUtil.getBooleanIgnoreCase(obj, key, fallback);
+        return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private static String getString(JsonObject obj, String key) {
-        return JsonCaseUtil.getStringIgnoreCase(obj, key);
+        return DcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private synchronized String fetchContentUrlText(String contentUrl) {
@@ -302,8 +302,7 @@ public class DlcNoticeConfig {
         contentUrlLoaded.add(normalizedUrl);
         java.net.HttpURLConnection connection = null;
         try {
-            java.net.URL url = new java.net.URL(normalizedUrl);
-            connection = (java.net.HttpURLConnection) url.openConnection();
+            connection = (java.net.HttpURLConnection) java.net.URI.create(normalizedUrl).toURL().openConnection();
             connection.setConnectTimeout(5000);
             connection.setReadTimeout(10000);
             connection.setInstanceFollowRedirects(true);

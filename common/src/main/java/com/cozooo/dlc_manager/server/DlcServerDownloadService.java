@@ -18,7 +18,6 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -746,7 +745,7 @@ public final class DlcServerDownloadService {
         if (lang == null || lang.isBlank()) {
             lang = CrossPlatformRuntime.languageCode();
         }
-        return JsonCaseUtil.normalizeLangKey(lang);
+        return DcConfigIO.normalizeLangKey(lang);
     }
 
 
@@ -1639,20 +1638,20 @@ public final class DlcServerDownloadService {
         ordered.addProperty("isInList", getBoolean(obj, "isInList", true));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
-        JsonElement deps = JsonCaseUtil.getIgnoreCase(obj, "dependencies");
+        JsonElement deps = DcConfigIO.getIgnoreCase(obj, "dependencies");
         if (deps == null || deps.isJsonNull()) {
             ordered.addProperty("dependencies", "");
         } else {
             ordered.add("dependencies", normalizeRelationElement(deps));
         }
-        JsonElement conflicts = JsonCaseUtil.getIgnoreCase(obj, "conflicts");
+        JsonElement conflicts = DcConfigIO.getIgnoreCase(obj, "conflicts");
         if (conflicts == null || conflicts.isJsonNull()) {
             ordered.addProperty("conflicts", "");
         } else {
             ordered.add("conflicts", normalizeRelationElement(conflicts));
         }
         JsonObject display = new JsonObject();
-        JsonElement displayObj = JsonCaseUtil.getIgnoreCase(obj, "DisplayName");
+        JsonElement displayObj = DcConfigIO.getIgnoreCase(obj, "DisplayName");
         if (displayObj != null) {
             if (displayObj.isJsonObject()) {
                 for (var e : displayObj.getAsJsonObject().entrySet()) {
@@ -1667,7 +1666,7 @@ public final class DlcServerDownloadService {
         ordered.add("DisplayName", display);
         ordered.addProperty("alarm", getBoolean(obj, "alarm", false));
         JsonObject tipObj = new JsonObject();
-        JsonElement tip = JsonCaseUtil.getIgnoreCase(obj, "tip");
+        JsonElement tip = DcConfigIO.getIgnoreCase(obj, "tip");
         if (tip != null) {
             if (tip.isJsonObject()) {
                 for (var e : tip.getAsJsonObject().entrySet()) {
@@ -1860,7 +1859,7 @@ public final class DlcServerDownloadService {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = JsonCaseUtil.normalizeLangKey(entry.getKey());
+                String key = DcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     values.put(key, entry.getValue().getAsString());
                 }
@@ -1879,10 +1878,10 @@ public final class DlcServerDownloadService {
         }
         JsonObject obj = entry == null ? null : readConfigObject(entry.getConfigPath());
         if (obj != null) {
-            JsonObject displayObj = JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName");
+            JsonObject displayObj = DcConfigIO.getObjectIgnoreCase(obj, "DisplayName");
             values.putAll(readLocalizedMap(displayObj));
             if (values.isEmpty()) {
-                String display = JsonCaseUtil.getStringIgnoreCase(obj, "DisplayName");
+                String display = DcConfigIO.getStringIgnoreCase(obj, "DisplayName");
                 if (display != null && !display.isBlank()) {
                     values.put("en_us", display);
                 }
@@ -1904,10 +1903,10 @@ public final class DlcServerDownloadService {
         }
         JsonObject obj = entry == null ? null : readConfigObject(entry.getConfigPath());
         if (obj != null) {
-            JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
+            JsonObject tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip");
             values.putAll(readLocalizedMap(tipObj));
             if (values.isEmpty()) {
-                String tip = JsonCaseUtil.getStringIgnoreCase(obj, "tip");
+                String tip = DcConfigIO.getStringIgnoreCase(obj, "tip");
                 if (tip != null && !tip.isBlank()) {
                     values.put("en_us", tip);
                 }

@@ -1166,14 +1166,14 @@ public final class DlcClientRuntime {
         String ip = data.ip == null ? "" : data.ip;
         String host = ip;
         int port = DlcPathConfig.getServerPort();
-        int index = ip.lastIndexOf(':');
-        if (index > 0 && index < ip.length() - 1) {
-            if (ip.startsWith("[") && ip.contains("]")) {
-                int end = ip.indexOf(']');
-                if (end > 1) {
-                    host = ip.substring(1, end);
-                }
-            } else {
+        if (ip.startsWith("[") && ip.contains("]")) {
+            int end = ip.indexOf(']');
+            if (end > 1) {
+                host = ip.substring(1, end);
+            }
+        } else {
+            int index = ip.lastIndexOf(':');
+            if (index > 0 && index < ip.length() - 1 && ip.indexOf(':') == index) {
                 host = ip.substring(0, index);
             }
         }

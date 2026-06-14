@@ -7,16 +7,64 @@ architectury {
     common(rootProject.enabled_platforms.split(','))
 }
 
+def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+def kotlinMainDirs = [
+    '../../../common/src/main/kotlin',
+    '../../../common/1.20.1/src/main/kotlin'
+]
+def moduleProject = project
+
 sourceSets {
     main {
         java.srcDirs = [
             '../../../common/src/main/java',
             '../../../common/1.20.1/src/main/java'
         ]
+        if (kotlinEnabled) {
+            kotlin.srcDirs = kotlinMainDirs
+            java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
+        }
         resources.srcDirs = [
             '../../../common/src/main/resources',
             '../../../common/1.20.1/src/main/resources'
         ]
+    }
+    test {
+        java.srcDirs = [
+            '../../../common/src/test/java',
+            '../../../common/1.20.1/src/test/java'
+        ]
+        resources.srcDirs = [
+            '../../../common/src/test/resources',
+            '../../../common/1.20.1/src/test/resources'
+        ]
+    }
+}
+
+if (kotlinEnabled) {
+    tasks.named('compileKotlin').configure {
+        source(sourceSets.main.java)
+    }
+    tasks.named('compileJava').configure {
+        doFirst {
+            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, destinationDirectory.get().asFile)
+        }
+    }
+    tasks.named('jar').configure {
+        doFirst {
+            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+        }
+    }
+} else {
+    tasks.named('compileJava').configure {
+        doFirst {
+            rootProject.deleteKotlinClassesReplacedByJava(moduleProject, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+        }
+    }
+    tasks.named('jar').configure {
+        doFirst {
+            rootProject.deleteKotlinClassesReplacedByJava(moduleProject, kotlinMainDirs, layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+        }
     }
 }
 

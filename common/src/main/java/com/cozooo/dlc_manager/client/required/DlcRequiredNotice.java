@@ -3,7 +3,6 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -43,8 +42,8 @@ public final class DlcRequiredNotice {
         if (obj == null) {
             return new DlcRequiredNotice(download, manage);
         }
-        readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "download_desc"), download);
-        readLocalized(JsonCaseUtil.getObjectIgnoreCase(obj, "manage_desc"), manage);
+        readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "download_desc"), download);
+        readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "manage_desc"), manage);
         return new DlcRequiredNotice(download, manage);
     }
 
@@ -62,7 +61,7 @@ public final class DlcRequiredNotice {
         }
         for (var entry : data.entrySet()) {
             if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
-                out.put(JsonCaseUtil.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
+                out.put(DcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
             }
         }
     }
@@ -71,7 +70,7 @@ public final class DlcRequiredNotice {
         if (values == null || values.isEmpty()) {
             return "";
         }
-        String lang = JsonCaseUtil.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
         if (lang != null && values.containsKey(lang)) {
             return values.get(lang);
         }

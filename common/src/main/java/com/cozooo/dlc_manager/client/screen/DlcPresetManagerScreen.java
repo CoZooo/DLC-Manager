@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class DlcPresetManagerScreen extends Screen {
+public class DlcPresetManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final int ROW_HEIGHT = 22;
     private static final int CHECKBOX_SIZE = 14;
     private static final int CHECKBOX_X = 24;
@@ -101,12 +101,9 @@ public class DlcPresetManagerScreen extends Screen {
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        return handleMouseScrolled(vertical);
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
+        return handleMouseScrolled(deltaY);
     }
 
     private boolean handleMouseScrolled(double vertical) {

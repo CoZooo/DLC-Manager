@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.mojang.logging.LogUtils;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -21,14 +20,10 @@ import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.contents.TranslatableContents;
-import org.slf4j.Logger;
 
 public class DlcManagerClient implements ClientModInitializer {
     private static boolean resourcePackSynced = false;
     private static Screen pendingAlignScreen;
-    private static volatile boolean startupCheckRunning = false;
-    private static volatile boolean selfUpdatePrompted = false;
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
     public void onInitializeClient() {

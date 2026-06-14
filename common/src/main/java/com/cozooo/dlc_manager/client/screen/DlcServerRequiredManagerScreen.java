@@ -24,7 +24,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DlcServerRequiredManagerScreen extends Screen {
+public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final class InstallState {
         private volatile boolean running;
         private volatile float progress;
@@ -412,12 +412,9 @@ public class DlcServerRequiredManagerScreen extends Screen {
         renderInstallOverlays(guiGraphics);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(mouseX, mouseY, delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        return handleMouseScrolled(mouseX, mouseY, vertical);
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
+        return handleMouseScrolled(mouseX, mouseY, deltaY);
     }
 
     private boolean handleMouseScrolled(double mouseX, double mouseY, double delta) {
@@ -480,8 +477,11 @@ public class DlcServerRequiredManagerScreen extends Screen {
         if (applied) {
             label = label.copy().withStyle(ChatFormatting.GREEN);
         } else if (pending) {
-            label = DlcTextFormatter.parse(name + " " + Component.translatable("dlc_manager.required.pending_restart").getString())
-                .copy().withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
+            label = DlcTextFormatter.parse(name)
+                .copy()
+                .append(Component.literal(" "))
+                .append(Component.translatable("dlc_manager.required.pending_restart"))
+                .withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
         }
         return label;
     }

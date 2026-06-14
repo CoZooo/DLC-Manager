@@ -29,5 +29,5 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
-    - name: Run check pipeline
-      run: ./gradlew check --parallel
+    - name: Run check and test pipeline
+      run: ./gradlew check archTest --parallel

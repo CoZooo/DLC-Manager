@@ -15,7 +15,7 @@ import net.minecraft.util.FormattedCharSequence;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DlcNoticeScreen extends Screen {
+public class DlcNoticeScreen extends DlcScreenCompat.MouseScroll {
     private final Screen parent;
     private final DlcNoticeConfig config;
     private Checkbox neverShowBox;
@@ -281,11 +281,8 @@ public class DlcNoticeScreen extends Screen {
         this.minecraft.setScreen(parent);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(mouseX, mouseY, delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(mouseX, mouseY, deltaY);
     }
 

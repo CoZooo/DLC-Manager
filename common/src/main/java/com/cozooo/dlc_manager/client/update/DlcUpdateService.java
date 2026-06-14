@@ -30,7 +30,6 @@ import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -38,7 +37,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -1784,7 +1783,7 @@ public final class DlcUpdateService {
         if (containerKey == null) {
             return false;
         }
-        JsonElement containerElement = JsonCaseUtil.getIgnoreCase(root, containerKey);
+        JsonElement containerElement = DcConfigIO.getIgnoreCase(root, containerKey);
         JsonObject container;
         if (containerElement != null && containerElement.isJsonObject()) {
             container = containerElement.getAsJsonObject();
@@ -1863,7 +1862,7 @@ public final class DlcUpdateService {
                 upsertCaseInsensitive(current, key, value);
                 return;
             }
-            JsonElement child = JsonCaseUtil.getIgnoreCase(current, key);
+            JsonElement child = DcConfigIO.getIgnoreCase(current, key);
             JsonObject next;
             if (child != null && child.isJsonObject()) {
                 next = child.getAsJsonObject();
@@ -1914,9 +1913,9 @@ public final class DlcUpdateService {
                     if (obj == null) {
                         return;
                     }
-                    String identifier = JsonCaseUtil.getStringIgnoreCase(obj, "identifier");
+                    String identifier = DcConfigIO.getStringIgnoreCase(obj, "identifier");
                     if (identifier == null || identifier.isBlank()) {
-                        identifier = JsonCaseUtil.getStringIgnoreCase(obj, "dlc_identifier");
+                        identifier = DcConfigIO.getStringIgnoreCase(obj, "dlc_identifier");
                     }
                     if (identifier == null || identifier.isBlank()) {
                         return;
@@ -2199,7 +2198,7 @@ public final class DlcUpdateService {
     private static String fetchHeaderFileName(String url) {
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(true);
             connection.setRequestMethod("HEAD");
             connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());

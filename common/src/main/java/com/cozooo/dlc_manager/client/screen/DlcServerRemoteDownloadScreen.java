@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -21,7 +21,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DlcServerRemoteDownloadScreen extends Screen {
+public class DlcServerRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     private static final int LINE_HEIGHT = 10;
     private static final int CHECKBOX_SIZE = 8;
     private static final int CHECKBOX_X = 12;
@@ -273,7 +273,7 @@ public class DlcServerRemoteDownloadScreen extends Screen {
             return "";
         }
         if (item.displayNames != null && !item.displayNames.isEmpty()) {
-            String lang = JsonCaseUtil.normalizeLangKey(Minecraft.getInstance().options.languageCode);
+            String lang = DcConfigIO.normalizeLangKey(Minecraft.getInstance().options.languageCode);
             String name = lang == null ? null : item.displayNames.get(lang);
             if (name == null || name.isBlank()) {
                 name = item.displayNames.get("en_us");
@@ -333,11 +333,8 @@ public class DlcServerRemoteDownloadScreen extends Screen {
         return 0f;
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

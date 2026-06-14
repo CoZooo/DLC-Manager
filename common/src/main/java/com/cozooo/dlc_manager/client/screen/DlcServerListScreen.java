@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
+import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -16,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerListScreen extends Screen {
+public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
     private static final int ROW_HEIGHT = 22;
 
     private final Screen parent;
@@ -124,7 +125,7 @@ public class DlcServerListScreen extends Screen {
             }
             String label = entry == null ? "" : entry.getDisplayName();
             String host = entry == null ? "" : entry.getKey();
-            guiGraphics.drawString(this.font, label, 36, rowY + 4, 0xE6E6E6, false);
+            guiGraphics.drawString(this.font, DlcTextFormatter.parse(label), 36, rowY + 4, 0xE6E6E6, false);
             guiGraphics.drawString(this.font, host, 36, rowY + 13, 0x9A9A9A, false);
             rowY += ROW_HEIGHT;
         }
@@ -164,11 +165,8 @@ public class DlcServerListScreen extends Screen {
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(mouseX, mouseY, delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(mouseX, mouseY, deltaY);
     }
 

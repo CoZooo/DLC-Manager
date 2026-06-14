@@ -2,11 +2,10 @@ package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.client.DlcClientRuntime;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
-import com.cozooo.dlc_manager.client.screen.DlcPathConfigScreen;
+import com.cozooo.dlc_manager.client.screen.DlcConfigScreen;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -25,12 +24,8 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
-import org.slf4j.Logger;
 
 public class DlcManagerClient {
-    private static volatile boolean startupCheckRunning = false;
-    private static volatile boolean selfUpdatePrompted = false;
-    private static final Logger LOGGER = LogUtils.getLogger();
     public static void init(IEventBus modBus) {
         modBus.addListener(DlcManagerClient::onClientSetup);
         NeoForge.EVENT_BUS.register(new ClientEvents());
@@ -39,12 +34,11 @@ public class DlcManagerClient {
     private static void onClientSetup(FMLClientSetupEvent event) {
         DlcUpdateService.ensureUpdateDir();
         ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory.class,
-            () -> (modContainer, parent) -> new DlcPathConfigScreen(parent));
+            () -> (modContainer, parent) -> new DlcConfigScreen(parent));
     }
 
     public static class ClientEvents {
         private boolean resourcePackSynced = false;
-        private volatile boolean startupCheckRunning = false;
 
         @SubscribeEvent
         public void onTitleScreenInit(ScreenEvent.Init.Post event) {
@@ -186,10 +180,7 @@ public class DlcManagerClient {
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
-            double mouseX = readEventDouble(event, "getMouseX");
-            double mouseY = readEventDouble(event, "getMouseY");
-            int button = readEventInt(event, "getButton");
-            if (DlcClientRuntime.handleTitleNoticePanelRelease(screen, mouseX, mouseY, button)) {
+            if (DlcClientRuntime.handleTitleNoticePanelRelease(screen, event.getMouseX(), event.getMouseY(), event.getButton())) {
                 event.setCanceled(true);
             }
         }
@@ -200,12 +191,9 @@ public class DlcManagerClient {
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
-            double mouseX = readEventDouble(event, "getMouseX");
-            double mouseY = readEventDouble(event, "getMouseY");
-            int button = readEventInt(event, "getMouseButton", "getButton");
-            double dragX = readEventDouble(event, "getDragX");
-            double dragY = readEventDouble(event, "getDragY");
-            if (DlcClientRuntime.handleTitleNoticePanelDrag(screen, mouseX, mouseY, button, dragX, dragY)) {
+            if (DlcClientRuntime.handleTitleNoticePanelDrag(
+                screen, event.getMouseX(), event.getMouseY(), event.getMouseButton(), event.getDragX(), event.getDragY()
+            )) {
                 event.setCanceled(true);
             }
         }
@@ -216,11 +204,9 @@ public class DlcManagerClient {
             if (!(screen instanceof net.minecraft.client.gui.screens.TitleScreen)) {
                 return;
             }
-            double mouseX = readEventDouble(event, "getMouseX");
-            double mouseY = readEventDouble(event, "getMouseY");
-            double horizontal = readEventDouble(event, "getScrollDeltaX", "getHorizontalScrollDelta");
-            double vertical = readEventDouble(event, "getScrollDeltaY", "getScrollDelta");
-            if (DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, horizontal, vertical)) {
+            if (DlcClientRuntime.handleTitleNoticePanelScroll(
+                screen, event.getMouseX(), event.getMouseY(), event.getScrollDeltaX(), event.getScrollDeltaY()
+            )) {
                 event.setCanceled(true);
             }
         }
@@ -325,32 +311,6 @@ public class DlcManagerClient {
 
         private static void syncEnabledResourcePacks() {
             DlcClientRuntime.syncEnabledResourcePacks();
-        }
-
-        private static double readEventDouble(Object event, String... methodNames) {
-            for (String methodName : methodNames) {
-                try {
-                    Object value = event.getClass().getMethod(methodName).invoke(event);
-                    if (value instanceof Number number) {
-                        return number.doubleValue();
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-            return 0.0D;
-        }
-
-        private static int readEventInt(Object event, String... methodNames) {
-            for (String methodName : methodNames) {
-                try {
-                    Object value = event.getClass().getMethod(methodName).invoke(event);
-                    if (value instanceof Number number) {
-                        return number.intValue();
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-            return 0;
         }
 
         private static boolean canOpenServerManager() {

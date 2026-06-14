@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class DlcPackReleaseUpdateScreen extends Screen {
+public class DlcPackReleaseUpdateScreen extends DlcScreenCompat.MouseScroll {
     private static final int TEXT_COLOR = 0xC8C8C8;
     private static final int LABEL_COLOR = 0xDCDCDC;
     private static final int VERSION_COLOR = 0x7FD0FF;
@@ -413,11 +413,8 @@ public class DlcPackReleaseUpdateScreen extends Screen {
             + normalizeVersion(step.newBase) + "+" + normalizeVersion(step.newDlc);
     }
 
-    public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
-        return handleMouseScrolled(delta);
-    }
-
-    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
         return handleMouseScrolled(deltaY);
     }
 

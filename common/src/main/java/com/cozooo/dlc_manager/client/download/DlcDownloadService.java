@@ -7,7 +7,6 @@ import java.io.OutputStream;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -194,7 +193,7 @@ public final class DlcDownloadService {
     }
 
     private static DownloadInfo openDownload(String url, long offset) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
         connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
@@ -254,7 +253,7 @@ public final class DlcDownloadService {
         String fileName = null;
         HttpURLConnection head = null;
         try {
-            head = (HttpURLConnection) new URL(url).openConnection();
+            head = (HttpURLConnection) URI.create(url).toURL().openConnection();
             head.setInstanceFollowRedirects(true);
             head.setRequestMethod("HEAD");
             head.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
@@ -280,7 +279,7 @@ public final class DlcDownloadService {
         }
         HttpURLConnection range = null;
         try {
-            range = (HttpURLConnection) new URL(url).openConnection();
+            range = (HttpURLConnection) URI.create(url).toURL().openConnection();
             range.setInstanceFollowRedirects(true);
             range.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
             range.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
@@ -321,7 +320,7 @@ public final class DlcDownloadService {
         }
         HttpURLConnection connection = null;
         try {
-            connection = (HttpURLConnection) new URL(url).openConnection();
+            connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
             connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
@@ -349,7 +348,7 @@ public final class DlcDownloadService {
         }
         HttpURLConnection range = null;
         try {
-            range = (HttpURLConnection) new URL(url).openConnection();
+            range = (HttpURLConnection) URI.create(url).toURL().openConnection();
             range.setInstanceFollowRedirects(false);
             range.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
             range.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
@@ -416,7 +415,7 @@ public final class DlcDownloadService {
                     }
                     HttpURLConnection connection = null;
                     try {
-                        connection = (HttpURLConnection) new URL(url).openConnection();
+                        connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
                         connection.setInstanceFollowRedirects(true);
                         connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
                         connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());

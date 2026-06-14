@@ -6,7 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -184,7 +184,7 @@ public final class DlcRequiredLoader {
         applied = getString(obj, "appliedTarget");
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
         entry.setRedirectUrl(getString(obj, "RedirectUrl"));
-        JsonElement depsElement = JsonCaseUtil.getIgnoreCase(obj, "dependencies");
+        JsonElement depsElement = DcConfigIO.getIgnoreCase(obj, "dependencies");
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir);
         }
@@ -195,9 +195,9 @@ public final class DlcRequiredLoader {
         if (obj == null || entry == null) {
             return;
         }
-        JsonObject display = JsonCaseUtil.getObjectIgnoreCase(obj, "displayName");
+        JsonObject display = DcConfigIO.getObjectIgnoreCase(obj, "displayName");
         if (display == null) {
-            display = JsonCaseUtil.getObjectIgnoreCase(obj, "DisplayName");
+            display = DcConfigIO.getObjectIgnoreCase(obj, "DisplayName");
         }
         if (display == null) {
             String fallback = entry.getBaseName();
@@ -209,7 +209,7 @@ public final class DlcRequiredLoader {
         }
         for (var e : display.entrySet()) {
             if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                String key = JsonCaseUtil.normalizeLangKey(e.getKey());
+                String key = DcConfigIO.normalizeLangKey(e.getKey());
                 if (key != null) {
                     entry.putDisplayName(key, e.getValue().getAsString());
                 }
@@ -228,11 +228,11 @@ public final class DlcRequiredLoader {
         if (obj == null || entry == null) {
             return;
         }
-        JsonObject tipObj = JsonCaseUtil.getObjectIgnoreCase(obj, "tip");
+        JsonObject tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip");
         if (tipObj != null) {
             for (var e : tipObj.entrySet()) {
                 if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                    String key = JsonCaseUtil.normalizeLangKey(e.getKey());
+                    String key = DcConfigIO.normalizeLangKey(e.getKey());
                     if (key != null) {
                         entry.putTip(key, e.getValue().getAsString());
                     }
@@ -315,7 +315,7 @@ public final class DlcRequiredLoader {
         if (obj == null) {
             return List.of();
         }
-        JsonElement element = JsonCaseUtil.getIgnoreCase(obj, "directUrl");
+        JsonElement element = DcConfigIO.getIgnoreCase(obj, "directUrl");
         if (element == null) {
             return List.of();
         }
@@ -359,7 +359,7 @@ public final class DlcRequiredLoader {
         String fileName = entry.getRequiredFileName();
         String appliedTarget = entry.getAppliedTargetRaw();
         String redirectUrl = entry.getRedirectUrl();
-        DependencyResult deps = normalizeDependencies(JsonCaseUtil.getIgnoreCase(obj, "dependencies"), requiredDir);
+        DependencyResult deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), requiredDir);
         JsonObject display = new JsonObject();
         entry.getDisplayNames().forEach(display::addProperty);
         JsonObject tip = new JsonObject();
@@ -598,8 +598,8 @@ public final class DlcRequiredLoader {
         if (obj == null) {
             return false;
         }
-        return JsonCaseUtil.hasIgnoreCase(obj, "dlc_name")
-            || JsonCaseUtil.hasIgnoreCase(obj, "dlc_identifier");
+        return DcConfigIO.hasIgnoreCase(obj, "dlc_name")
+            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier");
     }
 
     private static boolean needsDcLayoutMigration(Path path) {
@@ -648,11 +648,11 @@ public final class DlcRequiredLoader {
     }
 
     private static String getString(JsonObject obj, String key) {
-        return JsonCaseUtil.getStringIgnoreCase(obj, key);
+        return DcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private static Boolean getBoolean(JsonObject obj, String key) {
-        return JsonCaseUtil.getBooleanIgnoreCase(obj, key);
+        return DcConfigIO.getBooleanIgnoreCase(obj, key);
     }
 
     private static final class DependencyResult {

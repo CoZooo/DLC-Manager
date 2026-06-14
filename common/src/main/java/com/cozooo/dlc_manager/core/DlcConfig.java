@@ -24,6 +24,7 @@ public class DlcConfig {
     public static void load() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         configPath = DcFormatUtil.resolveConfigPath(configDir, "state");
+        stateById = new HashMap<>();
         boolean migrateLegacyStateSection = false;
         if (configPath != null && Files.exists(configPath)) {
             try {

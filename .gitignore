@@ -51,9 +51,14 @@ gradle-app.setting
 build/
 **/run/
 **/runs/
-.idea/
+.idea/*
+!.idea/compiler.xml
+!.idea/gradle.xml
+!.idea/modules.xml
+!.idea/modules/
+!.idea/vcs.xml
 output/
-test/
+/test/
 jar-obf-lib/
 obf-lib/
 jar-obfuscator-temp/
@@ -66,5 +71,6 @@ tools/dc-editor/tsconfig.tsbuildinfo
 tools/dc-editor/tsconfig.node.tsbuildinfo
 
 **/__pycache__/
+**/logs/
 tools/dc-editor/OPERATION_TRACKING.txt
 debug.log

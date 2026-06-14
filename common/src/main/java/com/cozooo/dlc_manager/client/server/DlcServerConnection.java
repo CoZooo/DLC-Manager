@@ -3,7 +3,7 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
-import com.cozooo.dlc_manager.core.JsonCaseUtil;
+import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.google.gson.Gson;
@@ -1197,11 +1197,11 @@ public class DlcServerConnection {
         if (config == null) {
             return "";
         }
-        JsonObject paths = JsonCaseUtil.getObjectIgnoreCase(config, "paths");
+        JsonObject paths = DcConfigIO.getObjectIgnoreCase(config, "paths");
         if (paths == null) {
             return "";
         }
-        return JsonCaseUtil.getStringIgnoreCase(paths, "dlcRoot");
+        return DcConfigIO.getStringIgnoreCase(paths, "dlcRoot");
     }
 
     private static byte[] copyOf(byte[] input, int len) {

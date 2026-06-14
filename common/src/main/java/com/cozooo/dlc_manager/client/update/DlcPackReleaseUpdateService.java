@@ -17,7 +17,6 @@ import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.SocketTimeoutException;
-import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -1117,7 +1116,7 @@ public final class DlcPackReleaseUpdateService {
 
     private static JsonArray fetchReleasePage(ApiEndpoint endpoint, int page) throws IOException {
         String api = appendPageParameter(endpoint.url, page);
-        HttpURLConnection connection = (HttpURLConnection) new URL(api).openConnection();
+        HttpURLConnection connection = (HttpURLConnection) URI.create(api).toURL().openConnection();
         connection.setConnectTimeout(5000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("User-Agent", "DLC-Manager");

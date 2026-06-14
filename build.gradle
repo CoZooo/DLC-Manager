@@ -213,6 +213,18 @@ tasks.register('archCheck') {
     dependsOn(gradle.includedBuild('arch1211').task(':neoforge:check'))
 }
 
+tasks.register('archTest') {
+    group = 'verification'
+    description = 'Run tests for Architectury 1.20.1 and 1.21.1.'
+
+    dependsOn(gradle.includedBuild('arch1201').task(':common:test'))
+    dependsOn(gradle.includedBuild('arch1201').task(':fabric:test'))
+    dependsOn(gradle.includedBuild('arch1201').task(':forge:test'))
+    dependsOn(gradle.includedBuild('arch1211').task(':common:test'))
+    dependsOn(gradle.includedBuild('arch1211').task(':fabric:test'))
+    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:test'))
+}
+
 tasks.register('archBuild') {
     group = 'build'
     description = 'Build remapped jars for all Architectury targets.'
@@ -249,6 +261,12 @@ tasks.register('archPublishMaven') {
 
 tasks.named('check') {
     dependsOn(tasks.named('archCheck'))
+}
+
+tasks.register('test') {
+    group = 'verification'
+    description = 'Run all tests.'
+    dependsOn(tasks.named('archTest'))
 }
 
 tasks.named('build') {
