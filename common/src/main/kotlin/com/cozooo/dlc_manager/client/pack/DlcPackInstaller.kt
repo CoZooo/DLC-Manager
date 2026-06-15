@@ -116,7 +116,7 @@ class DlcPackInstaller(
             archiveMetadata(pack, packDir)
             applyRuntimeChanges(dependencies, conflicts, txn, txnPath)
             moveConfiguredConflicts(metadata.conflicts, packDir, txn, txnPath)
-            val manifestFiles = DlcPackCFResolver.downloadManifestFiles(pack, staging, effectiveOptions.cancelChecker)
+            val manifestFiles = DlcPackCFResolver.downloadManifestFiles(pack, staging, packDir, effectiveOptions.cancelChecker)
             val planWithManifest = DlcPackInstallPlan.merge(plan, manifestFiles, instanceRoot, dlcRoot)
             for (entry in planWithManifest.files) {
                 checkCanceled(effectiveOptions.cancelChecker)
@@ -160,7 +160,7 @@ class DlcPackInstaller(
             }
             txn.save(txnPath)
             deleteRecursive(staging)
-            deleteRecursive(packDir)
+            deletePackInstallState(packDir)
             if (error is IOException) {
                 throw error
             }
@@ -186,9 +186,12 @@ class DlcPackInstaller(
     private fun restoreExistingInstallation(oldMeta: DlcPackMeta, packDir: Path, backupDir: Path) {
         val backupPackDir = backupDir.resolve("pack_dir")
         val backupInstalledDir = backupDir.resolve("installed")
+        val currentCacheBackup = backupDir.resolve("current_cf_cache")
+        copyRecursive(packDir.resolve("cf_cache"), currentCacheBackup)
         deleteArchivedTargetsFromInstance(backupPackDir)
         deleteRecursive(packDir)
         copyRecursive(backupPackDir, packDir)
+        copyRecursive(currentCacheBackup, packDir.resolve("cf_cache"))
         for (relative in oldMeta.installedPaths) {
             val source = resolveInside(backupInstalledDir, relative)
             if (!Files.isRegularFile(source)) {
@@ -293,7 +296,7 @@ class DlcPackInstaller(
                     }
             }
         }
-        deleteRecursive(packDir)
+        deletePackInstallState(packDir)
         return UninstallReport(identifier, deleted, restored)
     }
 
@@ -529,7 +532,8 @@ class DlcPackInstaller(
     private fun isPackRecordPath(relative: String): Boolean {
         val normalized = relative.lowercase(Locale.ROOT)
         return normalized == "meta.dc" ||
-            normalized.startsWith("metadata/")
+            normalized.startsWith("metadata/") ||
+            normalized.startsWith("cf_cache/")
     }
 
     private fun pruneEmptyParents(start: Path?, stop: Path) {
@@ -566,6 +570,35 @@ class DlcPackInstaller(
                 }
             }
         }
+    }
+
+    private fun deletePackInstallState(packDir: Path?) {
+        if (packDir == null || !Files.exists(packDir)) {
+            return
+        }
+        Files.walk(packDir).use { stream ->
+            stream.sorted(Comparator.reverseOrder()).forEach { path ->
+                if (path == packDir || isCfCachePath(packDir, path)) {
+                    return@forEach
+                }
+                try {
+                    Files.deleteIfExists(path)
+                } catch (_: IOException) {
+                }
+            }
+        }
+        try {
+            val cache = packDir.resolve("cf_cache")
+            if (!Files.exists(cache)) {
+                Files.deleteIfExists(packDir)
+            }
+        } catch (_: IOException) {
+        }
+    }
+
+    private fun isCfCachePath(packDir: Path, path: Path): Boolean {
+        val relative = packDir.relativize(path)
+        return relative.nameCount > 0 && relative.getName(0).toString() == "cf_cache"
     }
 
     private fun copyRecursive(source: Path?, target: Path?) {

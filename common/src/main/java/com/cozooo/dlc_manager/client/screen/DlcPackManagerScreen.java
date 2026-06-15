@@ -3,8 +3,10 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
+import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan;
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
 import com.cozooo.dlc_manager.client.pack.DlcPackMetadata;
+import com.cozooo.dlc_manager.client.pack.DlcPackOrder;
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
@@ -49,6 +51,8 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private final Map<String, PackArchiveEntry> pendingInstalls = new LinkedHashMap<>();
     private final Set<String> pendingUninstalls = new HashSet<>();
     private List<PackArchiveEntry> archiveEntries = List.of();
+    private List<String> committedArchiveOrder = List.of();
+    private List<String> currentArchiveOrder = List.of();
     private Map<String, DlcPackMeta> installedByIdentifier = Map.of();
     private int selectedIndex = -1;
     private int scrollIndex;
@@ -353,8 +357,10 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         PackArchiveEntry entry = mutable.remove(index);
         mutable.add(target, entry);
         archiveEntries = mutable;
+        currentArchiveOrder = collectArchiveKeys(archiveEntries);
         selectedIndex = target;
         ensureSelectionVisible();
+        rebuildPackWidgets();
     }
 
     private void importPackArchive() {
@@ -436,14 +442,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         new Thread(() -> {
             try {
                 DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-                for (String identifier : new ArrayList<>(pendingUninstalls)) {
-                    installer.uninstall(identifier);
-                }
-                for (PackArchiveEntry entry : archiveEntries) {
-                    if (pendingInstalls.get(entry.metadata.identifier) == entry) {
-                        installArchive(installer, entry);
-                    }
-                }
+                applyOrderedChanges(installer);
                 pendingUninstalls.clear();
                 pendingInstalls.clear();
                 finishBusy(Component.translatable("dlc_manager.pack.apply_success"));
@@ -451,6 +450,109 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)));
             }
         }, "dlc-pack-apply").start();
+    }
+
+    private void applyOrderedChanges(DlcPackInstaller installer) throws IOException {
+        List<PackArchiveEntry> ordered = new ArrayList<>(archiveEntries);
+        ordered.sort(Comparator.comparingInt(entry -> orderIndex(entry.key)));
+        Set<String> reinstallIdentifiers = collectAffectedReinstallIdentifiers(ordered);
+        Set<String> uninstalled = new HashSet<>();
+        for (PackArchiveEntry entry : ordered) {
+            String identifier = entry.metadata.identifier;
+            if (!uninstalled.contains(identifier) && isEntryCurrentlyInstalled(entry) && (pendingUninstalls.contains(identifier) || reinstallIdentifiers.contains(identifier))) {
+                installer.uninstall(identifier);
+                uninstalled.add(identifier);
+            }
+        }
+        Set<String> installed = new HashSet<>();
+        for (int i = ordered.size() - 1; i >= 0; i--) {
+            PackArchiveEntry entry = ordered.get(i);
+            String identifier = entry.metadata.identifier;
+            if (!installed.contains(identifier) && !pendingUninstalls.contains(identifier) && (pendingInstalls.get(identifier) == entry || (reinstallIdentifiers.contains(identifier) && isEntryCurrentlyInstalled(entry)))) {
+                installArchive(installer, entry);
+                installed.add(identifier);
+            }
+        }
+        committedArchiveOrder = List.copyOf(currentArchiveOrder);
+        DlcPackOrder.save(packOrderPath(), committedArchiveOrder);
+    }
+
+    private Set<String> collectAffectedReinstallIdentifiers(List<PackArchiveEntry> ordered) throws IOException {
+        List<PackArchiveEntry> finalEntries = new ArrayList<>();
+        for (PackArchiveEntry entry : ordered) {
+            String identifier = entry.metadata.identifier;
+            if (pendingUninstalls.contains(identifier)) {
+                continue;
+            }
+            if (pendingInstalls.get(identifier) == entry || isEntryCurrentlyInstalled(entry)) {
+                finalEntries.add(entry);
+            }
+        }
+        Set<String> affected = new HashSet<>();
+        for (int i = 0; i < finalEntries.size(); i++) {
+            PackArchiveEntry left = finalEntries.get(i);
+            for (int j = i + 1; j < finalEntries.size(); j++) {
+                PackArchiveEntry right = finalEntries.get(j);
+                if (!packsHaveFileConflict(left, right)) {
+                    continue;
+                }
+                if (pairOrderChanged(left, right)) {
+                    affected.add(left.metadata.identifier);
+                    affected.add(right.metadata.identifier);
+                }
+            }
+        }
+        return affected;
+    }
+
+    private boolean packsHaveFileConflict(PackArchiveEntry left, PackArchiveEntry right) throws IOException {
+        Set<String> leftFiles = inspectArchiveFiles(left);
+        if (leftFiles.isEmpty()) {
+            return false;
+        }
+        Set<String> rightFiles = inspectArchiveFiles(right);
+        for (String file : leftFiles) {
+            if (rightFiles.contains(file)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean pairOrderChanged(PackArchiveEntry left, PackArchiveEntry right) {
+        int leftCommitted = committedOrderIndex(left.key);
+        int rightCommitted = committedOrderIndex(right.key);
+        if (leftCommitted < 0 || rightCommitted < 0) {
+            return true;
+        }
+        return leftCommitted > rightCommitted;
+    }
+
+    private boolean isEntryCurrentlyInstalled(PackArchiveEntry entry) {
+        if (entry == null) {
+            return false;
+        }
+        DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
+        return installed != null && entry.metadata.version.equals(installed.version);
+    }
+
+    private Set<String> inspectArchiveFiles(PackArchiveEntry entry) throws IOException {
+        Path staging = null;
+        try {
+            staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir;
+            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+            if (!result.valid || result.pack == null) {
+                throw new IOException(result.error == null ? "invalid DLC Pack" : result.error);
+            }
+            Set<String> files = new HashSet<>();
+            DlcPackInstallPlan plan = DlcPackInstallPlan.build(result.pack, DlcPaths.gameDir(), DlcPaths.dlcRoot());
+            for (DlcPackInstallPlan.FileEntry file : plan.files) {
+                files.add(file.relativePath);
+            }
+            return files;
+        } finally {
+            DlcPackArchive.deleteRecursive(staging);
+        }
     }
 
     private String buildReplacementConfirmText() {
@@ -524,6 +626,8 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (hasPendingChanges()) {
             pendingInstalls.clear();
             pendingUninstalls.clear();
+            currentArchiveOrder = List.copyOf(committedArchiveOrder);
+            sortArchiveEntriesByCurrentOrder();
             status = Component.translatable("dlc_manager.pack.changes_cancelled");
             rebuildPackWidgets();
             return;
@@ -533,10 +637,6 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void refreshEntries() {
-        Map<String, Integer> oldOrder = new HashMap<>();
-        for (int i = 0; i < archiveEntries.size(); i++) {
-            oldOrder.put(archiveEntries.get(i).key, i);
-        }
         Map<String, String> pendingInstallKeys = new HashMap<>();
         for (Map.Entry<String, PackArchiveEntry> entry : pendingInstalls.entrySet()) {
             pendingInstallKeys.put(entry.getKey(), entry.getValue().key);
@@ -545,8 +645,17 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         uninstallIncompatibleInstalledPacks();
         installedByIdentifier = loadInstalledPacks();
         List<PackArchiveEntry> scanned = scanPackArchives();
-        scanned.sort(Comparator.comparingInt(entry -> oldOrder.getOrDefault(entry.key, Integer.MAX_VALUE)));
+        List<String> keys = collectArchiveKeys(scanned);
+        List<String> saved = DlcPackOrder.load(packOrderPath());
+        boolean preserveCurrentOrder = !currentArchiveOrder.isEmpty() && hasOrderChanges();
+        committedArchiveOrder = DlcPackOrder.normalizeOrder(saved, keys);
+        if (preserveCurrentOrder) {
+            currentArchiveOrder = DlcPackOrder.normalizeOrder(currentArchiveOrder, keys);
+        } else {
+            currentArchiveOrder = committedArchiveOrder;
+        }
         archiveEntries = scanned;
+        sortArchiveEntriesByCurrentOrder();
         pendingInstalls.clear();
         for (PackArchiveEntry entry : archiveEntries) {
             if (entry.key.equals(pendingInstallKeys.get(entry.metadata.identifier))) {
@@ -558,6 +667,33 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             selectedIndex = archiveEntries.isEmpty() ? -1 : archiveEntries.size() - 1;
         }
         clampScroll();
+    }
+
+    private Path packOrderPath() {
+        return DlcPaths.dlcRoot().resolve("pack").resolve("order.dc");
+    }
+
+    private List<String> collectArchiveKeys(List<PackArchiveEntry> entries) {
+        List<String> keys = new ArrayList<>();
+        for (PackArchiveEntry entry : entries) {
+            keys.add(entry.key);
+        }
+        return keys;
+    }
+
+    private int orderIndex(String key) {
+        int index = currentArchiveOrder.indexOf(key);
+        return index < 0 ? Integer.MAX_VALUE : index;
+    }
+
+    private int committedOrderIndex(String key) {
+        return committedArchiveOrder.indexOf(key);
+    }
+
+    private void sortArchiveEntriesByCurrentOrder() {
+        List<PackArchiveEntry> sorted = new ArrayList<>(archiveEntries);
+        sorted.sort(Comparator.comparingInt(entry -> orderIndex(entry.key)));
+        archiveEntries = sorted;
     }
 
     private List<PackArchiveEntry> scanPackArchives() {
@@ -665,7 +801,11 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private boolean hasPendingChanges() {
-        return !pendingInstalls.isEmpty() || !pendingUninstalls.isEmpty();
+        return !pendingInstalls.isEmpty() || !pendingUninstalls.isEmpty() || hasOrderChanges();
+    }
+
+    private boolean hasOrderChanges() {
+        return !currentArchiveOrder.equals(committedArchiveOrder);
     }
 
     private boolean canMoveUp(int index) {

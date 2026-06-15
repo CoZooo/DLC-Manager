@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.util.Locale
 
 object DlcPackCFResolver {
@@ -15,12 +16,14 @@ object DlcPackCFResolver {
     fun downloadManifestFiles(
         pack: DlcPackPackage?,
         staging: Path,
+        packDir: Path,
         cancelChecker: DlcDownloadService.CancelChecker?,
     ): List<DlcPackInstallPlan.FileEntry> {
         if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
             return emptyList()
         }
         val downloadRoot = staging.resolve("manifest")
+        val cacheRoot = packDir.resolve("cf_cache")
         val entries = ArrayList<DlcPackInstallPlan.FileEntry>()
         for (ref in pack.manifestFiles) {
             if (cancelChecker != null && cancelChecker.isCanceled()) {
@@ -44,18 +47,24 @@ object DlcPackCFResolver {
             if (hasBundledOverride(pack, relative) || hasDownloadedEntry(entries, relative)) {
                 continue
             }
-            val outputDir = downloadRoot.resolve(targetDirectory)
             val candidate = DlcDownloadCandidate.curseForge(file)
-            val downloaded = DlcDownloadService.downloadKnown(
-                candidate.url,
-                outputDir,
-                fileName,
-                candidate.expectedSize,
-                null,
-                cancelChecker,
-            )
-            verifyDownloaded(downloaded, candidate)
-            entries.add(DlcPackInstallPlan.FileEntry(downloaded, relative))
+            val cached = cacheFile(cacheRoot, targetDirectory, ref, fileName)
+            if (!isUsableCachedFile(cached, candidate)) {
+                Files.deleteIfExists(cached)
+                val outputDir = downloadRoot.resolve(targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId))
+                val downloaded = DlcDownloadService.downloadKnown(
+                    candidate.url,
+                    outputDir,
+                    fileName,
+                    candidate.expectedSize,
+                    null,
+                    cancelChecker,
+                )
+                verifyDownloaded(downloaded, candidate)
+                Files.createDirectories(cached.parent)
+                Files.move(downloaded, cached, StandardCopyOption.REPLACE_EXISTING)
+            }
+            entries.add(DlcPackInstallPlan.FileEntry(cached, relative))
         }
         return entries
     }
@@ -99,6 +108,32 @@ object DlcPackCFResolver {
 
     private fun hasDownloadedEntry(entries: List<DlcPackInstallPlan.FileEntry>, relative: String): Boolean {
         return entries.any { it.relativePath == relative }
+    }
+
+    private fun cacheFile(cacheRoot: Path, targetDirectory: Path, ref: DlcPackManifest.FileRef, fileName: String): Path {
+        return cacheRoot
+            .resolve(targetDirectory)
+            .resolve(safeSegment(ref.projectId))
+            .resolve(safeSegment(ref.fileId))
+            .resolve(fileName)
+    }
+
+    private fun safeSegment(value: String?): String {
+        val sanitized = DlcDownloadUtil.sanitizeFileName(value)
+        return if (sanitized.isNullOrBlank()) "_" else sanitized
+    }
+
+    private fun isUsableCachedFile(path: Path, candidate: DlcDownloadCandidate): Boolean {
+        if (!Files.isRegularFile(path)) {
+            return false
+        }
+        return try {
+            verifyDownloaded(path, candidate)
+            true
+        } catch (_: IOException) {
+            Files.deleteIfExists(path)
+            false
+        }
     }
 
     private fun verifyDownloaded(path: Path, candidate: DlcDownloadCandidate) {

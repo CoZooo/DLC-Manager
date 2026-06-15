@@ -210,7 +210,8 @@ class DlcPackUpdateCoordinator(
     private fun isPackRecordPath(relative: String): Boolean {
         val normalized = relative.lowercase(Locale.ROOT)
         return normalized == "meta.dc" ||
-            normalized.startsWith("metadata/")
+            normalized.startsWith("metadata/") ||
+            normalized.startsWith("cf_cache/")
     }
 
     inner class UpdateSession internal constructor(

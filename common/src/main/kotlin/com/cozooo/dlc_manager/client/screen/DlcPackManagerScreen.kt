@@ -3,8 +3,10 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
+import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta
 import com.cozooo.dlc_manager.client.pack.DlcPackMetadata
+import com.cozooo.dlc_manager.client.pack.DlcPackOrder
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.core.DlcPathConfig
@@ -38,6 +40,8 @@ class DlcPackManagerScreen(
     private val pendingInstalls = LinkedHashMap<String, PackArchiveEntry>()
     private val pendingUninstalls = LinkedHashSet<String>()
     private var archiveEntries: List<PackArchiveEntry> = emptyList()
+    private var committedArchiveOrder: List<String> = emptyList()
+    private var currentArchiveOrder: List<String> = emptyList()
     private var installedByIdentifier: Map<String, DlcPackMeta> = emptyMap()
     private var selectedIndex = -1
     private var scrollIndex = 0
@@ -301,8 +305,10 @@ class DlcPackManagerScreen(
         val entry = mutable.removeAt(index)
         mutable.add(target, entry)
         archiveEntries = mutable
+        currentArchiveOrder = collectArchiveKeys(archiveEntries)
         selectedIndex = target
         ensureSelectionVisible()
+        rebuildPackWidgets()
     }
 
     private fun importPackArchive() {
@@ -382,14 +388,7 @@ class DlcPackManagerScreen(
         Thread({
             try {
                 val installer = DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot())
-                for (identifier in ArrayList(pendingUninstalls)) {
-                    installer.uninstall(identifier)
-                }
-                for (entry in archiveEntries) {
-                    if (pendingInstalls[entry.metadata.identifier] === entry) {
-                        installArchive(installer, entry)
-                    }
-                }
+                applyOrderedChanges(installer)
                 pendingUninstalls.clear()
                 pendingInstalls.clear()
                 finishBusy(Component.translatable("dlc_manager.pack.apply_success"))
@@ -397,6 +396,99 @@ class DlcPackManagerScreen(
                 finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)))
             }
         }, "dlc-pack-apply").start()
+    }
+
+    private fun applyOrderedChanges(installer: DlcPackInstaller) {
+        val ordered = archiveEntries.sortedBy { orderIndex(it.key) }
+        val reinstallIdentifiers = collectAffectedReinstallIdentifiers(ordered)
+        val uninstalled = LinkedHashSet<String>()
+        for (entry in ordered) {
+            val identifier = entry.metadata.identifier
+            if (!uninstalled.contains(identifier) && isEntryCurrentlyInstalled(entry) && (pendingUninstalls.contains(identifier) || reinstallIdentifiers.contains(identifier))) {
+                installer.uninstall(identifier)
+                uninstalled.add(identifier)
+            }
+        }
+        val installed = LinkedHashSet<String>()
+        for (i in ordered.size - 1 downTo 0) {
+            val entry = ordered[i]
+            val identifier = entry.metadata.identifier
+            if (!installed.contains(identifier) && !pendingUninstalls.contains(identifier) && (pendingInstalls[identifier] === entry || (reinstallIdentifiers.contains(identifier) && isEntryCurrentlyInstalled(entry)))) {
+                installArchive(installer, entry)
+                installed.add(identifier)
+            }
+        }
+        committedArchiveOrder = currentArchiveOrder.toList()
+        DlcPackOrder.save(packOrderPath(), committedArchiveOrder)
+    }
+
+    private fun collectAffectedReinstallIdentifiers(ordered: List<PackArchiveEntry>): Set<String> {
+        val finalEntries = ArrayList<PackArchiveEntry>()
+        for (entry in ordered) {
+            val identifier = entry.metadata.identifier
+            if (pendingUninstalls.contains(identifier)) {
+                continue
+            }
+            if (pendingInstalls[identifier] === entry || isEntryCurrentlyInstalled(entry)) {
+                finalEntries.add(entry)
+            }
+        }
+        val affected = LinkedHashSet<String>()
+        for (i in finalEntries.indices) {
+            val left = finalEntries[i]
+            for (j in i + 1 until finalEntries.size) {
+                val right = finalEntries[j]
+                if (!packsHaveFileConflict(left, right)) {
+                    continue
+                }
+                if (pairOrderChanged(left, right)) {
+                    affected.add(left.metadata.identifier)
+                    affected.add(right.metadata.identifier)
+                }
+            }
+        }
+        return affected
+    }
+
+    private fun packsHaveFileConflict(left: PackArchiveEntry, right: PackArchiveEntry): Boolean {
+        val leftFiles = inspectArchiveFiles(left)
+        if (leftFiles.isEmpty()) {
+            return false
+        }
+        val rightFiles = inspectArchiveFiles(right)
+        return leftFiles.any { rightFiles.contains(it) }
+    }
+
+    private fun pairOrderChanged(left: PackArchiveEntry, right: PackArchiveEntry): Boolean {
+        val leftCommitted = committedOrderIndex(left.key)
+        val rightCommitted = committedOrderIndex(right.key)
+        if (leftCommitted < 0 || rightCommitted < 0) {
+            return true
+        }
+        return leftCommitted > rightCommitted
+    }
+
+    private fun isEntryCurrentlyInstalled(entry: PackArchiveEntry?): Boolean {
+        if (entry == null) {
+            return false
+        }
+        val installed = installedByIdentifier[entry.metadata.identifier] ?: return false
+        return entry.metadata.version == installed.version
+    }
+
+    private fun inspectArchiveFiles(entry: PackArchiveEntry): Set<String> {
+        var staging: Path? = null
+        return try {
+            staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir
+            val result = DlcPackPackage.inspect(staging)
+            val pack = result.pack
+            if (!result.valid || pack == null) {
+                throw IOException(result.error ?: "invalid DLC Pack")
+            }
+            DlcPackInstallPlan.build(pack, DlcPaths.gameDir(), DlcPaths.dlcRoot()).files.mapTo(LinkedHashSet()) { it.relativePath }
+        } finally {
+            DlcPackArchive.deleteRecursive(staging)
+        }
     }
 
     private fun buildReplacementConfirmText(): String? {
@@ -461,6 +553,8 @@ class DlcPackManagerScreen(
         if (hasPendingChanges()) {
             pendingInstalls.clear()
             pendingUninstalls.clear()
+            currentArchiveOrder = committedArchiveOrder.toList()
+            sortArchiveEntriesByCurrentOrder()
             status = Component.translatable("dlc_manager.pack.changes_cancelled")
             rebuildPackWidgets()
             return
@@ -470,13 +564,22 @@ class DlcPackManagerScreen(
     }
 
     private fun refreshEntries() {
-        val oldOrder = archiveEntries.withIndex().associate { it.value.key to it.index }
         val pendingInstallKeys = pendingInstalls.mapValues { it.value.key }
         releaseIconTextures()
         uninstallIncompatibleInstalledPacks()
         installedByIdentifier = loadInstalledPacks()
         val scanned = scanPackArchives()
-        archiveEntries = scanned.sortedBy { oldOrder[it.key] ?: Int.MAX_VALUE }
+        val keys = collectArchiveKeys(scanned)
+        val saved = DlcPackOrder.load(packOrderPath())
+        val preserveCurrentOrder = currentArchiveOrder.isNotEmpty() && hasOrderChanges()
+        committedArchiveOrder = DlcPackOrder.normalizeOrder(saved, keys)
+        currentArchiveOrder = if (preserveCurrentOrder) {
+            DlcPackOrder.normalizeOrder(currentArchiveOrder, keys)
+        } else {
+            committedArchiveOrder
+        }
+        archiveEntries = scanned
+        sortArchiveEntriesByCurrentOrder()
         pendingInstalls.clear()
         for (entry in archiveEntries) {
             if (entry.key == pendingInstallKeys[entry.metadata.identifier]) {
@@ -486,6 +589,27 @@ class DlcPackManagerScreen(
         pendingUninstalls.removeIf { !installedByIdentifier.containsKey(it) }
         if (selectedIndex >= archiveEntries.size) selectedIndex = if (archiveEntries.isEmpty()) -1 else archiveEntries.size - 1
         clampScroll()
+    }
+
+    private fun packOrderPath(): Path {
+        return DlcPaths.dlcRoot().resolve("pack").resolve("order.dc")
+    }
+
+    private fun collectArchiveKeys(entries: List<PackArchiveEntry>): List<String> {
+        return entries.map { it.key }
+    }
+
+    private fun orderIndex(key: String): Int {
+        val index = currentArchiveOrder.indexOf(key)
+        return if (index < 0) Int.MAX_VALUE else index
+    }
+
+    private fun committedOrderIndex(key: String): Int {
+        return committedArchiveOrder.indexOf(key)
+    }
+
+    private fun sortArchiveEntriesByCurrentOrder() {
+        archiveEntries = archiveEntries.sortedBy { orderIndex(it.key) }
     }
 
     private fun scanPackArchives(): List<PackArchiveEntry> {
@@ -580,7 +704,9 @@ class DlcPackManagerScreen(
         }
     }
 
-    private fun hasPendingChanges(): Boolean = pendingInstalls.isNotEmpty() || pendingUninstalls.isNotEmpty()
+    private fun hasPendingChanges(): Boolean = pendingInstalls.isNotEmpty() || pendingUninstalls.isNotEmpty() || hasOrderChanges()
+
+    private fun hasOrderChanges(): Boolean = currentArchiveOrder != committedArchiveOrder
 
     private fun canMoveUp(index: Int): Boolean = index > 0
 

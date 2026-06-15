@@ -116,6 +116,7 @@ public class DlcPackInstaller {
             java.util.List<DlcPackInstallPlan.FileEntry> manifestFiles = DlcPackCFResolver.downloadManifestFiles(
                 pack,
                 staging,
+                packDir,
                 effectiveOptions.cancelChecker
             );
             DlcPackInstallPlan planWithManifest = DlcPackInstallPlan.merge(plan, manifestFiles, instanceRoot, dlcRoot);
@@ -151,7 +152,7 @@ public class DlcPackInstaller {
                 : DlcPackTransaction.Status.ROLLED_BACK;
             txn.save(txnPath);
             deleteRecursive(staging);
-            deleteRecursive(packDir);
+            deletePackInstallState(packDir);
             if (error instanceof IOException io) {
                 throw io;
             }
@@ -177,9 +178,12 @@ public class DlcPackInstaller {
     private void restoreExistingInstallation(DlcPackMeta oldMeta, Path packDir, Path backupDir) throws IOException {
         Path backupPackDir = backupDir.resolve("pack_dir");
         Path backupInstalledDir = backupDir.resolve("installed");
+        Path currentCacheBackup = backupDir.resolve("current_cf_cache");
+        copyRecursive(packDir.resolve("cf_cache"), currentCacheBackup);
         deleteArchivedTargetsFromInstance(backupPackDir);
         deleteRecursive(packDir);
         copyRecursive(backupPackDir, packDir);
+        copyRecursive(currentCacheBackup, packDir.resolve("cf_cache"));
         for (String relative : oldMeta.installedPaths) {
             Path source = resolveInside(backupInstalledDir, relative);
             if (!Files.isRegularFile(source)) {
@@ -277,7 +281,7 @@ public class DlcPackInstaller {
                 }
             }
         }
-        deleteRecursive(packDir);
+        deletePackInstallState(packDir);
         return new UninstallReport(identifier, deleted, restored);
     }
 
@@ -533,7 +537,8 @@ public class DlcPackInstaller {
     private boolean isPackRecordPath(String relative) {
         String normalized = relative.toLowerCase(Locale.ROOT);
         return normalized.equals("meta.dc")
-            || normalized.startsWith("metadata/");
+            || normalized.startsWith("metadata/")
+            || normalized.startsWith("cf_cache/");
     }
 
     private void pruneEmptyParents(Path start, Path stop) {
@@ -569,6 +574,36 @@ public class DlcPackInstaller {
             });
         } catch (IOException ignored) {
         }
+    }
+
+    private void deletePackInstallState(Path packDir) {
+        if (packDir == null || !Files.exists(packDir)) {
+            return;
+        }
+        try (Stream<Path> stream = Files.walk(packDir)) {
+            stream.sorted(Comparator.reverseOrder()).forEach(path -> {
+                if (path.equals(packDir) || isCfCachePath(packDir, path)) {
+                    return;
+                }
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException ignored) {
+        }
+        try {
+            Path cache = packDir.resolve("cf_cache");
+            if (!Files.exists(cache)) {
+                Files.deleteIfExists(packDir);
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    private boolean isCfCachePath(Path packDir, Path path) {
+        Path relative = packDir.relativize(path);
+        return relative.getNameCount() > 0 && "cf_cache".equals(relative.getName(0).toString());
     }
 
     private void copyRecursive(Path source, Path target) throws IOException {

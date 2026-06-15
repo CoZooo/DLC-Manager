@@ -233,7 +233,8 @@ public class DlcPackUpdateCoordinator {
     private boolean isPackRecordPath(String relative) {
         String normalized = relative.toLowerCase(Locale.ROOT);
         return normalized.equals("meta.dc")
-            || normalized.startsWith("metadata/");
+            || normalized.startsWith("metadata/")
+            || normalized.startsWith("cf_cache/");
     }
 
     public final class UpdateSession {

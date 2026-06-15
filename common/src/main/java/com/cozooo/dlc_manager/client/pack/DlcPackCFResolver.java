@@ -16,13 +16,14 @@ public final class DlcPackCFResolver {
     private DlcPackCFResolver() {
     }
 
-    public static List<DlcPackInstallPlan.FileEntry> downloadManifestFiles(DlcPackPackage pack, Path staging,
+    public static List<DlcPackInstallPlan.FileEntry> downloadManifestFiles(DlcPackPackage pack, Path staging, Path packDir,
                                                                            DlcDownloadService.CancelChecker cancelChecker)
         throws IOException, InterruptedException {
         if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
             return List.of();
         }
         Path downloadRoot = staging.resolve("manifest");
+        Path cacheRoot = packDir.resolve("cf_cache");
         List<DlcPackInstallPlan.FileEntry> entries = new ArrayList<>();
         for (DlcPackManifest.FileRef ref : pack.manifestFiles) {
             if (cancelChecker != null && cancelChecker.isCanceled()) {
@@ -45,18 +46,24 @@ public final class DlcPackCFResolver {
             if (hasBundledOverride(pack, relative) || hasDownloadedEntry(entries, relative)) {
                 continue;
             }
-            Path outputDir = downloadRoot.resolve(targetDirectory);
             DlcDownloadCandidate candidate = DlcDownloadCandidate.curseForge(file);
-            Path downloaded = DlcDownloadService.downloadKnown(
-                candidate.url,
-                outputDir,
-                fileName,
-                candidate.expectedSize,
-                null,
-                cancelChecker
-            );
-            verifyDownloaded(downloaded, candidate);
-            entries.add(new DlcPackInstallPlan.FileEntry(downloaded, relative));
+            Path cached = cacheFile(cacheRoot, targetDirectory, ref, fileName);
+            if (!isUsableCachedFile(cached, candidate)) {
+                Files.deleteIfExists(cached);
+                Path outputDir = downloadRoot.resolve(targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId));
+                Path downloaded = DlcDownloadService.downloadKnown(
+                    candidate.url,
+                    outputDir,
+                    fileName,
+                    candidate.expectedSize,
+                    null,
+                    cancelChecker
+                );
+                verifyDownloaded(downloaded, candidate);
+                Files.createDirectories(cached.getParent());
+                Files.move(downloaded, cached, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+            entries.add(new DlcPackInstallPlan.FileEntry(cached, relative));
         }
         return entries;
     }
@@ -110,6 +117,32 @@ public final class DlcPackCFResolver {
             }
         }
         return false;
+    }
+
+    private static Path cacheFile(Path cacheRoot, Path targetDirectory, DlcPackManifest.FileRef ref, String fileName) {
+        return cacheRoot
+            .resolve(targetDirectory)
+            .resolve(safeSegment(ref.projectId))
+            .resolve(safeSegment(ref.fileId))
+            .resolve(fileName);
+    }
+
+    private static String safeSegment(String value) {
+        String sanitized = DlcDownloadUtil.sanitizeFileName(value);
+        return sanitized == null || sanitized.isBlank() ? "_" : sanitized;
+    }
+
+    private static boolean isUsableCachedFile(Path path, DlcDownloadCandidate candidate) throws IOException {
+        if (!Files.isRegularFile(path)) {
+            return false;
+        }
+        try {
+            verifyDownloaded(path, candidate);
+            return true;
+        } catch (IOException ex) {
+            Files.deleteIfExists(path);
+            return false;
+        }
     }
 
     private static void verifyDownloaded(Path path, DlcDownloadCandidate candidate) throws IOException {

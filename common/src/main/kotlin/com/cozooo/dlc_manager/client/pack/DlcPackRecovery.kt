@@ -236,7 +236,8 @@ object DlcPackRecovery {
     private fun isPackRecordPath(relative: String): Boolean {
         val normalized = relative.lowercase(Locale.ROOT)
         return normalized == "meta.dc" ||
-            normalized.startsWith("metadata/")
+            normalized.startsWith("metadata/") ||
+            normalized.startsWith("cf_cache/")
     }
 
     private fun pruneEmptyParents(start: Path?, stop: Path) {
