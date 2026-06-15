@@ -39,10 +39,11 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.ArrayList
 
-class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
+class DlcServerConfigMaLiLibScreen private constructor(
     private val parentScreen: Screen?,
     private val entry: DlcServerEntry,
-    tab: Tab = Tab.SERVER,
+    tab: Tab,
+    private val session: ConfigSession,
 ) : GuiModConfigs(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab)), false, "dlc_manager.server.config_title") {
     private val currentTab: Tab = resolveTab(tab)
     private var maxLabelWidth = 220
@@ -50,7 +51,9 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
     private var selfUpdateCheckButton: ButtonGeneric? = null
     private var saveButton: ButtonGeneric? = null
     private var cancelButton: ButtonGeneric? = null
-    private var configLoaded = false
+
+    @JvmOverloads
+    constructor(parent: Screen?, entry: DlcServerEntry, tab: Tab = Tab.SERVER) : this(parent, entry, tab, ConfigSession())
 
     init {
         setParent(parentScreen)
@@ -58,9 +61,9 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
     }
 
     override fun initGui() {
-        if (!configLoaded) {
+        if (!session.configLoaded) {
             loadFromServer()
-            configLoaded = true
+            session.configLoaded = true
         }
         var x = 10
         val y = 28
@@ -133,7 +136,7 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
 
     private fun updateSaveButtonState() {
         val button = saveButton ?: return
-        val modified = listWidget?.wereConfigsModified() == true
+        val modified = session.modified || listWidget?.wereConfigsModified() == true
         button.setEnabled(modified)
     }
 
@@ -171,8 +174,7 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
     }
 
     private fun saveAndClose() {
-        listWidget?.applyPendingModifications()
-        listWidget?.clearConfigsModifiedFlag()
+        flushCurrentModifications()
         val json = DlcServerConfigClient.toJson()
         val minecraft = Minecraft.getInstance()
         val ok = try {
@@ -181,6 +183,7 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
             false
         }
         if (ok) {
+            session.modified = false
             mc.setScreen(getParent())
             return
         }
@@ -192,7 +195,7 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
     }
 
     private fun cancelAndClose() {
-        if (listWidget?.wereConfigsModified() != true) {
+        if (!session.modified && listWidget?.wereConfigsModified() != true) {
             mc.setScreen(getParent())
             return
         }
@@ -220,7 +223,17 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
     }
 
     private fun openTab(tab: Tab) {
-        mc.setScreen(DlcServerConfigMaLiLibScreen(getParent(), entry, tab))
+        flushCurrentModifications()
+        mc.setScreen(DlcServerConfigMaLiLibScreen(getParent(), entry, tab, session))
+    }
+
+    private fun flushCurrentModifications() {
+        val widget = listWidget ?: return
+        if (widget.wereConfigsModified()) {
+            session.modified = true
+        }
+        widget.applyPendingModifications()
+        widget.clearConfigsModifiedFlag()
     }
 
     private inner class TabButtonListener(private val target: Tab) : IButtonActionListener {
@@ -248,6 +261,11 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
         override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
             Minecraft.getInstance().setScreen(DlcSelfUpdateScreen(this@DlcServerConfigMaLiLibScreen, null))
         }
+    }
+
+    private class ConfigSession {
+        var modified = false
+        var configLoaded = false
     }
 
     enum class Tab(val labelKey: String) {
@@ -320,7 +338,7 @@ class DlcServerConfigMaLiLibScreen @JvmOverloads constructor(
         }
 
         override fun addConfigTextFieldEntry(x: Int, y: Int, resetButtonX: Int, width: Int, height: Int, config: IConfigValue) {
-            val textField: GuiTextFieldGeneric = createTextField(x, y + 1, width - 4, height - 3)
+            val textField: GuiTextFieldGeneric = DlcSafeTextField(x, y + 1, width - 4, height - 3, Minecraft.getInstance().font)
             textField.setMaxLength(maxTextfieldTextLength)
             textField.setValue(config.stringValue)
 

@@ -36,16 +36,21 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.ArrayList
 
-class DlcConfigScreen @JvmOverloads constructor(
+class DlcConfigScreen private constructor(
     parent: Screen?,
-    tab: Tab = Tab.PATHS,
-) : GuiModConfigs(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab)), false, "dlc_manager.config.menu.title") {
+    tab: Tab,
+    private val session: ConfigSession,
+    syncFromBacking: Boolean,
+) : GuiModConfigs(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab), syncFromBacking), false, "dlc_manager.config.menu.title") {
     private val currentTab: Tab = resolveTab(tab)
     private var maxLabelWidth = 220
     private var listWidget: WidgetListConfigOptionsBase<*, *>? = null
     private var saveButton: ButtonGeneric? = null
     private var cancelButton: ButtonGeneric? = null
     private var checkUpdateButton: ButtonGeneric? = null
+
+    @JvmOverloads
+    constructor(parent: Screen?, tab: Tab = Tab.PATHS) : this(parent, tab, ConfigSession(), true)
 
     init {
         setParent(parent)
@@ -127,7 +132,7 @@ class DlcConfigScreen @JvmOverloads constructor(
 
     private fun updateSaveButtonState() {
         val button = saveButton ?: return
-        val modified = listWidget?.wereConfigsModified() == true
+        val modified = session.modified || listWidget?.wereConfigsModified() == true
         button.setEnabled(modified)
     }
 
@@ -164,19 +169,20 @@ class DlcConfigScreen @JvmOverloads constructor(
     }
 
     private fun openTab(tab: Tab) {
-        mc.setScreen(DlcConfigScreen(getParent(), tab))
+        flushCurrentModifications()
+        mc.setScreen(DlcConfigScreen(getParent(), tab, session, false))
     }
 
     private fun saveAndClose() {
-        listWidget?.applyPendingModifications()
-        listWidget?.clearConfigsModifiedFlag()
+        flushCurrentModifications()
         DlcPathConfigClient.applyToConfig()
         DlcPathConfig.save()
+        session.modified = false
         mc.setScreen(getParent())
     }
 
     private fun cancelAndClose() {
-        if (listWidget?.wereConfigsModified() != true) {
+        if (!session.modified && listWidget?.wereConfigsModified() != true) {
             mc.setScreen(getParent())
             return
         }
@@ -195,6 +201,7 @@ class DlcConfigScreen @JvmOverloads constructor(
                     }
                     DlcPathConfig.load()
                     DlcPathConfigClient.syncFromConfig()
+                    session.modified = false
                     minecraft.setScreen(getParent())
                 },
                 title,
@@ -203,6 +210,15 @@ class DlcConfigScreen @JvmOverloads constructor(
                 no,
             )
         )
+    }
+
+    private fun flushCurrentModifications() {
+        val widget = listWidget ?: return
+        if (widget.wereConfigsModified()) {
+            session.modified = true
+        }
+        widget.applyPendingModifications()
+        widget.clearConfigsModifiedFlag()
     }
 
     private inner class SaveButtonListener : IButtonActionListener {
@@ -221,6 +237,10 @@ class DlcConfigScreen @JvmOverloads constructor(
         override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
             mc.setScreen(DlcSelfUpdateScreen(this@DlcConfigScreen, null))
         }
+    }
+
+    private class ConfigSession {
+        var modified = false
     }
 
     enum class Tab(val labelKey: String) {
@@ -307,7 +327,7 @@ class DlcConfigScreen @JvmOverloads constructor(
                 addButton(resetButton, ConfirmResetListenerGeneric(AnchorResetListener(config, anchorButton, resetButton)))
                 return
             }
-            val textField: GuiTextFieldGeneric = createTextField(x, y + 1, width - 4, height - 3)
+            val textField: GuiTextFieldGeneric = DlcSafeTextField(x, y + 1, width - 4, height - 3, Minecraft.getInstance().font)
             textField.setMaxLength(maxTextfieldTextLength)
             textField.setValue(config.stringValue)
 
@@ -449,8 +469,10 @@ class DlcConfigScreen @JvmOverloads constructor(
         }
 
         @JvmStatic
-        private fun buildOptions(tab: Tab): List<ConfigOptionWrapper> {
-            DlcPathConfigClient.syncFromConfig()
+        private fun buildOptions(tab: Tab, syncFromBacking: Boolean): List<ConfigOptionWrapper> {
+            if (syncFromBacking) {
+                DlcPathConfigClient.syncFromConfig()
+            }
             val configs: List<IConfigBase> = getConfigsForTab(tab)
             return ArrayList(ConfigOptionWrapper.createFor(configs))
         }

@@ -39,6 +39,7 @@ import java.util.List;
 
 public class DlcConfigScreen extends GuiModConfigs {
     private final Tab currentTab;
+    private final ConfigSession session;
     private int maxLabelWidth;
     private WidgetListConfigOptionsBase<?, ?> listWidget;
     private ButtonGeneric saveButton;
@@ -78,8 +79,13 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     public DlcConfigScreen(Screen parent, Tab tab) {
-        super(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab)), false, "dlc_manager.config.menu.title");
+        this(parent, tab, new ConfigSession(), true);
+    }
+
+    private DlcConfigScreen(Screen parent, Tab tab, ConfigSession session, boolean syncFromBacking) {
+        super(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab), syncFromBacking), false, "dlc_manager.config.menu.title");
         this.currentTab = resolveTab(tab);
+        this.session = session;
         this.setParent(parent);
         this.setTitle(StringUtils.translate("dlc_manager.config.menu.title"));
         this.maxLabelWidth = 220;
@@ -167,7 +173,7 @@ public class DlcConfigScreen extends GuiModConfigs {
         if (this.saveButton == null) {
             return;
         }
-        boolean modified = this.listWidget != null && this.listWidget.wereConfigsModified();
+        boolean modified = this.session.modified || (this.listWidget != null && this.listWidget.wereConfigsModified());
         this.saveButton.setEnabled(modified);
     }
 
@@ -184,8 +190,10 @@ public class DlcConfigScreen extends GuiModConfigs {
         return tab == null ? Tab.PATHS : tab;
     }
 
-    private static List<ConfigOptionWrapper> buildOptions(Tab tab) {
-        DlcPathConfigClient.syncFromConfig();
+    private static List<ConfigOptionWrapper> buildOptions(Tab tab, boolean syncFromBacking) {
+        if (syncFromBacking) {
+            DlcPathConfigClient.syncFromConfig();
+        }
         List<IConfigBase> configs = getConfigsForTab(tab);
         return new ArrayList<>(ConfigOptionWrapper.createFor(configs));
     }
@@ -233,7 +241,8 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private void openTab(Tab tab) {
-        this.mc.setScreen(new DlcConfigScreen(this.getParent(), tab));
+        flushCurrentModifications();
+        this.mc.setScreen(new DlcConfigScreen(this.getParent(), tab, this.session, false));
     }
 
     private static boolean isAnchorConfig(IConfigBase config) {
@@ -344,17 +353,15 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private void saveAndClose() {
-        if (this.listWidget != null) {
-            this.listWidget.applyPendingModifications();
-            this.listWidget.clearConfigsModifiedFlag();
-        }
+        flushCurrentModifications();
         DlcPathConfigClient.applyToConfig();
         DlcPathConfig.save();
+        this.session.modified = false;
         this.mc.setScreen(this.getParent());
     }
 
     private void cancelAndClose() {
-        if (this.listWidget == null || !this.listWidget.wereConfigsModified()) {
+        if (!this.session.modified && (this.listWidget == null || !this.listWidget.wereConfigsModified())) {
             this.mc.setScreen(this.getParent());
             return;
         }
@@ -371,8 +378,20 @@ public class DlcConfigScreen extends GuiModConfigs {
             }
             DlcPathConfig.load();
             DlcPathConfigClient.syncFromConfig();
+            DlcConfigScreen.this.session.modified = false;
             minecraft.setScreen(this.getParent());
         }, title, message, yes, no));
+    }
+
+    private void flushCurrentModifications() {
+        if (this.listWidget == null) {
+            return;
+        }
+        if (this.listWidget.wereConfigsModified()) {
+            this.session.modified = true;
+        }
+        this.listWidget.applyPendingModifications();
+        this.listWidget.clearConfigsModifiedFlag();
     }
 
     private class SaveButtonListener implements IButtonActionListener {
@@ -387,6 +406,10 @@ public class DlcConfigScreen extends GuiModConfigs {
         public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
             DlcConfigScreen.this.cancelAndClose();
         }
+    }
+
+    private static class ConfigSession {
+        private boolean modified;
     }
 
     private class CheckUpdateButtonListener implements IButtonActionListener {
@@ -464,7 +487,7 @@ public class DlcConfigScreen extends GuiModConfigs {
                 this.addButton(resetButton, new ConfirmResetListenerGeneric(new AnchorResetListener(config, anchorButton, resetButton)));
                 return;
             }
-            GuiTextFieldGeneric textField = createTextField(x, y + 1, width - 4, height - 3);
+            GuiTextFieldGeneric textField = new DlcSafeTextField(x, y + 1, width - 4, height - 3, Minecraft.getInstance().font);
             textField.setMaxLength(this.maxTextfieldTextLength);
             textField.setValue(config.getStringValue());
 
