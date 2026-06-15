@@ -448,8 +448,8 @@ class DlcServerListEntry(
                 }
             }
             for (existing in screen.getItemsSnapshot()) {
-                val existingIdentifier = existing?.identifier
-                if (existing == null || existingIdentifier.isNullOrBlank() || !existing.enabled) {
+                val existingIdentifier = existing.identifier
+                if (existingIdentifier.isNullOrBlank() || !existing.enabled) {
                     continue
                 }
                 val existingKey = normalizeIdentifier(existingIdentifier)

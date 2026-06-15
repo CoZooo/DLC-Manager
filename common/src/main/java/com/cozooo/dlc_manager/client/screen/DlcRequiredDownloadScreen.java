@@ -824,12 +824,12 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             UpdateCheckResult updateCheck = DlcUpdateService.checkForUpdates(true);
             if (updateCheck != null && updateCheck.getUpdates() != null && !updateCheck.getUpdates().isEmpty()) {
                 UpdateApplyResult updateResult = DlcUpdateService.applyUpdates(updateCheck.getUpdates(), false);
-                if (updateResult.isMissing()) {
+                if (updateResult != null && updateResult.isMissing()) {
                     Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateMissingScreen(parent, updateCheck, updateResult.getMissingPaths())));
                     return;
                 }
-                if (!updateResult.isSuccess()) {
-                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed"))));
+                if (updateResult == null || !updateResult.isSuccess()) {
+                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, DlcUpdateService.toFailureComponent(updateResult))));
                     return;
                 }
                 updateApplied = true;

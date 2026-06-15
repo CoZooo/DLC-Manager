@@ -815,15 +815,15 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             val updateCheck: UpdateCheckResult = DlcUpdateService.checkForUpdates(true)
             if (updateCheck.updates.isNotEmpty()) {
                 val updateResult = DlcUpdateService.applyUpdates(updateCheck.updates, false)
-                if (updateResult.isMissing) {
+                if (updateResult?.isMissing == true) {
                     Minecraft.getInstance().execute {
                         minecraft.setScreen(DlcUpdateMissingScreen(parent, updateCheck, updateResult.missingPaths))
                     }
                     return
                 }
-                if (!updateResult.isSuccess) {
+                if (updateResult?.isSuccess != true) {
                     Minecraft.getInstance().execute {
-                        minecraft.setScreen(DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")))
+                        minecraft.setScreen(DlcUpdateResultScreen(parent, false, DlcUpdateService.toFailureComponent(updateResult)))
                     }
                     return
                 }

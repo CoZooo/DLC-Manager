@@ -668,12 +668,12 @@ object DlcServerApi {
         }
         val apply = DlcUpdateService.applyUpdates(updates, false)
         val data = JsonObject()
-        data.addProperty("success", apply.isSuccess)
-        data.addProperty("missing", apply.isMissing)
-        data.addProperty("message", blank(apply.message))
-        data.add("missingPaths", toStringArray(apply.missingPaths))
-        data.addProperty("addedRequired", apply.hasRequiredAdd())
-        data.addProperty("addedRemote", apply.hasRemoteAdd())
+        data.addProperty("success", apply?.isSuccess == true)
+        data.addProperty("missing", apply?.isMissing == true)
+        data.addProperty("message", blank(apply?.message))
+        data.add("missingPaths", toStringArray(apply?.missingPaths))
+        data.addProperty("addedRequired", apply?.hasRequiredAdd() == true)
+        data.addProperty("addedRemote", apply?.hasRemoteAdd() == true)
         sendOk(exchange, data)
     }
 

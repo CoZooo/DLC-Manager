@@ -317,12 +317,12 @@ public class DlcUpdateUrlScreen extends Screen {
 
     private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {
         setApplyingUpdates(false);
-        if (result.isMissing()) {
+        if (result != null && result.isMissing()) {
             UpdateCheckResult missingCheck = check == null ? DlcUpdateService.checkForUpdates(true) : check;
             Minecraft.getInstance().setScreen(new DlcUpdateMissingScreen(parent, missingCheck, result.getMissingPaths()));
             return;
         }
-        if (!result.isSuccess()) {
+        if (result == null || !result.isSuccess()) {
             Component component = DlcUpdateService.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, component));
             return;

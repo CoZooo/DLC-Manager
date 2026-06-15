@@ -175,7 +175,7 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void handleResult(UpdateApplyResult result) {
-        if (!result.isSuccess()) {
+        if (result == null || !result.isSuccess()) {
             Component component = DlcUpdateService.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, component));
             return;

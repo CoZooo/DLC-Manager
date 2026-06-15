@@ -744,7 +744,7 @@ object DlcServerDownloadService {
     }
 
     @JvmStatic
-    fun downloadAndApplyRequired(dlcRoot: Path?): DownloadResult {
+    fun downloadAndApplyRequired(dlcRoot: Path?): DownloadResult? {
         val result = DownloadResult()
         if (dlcRoot == null) {
             result.success = true

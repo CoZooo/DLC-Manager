@@ -38,12 +38,12 @@ object DlcServerCommandHandlers {
                 return@runAsync
             }
             val result = DlcUpdateService.applyUpdates(check.updates, false)
-            if (result.isSuccess) {
+            if (result?.isSuccess == true) {
                 execute(source) {
                     sendSuccess(source, Component.translatable("dlc_manager.update.success"))
                     sendSuccess(source, Component.translatable("dlc_manager.update.restart"))
                 }
-            } else if (result.isMissing) {
+            } else if (result?.isMissing == true) {
                 execute(source) { sendFailure(source, Component.translatable("dlc_manager.update.missing_title")) }
             } else {
                 execute(source) { sendFailure(source, Component.translatable("dlc_manager.update.failed")) }

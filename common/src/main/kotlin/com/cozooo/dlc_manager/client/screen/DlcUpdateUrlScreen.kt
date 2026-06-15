@@ -307,7 +307,7 @@ class DlcUpdateUrlScreen(
                 val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
                 val result = DlcUpdateService.applyUpdates(chain, false)
-                if (result.isSuccess) {
+                if (result?.isSuccess == true) {
                     packSession.finishAfterSuccessfulUpdate()
                 } else {
                     packSession.restoreAfterFailedUpdate()
@@ -330,14 +330,14 @@ class DlcUpdateUrlScreen(
         }, "dlc-update-url-apply").start()
     }
 
-    private fun handleReupdateResult(result: UpdateApplyResult, check: UpdateCheckResult?) {
+    private fun handleReupdateResult(result: UpdateApplyResult?, check: UpdateCheckResult?) {
         setApplyingUpdates(false)
-        if (result.isMissing) {
+        if (result?.isMissing == true) {
             val missingCheck = check ?: DlcUpdateService.checkForUpdates(true)
             Minecraft.getInstance().setScreen(DlcUpdateMissingScreen(parent, missingCheck, result.missingPaths))
             return
         }
-        if (!result.isSuccess) {
+        if (result?.isSuccess != true) {
             val component = DlcUpdateService.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, component))
             return

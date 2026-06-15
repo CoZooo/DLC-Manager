@@ -132,7 +132,7 @@ class DlcUpdateMissingScreen(
                 val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
                 packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
                 val result = DlcUpdateService.applyUpdates(updateResult.updates, true)
-                if (result.isSuccess) {
+                if (result?.isSuccess == true) {
                     packSession.finishAfterSuccessfulUpdate()
                 } else {
                     packSession.restoreAfterFailedUpdate()
@@ -155,8 +155,8 @@ class DlcUpdateMissingScreen(
         }, "dlc-update-force").start()
     }
 
-    private fun handleResult(result: UpdateApplyResult) {
-        if (!result.isSuccess) {
+    private fun handleResult(result: UpdateApplyResult?) {
+        if (result?.isSuccess != true) {
             val component = DlcUpdateService.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, component))
             return

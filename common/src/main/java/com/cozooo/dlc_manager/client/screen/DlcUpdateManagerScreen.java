@@ -536,12 +536,12 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
 
     private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {
         setApplyingUpdates(false);
-        if (result.isMissing()) {
+        if (result != null && result.isMissing()) {
             UpdateCheckResult missingCheck = check == null ? DlcUpdateService.checkForUpdates(true) : check;
             Minecraft.getInstance().setScreen(new DlcUpdateMissingScreen(this, missingCheck, result.getMissingPaths()));
             return;
         }
-        if (!result.isSuccess()) {
+        if (result == null || !result.isSuccess()) {
             Component component = DlcUpdateService.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, component));
             return;
