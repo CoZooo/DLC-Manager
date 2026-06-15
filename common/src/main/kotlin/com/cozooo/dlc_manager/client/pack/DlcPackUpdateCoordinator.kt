@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil
+import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import com.cozooo.dlc_manager.core.DcConfigIO
 import java.io.IOException
 import java.nio.file.Files
@@ -19,6 +20,30 @@ class DlcPackUpdateCoordinator(
         return DlcPackUpdateGuard.check(dlcRoot, targetBase, targetDlc)
     }
 
+    fun uninstallIncompatibleForCurrentVersion(): List<DlcPackInstaller.UninstallReport> {
+        val version = DlcUpdateVersion.load(dlcRoot)
+        val check = check(version?.getBase(), version?.getDlc())
+        if (!check.hasIncompatiblePacks()) {
+            return emptyList()
+        }
+        val reports = ArrayList<DlcPackInstaller.UninstallReport>()
+        var failure: IOException? = null
+        for (status in check.incompatiblePacks) {
+            val meta = status.meta ?: continue
+            try {
+                reports.add(installer.uninstall(meta.identifier))
+            } catch (ex: IOException) {
+                if (failure == null) {
+                    failure = ex
+                } else {
+                    failure.addSuppressed(ex)
+                }
+            }
+        }
+        failure?.let { throw it }
+        return reports
+    }
+
     fun prepareForUpdate(targetBase: String?, targetDlc: String?, uninstallIncompatible: Boolean): UpdateSession {
         return prepareForUpdate(check(targetBase, targetDlc), uninstallIncompatible)
     }
@@ -33,8 +58,8 @@ class DlcPackUpdateCoordinator(
         val snapshots = ArrayList<Snapshot>()
         try {
             for (status in check.packs) {
-                if (status == null || status.meta == null) {
-                    throw IOException("DLC Pack meta is missing: ${status?.identifier() ?: ""}")
+                if (status.meta == null) {
+                    throw IOException("DLC Pack meta is missing: ${status.identifier()}")
                 }
                 snapshots.add(snapshot(status))
             }

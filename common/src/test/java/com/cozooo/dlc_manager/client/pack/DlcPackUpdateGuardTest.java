@@ -33,6 +33,20 @@ class DlcPackUpdateGuardTest {
     }
 
     @Test
+    void classifiesInstalledPacksAgainstCurrentModpackIdentifier() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        writeVersion(dlcRoot, "MainPack", "1.0.0", "1.0.0");
+        writeInstalledPack(dlcRoot, "Compatible", "MainPack", "any", "any");
+        writeInstalledPack(dlcRoot, "Blocked", "OtherPack", "any", "any");
+
+        DlcPackUpdateGuard.CheckResult result = DlcPackUpdateGuard.check(dlcRoot, "1.0.0", "1.0.0");
+
+        assertEquals(List.of("Compatible"), result.compatiblePacks.stream().map(DlcPackUpdateGuard.PackStatus::identifier).toList());
+        assertEquals(List.of("Blocked"), result.incompatiblePacks.stream().map(DlcPackUpdateGuard.PackStatus::identifier).toList());
+        assertTrue(result.incompatiblePacks.get(0).reasons.get(0).contains("modpack MainPack"));
+    }
+
+    @Test
     void treatsMissingArchivedPackMetadataAsIncompatible() {
         Path dlcRoot = tempDir.resolve("DLC");
         Path packDir = dlcRoot.resolve("tmp").resolve("pack").resolve("MissingMetadata");
@@ -59,6 +73,10 @@ class DlcPackUpdateGuardTest {
     }
 
     private static void writeInstalledPack(Path dlcRoot, String identifier, String baseRule, String dlcRule) throws Exception {
+        writeInstalledPack(dlcRoot, identifier, "any", baseRule, dlcRule);
+    }
+
+    private static void writeInstalledPack(Path dlcRoot, String identifier, String modpackRule, String baseRule, String dlcRule) throws Exception {
         Path packDir = dlcRoot.resolve("tmp").resolve("pack").resolve(identifier);
         Path metadataDir = packDir.resolve("metadata");
         Files.createDirectories(metadataDir);
@@ -68,10 +86,21 @@ class DlcPackUpdateGuardTest {
             version = "1.0.0"
 
             [modpack]
+            modpack = "%s"
             base = "%s"
             dlc = "%s"
-            """.formatted(identifier, baseRule, dlcRule));
+            """.formatted(identifier, modpackRule, baseRule, dlcRule));
         DlcPackMeta meta = new DlcPackMeta(identifier, "1.0.0", "STANDARD", Instant.now().toString(), List.of("mods/" + identifier + ".jar"));
         meta.save(packDir.resolve("meta.dc"));
+    }
+
+    private static void writeVersion(Path dlcRoot, String modpack, String base, String dlc) throws Exception {
+        Path version = dlcRoot.resolve("info").resolve("version.dc");
+        Files.createDirectories(version.getParent());
+        Files.writeString(version, """
+            modpack = "%s"
+            base = "%s"
+            dlc = "%s"
+            """.formatted(modpack, base, dlc));
     }
 }

@@ -368,8 +368,12 @@ class DlcPackInstaller(
     private fun resolveCompatibility(metadata: DlcPackMetadata): CompatibilityResolution {
         val result = CompatibilityResolution()
         val version = DlcUpdateVersion.load(dlcRoot)
+        val currentModpack = version?.getModpack()
         val currentBase = version?.getBase()
         val currentDlc = version?.getDlc()
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack)) {
+            result.incompatible.add("modpack ${safeText(currentModpack)} not in ${metadata.modpacks.joinToString(", ")}")
+        }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, currentBase)) {
             result.incompatible.add("base ${safeVersion(currentBase)} not in ${metadata.baseVersions.joinToString(", ")}")
         }
@@ -589,6 +593,10 @@ class DlcPackInstaller(
 
     private fun safeVersion(value: String?): String {
         return if (value.isNullOrBlank()) "unknown" else value
+    }
+
+    private fun safeText(value: String?): String {
+        return if (value.isNullOrBlank()) "<empty>" else value
     }
 
     private fun checkCanceled(cancelChecker: DlcDownloadService.CancelChecker?) {

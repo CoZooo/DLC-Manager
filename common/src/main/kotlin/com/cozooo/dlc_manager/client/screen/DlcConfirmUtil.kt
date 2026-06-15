@@ -3,9 +3,6 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
-import com.cozooo.dlc_manager.client.pack.DlcPackMeta
-import com.cozooo.dlc_manager.client.pack.DlcPackMetadata
-import com.cozooo.dlc_manager.client.pack.DlcPackPackage
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcRuntimeState
@@ -82,58 +79,10 @@ object DlcConfirmUtil {
         return joinLines(components)
     }
 
-    @JvmStatic
-    fun buildPackRuntimeChangeMessage(pack: DlcPackPackage, precheck: DlcPackInstaller.PrecheckResult): Component {
-        val packName = pack.metadata.resolveDisplayName(Minecraft.getInstance().options.languageCode)
-        val lines = ArrayList<Component>()
-        for (identifier in precheck.dlcToEnable) {
-            lines.add(buildDependencyLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)))
-        }
-        for (identifier in precheck.presetsToEnable) {
-            lines.add(buildDependencyLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)))
-        }
-        for (identifier in precheck.dlcToDisable) {
-            lines.add(buildConflictLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)))
-        }
-        for (identifier in precheck.presetsToDisable) {
-            lines.add(buildConflictLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)))
-        }
-        return joinLines(lines)
-    }
-
-    @JvmStatic
-    fun buildPackRuntimeConfirmMessage(pack: DlcPackPackage, precheck: DlcPackInstaller.PrecheckResult): Component {
-        return Component.translatable("dlc_manager.pack.runtime_confirm", buildPackRuntimeChangeMessage(pack, precheck))
-    }
-
-    @JvmStatic
-    fun buildPackReplaceConfirmMessage(pack: DlcPackPackage, installed: DlcPackMeta): Component {
-        val compare = DlcPackMetadata.compareVersionStrings(pack.metadata.version, installed.version)
-        val action = Component.translatable(
-            if (compare > 0) {
-                "dlc_manager.pack.replace_action_upgrade"
-            } else if (compare < 0) {
-                "dlc_manager.pack.replace_action_downgrade"
-            } else {
-                "dlc_manager.pack.replace_action_replace"
-            }
-        )
-        return Component.translatable(
-            "dlc_manager.pack.replace_confirm",
-            Component.literal(installed.identifier),
-            Component.literal(installed.version),
-            Component.literal(pack.metadata.version),
-            action,
-        )
-    }
-
     fun buildPackUpdateIncompatibleConfirmMessage(check: DlcPackUpdateGuard.CheckResult?): Component {
         val lines = ArrayList<String>()
         if (check != null) {
             for (status in check.incompatiblePacks) {
-                if (status == null) {
-                    continue
-                }
                 val reason = if (status.reasons.isNullOrEmpty()) {
                     ""
                 } else {
@@ -147,14 +96,30 @@ object DlcConfirmUtil {
 
     @JvmStatic
     fun describePackBlockingPrecheck(precheck: DlcPackInstaller.PrecheckResult): String {
+        val messages = ArrayList<String>()
         if (precheck.forbiddenPaths.isNotEmpty()) {
-            return Component.translatable("dlc_manager.pack.forbidden_paths", joinLimited(precheck.forbiddenPaths)).string
+            messages.add(Component.translatable("dlc_manager.pack.forbidden_paths", joinLimited(precheck.forbiddenPaths)).string)
         }
         if (precheck.incompatibleVersions.isNotEmpty()) {
-            return Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.incompatibleVersions)).string
+            messages.add(Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.incompatibleVersions)).string)
         }
         if (precheck.missingDependencies.isNotEmpty()) {
-            return Component.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.missingDependencies)).string
+            messages.add(Component.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.missingDependencies)).string)
+        }
+        if (precheck.dlcToEnable.isNotEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.enable_dlc", joinLimited(precheck.dlcToEnable)).string)
+        }
+        if (precheck.presetsToEnable.isNotEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.enable_presets", joinLimited(precheck.presetsToEnable)).string)
+        }
+        if (precheck.dlcToDisable.isNotEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.disable_dlc", joinLimited(precheck.dlcToDisable)).string)
+        }
+        if (precheck.presetsToDisable.isNotEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.disable_presets", joinLimited(precheck.presetsToDisable)).string)
+        }
+        if (messages.isNotEmpty()) {
+            return messages.joinToString("\n")
         }
         return "unknown"
     }

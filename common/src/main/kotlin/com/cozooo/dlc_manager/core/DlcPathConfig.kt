@@ -25,7 +25,7 @@ object DlcPathConfig {
     const val DEFAULT_SELF_UPDATE_AUTO_CHECK_ON: Boolean = true
     const val DEFAULT_PRESET_FUNC_ON: Boolean = true
     const val DEFAULT_PACK_FUNC_ON: Boolean = true
-    const val DEFAULT_P_BUTTON_SHOWN: Boolean = false
+    const val DEFAULT_P_BUTTON_SHOWN: Boolean = true
     const val DEFAULT_SHOW_ON_FIRST_RUN: Boolean = false
     const val DEFAULT_ALARM_WAITING_TIME: Int = 0
     const val DEFAULT_SERVER_SUPPORT: Boolean = false

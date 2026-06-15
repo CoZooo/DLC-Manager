@@ -178,6 +178,32 @@ public class DlcPackMetadata {
         return false;
     }
 
+    public static boolean anyStringMatches(List<String> rules, String current) {
+        if (rules == null || rules.isEmpty()) {
+            return true;
+        }
+        String currentValue = trim(current);
+        if (currentValue == null || currentValue.isEmpty()) {
+            for (String rule : rules) {
+                String normalized = trim(rule);
+                if (normalized != null && "any".equalsIgnoreCase(normalized)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        for (String rule : rules) {
+            String normalized = trim(rule);
+            if (normalized == null || normalized.isEmpty() || "any".equalsIgnoreCase(normalized)) {
+                return true;
+            }
+            if (currentValue.equalsIgnoreCase(normalized)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static int compareVersionStrings(String left, String right) {
         String leftValue = trim(left);
         String rightValue = trim(right);

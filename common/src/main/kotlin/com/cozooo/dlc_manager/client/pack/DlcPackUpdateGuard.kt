@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
@@ -17,7 +18,7 @@ object DlcPackUpdateGuard {
             Files.list(packRoot).use { stream ->
                 stream.filter { Files.isDirectory(it) }
                     .sorted { a, b -> a.fileName.toString().lowercase(Locale.ROOT).compareTo(b.fileName.toString().lowercase(Locale.ROOT)) }
-                    .forEach { statuses.add(checkPack(it, targetBase, targetDlc)) }
+                    .forEach { statuses.add(checkPack(dlcRoot, it, targetBase, targetDlc)) }
             }
         } catch (_: Exception) {
         }
@@ -28,7 +29,7 @@ object DlcPackUpdateGuard {
         return dlcRoot?.resolve("tmp")?.resolve("pack")
     }
 
-    private fun checkPack(packDir: Path, targetBase: String?, targetDlc: String?): PackStatus {
+    private fun checkPack(dlcRoot: Path?, packDir: Path, targetBase: String?, targetDlc: String?): PackStatus {
         val meta = DlcPackMeta.load(packDir.resolve("meta.dc"))
             ?: return PackStatus(packDir, null, null, false, listOf("missing meta.dc"))
         val metadataPath = packDir.resolve("metadata").resolve("pack.dc")
@@ -41,6 +42,10 @@ object DlcPackUpdateGuard {
         }
         val metadata = parsed.metadata
         val reasons = ArrayList<String>()
+        val targetModpack = DlcUpdateVersion.load(dlcRoot).getModpack()
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack)) {
+            reasons.add("modpack ${safeText(targetModpack)} not in ${metadata.modpacks.joinToString(", ")}")
+        }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, targetBase)) {
             reasons.add("base ${safe(targetBase)} not in ${metadata.baseVersions.joinToString(", ")}")
         }
@@ -52,6 +57,10 @@ object DlcPackUpdateGuard {
 
     private fun safe(value: String?): String {
         return if (value.isNullOrBlank()) "1.0.0" else value.trim()
+    }
+
+    private fun safeText(value: String?): String {
+        return if (value.isNullOrBlank()) "<empty>" else value.trim()
     }
 
     class CheckResult(

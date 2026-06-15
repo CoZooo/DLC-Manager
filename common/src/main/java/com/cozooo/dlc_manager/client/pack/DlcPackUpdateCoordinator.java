@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil;
+import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 
 import java.io.IOException;
@@ -26,6 +27,37 @@ public class DlcPackUpdateCoordinator {
 
     public DlcPackUpdateGuard.CheckResult check(String targetBase, String targetDlc) {
         return DlcPackUpdateGuard.check(dlcRoot, targetBase, targetDlc);
+    }
+
+    public List<DlcPackInstaller.UninstallReport> uninstallIncompatibleForCurrentVersion() throws IOException {
+        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+        DlcPackUpdateGuard.CheckResult check = check(
+            version == null ? null : version.getBase(),
+            version == null ? null : version.getDlc()
+        );
+        if (check == null || !check.hasIncompatiblePacks()) {
+            return List.of();
+        }
+        List<DlcPackInstaller.UninstallReport> reports = new ArrayList<>();
+        IOException failure = null;
+        for (DlcPackUpdateGuard.PackStatus status : check.incompatiblePacks) {
+            if (status == null || status.meta == null) {
+                continue;
+            }
+            try {
+                reports.add(installer.uninstall(status.meta.identifier));
+            } catch (IOException ex) {
+                if (failure == null) {
+                    failure = ex;
+                } else {
+                    failure.addSuppressed(ex);
+                }
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+        return reports;
     }
 
     public UpdateSession prepareForUpdate(String targetBase, String targetDlc, boolean uninstallIncompatible) throws IOException {

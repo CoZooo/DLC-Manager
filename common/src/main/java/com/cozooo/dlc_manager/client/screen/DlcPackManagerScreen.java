@@ -1,41 +1,63 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
+import com.cozooo.dlc_manager.client.pack.DlcPackMetadata;
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.client.core.DlcFilePicker;
-import com.cozooo.dlc_manager.client.download.DlcDownloadService;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.mojang.blaze3d.platform.NativeImage;
+import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
-    private static final int LIST_ROW_HEIGHT = 14;
-    private static final int LIST_WIDTH = 320;
+    private static final int ROW_HEIGHT = 58;
+    private static final int ICON_SIZE = 32;
+    private static final int BUTTON_WIDTH = 46;
+    private static final int BUTTON_HEIGHT = 16;
+    private static final int SCROLLBAR_WIDTH = 6;
 
     private final Screen parent;
-    private Button backButton;
     private Button importButton;
-    private Button uninstallButton;
-    private List<DlcPackMeta> installedPacks = List.of();
-    private int selectedIndex;
+    private Button urlButton;
+    private Button applyButton;
+    private Button backButton;
+    private final Map<String, PackArchiveEntry> pendingInstalls = new LinkedHashMap<>();
+    private final Set<String> pendingUninstalls = new HashSet<>();
+    private List<PackArchiveEntry> archiveEntries = List.of();
+    private Map<String, DlcPackMeta> installedByIdentifier = Map.of();
+    private int selectedIndex = -1;
     private int scrollIndex;
+    private boolean draggingScrollbar;
+    private String lastClickKey;
+    private long lastClickAt;
     private Component status;
-    private volatile boolean importingPack;
-    private volatile boolean cancelImportRequested;
+    private volatile boolean busy;
+    private int iconTextureSerial;
 
     public DlcPackManagerScreen(Screen parent) {
         super(Component.translatable("dlc_manager.pack.manager_title"));
@@ -44,37 +66,34 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
     @Override
     protected void init() {
-        refreshInstalled();
+        refreshEntries();
         clearWidgets();
-        int buttonWidth = 120;
+        int buttonWidth = 104;
         int buttonHeight = 20;
         int y = this.height - 28;
-        int gap = 10;
-        int total = buttonWidth * 3 + gap * 2;
+        int gap = 8;
+        int total = buttonWidth * 4 + gap * 3;
         int startX = this.width / 2 - total / 2;
-        Component importLabel = importingPack
-            ? Component.translatable("dlc_manager.pack.cancel")
-            : Component.translatable("dlc_manager.pack.import");
-        importButton = Button.builder(importLabel, btn -> {
-                if (importingPack) {
-                    requestCancelImport();
-                } else {
-                    importPack();
-                }
-            })
+        importButton = Button.builder(Component.translatable("dlc_manager.pack.import"), btn -> importPackArchive())
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
-        importButton.active = DlcPathConfig.isPackFuncOn() && (!importingPack || !cancelImportRequested);
-        uninstallButton = Button.builder(Component.translatable("dlc_manager.pack.uninstall"), btn -> uninstallSelected())
+        importButton.active = DlcPathConfig.isPackFuncOn() && !busy;
+        urlButton = Button.builder(Component.translatable("dlc_manager.pack.import_url"), btn -> Minecraft.getInstance().setScreen(new DlcPackUrlScreen(this)))
             .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
             .build();
-        uninstallButton.active = !importingPack && !installedPacks.isEmpty();
-        backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
+        urlButton.active = DlcPathConfig.isPackFuncOn() && !busy;
+        applyButton = Button.builder(Component.translatable("dlc_manager.pack.apply"), btn -> applyPendingChanges())
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build();
-        backButton.active = !importingPack;
+        applyButton.active = DlcPathConfig.isPackFuncOn() && hasPendingChanges() && !busy;
+        Component backLabel = hasPendingChanges() ? Component.translatable("dlc_manager.pack.cancel_changes") : Component.translatable("dlc_manager.pack.back");
+        backButton = Button.builder(backLabel, btn -> onBackOrCancel())
+            .bounds(startX + (buttonWidth + gap) * 3, y, buttonWidth, buttonHeight)
+            .build();
+        backButton.active = !busy;
         addRenderableWidget(importButton);
-        addRenderableWidget(uninstallButton);
+        addRenderableWidget(urlButton);
+        addRenderableWidget(applyButton);
         addRenderableWidget(backButton);
     }
 
@@ -85,81 +104,260 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (!DlcPathConfig.isPackFuncOn()) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack.disabled"), this.width / 2, this.height / 2 - 8, 0xFFCC66);
         } else {
-            renderSummary(guiGraphics);
+            renderPackList(guiGraphics, mouseX, mouseY);
         }
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
+    private void renderPackList(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        int left = getListLeft();
+        int right = getListRight();
+        int top = getListTop();
+        int bottom = getListBottom();
+        guiGraphics.drawString(this.font, Component.translatable("dlc_manager.pack.archive_count", archiveEntries.size()), left, 38, 0xE6E6E6, false);
+        if (status != null) {
+            guiGraphics.drawString(this.font, status, left + 150, 38, 0xFFCC66, false);
+        }
+        if (archiveEntries.isEmpty()) {
+            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack.none_archived"), this.width / 2, top + 36, 0x9A9A9A);
+            return;
+        }
+        clampScroll();
+        int visible = Math.min(getVisibleCount(), archiveEntries.size() - scrollIndex);
+        for (int row = 0; row < visible; row++) {
+            int index = scrollIndex + row;
+            PackArchiveEntry entry = archiveEntries.get(index);
+            int rowTop = top + row * ROW_HEIGHT;
+            renderEntry(guiGraphics, entry, index, left, right - SCROLLBAR_WIDTH - 4, rowTop, mouseX, mouseY);
+        }
+        drawScrollBar(guiGraphics);
+    }
+
+    private void renderEntry(GuiGraphics guiGraphics, PackArchiveEntry entry, int index, int left, int right, int y, int mouseX, int mouseY) {
+        boolean selected = index == selectedIndex;
+        int background = selected ? 0x66335566 : 0x55202020;
+        guiGraphics.fill(left, y, right, y + ROW_HEIGHT - 4, background);
+        int arrowX = left + 4;
+        guiGraphics.drawString(this.font, Component.literal("^"), arrowX, y + 8, canMoveUp(index) ? 0xFFFFFF : 0x666666, false);
+        guiGraphics.drawString(this.font, Component.literal("v"), arrowX, y + 30, canMoveDown(index) ? 0xFFFFFF : 0x666666, false);
+        int iconX = left + 24;
+        int iconY = y + 11;
+        if (entry.iconTexture != null) {
+            guiGraphics.blit(entry.iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE, 0.0F, 0.0F, entry.iconWidth, entry.iconHeight, entry.iconWidth, entry.iconHeight);
+        } else {
+            guiGraphics.fill(iconX, iconY, iconX + ICON_SIZE, iconY + ICON_SIZE, 0xFF3B3B3B);
+            String initial = entry.displayName.isBlank() ? "P" : entry.displayName.substring(0, 1).toUpperCase(Locale.ROOT);
+            guiGraphics.drawCenteredString(this.font, Component.literal(initial), iconX + ICON_SIZE / 2, iconY + 12, 0xFFFFFF);
+        }
+
+        int textX = iconX + ICON_SIZE + 8;
+        int textRight = right - (BUTTON_WIDTH + 5) * 4 - 14;
+        guiGraphics.drawString(this.font, Component.literal(trimToWidth(entry.displayName, textRight - textX)), textX, y + 8, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, Component.literal(trimToWidth(entry.authorText, textRight - textX)), textX, y + 23, 0xC8C8C8, false);
+        Component version = Component.translatable("dlc_manager.pack.version_line", entry.metadata.version);
+        guiGraphics.drawString(this.font, version, textX, y + 38, 0xAFC8FF, false);
+
+        int buttonX = right - (BUTTON_WIDTH + 5) * 4;
+        drawRowButton(guiGraphics, buttonX, y + 8, installButtonLabel(entry), mouseX, mouseY);
+        drawRowButton(guiGraphics, buttonX + BUTTON_WIDTH + 5, y + 8, Component.translatable("dlc_manager.pack.delete"), mouseX, mouseY);
+        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 2, y + 8, Component.translatable("dlc_manager.pack.feedback"), mouseX, mouseY);
+        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 3, y + 8, Component.translatable("dlc_manager.pack.support_author"), mouseX, mouseY);
+    }
+
+    private void drawRowButton(GuiGraphics guiGraphics, int x, int y, Component label, int mouseX, int mouseY) {
+        boolean hover = mouseX >= x && mouseX < x + BUTTON_WIDTH && mouseY >= y && mouseY < y + BUTTON_HEIGHT;
+        guiGraphics.fill(x, y, x + BUTTON_WIDTH, y + BUTTON_HEIGHT, hover ? 0xFF5A5A5A : 0xFF404040);
+        guiGraphics.drawCenteredString(this.font, label, x + BUTTON_WIDTH / 2, y + 4, 0xFFFFFF);
+    }
+
+    private Component installButtonLabel(PackArchiveEntry entry) {
+        if (pendingInstalls.containsKey(entry.metadata.identifier) && pendingInstalls.get(entry.metadata.identifier) == entry) {
+            return pendingInstallButtonLabel(entry);
+        }
+        if (pendingUninstalls.contains(entry.metadata.identifier)) {
+            return Component.translatable("dlc_manager.pack.pending_uninstall");
+        }
+        DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
+        if (installed != null && entry.metadata.version.equals(installed.version)) {
+            return Component.translatable("dlc_manager.pack.uninstall");
+        }
+        if (installed != null) {
+            int compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
+            if (compare > 0) {
+                return Component.translatable("dlc_manager.pack.upgrade");
+            }
+            if (compare < 0) {
+                return Component.translatable("dlc_manager.pack.downgrade");
+            }
+            return Component.translatable("dlc_manager.pack.replace");
+        }
+        return Component.translatable("dlc_manager.pack.install");
+    }
+
+    private Component pendingInstallButtonLabel(PackArchiveEntry entry) {
+        DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
+        if (installed == null) {
+            return Component.translatable("dlc_manager.pack.pending_install");
+        }
+        int compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
+        if (compare > 0) {
+            return Component.translatable("dlc_manager.pack.pending_upgrade");
+        }
+        if (compare < 0) {
+            return Component.translatable("dlc_manager.pack.pending_downgrade");
+        }
+        return Component.translatable("dlc_manager.pack.pending_replace");
+    }
+
     @Override
     public boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        if (importingPack || installedPacks.isEmpty()) {
+        if (busy || archiveEntries.isEmpty() || mouseY < getListTop() || mouseY > getListBottom()) {
             return false;
         }
         int maxScroll = getMaxScroll();
         if (maxScroll <= 0) {
             return false;
         }
-        int step = deltaY > 0 ? -1 : 1;
-        scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
+        scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + (deltaY > 0 ? -1 : 1)));
         return true;
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (!importingPack && button == 0 && isInsidePackList(mouseX, mouseY)) {
-            int row = (int) ((mouseY - getPackListTop()) / LIST_ROW_HEIGHT);
-            int index = scrollIndex + row;
-            if (index >= 0 && index < installedPacks.size() && row < getVisiblePackCount()) {
-                selectedIndex = index;
-                ensureSelectionVisible();
+        if (!busy && button == 0) {
+            if (isInsideScrollbar(mouseX, mouseY)) {
+                draggingScrollbar = true;
+                updateScrollFromMouse(mouseY);
                 return true;
+            }
+            int row = rowAt(mouseY);
+            if (row >= 0) {
+                int index = scrollIndex + row;
+                if (index >= 0 && index < archiveEntries.size()) {
+                    return handleEntryClick(archiveEntries.get(index), index, mouseX, mouseY);
+                }
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
-    private void renderSummary(GuiGraphics guiGraphics) {
-        Path packRoot = DlcPaths.dlcRoot().resolve("tmp").resolve("pack");
-        int count = 0;
-        if (Files.isDirectory(packRoot)) {
-            try (var stream = Files.list(packRoot)) {
-                count = (int) stream.filter(Files::isDirectory).count();
-            } catch (Exception ignored) {
-            }
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingScrollbar) {
+            updateScrollFromMouse(mouseY);
+            return true;
         }
-        int x = getPackListX();
-        int y = 56;
-        guiGraphics.drawString(this.font, Component.translatable("dlc_manager.pack.installed_count", count), x, y, 0xE6E6E6, false);
-        y += 18;
-        guiGraphics.drawString(this.font, DlcTextFormatter.parse(Component.translatable("dlc_manager.pack.first_stage").getString()), x, y, 0xC8C8C8, false);
-        y += 22;
-        if (status != null) {
-            guiGraphics.drawString(this.font, status, x, y, 0xFFCC66, false);
-            y += 18;
-        }
-        if (installedPacks.isEmpty()) {
-            guiGraphics.drawString(this.font, Component.translatable("dlc_manager.pack.none_installed"), x, y, 0x9A9A9A, false);
-            return;
-        }
-        clampListState();
-        int visibleCount = Math.min(getVisiblePackCount(), installedPacks.size() - scrollIndex);
-        for (int row = 0; row < visibleCount; row++) {
-            int i = scrollIndex + row;
-            DlcPackMeta pack = installedPacks.get(i);
-            int color = i == selectedIndex ? 0x66CCFF : 0xD8D8D8;
-            guiGraphics.drawString(
-                this.font,
-                Component.literal((i == selectedIndex ? "> " : "  ") + pack.identifier + "  " + pack.version),
-                x,
-                y + row * LIST_ROW_HEIGHT,
-                color,
-                false
-            );
-        }
-        drawPackScrollBar(guiGraphics);
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
-    private void importPack() {
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingScrollbar = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private boolean handleEntryClick(PackArchiveEntry entry, int index, double mouseX, double mouseY) {
+        selectedIndex = index;
+        int rowTop = getListTop() + (index - scrollIndex) * ROW_HEIGHT;
+        int left = getListLeft();
+        int right = getListRight() - SCROLLBAR_WIDTH - 4;
+        int arrowX = left + 4;
+        if (mouseX >= arrowX && mouseX < arrowX + 12) {
+            if (mouseY >= rowTop + 4 && mouseY < rowTop + 24) {
+                moveEntry(index, -1);
+                return true;
+            }
+            if (mouseY >= rowTop + 26 && mouseY < rowTop + 48) {
+                moveEntry(index, 1);
+                return true;
+            }
+        }
+        int buttonX = right - (BUTTON_WIDTH + 5) * 4;
+        if (mouseY >= rowTop + 8 && mouseY < rowTop + 8 + BUTTON_HEIGHT) {
+            int action = (int) ((mouseX - buttonX) / (BUTTON_WIDTH + 5));
+            if (mouseX >= buttonX && action >= 0 && action < 4) {
+                if (action == 0) {
+                    toggleInstall(entry);
+                } else if (action == 1) {
+                    deleteArchive(entry);
+                } else if (action == 2) {
+                    openLink(entry, "issue");
+                } else {
+                    openLink(entry, "sponsor");
+                }
+                return true;
+            }
+        }
+        long now = Util.getMillis();
+        if (entry.key.equals(lastClickKey) && now - lastClickAt < 350L) {
+            openLink(entry, "homepage");
+        }
+        lastClickKey = entry.key;
+        lastClickAt = now;
+        rebuildPackWidgets();
+        return true;
+    }
+
+    private void toggleInstall(PackArchiveEntry entry) {
+        String identifier = entry.metadata.identifier;
+        if (pendingInstalls.containsKey(identifier) && pendingInstalls.get(identifier) == entry) {
+            pendingInstalls.remove(identifier);
+        } else if (pendingUninstalls.remove(identifier)) {
+            pendingInstalls.put(identifier, entry);
+        } else {
+            DlcPackMeta installed = installedByIdentifier.get(identifier);
+            if (installed != null && entry.metadata.version.equals(installed.version)) {
+                pendingUninstalls.add(identifier);
+                pendingInstalls.remove(identifier);
+            } else {
+                pendingInstalls.put(identifier, entry);
+            }
+        }
+        rebuildPackWidgets();
+    }
+
+    private void deleteArchive(PackArchiveEntry entry) {
+        DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
+        if (installed != null && entry.metadata.version.equals(installed.version)) {
+            status = Component.translatable("dlc_manager.pack.delete_installed_blocked");
+            rebuildPackWidgets();
+            return;
+        }
+        try {
+            Files.deleteIfExists(entry.archivePath);
+            pendingInstalls.remove(entry.metadata.identifier, entry);
+            status = Component.translatable("dlc_manager.pack.delete_success", entry.displayName);
+            refreshEntries();
+            rebuildPackWidgets();
+        } catch (Exception ex) {
+            status = Component.translatable("dlc_manager.pack.delete_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+        }
+    }
+
+    private void openLink(PackArchiveEntry entry, String key) {
+        String url = entry.metadata.links.get(key);
+        if (url == null || url.isBlank()) {
+            status = Component.translatable("dlc_manager.pack.link_missing");
+            rebuildPackWidgets();
+            return;
+        }
+        Util.getPlatform().openUri(url);
+    }
+
+    private void moveEntry(int index, int direction) {
+        int target = index + direction;
+        if (target < 0 || target >= archiveEntries.size()) {
+            return;
+        }
+        List<PackArchiveEntry> mutable = new ArrayList<>(archiveEntries);
+        PackArchiveEntry entry = mutable.remove(index);
+        mutable.add(target, entry);
+        archiveEntries = mutable;
+        selectedIndex = target;
+        ensureSelectionVisible();
+    }
+
+    private void importPackArchive() {
         if (!DlcPathConfig.isPackFuncOn()) {
             status = Component.translatable("dlc_manager.pack.disabled");
             return;
@@ -168,271 +366,415 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (zip == null) {
             return;
         }
-        startImportPrecheck(zip);
-    }
-
-    private void startImportPrecheck(Path zip) {
-        setImportingPack(true, Component.translatable("dlc_manager.pack.importing"));
+        setBusy(true, Component.translatable("dlc_manager.pack.importing"));
         new Thread(() -> {
-            Path staging = null;
             try {
-                DlcPackArchive.ExtractResult extracted = DlcPackArchive.extractToStaging(zip, DlcPaths.dlcRoot());
-                staging = extracted.stagingDir;
-                checkImportCanceled();
-                DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
-                DlcPackPackage pack = result.pack;
-                if (!result.valid || pack == null) {
-                    DlcPackArchive.deleteRecursive(staging);
-                    finishImport(Component.translatable("dlc_manager.pack.import_invalid", result.error == null ? "unknown" : result.error));
-                    return;
-                }
-                DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-                DlcPackInstaller.PrecheckResult precheck = installer.precheck(pack);
-                if (precheck.hasBlockingIssues()) {
-                    DlcPackArchive.deleteRecursive(staging);
-                    finishImport(Component.translatable("dlc_manager.pack.import_failed", DlcConfirmUtil.describePackBlockingPrecheck(precheck)));
-                    return;
-                }
-                checkImportCanceled();
-                Path preparedStaging = staging;
-                staging = null;
-                Minecraft.getInstance().execute(() -> handlePreparedPack(installer, pack, precheck, preparedStaging));
-            } catch (DlcDownloadService.DownloadCanceledException canceled) {
-                DlcPackArchive.deleteRecursive(staging);
-                finishImport(Component.translatable("dlc_manager.pack.import_cancelled"));
+                Path copied = copyArchiveToPackRoot(zip);
+                finishBusy(Component.translatable("dlc_manager.pack.import_staged", copied.getFileName().toString()));
             } catch (Exception ex) {
-                DlcPackArchive.deleteRecursive(staging);
-                finishImport(Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+                finishBusy(Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
             }
-        }, "dlc-pack-precheck").start();
+        }, "dlc-pack-import-copy").start();
     }
 
-    private void handlePreparedPack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, Path staging) {
-        if (cancelImportRequested) {
+    public void importDownloadedPack(Path zip) {
+        if (zip != null) {
+            status = Component.translatable("dlc_manager.pack.import_staged", zip.getFileName().toString());
+            refreshEntries();
+            rebuildPackWidgets();
+        }
+    }
+
+    private Path copyArchiveToPackRoot(Path source) throws IOException {
+        Path packRoot = DlcPaths.dlcRoot().resolve("pack");
+        Files.createDirectories(packRoot);
+        String fileName = source.getFileName() == null ? "pack.zip" : source.getFileName().toString();
+        if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            fileName = fileName + ".zip";
+        }
+        Path target = uniquePath(packRoot, fileName);
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        return target;
+    }
+
+    private Path uniquePath(Path dir, String fileName) {
+        Path target = dir.resolve(fileName);
+        if (!Files.exists(target)) {
+            return target;
+        }
+        int dot = fileName.lastIndexOf('.');
+        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
+        String ext = dot > 0 ? fileName.substring(dot) : "";
+        for (int i = 1; i < 10000; i++) {
+            Path candidate = dir.resolve(base + "-" + i + ext);
+            if (!Files.exists(candidate)) {
+                return candidate;
+            }
+        }
+        return dir.resolve(base + "-" + System.nanoTime() + ext);
+    }
+
+    private void applyPendingChanges() {
+        if (!hasPendingChanges() || busy) {
+            return;
+        }
+        String confirmText = buildReplacementConfirmText();
+        if (confirmText != null) {
+            Minecraft.getInstance().setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(accepted -> {
+                Minecraft.getInstance().setScreen(this);
+                if (accepted) {
+                    startApplyPendingChanges();
+                }
+            }, Component.translatable("dlc_manager.pack.apply_confirm_title"), Component.literal(confirmText), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+            return;
+        }
+        startApplyPendingChanges();
+    }
+
+    private void startApplyPendingChanges() {
+        setBusy(true, Component.translatable("dlc_manager.pack.applying"));
+        new Thread(() -> {
+            try {
+                DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                for (String identifier : new ArrayList<>(pendingUninstalls)) {
+                    installer.uninstall(identifier);
+                }
+                for (PackArchiveEntry entry : archiveEntries) {
+                    if (pendingInstalls.get(entry.metadata.identifier) == entry) {
+                        installArchive(installer, entry);
+                    }
+                }
+                pendingUninstalls.clear();
+                pendingInstalls.clear();
+                finishBusy(Component.translatable("dlc_manager.pack.apply_success"));
+            } catch (Exception ex) {
+                finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)));
+            }
+        }, "dlc-pack-apply").start();
+    }
+
+    private String buildReplacementConfirmText() {
+        List<String> lines = new ArrayList<>();
+        for (PackArchiveEntry entry : archiveEntries) {
+            if (pendingInstalls.get(entry.metadata.identifier) != entry) {
+                continue;
+            }
+            DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
+            if (installed == null) {
+                continue;
+            }
+            int compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
+            if (compare > 0) {
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_upgrade", entry.displayName, installed.version, entry.metadata.version).getString());
+            } else if (compare < 0) {
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_downgrade", entry.displayName, installed.version, entry.metadata.version).getString());
+            } else {
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_replace", entry.displayName, installed.version).getString());
+            }
+        }
+        return lines.isEmpty() ? null : String.join("\n", lines);
+    }
+
+    private void installArchive(DlcPackInstaller installer, PackArchiveEntry entry) throws IOException {
+        Path staging = null;
+        try {
+            staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir;
+            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+            if (!result.valid || result.pack == null) {
+                throw new IOException(result.error == null ? "invalid DLC Pack" : result.error);
+            }
+            DlcPackInstaller.PrecheckResult precheck = installer.precheck(result.pack);
+            if (precheck.hasBlockingIssues() || precheck.requiresRuntimeConfirmation()) {
+                throw new IOException(DlcConfirmUtil.describePackBlockingPrecheck(precheck));
+            }
+            boolean replace = installedByIdentifier.containsKey(result.pack.metadata.identifier);
+            installer.install(result.pack, replace, DlcPackInstaller.InstallOptions.strict());
+        } finally {
             DlcPackArchive.deleteRecursive(staging);
-            finishImport(Component.translatable("dlc_manager.pack.import_cancelled"));
-            return;
         }
-        importingPack = false;
-        cancelImportRequested = false;
-        DlcPackMeta installed = findInstalledPack(pack.metadata.identifier);
-        if (installed != null) {
-            confirmReplacePack(installer, pack, precheck, installed, staging);
-            return;
-        }
-        continueImportPack(installer, pack, precheck, false, staging);
     }
 
-    private void requestCancelImport() {
-        cancelImportRequested = true;
-        status = Component.translatable("dlc_manager.pack.canceling");
+    private String describeFailure(Exception ex) {
+        if (ex instanceof IOException io) {
+            String message = io.getMessage();
+            if (message != null && !message.isBlank()) {
+                return message;
+            }
+        }
+        String message = ex.getMessage();
+        return (message == null || message.isBlank()) ? ex.getClass().getSimpleName() : message;
+    }
+
+    private void setBusy(boolean busy, Component message) {
+        this.busy = busy;
+        this.status = message;
         rebuildPackWidgets();
     }
 
-    private void checkImportCanceled() throws DlcDownloadService.DownloadCanceledException {
-        if (cancelImportRequested) {
-            throw new DlcDownloadService.DownloadCanceledException("canceled");
-        }
-    }
-
-    private void setImportingPack(boolean importing, Component message) {
-        importingPack = importing;
-        cancelImportRequested = false;
-        status = message;
-        rebuildPackWidgets();
-    }
-
-    private void finishImport(Component message) {
+    private void finishBusy(Component message) {
         Minecraft.getInstance().execute(() -> {
-            importingPack = false;
-            cancelImportRequested = false;
+            busy = false;
             status = message;
-            refreshInstalled();
+            refreshEntries();
             rebuildPackWidgets();
         });
     }
 
-    private DlcPackInstaller.InstallOptions withCancelChecker(DlcPackInstaller.InstallOptions options) {
-        DlcPackInstaller.InstallOptions effectiveOptions = options == null ? DlcPackInstaller.InstallOptions.strict() : options;
-        return effectiveOptions.withCancelChecker(() -> cancelImportRequested);
-    }
-
-    private void startInstallPreparedPack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.InstallOptions options, boolean replaceExisting, Path staging) {
-        setImportingPack(true, Component.translatable("dlc_manager.pack.importing"));
-        new Thread(() -> {
-            try {
-                DlcPackInstaller.InstallReport report = installer.install(pack, replaceExisting, withCancelChecker(options));
-                finishImport(Component.translatable("dlc_manager.pack.import_success", report.identifier, report.filesWritten));
-            } catch (DlcDownloadService.DownloadCanceledException canceled) {
-                finishImport(Component.translatable("dlc_manager.pack.import_cancelled"));
-            } catch (Exception ex) {
-                finishImport(Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
-            } finally {
-                DlcPackArchive.deleteRecursive(staging);
-            }
-        }, "dlc-pack-install").start();
-    }
-
-    private void continueImportPack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, boolean replaceExisting, Path staging) {
-        if (precheck.requiresRuntimeConfirmation()) {
-            confirmRuntimeChanges(installer, pack, precheck, replaceExisting, staging);
-            return;
-        }
-        startInstallPreparedPack(installer, pack, DlcPackInstaller.InstallOptions.strict(), replaceExisting, staging);
-    }
-
-    private void confirmReplacePack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, DlcPackMeta installed, Path staging) {
-        Component message = DlcConfirmUtil.buildPackReplaceConfirmMessage(pack, installed);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
-            Minecraft.getInstance().setScreen(this);
-            if (!accepted) {
-                status = Component.translatable("dlc_manager.pack.import_cancelled");
-                DlcPackArchive.deleteRecursive(staging);
-                rebuildPackWidgets();
-                return;
-            }
-            continueImportPack(installer, pack, precheck, true, staging);
-        }, this.title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
-    }
-
-    private void confirmRuntimeChanges(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, boolean replaceExisting, Path staging) {
-        Component message = DlcConfirmUtil.buildPackRuntimeConfirmMessage(pack, precheck);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
-            Minecraft.getInstance().setScreen(this);
-            if (accepted) {
-                startInstallPreparedPack(installer, pack, DlcPackInstaller.InstallOptions.applyConfirmedRuntimeChanges(), replaceExisting, staging);
-            } else {
-                status = Component.translatable("dlc_manager.pack.import_cancelled");
-                DlcPackArchive.deleteRecursive(staging);
-                rebuildPackWidgets();
-            }
-        }, this.title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
-    }
-
-    private void uninstallSelected() {
-        if (selectedIndex < 0 || selectedIndex >= installedPacks.size()) {
-            return;
-        }
-        DlcPackMeta selected = installedPacks.get(selectedIndex);
-        try {
-            DlcPackInstaller.UninstallReport report = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot()).uninstall(selected.identifier);
-            status = Component.translatable("dlc_manager.pack.uninstall_success", report.identifier, report.filesRestored);
-            refreshInstalled();
-            if (selectedIndex >= installedPacks.size()) {
-                selectedIndex = Math.max(0, installedPacks.size() - 1);
-            }
-            clampListState();
+    private void onBackOrCancel() {
+        if (hasPendingChanges()) {
+            pendingInstalls.clear();
+            pendingUninstalls.clear();
+            status = Component.translatable("dlc_manager.pack.changes_cancelled");
             rebuildPackWidgets();
-        } catch (Exception ex) {
-            status = Component.translatable("dlc_manager.pack.uninstall_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+            return;
         }
+        releaseIconTextures();
+        Minecraft.getInstance().setScreen(parent);
     }
 
-    private void refreshInstalled() {
-        installedPacks = loadInstalledPacks();
-        if (selectedIndex >= installedPacks.size()) {
-            selectedIndex = Math.max(0, installedPacks.size() - 1);
+    private void refreshEntries() {
+        Map<String, Integer> oldOrder = new HashMap<>();
+        for (int i = 0; i < archiveEntries.size(); i++) {
+            oldOrder.put(archiveEntries.get(i).key, i);
         }
-        clampListState();
+        Map<String, String> pendingInstallKeys = new HashMap<>();
+        for (Map.Entry<String, PackArchiveEntry> entry : pendingInstalls.entrySet()) {
+            pendingInstallKeys.put(entry.getKey(), entry.getValue().key);
+        }
+        releaseIconTextures();
+        uninstallIncompatibleInstalledPacks();
+        installedByIdentifier = loadInstalledPacks();
+        List<PackArchiveEntry> scanned = scanPackArchives();
+        scanned.sort(Comparator.comparingInt(entry -> oldOrder.getOrDefault(entry.key, Integer.MAX_VALUE)));
+        archiveEntries = scanned;
+        pendingInstalls.clear();
+        for (PackArchiveEntry entry : archiveEntries) {
+            if (entry.key.equals(pendingInstallKeys.get(entry.metadata.identifier))) {
+                pendingInstalls.put(entry.metadata.identifier, entry);
+            }
+        }
+        pendingUninstalls.removeIf(identifier -> !installedByIdentifier.containsKey(identifier));
+        if (selectedIndex >= archiveEntries.size()) {
+            selectedIndex = archiveEntries.isEmpty() ? -1 : archiveEntries.size() - 1;
+        }
+        clampScroll();
     }
 
-    private List<DlcPackMeta> loadInstalledPacks() {
-        Path packRoot = DlcPaths.dlcRoot().resolve("tmp").resolve("pack");
+    private List<PackArchiveEntry> scanPackArchives() {
+        Path packRoot = DlcPaths.dlcRoot().resolve("pack");
+        try {
+            Files.createDirectories(packRoot);
+        } catch (IOException ignored) {
+        }
         if (!Files.isDirectory(packRoot)) {
             return List.of();
         }
+        List<PackArchiveEntry> out = new ArrayList<>();
         try (var stream = Files.list(packRoot)) {
-            List<DlcPackMeta> out = new ArrayList<>();
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
+                .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)))
+                .forEach(path -> {
+                    PackArchiveEntry entry = inspectArchive(path);
+                    if (entry != null) {
+                        out.add(entry);
+                    }
+                });
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    private PackArchiveEntry inspectArchive(Path archive) {
+        Path staging = null;
+        try {
+            staging = DlcPackArchive.extractToStaging(archive, DlcPaths.dlcRoot()).stagingDir;
+            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+            if (!result.valid || result.pack == null) {
+                return null;
+            }
+            DlcPackPackage pack = result.pack;
+            String displayName = pack.metadata.resolveDisplayName(Minecraft.getInstance().options.languageCode);
+            String authorText = pack.metadata.authors.isEmpty() ? Component.translatable("dlc_manager.pack.unknown_author").getString() : String.join(", ", pack.metadata.authors);
+            IconTexture icon = loadIconTexture(pack.iconFile);
+            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, authorText, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            DlcPackArchive.deleteRecursive(staging);
+        }
+    }
+
+    private IconTexture loadIconTexture(Path iconFile) {
+        if (iconFile == null || !Files.isRegularFile(iconFile)) {
+            return null;
+        }
+        NativeImage image = null;
+        try (InputStream input = Files.newInputStream(iconFile)) {
+            image = NativeImage.read(input);
+            int imageWidth = image.getWidth();
+            int imageHeight = image.getHeight();
+            DynamicTexture texture = new DynamicTexture(image);
+            image = null;
+            ResourceLocation location = Minecraft.getInstance().getTextureManager().register("dlc_pack_icon/" + (++iconTextureSerial), texture);
+            return new IconTexture(location, imageWidth, imageHeight);
+        } catch (Exception ignored) {
+            if (image != null) {
+                image.close();
+            }
+            return null;
+        }
+    }
+
+    private void releaseIconTextures() {
+        for (PackArchiveEntry entry : archiveEntries) {
+            if (entry.iconTexture != null) {
+                Minecraft.getInstance().getTextureManager().release(entry.iconTexture);
+            }
+        }
+    }
+
+    private Map<String, DlcPackMeta> loadInstalledPacks() {
+        Path packRoot = DlcPaths.dlcRoot().resolve("tmp").resolve("pack");
+        Map<String, DlcPackMeta> out = new HashMap<>();
+        if (!Files.isDirectory(packRoot)) {
+            return out;
+        }
+        try (var stream = Files.list(packRoot)) {
             stream.filter(Files::isDirectory).forEach(dir -> {
                 DlcPackMeta meta = DlcPackMeta.load(dir.resolve("meta.dc"));
                 if (meta != null) {
-                    out.add(meta);
+                    out.put(meta.identifier, meta);
                 }
             });
-            out.sort(Comparator.comparing(meta -> meta.identifier.toLowerCase(java.util.Locale.ROOT)));
-            return out;
         } catch (Exception ignored) {
-            return List.of();
         }
+        return out;
     }
 
-    private DlcPackMeta findInstalledPack(String identifier) {
-        if (identifier == null) {
-            return null;
-        }
-        for (DlcPackMeta meta : installedPacks) {
-            if (meta != null && identifier.equals(meta.identifier)) {
-                return meta;
+    private void uninstallIncompatibleInstalledPacks() {
+        try {
+            List<DlcPackInstaller.UninstallReport> reports =
+                new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot()).uninstallIncompatibleForCurrentVersion();
+            if (!reports.isEmpty()) {
+                status = Component.translatable("dlc_manager.pack.auto_uninstalled_incompatible", reports.size());
             }
+        } catch (Exception ex) {
+            status = Component.translatable("dlc_manager.pack.auto_uninstall_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
         }
-        return null;
     }
 
-    private int getPackListX() {
-        return Math.max(20, this.width / 2 - 150);
+    private boolean hasPendingChanges() {
+        return !pendingInstalls.isEmpty() || !pendingUninstalls.isEmpty();
     }
 
-    private int getPackListTop() {
-        int y = 56 + 18 + 22;
-        if (status != null) {
-            y += 18;
-        }
-        return y;
+    private boolean canMoveUp(int index) {
+        return index > 0;
     }
 
-    private int getPackListBottom() {
-        return Math.max(getPackListTop() + LIST_ROW_HEIGHT, this.height - 42);
+    private boolean canMoveDown(int index) {
+        return index >= 0 && index < archiveEntries.size() - 1;
     }
 
-    private int getVisiblePackCount() {
-        return Math.max(1, (getPackListBottom() - getPackListTop()) / LIST_ROW_HEIGHT);
+    private int getListLeft() {
+        return Math.max(14, this.width / 2 - 235);
+    }
+
+    private int getListRight() {
+        return Math.min(this.width - 14, this.width / 2 + 235);
+    }
+
+    private int getListTop() {
+        return 54;
+    }
+
+    private int getListBottom() {
+        return Math.max(getListTop() + ROW_HEIGHT, this.height - 42);
+    }
+
+    private int getVisibleCount() {
+        return Math.max(1, (getListBottom() - getListTop()) / ROW_HEIGHT);
     }
 
     private int getMaxScroll() {
-        return Math.max(0, installedPacks.size() - getVisiblePackCount());
+        return Math.max(0, archiveEntries.size() - getVisibleCount());
     }
 
-    private boolean isInsidePackList(double mouseX, double mouseY) {
-        int x = getPackListX();
-        int top = getPackListTop();
-        int bottom = Math.min(getPackListBottom(), top + getVisiblePackCount() * LIST_ROW_HEIGHT);
-        return mouseX >= x && mouseX <= x + LIST_WIDTH && mouseY >= top && mouseY < bottom;
-    }
-
-    private void clampListState() {
-        if (installedPacks.isEmpty()) {
-            selectedIndex = 0;
-            scrollIndex = 0;
-            return;
+    private int rowAt(double mouseY) {
+        int top = getListTop();
+        int bottom = getListBottom();
+        if (mouseY < top || mouseY >= bottom) {
+            return -1;
         }
-        selectedIndex = Math.max(0, Math.min(installedPacks.size() - 1, selectedIndex));
+        int row = (int) ((mouseY - top) / ROW_HEIGHT);
+        return row < getVisibleCount() ? row : -1;
+    }
+
+    private void clampScroll() {
         scrollIndex = Math.max(0, Math.min(getMaxScroll(), scrollIndex));
-        ensureSelectionVisible();
     }
 
     private void ensureSelectionVisible() {
-        int visible = getVisiblePackCount();
+        if (selectedIndex < 0) {
+            return;
+        }
+        int visible = getVisibleCount();
         if (selectedIndex < scrollIndex) {
             scrollIndex = selectedIndex;
         } else if (selectedIndex >= scrollIndex + visible) {
             scrollIndex = Math.max(0, selectedIndex - visible + 1);
         }
-        scrollIndex = Math.max(0, Math.min(getMaxScroll(), scrollIndex));
+        clampScroll();
     }
 
-    private void drawPackScrollBar(GuiGraphics guiGraphics) {
+    private boolean isInsideScrollbar(double mouseX, double mouseY) {
+        int maxScroll = getMaxScroll();
+        if (maxScroll <= 0) {
+            return false;
+        }
+        int x = getListRight() - SCROLLBAR_WIDTH;
+        return mouseX >= x && mouseX <= x + SCROLLBAR_WIDTH && mouseY >= getListTop() && mouseY <= getListBottom();
+    }
+
+    private void updateScrollFromMouse(double mouseY) {
         int maxScroll = getMaxScroll();
         if (maxScroll <= 0) {
             return;
         }
-        int top = getPackListTop();
-        int bottom = getPackListBottom();
+        int top = getListTop();
+        int track = Math.max(1, getListBottom() - top);
+        double ratio = Math.max(0.0, Math.min(1.0, (mouseY - top) / track));
+        scrollIndex = Math.max(0, Math.min(maxScroll, (int) Math.round(ratio * maxScroll)));
+    }
+
+    private void drawScrollBar(GuiGraphics guiGraphics) {
+        int maxScroll = getMaxScroll();
+        if (maxScroll <= 0) {
+            return;
+        }
+        int top = getListTop();
+        int bottom = getListBottom();
         int trackHeight = Math.max(1, bottom - top);
-        int barHeight = Math.max(12, trackHeight * getVisiblePackCount() / Math.max(1, installedPacks.size()));
+        int barHeight = Math.max(18, trackHeight * getVisibleCount() / Math.max(1, archiveEntries.size()));
         int barY = top + (trackHeight - barHeight) * scrollIndex / Math.max(1, maxScroll);
-        int x = getPackListX() + LIST_WIDTH - 6;
-        guiGraphics.fill(x, top, x + 4, bottom, 0x66333333);
-        guiGraphics.fill(x, barY, x + 4, barY + barHeight, 0xFF66CCFF);
+        int x = getListRight() - SCROLLBAR_WIDTH;
+        guiGraphics.fill(x, top, x + SCROLLBAR_WIDTH, bottom, 0x66333333);
+        guiGraphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight, 0xFF66CCFF);
+    }
+
+    private String trimToWidth(String text, int width) {
+        if (text == null) {
+            return "";
+        }
+        if (this.font.width(text) <= width) {
+            return text;
+        }
+        String ellipsis = "...";
+        String value = text;
+        while (!value.isEmpty() && this.font.width(value + ellipsis) > width) {
+            value = value.substring(0, value.length() - 1);
+        }
+        return value + ellipsis;
     }
 
     private void rebuildPackWidgets() {
@@ -441,13 +783,47 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
     @Override
     public boolean shouldCloseOnEsc() {
-        return !importingPack;
+        return !busy;
     }
 
     @Override
     public void onClose() {
-        if (!importingPack) {
-            super.onClose();
+        if (!busy) {
+            onBackOrCancel();
+        }
+    }
+
+    private static final class IconTexture {
+        private final ResourceLocation location;
+        private final int width;
+        private final int height;
+
+        private IconTexture(ResourceLocation location, int width, int height) {
+            this.location = location;
+            this.width = width;
+            this.height = height;
+        }
+    }
+
+    private static final class PackArchiveEntry {
+        private final Path archivePath;
+        private final DlcPackMetadata metadata;
+        private final String displayName;
+        private final String authorText;
+        private final ResourceLocation iconTexture;
+        private final int iconWidth;
+        private final int iconHeight;
+        private final String key;
+
+        private PackArchiveEntry(Path archivePath, DlcPackMetadata metadata, String displayName, String authorText, ResourceLocation iconTexture, int iconWidth, int iconHeight) {
+            this.archivePath = archivePath;
+            this.metadata = metadata;
+            this.displayName = displayName == null ? metadata.identifier : displayName;
+            this.authorText = authorText == null ? "" : authorText;
+            this.iconTexture = iconTexture;
+            this.iconWidth = iconWidth;
+            this.iconHeight = iconHeight;
+            this.key = archivePath.toString() + "#" + metadata.identifier + "@" + metadata.version;
         }
     }
 }

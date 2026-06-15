@@ -14,17 +14,20 @@ class DlcUpdateVersionTest {
     Path tempDir;
 
     @Test
-    void loadMissingVersionCreatesDefaultVersionFile() {
+    void loadMissingVersionCreatesDefaultVersionFile() throws Exception {
         DlcUpdateVersion version = DlcUpdateVersion.load(tempDir);
 
+        assertEquals("", version.getModpack());
         assertEquals("1.0.0", version.getBase());
         assertEquals("1.0.0", version.getDlc());
         assertTrue(Files.exists(tempDir.resolve("info").resolve("version.dc")));
+        assertTrue(Files.readString(tempDir.resolve("info").resolve("version.dc")).startsWith("modpack = \"\"\nbase = \"1.0.0\""));
     }
 
     @Test
     void saveAndLoadRoundTripsVersionFields() {
         DlcUpdateVersion version = new DlcUpdateVersion();
+        version.setModpack("ExamplePack");
         version.setBase("2.0.0");
         version.setDlc("1.1.0");
         version.setRollbackFrom("1.0.0+1.0.0");
@@ -33,6 +36,7 @@ class DlcUpdateVersionTest {
         version.save(tempDir);
         DlcUpdateVersion loaded = DlcUpdateVersion.load(tempDir);
 
+        assertEquals("ExamplePack", loaded.getModpack());
         assertEquals("2.0.0", loaded.getBase());
         assertEquals("1.1.0", loaded.getDlc());
         assertEquals("1.0.0+1.0.0", loaded.getRollbackFrom());
@@ -52,6 +56,7 @@ class DlcUpdateVersionTest {
 
         DlcUpdateVersion loaded = DlcUpdateVersion.load(tempDir);
 
+        assertEquals("", loaded.getModpack());
         assertEquals("1.0.0", loaded.getBase());
         assertEquals("1.0.0", loaded.getDlc());
         assertEquals("1.0.0+1.0.0", loaded.getRollbackFrom());

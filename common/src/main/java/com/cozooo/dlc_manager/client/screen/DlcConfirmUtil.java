@@ -3,9 +3,6 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
-import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
-import com.cozooo.dlc_manager.client.pack.DlcPackMetadata;
-import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
@@ -70,44 +67,6 @@ public final class DlcConfirmUtil {
         return joinLines(components);
     }
 
-    public static Component buildPackRuntimeChangeMessage(DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck) {
-        String packName = pack.metadata.resolveDisplayName(Minecraft.getInstance().options.languageCode);
-        List<Component> lines = new ArrayList<>();
-        for (String identifier : precheck.getDlcToEnable()) {
-            lines.add(buildDependencyLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)));
-        }
-        for (String identifier : precheck.getPresetsToEnable()) {
-            lines.add(buildDependencyLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)));
-        }
-        for (String identifier : precheck.getDlcToDisable()) {
-            lines.add(buildConflictLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)));
-        }
-        for (String identifier : precheck.getPresetsToDisable()) {
-            lines.add(buildConflictLine(packName, DlcDisplayNameUtil.resolveDisplayName(identifier)));
-        }
-        return joinLines(lines);
-    }
-
-    public static Component buildPackRuntimeConfirmMessage(DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck) {
-        return Component.translatable("dlc_manager.pack.runtime_confirm", buildPackRuntimeChangeMessage(pack, precheck));
-    }
-
-    public static Component buildPackReplaceConfirmMessage(DlcPackPackage pack, DlcPackMeta installed) {
-        int compare = DlcPackMetadata.compareVersionStrings(pack.metadata.version, installed.version);
-        Component action = Component.translatable(compare > 0
-            ? "dlc_manager.pack.replace_action_upgrade"
-            : compare < 0
-                ? "dlc_manager.pack.replace_action_downgrade"
-                : "dlc_manager.pack.replace_action_replace");
-        return Component.translatable(
-            "dlc_manager.pack.replace_confirm",
-            Component.literal(installed.identifier),
-            Component.literal(installed.version),
-            Component.literal(pack.metadata.version),
-            action
-        );
-    }
-
     public static Component buildPackUpdateIncompatibleConfirmMessage(DlcPackUpdateGuard.CheckResult check) {
         List<String> lines = new ArrayList<>();
         if (check != null) {
@@ -125,14 +84,30 @@ public final class DlcConfirmUtil {
     }
 
     public static String describePackBlockingPrecheck(DlcPackInstaller.PrecheckResult precheck) {
+        List<String> messages = new ArrayList<>();
         if (!precheck.getForbiddenPaths().isEmpty()) {
-            return Component.translatable("dlc_manager.pack.forbidden_paths", joinLimited(precheck.getForbiddenPaths())).getString();
+            messages.add(Component.translatable("dlc_manager.pack.forbidden_paths", joinLimited(precheck.getForbiddenPaths())).getString());
         }
         if (!precheck.getIncompatibleVersions().isEmpty()) {
-            return Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.getIncompatibleVersions())).getString();
+            messages.add(Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.getIncompatibleVersions())).getString());
         }
         if (!precheck.getMissingDependencies().isEmpty()) {
-            return Component.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.getMissingDependencies())).getString();
+            messages.add(Component.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.getMissingDependencies())).getString());
+        }
+        if (!precheck.getDlcToEnable().isEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.enable_dlc", joinLimited(precheck.getDlcToEnable())).getString());
+        }
+        if (!precheck.getPresetsToEnable().isEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.enable_presets", joinLimited(precheck.getPresetsToEnable())).getString());
+        }
+        if (!precheck.getDlcToDisable().isEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.disable_dlc", joinLimited(precheck.getDlcToDisable())).getString());
+        }
+        if (!precheck.getPresetsToDisable().isEmpty()) {
+            messages.add(Component.translatable("dlc_manager.pack.disable_presets", joinLimited(precheck.getPresetsToDisable())).getString());
+        }
+        if (!messages.isEmpty()) {
+            return String.join("\n", messages);
         }
         return "unknown";
     }

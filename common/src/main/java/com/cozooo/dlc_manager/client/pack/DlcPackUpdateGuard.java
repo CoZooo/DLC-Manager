@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,7 +22,7 @@ public final class DlcPackUpdateGuard {
         try (var stream = Files.list(packRoot)) {
             stream.filter(Files::isDirectory)
                 .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
-                .forEach(packDir -> statuses.add(checkPack(packDir, targetBase, targetDlc)));
+                .forEach(packDir -> statuses.add(checkPack(dlcRoot, packDir, targetBase, targetDlc)));
         } catch (Exception ignored) {
         }
         return new CheckResult(statuses);
@@ -31,7 +32,7 @@ public final class DlcPackUpdateGuard {
         return dlcRoot == null ? null : dlcRoot.resolve("tmp").resolve("pack");
     }
 
-    private static PackStatus checkPack(Path packDir, String targetBase, String targetDlc) {
+    private static PackStatus checkPack(Path dlcRoot, Path packDir, String targetBase, String targetDlc) {
         DlcPackMeta meta = DlcPackMeta.load(packDir.resolve("meta.dc"));
         if (meta == null) {
             return new PackStatus(packDir, null, null, false, List.of("missing meta.dc"));
@@ -46,6 +47,11 @@ public final class DlcPackUpdateGuard {
         }
         DlcPackMetadata metadata = parsed.metadata;
         List<String> reasons = new ArrayList<>();
+        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+        String targetModpack = version == null ? null : version.getModpack();
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack)) {
+            reasons.add("modpack " + safeText(targetModpack) + " not in " + String.join(", ", metadata.modpacks));
+        }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, targetBase)) {
             reasons.add("base " + safe(targetBase) + " not in " + String.join(", ", metadata.baseVersions));
         }
@@ -57,6 +63,10 @@ public final class DlcPackUpdateGuard {
 
     private static String safe(String value) {
         return value == null || value.isBlank() ? "1.0.0" : value.trim();
+    }
+
+    private static String safeText(String value) {
+        return value == null || value.isBlank() ? "<empty>" : value.trim();
     }
 
     public static final class CheckResult {

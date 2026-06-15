@@ -361,8 +361,12 @@ public class DlcPackInstaller {
     private CompatibilityResolution resolveCompatibility(DlcPackMetadata metadata) {
         CompatibilityResolution result = new CompatibilityResolution();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+        String currentModpack = version == null ? null : version.getModpack();
         String currentBase = version == null ? null : version.getBase();
         String currentDlc = version == null ? null : version.getDlc();
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack)) {
+            result.incompatible.add("modpack " + safeText(currentModpack) + " not in " + String.join(", ", metadata.modpacks));
+        }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, currentBase)) {
             result.incompatible.add("base " + safeVersion(currentBase) + " not in " + String.join(", ", metadata.baseVersions));
         }
@@ -595,6 +599,10 @@ public class DlcPackInstaller {
 
     private String safeVersion(String value) {
         return value == null || value.isBlank() ? "unknown" : value;
+    }
+
+    private String safeText(String value) {
+        return value == null || value.isBlank() ? "<empty>" : value;
     }
 
     private void checkCanceled(DlcDownloadService.CancelChecker cancelChecker) throws DlcDownloadService.DownloadCanceledException {

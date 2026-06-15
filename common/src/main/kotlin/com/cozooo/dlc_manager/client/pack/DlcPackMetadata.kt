@@ -140,6 +140,21 @@ class DlcPackMetadata(
         }
 
         @JvmStatic
+        fun anyStringMatches(rules: List<String>?, current: String?): Boolean {
+            if (rules.isNullOrEmpty()) {
+                return true
+            }
+            val currentValue = current?.trim().orEmpty()
+            if (currentValue.isEmpty()) {
+                return rules.any { it.trim().equals("any", ignoreCase = true) }
+            }
+            return rules.any {
+                val normalized = it.trim()
+                normalized.isEmpty() || normalized.equals("any", ignoreCase = true) || currentValue.equals(normalized, ignoreCase = true)
+            }
+        }
+
+        @JvmStatic
         fun compareVersionStrings(left: String?, right: String?): Int {
             return compareVersions(left?.trim().orEmpty(), right?.trim().orEmpty())
         }

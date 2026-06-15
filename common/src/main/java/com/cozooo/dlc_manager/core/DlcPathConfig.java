@@ -31,7 +31,7 @@ public class DlcPathConfig {
     public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
     public static final boolean DEFAULT_PRESET_FUNC_ON = true;
     public static final boolean DEFAULT_PACK_FUNC_ON = true;
-    public static final boolean DEFAULT_P_BUTTON_SHOWN = false;
+    public static final boolean DEFAULT_P_BUTTON_SHOWN = true;
     public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
     public static final int DEFAULT_ALARM_WAITING_TIME = 0;
     public static final boolean DEFAULT_SERVER_SUPPORT = false;

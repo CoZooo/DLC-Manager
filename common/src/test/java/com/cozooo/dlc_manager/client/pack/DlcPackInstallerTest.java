@@ -389,6 +389,28 @@ class DlcPackInstallerTest {
     }
 
     @Test
+    void installRejectsModpackMismatchBeforeWritingFiles() throws Exception {
+        Path instance = tempDir.resolve("instance");
+        Path dlcRoot = instance.resolve("DLC");
+        writeCurrentVersion(dlcRoot, "MainPack", "1.0.0", "1.0.0");
+        Path packageRoot = tempDir.resolve("package");
+        writePack(packageRoot.resolve("metadata").resolve("pack.dc"), "Example", """
+            [modpack]
+            modpack = "OtherPack"
+            """);
+        Files.createDirectories(packageRoot.resolve("mods"));
+        Files.writeString(packageRoot.resolve("mods").resolve("addon.jar"), "new jar");
+
+        DlcPackPackage pack = DlcPackPackage.inspect(packageRoot).pack;
+        DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
+
+        IOException error = assertThrows(IOException.class, () -> installer.install(pack));
+        assertTrue(error.getMessage().contains("incompatible"));
+        assertFalse(Files.exists(instance.resolve("mods").resolve("addon.jar")));
+        assertFalse(Files.exists(dlcRoot.resolve("tmp").resolve("pack").resolve("Example").resolve("meta.dc")));
+    }
+
+    @Test
     void installCancellationRollsBackAndCleansStaging() throws Exception {
         Path instance = tempDir.resolve("instance");
         Path dlcRoot = instance.resolve("DLC");
@@ -424,12 +446,17 @@ class DlcPackInstallerTest {
     }
 
     private static void writeCurrentVersion(Path dlcRoot, String base, String dlc) throws Exception {
+        writeCurrentVersion(dlcRoot, "", base, dlc);
+    }
+
+    private static void writeCurrentVersion(Path dlcRoot, String modpack, String base, String dlc) throws Exception {
         Path version = dlcRoot.resolve("info").resolve("version.dc");
         Files.createDirectories(version.getParent());
         Files.writeString(version, """
+            modpack = "%s"
             base = "%s"
             dlc = "%s"
-            """.formatted(base, dlc));
+            """.formatted(modpack, base, dlc));
     }
 
     private static void writePack(Path path, String identifier, String version, String extra) throws Exception {
