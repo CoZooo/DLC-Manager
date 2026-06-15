@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.update
 
+import com.cozooo.dlc_manager.client.core.DlcZipUtil
 import com.cozooo.dlc_manager.core.DlcTmpPaths
 import com.cozooo.dlc_manager.core.DcFormatUtil
 import com.google.gson.Gson
@@ -8,9 +9,7 @@ import com.google.gson.JsonObject
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.Locale
-import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 
 class DlcUpdatePackage private constructor(
@@ -19,6 +18,7 @@ class DlcUpdatePackage private constructor(
     private val manifest: DlcUpdateManifest,
     private val contentRoot: String?,
 ) {
+    private var extractionRoot: Path? = null
     private var stagingRoot: Path? = null
 
     fun extractTo(dlcRoot: Path?): Path? {
@@ -29,49 +29,18 @@ class DlcUpdatePackage private constructor(
             return null
         }
         val stagingBase = DlcTmpPaths.resolve(dlcRoot, "_staging") ?: return null
-        val safeName = name.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-        val target = stagingBase.resolve("$safeName-${System.currentTimeMillis()}")
-        try {
-            Files.createDirectories(target)
+        val target = try {
+            DlcZipUtil.createUniqueDir(stagingBase, name)
         } catch (_: java.io.IOException) {
             return null
         }
         try {
-            ZipFile(archivePath.toFile(), StandardCharsets.UTF_8).use { zipFile ->
-                val entries = zipFile.entries()
-                while (entries.hasMoreElements()) {
-                    val entry = entries.nextElement() ?: continue
-                    val rawName = entry.name
-                    if (rawName.isNullOrBlank()) {
-                        continue
-                    }
-                    val normalizedName = rawName.replace('\\', '/')
-                    if (normalizedName.startsWith("__MACOSX/") ||
-                        normalizedName.startsWith("._") ||
-                        normalizedName.endsWith("/.DS_Store") ||
-                        normalizedName == ".DS_Store"
-                    ) {
-                        continue
-                    }
-                    val outPath = target.resolve(rawName).normalize()
-                    if (!outPath.startsWith(target)) {
-                        continue
-                    }
-                    try {
-                        if (entry.isDirectory) {
-                            Files.createDirectories(outPath)
-                        } else {
-                            Files.createDirectories(outPath.parent)
-                            zipFile.getInputStream(entry).use { input ->
-                                Files.copy(input, outPath, StandardCopyOption.REPLACE_EXISTING)
-                            }
-                        }
-                    } catch (_: java.io.IOException) {
-                    }
-                }
-            }
+            DlcZipUtil.extractZip(archivePath, target)
         } catch (_: java.io.IOException) {
+            DlcZipUtil.deleteRecursive(target)
+            return null
         }
+        extractionRoot = target
         stagingRoot = if (!contentRoot.isNullOrBlank()) {
             val rootPath = target.resolve(contentRoot).normalize()
             if (rootPath.startsWith(target)) rootPath else target
@@ -82,8 +51,9 @@ class DlcUpdatePackage private constructor(
     }
 
     fun cleanupStaging() {
-        val root = stagingRoot ?: return
-        DlcUpdateService.deleteRecursive(root)
+        val root = extractionRoot ?: stagingRoot ?: return
+        DlcZipUtil.deleteRecursive(root)
+        extractionRoot = null
         stagingRoot = null
     }
 

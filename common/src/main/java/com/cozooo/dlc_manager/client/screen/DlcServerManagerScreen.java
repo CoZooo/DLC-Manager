@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -11,6 +11,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.screen.DlcPresetManagerScreen;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -71,6 +72,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
     private Button applyButton;
     private Button backButton;
     private Button presetButton;
+    private Button packButton;
     private Button enableAllButton;
     private Button disableAllButton;
     private volatile boolean applying;
@@ -257,12 +259,18 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         });
     }
 
+    private void openPackManager() {
+        Minecraft.getInstance().setScreen(new DlcPackManagerScreen(this));
+    }
+
     private void initDlcTab() {
         int gap = 8;
         int panelLeft = panelLeft();
         int panelRight = panelRight();
         int panelWidth = panelRight - panelLeft;
-        int buttonWidth = Math.min(90, (panelWidth - 16 - gap * 4) / 5);
+        boolean showPackButton = DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown();
+        int buttonCount = showPackButton ? 6 : 5;
+        int buttonWidth = Math.min(90, (panelWidth - 16 - gap * (buttonCount - 1)) / buttonCount);
         if (buttonWidth < 70) {
             buttonWidth = 70;
         }
@@ -282,11 +290,17 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         presetButton = Button.builder(Component.translatable("dlc_manager.preset.manager"), btn -> openPreset())
             .bounds(applyButton.getX() - gap - buttonWidth, y, buttonWidth, buttonHeight)
             .build();
+        packButton = Button.builder(Component.translatable("dlc_manager.pack.manager"), btn -> openPackManager())
+            .bounds(presetButton.getX() - gap - buttonWidth, y, buttonWidth, buttonHeight)
+            .build();
         backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(rightX - buttonWidth, y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(enableAllButton);
         addRenderableWidget(disableAllButton);
+        if (showPackButton) {
+            addRenderableWidget(packButton);
+        }
         addRenderableWidget(presetButton);
         addRenderableWidget(applyButton);
         addRenderableWidget(backButton);

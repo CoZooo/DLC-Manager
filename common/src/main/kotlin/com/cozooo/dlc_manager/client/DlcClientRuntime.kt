@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager
+import com.cozooo.dlc_manager.client.pack.DlcPackRecovery
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
@@ -21,7 +22,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerList
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
@@ -636,6 +637,7 @@ object DlcClientRuntime {
         if (startupCheckRunning || startupChecksCompleted) return
         DlcServerApi.start(null)
         DlcServerApi.setClientStateChangedListener { Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen) }
+        DlcPackRecovery.recover(DlcPaths.gameDir(), DlcPaths.dlcRoot())
         DlcStartupStateSync.syncOnStartup()
         startupCheckRunning = true
         startupChecksCompleted = true

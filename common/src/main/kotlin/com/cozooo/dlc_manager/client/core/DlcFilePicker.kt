@@ -1,5 +1,6 @@
-package com.cozooo.dlc_manager.client.update
+package com.cozooo.dlc_manager.client.core
 
+import com.cozooo.dlc_manager.core.DlcPaths
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
@@ -8,7 +9,7 @@ import java.nio.Buffer
 import java.nio.file.Files
 import java.nio.file.Path
 
-object DlcUpdateFilePicker {
+object DlcFilePicker {
     @JvmStatic
     fun pickUpdateZip(title: String?): Path? {
         return try {
@@ -29,16 +30,16 @@ object DlcUpdateFilePicker {
                     return apple.path
                 }
                 if (!tiny.available && !apple.available) {
-                    openUpdateDir()
+                    openGameDir()
                 } else if (!tiny.canceled && !apple.canceled) {
-                    openUpdateDir()
+                    openGameDir()
                 }
                 return null
             }
             if (!tiny.available) {
-                openUpdateDir()
+                openGameDir()
             } else if (!tiny.canceled) {
-                openUpdateDir()
+                openGameDir()
             }
             null
         } catch (_: Throwable) {
@@ -153,11 +154,8 @@ object DlcUpdateFilePicker {
 
     private fun tryTinyFileDialog(title: String?): PickResult {
         return try {
-            val updateDir = DlcUpdateService.updateDir
-            if (updateDir != null) {
-                Files.createDirectories(updateDir)
-            }
-            val defaultPath = if (updateDir == null) "" else updateDir.toString() + File.separator
+            val gameDir = DlcPaths.gameDir()
+            val defaultPath = gameDir.toString() + File.separator
             val stackClass = Class.forName("org.lwjgl.system.MemoryStack")
             val memUtilClass = Class.forName("org.lwjgl.system.MemoryUtil")
             val pbClass = Class.forName("org.lwjgl.PointerBuffer")
@@ -284,8 +282,7 @@ object DlcUpdateFilePicker {
 
     private fun tryAppleScriptFileDialog(title: String?): PickResult {
         return try {
-            val updateDir = DlcUpdateService.updateDir
-            val defaultLocation = updateDir?.toString() ?: ""
+            val defaultLocation = DlcPaths.gameDir().toString()
             val safeTitle = escapeAppleScript(title ?: "Import Update")
             val safeDefault = escapeAppleScript(defaultLocation)
             val script = if (safeDefault.isBlank()) {
@@ -442,13 +439,9 @@ object DlcUpdateFilePicker {
         return value.replace("\\", "\\\\").replace("\"", "\\\"")
     }
 
-    private fun openUpdateDir() {
-        val folder = DlcUpdateService.updateDir
+    private fun openGameDir() {
+        val folder = DlcPaths.gameDir()
         try {
-            if (folder == null) {
-                return
-            }
-            Files.createDirectories(folder)
             val osName = System.getProperty("os.name", "").lowercase()
             if (osName.contains("mac")) {
                 ProcessBuilder("/usr/bin/open", folder.toString()).start()

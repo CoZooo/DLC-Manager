@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
@@ -707,6 +707,7 @@ public final class DlcClientRuntime {
         }
         DlcServerApi.start(null);
         DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen));
+        com.cozooo.dlc_manager.client.pack.DlcPackRecovery.recover(DlcPaths.gameDir(), DlcPaths.dlcRoot());
         DlcStartupStateSync.syncOnStartup();
         startupCheckRunning = true;
         startupChecksCompleted = true;

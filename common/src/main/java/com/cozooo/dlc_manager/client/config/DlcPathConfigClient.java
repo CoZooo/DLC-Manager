@@ -20,6 +20,8 @@ public final class DlcPathConfigClient {
     private static final ConfigBoolean UPDATE_MANAGER_ON = new DlcConfigBoolean("isUpdateManagerOn", DlcPathConfig.DEFAULT_UPDATE_MANAGER_ON, "dlc_manager.config.comment.ui.isUpdateManagerOn", "dlc_manager.config.ui.isUpdateManagerOn");
     private static final ConfigBoolean SELF_UPDATE_AUTO_CHECK_ON = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DlcPathConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON, "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
     private static final ConfigBoolean PRESET_FUNC_ON = new DlcConfigBoolean("isPresetFuncOn", DlcPathConfig.DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
+    private static final ConfigBoolean PACK_FUNC_ON = new DlcConfigBoolean("isPackFuncOn", DlcPathConfig.DEFAULT_PACK_FUNC_ON, "dlc_manager.config.comment.ui.isPackFuncOn", "dlc_manager.config.ui.isPackFuncOn");
+    private static final ConfigBoolean P_BUTTON = new DlcConfigBoolean("isPButtomShown", DlcPathConfig.DEFAULT_P_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isPButtomShown", "dlc_manager.config.ui.isPButtomShown");
     private static final ConfigBoolean SHOW_ON_FIRST_RUN = new DlcConfigBoolean("ShowOnFirstRun", DlcPathConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun");
     private static final ConfigInteger ALARM_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
     private static final ConfigBoolean SERVER_SUPPORT_CLIENT = new DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
@@ -65,6 +67,8 @@ public final class DlcPathConfigClient {
             UPDATE_MANAGER_ON,
             SELF_UPDATE_AUTO_CHECK_ON,
             PRESET_FUNC_ON,
+            PACK_FUNC_ON,
+            P_BUTTON,
             SHOW_ON_FIRST_RUN,
             ALARM_WAITING_TIME,
             MODPACK_URL,
@@ -133,6 +137,8 @@ public final class DlcPathConfigClient {
         UPDATE_MANAGER_ON.setBooleanValue(DlcPathConfig.isUpdateManagerOn());
         SELF_UPDATE_AUTO_CHECK_ON.setBooleanValue(DlcPathConfig.isSelfUpdateAutoCheckOn());
         PRESET_FUNC_ON.setBooleanValue(DlcPathConfig.isPresetFuncOn());
+        PACK_FUNC_ON.setBooleanValue(DlcPathConfig.isPackFuncOn());
+        P_BUTTON.setBooleanValue(DlcPathConfig.isPButtomShown());
         SHOW_ON_FIRST_RUN.setBooleanValue(DlcPathConfig.isShowOnFirstRun());
         ALARM_WAITING_TIME.setIntegerValue(DlcPathConfig.getAlarmWaitingTime());
         SERVER_SUPPORT_CLIENT.setBooleanValue(DlcPathConfig.isServerSupportOn());
@@ -177,6 +183,8 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setUpdateManagerOn(UPDATE_MANAGER_ON.getBooleanValue());
         DlcPathConfig.setSelfUpdateAutoCheckOn(SELF_UPDATE_AUTO_CHECK_ON.getBooleanValue());
         DlcPathConfig.setPresetFuncOn(PRESET_FUNC_ON.getBooleanValue());
+        DlcPathConfig.setPackFuncOn(PACK_FUNC_ON.getBooleanValue());
+        DlcPathConfig.setPButtomShown(P_BUTTON.getBooleanValue());
         DlcPathConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.getBooleanValue());
         DlcPathConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.getIntegerValue());
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());

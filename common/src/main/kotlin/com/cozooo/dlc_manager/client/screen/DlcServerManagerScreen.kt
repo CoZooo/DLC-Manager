@@ -8,7 +8,8 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerItem
 import com.cozooo.dlc_manager.client.server.DlcServerList
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
+import com.cozooo.dlc_manager.core.DlcPathConfig
 import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import net.minecraft.client.Minecraft
@@ -53,6 +54,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     private var applyButton: Button? = null
     private var backButton: Button? = null
     private var presetButton: Button? = null
+    private var packButton: Button? = null
     private var enableAllButton: Button? = null
     private var disableAllButton: Button? = null
     @Volatile
@@ -230,12 +232,18 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         })
     }
 
+    private fun openPackManager() {
+        Minecraft.getInstance().setScreen(DlcPackManagerScreen(this))
+    }
+
     private fun initDlcTab() {
         val gap = 8
         val panelLeft = panelLeft()
         val panelRight = panelRight()
         val panelWidth = panelRight - panelLeft
-        var buttonWidth = min(90, (panelWidth - 16 - gap * 4) / 5)
+        val showPackButton = DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown()
+        val buttonCount = if (showPackButton) 6 else 5
+        var buttonWidth = min(90, (panelWidth - 16 - gap * (buttonCount - 1)) / buttonCount)
         if (buttonWidth < 70) {
             buttonWidth = 70
         }
@@ -255,6 +263,9 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         val preset = Button.builder(Component.translatable("dlc_manager.preset.manager")) { openPreset() }
             .bounds(apply.x - gap - buttonWidth, y, buttonWidth, buttonHeight)
             .build()
+        val pack = Button.builder(Component.translatable("dlc_manager.pack.manager")) { openPackManager() }
+            .bounds(preset.x - gap - buttonWidth, y, buttonWidth, buttonHeight)
+            .build()
         val back = Button.builder(Component.translatable("gui.back")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(rightX - buttonWidth, y, buttonWidth, buttonHeight)
             .build()
@@ -262,9 +273,13 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         disableAllButton = disableAll
         applyButton = apply
         presetButton = preset
+        packButton = pack
         backButton = back
         addRenderableWidget(enableAll)
         addRenderableWidget(disableAll)
+        if (showPackButton) {
+            addRenderableWidget(pack)
+        }
         addRenderableWidget(preset)
         addRenderableWidget(apply)
         addRenderableWidget(back)

@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker
+import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner
 import com.cozooo.dlc_manager.client.update.DlcUpdateRuntime
@@ -602,7 +602,7 @@ class DlcUpdateManagerScreen(
     }
 
     private fun importUpdate() {
-        val picked: Path = DlcUpdateFilePicker.pickUpdateZip("Import Update") ?: return
+        val picked: Path = DlcFilePicker.pickUpdateZip("Import Update") ?: return
         val validation = DlcUpdateService.validateImportPackage(picked)
         if (!validation.isValid) {
             showToast(

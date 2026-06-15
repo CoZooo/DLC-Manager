@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerItem
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcPathConfig
 import com.cozooo.dlc_manager.core.DlcType
 import fi.dy.masa.malilib.gui.GuiListBase
@@ -423,10 +423,7 @@ class DlcServerMaLiLibScreen(
         if (item == null) return
         val conflicts = checkConflicts(item)
         if (conflicts.conflicts.isNotEmpty()) {
-            val message = Component.translatable(
-                "dlc_manager.conflict.prompt_prefix",
-                DlcTextFormatter.parse(conflicts.conflictNames.joinToString(", ")),
-            )
+            val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.conflictNames.joinToString(", "))
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -446,10 +443,7 @@ class DlcServerMaLiLibScreen(
         }
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
-            val message = Component.translatable(
-                "dlc_manager.dependency.prompt",
-                DlcTextFormatter.parse(deps.missingNames.joinToString(", ")),
-            )
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames.joinToString(", "))
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -487,10 +481,7 @@ class DlcServerMaLiLibScreen(
 
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
-            val message = Component.translatable(
-                "dlc_manager.dependency.prompt",
-                DlcTextFormatter.parse(deps.missingNames.joinToString(", ")),
-            )
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames.joinToString(", "))
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(

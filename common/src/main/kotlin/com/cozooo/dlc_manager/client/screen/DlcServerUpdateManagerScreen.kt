@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection.UpdateResponse
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateState
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker
+import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
@@ -523,7 +523,7 @@ class DlcServerUpdateManagerScreen(
         if (applying || loading) {
             return
         }
-        val zip = DlcUpdateFilePicker.pickAnyFile(Component.translatable("dlc_manager.update.import").string)
+        val zip = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.update.import").string)
         if (zip == null) {
             return
         }

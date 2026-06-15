@@ -34,6 +34,7 @@ object CurseForgeClient {
         .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs().toLong()))
         .build()
     private val CACHE: MutableMap<String, CurseForgeFile> = ConcurrentHashMap()
+    private val MOD_CACHE: MutableMap<String, CurseForgeMod> = ConcurrentHashMap()
     private val PROJECT_ID_CACHE: MutableMap<String, String> = ConcurrentHashMap()
     private const val MINECRAFT_GAME_ID = 432
 
@@ -58,6 +59,40 @@ object CurseForgeClient {
         }
         CACHE[cacheKey] = file
         return file
+    }
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
+    fun fetchMod(modId: String?): CurseForgeMod? {
+        val resolvedModId = resolveProjectId(modId)
+        if (resolvedModId.isNullOrBlank()) {
+            return null
+        }
+        MOD_CACHE[resolvedModId]?.let { return it }
+        val apiKey = getApiKey()
+        if (apiKey.isNullOrBlank()) {
+            return null
+        }
+        val endpoint = "https://api.curseforge.com/v1/mods/$resolvedModId"
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .header("x-api-key", apiKey)
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .GET()
+            .build()
+        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null
+        }
+        val root = GSON.fromJson(response.body(), JsonObject::class.java)
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject) {
+            return null
+        }
+        val mod = CurseForgeMod()
+        applyModData(mod, root.getAsJsonObject("data"))
+        MOD_CACHE[resolvedModId] = mod
+        return mod
     }
 
     @JvmStatic
@@ -425,6 +460,7 @@ object CurseForgeClient {
         file.displayName = getString(data, "displayName")
         file.fileDate = getString(data, "fileDate")
         file.url = getString(data, "downloadUrl")
+        file.classSlug = readClassSlug(data)
         if (data.has("fileLength") && data.get("fileLength").isJsonPrimitive) {
             try {
                 file.size = data.get("fileLength").asLong
@@ -465,8 +501,93 @@ object CurseForgeClient {
         @JvmField var displayName: String? = null
         @JvmField var fileDate: String? = null
         @JvmField var url: String? = null
+        @JvmField var classSlug: String? = null
         @JvmField var sha1: String? = null
         @JvmField var md5: String? = null
         @JvmField var size: Long = 0L
+    }
+
+    class CurseForgeMod {
+        @JvmField var id: String? = null
+        @JvmField var classSlug: String? = null
+        @JvmField var primaryCategorySlug: String? = null
+        @JvmField var primaryCategoryName: String? = null
+        @JvmField val categorySlugs: MutableList<String> = ArrayList()
+    }
+
+    private fun readClassSlug(data: JsonObject?): String? {
+        if (data == null) {
+            return null
+        }
+        val direct = getString(data, "classSlug")
+        if (!direct.isNullOrBlank()) {
+            return direct
+        }
+        if (data.has("class") && data.get("class").isJsonObject) {
+            val clazz = data.getAsJsonObject("class")
+            val slug = getString(clazz, "slug")
+            if (!slug.isNullOrBlank()) {
+                return slug
+            }
+            val name = getString(clazz, "name")
+            if (!name.isNullOrBlank()) {
+                return name
+            }
+        }
+        if (data.has("categories") && data.get("categories").isJsonArray) {
+            for (element in data.getAsJsonArray("categories")) {
+                if (!element.isJsonObject) {
+                    continue
+                }
+                val category = element.asJsonObject
+                val slug = getString(category, "slug")
+                if (!slug.isNullOrBlank()) {
+                    return slug
+                }
+                val name = getString(category, "name")
+                if (!name.isNullOrBlank()) {
+                    return name
+                }
+            }
+        }
+        return null
+    }
+
+    private fun applyModData(mod: CurseForgeMod?, data: JsonObject?) {
+        if (mod == null || data == null) {
+            return
+        }
+        mod.id = getString(data, "id")
+        if (data.has("classId") && data.get("classId").isJsonPrimitive) {
+            try {
+                mod.classSlug = getString(data, "classSlug")
+            } catch (_: Exception) {
+                mod.classSlug = null
+            }
+        }
+        if (data.has("categories") && data.get("categories").isJsonArray) {
+            for (element in data.getAsJsonArray("categories")) {
+                if (!element.isJsonObject) {
+                    continue
+                }
+                val category = element.asJsonObject
+                val slug = getString(category, "slug")
+                val name = getString(category, "name")
+                if (mod.primaryCategorySlug.isNullOrBlank() && !slug.isNullOrBlank()) {
+                    mod.primaryCategorySlug = slug
+                }
+                if (mod.primaryCategoryName.isNullOrBlank() && !name.isNullOrBlank()) {
+                    mod.primaryCategoryName = name
+                }
+                if (!slug.isNullOrBlank()) {
+                    mod.categorySlugs.add(slug)
+                } else if (!name.isNullOrBlank()) {
+                    mod.categorySlugs.add(name)
+                }
+            }
+        }
+        if (mod.classSlug.isNullOrBlank()) {
+            mod.classSlug = mod.primaryCategorySlug
+        }
     }
 }

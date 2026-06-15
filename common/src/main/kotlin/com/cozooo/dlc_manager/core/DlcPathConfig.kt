@@ -24,6 +24,8 @@ object DlcPathConfig {
     const val DEFAULT_UPDATE_MANAGER_ON: Boolean = true
     const val DEFAULT_SELF_UPDATE_AUTO_CHECK_ON: Boolean = true
     const val DEFAULT_PRESET_FUNC_ON: Boolean = true
+    const val DEFAULT_PACK_FUNC_ON: Boolean = true
+    const val DEFAULT_P_BUTTON_SHOWN: Boolean = false
     const val DEFAULT_SHOW_ON_FIRST_RUN: Boolean = false
     const val DEFAULT_ALARM_WAITING_TIME: Int = 0
     const val DEFAULT_SERVER_SUPPORT: Boolean = false
@@ -71,6 +73,8 @@ object DlcPathConfig {
     private var updateManagerOn = DEFAULT_UPDATE_MANAGER_ON
     private var selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON
     private var presetFuncOn = DEFAULT_PRESET_FUNC_ON
+    private var packFuncOn = DEFAULT_PACK_FUNC_ON
+    private var pButtonShown = DEFAULT_P_BUTTON_SHOWN
     private var showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
     private var alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
     private var serverSupportClient = DEFAULT_SERVER_SUPPORT
@@ -163,6 +167,8 @@ object DlcPathConfig {
     @JvmStatic fun isUpdateManagerOn(): Boolean = updateManagerOn
     @JvmStatic fun isSelfUpdateAutoCheckOn(): Boolean = selfUpdateAutoCheckOn
     @JvmStatic fun isPresetFuncOn(): Boolean = presetFuncOn
+    @JvmStatic fun isPackFuncOn(): Boolean = packFuncOn
+    @JvmStatic fun isPButtomShown(): Boolean = pButtonShown
     @JvmStatic fun isShowOnFirstRun(): Boolean = showOnFirstRun
     @JvmStatic fun getAlarmWaitingTime(): Int = alarmWaitingTime
     @JvmStatic fun isServerSupportOn(): Boolean = serverSupportClient
@@ -261,6 +267,8 @@ object DlcPathConfig {
     @JvmStatic fun setUpdateManagerOn(value: Boolean) { updateManagerOn = value }
     @JvmStatic fun setSelfUpdateAutoCheckOn(value: Boolean) { selfUpdateAutoCheckOn = value }
     @JvmStatic fun setPresetFuncOn(value: Boolean) { presetFuncOn = value }
+    @JvmStatic fun setPackFuncOn(value: Boolean) { packFuncOn = value }
+    @JvmStatic fun setPButtomShown(value: Boolean) { pButtonShown = value }
     @JvmStatic fun setShowOnFirstRun(value: Boolean) { showOnFirstRun = value }
     @JvmStatic fun setAlarmWaitingTime(value: Int) { alarmWaitingTime = clampInt(value, 0, 10, DEFAULT_ALARM_WAITING_TIME) }
     @JvmStatic fun setServerSupportOn(value: Boolean) { serverSupportClient = value }
@@ -313,6 +321,8 @@ object DlcPathConfig {
         updateManagerOn = DEFAULT_UPDATE_MANAGER_ON
         selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON
         presetFuncOn = DEFAULT_PRESET_FUNC_ON
+        packFuncOn = DEFAULT_PACK_FUNC_ON
+        pButtonShown = DEFAULT_P_BUTTON_SHOWN
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME
         serverSupportClient = DEFAULT_SERVER_SUPPORT
@@ -496,6 +506,8 @@ object DlcPathConfig {
         obj.addProperty("isUpdateManagerOn", updateManagerOn)
         obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn)
         obj.addProperty("isPresetFuncOn", presetFuncOn)
+        obj.addProperty("isPackFuncOn", packFuncOn)
+        obj.addProperty("isPButtomShown", pButtonShown)
         obj.addProperty("ShowOnFirstRun", showOnFirstRun)
         obj.addProperty("WaitingTime", alarmWaitingTime)
         obj.addProperty("serverSupport", serverSupportClient)
@@ -588,6 +600,8 @@ object DlcPathConfig {
         "isUpdateManagerOn" to { value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON) },
         "isSelfUpdateAutoCheckOn" to { value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON) },
         "isPresetFuncOn" to { value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON) },
+        "isPackFuncOn" to { value -> packFuncOn = asBoolean(value, DEFAULT_PACK_FUNC_ON) },
+        "isPButtomShown" to { value -> pButtonShown = asBoolean(value, DEFAULT_P_BUTTON_SHOWN) },
         "ShowOnFirstRun" to { value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN) },
         "WaitingTime" to { value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME) },
         "serverSupport" to { value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT) },

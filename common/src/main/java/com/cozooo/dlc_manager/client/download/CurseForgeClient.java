@@ -36,6 +36,7 @@ public final class CurseForgeClient {
         .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs()))
         .build();
     private static final Map<String, CurseForgeFile> CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, CurseForgeMod> MOD_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, String> PROJECT_ID_CACHE = new ConcurrentHashMap<>();
     private static final int MINECRAFT_GAME_ID = 432;
 
@@ -67,6 +68,41 @@ public final class CurseForgeClient {
         }
         CACHE.put(cacheKey, file);
         return file;
+    }
+
+    public static CurseForgeMod fetchMod(String modId) throws IOException, InterruptedException {
+        String resolvedModId = resolveProjectId(modId);
+        if (resolvedModId == null || resolvedModId.isBlank()) {
+            return null;
+        }
+        CurseForgeMod cached = MOD_CACHE.get(resolvedModId);
+        if (cached != null) {
+            return cached;
+        }
+        String apiKey = getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            return null;
+        }
+        String endpoint = "https://api.curseforge.com/v1/mods/" + resolvedModId;
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("User-Agent", "DLC-Manager")
+            .header("x-api-key", apiKey)
+            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
+            .GET()
+            .build();
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            return null;
+        }
+        JsonObject root = GSON.fromJson(response.body(), JsonObject.class);
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
+            return null;
+        }
+        CurseForgeMod mod = new CurseForgeMod();
+        applyModData(mod, root.getAsJsonObject("data"));
+        MOD_CACHE.put(resolvedModId, mod);
+        return mod;
     }
 
     public static CurseForgeFile fetchFileByIdOrVersion(String projectIdOrSlug, String fileIdOrVersion, String mcVersion, String loader)
@@ -443,6 +479,7 @@ public final class CurseForgeClient {
         file.displayName = getString(data, "displayName");
         file.fileDate = getString(data, "fileDate");
         file.url = getString(data, "downloadUrl");
+        file.classSlug = readClassSlug(data);
         if (data.has("fileLength") && data.get("fileLength").isJsonPrimitive()) {
             try {
                 file.size = data.get("fileLength").getAsLong();
@@ -483,8 +520,97 @@ public final class CurseForgeClient {
         public String displayName;
         public String fileDate;
         public String url;
+        public String classSlug;
         public String sha1;
         public String md5;
         public long size;
+    }
+
+    public static final class CurseForgeMod {
+        public String id;
+        public String classSlug;
+        public String primaryCategorySlug;
+        public String primaryCategoryName;
+        public final java.util.List<String> categorySlugs = new java.util.ArrayList<>();
+    }
+
+    private static String readClassSlug(JsonObject data) {
+        if (data == null) {
+            return null;
+        }
+        String direct = getString(data, "classSlug");
+        if (direct != null && !direct.isBlank()) {
+            return direct;
+        }
+        if (data.has("class") && data.get("class").isJsonObject()) {
+            JsonObject clazz = data.getAsJsonObject("class");
+            String slug = getString(clazz, "slug");
+            if (slug != null && !slug.isBlank()) {
+                return slug;
+            }
+            String name = getString(clazz, "name");
+            if (name != null && !name.isBlank()) {
+                return name;
+            }
+        }
+        if (data.has("categories") && data.get("categories").isJsonArray()) {
+            for (var element : data.getAsJsonArray("categories")) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject category = element.getAsJsonObject();
+                String slug = getString(category, "slug");
+                if (slug != null && !slug.isBlank()) {
+                    return slug;
+                }
+                String name = getString(category, "name");
+                if (name != null && !name.isBlank()) {
+                    return name;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void applyModData(CurseForgeMod mod, JsonObject data) {
+        if (mod == null || data == null) {
+            return;
+        }
+        mod.id = getString(data, "id");
+        if (data.has("classId") && data.get("classId").isJsonPrimitive()) {
+            try {
+                mod.classSlug = getString(data, "classSlug");
+            } catch (Exception ignored) {
+                mod.classSlug = null;
+            }
+        }
+        if (data.has("categories") && data.get("categories").isJsonArray()) {
+            for (var element : data.getAsJsonArray("categories")) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject category = element.getAsJsonObject();
+                String slug = getString(category, "slug");
+                String name = getString(category, "name");
+                if (mod.primaryCategorySlug == null || mod.primaryCategorySlug.isBlank()) {
+                    if (slug != null && !slug.isBlank()) {
+                        mod.primaryCategorySlug = slug;
+                    }
+                }
+                if (mod.primaryCategoryName == null || mod.primaryCategoryName.isBlank()) {
+                    if (name != null && !name.isBlank()) {
+                        mod.primaryCategoryName = name;
+                    }
+                }
+                if (slug != null && !slug.isBlank()) {
+                    mod.categorySlugs.add(slug);
+                } else if (name != null && !name.isBlank()) {
+                    mod.categorySlugs.add(name);
+                }
+            }
+        }
+        if (mod.classSlug == null || mod.classSlug.isBlank()) {
+            mod.classSlug = mod.primaryCategorySlug;
+        }
     }
 }

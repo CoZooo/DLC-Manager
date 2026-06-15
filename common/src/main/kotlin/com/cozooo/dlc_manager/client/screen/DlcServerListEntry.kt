@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.server.DlcServerItem
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcType
 import fi.dy.masa.malilib.gui.button.ButtonBase
 import fi.dy.masa.malilib.gui.button.ButtonGeneric
@@ -262,10 +262,7 @@ class DlcServerListEntry(
                 val deps = collectDependencies(screen, targets)
                 val conflicts = collectConflicts(screen, targets)
                 if (conflicts.names.isNotEmpty()) {
-                    val message = Component.translatable(
-                        "dlc_manager.conflict.prompt_prefix",
-                        DlcTextFormatter.parse(conflicts.names.joinToString(", ")),
-                    )
+                    val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names.joinToString(", "))
                     Minecraft.getInstance().setScreen(
                         ConfirmScreen(
                             { accepted ->
@@ -284,10 +281,7 @@ class DlcServerListEntry(
                     return
                 }
                 if (deps.names.isNotEmpty()) {
-                    val message = Component.translatable(
-                        "dlc_manager.dependency.prompt",
-                        DlcTextFormatter.parse(deps.names.joinToString(", ")),
-                    )
+                    val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.names.joinToString(", "))
                     Minecraft.getInstance().setScreen(
                         ConfirmScreen(
                             { accepted ->

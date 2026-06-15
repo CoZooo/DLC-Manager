@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import fi.dy.masa.malilib.gui.button.ButtonBase
@@ -16,7 +16,6 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.minecraft.network.chat.MutableComponent
 import net.minecraft.server.packs.repository.PackRepository
 import net.minecraft.util.FormattedCharSequence
 import java.util.ArrayDeque
@@ -804,33 +803,6 @@ class DlcListEntry(
         }
 
         @JvmStatic
-        private fun buildConflictPromptMessage(list: String): Component {
-            return Component.translatable("dlc_manager.conflict.prompt_prefix", DlcTextFormatter.parse(list))
-                .append(Component.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED))
-        }
-
-        @JvmStatic
-        private fun buildConflictLine(left: String, right: String): Component {
-            return Component.translatable(
-                "dlc_manager.batch.conflicts_line_prefix",
-                DlcTextFormatter.parse(left),
-                DlcTextFormatter.parse(right),
-            ).append(Component.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED))
-        }
-
-        @JvmStatic
-        private fun joinLines(lines: List<Component>): Component {
-            var result: MutableComponent = Component.empty()
-            for (i in lines.indices) {
-                if (i > 0) {
-                    result = result.append(Component.literal("\n"))
-                }
-                result = result.append(lines[i])
-            }
-            return result
-        }
-
-        @JvmStatic
         private fun enableItems(items: Collection<DlcItem>?, enabled: Boolean) {
             if (items.isNullOrEmpty()) {
                 return
@@ -857,16 +829,7 @@ class DlcListEntry(
 
         @JvmStatic
         private fun showBatchConflictPrompt(lines: List<DlcRuntimeState.ConflictLine>, onSkipConfirm: Runnable?) {
-            val components = ArrayList<Component>()
-            for (line in lines) {
-                components.add(
-                    buildConflictLine(
-                        DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
-                        DlcDisplayNameUtil.resolveDisplayName(line.getRightName()),
-                    )
-                )
-            }
-            val message = joinLines(components)
+            val message = DlcConfirmUtil.buildConflictMessage(lines)
             val returnScreen = Minecraft.getInstance().screen
             if (returnScreen is DlcMaLiLibScreen) {
                 returnScreen.rememberListScroll()
@@ -899,17 +862,7 @@ class DlcListEntry(
             targets: List<DlcItem>?,
             scopeLabel: Component,
         ) {
-            val components = ArrayList<Component>()
-            for (line in lines) {
-                components.add(
-                    Component.translatable(
-                        "dlc_manager.batch.dependencies_line",
-                        DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getItemName())),
-                        DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())),
-                    )
-                )
-            }
-            val message = joinLines(components)
+            val message = DlcConfirmUtil.buildDependencyMessage(lines)
             val returnScreen = Minecraft.getInstance().screen
             if (returnScreen is DlcMaLiLibScreen) {
                 returnScreen.rememberListScroll()
@@ -966,7 +919,7 @@ class DlcListEntry(
                 returnScreen.rememberListScroll()
             }
             val list = dependencies.names.joinToString(", ")
-            val message = Component.translatable("dlc_manager.dependency.prompt", DlcTextFormatter.parse(list))
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(list)
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
                     { accepted ->
@@ -1003,7 +956,7 @@ class DlcListEntry(
                 returnScreen.rememberListScroll()
             }
             val list = conflicts.names.joinToString(", ")
-            val message = buildConflictPromptMessage(list)
+            val message = DlcConfirmUtil.buildConflictPromptMessage(list)
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
                     { accepted ->

@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateState;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection.UpdateResponse;
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
+import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
@@ -530,7 +530,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
         if (applying || loading) {
             return;
         }
-        Path zip = DlcUpdateFilePicker.pickAnyFile(Component.translatable("dlc_manager.update.import").getString());
+        Path zip = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.update.import").getString());
         if (zip == null) {
             return;
         }

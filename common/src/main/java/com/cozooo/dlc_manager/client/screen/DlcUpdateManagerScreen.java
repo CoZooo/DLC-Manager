@@ -1,9 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
+import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
@@ -584,7 +584,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void importUpdate() {
-        Path picked = DlcUpdateFilePicker.pickUpdateZip("Import Update");
+        Path picked = DlcFilePicker.pickUpdateZip("Import Update");
         if (picked == null) {
             return;
         }

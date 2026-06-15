@@ -67,6 +67,7 @@ class DlcUpdatePackageTest {
 
         pkg.cleanupStaging();
         assertNull(pkg.getStagingRoot());
+        assertTrue(!Files.exists(staging.getParent()));
         assertTrue(!Files.exists(staging));
     }
 

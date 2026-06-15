@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.core.ApplyMode
 import com.cozooo.dlc_manager.core.DlcApplier
@@ -31,7 +31,6 @@ import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.network.chat.Component
-import net.minecraft.network.chat.MutableComponent
 import net.minecraft.server.packs.repository.PackRepository
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
@@ -64,6 +63,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
     private var configButton: ButtonGeneric? = null
     private var updateButton: ButtonGeneric? = null
     private var presetButton: ButtonGeneric? = null
+    private var packButton: ButtonGeneric? = null
     private var serverButton: ButtonGeneric? = null
     private var enableAllButton: ButtonGeneric? = null
     private var disableAllButton: ButtonGeneric? = null
@@ -160,6 +160,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
             isOverButton(modeButton, mouseX, mouseY) ||
             isOverButton(updateButton, mouseX, mouseY) ||
             isOverButton(configButton, mouseX, mouseY) ||
+            isOverButton(packButton, mouseX, mouseY) ||
             isOverButton(serverButton, mouseX, mouseY) ||
             isOverButton(applyButton, mouseX, mouseY) ||
             isOverButton(backButton, mouseX, mouseY)
@@ -355,11 +356,24 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
             }
             addButton(presetButton, FooterButtonListener())
         }
+        packButton = null
+        if (DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown()) {
+            val packWidth = max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.pack.manager")) + 8)
+            packButton = ButtonGeneric(left + modeButton!!.getWidth() + gap, y, packWidth, 20, StringUtils.translate("dlc_manager.pack.manager"))
+            if (updateButton != null) {
+                packButton!!.setX(updateButton!!.getX() + updateButton!!.getWidth() + gap)
+            }
+            if (presetButton != null) {
+                packButton!!.setX(presetButton!!.getX() + presetButton!!.getWidth() + gap)
+            }
+            addButton(packButton, FooterButtonListener())
+        }
         configButton = null
         if (DlcPathConfig.isConfigButtonShown()) {
             var configX = left + modeButton!!.getWidth() + gap
             if (updateButton != null) configX += updateButton!!.getWidth() + gap
             if (presetButton != null) configX += presetButton!!.getWidth() + gap
+            if (packButton != null) configX += packButton!!.getWidth() + gap
             val configWidth = max(60, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.config")) + padding)
             configButton = ButtonGeneric(configX, y, configWidth, 20, StringUtils.translate("dlc_manager.config"))
             addButton(configButton, FooterButtonListener())
@@ -380,6 +394,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         var leftSpanEnd = modeButton!!.getX() + modeButton!!.getWidth()
         if (updateButton != null) leftSpanEnd = max(leftSpanEnd, updateButton!!.getX() + updateButton!!.getWidth())
         if (presetButton != null) leftSpanEnd = max(leftSpanEnd, presetButton!!.getX() + presetButton!!.getWidth())
+        if (packButton != null) leftSpanEnd = max(leftSpanEnd, packButton!!.getX() + packButton!!.getWidth())
         if (configButton != null) leftSpanEnd = max(leftSpanEnd, configButton!!.getX() + configButton!!.getWidth())
         var rightStart = applyButton!!.getX()
         if (serverButton != null) rightStart = min(rightStart, serverButton!!.getX())
@@ -390,6 +405,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
             modeButton!!.setY(row1Y)
             updateButton?.setY(row1Y)
             presetButton?.setY(row1Y)
+            packButton?.setY(row1Y)
             configButton?.setY(row1Y)
             serverButton?.setY(row2Y)
             applyButton!!.setY(row2Y)
@@ -720,6 +736,10 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                     rememberListScroll()
                     Minecraft.getInstance().setScreen(DlcPresetManagerScreen(this@DlcMaLiLibScreen))
                 }
+                packButton -> {
+                    rememberListScroll()
+                    Minecraft.getInstance().setScreen(DlcPackManagerScreen(this@DlcMaLiLibScreen))
+                }
                 configButton -> {
                     rememberListScroll()
                     Minecraft.getInstance().setScreen(DlcConfigScreen(this@DlcMaLiLibScreen))
@@ -763,6 +783,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         configButton?.let { buttonTop = min(buttonTop, it.getY()) }
         serverButton?.let { buttonTop = min(buttonTop, it.getY()) }
         presetButton?.let { buttonTop = min(buttonTop, it.getY()) }
+        packButton?.let { buttonTop = min(buttonTop, it.getY()) }
         applyButton?.let { buttonTop = min(buttonTop, it.getY()) }
         backButton?.let { buttonTop = min(buttonTop, it.getY()) }
         if (buttonTop != Int.MAX_VALUE) {
@@ -904,6 +925,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         var leftEnd = mode.getX() + mode.getWidth()
         updateButton?.let { leftEnd = max(leftEnd, it.getX() + it.getWidth()) }
         presetButton?.let { leftEnd = max(leftEnd, it.getX() + it.getWidth()) }
+        packButton?.let { leftEnd = max(leftEnd, it.getX() + it.getWidth()) }
         configButton?.let { leftEnd = max(leftEnd, it.getX() + it.getWidth()) }
         var rightStart = apply.getX()
         serverButton?.let { rightStart = min(rightStart, it.getX()) }
@@ -912,6 +934,8 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
             val row2Y = height - 30
             mode.setY(row1Y)
             updateButton?.setY(row1Y)
+            presetButton?.setY(row1Y)
+            packButton?.setY(row1Y)
             configButton?.setY(row1Y)
             serverButton?.setY(row2Y)
             apply.setY(row2Y)
@@ -1354,16 +1378,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
     }
 
     private fun showBatchConflictSkipPrompt(lines: List<DlcRuntimeState.ConflictLine>, onSkipConfirm: Runnable?) {
-        val components = ArrayList<Component>()
-        for (line in lines) {
-            components.add(
-                buildConflictLine(
-                    DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
-                    DlcDisplayNameUtil.resolveDisplayName(line.getRightName()),
-                )
-            )
-        }
-        val message = joinLines(components)
+        val message = DlcConfirmUtil.buildConflictMessage(lines)
         val title = Component.translatable("dlc_manager.batch.conflicts_title").withStyle(ChatFormatting.DARK_RED)
         rememberListScroll()
         Minecraft.getInstance().setScreen(
@@ -1444,17 +1459,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         targets: List<DlcItem>?,
         scopeLabel: Component,
     ) {
-        val components = ArrayList<Component>()
-        for (line in lines) {
-            components.add(
-                Component.translatable(
-                    "dlc_manager.batch.dependencies_line",
-                    DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getItemName())),
-                    DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName())),
-                )
-            )
-        }
-        val message = joinLines(components)
+        val message = DlcConfirmUtil.buildDependencyMessage(lines)
         val title = Component.translatable("dlc_manager.batch.dependencies_title")
         val enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel)
         rememberListScroll()
@@ -1494,25 +1499,6 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                 Component.translatable("dlc_manager.confirm_no"),
             )
         )
-    }
-
-    private fun buildConflictLine(left: String, right: String): Component {
-        return Component.translatable(
-            "dlc_manager.batch.conflicts_line_prefix",
-            DlcTextFormatter.parse(left),
-            DlcTextFormatter.parse(right),
-        ).append(Component.translatable("dlc_manager.conflict.word").withStyle(ChatFormatting.DARK_RED))
-    }
-
-    private fun joinLines(lines: List<Component>): Component {
-        var result: MutableComponent = Component.empty()
-        for (i in lines.indices) {
-            if (i > 0) {
-                result = result.append(Component.literal("\n"))
-            }
-            result = result.append(lines[i])
-        }
-        return result
     }
 
     private fun getHeaderLabels(): HeaderLabels {
