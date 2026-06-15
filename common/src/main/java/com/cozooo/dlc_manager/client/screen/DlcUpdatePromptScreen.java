@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
@@ -10,6 +12,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -97,15 +100,15 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
 
     private void confirmApply() {
         Component title = Component.translatable("dlc_manager.update.title");
-        Component message = Component.translatable("dlc_manager.update.confirm_apply");
+        Component message = DlcConfirmUtil.buildUpdateConfirmApplyMessage();
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                Minecraft.getInstance().setScreen(this);
-                startApply(false);
+                DlcUpdatePackGuard.confirmBeforeUpdate(this, this.result.getUpdates(),
+                    (packCheck, uninstallIncompatible) -> startApply(false, packCheck, uninstallIncompatible));
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     @Override
@@ -300,7 +303,7 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
         return false;
     }
 
-    private void startApply(boolean forceMissing) {
+    private void startApply(boolean forceMissing, DlcPackUpdateGuard.CheckResult packCheck, boolean uninstallIncompatible) {
         if (applying) {
             return;
         }
@@ -317,12 +320,37 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
             skipThisUpdateButton.active = false;
         }
         new Thread(() -> {
-            UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing, (status, value) ->
+            DlcPackUpdateCoordinator.UpdateSession packSession = null;
+            try {
+                DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(this.result.getUpdates(), forceMissing, (status, value) ->
+                    Minecraft.getInstance().execute(() -> {
+                        statusText = status;
+                        progress = value;
+                    }));
+                if (result != null && result.isSuccess()) {
+                    packSession.finishAfterSuccessfulUpdate();
+                } else {
+                    packSession.restoreAfterFailedUpdate();
+                }
+                UpdateApplyResult finalResult = result;
+                Minecraft.getInstance().execute(() -> handleApplyResult(finalResult));
+            } catch (Exception ex) {
+                DlcPackUpdateCoordinator.UpdateSession session = packSession;
+                if (session != null) {
+                    try {
+                        session.restoreAfterFailedUpdate();
+                    } catch (Exception restoreError) {
+                        ex.addSuppressed(restoreError);
+                    }
+                }
+                String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
                 Minecraft.getInstance().execute(() -> {
-                    statusText = status;
-                    progress = value;
-                }));
-            Minecraft.getInstance().execute(() -> handleApplyResult(result));
+                    applying = false;
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.literal(message)));
+                });
+            }
         }, "dlc-update-apply").start();
     }
 

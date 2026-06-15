@@ -57,7 +57,7 @@ public class DlcPackMeta {
             files.add(installed);
         }
         obj.add("installed", files);
-        return DcConfigIO.write(path, obj, DcConfigIO.Layout.GENERIC);
+        return DlcPackDcFiles.writeAtomic(path, obj);
     }
 
     public static DlcPackMeta load(Path path) {

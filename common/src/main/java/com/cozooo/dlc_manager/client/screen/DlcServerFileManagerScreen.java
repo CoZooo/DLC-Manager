@@ -394,7 +394,7 @@ public class DlcServerFileManagerScreen extends DlcScreenCompat.MouseScroll {
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void confirmDeleteAgain(DlcServerFileEntry entry) {
@@ -406,7 +406,7 @@ public class DlcServerFileManagerScreen extends DlcScreenCompat.MouseScroll {
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void deleteSelected(DlcServerFileEntry entry) {

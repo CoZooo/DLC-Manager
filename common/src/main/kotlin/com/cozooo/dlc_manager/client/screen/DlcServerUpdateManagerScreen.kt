@@ -409,8 +409,8 @@ class DlcServerUpdateManagerScreen(
         if (targetVersion.isNullOrBlank()) {
             return
         }
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = Component.translatable("dlc_manager.update.confirm_rollback", targetVersion)
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmRollbackMessage(targetVersion)
         Minecraft.getInstance().setScreen(
             ConfirmScreen({ accepted ->
                 if (accepted) {
@@ -418,14 +418,13 @@ class DlcServerUpdateManagerScreen(
                 } else {
                     Minecraft.getInstance().setScreen(this)
                 }
-            }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")),
+            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
         )
     }
 
     private fun confirmReupdate(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
-        val compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew)
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1])
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew)
         Minecraft.getInstance().setScreen(
             ConfirmScreen({ accepted ->
                 if (accepted) {
@@ -433,13 +432,13 @@ class DlcServerUpdateManagerScreen(
                 } else {
                     Minecraft.getInstance().setScreen(this)
                 }
-            }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")),
+            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
         )
     }
 
     private fun confirmApply(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = Component.translatable("dlc_manager.update.confirm_apply")
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmApplyMessage()
         Minecraft.getInstance().setScreen(
             ConfirmScreen({ accepted ->
                 if (accepted) {
@@ -447,7 +446,7 @@ class DlcServerUpdateManagerScreen(
                 } else {
                     Minecraft.getInstance().setScreen(this)
                 }
-            }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")),
+            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
         )
     }
 

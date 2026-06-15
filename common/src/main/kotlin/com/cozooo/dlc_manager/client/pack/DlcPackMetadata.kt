@@ -139,6 +139,11 @@ class DlcPackMetadata(
             return false
         }
 
+        @JvmStatic
+        fun compareVersionStrings(left: String?, right: String?): Int {
+            return compareVersions(left?.trim().orEmpty(), right?.trim().orEmpty())
+        }
+
         private fun resolveLocalized(values: Map<String, String>, lang: String?, fallback: String): String {
             if (values.isEmpty()) {
                 return fallback

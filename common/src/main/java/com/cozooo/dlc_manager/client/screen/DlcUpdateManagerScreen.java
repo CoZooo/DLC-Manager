@@ -9,6 +9,8 @@ import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRuntime;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateRollbackResult;
@@ -388,52 +390,112 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void confirmRollback(String targetVersion) {
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_rollback", targetVersion);
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmRollbackMessage(targetVersion);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 startRollback(targetVersion);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void confirmManagerRollback(String targetVersion) {
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_rollback", targetVersion);
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmRollbackMessage(targetVersion);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 startManagerRollback(targetVersion);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+        startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, null, false);
+    }
+
+    private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew, List<DlcUpdatePackage> chain,
+                               DlcPackUpdateGuard.CheckResult packCheck, boolean uninstallIncompatible) {
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
             return;
         }
         setApplyingUpdates(true);
         new Thread(() -> {
-            UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
-            Minecraft.getInstance().execute(() -> handleReupdateResult(result, null));
+            DlcPackUpdateCoordinator.UpdateSession packSession = null;
+            try {
+                DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+                if (result != null && result.isSuccess()) {
+                    packSession.finishAfterSuccessfulUpdate();
+                } else {
+                    packSession.restoreAfterFailedUpdate();
+                }
+                UpdateApplyResult finalResult = result;
+                Minecraft.getInstance().execute(() -> handleReupdateResult(finalResult, null));
+            } catch (Exception ex) {
+                DlcPackUpdateCoordinator.UpdateSession session = packSession;
+                if (session != null) {
+                    try {
+                        session.restoreAfterFailedUpdate();
+                    } catch (Exception restoreError) {
+                        ex.addSuppressed(restoreError);
+                    }
+                }
+                String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
+                Minecraft.getInstance().execute(() -> {
+                    setApplyingUpdates(false);
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.literal(message)));
+                });
+            }
         }, "dlc-update-reapply").start();
     }
 
     private void startApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+        startApply(baseOld, dlcOld, baseNew, dlcNew, chain, null, false);
+    }
+
+    private void startApply(String baseOld, String dlcOld, String baseNew, String dlcNew, List<DlcUpdatePackage> chain,
+                            DlcPackUpdateGuard.CheckResult packCheck, boolean uninstallIncompatible) {
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")));
             return;
         }
         setApplyingUpdates(true);
         new Thread(() -> {
-            UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
-            Minecraft.getInstance().execute(() -> handleReupdateResult(result, null));
+            DlcPackUpdateCoordinator.UpdateSession packSession = null;
+            try {
+                DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+                if (result != null && result.isSuccess()) {
+                    packSession.finishAfterSuccessfulUpdate();
+                } else {
+                    packSession.restoreAfterFailedUpdate();
+                }
+                UpdateApplyResult finalResult = result;
+                Minecraft.getInstance().execute(() -> handleReupdateResult(finalResult, null));
+            } catch (Exception ex) {
+                DlcPackUpdateCoordinator.UpdateSession session = packSession;
+                if (session != null) {
+                    try {
+                        session.restoreAfterFailedUpdate();
+                    } catch (Exception restoreError) {
+                        ex.addSuppressed(restoreError);
+                    }
+                }
+                String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
+                Minecraft.getInstance().execute(() -> {
+                    setApplyingUpdates(false);
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.literal(message)));
+                });
+            }
         }, "dlc-update-apply").start();
     }
 
@@ -445,41 +507,31 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void confirmApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_apply");
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmApplyMessage();
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                startApply(baseOld, dlcOld, baseNew, dlcNew);
+                List<DlcUpdatePackage> chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+                DlcUpdatePackGuard.confirmBeforeUpdate(this, chain,
+                    (packCheck, uninstallIncompatible) -> startApply(baseOld, dlcOld, baseNew, dlcNew, chain, packCheck, uninstallIncompatible));
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void confirmReupdateNow(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = buildReupdateMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                startReupdate(baseOld, dlcOld, baseNew, dlcNew);
+                List<DlcUpdatePackage> chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+                DlcUpdatePackGuard.confirmBeforeUpdate(this, chain,
+                    (packCheck, uninstallIncompatible) -> startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, packCheck, uninstallIncompatible));
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
-    }
-
-    private Component buildReupdateMessage(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
-        String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
-        Component base = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
-        if (changelog == null || changelog.isBlank()) {
-            return base;
-        }
-        return Component.empty()
-            .append(base)
-            .append("\n\n")
-            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
-            .append("\n")
-            .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void handleReupdateResult(UpdateApplyResult result, UpdateCheckResult check) {

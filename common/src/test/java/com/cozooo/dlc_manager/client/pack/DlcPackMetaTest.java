@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.pack;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -16,12 +17,15 @@ class DlcPackMetaTest {
     Path tempDir;
 
     @Test
-    void saveAndLoadRoundTripsInstalledPathsAsDc() {
+    void saveAndLoadRoundTripsInstalledPathsAsDc() throws Exception {
         Path metaPath = tempDir.resolve("DLC").resolve("tmp").resolve("pack").resolve("Example").resolve("meta.dc");
         DlcPackMeta meta = new DlcPackMeta("Example", "1.0.0", "STANDARD", "2026-06-15T00:00:00Z", List.of("mods/a.jar", "\\config\\b.toml", "../bad"));
         meta.addInstalledPath("mods/a.jar");
 
         assertTrue(meta.save(metaPath));
+        try (var stream = Files.list(metaPath.getParent())) {
+            assertEquals(List.of("meta.dc"), stream.map(path -> path.getFileName().toString()).sorted().toList());
+        }
         DlcPackMeta loaded = DlcPackMeta.load(metaPath);
 
         assertEquals("Example", loaded.identifier);

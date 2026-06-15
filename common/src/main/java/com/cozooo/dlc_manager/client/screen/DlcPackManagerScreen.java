@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.core.DlcFilePicker;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
@@ -22,13 +23,19 @@ import java.util.Comparator;
 import java.util.List;
 
 public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
+    private static final int LIST_ROW_HEIGHT = 14;
+    private static final int LIST_WIDTH = 320;
+
     private final Screen parent;
     private Button backButton;
     private Button importButton;
     private Button uninstallButton;
     private List<DlcPackMeta> installedPacks = List.of();
     private int selectedIndex;
+    private int scrollIndex;
     private Component status;
+    private volatile boolean importingPack;
+    private volatile boolean cancelImportRequested;
 
     public DlcPackManagerScreen(Screen parent) {
         super(Component.translatable("dlc_manager.pack.manager_title"));
@@ -45,16 +52,27 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         int gap = 10;
         int total = buttonWidth * 3 + gap * 2;
         int startX = this.width / 2 - total / 2;
-        importButton = Button.builder(Component.translatable("dlc_manager.pack.import"), btn -> importPack())
+        Component importLabel = importingPack
+            ? Component.translatable("dlc_manager.pack.cancel")
+            : Component.translatable("dlc_manager.pack.import");
+        importButton = Button.builder(importLabel, btn -> {
+                if (importingPack) {
+                    requestCancelImport();
+                } else {
+                    importPack();
+                }
+            })
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
+        importButton.active = DlcPathConfig.isPackFuncOn() && (!importingPack || !cancelImportRequested);
         uninstallButton = Button.builder(Component.translatable("dlc_manager.pack.uninstall"), btn -> uninstallSelected())
             .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
             .build();
-        uninstallButton.active = !installedPacks.isEmpty();
+        uninstallButton.active = !importingPack && !installedPacks.isEmpty();
         backButton = Button.builder(Component.translatable("gui.back"), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build();
+        backButton.active = !importingPack;
         addRenderableWidget(importButton);
         addRenderableWidget(uninstallButton);
         addRenderableWidget(backButton);
@@ -74,7 +92,30 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
     @Override
     public boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return false;
+        if (importingPack || installedPacks.isEmpty()) {
+            return false;
+        }
+        int maxScroll = getMaxScroll();
+        if (maxScroll <= 0) {
+            return false;
+        }
+        int step = deltaY > 0 ? -1 : 1;
+        scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
+        return true;
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (!importingPack && button == 0 && isInsidePackList(mouseX, mouseY)) {
+            int row = (int) ((mouseY - getPackListTop()) / LIST_ROW_HEIGHT);
+            int index = scrollIndex + row;
+            if (index >= 0 && index < installedPacks.size() && row < getVisiblePackCount()) {
+                selectedIndex = index;
+                ensureSelectionVisible();
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     private void renderSummary(GuiGraphics guiGraphics) {
@@ -86,7 +127,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             } catch (Exception ignored) {
             }
         }
-        int x = Math.max(20, this.width / 2 - 150);
+        int x = getPackListX();
         int y = 56;
         guiGraphics.drawString(this.font, Component.translatable("dlc_manager.pack.installed_count", count), x, y, 0xE6E6E6, false);
         y += 18;
@@ -100,20 +141,22 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             guiGraphics.drawString(this.font, Component.translatable("dlc_manager.pack.none_installed"), x, y, 0x9A9A9A, false);
             return;
         }
-        int limit = Math.min(8, installedPacks.size());
-        for (int i = 0; i < limit; i++) {
+        clampListState();
+        int visibleCount = Math.min(getVisiblePackCount(), installedPacks.size() - scrollIndex);
+        for (int row = 0; row < visibleCount; row++) {
+            int i = scrollIndex + row;
             DlcPackMeta pack = installedPacks.get(i);
             int color = i == selectedIndex ? 0x66CCFF : 0xD8D8D8;
             guiGraphics.drawString(
                 this.font,
                 Component.literal((i == selectedIndex ? "> " : "  ") + pack.identifier + "  " + pack.version),
                 x,
-                y,
+                y + row * LIST_ROW_HEIGHT,
                 color,
                 false
             );
-            y += 14;
         }
+        drawPackScrollBar(guiGraphics);
     }
 
     private void importPack() {
@@ -125,77 +168,145 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (zip == null) {
             return;
         }
-        Path staging = null;
-        try {
-            DlcPackArchive.ExtractResult extracted = DlcPackArchive.extractToStaging(zip, DlcPaths.dlcRoot());
-            staging = extracted.stagingDir;
-            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
-            DlcPackPackage pack = result.pack;
-            if (!result.valid || pack == null) {
-                status = Component.translatable("dlc_manager.pack.import_invalid", result.error == null ? "unknown" : result.error);
-                return;
-            }
-            DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-            DlcPackInstaller.PrecheckResult precheck = installer.precheck(pack);
-            if (precheck.hasBlockingIssues()) {
-                status = Component.translatable("dlc_manager.pack.import_failed", describeBlockingPrecheck(precheck));
-                return;
-            }
-            if (precheck.requiresRuntimeConfirmation()) {
-                Path confirmStaging = staging;
-                staging = null;
-                confirmRuntimeChanges(installer, pack, precheck, confirmStaging);
-                return;
-            }
-            installPreparedPack(installer, pack, DlcPackInstaller.InstallOptions.strict());
-        } catch (Exception ex) {
-            status = Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
-        } finally {
-            DlcPackArchive.deleteRecursive(staging);
-        }
+        startImportPrecheck(zip);
     }
 
-    private void confirmRuntimeChanges(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, Path staging) {
-        Component message = Component.translatable("dlc_manager.pack.runtime_confirm", DlcConfirmUtil.buildPackRuntimeChangeMessage(pack, precheck));
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
-            Minecraft.getInstance().setScreen(this);
+    private void startImportPrecheck(Path zip) {
+        setImportingPack(true, Component.translatable("dlc_manager.pack.importing"));
+        new Thread(() -> {
+            Path staging = null;
             try {
-                if (accepted) {
-                    installPreparedPack(installer, pack, DlcPackInstaller.InstallOptions.applyConfirmedRuntimeChanges());
-                } else {
-                    status = Component.translatable("dlc_manager.pack.import_cancelled");
-                    rebuildPackWidgets();
+                DlcPackArchive.ExtractResult extracted = DlcPackArchive.extractToStaging(zip, DlcPaths.dlcRoot());
+                staging = extracted.stagingDir;
+                checkImportCanceled();
+                DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+                DlcPackPackage pack = result.pack;
+                if (!result.valid || pack == null) {
+                    DlcPackArchive.deleteRecursive(staging);
+                    finishImport(Component.translatable("dlc_manager.pack.import_invalid", result.error == null ? "unknown" : result.error));
+                    return;
                 }
-            } finally {
+                DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                DlcPackInstaller.PrecheckResult precheck = installer.precheck(pack);
+                if (precheck.hasBlockingIssues()) {
+                    DlcPackArchive.deleteRecursive(staging);
+                    finishImport(Component.translatable("dlc_manager.pack.import_failed", DlcConfirmUtil.describePackBlockingPrecheck(precheck)));
+                    return;
+                }
+                checkImportCanceled();
+                Path preparedStaging = staging;
+                staging = null;
+                Minecraft.getInstance().execute(() -> handlePreparedPack(installer, pack, precheck, preparedStaging));
+            } catch (DlcDownloadService.DownloadCanceledException canceled) {
                 DlcPackArchive.deleteRecursive(staging);
+                finishImport(Component.translatable("dlc_manager.pack.import_cancelled"));
+            } catch (Exception ex) {
+                DlcPackArchive.deleteRecursive(staging);
+                finishImport(Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
             }
-        }, this.title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, "dlc-pack-precheck").start();
     }
 
-    private void installPreparedPack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.InstallOptions options) throws java.io.IOException {
-        DlcPackInstaller.InstallReport report = installer.install(pack, options);
-        status = Component.translatable("dlc_manager.pack.import_success", report.identifier, report.filesWritten);
-        refreshInstalled();
+    private void handlePreparedPack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, Path staging) {
+        if (cancelImportRequested) {
+            DlcPackArchive.deleteRecursive(staging);
+            finishImport(Component.translatable("dlc_manager.pack.import_cancelled"));
+            return;
+        }
+        importingPack = false;
+        cancelImportRequested = false;
+        DlcPackMeta installed = findInstalledPack(pack.metadata.identifier);
+        if (installed != null) {
+            confirmReplacePack(installer, pack, precheck, installed, staging);
+            return;
+        }
+        continueImportPack(installer, pack, precheck, false, staging);
+    }
+
+    private void requestCancelImport() {
+        cancelImportRequested = true;
+        status = Component.translatable("dlc_manager.pack.canceling");
         rebuildPackWidgets();
     }
 
-    private String describeBlockingPrecheck(DlcPackInstaller.PrecheckResult precheck) {
-        if (!precheck.getForbiddenPaths().isEmpty()) {
-            return Component.translatable("dlc_manager.pack.forbidden_paths", joinLimited(precheck.getForbiddenPaths())).getString();
+    private void checkImportCanceled() throws DlcDownloadService.DownloadCanceledException {
+        if (cancelImportRequested) {
+            throw new DlcDownloadService.DownloadCanceledException("canceled");
         }
-        if (!precheck.getMissingDependencies().isEmpty()) {
-            return Component.translatable("dlc_manager.pack.missing_dependencies", joinLimited(precheck.getMissingDependencies())).getString();
-        }
-        return "unknown";
     }
 
-    private String joinLimited(List<String> values) {
-        int limit = Math.min(values.size(), 6);
-        String joined = String.join(", ", values.subList(0, limit));
-        if (values.size() > limit) {
-            joined += ", ...";
+    private void setImportingPack(boolean importing, Component message) {
+        importingPack = importing;
+        cancelImportRequested = false;
+        status = message;
+        rebuildPackWidgets();
+    }
+
+    private void finishImport(Component message) {
+        Minecraft.getInstance().execute(() -> {
+            importingPack = false;
+            cancelImportRequested = false;
+            status = message;
+            refreshInstalled();
+            rebuildPackWidgets();
+        });
+    }
+
+    private DlcPackInstaller.InstallOptions withCancelChecker(DlcPackInstaller.InstallOptions options) {
+        DlcPackInstaller.InstallOptions effectiveOptions = options == null ? DlcPackInstaller.InstallOptions.strict() : options;
+        return effectiveOptions.withCancelChecker(() -> cancelImportRequested);
+    }
+
+    private void startInstallPreparedPack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.InstallOptions options, boolean replaceExisting, Path staging) {
+        setImportingPack(true, Component.translatable("dlc_manager.pack.importing"));
+        new Thread(() -> {
+            try {
+                DlcPackInstaller.InstallReport report = installer.install(pack, replaceExisting, withCancelChecker(options));
+                finishImport(Component.translatable("dlc_manager.pack.import_success", report.identifier, report.filesWritten));
+            } catch (DlcDownloadService.DownloadCanceledException canceled) {
+                finishImport(Component.translatable("dlc_manager.pack.import_cancelled"));
+            } catch (Exception ex) {
+                finishImport(Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+            } finally {
+                DlcPackArchive.deleteRecursive(staging);
+            }
+        }, "dlc-pack-install").start();
+    }
+
+    private void continueImportPack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, boolean replaceExisting, Path staging) {
+        if (precheck.requiresRuntimeConfirmation()) {
+            confirmRuntimeChanges(installer, pack, precheck, replaceExisting, staging);
+            return;
         }
-        return joined;
+        startInstallPreparedPack(installer, pack, DlcPackInstaller.InstallOptions.strict(), replaceExisting, staging);
+    }
+
+    private void confirmReplacePack(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, DlcPackMeta installed, Path staging) {
+        Component message = DlcConfirmUtil.buildPackReplaceConfirmMessage(pack, installed);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (!accepted) {
+                status = Component.translatable("dlc_manager.pack.import_cancelled");
+                DlcPackArchive.deleteRecursive(staging);
+                rebuildPackWidgets();
+                return;
+            }
+            continueImportPack(installer, pack, precheck, true, staging);
+        }, this.title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+    }
+
+    private void confirmRuntimeChanges(DlcPackInstaller installer, DlcPackPackage pack, DlcPackInstaller.PrecheckResult precheck, boolean replaceExisting, Path staging) {
+        Component message = DlcConfirmUtil.buildPackRuntimeConfirmMessage(pack, precheck);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (accepted) {
+                startInstallPreparedPack(installer, pack, DlcPackInstaller.InstallOptions.applyConfirmedRuntimeChanges(), replaceExisting, staging);
+            } else {
+                status = Component.translatable("dlc_manager.pack.import_cancelled");
+                DlcPackArchive.deleteRecursive(staging);
+                rebuildPackWidgets();
+            }
+        }, this.title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void uninstallSelected() {
@@ -210,6 +321,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             if (selectedIndex >= installedPacks.size()) {
                 selectedIndex = Math.max(0, installedPacks.size() - 1);
             }
+            clampListState();
             rebuildPackWidgets();
         } catch (Exception ex) {
             status = Component.translatable("dlc_manager.pack.uninstall_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
@@ -221,6 +333,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (selectedIndex >= installedPacks.size()) {
             selectedIndex = Math.max(0, installedPacks.size() - 1);
         }
+        clampListState();
     }
 
     private List<DlcPackMeta> loadInstalledPacks() {
@@ -243,7 +356,98 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         }
     }
 
+    private DlcPackMeta findInstalledPack(String identifier) {
+        if (identifier == null) {
+            return null;
+        }
+        for (DlcPackMeta meta : installedPacks) {
+            if (meta != null && identifier.equals(meta.identifier)) {
+                return meta;
+            }
+        }
+        return null;
+    }
+
+    private int getPackListX() {
+        return Math.max(20, this.width / 2 - 150);
+    }
+
+    private int getPackListTop() {
+        int y = 56 + 18 + 22;
+        if (status != null) {
+            y += 18;
+        }
+        return y;
+    }
+
+    private int getPackListBottom() {
+        return Math.max(getPackListTop() + LIST_ROW_HEIGHT, this.height - 42);
+    }
+
+    private int getVisiblePackCount() {
+        return Math.max(1, (getPackListBottom() - getPackListTop()) / LIST_ROW_HEIGHT);
+    }
+
+    private int getMaxScroll() {
+        return Math.max(0, installedPacks.size() - getVisiblePackCount());
+    }
+
+    private boolean isInsidePackList(double mouseX, double mouseY) {
+        int x = getPackListX();
+        int top = getPackListTop();
+        int bottom = Math.min(getPackListBottom(), top + getVisiblePackCount() * LIST_ROW_HEIGHT);
+        return mouseX >= x && mouseX <= x + LIST_WIDTH && mouseY >= top && mouseY < bottom;
+    }
+
+    private void clampListState() {
+        if (installedPacks.isEmpty()) {
+            selectedIndex = 0;
+            scrollIndex = 0;
+            return;
+        }
+        selectedIndex = Math.max(0, Math.min(installedPacks.size() - 1, selectedIndex));
+        scrollIndex = Math.max(0, Math.min(getMaxScroll(), scrollIndex));
+        ensureSelectionVisible();
+    }
+
+    private void ensureSelectionVisible() {
+        int visible = getVisiblePackCount();
+        if (selectedIndex < scrollIndex) {
+            scrollIndex = selectedIndex;
+        } else if (selectedIndex >= scrollIndex + visible) {
+            scrollIndex = Math.max(0, selectedIndex - visible + 1);
+        }
+        scrollIndex = Math.max(0, Math.min(getMaxScroll(), scrollIndex));
+    }
+
+    private void drawPackScrollBar(GuiGraphics guiGraphics) {
+        int maxScroll = getMaxScroll();
+        if (maxScroll <= 0) {
+            return;
+        }
+        int top = getPackListTop();
+        int bottom = getPackListBottom();
+        int trackHeight = Math.max(1, bottom - top);
+        int barHeight = Math.max(12, trackHeight * getVisiblePackCount() / Math.max(1, installedPacks.size()));
+        int barY = top + (trackHeight - barHeight) * scrollIndex / Math.max(1, maxScroll);
+        int x = getPackListX() + LIST_WIDTH - 6;
+        guiGraphics.fill(x, top, x + 4, bottom, 0x66333333);
+        guiGraphics.fill(x, barY, x + 4, barY + barHeight, 0xFF66CCFF);
+    }
+
     private void rebuildPackWidgets() {
         init(this.minecraft, this.width, this.height);
+    }
+
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return !importingPack;
+    }
+
+    @Override
+    public void onClose() {
+        if (!importingPack) {
+            super.onClose();
+        }
     }
 }

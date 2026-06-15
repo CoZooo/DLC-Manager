@@ -178,6 +178,12 @@ public class DlcPackMetadata {
         return false;
     }
 
+    public static int compareVersionStrings(String left, String right) {
+        String leftValue = trim(left);
+        String rightValue = trim(right);
+        return compareVersions(leftValue == null ? "" : leftValue, rightValue == null ? "" : rightValue);
+    }
+
     private static String resolveLocalized(Map<String, String> values, String lang, String fallback) {
         if (values == null || values.isEmpty()) {
             return fallback;

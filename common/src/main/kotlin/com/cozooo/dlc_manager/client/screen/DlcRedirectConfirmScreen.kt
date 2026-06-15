@@ -28,7 +28,7 @@ class DlcRedirectConfirmScreen(parent: Screen?, url: String?, notice: String?) :
         val gap = 8
         val openWidth = maxOf(60, font.width(Component.translatable("dlc_manager.redirect.open")) + 12)
         val copyWidth = maxOf(80, font.width(Component.translatable("dlc_manager.redirect.copy")) + 12)
-        val cancelWidth = maxOf(60, font.width(Component.translatable("dlc_manager.confirm_no")) + 12)
+        val cancelWidth = maxOf(60, font.width(DlcConfirmUtil.confirmNo()) + 12)
         val buttonWidth = maxOf(openWidth, copyWidth, cancelWidth)
         val totalWidth = buttonWidth * 3 + gap * 2
         val startX = (width - totalWidth) / 2
@@ -53,7 +53,7 @@ class DlcRedirectConfirmScreen(parent: Screen?, url: String?, notice: String?) :
         )
 
         addRenderableWidget(
-            Button.builder(Component.translatable("dlc_manager.confirm_no")) {
+            Button.builder(DlcConfirmUtil.confirmNo()) {
                 Minecraft.getInstance().setScreen(parent)
             }
                 .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)

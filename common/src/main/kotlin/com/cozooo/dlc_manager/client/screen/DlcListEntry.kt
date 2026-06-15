@@ -685,7 +685,7 @@ class DlcListEntry(
         private fun showBatchAlarmPrompt(alarmItems: List<DlcItem>?, onConfirm: Runnable?) {
             val returnScreen = Minecraft.getInstance().screen
             DlcReturnPositionHost.remember(returnScreen)
-            val tip = buildBatchAlarmTip(alarmItems)
+            val tip = DlcConfirmUtil.buildBatchAlarmTip(alarmItems)
             Minecraft.getInstance().setScreen(
                 DlcAlarmConfirmScreen(returnScreen, tip) {
                     onConfirm?.run()
@@ -694,25 +694,6 @@ class DlcListEntry(
                     }
                 }
             )
-        }
-
-        @JvmStatic
-        private fun buildBatchAlarmTip(alarmItems: List<DlcItem>?): String {
-            if (alarmItems.isNullOrEmpty()) {
-                return ""
-            }
-            val sb = StringBuilder()
-            for (item in alarmItems) {
-                if (sb.isNotEmpty()) {
-                    sb.append("\n\n")
-                }
-                sb.append(DlcDisplayNameUtil.resolveDisplayName(item))
-                val tip = resolveLocalized(item.getTooltips())
-                if (tip.isNotBlank()) {
-                    sb.append("\n").append(tip)
-                }
-            }
-            return sb.toString()
         }
 
         @JvmStatic
@@ -850,7 +831,7 @@ class DlcListEntry(
                     title,
                     message,
                     Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
-                    Component.translatable("dlc_manager.confirm_no"),
+                    DlcConfirmUtil.confirmNo(),
                 )
             )
         }
@@ -904,7 +885,7 @@ class DlcListEntry(
                     title,
                     message,
                     enableLabel,
-                    Component.translatable("dlc_manager.confirm_no"),
+                    DlcConfirmUtil.confirmNo(),
                 )
             )
         }
@@ -918,8 +899,7 @@ class DlcListEntry(
             if (returnScreen is DlcMaLiLibScreen) {
                 returnScreen.rememberListScroll()
             }
-            val list = dependencies.names.joinToString(", ")
-            val message = DlcConfirmUtil.buildDependencyPromptMessage(list)
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(dependencies.names)
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
                     { accepted ->
@@ -941,7 +921,7 @@ class DlcListEntry(
                     Component.translatable("dlc_manager.title"),
                     message,
                     Component.translatable("dlc_manager.dependency.enable"),
-                    Component.translatable("dlc_manager.confirm_no"),
+                    DlcConfirmUtil.confirmNo(),
                 )
             )
         }
@@ -955,8 +935,7 @@ class DlcListEntry(
             if (returnScreen is DlcMaLiLibScreen) {
                 returnScreen.rememberListScroll()
             }
-            val list = conflicts.names.joinToString(", ")
-            val message = DlcConfirmUtil.buildConflictPromptMessage(list)
+            val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names)
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
                     { accepted ->
@@ -972,7 +951,7 @@ class DlcListEntry(
                     Component.translatable("dlc_manager.title"),
                     message,
                     Component.translatable("dlc_manager.conflict.resolve"),
-                    Component.translatable("dlc_manager.confirm_no"),
+                    DlcConfirmUtil.confirmNo(),
                 )
             )
         }

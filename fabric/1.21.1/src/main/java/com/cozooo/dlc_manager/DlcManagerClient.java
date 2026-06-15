@@ -124,6 +124,10 @@ public class DlcManagerClient implements ClientModInitializer {
                 btn -> DlcUpdateClient.openUpdateManager(screen))
                 .bounds(x + w + 4, y, 20, h)
                 .build();
+            Button packButton = Button.builder(Component.translatable("dlc_manager.pack.quick_icon"),
+                btn -> DlcClientRuntime.openPackManagerFromTitle(screen))
+                .bounds(x + w + 28, y, 20, h)
+                .build();
             int noticeWidth = Math.max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8);
             int noticeHeight = 20;
             int noticeDefaultX = screen.width - noticeWidth - 8;
@@ -142,6 +146,10 @@ public class DlcManagerClient implements ClientModInitializer {
             if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()
                 && findButtonByKey(screen, "dlc_manager.update.import_icon") == null) {
                 Screens.getButtons(screen).add(updateButton);
+            }
+            if (DlcPathConfig.isPButtomShown() && DlcPathConfig.isPackFuncOn()
+                && findButtonByKey(screen, "dlc_manager.pack.quick_icon") == null) {
+                Screens.getButtons(screen).add(packButton);
             }
             if (DlcClientRuntime.shouldShowMainMenuNoticeButton()
                 && findButtonByKey(screen, "dlc_manager.notice") == null) {
@@ -306,6 +314,7 @@ public class DlcManagerClient implements ClientModInitializer {
         AbstractWidget modsWidget = findModsButton(screen);
         AbstractWidget dlcWidget = findButtonByKey(screen, "dlc_manager.title");
         AbstractWidget updateWidget = findButtonByKey(screen, "dlc_manager.update.import_icon");
+        AbstractWidget packWidget = findButtonByKey(screen, "dlc_manager.pack.quick_icon");
         if (realmsWidget != null) {
             realmsWidget.visible = false;
             realmsWidget.active = false;
@@ -346,16 +355,22 @@ public class DlcManagerClient implements ClientModInitializer {
             modsWidget.setHeight(rowH);
             int dlcX = rowX + halfWidth + gap;
             int dlcWidth = halfWidth;
+            int defaultUpdateX = dlcX + dlcWidth + iconGap;
+            if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                defaultUpdateX = dlcX - iconGap - iconWidth;
+            }
+            int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
             if (updateWidget != null) {
-                int defaultUpdateX = dlcX + dlcWidth + iconGap;
-                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
-                    defaultUpdateX = dlcX - iconGap - iconWidth;
-                }
-                int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setHeight(rowH);
                 updateWidget.setX(updatePos[0]);
                 updateWidget.setY(updatePos[1]);
+            }
+            if (packWidget != null) {
+                packWidget.setWidth(iconWidth);
+                packWidget.setHeight(rowH);
+                packWidget.setX(updatePos[0] + iconWidth + iconGap);
+                packWidget.setY(updatePos[1]);
             }
             dlcWidget.setX(dlcX);
             dlcWidget.setY(rowY);
@@ -368,16 +383,22 @@ public class DlcManagerClient implements ClientModInitializer {
             int iconGap = 4;
             int iconWidth = 20;
             int dlcWidth = rowW;
+            int defaultUpdateX = rowX + dlcWidth + iconGap;
+            if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                defaultUpdateX = rowX - iconGap - iconWidth;
+            }
+            int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
             if (updateWidget != null) {
-                int defaultUpdateX = rowX + dlcWidth + iconGap;
-                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
-                    defaultUpdateX = rowX - iconGap - iconWidth;
-                }
-                int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setHeight(rowH);
                 updateWidget.setX(updatePos[0]);
                 updateWidget.setY(updatePos[1]);
+            }
+            if (packWidget != null) {
+                packWidget.setWidth(iconWidth);
+                packWidget.setHeight(rowH);
+                packWidget.setX(updatePos[0] + iconWidth + iconGap);
+                packWidget.setY(updatePos[1]);
             }
             dlcWidget.setX(rowX);
             dlcWidget.setY(rowY);

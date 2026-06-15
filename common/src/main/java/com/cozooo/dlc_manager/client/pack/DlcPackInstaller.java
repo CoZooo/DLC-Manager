@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.client.pack;
 
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import java.io.IOException;
@@ -42,20 +44,70 @@ public class DlcPackInstaller {
         Path packDir = packDir(identifier);
         Path metaPath = packDir.resolve("meta.dc");
         if (Files.exists(metaPath)) {
-            throw new IOException(replaceExisting
-                ? "DLC Pack replacement transaction is not implemented yet: " + identifier
-                : "DLC Pack already installed: " + identifier);
+            if (!replaceExisting) {
+                throw new IOException("DLC Pack already installed: " + identifier);
+            }
+            return replaceInstalledPack(pack, effectiveOptions, packDir, metaPath);
         }
-        DlcPackInstallPlan plan = DlcPackInstallPlan.build(pack);
+        return installFresh(pack, effectiveOptions);
+    }
+
+    private InstallReport replaceInstalledPack(DlcPackPackage pack, InstallOptions options, Path packDir, Path metaPath) throws IOException {
+        DlcPackMeta oldMeta = DlcPackMeta.load(metaPath);
+        if (oldMeta == null) {
+            throw new IOException("DLC Pack is not installed: " + pack.metadata.identifier);
+        }
+        PrecheckResult precheck = precheck(pack);
+        validatePrecheck(precheck, options);
+        Path replacementStaging = stagingDir(pack.metadata.identifier);
+        Path backupDir = replacementStaging.resolve("replacement_backup");
+        Path txnPath = replacementStaging.resolve("txn.dc");
+        DlcPackTransaction txn = DlcPackTransaction.running(pack.metadata.identifier, replacementStaging.getFileName().toString());
+        txn.replacement = true;
+        try {
+            Files.createDirectories(replacementStaging);
+            txn.save(txnPath);
+            backupExistingInstallation(oldMeta, packDir, backupDir);
+            uninstall(oldMeta.identifier);
+            InstallReport report = installFresh(pack, options);
+            txn.status = DlcPackTransaction.Status.COMMITTED;
+            txn.save(txnPath);
+            return report;
+        } catch (Throwable error) {
+            try {
+                restoreExistingInstallation(oldMeta, packDir, backupDir);
+            } catch (Throwable restoreError) {
+                error.addSuppressed(restoreError);
+            }
+            if (error instanceof IOException io) {
+                throw io;
+            }
+            throw new IOException("Failed to replace DLC Pack: " + pack.metadata.identifier, error);
+        } finally {
+            deleteRecursive(replacementStaging);
+        }
+    }
+
+    private InstallReport installFresh(DlcPackPackage pack, InstallOptions effectiveOptions) throws IOException {
+        DlcPackMetadata metadata = pack.metadata;
+        String identifier = metadata.identifier;
+        Path packDir = packDir(identifier);
+        Path metaPath = packDir.resolve("meta.dc");
+        if (Files.exists(metaPath)) {
+            throw new IOException("DLC Pack already installed: " + identifier);
+        }
+        DlcPackInstallPlan plan = DlcPackInstallPlan.build(pack, instanceRoot, dlcRoot);
+        CompatibilityResolution compatibility = resolveCompatibility(metadata);
         DependencyResolution dependencies = resolveDependencies(metadata.dependencies);
         ConflictResolution conflicts = resolveIdentifierConflicts(metadata.conflicts);
-        PrecheckResult precheck = new PrecheckResult(plan, dependencies, conflicts);
+        PrecheckResult precheck = new PrecheckResult(plan, compatibility, dependencies, conflicts);
         validatePrecheck(precheck, effectiveOptions);
         Path staging = stagingDir(identifier);
         Path txnPath = staging.resolve("txn.dc");
         DlcPackTransaction txn = DlcPackTransaction.running(identifier, staging.getFileName().toString());
         DlcPackMeta meta = new DlcPackMeta(identifier, metadata.version, pack.format.name(), Instant.now().toString(), java.util.List.of());
         try {
+            checkCanceled(effectiveOptions.cancelChecker);
             Files.createDirectories(staging);
             Files.createDirectories(packDir);
             archiveMetadata(pack, packDir);
@@ -64,10 +116,11 @@ public class DlcPackInstaller {
             java.util.List<DlcPackInstallPlan.FileEntry> manifestFiles = DlcPackCFResolver.downloadManifestFiles(
                 pack,
                 staging,
-                () -> false
+                effectiveOptions.cancelChecker
             );
-            DlcPackInstallPlan planWithManifest = DlcPackInstallPlan.merge(plan, manifestFiles);
+            DlcPackInstallPlan planWithManifest = DlcPackInstallPlan.merge(plan, manifestFiles, instanceRoot, dlcRoot);
             for (DlcPackInstallPlan.FileEntry entry : planWithManifest.files) {
+                checkCanceled(effectiveOptions.cancelChecker);
                 String relative = entry.relativePath;
                 Path target = resolveInside(instanceRoot, relative);
                 if (Files.exists(target)) {
@@ -83,6 +136,7 @@ public class DlcPackInstaller {
                 Files.copy(entry.source, target, StandardCopyOption.REPLACE_EXISTING);
                 meta.addInstalledPath(relative);
             }
+            checkCanceled(effectiveOptions.cancelChecker);
             if (!meta.save(metaPath)) {
                 throw new IOException("Failed to write DLC Pack meta: " + metaPath);
             }
@@ -92,7 +146,9 @@ public class DlcPackInstaller {
             return new InstallReport(identifier, meta.installedPaths.size(), txn.movedPaths.size(), txn.enabledDlc.size(), txn.disabledDlc.size(), txn.enabledPresets.size(), txn.disabledPresets.size());
         } catch (Throwable error) {
             rollback(txn, packDir);
-            txn.status = DlcPackTransaction.Status.ROLLED_BACK;
+            txn.status = error instanceof DlcDownloadService.DownloadCanceledException
+                ? DlcPackTransaction.Status.CANCELLED
+                : DlcPackTransaction.Status.ROLLED_BACK;
             txn.save(txnPath);
             deleteRecursive(staging);
             deleteRecursive(packDir);
@@ -103,19 +159,72 @@ public class DlcPackInstaller {
         }
     }
 
+    private void backupExistingInstallation(DlcPackMeta oldMeta, Path packDir, Path backupDir) throws IOException {
+        Path backupPackDir = backupDir.resolve("pack_dir");
+        Path backupInstalledDir = backupDir.resolve("installed");
+        copyRecursive(packDir, backupPackDir);
+        for (String relative : oldMeta.installedPaths) {
+            Path source = resolveInside(instanceRoot, relative);
+            if (!Files.isRegularFile(source)) {
+                continue;
+            }
+            Path target = resolveInside(backupInstalledDir, relative);
+            Files.createDirectories(target.getParent());
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private void restoreExistingInstallation(DlcPackMeta oldMeta, Path packDir, Path backupDir) throws IOException {
+        Path backupPackDir = backupDir.resolve("pack_dir");
+        Path backupInstalledDir = backupDir.resolve("installed");
+        deleteArchivedTargetsFromInstance(backupPackDir);
+        deleteRecursive(packDir);
+        copyRecursive(backupPackDir, packDir);
+        for (String relative : oldMeta.installedPaths) {
+            Path source = resolveInside(backupInstalledDir, relative);
+            if (!Files.isRegularFile(source)) {
+                continue;
+            }
+            Path target = resolveInside(instanceRoot, relative);
+            Files.createDirectories(target.getParent());
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private void deleteArchivedTargetsFromInstance(Path backupPackDir) throws IOException {
+        if (!Files.isDirectory(backupPackDir)) {
+            return;
+        }
+        try (Stream<Path> stream = Files.walk(backupPackDir)) {
+            for (Path archived : stream.filter(Files::isRegularFile).sorted(Comparator.reverseOrder()).toList()) {
+                String relative = DlcPackMeta.normalizeRelativePath(backupPackDir.relativize(archived).toString());
+                if (relative == null || isPackRecordPath(relative)) {
+                    continue;
+                }
+                Path target = resolveInside(instanceRoot, relative);
+                Files.deleteIfExists(target);
+                pruneEmptyParents(target.getParent(), instanceRoot);
+            }
+        }
+    }
+
     public PrecheckResult precheck(DlcPackPackage pack) throws IOException {
         if (pack == null || pack.metadata == null) {
             throw new IOException("DLC Pack is not available");
         }
-        DlcPackInstallPlan plan = DlcPackInstallPlan.build(pack);
+        DlcPackInstallPlan plan = DlcPackInstallPlan.build(pack, instanceRoot, dlcRoot);
+        CompatibilityResolution compatibility = resolveCompatibility(pack.metadata);
         DependencyResolution dependencies = resolveDependencies(pack.metadata.dependencies);
         ConflictResolution conflicts = resolveIdentifierConflicts(pack.metadata.conflicts);
-        return new PrecheckResult(plan, dependencies, conflicts);
+        return new PrecheckResult(plan, compatibility, dependencies, conflicts);
     }
 
     private void validatePrecheck(PrecheckResult precheck, InstallOptions options) throws IOException {
         if (!precheck.plan.getValid()) {
             throw new IOException("DLC Pack contains forbidden paths: " + String.join(", ", precheck.getForbiddenPaths()));
+        }
+        if (!precheck.getIncompatibleVersions().isEmpty()) {
+            throw new IOException("DLC Pack is incompatible with current modpack version: " + String.join(", ", precheck.getIncompatibleVersions()));
         }
         if (!precheck.getMissingDependencies().isEmpty()) {
             throw new IOException("DLC Pack dependencies are missing: " + String.join(", ", precheck.getMissingDependencies()));
@@ -249,6 +358,20 @@ public class DlcPackInstaller {
         }
     }
 
+    private CompatibilityResolution resolveCompatibility(DlcPackMetadata metadata) {
+        CompatibilityResolution result = new CompatibilityResolution();
+        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
+        String currentBase = version == null ? null : version.getBase();
+        String currentDlc = version == null ? null : version.getDlc();
+        if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, currentBase)) {
+            result.incompatible.add("base " + safeVersion(currentBase) + " not in " + String.join(", ", metadata.baseVersions));
+        }
+        if (!DlcPackMetadata.anyVersionMatches(metadata.dlcVersions, currentDlc)) {
+            result.incompatible.add("dlc " + safeVersion(currentDlc) + " not in " + String.join(", ", metadata.dlcVersions));
+        }
+        return result;
+    }
+
     private DependencyResolution resolveDependencies(java.util.List<String> dependencies) throws IOException {
         DependencyResolution result = new DependencyResolution();
         for (String dependency : dependencies) {
@@ -272,7 +395,7 @@ public class DlcPackInstaller {
             if (relative == null) {
                 continue;
             }
-            if (DlcPackInstallPlan.isForbiddenPath(relative)) {
+            if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                 result.missing.add(relative);
                 continue;
             }
@@ -359,11 +482,14 @@ public class DlcPackInstaller {
 
     private void moveConfiguredConflicts(java.util.List<String> conflicts, Path packDir, DlcPackTransaction txn, Path txnPath) throws IOException {
         for (String conflict : conflicts) {
+            if (isRuntimeIdentifier(conflict)) {
+                continue;
+            }
             String relative = DlcPackMeta.normalizeRelativePath(conflict);
             if (relative == null) {
                 continue;
             }
-            if (DlcPackInstallPlan.isForbiddenPath(relative)) {
+            if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                 throw new IOException("DLC Pack conflict path is forbidden: " + relative);
             }
             Path target = resolveInside(instanceRoot, relative);
@@ -376,6 +502,15 @@ public class DlcPackInstaller {
             Files.createDirectories(displaced.getParent());
             Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING);
         }
+    }
+
+    private boolean isRuntimeIdentifier(String value) {
+        String token = normalizeToken(value);
+        if (token == null) {
+            return false;
+        }
+        return DlcRuntimeState.getItemByIdentifier(token) != null
+            || DlcPresetRuntimeState.findPresetId(token) != null;
     }
 
     private Path resolveInside(Path root, String relative) throws IOException {
@@ -394,8 +529,7 @@ public class DlcPackInstaller {
     private boolean isPackRecordPath(String relative) {
         String normalized = relative.toLowerCase(Locale.ROOT);
         return normalized.equals("meta.dc")
-            || normalized.startsWith("metadata/")
-            || normalized.startsWith("dlcpack_metadata/");
+            || normalized.startsWith("metadata/");
     }
 
     private void pruneEmptyParents(Path start, Path stop) {
@@ -433,6 +567,24 @@ public class DlcPackInstaller {
         }
     }
 
+    private void copyRecursive(Path source, Path target) throws IOException {
+        if (source == null || target == null || !Files.exists(source)) {
+            return;
+        }
+        try (Stream<Path> stream = Files.walk(source)) {
+            for (Path path : stream.sorted(Comparator.naturalOrder()).toList()) {
+                Path relative = source.relativize(path);
+                Path destination = target.resolve(relative).normalize();
+                if (Files.isDirectory(path)) {
+                    Files.createDirectories(destination);
+                } else if (Files.isRegularFile(path)) {
+                    Files.createDirectories(destination.getParent());
+                    Files.copy(path, destination, StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+        }
+    }
+
     private String normalizeToken(String token) {
         if (token == null) {
             return null;
@@ -441,17 +593,34 @@ public class DlcPackInstaller {
         return value.isBlank() ? null : value;
     }
 
+    private String safeVersion(String value) {
+        return value == null || value.isBlank() ? "unknown" : value;
+    }
+
+    private void checkCanceled(DlcDownloadService.CancelChecker cancelChecker) throws DlcDownloadService.DownloadCanceledException {
+        if (cancelChecker != null && cancelChecker.isCanceled()) {
+            throw new DlcDownloadService.DownloadCanceledException("canceled");
+        }
+    }
+
     public static class InstallOptions {
         public final boolean enableMissingDlcDependencies;
         public final boolean enableMissingPresetDependencies;
         public final boolean disableDlcConflicts;
         public final boolean disablePresetConflicts;
+        public final DlcDownloadService.CancelChecker cancelChecker;
 
         public InstallOptions(boolean enableMissingDlcDependencies, boolean enableMissingPresetDependencies, boolean disableDlcConflicts, boolean disablePresetConflicts) {
+            this(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, null);
+        }
+
+        public InstallOptions(boolean enableMissingDlcDependencies, boolean enableMissingPresetDependencies, boolean disableDlcConflicts, boolean disablePresetConflicts,
+                              DlcDownloadService.CancelChecker cancelChecker) {
             this.enableMissingDlcDependencies = enableMissingDlcDependencies;
             this.enableMissingPresetDependencies = enableMissingPresetDependencies;
             this.disableDlcConflicts = disableDlcConflicts;
             this.disablePresetConflicts = disablePresetConflicts;
+            this.cancelChecker = cancelChecker;
         }
 
         public static InstallOptions strict() {
@@ -460,6 +629,10 @@ public class DlcPackInstaller {
 
         public static InstallOptions applyConfirmedRuntimeChanges() {
             return new InstallOptions(true, true, true, true);
+        }
+
+        public InstallOptions withCancelChecker(DlcDownloadService.CancelChecker cancelChecker) {
+            return new InstallOptions(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, cancelChecker);
         }
     }
 
@@ -501,14 +674,16 @@ public class DlcPackInstaller {
 
     public static class PrecheckResult {
         private final DlcPackInstallPlan plan;
+        public final java.util.List<String> incompatibleVersions;
         public final java.util.List<String> missingDependencies;
         public final java.util.List<String> dlcToEnable;
         public final java.util.List<String> presetsToEnable;
         public final java.util.List<String> dlcToDisable;
         public final java.util.List<String> presetsToDisable;
 
-        private PrecheckResult(DlcPackInstallPlan plan, DependencyResolution dependencies, ConflictResolution conflicts) {
+        private PrecheckResult(DlcPackInstallPlan plan, CompatibilityResolution compatibility, DependencyResolution dependencies, ConflictResolution conflicts) {
             this.plan = plan;
+            this.incompatibleVersions = java.util.List.copyOf(compatibility.incompatible);
             this.missingDependencies = java.util.List.copyOf(dependencies.missing);
             this.dlcToEnable = java.util.List.copyOf(dependencies.dlcToEnable);
             this.presetsToEnable = java.util.List.copyOf(dependencies.presetsToEnable);
@@ -518,6 +693,10 @@ public class DlcPackInstaller {
 
         public java.util.List<String> getForbiddenPaths() {
             return plan.forbiddenPaths;
+        }
+
+        public java.util.List<String> getIncompatibleVersions() {
+            return incompatibleVersions;
         }
 
         public java.util.List<String> getMissingDependencies() {
@@ -541,7 +720,9 @@ public class DlcPackInstaller {
         }
 
         public boolean hasBlockingIssues() {
-            return !getForbiddenPaths().isEmpty() || !getMissingDependencies().isEmpty();
+            return !getForbiddenPaths().isEmpty()
+                || !getIncompatibleVersions().isEmpty()
+                || !getMissingDependencies().isEmpty();
         }
 
         public boolean requiresRuntimeConfirmation() {
@@ -556,6 +737,10 @@ public class DlcPackInstaller {
         private final Set<String> missing = new LinkedHashSet<>();
         private final Set<String> dlcToEnable = new LinkedHashSet<>();
         private final Set<String> presetsToEnable = new LinkedHashSet<>();
+    }
+
+    private static class CompatibilityResolution {
+        private final Set<String> incompatible = new LinkedHashSet<>();
     }
 
     private static class ConflictResolution {

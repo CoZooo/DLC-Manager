@@ -1,8 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
@@ -13,6 +14,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -257,41 +259,59 @@ public class DlcUpdateUrlScreen extends Screen {
     }
 
     private void confirmReupdateNow(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = buildReupdateMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew, changelog);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
-                startReupdate(baseOld, dlcOld, baseNew, dlcNew);
+                var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+                DlcUpdatePackGuard.confirmBeforeUpdate(parent, chain,
+                    (packCheck, uninstallIncompatible) -> startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, packCheck, uninstallIncompatible));
             } else {
                 Minecraft.getInstance().setScreen(parent);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
-    }
-
-    private Component buildReupdateMessage(String baseOld, String dlcOld, String baseNew, String dlcNew, String changelog) {
-        String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
-        Component base = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
-        if (changelog == null || changelog.isBlank()) {
-            return base;
-        }
-        return Component.empty()
-            .append(base)
-            .append("\n\n")
-            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
-            .append("\n")
-            .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         var chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true);
+        startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, null, false);
+    }
+
+    private void startReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew, java.util.List<DlcUpdatePackage> chain,
+                               DlcPackUpdateGuard.CheckResult packCheck, boolean uninstallIncompatible) {
         if (chain == null || chain.isEmpty()) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")));
             return;
         }
         setApplyingUpdates(true);
         new Thread(() -> {
-            UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
-            Minecraft.getInstance().execute(() -> handleReupdateResult(result, null));
+            DlcPackUpdateCoordinator.UpdateSession packSession = null;
+            try {
+                DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false);
+                if (result != null && result.isSuccess()) {
+                    packSession.finishAfterSuccessfulUpdate();
+                } else {
+                    packSession.restoreAfterFailedUpdate();
+                }
+                UpdateApplyResult finalResult = result;
+                Minecraft.getInstance().execute(() -> handleReupdateResult(finalResult, null));
+            } catch (Exception ex) {
+                DlcPackUpdateCoordinator.UpdateSession session = packSession;
+                if (session != null) {
+                    try {
+                        session.restoreAfterFailedUpdate();
+                    } catch (Exception restoreError) {
+                        ex.addSuppressed(restoreError);
+                    }
+                }
+                String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
+                Minecraft.getInstance().execute(() -> {
+                    setApplyingUpdates(false);
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.literal(message)));
+                });
+            }
         }, "dlc-update-url-apply").start();
     }
 
@@ -339,29 +359,6 @@ public class DlcUpdateUrlScreen extends Screen {
         if (!applyingUpdates) {
             super.onClose();
         }
-    }
-
-    private static String normalizeVersion(String value) {
-        return value == null || value.isBlank() ? "1.0.0" : value.trim();
-    }
-
-    private static String[] compactTransition(String oldBase, String oldDlc, String newBase, String newDlc) {
-        String sourceBase = normalizeVersion(oldBase);
-        String sourceDlc = normalizeVersion(oldDlc);
-        String targetBase = normalizeVersion(newBase == null || newBase.isBlank() ? sourceBase : newBase);
-        String targetDlc = normalizeVersion(newDlc == null || newDlc.isBlank() ? sourceDlc : newDlc);
-        boolean baseChanged = !sourceBase.equals(targetBase);
-        boolean dlcChanged = !sourceDlc.equals(targetDlc);
-        if (baseChanged && dlcChanged) {
-            return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
-        }
-        if (baseChanged) {
-            return new String[] {sourceBase, targetBase};
-        }
-        if (dlcChanged) {
-            return new String[] {sourceDlc, targetDlc};
-        }
-        return new String[] {sourceBase + "+" + sourceDlc, targetBase + "+" + targetDlc};
     }
 
     private boolean tryShowPostUpdateDownloads(UpdateApplyResult result) {

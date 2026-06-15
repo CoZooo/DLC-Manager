@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
@@ -111,6 +112,13 @@ public final class DlcClientRuntime {
 
     public static void openNoticeFromTitle(Screen parent) {
         DlcNoticeManager.forceShow(parent);
+    }
+
+    public static void openPackManagerFromTitle(Screen parent) {
+        if (!DlcPathConfig.isPackFuncOn()) {
+            return;
+        }
+        Minecraft.getInstance().setScreen(new DlcPackManagerScreen(parent));
     }
 
     public static void maybeOpenManagerOnFirstRun(Screen parent) {

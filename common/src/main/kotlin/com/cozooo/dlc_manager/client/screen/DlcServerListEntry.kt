@@ -262,7 +262,7 @@ class DlcServerListEntry(
                 val deps = collectDependencies(screen, targets)
                 val conflicts = collectConflicts(screen, targets)
                 if (conflicts.names.isNotEmpty()) {
-                    val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names.joinToString(", "))
+                    val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names)
                     Minecraft.getInstance().setScreen(
                         ConfirmScreen(
                             { accepted ->
@@ -281,7 +281,7 @@ class DlcServerListEntry(
                     return
                 }
                 if (deps.names.isNotEmpty()) {
-                    val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.names.joinToString(", "))
+                    val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.names)
                     Minecraft.getInstance().setScreen(
                         ConfirmScreen(
                             { accepted ->

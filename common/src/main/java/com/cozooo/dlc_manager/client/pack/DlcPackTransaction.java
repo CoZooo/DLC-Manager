@@ -20,6 +20,7 @@ public class DlcPackTransaction {
     public final List<String> disabledDlc = new ArrayList<>();
     public final List<String> enabledPresets = new ArrayList<>();
     public final List<String> disabledPresets = new ArrayList<>();
+    public boolean replacement;
 
     public DlcPackTransaction(Status status, String identifier, String stagingId, Collection<String> movedPaths, Collection<String> writtenPaths) {
         this(status, identifier, stagingId, movedPaths, writtenPaths, List.of(), List.of(), List.of(), List.of());
@@ -36,9 +37,25 @@ public class DlcPackTransaction {
         Collection<String> enabledPresets,
         Collection<String> disabledPresets
     ) {
+        this(status, identifier, stagingId, movedPaths, writtenPaths, enabledDlc, disabledDlc, enabledPresets, disabledPresets, false);
+    }
+
+    public DlcPackTransaction(
+        Status status,
+        String identifier,
+        String stagingId,
+        Collection<String> movedPaths,
+        Collection<String> writtenPaths,
+        Collection<String> enabledDlc,
+        Collection<String> disabledDlc,
+        Collection<String> enabledPresets,
+        Collection<String> disabledPresets,
+        boolean replacement
+    ) {
         this.status = status;
         this.identifier = identifier;
         this.stagingId = stagingId;
+        this.replacement = replacement;
         addAll(this.movedPaths, movedPaths);
         addAll(this.writtenPaths, writtenPaths);
         addAll(this.enabledDlc, enabledDlc);
@@ -85,7 +102,8 @@ public class DlcPackTransaction {
         obj.add("disabled_dlc", toArray(disabledDlc));
         obj.add("enabled_presets", toArray(enabledPresets));
         obj.add("disabled_presets", toArray(disabledPresets));
-        return DcConfigIO.write(path, obj, DcConfigIO.Layout.GENERIC);
+        obj.addProperty("replacement", replacement);
+        return DlcPackDcFiles.writeAtomic(path, obj);
     }
 
     public static DlcPackTransaction running(String identifier, String stagingId) {
@@ -112,10 +130,11 @@ public class DlcPackTransaction {
             staging == null ? "" : staging,
             readArray(DcConfigIO.getArrayIgnoreCase(obj, "moved")),
             readArray(DcConfigIO.getArrayIgnoreCase(obj, "written")),
-            readArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
-            readArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
-            readArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
-            readArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_presets"))
+            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
+            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
+            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
+            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_presets")),
+            getBoolean(obj, "replacement")
         );
     }
 
@@ -178,8 +197,41 @@ public class DlcPackTransaction {
         return out;
     }
 
+    private static List<String> readTokenArray(JsonArray array) {
+        if (array == null) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        array.forEach(element -> {
+            if (element != null && element.isJsonPrimitive()) {
+                String value;
+                try {
+                    value = trim(element.getAsString());
+                } catch (Exception ex) {
+                    value = null;
+                }
+                if (value != null && !value.isBlank() && !out.contains(value)) {
+                    out.add(value);
+                }
+            }
+        });
+        return out;
+    }
+
     private static String trim(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private static boolean getBoolean(JsonObject obj, String key) {
+        var value = DcConfigIO.getIgnoreCase(obj, key);
+        if (value == null || !value.isJsonPrimitive()) {
+            return false;
+        }
+        try {
+            return value.getAsBoolean();
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     public enum Status {

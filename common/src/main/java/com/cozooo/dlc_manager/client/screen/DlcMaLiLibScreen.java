@@ -1287,7 +1287,8 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
 
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
-            Component message = getHeaderConfirmMessage(enable);
+            Component activeFilterLabel = activeFilter == null ? null : Component.translatable(activeFilter.getDisplayKey());
+            Component message = DlcConfirmUtil.buildHeaderConfirmMessage(enable, activeFilterLabel);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(DlcMaLiLibScreen.this);
@@ -1313,8 +1314,8 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
                 }
             }, Component.translatable("dlc_manager.title"),
                 message,
-                Component.translatable("dlc_manager.confirm_yes"),
-                Component.translatable("dlc_manager.confirm_no")));
+                DlcConfirmUtil.confirmYes(),
+                DlcConfirmUtil.confirmNo()));
         }
     }
 
@@ -1510,15 +1511,6 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         requiredButton.setHeight(buttonHeight);
     }
 
-    private Component getHeaderConfirmMessage(boolean enable) {
-        if (activeFilter == null) {
-            String key = enable ? "dlc_manager.confirm.enable_all" : "dlc_manager.confirm.disable_all";
-            return Component.translatable(key);
-        }
-        String key = enable ? "dlc_manager.confirm.enable_all_type" : "dlc_manager.confirm.disable_all_type";
-        return Component.translatable(key, Component.translatable(activeFilter.getDisplayKey()));
-    }
-
     private void handleBatchEnable(java.util.List<DlcItem> targets, Component scopeLabel) {
         DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);
         if (!conflicts.getLines().isEmpty()) {
@@ -1550,7 +1542,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             .toList();
         if (!alarmItems.isEmpty()) {
             rememberListScroll();
-            String tip = buildBatchAlarmTip(alarmItems);
+            String tip = DlcConfirmUtil.buildBatchAlarmTip(alarmItems);
             Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, tip, () -> {
                 enableItems(targets, true);
                 refreshAfterStateChange();
@@ -1611,42 +1603,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             }
         }, title, message,
             Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
-            Component.translatable("dlc_manager.confirm_no")));
-    }
-
-    private String buildBatchAlarmTip(java.util.List<DlcItem> alarmItems) {
-        if (alarmItems == null || alarmItems.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        String lang = Minecraft.getInstance().options.languageCode;
-        for (DlcItem item : alarmItems) {
-            if (item == null) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append("\n\n");
-            }
-            sb.append(DlcDisplayNameUtil.resolveDisplayName(item));
-            String tip = resolveAlarmTip(item, lang);
-            if (tip != null && !tip.isBlank()) {
-                sb.append("\n").append(tip);
-            }
-        }
-        return sb.toString();
-    }
-
-    private String resolveAlarmTip(DlcItem item, String lang) {
-        if (item == null || item.getTooltips().isEmpty()) {
-            return "";
-        }
-        if (item.getTooltips().containsKey(lang)) {
-            return item.getTooltips().get(lang);
-        }
-        if (item.getTooltips().containsKey("en_us")) {
-            return item.getTooltips().get("en_us");
-        }
-        return item.getTooltips().values().stream().findFirst().orElse("");
+            DlcConfirmUtil.confirmNo()));
     }
 
     private void enableItems(java.util.Collection<DlcItem> items, boolean enabled) {
@@ -1684,7 +1641,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             .withStyle(net.minecraft.ChatFormatting.DARK_RED);
         rememberListScroll();
         Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(this, title, message,
-            Component.translatable("dlc_manager.confirm_no")));
+            DlcConfirmUtil.confirmNo()));
     }
 
     private void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
@@ -1720,7 +1677,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             }
             enableItems(planned, true);
             refreshAfterStateChange();
-        }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, enableLabel, DlcConfirmUtil.confirmNo()));
     }
 
     private HeaderLabels getHeaderLabels() {

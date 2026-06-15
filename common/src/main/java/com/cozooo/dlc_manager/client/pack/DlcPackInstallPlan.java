@@ -26,6 +26,10 @@ public class DlcPackInstallPlan {
     }
 
     public static DlcPackInstallPlan build(DlcPackPackage pack) {
+        return build(pack, null, null);
+    }
+
+    public static DlcPackInstallPlan build(DlcPackPackage pack, Path instanceRoot, Path dlcRoot) {
         if (pack == null || !Files.isDirectory(pack.installRoot)) {
             return new DlcPackInstallPlan(List.of(), List.of());
         }
@@ -37,7 +41,7 @@ public class DlcPackInstallPlan {
                 if (relative == null || isMetadataFile(relative)) {
                     return;
                 }
-                if (isForbiddenPath(relative)) {
+                if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                     forbidden.add(relative);
                 }
                 files.add(new FileEntry(source, relative));
@@ -50,6 +54,10 @@ public class DlcPackInstallPlan {
     }
 
     public static DlcPackInstallPlan merge(DlcPackInstallPlan base, List<FileEntry> extraFiles) {
+        return merge(base, extraFiles, null, null);
+    }
+
+    public static DlcPackInstallPlan merge(DlcPackInstallPlan base, List<FileEntry> extraFiles, Path instanceRoot, Path dlcRoot) {
         if (base == null) {
             base = new DlcPackInstallPlan(List.of(), List.of());
         }
@@ -62,7 +70,7 @@ public class DlcPackInstallPlan {
                 if (isMetadataFile(entry.relativePath)) {
                     continue;
                 }
-                if (isForbiddenPath(entry.relativePath)) {
+                if (isForbiddenPath(entry.relativePath, instanceRoot, dlcRoot)) {
                     continue;
                 }
                 boolean exists = false;
@@ -82,22 +90,50 @@ public class DlcPackInstallPlan {
     }
 
     public static boolean isForbiddenPath(String relativePath) {
+        return isForbiddenPath(relativePath, null, null);
+    }
+
+    public static boolean isForbiddenPath(String relativePath, Path instanceRoot, Path dlcRoot) {
         String normalized = DlcPackMeta.normalizeRelativePath(relativePath);
         if (normalized == null) {
             return true;
         }
         normalized = normalized.toLowerCase(Locale.ROOT);
+        return isDefaultForbiddenPath(normalized) || isConfiguredDlcForbiddenPath(normalized, instanceRoot, dlcRoot);
+    }
+
+    private static boolean isDefaultForbiddenPath(String normalized) {
         return normalized.equals("config/dlc_manager")
-            || normalized.startsWith("config/dlc_manager/")
-            || normalized.equals("dlc/tmp")
-            || normalized.startsWith("dlc/tmp/")
-            || normalized.equals("dlc/info/version.dc")
-            || normalized.equals("dlc/info/notice.dc")
-            || normalized.equals("dlc/required/notice.dc")
-            || normalized.equals("dlc/required/skip")
-            || normalized.equals("dlc/update")
-            || normalized.startsWith("dlc/update/")
-            || normalized.equals("dlc/shownonfirstrun");
+            || normalized.startsWith("config/dlc_manager/");
+    }
+
+    private static boolean isConfiguredDlcForbiddenPath(String normalized, Path instanceRoot, Path dlcRoot) {
+        String dlcRelative = relativeDlcRoot(instanceRoot, dlcRoot);
+        if (dlcRelative == null || dlcRelative.isBlank()) {
+            return false;
+        }
+        return normalized.equals(dlcRelative + "/tmp")
+            || normalized.startsWith(dlcRelative + "/tmp/")
+            || normalized.equals(dlcRelative + "/info/version.dc")
+            || normalized.equals(dlcRelative + "/info/notice.dc")
+            || normalized.equals(dlcRelative + "/required/notice.dc")
+            || normalized.equals(dlcRelative + "/required/skip")
+            || normalized.equals(dlcRelative + "/update")
+            || normalized.startsWith(dlcRelative + "/update/")
+            || normalized.equals(dlcRelative + "/shownonfirstrun");
+    }
+
+    private static String relativeDlcRoot(Path instanceRoot, Path dlcRoot) {
+        if (instanceRoot == null || dlcRoot == null) {
+            return null;
+        }
+        Path normalizedInstance = instanceRoot.toAbsolutePath().normalize();
+        Path normalizedDlc = dlcRoot.toAbsolutePath().normalize();
+        if (!normalizedDlc.startsWith(normalizedInstance)) {
+            return null;
+        }
+        String relative = DlcPackMeta.normalizeRelativePath(normalizedInstance.relativize(normalizedDlc).toString());
+        return relative == null ? null : relative.toLowerCase(Locale.ROOT);
     }
 
     private static String normalizeRelative(Path path) {

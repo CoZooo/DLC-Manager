@@ -6,7 +6,7 @@ import com.google.gson.JsonObject
 import java.nio.file.Files
 import java.nio.file.Path
 
-class DlcPackTransaction(
+class DlcPackTransaction @JvmOverloads constructor(
     @JvmField var status: Status,
     @JvmField var identifier: String,
     @JvmField var stagingId: String,
@@ -16,6 +16,7 @@ class DlcPackTransaction(
     disabledDlc: Collection<String>? = emptyList(),
     enabledPresets: Collection<String>? = emptyList(),
     disabledPresets: Collection<String>? = emptyList(),
+    @JvmField var replacement: Boolean = false,
 ) {
     enum class Status {
         RUNNING,
@@ -78,7 +79,8 @@ class DlcPackTransaction(
         obj.add("disabled_dlc", toArray(disabledDlc))
         obj.add("enabled_presets", toArray(enabledPresets))
         obj.add("disabled_presets", toArray(disabledPresets))
-        return DcConfigIO.write(path, obj, DcConfigIO.Layout.GENERIC)
+        obj.addProperty("replacement", replacement)
+        return DlcPackDcFiles.writeAtomic(path, obj)
     }
 
     companion object {
@@ -105,10 +107,11 @@ class DlcPackTransaction(
                 staging,
                 readArray(DcConfigIO.getArrayIgnoreCase(obj, "moved")),
                 readArray(DcConfigIO.getArrayIgnoreCase(obj, "written")),
-                readArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
-                readArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
-                readArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
-                readArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_presets")),
+                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
+                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
+                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
+                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_presets")),
+                getBoolean(obj, "replacement"),
             )
         }
 
@@ -161,6 +164,38 @@ class DlcPackTransaction(
                 }
             }
             return out
+        }
+
+        private fun readTokenArray(array: JsonArray?): List<String> {
+            if (array == null) {
+                return emptyList()
+            }
+            val out = ArrayList<String>()
+            array.forEach { element ->
+                if (element != null && element.isJsonPrimitive) {
+                    val value = try {
+                        element.asString?.trim()
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (!value.isNullOrBlank() && !out.contains(value)) {
+                        out.add(value)
+                    }
+                }
+            }
+            return out
+        }
+
+        private fun getBoolean(obj: JsonObject, key: String): Boolean {
+            val value = DcConfigIO.getIgnoreCase(obj, key)
+            if (value == null || !value.isJsonPrimitive) {
+                return false
+            }
+            return try {
+                value.asBoolean
+            } catch (_: Exception) {
+                false
+            }
         }
     }
 }

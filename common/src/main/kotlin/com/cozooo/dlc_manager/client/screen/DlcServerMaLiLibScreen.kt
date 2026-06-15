@@ -423,7 +423,7 @@ class DlcServerMaLiLibScreen(
         if (item == null) return
         val conflicts = checkConflicts(item)
         if (conflicts.conflicts.isNotEmpty()) {
-            val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.conflictNames.joinToString(", "))
+            val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.conflictNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -443,7 +443,7 @@ class DlcServerMaLiLibScreen(
         }
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
-            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames.joinToString(", "))
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -481,7 +481,7 @@ class DlcServerMaLiLibScreen(
 
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
-            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames.joinToString(", "))
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(

@@ -332,7 +332,7 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                 DependencyBatch deps = collectDependencies(targets);
                 ConflictBatch conflicts = collectConflicts(targets);
                 if (!conflicts.names.isEmpty()) {
-                    Component message = DlcConfirmUtil.buildConflictPromptMessage(String.join(", ", conflicts.names));
+                    Component message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names);
                     Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                         Minecraft.getInstance().setScreen(screen);
                         if (accepted) {
@@ -344,7 +344,7 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
                     return;
                 }
                 if (!deps.names.isEmpty()) {
-                    Component message = DlcConfirmUtil.buildDependencyPromptMessage(String.join(", ", deps.names));
+                    Component message = DlcConfirmUtil.buildDependencyPromptMessage(deps.names);
                     Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                         Minecraft.getInstance().setScreen(screen);
                         if (accepted) {

@@ -39,11 +39,12 @@ object DlcPackCFResolver {
             if (fileName.isNullOrBlank()) {
                 throw IOException("CurseForge file name is not available: ${ref.projectId}/${ref.fileId}")
             }
-            val relative = targetDirectory(file, mod).resolve(fileName).toString().replace('\\', '/')
+            val targetDirectory = targetDirectory(file, mod)
+            val relative = targetDirectory.resolve(fileName).toString().replace('\\', '/')
             if (hasBundledOverride(pack, relative) || hasDownloadedEntry(entries, relative)) {
                 continue
             }
-            val outputDir = downloadRoot.resolve(targetDirectory(file, mod))
+            val outputDir = downloadRoot.resolve(targetDirectory)
             val candidate = DlcDownloadCandidate.curseForge(file)
             val downloaded = DlcDownloadService.downloadKnown(
                 candidate.url,
@@ -60,30 +61,35 @@ object DlcPackCFResolver {
     }
 
     private fun targetDirectory(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?): Path {
+        return Path.of(resolveTargetDirectoryName(file, mod))
+    }
+
+    @JvmStatic
+    fun resolveTargetDirectoryName(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?): String {
         var type = normalize(file?.classSlug)
         if (type == null) {
             type = normalize(mod?.classSlug)
         }
         if (type != null) {
             if (type.contains("resource") || type.contains("texture")) {
-                return Path.of("resourcepacks")
+                return "resourcepacks"
             }
             if (type.contains("data-pack") || type.contains("datapack") || type.contains("world")) {
-                return Path.of("datapacks")
+                return "datapacks"
             }
         }
         if (mod != null) {
             for (slug in mod.categorySlugs) {
                 val normalized = normalize(slug) ?: continue
                 if (normalized.contains("resource") || normalized.contains("texture")) {
-                    return Path.of("resourcepacks")
+                    return "resourcepacks"
                 }
                 if (normalized.contains("data-pack") || normalized.contains("datapack") || normalized.contains("world")) {
-                    return Path.of("datapacks")
+                    return "datapacks"
                 }
             }
         }
-        return Path.of("mods")
+        return "mods"
     }
 
     private fun hasBundledOverride(pack: DlcPackPackage?, relative: String?): Boolean {

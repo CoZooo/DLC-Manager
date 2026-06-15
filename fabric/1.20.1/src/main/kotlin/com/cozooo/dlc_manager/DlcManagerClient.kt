@@ -82,6 +82,9 @@ class DlcManagerClient : ClientModInitializer {
             val updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon")) {
                 DlcUpdateClient.openUpdateManager(screen)
             }.bounds(x + w + 4, y, 20, h).build()
+            val packButton = Button.builder(Component.translatable("dlc_manager.pack.quick_icon")) {
+                DlcClientRuntime.openPackManagerFromTitle(screen)
+            }.bounds(x + w + 28, y, 20, h).build()
             val noticeWidth = max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8)
             val noticeHeight = 20
             val noticeDefaultX = screen.width - noticeWidth - 8
@@ -106,6 +109,12 @@ class DlcManagerClient : ClientModInitializer {
                 findButtonByKey(screen, "dlc_manager.update.import_icon") == null
             ) {
                 Screens.getButtons(screen).add(updateButton)
+            }
+            if (DlcPathConfig.isPButtomShown() &&
+                DlcPathConfig.isPackFuncOn() &&
+                findButtonByKey(screen, "dlc_manager.pack.quick_icon") == null
+            ) {
+                Screens.getButtons(screen).add(packButton)
             }
             if (DlcClientRuntime.shouldShowMainMenuNoticeButton() &&
                 findButtonByKey(screen, "dlc_manager.notice") == null
@@ -301,6 +310,7 @@ class DlcManagerClient : ClientModInitializer {
             val modsWidget = findModsButton(screen)
             val dlcWidget = findButtonByKey(screen, "dlc_manager.title") ?: return
             val updateWidget = findButtonByKey(screen, "dlc_manager.update.import_icon")
+            val packWidget = findButtonByKey(screen, "dlc_manager.pack.quick_icon")
             if (realmsWidget != null) {
                 realmsWidget.visible = false
                 realmsWidget.active = false
@@ -336,16 +346,22 @@ class DlcManagerClient : ClientModInitializer {
                 setWidgetHeight(modsWidget, rowH)
                 val dlcX = rowX + halfWidth + gap
                 val dlcWidth = halfWidth
+                var defaultUpdateX = dlcX + dlcWidth + iconGap
+                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                    defaultUpdateX = dlcX - iconGap - iconWidth
+                }
+                val updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
                 if (updateWidget != null) {
-                    var defaultUpdateX = dlcX + dlcWidth + iconGap
-                    if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
-                        defaultUpdateX = dlcX - iconGap - iconWidth
-                    }
-                    val updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
                     updateWidget.width = iconWidth
                     updateWidget.x = updatePos[0]
                     updateWidget.y = updatePos[1]
                     setWidgetHeight(updateWidget, rowH)
+                }
+                if (packWidget != null) {
+                    packWidget.width = iconWidth
+                    packWidget.x = updatePos[0] + iconWidth + iconGap
+                    packWidget.y = updatePos[1]
+                    setWidgetHeight(packWidget, rowH)
                 }
                 dlcWidget.x = dlcX
                 dlcWidget.y = rowY
@@ -358,16 +374,22 @@ class DlcManagerClient : ClientModInitializer {
                 val iconGap = 4
                 val iconWidth = 20
                 val dlcWidth = rowW
+                var defaultUpdateX = rowX + dlcWidth + iconGap
+                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                    defaultUpdateX = rowX - iconGap - iconWidth
+                }
+                val updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
                 if (updateWidget != null) {
-                    var defaultUpdateX = rowX + dlcWidth + iconGap
-                    if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
-                        defaultUpdateX = rowX - iconGap - iconWidth
-                    }
-                    val updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
                     updateWidget.width = iconWidth
                     updateWidget.x = updatePos[0]
                     updateWidget.y = updatePos[1]
                     setWidgetHeight(updateWidget, rowH)
+                }
+                if (packWidget != null) {
+                    packWidget.width = iconWidth
+                    packWidget.x = updatePos[0] + iconWidth + iconGap
+                    packWidget.y = updatePos[1]
+                    setWidgetHeight(packWidget, rowH)
                 }
                 dlcWidget.x = rowX
                 dlcWidget.y = rowY

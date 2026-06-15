@@ -468,7 +468,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         }
         ConflictCheck conflicts = checkConflicts(item);
         if (!conflicts.conflicts.isEmpty()) {
-            Component message = DlcConfirmUtil.buildConflictPromptMessage(String.join(", ", conflicts.conflictNames));
+            Component message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.conflictNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
@@ -480,7 +480,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         }
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
-            Component message = DlcConfirmUtil.buildDependencyPromptMessage(String.join(", ", deps.missingNames));
+            Component message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
@@ -510,7 +510,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
-            Component message = DlcConfirmUtil.buildDependencyPromptMessage(String.join(", ", deps.missingNames));
+            Component message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);

@@ -1086,7 +1086,8 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
 
     private inner class HeaderButtonListener(private val enable: Boolean) : IButtonActionListener {
         override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
-            val message = getHeaderConfirmMessage(enable)
+            val activeFilterLabel = activeFilter?.let { Component.translatable(it.getDisplayKey()) }
+            val message = DlcConfirmUtil.buildHeaderConfirmMessage(enable, activeFilterLabel)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -1115,8 +1116,8 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                     },
                     Component.translatable("dlc_manager.title"),
                     message,
-                    Component.translatable("dlc_manager.confirm_yes"),
-                    Component.translatable("dlc_manager.confirm_no"),
+                    DlcConfirmUtil.confirmYes(),
+                    DlcConfirmUtil.confirmNo(),
                 )
             )
         }
@@ -1289,15 +1290,6 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         button.setHeight(buttonHeight)
     }
 
-    private fun getHeaderConfirmMessage(enable: Boolean): Component {
-        if (activeFilter == null) {
-            val key = if (enable) "dlc_manager.confirm.enable_all" else "dlc_manager.confirm.disable_all"
-            return Component.translatable(key)
-        }
-        val key = if (enable) "dlc_manager.confirm.enable_all_type" else "dlc_manager.confirm.disable_all_type"
-        return Component.translatable(key, Component.translatable(activeFilter!!.getDisplayKey()))
-    }
-
     private fun handleBatchEnable(targets: List<DlcItem>, scopeLabel: Component) {
         val conflicts = DlcRuntimeState.collectConflicts(targets)
         if (conflicts.getLines().isNotEmpty()) {
@@ -1327,7 +1319,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         val alarmItems = targets.filter { it.isAlarm() }
         if (alarmItems.isNotEmpty()) {
             rememberListScroll()
-            val tip = buildBatchAlarmTip(alarmItems)
+            val tip = DlcConfirmUtil.buildBatchAlarmTip(alarmItems)
             Minecraft.getInstance().setScreen(
                 DlcAlarmConfirmScreen(this, tip) {
                     enableItems(targets, true)
@@ -1393,41 +1385,9 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                 title,
                 message,
                 Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
-                Component.translatable("dlc_manager.confirm_no"),
+                DlcConfirmUtil.confirmNo(),
             )
         )
-    }
-
-    private fun buildBatchAlarmTip(alarmItems: List<DlcItem>?): String {
-        if (alarmItems.isNullOrEmpty()) {
-            return ""
-        }
-        val sb = StringBuilder()
-        val lang = Minecraft.getInstance().options.languageCode
-        for (item in alarmItems) {
-            if (sb.isNotEmpty()) {
-                sb.append("\n\n")
-            }
-            sb.append(DlcDisplayNameUtil.resolveDisplayName(item))
-            val tip = resolveAlarmTip(item, lang)
-            if (!tip.isNullOrBlank()) {
-                sb.append("\n").append(tip)
-            }
-        }
-        return sb.toString()
-    }
-
-    private fun resolveAlarmTip(item: DlcItem?, lang: String): String {
-        if (item == null || item.getTooltips().isEmpty()) {
-            return ""
-        }
-        if (item.getTooltips().containsKey(lang)) {
-            return item.getTooltips()[lang] ?: ""
-        }
-        if (item.getTooltips().containsKey("en_us")) {
-            return item.getTooltips()["en_us"] ?: ""
-        }
-        return item.getTooltips().values.firstOrNull() ?: ""
     }
 
     private fun enableItems(items: Collection<DlcItem>?, enabled: Boolean) {
@@ -1496,7 +1456,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                 title,
                 message,
                 enableLabel,
-                Component.translatable("dlc_manager.confirm_no"),
+                DlcConfirmUtil.confirmNo(),
             )
         )
     }

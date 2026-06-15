@@ -1,13 +1,16 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
+import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
+import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -254,47 +257,43 @@ class DlcUpdateUrlScreen(
         dlcNew: String?,
         changelog: String?,
     ) {
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = buildReupdateMessage(baseOld, dlcOld, baseNew, dlcNew, changelog)
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew, changelog)
         Minecraft.getInstance().setScreen(
             ConfirmScreen(
                 { accepted ->
                     if (accepted) {
-                        startReupdate(baseOld, dlcOld, baseNew, dlcNew)
+                        val chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
+                        val returnScreen = parent ?: this
+                        DlcUpdatePackGuard.confirmBeforeUpdate(returnScreen, chain) { packCheck, uninstallIncompatible ->
+                            startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, packCheck, uninstallIncompatible)
+                        }
                     } else {
                         Minecraft.getInstance().setScreen(parent)
                     }
                 },
                 title,
                 message,
-                Component.translatable("dlc_manager.confirm_yes"),
-                Component.translatable("dlc_manager.confirm_no"),
+                DlcConfirmUtil.confirmYes(),
+                DlcConfirmUtil.confirmNo(),
             ),
         )
     }
 
-    private fun buildReupdateMessage(
+    private fun startReupdate(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
+        val chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
+        startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, null, false)
+    }
+
+    private fun startReupdate(
         baseOld: String?,
         dlcOld: String?,
         baseNew: String?,
         dlcNew: String?,
-        changelog: String?,
-    ): Component {
-        val compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew)
-        val base = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1])
-        if (changelog.isNullOrBlank()) {
-            return base
-        }
-        return Component.empty()
-            .append(base)
-            .append("\n\n")
-            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
-            .append("\n")
-            .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog))
-    }
-
-    private fun startReupdate(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
-        val chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
+        chain: MutableList<DlcUpdatePackage?>,
+        packCheck: DlcPackUpdateGuard.CheckResult?,
+        uninstallIncompatible: Boolean,
+    ) {
         if (chain.isEmpty()) {
             Minecraft.getInstance().setScreen(
                 DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed")),
@@ -303,8 +302,31 @@ class DlcUpdateUrlScreen(
         }
         setApplyingUpdates(true)
         Thread({
-            val result = DlcUpdateService.applyUpdates(chain, false)
-            Minecraft.getInstance().execute { handleReupdateResult(result, null) }
+            var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
+            try {
+                val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                val result = DlcUpdateService.applyUpdates(chain, false)
+                if (result.isSuccess) {
+                    packSession.finishAfterSuccessfulUpdate()
+                } else {
+                    packSession.restoreAfterFailedUpdate()
+                }
+                Minecraft.getInstance().execute { handleReupdateResult(result, null) }
+            } catch (ex: Exception) {
+                packSession?.let {
+                    try {
+                        it.restoreAfterFailedUpdate()
+                    } catch (restoreError: Exception) {
+                        ex.addSuppressed(restoreError)
+                    }
+                }
+                val message = ex.message ?: "Failed to apply update"
+                Minecraft.getInstance().execute {
+                    setApplyingUpdates(false)
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, Component.literal(message)))
+                }
+            }
         }, "dlc-update-url-apply").start()
     }
 
@@ -394,28 +416,4 @@ class DlcUpdateUrlScreen(
         guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50.toInt())
     }
 
-    companion object {
-        private fun normalizeVersion(value: String?): String {
-            return if (value.isNullOrBlank()) "1.0.0" else value.trim()
-        }
-
-        private fun compactTransition(oldBase: String?, oldDlc: String?, newBase: String?, newDlc: String?): Array<String> {
-            val sourceBase = normalizeVersion(oldBase)
-            val sourceDlc = normalizeVersion(oldDlc)
-            val targetBase = normalizeVersion(if (newBase.isNullOrBlank()) sourceBase else newBase)
-            val targetDlc = normalizeVersion(if (newDlc.isNullOrBlank()) sourceDlc else newDlc)
-            val baseChanged = sourceBase != targetBase
-            val dlcChanged = sourceDlc != targetDlc
-            if (baseChanged && dlcChanged) {
-                return arrayOf("$sourceBase+$sourceDlc", "$targetBase+$targetDlc")
-            }
-            if (baseChanged) {
-                return arrayOf(sourceBase, targetBase)
-            }
-            if (dlcChanged) {
-                return arrayOf(sourceDlc, targetDlc)
-            }
-            return arrayOf("$sourceBase+$sourceDlc", "$targetBase+$targetDlc")
-        }
-    }
 }

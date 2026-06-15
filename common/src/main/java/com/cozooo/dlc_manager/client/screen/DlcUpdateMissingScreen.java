@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
@@ -7,6 +9,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -35,7 +38,7 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
         int buttonWidth = 120;
         int buttonHeight = 20;
         int y = this.height - 40;
-        forceButton = Button.builder(Component.translatable("dlc_manager.update.force"), button -> startApply())
+        forceButton = Button.builder(Component.translatable("dlc_manager.update.force"), button -> confirmApply())
             .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build();
         cancelButton = Button.builder(Component.translatable("dlc_manager.update.cancel"), button -> Minecraft.getInstance().setScreen(parent))
@@ -124,7 +127,12 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
         }
     }
 
-    private void startApply() {
+    private void confirmApply() {
+        DlcUpdatePackGuard.confirmBeforeUpdate(this, updateResult.getUpdates(),
+            (packCheck, uninstallIncompatible) -> startApply(packCheck, uninstallIncompatible));
+    }
+
+    private void startApply(DlcPackUpdateGuard.CheckResult packCheck, boolean uninstallIncompatible) {
         if (applying) {
             return;
         }
@@ -136,8 +144,33 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
             cancelButton.active = false;
         }
         new Thread(() -> {
-            UpdateApplyResult result = DlcUpdateService.applyUpdates(updateResult.getUpdates(), true);
-            Minecraft.getInstance().execute(() -> handleResult(result));
+            DlcPackUpdateCoordinator.UpdateSession packSession = null;
+            try {
+                DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible);
+                UpdateApplyResult result = DlcUpdateService.applyUpdates(updateResult.getUpdates(), true);
+                if (result != null && result.isSuccess()) {
+                    packSession.finishAfterSuccessfulUpdate();
+                } else {
+                    packSession.restoreAfterFailedUpdate();
+                }
+                UpdateApplyResult finalResult = result;
+                Minecraft.getInstance().execute(() -> handleResult(finalResult));
+            } catch (Exception ex) {
+                DlcPackUpdateCoordinator.UpdateSession session = packSession;
+                if (session != null) {
+                    try {
+                        session.restoreAfterFailedUpdate();
+                    } catch (Exception restoreError) {
+                        ex.addSuppressed(restoreError);
+                    }
+                }
+                String message = ex.getMessage() == null ? "Failed to apply update" : ex.getMessage();
+                Minecraft.getInstance().execute(() -> {
+                    applying = false;
+                    Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, Component.literal(message)));
+                });
+            }
         }, "dlc-update-force").start();
     }
 

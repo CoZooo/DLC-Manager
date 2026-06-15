@@ -31,32 +31,83 @@ public final class DlcPackRecovery {
             return report;
         }
         try (Stream<Path> stream = Files.list(stagingRoot)) {
+            List<StagingTxn> transactions = new ArrayList<>();
             for (Path staging : stream.filter(Files::isDirectory).toList()) {
-                recoverStaging(instanceRoot, dlcRoot, staging, report);
+                Path txnPath = staging.resolve("txn.dc");
+                if (!Files.exists(txnPath)) {
+                    report.unknown++;
+                    continue;
+                }
+                DlcPackTransaction txn = DlcPackTransaction.load(txnPath);
+                if (txn != null) {
+                    transactions.add(new StagingTxn(staging, txn));
+                } else {
+                    report.unknown++;
+                }
+            }
+            transactions.sort(Comparator.comparing(entry -> entry.txn.replacement));
+            for (StagingTxn entry : transactions) {
+                recoverStaging(instanceRoot, dlcRoot, entry.staging, entry.txn, report);
             }
         } catch (IOException ignored) {
         }
         return report;
     }
 
-    private static void recoverStaging(Path instanceRoot, Path dlcRoot, Path staging, RecoveryReport report) {
+    private static void recoverStaging(Path instanceRoot, Path dlcRoot, Path staging, DlcPackTransaction txn, RecoveryReport report) {
         Path txnPath = staging.resolve("txn.dc");
-        DlcPackTransaction txn = DlcPackTransaction.load(txnPath);
-        if (txn == null) {
-            return;
-        }
         report.transactions++;
         if (txn.status == DlcPackTransaction.Status.RUNNING) {
             Path packDir = packDir(dlcRoot, txn.identifier);
-            rollback(instanceRoot, packDir, txn, report);
+            if (Files.exists(packDir.resolve("meta.dc"))) {
+                report.cleaned++;
+                DlcZipUtil.deleteRecursive(staging);
+                return;
+            }
+            if (txn.replacement) {
+                restoreReplacement(instanceRoot, dlcRoot, staging, report);
+            } else {
+                packDir = packDir(dlcRoot, txn.identifier);
+                rollback(instanceRoot, packDir, txn, report);
+                DlcZipUtil.deleteRecursive(packDir);
+            }
             txn.status = DlcPackTransaction.Status.ROLLED_BACK;
             txn.save(txnPath);
-            DlcZipUtil.deleteRecursive(packDir);
             report.rolledBack++;
         } else {
             report.cleaned++;
         }
         DlcZipUtil.deleteRecursive(staging);
+    }
+
+    private static void restoreReplacement(Path instanceRoot, Path dlcRoot, Path staging, RecoveryReport report) {
+        Path backupDir = staging.resolve("replacement_backup");
+        Path backupPackDir = backupDir.resolve("pack_dir");
+        Path installedSnapshot = backupDir.resolve("installed");
+        if (!Files.isDirectory(backupPackDir)) {
+            backupPackDir = staging.resolve("pack_dir");
+            installedSnapshot = staging.resolve("installed");
+        }
+        DlcPackMeta oldMeta = DlcPackMeta.load(backupPackDir.resolve("meta.dc"));
+        if (oldMeta == null) {
+            return;
+        }
+        Path packDir = packDir(dlcRoot, oldMeta.identifier);
+        try {
+            deleteArchivedTargetsFromInstance(instanceRoot, backupPackDir);
+            DlcZipUtil.deleteRecursive(packDir);
+            copyRecursive(backupPackDir, packDir);
+            for (String relative : oldMeta.installedPaths) {
+                Path source = resolveInside(installedSnapshot, relative);
+                if (!Files.exists(source)) {
+                    continue;
+                }
+                Path target = resolveInside(instanceRoot, relative);
+                copyRecursive(source, target);
+                report.restored++;
+            }
+        } catch (IOException ignored) {
+        }
     }
 
     private static void rollback(Path instanceRoot, Path packDir, DlcPackTransaction txn, RecoveryReport report) {
@@ -107,6 +158,46 @@ public final class DlcPackRecovery {
         } catch (IOException ignored) {
         }
         return paths;
+    }
+
+    private static void deleteArchivedTargetsFromInstance(Path instanceRoot, Path backupPackDir) throws IOException {
+        if (!Files.isDirectory(backupPackDir)) {
+            return;
+        }
+        try (Stream<Path> stream = Files.walk(backupPackDir)) {
+            for (Path archived : stream.filter(Files::isRegularFile).sorted(Comparator.reverseOrder()).toList()) {
+                String relative = DlcPackMeta.normalizeRelativePath(backupPackDir.relativize(archived).toString());
+                if (relative == null || isPackRecordPath(relative)) {
+                    continue;
+                }
+                Path target = resolveInside(instanceRoot, relative);
+                Files.deleteIfExists(target);
+                pruneEmptyParents(target.getParent(), instanceRoot);
+            }
+        }
+    }
+
+    private static void copyRecursive(Path source, Path target) throws IOException {
+        if (source == null || target == null || !Files.exists(source)) {
+            return;
+        }
+        if (Files.isRegularFile(source)) {
+            Files.createDirectories(target.getParent());
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            return;
+        }
+        try (Stream<Path> stream = Files.walk(source)) {
+            for (Path path : stream.sorted(Comparator.naturalOrder()).toList()) {
+                Path relative = source.relativize(path);
+                Path destination = target.resolve(relative).normalize();
+                if (Files.isDirectory(path)) {
+                    Files.createDirectories(destination);
+                } else if (Files.isRegularFile(path)) {
+                    Files.createDirectories(destination.getParent());
+                    Files.copy(path, destination, StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+        }
     }
 
     private static void restoreRuntimeChanges(DlcPackTransaction txn) {
@@ -162,8 +253,7 @@ public final class DlcPackRecovery {
     private static boolean isPackRecordPath(String relative) {
         String normalized = relative.toLowerCase(Locale.ROOT);
         return normalized.equals("meta.dc")
-            || normalized.startsWith("metadata/")
-            || normalized.startsWith("dlcpack_metadata/");
+            || normalized.startsWith("metadata/");
     }
 
     private static void pruneEmptyParents(Path start, Path stop) {
@@ -192,5 +282,9 @@ public final class DlcPackRecovery {
         public int cleaned;
         public int deletedWritten;
         public int restored;
+        public int unknown;
+    }
+
+    private record StagingTxn(Path staging, DlcPackTransaction txn) {
     }
 }

@@ -23,6 +23,11 @@ class DlcPackInstallPlan private constructor(
 
         @JvmStatic
         fun build(pack: DlcPackPackage?): DlcPackInstallPlan {
+            return build(pack, null, null)
+        }
+
+        @JvmStatic
+        fun build(pack: DlcPackPackage?, instanceRoot: Path?, dlcRoot: Path?): DlcPackInstallPlan {
             if (pack == null || !Files.isDirectory(pack.installRoot)) {
                 return DlcPackInstallPlan(emptyList(), emptyList())
             }
@@ -35,7 +40,7 @@ class DlcPackInstallPlan private constructor(
                         if (isMetadataFile(relative)) {
                             return@forEach
                         }
-                        if (isForbiddenPath(relative)) {
+                        if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                             forbidden.add(relative)
                         }
                         files.add(FileEntry(source, relative))
@@ -50,12 +55,17 @@ class DlcPackInstallPlan private constructor(
 
         @JvmStatic
         fun merge(base: DlcPackInstallPlan?, extraFiles: List<FileEntry>?): DlcPackInstallPlan {
+            return merge(base, extraFiles, null, null)
+        }
+
+        @JvmStatic
+        fun merge(base: DlcPackInstallPlan?, extraFiles: List<FileEntry>?, instanceRoot: Path?, dlcRoot: Path?): DlcPackInstallPlan {
             val current = base ?: DlcPackInstallPlan(emptyList(), emptyList())
             val files = ArrayList(current.files)
             if (extraFiles != null) {
                 for (entry in extraFiles) {
                     val relative = entry.relativePath
-                    if (relative.isBlank() || isMetadataFile(relative) || isForbiddenPath(relative)) {
+                    if (relative.isBlank() || isMetadataFile(relative) || isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                         continue
                     }
                     if (files.none { it.relativePath == relative }) {
@@ -69,18 +79,47 @@ class DlcPackInstallPlan private constructor(
 
         @JvmStatic
         fun isForbiddenPath(relativePath: String?): Boolean {
+            return isForbiddenPath(relativePath, null, null)
+        }
+
+        @JvmStatic
+        fun isForbiddenPath(relativePath: String?, instanceRoot: Path?, dlcRoot: Path?): Boolean {
             val normalized = DlcPackMeta.normalizeRelativePath(relativePath)?.lowercase(Locale.ROOT) ?: return true
+            return isDefaultForbiddenPath(normalized) || isConfiguredDlcForbiddenPath(normalized, instanceRoot, dlcRoot)
+        }
+
+        private fun isDefaultForbiddenPath(normalized: String): Boolean {
             return normalized == "config/dlc_manager" ||
-                normalized.startsWith("config/dlc_manager/") ||
-                normalized == "dlc/tmp" ||
-                normalized.startsWith("dlc/tmp/") ||
-                normalized == "dlc/info/version.dc" ||
-                normalized == "dlc/info/notice.dc" ||
-                normalized == "dlc/required/notice.dc" ||
-                normalized == "dlc/required/skip" ||
-                normalized == "dlc/update" ||
-                normalized.startsWith("dlc/update/") ||
-                normalized == "dlc/shownonfirstrun"
+                normalized.startsWith("config/dlc_manager/")
+        }
+
+        private fun isConfiguredDlcForbiddenPath(normalized: String, instanceRoot: Path?, dlcRoot: Path?): Boolean {
+            val dlcRelative = relativeDlcRoot(instanceRoot, dlcRoot)
+            if (dlcRelative.isNullOrBlank()) {
+                return false
+            }
+            return normalized == "$dlcRelative/tmp" ||
+                normalized.startsWith("$dlcRelative/tmp/") ||
+                normalized == "$dlcRelative/info/version.dc" ||
+                normalized == "$dlcRelative/info/notice.dc" ||
+                normalized == "$dlcRelative/required/notice.dc" ||
+                normalized == "$dlcRelative/required/skip" ||
+                normalized == "$dlcRelative/update" ||
+                normalized.startsWith("$dlcRelative/update/") ||
+                normalized == "$dlcRelative/shownonfirstrun"
+        }
+
+        private fun relativeDlcRoot(instanceRoot: Path?, dlcRoot: Path?): String? {
+            if (instanceRoot == null || dlcRoot == null) {
+                return null
+            }
+            val normalizedInstance = instanceRoot.toAbsolutePath().normalize()
+            val normalizedDlc = dlcRoot.toAbsolutePath().normalize()
+            if (!normalizedDlc.startsWith(normalizedInstance)) {
+                return null
+            }
+            return DlcPackMeta.normalizeRelativePath(normalizedInstance.relativize(normalizedDlc).toString())
+                ?.lowercase(Locale.ROOT)
         }
 
         private fun normalizeRelative(path: Path): String? {

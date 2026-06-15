@@ -29,7 +29,7 @@ class DlcPackInstallPlanTest {
         Files.writeString(root.resolve("DLC").resolve("update").resolve("u.zip"), "blocked");
 
         DlcPackPackage.Result parsed = DlcPackPackage.inspect(root);
-        DlcPackInstallPlan plan = DlcPackInstallPlan.build(parsed.pack);
+        DlcPackInstallPlan plan = DlcPackInstallPlan.build(parsed.pack, root, root.resolve("DLC"));
 
         assertFalse(plan.getValid());
         assertEquals(Set.of("config/dlc_manager/config.dc", "DLC/update/u.zip"), new HashSet<>(plan.forbiddenPaths));
@@ -39,11 +39,13 @@ class DlcPackInstallPlanTest {
     @Test
     void forbiddenPathMatcherCoversConfiguredInternalPaths() {
         assertTrue(DlcPackInstallPlan.isForbiddenPath("config/dlc_manager/config.dc"));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/tmp/pack/a"));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/info/version.dc"));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/required/SKIP"));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/update/file.zip"));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/ShownOnFirstRun"));
+        Path instanceRoot = Path.of("/instance");
+        Path dlcRoot = instanceRoot.resolve("DLC");
+        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/tmp/pack/a", instanceRoot, dlcRoot));
+        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/info/version.dc", instanceRoot, dlcRoot));
+        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/required/SKIP", instanceRoot, dlcRoot));
+        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/update/file.zip", instanceRoot, dlcRoot));
+        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/ShownOnFirstRun", instanceRoot, dlcRoot));
         assertFalse(DlcPackInstallPlan.isForbiddenPath("mods/a.jar"));
     }
 

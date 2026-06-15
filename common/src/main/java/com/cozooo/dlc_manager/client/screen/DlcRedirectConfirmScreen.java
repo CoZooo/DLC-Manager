@@ -36,7 +36,7 @@ public class DlcRedirectConfirmScreen extends Screen {
         int gap = 8;
         int openWidth = Math.max(60, font.width(Component.translatable("dlc_manager.redirect.open")) + 12);
         int copyWidth = Math.max(80, font.width(Component.translatable("dlc_manager.redirect.copy")) + 12);
-        int cancelWidth = Math.max(60, font.width(Component.translatable("dlc_manager.confirm_no")) + 12);
+        int cancelWidth = Math.max(60, font.width(DlcConfirmUtil.confirmNo()) + 12);
         int buttonWidth = Math.max(openWidth, Math.max(copyWidth, cancelWidth));
         int totalWidth = buttonWidth * 3 + gap * 2;
         int startX = (this.width - totalWidth) / 2;
@@ -56,7 +56,7 @@ public class DlcRedirectConfirmScreen extends Screen {
             .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
             .build());
 
-        addRenderableWidget(Button.builder(Component.translatable("dlc_manager.confirm_no"), btn -> Minecraft.getInstance().setScreen(parent))
+        addRenderableWidget(Button.builder(DlcConfirmUtil.confirmNo(), btn -> Minecraft.getInstance().setScreen(parent))
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build());
     }

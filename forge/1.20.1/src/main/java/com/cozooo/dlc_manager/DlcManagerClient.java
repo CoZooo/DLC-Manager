@@ -98,6 +98,9 @@ public class DlcManagerClient {
             Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"), btn -> DlcUpdateClient.openUpdateManager(screen))
                 .bounds(updatePos[0], updatePos[1], iconSize, h)
                 .build();
+            Button packButton = Button.builder(Component.translatable("dlc_manager.pack.quick_icon"), btn -> DlcClientRuntime.openPackManagerFromTitle(screen))
+                .bounds(updatePos[0] + iconSize + 4, updatePos[1], iconSize, h)
+                .build();
             int noticeWidth = Math.max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8);
             int noticeHeight = 20;
             int noticeDefaultX = screen.width - noticeWidth - 8;
@@ -111,6 +114,9 @@ public class DlcManagerClient {
                 .build();
             if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()) {
                 event.addListener(updateButton);
+            }
+            if (DlcPathConfig.isPButtomShown() && DlcPathConfig.isPackFuncOn()) {
+                event.addListener(packButton);
             }
             if (DlcClientRuntime.shouldShowMainMenuNoticeButton()
                 && findButtonByKey(screen, "dlc_manager.notice") == null) {
