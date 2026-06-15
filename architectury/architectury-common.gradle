@@ -184,3 +184,51 @@ ext.deleteKotlinClassesReplacedByJava = { Project targetProject, List<String> ko
         })
     }
 }
+
+ext.configureReplacementClassSync = { Project targetProject, boolean kotlinEnabled, List<String> kotlinSourceDirs ->
+    def syncTask = targetProject.tasks.register('syncReplacementClasses') {
+        if (kotlinEnabled && targetProject.tasks.findByName('compileKotlin') != null) {
+            dependsOn targetProject.tasks.named('compileKotlin')
+        } else {
+            dependsOn targetProject.tasks.named('compileJava')
+        }
+
+        doLast {
+            if (kotlinEnabled) {
+                rootProject.deleteJavaClassesReplacedByKotlin(
+                    targetProject,
+                    kotlinSourceDirs,
+                    targetProject.tasks.named('compileJava').get().destinationDirectory.get().asFile
+                )
+            } else {
+                rootProject.deleteKotlinClassesReplacedByJava(
+                    targetProject,
+                    kotlinSourceDirs,
+                    targetProject.layout.buildDirectory.dir('classes/kotlin/main').get().asFile
+                )
+            }
+        }
+    }
+
+    targetProject.tasks.matching { it.name == 'classes' || it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+        dependsOn syncTask
+    }
+}
+
+ext.configureLocalDevMods = { Project targetProject ->
+    def devModsDir = targetProject.file('run/devmods')
+    def devModJars = targetProject.fileTree(devModsDir) {
+        include '**/*.jar'
+    }
+
+    def localRuntimeConfig = targetProject.configurations.findByName('modLocalRuntime')
+    if (localRuntimeConfig != null) {
+        targetProject.dependencies.add(localRuntimeConfig.name, devModJars)
+        return
+    }
+
+    def runtimeConfig = targetProject.configurations.findByName('modRuntimeOnly')
+    if (runtimeConfig != null) {
+        targetProject.dependencies.add(runtimeConfig.name, devModJars)
+    }
+}

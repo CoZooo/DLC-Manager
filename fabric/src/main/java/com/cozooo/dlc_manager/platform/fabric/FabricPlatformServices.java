@@ -1,43 +1,42 @@
-package com.cozooo.dlc_manager.platform;
+package com.cozooo.dlc_manager.platform.fabric;
 
+import com.cozooo.dlc_manager.platform.PlatformServices;
 import java.nio.file.Path;
 import java.util.Optional;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
+import net.fabricmc.api.EnvType;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.fml.loading.FMLPaths;
-import net.neoforged.fml.loading.moddiscovery.ModFileInfo;
 
-public final class NeoForgePlatformServices implements PlatformServices.Provider {
+public final class FabricPlatformServices implements PlatformServices.Provider {
     public static void init() {
-        PlatformServices.setProvider(new NeoForgePlatformServices());
+        PlatformServices.setProvider(new FabricPlatformServices());
     }
 
     @Override
     public Path gameDir() {
-        return FMLPaths.GAMEDIR.get();
+        return FabricLoader.getInstance().getGameDir();
     }
 
     @Override
     public Path configDir() {
-        return FMLPaths.CONFIGDIR.get();
+        return FabricLoader.getInstance().getConfigDir();
     }
 
     @Override
     public boolean isModLoaded(String modId) {
-        return ModList.get().isLoaded(modId);
+        return FabricLoader.getInstance().isModLoaded(modId);
     }
 
     @Override
     public boolean isDedicatedServer() {
-        return FMLEnvironment.dist == Dist.DEDICATED_SERVER;
+        return FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER;
     }
 
     @Override
     public String languageCode() {
-        if (FMLEnvironment.dist != Dist.CLIENT) {
+        if (FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
             return "en_us";
         }
         try {
@@ -68,7 +67,7 @@ public final class NeoForgePlatformServices implements PlatformServices.Provider
 
     @Override
     public String loaderName() {
-        return "NeoForge";
+        return "Fabric";
     }
 
     @Override
@@ -82,20 +81,18 @@ public final class NeoForgePlatformServices implements PlatformServices.Provider
 
     @Override
     public String modVersion(String modId) {
-        return ModList.get().getModContainerById(modId)
-            .map(container -> container.getModInfo().getVersion().toString())
-            .orElse("");
+        Optional<ModContainer> container = FabricLoader.getInstance().getModContainer(modId);
+        return container.map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
     }
 
     @Override
     public Path modFilePath(String modId) {
-        Optional<ModFileInfo> modFile = ModList.get().getModContainerById(modId)
-            .map(container -> (ModFileInfo) container.getModInfo().getOwningFile());
-        if (modFile.isEmpty()) {
+        Optional<ModContainer> container = FabricLoader.getInstance().getModContainer(modId);
+        if (container.isEmpty()) {
             return null;
         }
         try {
-            return modFile.get().getFile().getFilePath();
+            return container.get().getOrigin().getPaths().stream().findFirst().orElse(null);
         } catch (Exception ignored) {
             return null;
         }
@@ -103,7 +100,7 @@ public final class NeoForgePlatformServices implements PlatformServices.Provider
 
     @Override
     public String playerName() {
-        if (FMLEnvironment.dist != Dist.CLIENT) {
+        if (FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
             return "";
         }
         try {
@@ -119,7 +116,7 @@ public final class NeoForgePlatformServices implements PlatformServices.Provider
 
     @Override
     public String playerUuid() {
-        if (FMLEnvironment.dist != Dist.CLIENT) {
+        if (FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
             return "";
         }
         try {

@@ -57,6 +57,9 @@ if (kotlinEnabled) {
     }
 }
 
+rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs)
+rootProject.configureLocalDevMods(moduleProject)
+
 loom {
     forge {
         convertAccessWideners = true
@@ -66,9 +69,23 @@ loom {
 configurations {
     common
     shadowCommon
+    kotlinForForgeModDiscovery
     compileClasspath.extendsFrom common
     runtimeClasspath.extendsFrom common
     developmentForge.extendsFrom common
+}
+
+loom {
+    mods {
+        dlc_manager {
+            sourceSet sourceSets.main
+        }
+        if (kotlinEnabled) {
+            kotlinforforge {
+                configuration configurations.kotlinForForgeModDiscovery
+            }
+        }
+    }
 }
 
 dependencies {
@@ -76,8 +93,11 @@ dependencies {
     modImplementation "dev.architectury:architectury-forge:${rootProject.architectury_api_version}"
     if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
         modImplementation "thedarkcolour:kotlinforforge:${rootProject.kotlin_for_forge_version}"
+        kotlinForForgeModDiscovery("thedarkcolour:kotlinforforge:${rootProject.kotlin_for_forge_version}:all") {
+            transitive = false
+        }
     }
-    modCompileOnly "curse.maven:mafglib-910766:${rootProject.mafglib_curse_file}"
+    modImplementation "curse.maven:mafglib-910766:${rootProject.mafglib_curse_file}"
     include(implementation("com.cozooo.dlc_manager:dlc-fileops-helper:${file_ops_helper_version}"))
     include(implementation("org.commonmark:commonmark:0.21.0"))
     include(implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"))
