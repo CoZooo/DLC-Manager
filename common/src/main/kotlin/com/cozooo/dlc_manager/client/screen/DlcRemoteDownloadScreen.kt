@@ -36,7 +36,9 @@ import kotlin.math.roundToInt
 class DlcRemoteDownloadScreen(
     private val parent: Screen?,
     missing: List<DlcRemoteEntry>?,
-) : DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.remote.title")) {
+    private val partMarkerKey: String = DlcRemoteMarker.PART_DLC,
+    title: Component = Component.translatable("dlc_manager.remote.title"),
+) : DlcScreenCompat.MouseScroll(title) {
     private val missing: List<DlcRemoteEntry> = missing ?: emptyList()
     private var previewQueue: List<DlcRemoteEntry> = emptyList()
     private var downloadTargets: List<DlcRemoteEntry> = emptyList()
@@ -89,9 +91,9 @@ class DlcRemoteDownloadScreen(
             .build()
         download.active = false
         download.visible = false
-        val skip = Button.builder(Component.translatable("dlc_manager.remote.skip")) {
-            Minecraft.getInstance().setScreen(parent)
-        }.bounds(width / 2 + 6, y, buttonWidth, buttonHeight).build()
+        val skip = Button.builder(Component.translatable("dlc_manager.remote.skip")) { handleSkip() }
+            .bounds(width / 2 + 6, y, buttonWidth, buttonHeight)
+            .build()
         downloadButton = download
         skipButton = skip
         addRenderableWidget(download)
@@ -383,6 +385,11 @@ class DlcRemoteDownloadScreen(
         startDownload()
     }
 
+    private fun handleSkip() {
+        writeSkipMarker()
+        Minecraft.getInstance().setScreen(parent)
+    }
+
     private fun requestCancel() {
         if (!downloading || cancelRequested) {
             return
@@ -410,14 +417,17 @@ class DlcRemoteDownloadScreen(
         downloadButton?.active = true
         skipButton?.active = false
         val showList = if (previewQueue.isEmpty()) missing else previewQueue
+        val fullSelection = isAllSelected()
         val targets = resolveSelectionTargets(showList)
         downloadTargets = targets
-        updatePartMarker(showList, targets)
+        if (!fullSelection) {
+            writeSkipMarker()
+        }
         initProgressMap(targets)
-        Thread({ downloadAll(targets) }, "dlc-remote-download").start()
+        Thread({ downloadAll(targets, fullSelection) }, "dlc-remote-download").start()
     }
 
-    private fun downloadAll(targets: List<DlcRemoteEntry>) {
+    private fun downloadAll(targets: List<DlcRemoteEntry>, clearSkipOnSuccess: Boolean) {
         totalCount = targets.size
         completedCount = 0
         var failed = runDownloadBatch(targets)
@@ -455,6 +465,9 @@ class DlcRemoteDownloadScreen(
         }
         errorText = null
         downloading = false
+        if (clearSkipOnSuccess) {
+            clearSkipMarker()
+        }
         Minecraft.getInstance().execute {
             updateDownloadButtonLabel(false)
             Minecraft.getInstance().setScreen(parent)
@@ -920,29 +933,22 @@ class DlcRemoteDownloadScreen(
                 targets.add(entry)
             }
         }
-        if (targets.isEmpty()) {
-            selectedKeys.clear()
-            selectedKeys.add(ALL_MARKER)
-            return ArrayList(showList)
-        }
         return targets
     }
 
-    private fun updatePartMarker(showList: List<DlcRemoteEntry>?, targets: List<DlcRemoteEntry>?) {
-        if (showList == null || targets == null) {
-            return
-        }
-        val partial = !isAllSelected()
+    private fun writeSkipMarker() {
+        val dlcRoot = firstDlcRoot() ?: return
+        DlcRemoteMarker.writePartMarker(dlcRoot, partMarkerKey)
+    }
+
+    private fun clearSkipMarker() {
+        val dlcRoot = firstDlcRoot() ?: return
+        DlcRemoteMarker.clearPartMarker(dlcRoot, partMarkerKey)
+    }
+
+    private fun firstDlcRoot(): Path? {
         val roots = DlcPathConfig.getDlcRoots()
-        val dlcRoot = if (roots.isEmpty()) null else roots[0]
-        if (dlcRoot == null) {
-            return
-        }
-        if (partial) {
-            DlcRemoteMarker.writePartMarker(dlcRoot)
-        } else {
-            DlcRemoteMarker.clearPartMarker(dlcRoot)
-        }
+        return if (roots.isEmpty()) null else roots[0]
     }
 
     private fun toggleSelection(entry: DlcRemoteEntry?, showList: List<DlcRemoteEntry>?) {

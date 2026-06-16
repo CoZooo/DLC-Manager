@@ -21,8 +21,18 @@ object DlcRemoteManager {
     }
 
     @JvmStatic
+    fun hasMissingDlcPacks(): Boolean {
+        return DlcRemoteRuntime.hasMissingDlcPacks()
+    }
+
+    @JvmStatic
     fun collectMissing(): List<DlcRemoteEntry> {
         return DlcRemoteRuntime.collectMissing()
+    }
+
+    @JvmStatic
+    fun collectMissingDlcPacks(): List<DlcRemoteEntry> {
+        return DlcRemoteRuntime.collectMissingDlcPacks()
     }
 
     @JvmStatic

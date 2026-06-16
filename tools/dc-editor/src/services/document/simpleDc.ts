@@ -1182,7 +1182,11 @@ export function validateStructuredModel(model: StructuredModel | null, schema: D
     const fieldKeys = new Set(section.fields.map((field) => field.key));
     for (const field of section.fields) {
       const value = values[field.key];
-      if (field.key === "identifier" && typeof value === "string" && !value.trim()) {
+      if (field.key === "identifier"
+        && !(schema.type === "pack" && section.key === "basic")
+        && typeof value === "string"
+        && !value.trim()
+      ) {
         issues.push({
           severity: "warning",
           message: `[${section.key}].identifier 为空。`,

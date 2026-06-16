@@ -12,6 +12,9 @@ import com.cozooo.dlc_manager.client.pack.DlcPackMetadata;
 import com.cozooo.dlc_manager.client.pack.DlcPackOrder;
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -52,6 +55,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private Button urlButton;
     private Button applyButton;
     private Button backButton;
+    private Button completeButton;
     private final Map<String, PackArchiveEntry> pendingInstalls = new LinkedHashMap<>();
     private final Set<String> pendingUninstalls = new HashSet<>();
     private List<PackArchiveEntry> archiveEntries = List.of();
@@ -100,6 +104,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             addRenderableWidget(returnButton);
             return;
         }
+        addCompleteButton();
         int gap = 8;
         int total = buttonWidth * 4 + gap * 3;
         int startX = this.width / 2 - total / 2;
@@ -126,6 +131,34 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         addRenderableWidget(urlButton);
         addRenderableWidget(applyButton);
         addRenderableWidget(backButton);
+    }
+
+    private void addCompleteButton() {
+        if (!DlcPathConfig.isPackFuncOn() || !DlcRemoteManager.hasMissingDlcPacks()) {
+            completeButton = null;
+            return;
+        }
+        Component label = Component.translatable("dlc_manager.pack.complete");
+        int buttonWidth = Math.max(76, this.font.width(label) + 8);
+        completeButton = Button.builder(label, btn -> openCompletePacks())
+            .bounds(12, 8, buttonWidth, 16)
+            .build();
+        addRenderableWidget(completeButton);
+    }
+
+    private void openCompletePacks() {
+        List<DlcRemoteEntry> missing = DlcRemoteManager.collectMissingDlcPacks();
+        if (missing.isEmpty()) {
+            status = Component.translatable("dlc_manager.pack.complete_none");
+            rebuildPackWidgets();
+            return;
+        }
+        Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(
+            this,
+            missing,
+            DlcRemoteMarker.PART_DLC_PACK,
+            Component.translatable("dlc_manager.pack.complete_title")
+        ));
     }
 
     @Override

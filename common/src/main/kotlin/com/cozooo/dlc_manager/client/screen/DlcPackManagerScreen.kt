@@ -12,6 +12,8 @@ import com.cozooo.dlc_manager.client.pack.DlcPackMetadata
 import com.cozooo.dlc_manager.client.pack.DlcPackOrder
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
+import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
+import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.core.DlcPathConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.mojang.blaze3d.platform.NativeImage
@@ -41,6 +43,7 @@ class DlcPackManagerScreen(
     private var urlButton: Button? = null
     private var applyButton: Button? = null
     private var backButton: Button? = null
+    private var completeButton: Button? = null
     private val pendingInstalls = LinkedHashMap<String, PackArchiveEntry>()
     private val pendingUninstalls = LinkedHashSet<String>()
     private var archiveEntries: List<PackArchiveEntry> = emptyList()
@@ -85,6 +88,7 @@ class DlcPackManagerScreen(
             addRenderableWidget(back)
             return
         }
+        addCompleteButton()
         val gap = 8
         val total = buttonWidth * 4 + gap * 3
         val startX = width / 2 - total / 2
@@ -117,6 +121,37 @@ class DlcPackManagerScreen(
         addRenderableWidget(url)
         addRenderableWidget(apply)
         addRenderableWidget(back)
+    }
+
+    private fun addCompleteButton() {
+        if (!DlcPathConfig.isPackFuncOn() || !DlcRemoteManager.hasMissingDlcPacks()) {
+            completeButton = null
+            return
+        }
+        val label = Component.translatable("dlc_manager.pack.complete")
+        val buttonWidth = max(76, font.width(label) + 8)
+        val button = Button.builder(label) { openCompletePacks() }
+            .bounds(12, 8, buttonWidth, 16)
+            .build()
+        completeButton = button
+        addRenderableWidget(button)
+    }
+
+    private fun openCompletePacks() {
+        val missing = DlcRemoteManager.collectMissingDlcPacks()
+        if (missing.isEmpty()) {
+            status = Component.translatable("dlc_manager.pack.complete_none")
+            rebuildPackWidgets()
+            return
+        }
+        Minecraft.getInstance().setScreen(
+            DlcRemoteDownloadScreen(
+                this,
+                missing,
+                DlcRemoteMarker.PART_DLC_PACK,
+                Component.translatable("dlc_manager.pack.complete_title"),
+            )
+        )
     }
 
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {

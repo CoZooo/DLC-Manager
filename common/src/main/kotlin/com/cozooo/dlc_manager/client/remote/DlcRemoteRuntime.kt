@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.core.DcConfigIO
 import com.cozooo.dlc_manager.core.DcFormatUtil
 import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcType
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -17,7 +18,12 @@ object DlcRemoteRuntime {
 
     @JvmStatic
     fun hasMissing(): Boolean {
-        return collectMissing().isNotEmpty()
+        return collectMissing(false).isNotEmpty()
+    }
+
+    @JvmStatic
+    fun hasMissingDlcPacks(): Boolean {
+        return collectMissing(true).isNotEmpty()
     }
 
     @JvmStatic
@@ -26,10 +32,10 @@ object DlcRemoteRuntime {
             return emptyList()
         }
         val dlcRoot = DlcPathConfig.getDlcRoots().firstOrNull()
-        if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot)) {
+        if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot, DlcRemoteMarker.PART_DLC)) {
             return emptyList()
         }
-        val missing = collectMissing()
+        val missing = collectMissing(false)
         if (missing.isNotEmpty()) {
             promptedThisSession = true
         }
@@ -43,11 +49,24 @@ object DlcRemoteRuntime {
 
     @JvmStatic
     fun collectMissing(): List<DlcRemoteEntry> {
+        return collectMissing(false)
+    }
+
+    @JvmStatic
+    fun collectMissingDlcPacks(): List<DlcRemoteEntry> {
+        return collectMissing(true)
+    }
+
+    private fun collectMissing(dlcPackOnly: Boolean): List<DlcRemoteEntry> {
         val missing = ArrayList<DlcRemoteEntry>()
         val dlcRoot = DlcPathConfig.getDlcRoots().firstOrNull() ?: return missing
         val entries = DlcRemoteLoader.load(dlcRoot)
         for (entry in entries) {
             if (!entry.isInList() && !entry.isHidden()) {
+                continue
+            }
+            val isPack = entry.getType() == DlcType.DLC_PACK
+            if (dlcPackOnly != isPack) {
                 continue
             }
             val target = entry.getTargetPath()

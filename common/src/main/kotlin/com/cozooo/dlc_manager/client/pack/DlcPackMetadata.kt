@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.pack
 
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DcConfigIO
 import com.google.gson.JsonArray
@@ -38,7 +39,7 @@ class DlcPackMetadata(
     }
 
     fun descriptionComponent(lang: String?): Component {
-        return DlcTextFormatter.parse(resolveDescription(lang))
+        return DlcMarkdownRenderer.renderMarkdownComponent(resolveDescription(lang))
     }
 
     companion object {

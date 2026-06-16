@@ -15,12 +15,12 @@ class DlcRemoteMarkerTest {
     Path tempDir;
 
     @Test
-    void writesDetectsAndClearsPartMarker() {
+    void writesDetectsAndClearsSkipMarker() {
         assertFalse(DlcRemoteMarker.hasPartMarker(tempDir));
 
         DlcRemoteMarker.writePartMarker(tempDir);
 
-        Path marker = tempDir.resolve("remote").resolve(DlcRemoteMarker.PART_MARKER);
+        Path marker = tempDir.resolve("remote").resolve(DlcRemoteMarker.SKIP_MARKER);
         assertTrue(Files.exists(marker));
         assertTrue(DlcRemoteMarker.hasPartMarker(tempDir));
 

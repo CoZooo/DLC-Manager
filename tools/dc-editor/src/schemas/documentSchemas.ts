@@ -725,7 +725,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         dynamicLocale: {
           valueKind: "textarea",
           help: "static.help.packDescription",
-          toolbarMode: "mc"
+          toolbarMode: "mc-markdown"
         }
       }
     ]
