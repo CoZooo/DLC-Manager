@@ -518,7 +518,7 @@
   "dlc_manager.pack.import_url_title": "下载拓展包",
   "dlc_manager.pack.cancel": "取消",
   "dlc_manager.pack.back": "返回",
-  "dlc_manager.pack.cancel_changes": "取消",
+  "dlc_manager.pack.cancel_changes": "放弃改动并返回",
   "dlc_manager.pack.apply": "应用",
   "dlc_manager.pack.disabled": "拓展包功能已关闭。",
   "dlc_manager.pack.archive_count": "可用拓展包：%s",

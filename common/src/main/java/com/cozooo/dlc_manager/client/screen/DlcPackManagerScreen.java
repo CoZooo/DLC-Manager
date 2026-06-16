@@ -1026,8 +1026,8 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             pendingUninstalls.clear();
             currentArchiveOrder = List.copyOf(committedArchiveOrder);
             sortArchiveEntriesByCurrentOrder();
-            status = Component.translatable("dlc_manager.pack.changes_cancelled");
-            rebuildPackWidgets();
+            releaseIconTextures();
+            Minecraft.getInstance().setScreen(parent);
             return;
         }
         releaseIconTextures();

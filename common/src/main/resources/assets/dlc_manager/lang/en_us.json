@@ -518,7 +518,7 @@
   "dlc_manager.pack.import_url_title": "Download DLC Pack",
   "dlc_manager.pack.cancel": "Cancel",
   "dlc_manager.pack.back": "Back",
-  "dlc_manager.pack.cancel_changes": "Cancel",
+  "dlc_manager.pack.cancel_changes": "Discard Changes and Back",
   "dlc_manager.pack.apply": "Apply",
   "dlc_manager.pack.disabled": "DLC Pack feature is disabled.",
   "dlc_manager.pack.archive_count": "Available DLC Packs: %s",

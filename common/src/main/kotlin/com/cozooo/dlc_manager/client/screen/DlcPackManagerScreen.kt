@@ -962,8 +962,8 @@ class DlcPackManagerScreen(
             pendingUninstalls.clear()
             currentArchiveOrder = committedArchiveOrder.toList()
             sortArchiveEntriesByCurrentOrder()
-            status = Component.translatable("dlc_manager.pack.changes_cancelled")
-            rebuildPackWidgets()
+            releaseIconTextures()
+            Minecraft.getInstance().setScreen(parent)
             return
         }
         releaseIconTextures()
