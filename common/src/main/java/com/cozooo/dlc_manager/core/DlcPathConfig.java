@@ -66,6 +66,13 @@ public class DlcPathConfig {
     public static final int DEFAULT_MAX_RETRY = 3;
     public static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 5;
     public static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
+    public static final String DOWNLOAD_MIRROR_SMART_OFFICIAL = "smart_official";
+    public static final String DOWNLOAD_MIRROR_SMART_MIRROR = "smart_mirror";
+    public static final String DOWNLOAD_MIRROR_OFFICIAL_ONLY = "official_only";
+    public static final String DOWNLOAD_MIRROR_MIRROR_ONLY = "mirror_only";
+    public static final String DOWNLOAD_MIRROR_OFFICIAL_FIRST = "official_first";
+    public static final String DOWNLOAD_MIRROR_MIRROR_FIRST = "mirror_first";
+    public static final String DEFAULT_DOWNLOAD_MIRROR_MODE = DOWNLOAD_MIRROR_SMART_OFFICIAL;
     public static final String DEFAULT_MODPACK_URL = "";
     public static final String DEFAULT_UPDATE_GITHUB_REPO_URL = "";
 
@@ -120,6 +127,7 @@ public class DlcPathConfig {
     private static int maxRetryCount = DEFAULT_MAX_RETRY;
     private static int connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS;
     private static int taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS;
+    private static String downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE;
 
     public static void load() {
         loadClient();
@@ -528,6 +536,10 @@ public class DlcPathConfig {
         return value * 1000;
     }
 
+    public static String getDownloadMirrorMode() {
+        return normalizeDownloadMirrorMode(downloadMirrorMode);
+    }
+
     public static void setDlcRoot(String value) {
         if (value != null) {
             dlcRoot = value;
@@ -736,6 +748,10 @@ public class DlcPathConfig {
         taskTimeoutSeconds = seconds;
     }
 
+    public static void setDownloadMirrorMode(String value) {
+        downloadMirrorMode = normalizeDownloadMirrorMode(value);
+    }
+
     private static void resetDefaults() {
         dlcRoot = DEFAULT_DLC_ROOT;
         taczRoot = DEFAULT_TACZ_DLC_ROOT;
@@ -786,6 +802,7 @@ public class DlcPathConfig {
         maxRetryCount = DEFAULT_MAX_RETRY;
         connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS;
         taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS;
+        downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE;
     }
 
     private static void loadClientFromDisk() {
@@ -985,6 +1002,7 @@ public class DlcPathConfig {
         obj.addProperty("maxRetryCount", maxRetryCount);
         obj.addProperty("connectTimeoutSeconds", connectTimeoutSeconds);
         obj.addProperty("taskTimeoutSeconds", taskTimeoutSeconds);
+        obj.addProperty("downloadMirrorMode", getDownloadMirrorMode());
         root.add("downloads", obj);
     }
 
@@ -1100,7 +1118,21 @@ public class DlcPathConfig {
         map.put("maxRetryCount", value -> maxRetryCount = Math.max(1, asInt(value, DEFAULT_MAX_RETRY)));
         map.put("connectTimeoutSeconds", value -> connectTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_CONNECT_TIMEOUT_SECONDS)));
         map.put("taskTimeoutSeconds", value -> taskTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_TASK_TIMEOUT_SECONDS)));
+        map.put("downloadMirrorMode", value -> downloadMirrorMode = normalizeDownloadMirrorMode(asString(value, DEFAULT_DOWNLOAD_MIRROR_MODE)));
         return map;
+    }
+
+    public static String normalizeDownloadMirrorMode(String value) {
+        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT).replace('-', '_');
+        return switch (normalized) {
+            case DOWNLOAD_MIRROR_SMART_OFFICIAL -> DOWNLOAD_MIRROR_SMART_OFFICIAL;
+            case DOWNLOAD_MIRROR_SMART_MIRROR -> DOWNLOAD_MIRROR_SMART_MIRROR;
+            case DOWNLOAD_MIRROR_OFFICIAL_ONLY -> DOWNLOAD_MIRROR_OFFICIAL_ONLY;
+            case DOWNLOAD_MIRROR_MIRROR_ONLY -> DOWNLOAD_MIRROR_MIRROR_ONLY;
+            case DOWNLOAD_MIRROR_OFFICIAL_FIRST -> DOWNLOAD_MIRROR_OFFICIAL_FIRST;
+            case DOWNLOAD_MIRROR_MIRROR_FIRST -> DOWNLOAD_MIRROR_MIRROR_FIRST;
+            default -> DEFAULT_DOWNLOAD_MIRROR_MODE;
+        };
     }
 
     private static String stringOrDefault(String value, String fallback) {

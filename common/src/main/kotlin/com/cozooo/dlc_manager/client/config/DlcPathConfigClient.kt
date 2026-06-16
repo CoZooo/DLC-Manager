@@ -51,6 +51,7 @@ object DlcPathConfigClient {
     private val MAX_RETRY = DlcConfigInteger("maxRetryCount", DlcPathConfig.DEFAULT_MAX_RETRY, 1, 100, "dlc_manager.config.comment.download.maxRetryCount", "dlc_manager.config.download.maxRetryCount")
     private val CONNECT_TIMEOUT_SECONDS = DlcConfigInteger("connectTimeoutSeconds", DlcPathConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds")
     private val TASK_TIMEOUT_SECONDS = DlcConfigInteger("taskTimeoutSeconds", DlcPathConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds")
+    private val DOWNLOAD_MIRROR_MODE = DlcConfigString("downloadMirrorMode", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_MODE, "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode")
 
     private val PATH_CONFIGS: List<IConfigBase> = listOf(DLC_ROOT, TACZ_ROOT, RESOURCEPACK_ROOT, DATAPACK_ROOT)
 
@@ -97,7 +98,8 @@ object DlcPathConfigClient {
         MIN_SEGMENT_MB,
         MAX_RETRY,
         CONNECT_TIMEOUT_SECONDS,
-        TASK_TIMEOUT_SECONDS
+        TASK_TIMEOUT_SECONDS,
+        DOWNLOAD_MIRROR_MODE
     )
 
     @JvmStatic
@@ -157,6 +159,7 @@ object DlcPathConfigClient {
         MAX_RETRY.integerValue = DlcPathConfig.getMaxRetryCount()
         CONNECT_TIMEOUT_SECONDS.integerValue = kotlin.math.max(1, DlcPathConfig.getConnectTimeoutMs() / 1000)
         TASK_TIMEOUT_SECONDS.integerValue = kotlin.math.max(1, DlcPathConfig.getTaskTimeoutMs() / 1000)
+        DOWNLOAD_MIRROR_MODE.setValueFromString(DlcPathConfig.getDownloadMirrorMode())
     }
 
     @JvmStatic
@@ -204,6 +207,7 @@ object DlcPathConfigClient {
         DlcPathConfig.setMaxRetryCount(MAX_RETRY.integerValue)
         DlcPathConfig.setConnectTimeoutMs(CONNECT_TIMEOUT_SECONDS.integerValue * 1000)
         DlcPathConfig.setTaskTimeoutMs(TASK_TIMEOUT_SECONDS.integerValue * 1000)
+        DlcPathConfig.setDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.stringValue)
     }
 
     private fun toMb(bytes: Long): Int {

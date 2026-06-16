@@ -52,6 +52,7 @@ public final class DlcPathConfigClient {
     private static final ConfigInteger MAX_RETRY = new DlcConfigInteger("maxRetryCount", DlcPathConfig.DEFAULT_MAX_RETRY, 1, 100, "dlc_manager.config.comment.download.maxRetryCount", "dlc_manager.config.download.maxRetryCount");
     private static final ConfigInteger CONNECT_TIMEOUT_SECONDS = new DlcConfigInteger("connectTimeoutSeconds", DlcPathConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds");
     private static final ConfigInteger TASK_TIMEOUT_SECONDS = new DlcConfigInteger("taskTimeoutSeconds", DlcPathConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds");
+    private static final ConfigString DOWNLOAD_MIRROR_MODE = new DlcConfigString("downloadMirrorMode", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_MODE, "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode");
 
     private static final List<IConfigBase> PATH_CONFIGS = List.of(
             DLC_ROOT,
@@ -103,7 +104,8 @@ public final class DlcPathConfigClient {
             MIN_SEGMENT_MB,
             MAX_RETRY,
             CONNECT_TIMEOUT_SECONDS,
-            TASK_TIMEOUT_SECONDS
+            TASK_TIMEOUT_SECONDS,
+            DOWNLOAD_MIRROR_MODE
     );
 
     private DlcPathConfigClient() {
@@ -169,6 +171,7 @@ public final class DlcPathConfigClient {
         MAX_RETRY.setIntegerValue(DlcPathConfig.getMaxRetryCount());
         CONNECT_TIMEOUT_SECONDS.setIntegerValue(Math.max(1, DlcPathConfig.getConnectTimeoutMs() / 1000));
         TASK_TIMEOUT_SECONDS.setIntegerValue(Math.max(1, DlcPathConfig.getTaskTimeoutMs() / 1000));
+        DOWNLOAD_MIRROR_MODE.setValueFromString(DlcPathConfig.getDownloadMirrorMode());
     }
 
     public static void applyToConfig() {
@@ -215,6 +218,7 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setMaxRetryCount(MAX_RETRY.getIntegerValue());
         DlcPathConfig.setConnectTimeoutMs(CONNECT_TIMEOUT_SECONDS.getIntegerValue() * 1000);
         DlcPathConfig.setTaskTimeoutMs(TASK_TIMEOUT_SECONDS.getIntegerValue() * 1000);
+        DlcPathConfig.setDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.getStringValue());
     }
 
     private static int toMb(long bytes) {

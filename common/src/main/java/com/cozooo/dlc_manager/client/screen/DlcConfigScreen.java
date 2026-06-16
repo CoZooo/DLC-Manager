@@ -73,6 +73,14 @@ public class DlcConfigScreen extends GuiModConfigs {
             "main_menu_button",
             "main_menu_panel"
     };
+    private static final String[] DOWNLOAD_MIRROR_MODE_VALUES = new String[] {
+            DlcPathConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
+            DlcPathConfig.DOWNLOAD_MIRROR_SMART_MIRROR,
+            DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
+            DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_ONLY,
+            DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
+            DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_FIRST
+    };
 
     public DlcConfigScreen(Screen parent) {
         this(parent, Tab.PATHS);
@@ -267,6 +275,10 @@ public class DlcConfigScreen extends GuiModConfigs {
         return config != null && "noticeDisplayMode".equals(config.getName());
     }
 
+    private static boolean isDownloadMirrorModeConfig(IConfigBase config) {
+        return config != null && "downloadMirrorMode".equals(config.getName());
+    }
+
     private static String normalizeNoticeDisplayMode(String value) {
         if (value == null || value.isBlank()) {
             return NOTICE_DISPLAY_MODE_VALUES[0];
@@ -293,6 +305,23 @@ public class DlcConfigScreen extends GuiModConfigs {
     private static String noticeDisplayModeLabel(String value) {
         String normalized = normalizeNoticeDisplayMode(value);
         String key = "dlc_manager.config.ui.noticeDisplayMode." + normalized;
+        String label = StringUtils.translate(key);
+        return label.equals(key) ? normalized : label;
+    }
+
+    private static String nextDownloadMirrorMode(String value) {
+        String normalized = DlcPathConfig.normalizeDownloadMirrorMode(value);
+        for (int i = 0; i < DOWNLOAD_MIRROR_MODE_VALUES.length; i++) {
+            if (DOWNLOAD_MIRROR_MODE_VALUES[i].equals(normalized)) {
+                return DOWNLOAD_MIRROR_MODE_VALUES[(i + 1) % DOWNLOAD_MIRROR_MODE_VALUES.length];
+            }
+        }
+        return DOWNLOAD_MIRROR_MODE_VALUES[0];
+    }
+
+    private static String downloadMirrorModeLabel(String value) {
+        String normalized = DlcPathConfig.normalizeDownloadMirrorMode(value);
+        String key = "dlc_manager.config.download.downloadMirrorMode." + normalized;
         String label = StringUtils.translate(key);
         return label.equals(key) ? normalized : label;
     }
@@ -480,6 +509,13 @@ public class DlcConfigScreen extends GuiModConfigs {
                 this.addButton(resetButton, new ConfirmResetListenerGeneric(new NoticeDisplayModeResetListener(config, modeButton, resetButton)));
                 return;
             }
+            if (isDownloadMirrorModeConfig(config)) {
+                ButtonGeneric modeButton = new ButtonGeneric(x, y, width, height, downloadMirrorModeLabel(config.getStringValue()));
+                ButtonGeneric resetButton = createResetButton(resetButtonX, y, config);
+                this.addButton(modeButton, new DownloadMirrorModeCycleListener(config, modeButton, resetButton));
+                this.addButton(resetButton, new ConfirmResetListenerGeneric(new DownloadMirrorModeResetListener(config, modeButton, resetButton)));
+                return;
+            }
             if (isAnchorConfig(config)) {
                 ButtonGeneric anchorButton = new ButtonGeneric(x, y, width, height, anchorDisplay(config.getName(), config.getStringValue()));
                 ButtonGeneric resetButton = createResetButton(resetButtonX, y, config);
@@ -618,6 +654,45 @@ public class DlcConfigScreen extends GuiModConfigs {
         public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
             config.resetToDefault();
             modeButton.setDisplayString(noticeDisplayModeLabel(config.getStringValue()));
+            resetButton.setEnabled(config.isModified());
+        }
+    }
+
+    private static class DownloadMirrorModeCycleListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric modeButton;
+        private final ButtonGeneric resetButton;
+
+        private DownloadMirrorModeCycleListener(IConfigValue config, ButtonGeneric modeButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.modeButton = modeButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            String nextValue = nextDownloadMirrorMode(config.getStringValue());
+            config.setValueFromString(nextValue);
+            modeButton.setDisplayString(downloadMirrorModeLabel(nextValue));
+            resetButton.setEnabled(config.isModified());
+        }
+    }
+
+    private static class DownloadMirrorModeResetListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric modeButton;
+        private final ButtonGeneric resetButton;
+
+        private DownloadMirrorModeResetListener(IConfigValue config, ButtonGeneric modeButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.modeButton = modeButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            config.resetToDefault();
+            modeButton.setDisplayString(downloadMirrorModeLabel(config.getStringValue()));
             resetButton.setEnabled(config.isModified());
         }
     }

@@ -60,6 +60,13 @@ object DlcPathConfig {
     const val DEFAULT_MAX_RETRY: Int = 2
     const val DEFAULT_CONNECT_TIMEOUT_SECONDS: Int = 5
     const val DEFAULT_TASK_TIMEOUT_SECONDS: Int = 60
+    const val DOWNLOAD_MIRROR_SMART_OFFICIAL: String = "smart_official"
+    const val DOWNLOAD_MIRROR_SMART_MIRROR: String = "smart_mirror"
+    const val DOWNLOAD_MIRROR_OFFICIAL_ONLY: String = "official_only"
+    const val DOWNLOAD_MIRROR_MIRROR_ONLY: String = "mirror_only"
+    const val DOWNLOAD_MIRROR_OFFICIAL_FIRST: String = "official_first"
+    const val DOWNLOAD_MIRROR_MIRROR_FIRST: String = "mirror_first"
+    const val DEFAULT_DOWNLOAD_MIRROR_MODE: String = DOWNLOAD_MIRROR_SMART_OFFICIAL
     const val DEFAULT_MODPACK_URL: String = ""
     const val DEFAULT_UPDATE_GITHUB_REPO_URL: String = ""
 
@@ -112,6 +119,7 @@ object DlcPathConfig {
     private var maxRetryCount = DEFAULT_MAX_RETRY
     private var connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS
     private var taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS
+    private var downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE
 
     @JvmStatic fun load() = loadClient()
     @JvmStatic fun loadClient() {
@@ -256,6 +264,7 @@ object DlcPathConfig {
     @JvmStatic fun getMaxRetryCount(): Int = if (maxRetryCount < 1) DEFAULT_MAX_RETRY else maxRetryCount
     @JvmStatic fun getConnectTimeoutMs(): Int = (if (connectTimeoutSeconds < 1) DEFAULT_CONNECT_TIMEOUT_SECONDS else connectTimeoutSeconds) * 1000
     @JvmStatic fun getTaskTimeoutMs(): Int = (if (taskTimeoutSeconds < 1) DEFAULT_TASK_TIMEOUT_SECONDS else taskTimeoutSeconds) * 1000
+    @JvmStatic fun getDownloadMirrorMode(): String = normalizeDownloadMirrorMode(downloadMirrorMode)
 
     @JvmStatic fun setDlcRoot(value: String?) { if (value != null) dlcRoot = value }
     @JvmStatic fun setTaczRoot(value: String?) { if (value != null) taczRoot = value }
@@ -309,6 +318,7 @@ object DlcPathConfig {
     @JvmStatic fun setMaxRetryCount(value: Int) { maxRetryCount = maxOf(1, value) }
     @JvmStatic fun setConnectTimeoutMs(value: Int) { connectTimeoutSeconds = maxOf(1, kotlin.math.ceil(value / 1000.0).toInt()) }
     @JvmStatic fun setTaskTimeoutMs(value: Int) { taskTimeoutSeconds = maxOf(1, kotlin.math.ceil(value / 1000.0).toInt()) }
+    @JvmStatic fun setDownloadMirrorMode(value: String?) { downloadMirrorMode = normalizeDownloadMirrorMode(value) }
 
     private fun resetDefaults() {
         dlcRoot = DEFAULT_DLC_ROOT
@@ -360,6 +370,7 @@ object DlcPathConfig {
         maxRetryCount = DEFAULT_MAX_RETRY
         connectTimeoutSeconds = DEFAULT_CONNECT_TIMEOUT_SECONDS
         taskTimeoutSeconds = DEFAULT_TASK_TIMEOUT_SECONDS
+        downloadMirrorMode = DEFAULT_DOWNLOAD_MIRROR_MODE
     }
 
     private fun resetServerDefaults() {
@@ -549,6 +560,7 @@ object DlcPathConfig {
         obj.addProperty("maxRetryCount", maxRetryCount)
         obj.addProperty("connectTimeoutSeconds", connectTimeoutSeconds)
         obj.addProperty("taskTimeoutSeconds", taskTimeoutSeconds)
+        obj.addProperty("downloadMirrorMode", getDownloadMirrorMode())
         root.add("downloads", obj)
     }
 
@@ -650,7 +662,21 @@ object DlcPathConfig {
         "maxRetryCount" to { value -> maxRetryCount = maxOf(1, asInt(value, DEFAULT_MAX_RETRY)) },
         "connectTimeoutSeconds" to { value -> connectTimeoutSeconds = maxOf(1, asInt(value, DEFAULT_CONNECT_TIMEOUT_SECONDS)) },
         "taskTimeoutSeconds" to { value -> taskTimeoutSeconds = maxOf(1, asInt(value, DEFAULT_TASK_TIMEOUT_SECONDS)) },
+        "downloadMirrorMode" to { value -> downloadMirrorMode = normalizeDownloadMirrorMode(asString(value, DEFAULT_DOWNLOAD_MIRROR_MODE)) },
     )
+
+    @JvmStatic
+    fun normalizeDownloadMirrorMode(value: String?): String {
+        return when (value?.trim()?.lowercase(Locale.ROOT)?.replace('-', '_')) {
+            DOWNLOAD_MIRROR_SMART_OFFICIAL -> DOWNLOAD_MIRROR_SMART_OFFICIAL
+            DOWNLOAD_MIRROR_SMART_MIRROR -> DOWNLOAD_MIRROR_SMART_MIRROR
+            DOWNLOAD_MIRROR_OFFICIAL_ONLY -> DOWNLOAD_MIRROR_OFFICIAL_ONLY
+            DOWNLOAD_MIRROR_MIRROR_ONLY -> DOWNLOAD_MIRROR_MIRROR_ONLY
+            DOWNLOAD_MIRROR_OFFICIAL_FIRST -> DOWNLOAD_MIRROR_OFFICIAL_FIRST
+            DOWNLOAD_MIRROR_MIRROR_FIRST -> DOWNLOAD_MIRROR_MIRROR_FIRST
+            else -> DEFAULT_DOWNLOAD_MIRROR_MODE
+        }
+    }
 
     private fun stringOrDefault(value: String?, fallback: String): String {
         return if (value.isNullOrBlank()) fallback else value

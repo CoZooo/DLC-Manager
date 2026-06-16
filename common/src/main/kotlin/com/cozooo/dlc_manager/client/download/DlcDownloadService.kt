@@ -7,6 +7,7 @@ import java.io.OutputStream
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URI
+import java.net.SocketTimeoutException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -32,6 +33,7 @@ object DlcDownloadService {
     private var mirrorComparisons = 0
     private var officialWins = 0
     private var officialFastWins = 0
+    private var mirrorFastWins = 0
     private var mirrorWins = 0
     private var mirrorFailures = 0
     private var selectedMirror: Boolean? = null
@@ -147,8 +149,10 @@ object DlcDownloadService {
         val target = outputDir.resolve(fileName)
         val temp = outputDir.resolve("$fileName.part")
         val total = if (expectedSize > 0) expectedSize else -1L
+        val mode = DownloadMirrorMode.fromConfig(DlcPathConfig.getDownloadMirrorMode())
         val mirrorPlan = mirrorPlan(url, fileName, total)
-        val downloadUrl = preselectedDownloadUrl(url, mirrorPlan)
+        val downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode)
+        val switchPlan = sourceSwitchPlan(url, mirrorPlan, mode, downloadUrl)
         listener?.onProgress(0L, total)
         val rangeProbe = if (total > 0
             && total >= DlcPathConfig.getMinSegmentBytes()
@@ -158,13 +162,13 @@ object DlcDownloadService {
         } else {
             RangeProbe.unsupported(downloadUrl)
         }
-        if (mirrorPlan != null && downloadUrl == url && rangeProbe.supportsRanges && !hasSelectedOfficial()) {
+        if (switchPlan != null && rangeProbe.supportsRanges) {
             Files.deleteIfExists(temp)
             try {
-                downloadSegmentedMirrorAware(rangeProbe.url, mirrorPlan, temp, total, listener, cancelChecker)
+                downloadSegmentedSwitchAware(rangeProbe.url, switchPlan, temp, total, listener, cancelChecker)
             } catch (_: SegmentDownloadException) {
                 Files.deleteIfExists(temp)
-                downloadSingleMirrorAware(rangeProbe.url, mirrorPlan, temp, total, listener, cancelChecker)
+                downloadSingleSwitchAware(rangeProbe.url, switchPlan, temp, total, listener, cancelChecker)
             } catch (ex: IOException) {
                 Files.deleteIfExists(temp)
                 throw ex
@@ -180,8 +184,8 @@ object DlcDownloadService {
                 Files.deleteIfExists(temp)
                 throw ex
             }
-        } else if (mirrorPlan != null && downloadUrl == url && !hasSelectedOfficial() && !Files.exists(temp)) {
-            downloadSingleMirrorAware(downloadUrl, mirrorPlan, temp, total, listener, cancelChecker)
+        } else if (switchPlan != null && !Files.exists(temp)) {
+            downloadSingleSwitchAware(downloadUrl, switchPlan, temp, total, listener, cancelChecker)
         } else {
             val existing = if (Files.exists(temp)) Files.size(temp) else 0L
             downloadSingleWithRetry(downloadUrl, temp, total, existing, listener, cancelChecker)
@@ -196,63 +200,103 @@ object DlcDownloadService {
 
     private fun mirrorPlan(url: String, fileName: String?, totalBytes: Long): MirrorPlan? {
         if (!DlcDownloadUtil.isLikelyFileName(fileName)
-            || totalBytes <= MIN_MIRROR_SPEED_CHECK_BYTES
             || !isCurseForgeCdnUrl(url)
         ) {
             return null
         }
         val mirrorUrl = mirrorDownloadUrl(url) ?: return null
         val speedRule = mirrorSpeedRule(totalBytes)
-        return MirrorPlan(mirrorUrl, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed)
+        return MirrorPlan(mirrorUrl, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed, totalBytes > MIN_MIRROR_SPEED_CHECK_BYTES)
     }
 
-    private fun preselectedDownloadUrl(url: String, mirrorPlan: MirrorPlan?): String {
-        if (mirrorPlan == null) {
-            return url
-        }
-        synchronized(mirrorLock) {
-            if (mirrorDisabled) {
-                return url
+    private fun primaryDownloadUrl(url: String, mirrorPlan: MirrorPlan?, mode: DownloadMirrorMode): String {
+        return when (mode) {
+            DownloadMirrorMode.OFFICIAL_ONLY,
+            DownloadMirrorMode.OFFICIAL_FIRST -> url
+            DownloadMirrorMode.MIRROR_ONLY -> mirrorPlan?.mirrorUrl ?: if (isMirrorUrl(url)) url else throw IOException("mirror download source unavailable")
+            DownloadMirrorMode.MIRROR_FIRST -> mirrorPlan?.mirrorUrl ?: if (isMirrorUrl(url)) url else url
+            DownloadMirrorMode.SMART_OFFICIAL -> {
+                if (mirrorPlan == null) {
+                    return url
+                }
+                synchronized(mirrorLock) {
+                    if (mirrorDisabled) {
+                        return url
+                    }
+                    selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
+                }
+                url
             }
-            selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
+            DownloadMirrorMode.SMART_MIRROR -> {
+                if (mirrorPlan == null) {
+                    return url
+                }
+                synchronized(mirrorLock) {
+                    if (mirrorDisabled) {
+                        return url
+                    }
+                    selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
+                }
+                mirrorPlan.mirrorUrl
+            }
         }
-        return url
     }
 
-    private fun hasSelectedOfficial(): Boolean {
-        synchronized(mirrorLock) {
-            return selectedMirror == false || mirrorDisabled || mirrorComparisons >= MIRROR_MAX_COMPARISONS
+    private fun sourceSwitchPlan(officialUrl: String, mirrorPlan: MirrorPlan?, mode: DownloadMirrorMode, primaryUrl: String): SourceSwitchPlan? {
+        if (mirrorPlan == null) {
+            return null
+        }
+        return when (mode) {
+            DownloadMirrorMode.SMART_OFFICIAL -> if (primaryUrl == officialUrl && mirrorPlan.canSpeedCompare) {
+                SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.SPEED_COMPARE, mirrorPlan = mirrorPlan)
+            } else null
+            DownloadMirrorMode.SMART_MIRROR -> if (primaryUrl == mirrorPlan.mirrorUrl && mirrorPlan.canSpeedCompare) {
+                SourceSwitchPlan(officialUrl, primaryIsMirror = true, alternateIsMirror = false, mode = SourceSwitchMode.SPEED_COMPARE, mirrorPlan = mirrorPlan)
+            } else null
+            DownloadMirrorMode.OFFICIAL_FIRST -> if (primaryUrl == officialUrl) {
+                SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan = mirrorPlan)
+            } else null
+            DownloadMirrorMode.MIRROR_FIRST -> if (primaryUrl == mirrorPlan.mirrorUrl) {
+                SourceSwitchPlan(officialUrl, primaryIsMirror = true, alternateIsMirror = false, mode = SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan = mirrorPlan)
+            } else null
+            DownloadMirrorMode.OFFICIAL_ONLY,
+            DownloadMirrorMode.MIRROR_ONLY -> null
         }
     }
 
-    private fun startMirrorProbe(officialSpeed: Double, mirrorPlan: MirrorPlan, cancelChecker: CancelChecker?): MirrorProbe? {
-        if (officialSpeed >= mirrorPlan.requiredSpeed) {
-            recordOfficialFastIfStable(officialSpeed, mirrorPlan)
+    private fun startSourceProbe(primarySpeed: Double, switchPlan: SourceSwitchPlan, cancelChecker: CancelChecker?): SourceProbe? {
+        if (switchPlan.mode == SourceSwitchMode.EARLY_TIMEOUT) {
+            return if (primarySpeed >= switchPlan.mirrorPlan.timeoutSpeed) null else SourceProbe.selected(switchPlan)
+        }
+        if (primarySpeed >= switchPlan.mirrorPlan.requiredSpeed) {
+            recordPrimaryFastIfStable(primarySpeed, switchPlan)
             return null
         }
         synchronized(mirrorLock) {
-            if (mirrorDisabled) {
+            if (mirrorDisabled && switchPlan.alternateIsMirror) {
                 return null
             }
-            selectedMirror?.let { return if (it) MirrorProbe.selected(mirrorPlan.mirrorUrl) else null }
+            selectedMirror?.let { return if (it == switchPlan.primaryIsMirror) null else SourceProbe.selected(switchPlan) }
             if (mirrorComparisons >= MIRROR_MAX_COMPARISONS) {
                 return null
             }
             mirrorComparisons++
         }
         val executor = Executors.newSingleThreadExecutor()
-        return MirrorProbe(
-            mirrorPlan.mirrorUrl,
-            executor.submit<Double> { probeDownloadSpeed(mirrorPlan.mirrorUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker) },
+        return SourceProbe(
+            switchPlan.alternateUrl,
+            switchPlan.primaryIsMirror,
+            switchPlan.alternateIsMirror,
+            executor.submit<Double> { probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker) },
             executor,
         )
     }
 
-    private fun finishMirrorProbe(officialSpeed: Double, probe: MirrorProbe): Boolean {
+    private fun finishSourceProbe(primarySpeed: Double, probe: SourceProbe): Boolean {
         if (probe.preselected) {
             return true
         }
-        val mirrorSpeed = try {
+        val alternateSpeed = try {
             probe.future?.get() ?: 0.0
         } catch (_: Exception) {
             0.0
@@ -260,12 +304,20 @@ object DlcDownloadService {
             probe.executor?.shutdownNow()
         }
         synchronized(mirrorLock) {
-            if (mirrorSpeed <= 0.0) {
-                mirrorFailures++
-                if (mirrorFailures >= MIRROR_DISABLE_FAILURES) {
-                    mirrorDisabled = true
+            if (alternateSpeed <= 0.0) {
+                if (probe.alternateIsMirror) {
+                    mirrorFailures++
+                    if (mirrorFailures >= MIRROR_DISABLE_FAILURES) {
+                        mirrorDisabled = true
+                    }
                 }
-            } else if (mirrorSpeed > officialSpeed) {
+            } else if (alternateSpeed > primarySpeed) {
+                if (probe.alternateIsMirror) {
+                    mirrorWins++
+                } else {
+                    officialWins++
+                }
+            } else if (probe.primaryIsMirror) {
                 mirrorWins++
             } else {
                 officialWins++
@@ -275,22 +327,30 @@ object DlcDownloadService {
             } else if (officialWins >= 2) {
                 selectedMirror = false
             }
-            selectedMirror?.let { return it }
+            selectedMirror?.let { return it == probe.alternateIsMirror }
         }
-        return mirrorSpeed > 0.0 && mirrorSpeed > officialSpeed
+        return alternateSpeed > 0.0 && alternateSpeed > primarySpeed
     }
 
-    private fun recordOfficialFastIfStable(officialSpeed: Double, mirrorPlan: MirrorPlan) {
-        if (mirrorPlan.totalBytes <= 10L * BYTES_PER_MIB || mirrorPlan.bucketSpeed <= mirrorPlan.timeoutSpeed || officialSpeed < mirrorPlan.bucketSpeed) {
+    private fun recordPrimaryFastIfStable(primarySpeed: Double, switchPlan: SourceSwitchPlan) {
+        val mirrorPlan = switchPlan.mirrorPlan
+        if (mirrorPlan.totalBytes <= 10L * BYTES_PER_MIB || mirrorPlan.bucketSpeed <= mirrorPlan.timeoutSpeed || primarySpeed < mirrorPlan.bucketSpeed) {
             return
         }
         synchronized(mirrorLock) {
             if (selectedMirror != null || mirrorDisabled) {
                 return
             }
-            officialFastWins++
-            if (officialFastWins >= 2) {
-                selectedMirror = false
+            if (switchPlan.primaryIsMirror) {
+                mirrorFastWins++
+                if (mirrorFastWins >= 2) {
+                    selectedMirror = true
+                }
+            } else {
+                officialFastWins++
+                if (officialFastWins >= 2) {
+                    selectedMirror = false
+                }
             }
         }
     }
@@ -355,6 +415,14 @@ object DlcDownloadService {
         }
     }
 
+    private fun isMirrorUrl(url: String?): Boolean {
+        return try {
+            URI.create(url).host.equals(MIRROR_HOST, ignoreCase = true)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun mirrorDownloadUrl(url: String): String? {
         return try {
             val uri = URI.create(url)
@@ -369,9 +437,9 @@ object DlcDownloadService {
     }
 
     @Throws(IOException::class)
-    private fun downloadSingleMirrorAware(
+    private fun downloadSingleSwitchAware(
         url: String,
-        mirrorPlan: MirrorPlan,
+        switchPlan: SourceSwitchPlan,
         temp: Path,
         knownTotal: Long,
         listener: ProgressListener?,
@@ -383,14 +451,20 @@ object DlcDownloadService {
             if (info.responseCode >= 400) {
                 throw IOException("http ${info.responseCode}")
             }
-            downloadToFileMirrorAware(info.connection, temp, knownTotal, listener, cancelChecker, mirrorPlan)
-        } catch (ex: SwitchToMirrorException) {
+            downloadToFileSwitchAware(info.connection, temp, knownTotal, listener, cancelChecker, switchPlan)
+        } catch (ex: SwitchDownloadSourceException) {
             closeQuietly(info?.connection)
             Files.deleteIfExists(temp)
-            downloadSingleWithRetry(ex.mirrorUrl, temp, knownTotal, 0L, listener, cancelChecker)
+            downloadSingleWithRetry(ex.targetUrl, temp, knownTotal, 0L, listener, cancelChecker)
         } catch (ex: DownloadCanceledException) {
             throw ex
-        } catch (_: IOException) {
+        } catch (ex: IOException) {
+            if (shouldFallbackAfterTimeout(ex, switchPlan)) {
+                closeQuietly(info?.connection)
+                Files.deleteIfExists(temp)
+                downloadSingleWithRetry(switchPlan.alternateUrl, temp, knownTotal, 0L, listener, cancelChecker)
+                return
+            }
             val existing = if (Files.exists(temp)) Files.size(temp) else 0L
             downloadSingleWithRetry(url, temp, knownTotal, existing, listener, cancelChecker)
         } finally {
@@ -399,13 +473,13 @@ object DlcDownloadService {
     }
 
     @Throws(IOException::class)
-    private fun downloadToFileMirrorAware(
+    private fun downloadToFileSwitchAware(
         connection: HttpURLConnection?,
         target: Path,
         totalBytes: Long,
         listener: ProgressListener?,
         cancelChecker: CancelChecker?,
-        mirrorPlan: MirrorPlan,
+        switchPlan: SourceSwitchPlan,
     ) {
         if (connection == null) {
             throw IOException("missing connection")
@@ -421,7 +495,7 @@ object DlcDownloadService {
                     StandardOpenOption.WRITE,
                     StandardOpenOption.TRUNCATE_EXISTING,
                 ).use { output ->
-                    copyToFileWithMirrorCheck(input, output, total, read, listener, cancelChecker, mirrorPlan).also {
+                    copyToFileWithSourceSwitch(input, output, total, read, listener, cancelChecker, switchPlan).also {
                         read = it
                     }
                 }
@@ -434,15 +508,19 @@ object DlcDownloadService {
         }
     }
 
+    private fun shouldFallbackAfterTimeout(ex: IOException, switchPlan: SourceSwitchPlan): Boolean {
+        return switchPlan.mode == SourceSwitchMode.EARLY_TIMEOUT && ex is SocketTimeoutException
+    }
+
     @Throws(IOException::class)
-    private fun copyToFileWithMirrorCheck(
+    private fun copyToFileWithSourceSwitch(
         input: BufferedInputStream,
         output: OutputStream,
         total: Long,
         initialRead: Long,
         listener: ProgressListener?,
         cancelChecker: CancelChecker?,
-        mirrorPlan: MirrorPlan,
+        switchPlan: SourceSwitchPlan,
     ): Long {
         val buffer = ByteArray(8192)
         var read = initialRead
@@ -451,7 +529,7 @@ object DlcDownloadService {
         var windowBytes = 0L
         var maxSpeed = 0.0
         var checked = false
-        var mirrorProbe: MirrorProbe? = null
+        var sourceProbe: SourceProbe? = null
         val compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS)
         try {
             while (true) {
@@ -477,52 +555,61 @@ object DlcDownloadService {
                     if (windowBytes > 0) {
                         maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
                     }
-                    mirrorProbe = startMirrorProbe(maxSpeed, mirrorPlan, cancelChecker)
-                    if (mirrorProbe?.preselected == true) {
-                        throw SwitchToMirrorException(mirrorPlan.mirrorUrl)
+                    sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker)
+                    if (sourceProbe?.preselected == true) {
+                        throw SwitchDownloadSourceException(switchPlan.alternateUrl)
                     }
                 }
-                val probe = mirrorProbe
+                val probe = sourceProbe
                 if (probe != null && probe.future?.isDone == true) {
                     if (windowBytes > 0) {
                         maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
                     }
-                    if (finishMirrorProbe(maxSpeed, probe)) {
-                        throw SwitchToMirrorException(probe.mirrorUrl)
+                    if (finishSourceProbe(maxSpeed, probe)) {
+                        throw SwitchDownloadSourceException(probe.alternateUrl)
                     }
-                    mirrorProbe = null
+                    sourceProbe = null
                 }
             }
         } finally {
-            mirrorProbe?.executor?.shutdownNow()
+            sourceProbe?.executor?.shutdownNow()
         }
     }
 
     @Throws(IOException::class)
-    private fun downloadSegmentedMirrorAware(
+    private fun downloadSegmentedSwitchAware(
         url: String,
-        mirrorPlan: MirrorPlan,
+        switchPlan: SourceSwitchPlan,
         tempFile: Path,
         totalBytes: Long,
         listener: ProgressListener?,
         cancelChecker: CancelChecker?,
     ) {
-        val initial = downloadInitialRangeForMirrorCheck(url, mirrorPlan, tempFile, totalBytes, listener, cancelChecker)
+        val initial = try {
+            downloadInitialRangeForSourceSwitch(url, switchPlan, tempFile, totalBytes, listener, cancelChecker)
+        } catch (ex: IOException) {
+            if (shouldFallbackAfterTimeout(ex, switchPlan)) {
+                Files.deleteIfExists(tempFile)
+                downloadSegmented(switchPlan.alternateUrl, tempFile, totalBytes, listener, cancelChecker)
+                return
+            }
+            throw ex
+        }
         if (initial.completed) {
             return
         }
-        if (initial.switchToMirror) {
+        if (initial.switchSource) {
             Files.deleteIfExists(tempFile)
-            downloadSegmented(mirrorPlan.mirrorUrl, tempFile, totalBytes, listener, cancelChecker)
+            downloadSegmented(switchPlan.alternateUrl, tempFile, totalBytes, listener, cancelChecker)
             return
         }
         downloadSegmented(url, tempFile, totalBytes, listener, cancelChecker, initial.downloadedBytes)
     }
 
     @Throws(IOException::class)
-    private fun downloadInitialRangeForMirrorCheck(
+    private fun downloadInitialRangeForSourceSwitch(
         url: String,
-        mirrorPlan: MirrorPlan,
+        switchPlan: SourceSwitchPlan,
         tempFile: Path,
         totalBytes: Long,
         listener: ProgressListener?,
@@ -549,7 +636,7 @@ object DlcDownloadService {
             var windowStart = start
             var windowBytes = 0L
             var checked = false
-            var mirrorProbe: MirrorProbe? = null
+            var sourceProbe: SourceProbe? = null
             val compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS)
             val buffer = ByteArray(8192)
             try {
@@ -558,7 +645,7 @@ object DlcDownloadService {
                         raf.seek(0L)
                         while (true) {
                             val nowBeforeRead = System.nanoTime()
-                            if (checked && mirrorProbe == null && nowBeforeRead >= compareDeadline) {
+                            if (checked && sourceProbe == null && nowBeforeRead >= compareDeadline) {
                                 return InitialRangeResult(read, false, false)
                             }
                             if (cancelChecker?.isCanceled() == true) {
@@ -586,26 +673,26 @@ object DlcDownloadService {
                                 if (windowBytes > 0) {
                                     maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
                                 }
-                                mirrorProbe = startMirrorProbe(maxSpeed, mirrorPlan, cancelChecker)
-                                if (mirrorProbe?.preselected == true) {
+                                sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker)
+                                if (sourceProbe?.preselected == true) {
                                     return InitialRangeResult(read, false, true)
                                 }
-                                if (mirrorProbe == null) {
+                                if (sourceProbe == null) {
                                     return InitialRangeResult(read, false, false)
                                 }
                             }
-                            val probe = mirrorProbe
+                            val probe = sourceProbe
                             if (probe != null && probe.future?.isDone == true) {
                                 if (windowBytes > 0) {
                                     maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
                                 }
-                                return InitialRangeResult(read, false, finishMirrorProbe(maxSpeed, probe))
+                                return InitialRangeResult(read, false, finishSourceProbe(maxSpeed, probe))
                             }
                         }
                     }
                 }
             } finally {
-                mirrorProbe?.executor?.shutdownNow()
+                sourceProbe?.executor?.shutdownNow()
             }
         } finally {
             closeQuietly(connection)
@@ -995,16 +1082,61 @@ object DlcDownloadService {
         val timeoutSpeed: Double,
         val bucketSpeed: Double,
         val requiredSpeed: Double,
+        val canSpeedCompare: Boolean,
     )
 
-    private data class MirrorProbe(
-        val mirrorUrl: String,
+    private data class SourceSwitchPlan(
+        val alternateUrl: String,
+        val primaryIsMirror: Boolean,
+        val alternateIsMirror: Boolean,
+        val mode: SourceSwitchMode,
+        val mirrorPlan: MirrorPlan,
+    )
+
+    private enum class SourceSwitchMode {
+        SPEED_COMPARE,
+        EARLY_TIMEOUT,
+    }
+
+    private data class SourceProbe(
+        val alternateUrl: String,
+        val primaryIsMirror: Boolean,
+        val alternateIsMirror: Boolean,
         val future: Future<Double>?,
         val executor: ExecutorService?,
         val preselected: Boolean = false,
     ) {
         companion object {
-            fun selected(mirrorUrl: String): MirrorProbe = MirrorProbe(mirrorUrl, null, null, true)
+            fun selected(switchPlan: SourceSwitchPlan): SourceProbe = SourceProbe(
+                switchPlan.alternateUrl,
+                switchPlan.primaryIsMirror,
+                switchPlan.alternateIsMirror,
+                null,
+                null,
+                true,
+            )
+        }
+    }
+
+    private enum class DownloadMirrorMode {
+        SMART_OFFICIAL,
+        SMART_MIRROR,
+        OFFICIAL_ONLY,
+        MIRROR_ONLY,
+        OFFICIAL_FIRST,
+        MIRROR_FIRST;
+
+        companion object {
+            fun fromConfig(value: String?): DownloadMirrorMode {
+                return when (DlcPathConfig.normalizeDownloadMirrorMode(value)) {
+                    DlcPathConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR
+                    DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY
+                    DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY
+                    DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST
+                    DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST
+                    else -> SMART_OFFICIAL
+                }
+            }
         }
     }
 
@@ -1017,7 +1149,7 @@ object DlcDownloadService {
     private data class InitialRangeResult(
         val downloadedBytes: Long,
         val completed: Boolean,
-        val switchToMirror: Boolean,
+        val switchSource: Boolean,
     )
 
     private data class DownloadInfo(
@@ -1048,5 +1180,5 @@ object DlcDownloadService {
 
     class SegmentDownloadException(message: String?, cause: Throwable?) : IOException(message, cause)
 
-    private class SwitchToMirrorException(val mirrorUrl: String) : IOException("switch to mirror")
+    private class SwitchDownloadSourceException(val targetUrl: String) : IOException("switch download source")
 }
