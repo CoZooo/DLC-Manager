@@ -1425,6 +1425,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             case RESOURCE_PACK -> "resource";
             case DATA_PACK -> "data";
             case TACZ_PACK -> "tacz";
+            case DLC_PACK -> "dlcpack";
             case UNKNOWN -> "other";
         };
     }

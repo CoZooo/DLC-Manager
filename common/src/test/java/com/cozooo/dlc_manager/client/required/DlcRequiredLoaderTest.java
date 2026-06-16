@@ -93,6 +93,34 @@ class DlcRequiredLoaderTest {
     }
 
     @Test
+    void loadReadsRelationTableDependenciesAndBranches() throws Exception {
+        Path required = tempDir.resolve("required");
+        Files.createDirectories(required);
+        Files.writeString(required.resolve("main.dc"), """
+            identifier = "main"
+
+            [dependencies]
+            "mods/path.jar"
+            "identifier_dep"
+
+            [dependencies.remote_dep]
+              [basic]
+              identifier = "remote_dep"
+              file_name = "remote.jar"
+            """);
+
+        List<DlcRequiredEntry> entries = DlcRequiredLoader.load(tempDir);
+
+        assertEquals(1, entries.size());
+        assertEquals(
+            List.of("mods/path.jar", "identifier_dep", "remote_dep"),
+            entries.get(0).getDependencies().stream().map(DlcRequiredDependency::getIdentifier).toList()
+        );
+        assertNotNull(entries.get(0).getDependencies().get(2).getEntry());
+        assertEquals("remote.jar", entries.get(0).getDependencies().get(2).getEntry().getRequiredFileName());
+    }
+
+    @Test
     void loadSingleResolvesMissingExtensionToDcFile() throws Exception {
         Path required = tempDir.resolve("required");
         Files.createDirectories(required);

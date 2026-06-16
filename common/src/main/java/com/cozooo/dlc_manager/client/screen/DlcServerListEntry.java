@@ -273,6 +273,9 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
         }
         String type = item.type.toLowerCase();
         for (DlcType dlcType : DlcType.values()) {
+            if (dlcType == DlcType.DLC_PACK) {
+                continue;
+            }
             if (typeId(dlcType).equalsIgnoreCase(type)) {
                 return dlcType;
             }
@@ -286,6 +289,7 @@ public class DlcServerListEntry extends WidgetListEntryBase<DlcServerListRow> {
             case RESOURCE_PACK -> "resource";
             case DATA_PACK -> "data";
             case TACZ_PACK -> "tacz";
+            case DLC_PACK -> "dlcpack";
             case UNKNOWN -> "other";
         };
     }

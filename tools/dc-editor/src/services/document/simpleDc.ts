@@ -163,6 +163,10 @@ function isPresetRootListField(sectionKey: string, key: string): boolean {
     && (key === "enable" || key === "conflicts");
 }
 
+function isRelationSection(sectionKey: string): boolean {
+  return sectionKey === "dependencies" || sectionKey === "conflicts";
+}
+
 function parseUpdateDLCMValue(valueText: string): StructuredValue {
   const normalized = valueText.trim();
   if (normalized === "true") {
@@ -237,6 +241,16 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
     }
 
     const eq = trimmed.indexOf("=");
+    if (eq < 0 && isRelationSection(currentSection)) {
+      const value = parseQuoted(trimmed).trim();
+      if (value) {
+        const section = model[currentSection] || {};
+        const existing = section.entries;
+        section.entries = Array.isArray(existing) ? [...existing, value] : [value];
+        model[currentSection] = section;
+      }
+      continue;
+    }
     if (eq < 0) {
       issues.push({
         severity: "warning",
@@ -303,6 +317,7 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
   if (schema.type === "info") {
     normalizeInfoMultiFileModel(model);
   }
+  normalizeRelationModel(model, schema.type);
   if (schema.type === "preset") {
     normalizePresetModel(model);
   }
@@ -355,6 +370,14 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
         const merged = primary ? [primary, ...extras] : [...extras];
         if (merged.length > 0) {
           out.push(`fileNames = ${serializeValue(merged)}`);
+        }
+        continue;
+      }
+      if (isRelationSection(section.key) && field.key === "entries") {
+        if (Array.isArray(values.entries)) {
+          for (const entry of values.entries.map((item) => item.trim()).filter(Boolean)) {
+            out.push(formatString(entry));
+          }
         }
         continue;
       }
@@ -511,18 +534,61 @@ function normalizeInfoMultiFileModel(model: StructuredModel) {
   };
 }
 
+function normalizeRelationModel(model: StructuredModel, type: DocumentSchema["type"]) {
+  if (type !== "info" && type !== "remote" && type !== "required" && type !== "preset") {
+    return;
+  }
+  const basic = model.basic || {};
+  const root = model[ROOT_SECTION_KEY] || {};
+  if (type === "preset") {
+    moveLegacyRelationField(model, root, "enable", "dependencies");
+    moveLegacyRelationField(model, root, "conflicts", "conflicts");
+    moveLegacyRelationField(model, basic, "enable", "dependencies");
+    moveLegacyRelationField(model, basic, "conflicts", "conflicts");
+  } else {
+    moveLegacyRelationField(model, basic, "dependencies", "dependencies");
+    if (type !== "required") {
+      moveLegacyRelationField(model, basic, "conflicts", "conflicts");
+    }
+  }
+}
+
+function moveLegacyRelationField(
+  model: StructuredModel,
+  source: Record<string, StructuredValue>,
+  sourceKey: "enable" | "dependencies" | "conflicts",
+  targetKey: "dependencies" | "conflicts"
+) {
+  const value = source[sourceKey];
+  if (value === undefined) {
+    return;
+  }
+  const section = model[targetKey] || {};
+  const current = Array.isArray(section.entries) ? section.entries : [];
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(/[\n,]/).map((item) => item.trim()).filter(Boolean)
+      : [];
+  section.entries = [...current, ...values];
+  model[targetKey] = section;
+  delete source[sourceKey];
+}
+
 function normalizePresetModel(model: StructuredModel) {
   const root = model[ROOT_SECTION_KEY] || {};
   const basic = model.basic || {};
-  const nextRoot = {
-    ...root
+  const nextBasic = {
+    ...basic
   };
-  for (const key of ["enable", "conflicts", "alarm"] as const) {
-    if (nextRoot[key] === undefined && basic[key] !== undefined) {
-      nextRoot[key] = basic[key];
+  for (const key of ["identifier", "alarm"] as const) {
+    if (nextBasic[key] === undefined && root[key] !== undefined) {
+      nextBasic[key] = root[key];
+      delete root[key];
     }
   }
-  model[ROOT_SECTION_KEY] = nextRoot;
+  model.basic = nextBasic;
+  model[ROOT_SECTION_KEY] = root;
 }
 
 function shouldUseExpandedListFormat(value: StructuredValue, context?: SerializeFieldContext): value is string[] {
@@ -1059,6 +1125,9 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
     const download = model.download || {};
     requireNonEmptyString(issues, basic.file_name, "[basic].file_name 为空。", "warning");
     const typeValue = readString(basic.type);
+    if (typeValue !== "dlcpack") {
+      requireNonEmptyString(issues, basic.identifier, "[basic].identifier 为空。", "warning");
+    }
     if (typeValue === "others" && !readString(basic.appliedTarget)) {
       issues.push({
         severity: "warning",

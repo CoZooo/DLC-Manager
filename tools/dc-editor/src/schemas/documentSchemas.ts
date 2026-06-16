@@ -5,6 +5,7 @@ const typeOptions = [
   { value: "resourcepack", label: "resourcepack" },
   { value: "datapack", label: "datapack" },
   { value: "gunpack", label: "gunpack" },
+  { value: "dlcpack", label: "dlcpack" },
   { value: "config", label: "config" },
   { value: "others", label: "others" }
 ];
@@ -95,18 +96,6 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       help: "是否遵循“全部开启”而开启。"
     },
     {
-      key: "dependencies",
-      label: "dependencies",
-      kind: "list",
-      help: "前置 identifier 列表。"
-    },
-    {
-      key: "conflicts",
-      label: "conflicts",
-      kind: "list",
-      help: "冲突 identifier 列表。"
-    },
-    {
       key: "alarm",
       label: "alarm",
       kind: "boolean",
@@ -156,11 +145,31 @@ const requiredBasicSection: SectionSchema = {
       help: "是否隐藏该项。",
       toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
     },
+  ]
+};
+
+const dependenciesSection: SectionSchema = {
+  key: "dependencies",
+  label: "[dependencies]",
+  fields: [
     {
-      key: "dependencies",
+      key: "entries",
       label: "dependencies",
       kind: "list",
-      help: "前置 identifier 列表。"
+      help: "前置 identifier 或相对路径列表。"
+    }
+  ]
+};
+
+const conflictsSection: SectionSchema = {
+  key: "conflicts",
+  label: "[conflicts]",
+  fields: [
+    {
+      key: "entries",
+      label: "conflicts",
+      kind: "list",
+      help: "冲突 identifier 或相对路径列表。"
     }
   ]
 };
@@ -212,7 +221,13 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
     summary: "DLC 文件的信息\n文件存放于 <DLC>/info 下",
     defaultFileName: "info.dc",
     supportsStructured: true,
-    sections: [basicFields({ includeAppliedTarget: true, appliedTargetOnlyFor: ["others", "config"] }), displayNameSection, tipSection]
+    sections: [
+      basicFields({ includeAppliedTarget: true, appliedTargetOnlyFor: ["others", "config"] }),
+      dependenciesSection,
+      conflictsSection,
+      displayNameSection,
+      tipSection
+    ]
   },
   remote: {
     type: "remote",
@@ -265,6 +280,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       basicFields({ includeAppliedTarget: true, appliedTargetOnlyFor: ["others"] }),
+      dependenciesSection,
+      conflictsSection,
       displayNameSection,
       tipSection
     ]
@@ -320,6 +337,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       requiredBasicSection,
+      dependenciesSection,
       displayNameSection,
       tipSection
     ]
@@ -340,20 +358,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
     supportsStructured: true,
     sections: [
       {
-        key: ROOT_SECTION_KEY,
-        label: "根级字段",
+        key: "basic",
+        label: "[basic]",
         fields: [
           {
-            key: "enable",
-            label: "enable",
-            kind: "list",
-            help: "预设启用的 DLC 或预设 identifier 列表。"
-          },
-          {
-            key: "conflicts",
-            label: "conflicts",
-            kind: "list",
-            help: "与该预设冲突的 DLC identifier 或预设列表。"
+            key: "identifier",
+            label: "identifier",
+            kind: "text",
+            help: "预设 identifier。"
           },
           {
             key: "alarm",
@@ -363,6 +375,8 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
           }
         ]
       },
+      dependenciesSection,
+      conflictsSection,
       displayNameSection,
       tipSection
     ]

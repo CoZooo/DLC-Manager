@@ -1565,7 +1565,7 @@ public final class DlcServerDownloadService {
         if (entry != null) {
             return switch (entry.getType()) {
                 case MOD -> "download.jar";
-                case RESOURCE_PACK, DATA_PACK, TACZ_PACK, UNKNOWN -> "download.zip";
+                case RESOURCE_PACK, DATA_PACK, TACZ_PACK, DLC_PACK, UNKNOWN -> "download.zip";
             };
         }
         return "download.zip";

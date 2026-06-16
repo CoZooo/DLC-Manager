@@ -52,10 +52,15 @@ class DlcPackMetadataTest {
             unknown = "ignored"
 
             [dependencies]
-            paths = ["mods/a.jar"]
+            "mods/a.jar"
+            "identifier_dep"
+
+            [dependencies.mod1]
+              [basic]
+              identifier = "mod1"
 
             [conflicts]
-            paths = ["mods/b.jar"]
+            "mods/b.jar"
             """);
 
         DlcPackMetadata.Result result = DlcPackMetadata.read(DcConfigIO.read(pack, DcConfigIO.Layout.GENERIC));
@@ -72,7 +77,7 @@ class DlcPackMetadataTest {
         assertEquals("English Description", result.metadata.resolveDescription("zh_cn"));
         assertEquals("https://example.com", result.metadata.links.get("homepage"));
         assertFalse(result.metadata.links.containsKey("unknown"));
-        assertEquals(List.of("mods/a.jar"), result.metadata.dependencies);
+        assertEquals(List.of("mods/a.jar", "identifier_dep", "mod1"), result.metadata.dependencies);
         assertEquals(List.of("mods/b.jar"), result.metadata.conflicts);
     }
 

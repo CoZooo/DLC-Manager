@@ -4,6 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,5 +81,58 @@ class DcFormatUtilTest {
         assertNotNull(object);
         assertEquals("Visible", object.get("title").getAsString());
         assertEquals("\nline1\nline2", object.get("body").getAsString());
+    }
+
+    @Test
+    void structuredRelationsMoveOutOfBasicAndSupportBranches() throws Exception {
+        String source = """
+            [download]
+            directUrl = "https://example.com/mod.jar"
+
+            [basic]
+            identifier = "MainMod"
+            file_name = "main.jar"
+            dependencies = ["legacy_dep"]
+            conflicts = "legacy_conflict"
+
+            [dependencies]
+            "identifier_dep"
+            "mods/path-dep.jar"
+
+            [dependencies.mod1]
+              [download]
+              directUrl = "https://example.com/mod1.jar"
+
+              [basic]
+              identifier = "mod1"
+              file_name = "mod1.jar"
+
+            [conflicts]
+            "identifier_conflict"
+            "mods/path-conflict.jar"
+            """;
+        Path path = Files.createTempFile("dc-format-util-test", ".dc");
+        Files.writeString(path, source);
+
+        JsonObject structured = DcFormatUtil.read(path);
+
+        assertNotNull(structured);
+        JsonObject dependencies = structured.getAsJsonObject("dependencies");
+        assertNotNull(dependencies);
+        assertEquals("legacy_dep", dependencies.get("legacy_dep").getAsString());
+        assertEquals("identifier_dep", dependencies.get("identifier_dep").getAsString());
+        assertEquals("mods/path-dep.jar", dependencies.get("mods/path-dep.jar").getAsString());
+        assertEquals("mod1", dependencies.getAsJsonObject("mod1").get("identifier").getAsString());
+        JsonObject conflicts = structured.getAsJsonObject("conflicts");
+        assertEquals("legacy_conflict", conflicts.get("legacy_conflict").getAsString());
+        assertEquals("identifier_conflict", conflicts.get("identifier_conflict").getAsString());
+
+        String written = DcFormatUtil.write(structured);
+        assertFalse(written.contains("dependencies ="));
+        assertFalse(written.contains("conflicts ="));
+        assertTrue(written.contains("[dependencies]"));
+        assertTrue(written.contains("\"identifier_dep\""));
+        assertTrue(written.contains("[dependencies.mod1]"));
+        assertTrue(written.contains("[conflicts]"));
     }
 }

@@ -644,9 +644,6 @@ public final class DlcPresetRuntimeState {
             if (entry.getId().equalsIgnoreCase(value)) {
                 return entry.getId();
             }
-            if (entry.getFileName() != null && !entry.getFileName().isBlank() && entry.getFileName().equalsIgnoreCase(value)) {
-                return entry.getId();
-            }
         }
         return null;
     }

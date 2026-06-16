@@ -754,12 +754,14 @@ object DlcServerApi {
                 }
             }
             "remote" -> {
-                requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.")
+                val itemType = getString(getSection(root, "basic"), "type")
+                if (!"dlcpack".equals(blank(itemType), ignoreCase = true)) {
+                    requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.")
+                }
                 requireString(issues, getSection(root, "basic"), "file_name", "[basic].file_name is required.")
                 if (!hasAnyDownloadSource(getSection(root, "download"))) {
                     issues.add(issue("error", "schema", "download", "At least one download source is required."))
                 }
-                val itemType = getString(getSection(root, "basic"), "type")
                 if ("others".equals(blank(itemType), ignoreCase = true)) {
                     requireString(issues, root, "appliedTarget", "appliedTarget is required for remote type others.")
                 }

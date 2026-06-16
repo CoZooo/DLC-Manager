@@ -2,6 +2,8 @@ package com.cozooo.dlc_manager.client.remote;
 
 import org.junit.jupiter.api.Test;
 
+import com.cozooo.dlc_manager.core.DlcType;
+
 import java.nio.file.Path;
 import java.util.List;
 
@@ -38,6 +40,15 @@ class DlcRemoteEntryTest {
         assertEquals(Path.of("mods", "bad_name.jar"), entry.getTargetPath());
         assertEquals(Path.of("mods", "a_b.jar"), entry.resolveTargetPath("a:b.jar?x=1"));
         assertNull(entry.resolveTargetPath(" "));
+    }
+
+    @Test
+    void dlcPackTargetsPackDirectoryUnderDlcRoot() {
+        DlcRemoteEntry entry = new DlcRemoteEntry(null, Path.of("DLC"), Path.of("mods"), "pack:one.zip?download=1");
+        entry.setType(DlcType.DLC_PACK);
+
+        assertEquals(Path.of("DLC", "pack", "pack_one.zip"), entry.getTargetPath());
+        assertEquals(Path.of("DLC", "pack", "pack_two.zip"), entry.resolveTargetPath("pack:two.zip"));
     }
 
     @Test

@@ -7,10 +7,14 @@ For `dc` format conventions, please read:
 
 ## Location
 - Directory: `DLC/preset/`
-- File name does not affect display; DisplayName can override it.
+- Preset identifier is `[basic].identifier`. DisplayName only affects display text.
 
 ## Complete Example
 ```dc
+[basic]
+identifier = "performance"
+alarm = false
+
 [DisplayName]
 zh_cn = "优化预设"
 en_us = "Performance Preset"
@@ -19,19 +23,27 @@ en_us = "Performance Preset"
 zh_cn = "适合低配机器"
 en_us = "Recommended for low-end PCs"
 
-enable = [
-  "Mod1",
-  "Mod2"
-]
-conflicts = [
-  "Mod3"
-]
-alarm = false
+[dependencies]
+"Mod1"
+"Mod2"
+
+[conflicts]
+"Mod3"
 ```
 
 ---
 
 ## Field Reference
+
+#### `[basic].identifier`
+- **Purpose**: Preset identifier used by dependencies/conflicts and runtime state.
+- **Allowed**: Non-empty string.
+- **Compatibility**: Missing identifier is migrated from the file name on load.
+
+#### `[basic].alarm`
+- **Purpose**: Whether enabling this preset shows alarm confirmation first.
+- **Allowed**: Boolean.
+- **Compatibility**: Legacy root `alarm` is still read and migrated into `[basic]`.
 
 #### `[DisplayName]`
 - **Purpose**: Preset display name.
@@ -42,17 +54,15 @@ alarm = false
 - **Purpose**: Preset tooltip text.
 - **Allowed**: Object `{ zh_cn: "...", en_us: "..." }`.
 
-#### `enable`
-- **Purpose**: DLC list to enable (`identifier`).
-- **Allowed**: Array of identifiers.
+#### `[dependencies]`
+- **Purpose**: DLC or preset identifiers enabled by this preset.
+- **Allowed**: Bare quoted strings in the table.
+- **Compatibility**: Legacy root `enable = [...]` is still read and migrated to this table.
 
-#### `conflicts`
-- **Purpose**: DLC list that conflicts with this preset (`identifier`).
-- **Allowed**: Array of identifiers.
-
-#### `alarm`
-- **Purpose**: Whether enabling this preset shows alarm confirmation first.
-- **Allowed**: Boolean.
+#### `[conflicts]`
+- **Purpose**: DLC or preset identifiers that conflict with this preset.
+- **Allowed**: Bare quoted strings in the table.
+- **Compatibility**: Legacy root `conflicts = [...]` is still read and migrated to this table.
 
 ---
 
@@ -61,6 +71,6 @@ alarm = false
 - Status values: `On` / `Part` / `Off`.
 
 ## Behavior
-- When enabled, the preset attempts to enable all DLCs in `enable`.
-- DLCs listed in `conflicts` are auto-disabled and show conflict warnings.
+- When enabled, the preset attempts to enable all DLCs or presets in `[dependencies]`.
+- DLCs or presets listed in `[conflicts]` are auto-disabled and show conflict warnings.
 - Conflict handling supports cascade disable for dependents.

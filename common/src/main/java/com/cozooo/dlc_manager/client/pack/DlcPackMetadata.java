@@ -290,7 +290,22 @@ public class DlcPackMetadata {
         }
         List<String> out = new ArrayList<>();
         for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
-            out.addAll(readStringList(entry.getValue()));
+            List<String> values = readStringList(entry.getValue());
+            if (!values.isEmpty()) {
+                out.addAll(values);
+                continue;
+            }
+            JsonElement value = entry.getValue();
+            if (value != null && value.isJsonObject()) {
+                String identifier = trim(DcConfigIO.getStringIgnoreCase(value.getAsJsonObject(), "identifier"));
+                if (identifier != null && !identifier.isEmpty()) {
+                    out.add(identifier);
+                } else if (entry.getKey() != null && !entry.getKey().isBlank()) {
+                    out.add(entry.getKey().trim());
+                }
+            } else if (entry.getKey() != null && !entry.getKey().isBlank()) {
+                out.add(entry.getKey().trim());
+            }
         }
         return out;
     }

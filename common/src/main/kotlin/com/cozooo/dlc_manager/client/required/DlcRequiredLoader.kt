@@ -524,6 +524,13 @@ object DlcRequiredLoader {
                         }
                         continue
                     }
+                    if (!key.isNullOrBlank()) {
+                        val childOrdered = JsonObject()
+                        childOrdered.addProperty("identifier", key)
+                        ordered.add(key, childOrdered)
+                        result.names.add(key)
+                        continue
+                    }
                 }
                 val childResult = normalizeDependencies(value, requiredDir)
                 ordered.add(key, childResult.element ?: JsonPrimitive(""))

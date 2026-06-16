@@ -1283,6 +1283,7 @@ class DlcServerMaLiLibScreen(
             DlcType.RESOURCE_PACK -> "resource"
             DlcType.DATA_PACK -> "data"
             DlcType.TACZ_PACK -> "tacz"
+            DlcType.DLC_PACK -> "dlcpack"
             DlcType.UNKNOWN -> "other"
         }
     }
@@ -1431,11 +1432,15 @@ class DlcServerMaLiLibScreen(
             if (lower.contains("tacz")) return DlcType.TACZ_PACK
             if (lower == "mods" || lower == "mod") return DlcType.MOD
             for (dlcType in DlcType.values()) {
+                if (dlcType == DlcType.DLC_PACK) {
+                    continue
+                }
                 val id = when (dlcType) {
                     DlcType.MOD -> "mod"
                     DlcType.RESOURCE_PACK -> "resource"
                     DlcType.DATA_PACK -> "data"
                     DlcType.TACZ_PACK -> "tacz"
+                    DlcType.DLC_PACK -> "dlcpack"
                     DlcType.UNKNOWN -> "other"
                 }
                 if (id.equals(type, ignoreCase = true) || dlcType.name.equals(type, ignoreCase = true)) {

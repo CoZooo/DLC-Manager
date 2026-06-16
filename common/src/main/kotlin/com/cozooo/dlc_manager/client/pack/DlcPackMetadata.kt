@@ -223,8 +223,22 @@ class DlcPackMetadata(
                 return readStringList(element)
             }
             val out = ArrayList<String>()
-            for ((_, value) in element.asJsonObject.entrySet()) {
-                out.addAll(readStringList(value))
+            for ((key, value) in element.asJsonObject.entrySet()) {
+                val values = readStringList(value)
+                if (values.isNotEmpty()) {
+                    out.addAll(values)
+                    continue
+                }
+                if (value != null && value.isJsonObject) {
+                    val identifier = DcConfigIO.getStringIgnoreCase(value.asJsonObject, "identifier")?.trim()
+                    if (!identifier.isNullOrEmpty()) {
+                        out.add(identifier)
+                    } else if (!key.isNullOrBlank()) {
+                        out.add(key.trim())
+                    }
+                } else if (!key.isNullOrBlank()) {
+                    out.add(key.trim())
+                }
             }
             return out
         }

@@ -233,25 +233,34 @@ class DlcRemoteEntry(
     }
 
     fun getTargetPath(): Path? {
-        if (fileNameHint.isNullOrBlank() || baseDir == null) {
+        if (fileNameHint.isNullOrBlank()) {
             return null
         }
         val safeName = sanitizeFileName(fileNameHint)
         if (safeName.isNullOrBlank()) {
             return null
         }
-        return baseDir.resolve(safeName).normalize()
+        val targetDir = targetBaseDir() ?: return null
+        return targetDir.resolve(safeName).normalize()
     }
 
     fun resolveTargetPath(fileName: String?): Path? {
-        if (baseDir == null || fileName.isNullOrBlank()) {
+        if (fileName.isNullOrBlank()) {
             return null
         }
         val safeName = sanitizeFileName(fileName)
         if (safeName.isNullOrBlank()) {
             return null
         }
-        return baseDir.resolve(safeName).normalize()
+        val targetDir = targetBaseDir() ?: return null
+        return targetDir.resolve(safeName).normalize()
+    }
+
+    private fun targetBaseDir(): Path? {
+        if (type == DlcType.DLC_PACK) {
+            return dlcRoot?.resolve("pack")
+        }
+        return baseDir
     }
 
     fun getUniqueKey(): String {

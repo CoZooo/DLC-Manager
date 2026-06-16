@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.core
 
+import java.nio.file.Files
 import java.util.ArrayDeque
 import java.util.Collections
 import java.util.HashMap
@@ -164,7 +165,9 @@ object DlcRuntimeState {
                 if (depName.isNullOrBlank()) {
                     continue
                 }
-                dependentsByIdentifier.computeIfAbsent(depName) { ArrayList() }.add(item)
+                if (itemsByIdentifier.containsKey(depName)) {
+                    dependentsByIdentifier.computeIfAbsent(depName) { ArrayList() }.add(item)
+                }
             }
         }
     }
@@ -311,7 +314,8 @@ object DlcRuntimeState {
                     continue
                 }
                 val depItem = getItemByIdentifier(depName)
-                val satisfied = depItem != null && (depItem.isEnabled() || targetIdentifiers.contains(depItem.getIdentifier()))
+                val satisfied = depItem != null && (depItem.isEnabled() || targetIdentifiers.contains(depItem.getIdentifier())) ||
+                    depItem == null && isRelationPathPresent(depName)
                 if (!satisfied) {
                     val key = "$identifier|$depName"
                     if (seenLines.add(key)) {
@@ -379,10 +383,14 @@ object DlcRuntimeState {
                 if (conflictName.isNullOrBlank()) {
                     continue
                 }
-                val conflictItem = getItemByIdentifier(conflictName) ?: continue
-                val conflictEnabled = conflictItem.isEnabled() || targetIdentifiers.contains(conflictItem.getIdentifier())
-                if (conflictEnabled) {
-                    addConflictLine(lines, seen, identifier, conflictItem.getIdentifier())
+                val conflictItem = getItemByIdentifier(conflictName)
+                if (conflictItem != null) {
+                    val conflictEnabled = conflictItem.isEnabled() || targetIdentifiers.contains(conflictItem.getIdentifier())
+                    if (conflictEnabled) {
+                        addConflictLine(lines, seen, identifier, conflictItem.getIdentifier())
+                    }
+                } else if (isRelationPathPresent(conflictName)) {
+                    addConflictLine(lines, seen, identifier, conflictName)
                 }
             }
         }
@@ -409,6 +417,11 @@ object DlcRuntimeState {
             }
         }
         return ConflictBatchResult(lines)
+    }
+
+    private fun isRelationPathPresent(value: String?): Boolean {
+        val path = DlcPaths.resolveAgainstGameDir(value) ?: return false
+        return Files.exists(path)
     }
 
     private fun addConflictLine(lines: MutableList<ConflictLine>, seen: MutableSet<String>, left: String?, right: String?) {
@@ -458,6 +471,9 @@ object DlcRuntimeState {
                 }
                 val depItem = getItemByIdentifier(depName)
                 if (depItem == null) {
+                    if (isRelationPathPresent(depName)) {
+                        continue
+                    }
                     missing.add(depName)
                 } else {
                     queue.add(depItem)

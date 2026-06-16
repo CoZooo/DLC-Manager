@@ -345,25 +345,40 @@ public class DlcRemoteEntry {
     }
 
     public Path getTargetPath() {
-        if (fileNameHint == null || fileNameHint.isBlank() || baseDir == null) {
+        if (fileNameHint == null || fileNameHint.isBlank()) {
             return null;
         }
         String safeName = sanitizeFileName(fileNameHint);
         if (safeName == null || safeName.isBlank()) {
             return null;
         }
-        return baseDir.resolve(safeName).normalize();
+        Path targetDir = targetBaseDir();
+        if (targetDir == null) {
+            return null;
+        }
+        return targetDir.resolve(safeName).normalize();
     }
 
     public Path resolveTargetPath(String fileName) {
-        if (baseDir == null || fileName == null || fileName.isBlank()) {
+        if (fileName == null || fileName.isBlank()) {
             return null;
         }
         String safeName = sanitizeFileName(fileName);
         if (safeName == null || safeName.isBlank()) {
             return null;
         }
-        return baseDir.resolve(safeName).normalize();
+        Path targetDir = targetBaseDir();
+        if (targetDir == null) {
+            return null;
+        }
+        return targetDir.resolve(safeName).normalize();
+    }
+
+    private Path targetBaseDir() {
+        if (type == DlcType.DLC_PACK) {
+            return dlcRoot == null ? null : dlcRoot.resolve("pack");
+        }
+        return baseDir;
     }
 
     public String getUniqueKey() {

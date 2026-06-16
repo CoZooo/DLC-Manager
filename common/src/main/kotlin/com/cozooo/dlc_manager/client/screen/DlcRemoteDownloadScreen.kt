@@ -839,7 +839,7 @@ class DlcRemoteDownloadScreen(
         }
         return when (entry.getType()) {
             DlcType.MOD -> ".jar"
-            DlcType.RESOURCE_PACK, DlcType.DATA_PACK, DlcType.TACZ_PACK, DlcType.UNKNOWN -> ".zip"
+            DlcType.RESOURCE_PACK, DlcType.DATA_PACK, DlcType.TACZ_PACK, DlcType.DLC_PACK, DlcType.UNKNOWN -> ".zip"
             null -> null
         }
     }

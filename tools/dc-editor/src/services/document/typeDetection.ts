@@ -8,12 +8,6 @@ function pathBaseName(path?: string): string {
   return slash >= 0 ? path.substring(slash + 1) : path;
 }
 
-function hasAssignment(body: string, key: string): boolean {
-  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`(^|\\n)\\s*${escaped}\\s*=`, "m");
-  return pattern.test(body);
-}
-
 function hasRootAssignment(body: string, key: string): boolean {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`^\\s*${escaped}\\s*=`);
@@ -30,6 +24,36 @@ function hasRootAssignment(body: string, key: string): boolean {
     }
   }
   return false;
+}
+
+function basicOnlyHasPresetKeys(text?: string): boolean {
+  const keys = new Set<string>();
+  let inBasic = false;
+  for (const rawLine of (text || "").split(/\r?\n/)) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (trimmed.startsWith("#") || trimmed.startsWith("//")) {
+      continue;
+    }
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      inBasic = trimmed.slice(1, -1).trim().toLowerCase() === "basic";
+      continue;
+    }
+    if (!inBasic) {
+      continue;
+    }
+    const eq = trimmed.indexOf("=");
+    if (eq < 0) {
+      continue;
+    }
+    const key = trimmed.slice(0, eq).trim().toLowerCase();
+    if (key) {
+      keys.add(key);
+    }
+  }
+  return keys.has("identifier") && [...keys].every((key) => key === "identifier" || key === "alarm");
 }
 
 export function detectDocumentType(path?: string, text?: string): DocumentType {
@@ -100,7 +124,7 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   if (body.includes("[file]") || body.includes("[update]")) {
     return "update";
   }
-  if (hasAssignment(body, "enable") && body.includes("[displayname]") && body.includes("[tip]")) {
+  if (basicOnlyHasPresetKeys(text)) {
     return "preset";
   }
   if (hasRootAssignment(body, "redirecturl") && (hasRootAssignment(body, "available") || body.includes("[notice]"))) {

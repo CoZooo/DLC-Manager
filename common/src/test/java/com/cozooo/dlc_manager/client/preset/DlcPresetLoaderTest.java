@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DlcPresetLoaderTest {
@@ -21,15 +22,16 @@ class DlcPresetLoaderTest {
         Files.createDirectories(first.getParent());
         Files.createDirectories(nested.getParent());
         Files.writeString(first, """
-            enable = [
-              "mods/a.jar",
-              " config/a.toml "
-            ]
-            conflicts = [
-              "mods/b.jar",
-              ""
-            ]
+            [basic]
+            identifier = "performance"
             alarm = true
+
+            [dependencies]
+            "mods/a.jar"
+            " config/a.toml "
+
+            [conflicts]
+            "mods/b.jar"
 
             [DisplayName]
             zh_cn = "中文"
@@ -38,21 +40,78 @@ class DlcPresetLoaderTest {
             en_us = "Tip"
             """);
         Files.writeString(nested, """
-            enable = ["mods/nested.jar"]
+            [basic]
+            identifier = "nested"
+
+            [dependencies]
+            "mods/nested.jar"
             """);
 
         List<DlcPresetEntry> entries = DlcPresetLoader.loadAll(List.of(tempDir));
 
         assertEquals(2, entries.size());
-        assertEquals("group/alpha", entries.get(0).getId());
+        assertEquals("nested", entries.get(0).getId());
         assertEquals("alpha", entries.get(0).getFileName());
         assertEquals(List.of("mods/nested.jar"), entries.get(0).getEnable());
-        assertEquals("zeta", entries.get(1).getId());
+        assertEquals("performance", entries.get(1).getId());
         assertEquals(List.of("mods/a.jar", "config/a.toml"), entries.get(1).getEnable());
         assertEquals(List.of("mods/b.jar"), entries.get(1).getConflicts());
         assertTrue(entries.get(1).isAlarm());
         assertEquals("中文", entries.get(1).resolveDisplayName("zh_cn"));
         assertEquals("Tip", entries.get(1).resolveTip("zh_cn"));
+    }
+
+    @Test
+    void loadAllMigratesLegacyEnableAndConflictsToRelationTables() throws Exception {
+        Path preset = tempDir.resolve("preset").resolve("legacy.dc");
+        Files.createDirectories(preset.getParent());
+        Files.writeString(preset, """
+            enable = [
+              "mod-a",
+              "mod-b"
+            ]
+            conflicts = [
+              "conflict-a"
+            ]
+            """);
+
+        List<DlcPresetEntry> entries = DlcPresetLoader.loadAll(List.of(tempDir));
+        String migrated = Files.readString(preset);
+
+        assertEquals(1, entries.size());
+        assertEquals("legacy", entries.get(0).getId());
+        assertEquals(List.of("mod-a", "mod-b"), entries.get(0).getEnable());
+        assertEquals(List.of("conflict-a"), entries.get(0).getConflicts());
+        assertFalse(migrated.contains("enable ="));
+        assertFalse(migrated.contains("conflicts ="));
+        assertTrue(migrated.contains("[basic]"));
+        assertTrue(migrated.contains("identifier = \"legacy\""));
+        assertTrue(migrated.contains("alarm = false"));
+        assertTrue(migrated.contains("[dependencies]"));
+        assertTrue(migrated.contains("\"mod-a\""));
+        assertTrue(migrated.contains("[conflicts]"));
+        assertTrue(migrated.contains("\"conflict-a\""));
+    }
+
+    @Test
+    void loadAllMigratesRootIdentifierAndAlarmToBasic() throws Exception {
+        Path preset = tempDir.resolve("preset").resolve("file-name.dc");
+        Files.createDirectories(preset.getParent());
+        Files.writeString(preset, """
+            identifier = "configured-id"
+            alarm = true
+            """);
+
+        List<DlcPresetEntry> entries = DlcPresetLoader.loadAll(List.of(tempDir));
+        String migrated = Files.readString(preset);
+
+        assertEquals(1, entries.size());
+        assertEquals("configured-id", entries.get(0).getId());
+        assertEquals("file-name", entries.get(0).getFileName());
+        assertTrue(entries.get(0).isAlarm());
+        assertTrue(migrated.contains("[basic]"));
+        assertTrue(migrated.contains("identifier = \"configured-id\""));
+        assertTrue(migrated.contains("alarm = true"));
     }
 
     @Test

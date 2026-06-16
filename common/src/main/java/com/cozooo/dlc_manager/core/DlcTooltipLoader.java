@@ -19,6 +19,7 @@ public class DlcTooltipLoader {
         "resourcepack", DlcType.RESOURCE_PACK,
         "datapack", DlcType.DATA_PACK,
         "gunpack", DlcType.TACZ_PACK,
+        "dlcpack", DlcType.DLC_PACK,
         "config", DlcType.UNKNOWN,
         "others", DlcType.UNKNOWN
     );
@@ -366,7 +367,7 @@ public class DlcTooltipLoader {
             if (key == null) {
                 continue;
             }
-            if (isIdentifierAlias(key) || isFileNameAlias(key) || "name".equalsIgnoreCase(key)) {
+            if (isIdentifierAlias(key)) {
                 hasIdField = true;
                 continue;
             }
@@ -376,18 +377,11 @@ public class DlcTooltipLoader {
     }
 
     private String resolveRelationIdentifier(JsonObject obj) {
-        String identifier = getIdentifier(obj);
-        if (identifier == null || identifier.isBlank()) {
-            identifier = getFileName(obj);
-        }
-        if (identifier == null || identifier.isBlank()) {
-            identifier = getString(obj, "name");
-        }
-        return identifier;
+        return getString(obj, "identifier");
     }
 
     private boolean isIdentifierAlias(String key) {
-        return "identifier".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key);
+        return "identifier".equalsIgnoreCase(key);
     }
 
     private boolean isFileNameAlias(String key) {
@@ -556,23 +550,19 @@ public class DlcTooltipLoader {
         }
         if (element.isJsonObject()) {
             JsonObject obj = element.getAsJsonObject();
-            String name = getIdentifier(obj);
-            if (name == null || name.isBlank()) {
-                name = getString(obj, "file_name");
-            }
-            if (name == null || name.isBlank()) {
-                name = getString(obj, "dlc_name");
-            }
-            if (name == null || name.isBlank()) {
-                name = getString(obj, "name");
-            }
+            String name = getString(obj, "identifier");
             if (name != null && !name.isBlank()) {
                 result.add(name.trim());
                 collectDependencyNames(DcConfigIO.getIgnoreCase(obj, "dependencies"), result);
                 return;
             }
             for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+                int before = result.size();
                 collectDependencyNames(entry.getValue(), result);
+                if (result.size() == before && entry.getValue() != null && entry.getValue().isJsonObject()
+                    && entry.getKey() != null && !entry.getKey().isBlank()) {
+                    result.add(entry.getKey().trim());
+                }
             }
         }
     }
@@ -717,6 +707,7 @@ public class DlcTooltipLoader {
             case RESOURCE_PACK -> "resourcepack";
             case DATA_PACK -> "datapack";
             case TACZ_PACK -> "gunpack";
+            case DLC_PACK -> "dlcpack";
             case UNKNOWN -> "others";
         };
     }

@@ -3,6 +3,8 @@ package com.cozooo.dlc_manager.client.remote;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.cozooo.dlc_manager.core.DlcType;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -101,5 +103,29 @@ class DlcRemoteLoaderTest {
         assertEquals(1, entries.size());
         assertEquals("legacy", entries.get(0).getDlcIdentifier());
         assertTrue(Files.exists(tempDir.resolve("remote").resolve("legacy.dc")));
+    }
+
+    @Test
+    void dlcPackRemoteIsHiddenAndTargetsPackDirectory() throws Exception {
+        Path remote = tempDir.resolve("remote");
+        Files.createDirectories(remote);
+        Files.writeString(remote.resolve("pack.dc"), """
+            [download]
+            directUrl = "https://example.com/pack.zip"
+
+            [basic]
+            type = "dlcpack"
+            file_name = "pack.zip"
+            isInList = true
+            isHidden = false
+            """);
+
+        DlcRemoteEntry entry = DlcRemoteLoader.loadSingle(remote.resolve("pack.dc"), tempDir);
+
+        assertNotNull(entry);
+        assertEquals(DlcType.DLC_PACK, entry.getType());
+        assertFalse(entry.isInList());
+        assertTrue(entry.isHidden());
+        assertEquals(Path.of("pack", "pack.zip"), tempDir.relativize(entry.getTargetPath()));
     }
 }

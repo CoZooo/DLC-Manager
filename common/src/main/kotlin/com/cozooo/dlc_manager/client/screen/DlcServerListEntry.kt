@@ -534,6 +534,9 @@ class DlcServerListEntry(
             val type = item?.type ?: return null
             val lower = type.lowercase(Locale.ROOT)
             for (dlcType in DlcType.entries) {
+                if (dlcType == DlcType.DLC_PACK) {
+                    continue
+                }
                 if (typeId(dlcType).equals(lower, ignoreCase = true)) {
                     return dlcType
                 }
@@ -547,6 +550,7 @@ class DlcServerListEntry(
                 DlcType.RESOURCE_PACK -> "resource"
                 DlcType.DATA_PACK -> "data"
                 DlcType.TACZ_PACK -> "tacz"
+                DlcType.DLC_PACK -> "dlcpack"
                 DlcType.UNKNOWN -> "other"
             }
         }
