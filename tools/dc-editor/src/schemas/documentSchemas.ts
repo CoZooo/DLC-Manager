@@ -24,13 +24,13 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
       key: "identifier",
       label: "identifier",
       kind: "text",
-      help: "逻辑标识符，用于依赖、冲突、预设等匹配。"
+      help: "static.help.identifier"
     },
     {
       key: "file_name",
       label: "file_name",
       kind: "text",
-      help: "DLC 文件名（包含扩展名）。"
+      help: "static.help.fileName"
     },
     {
       key: "__multiFileEnabled",
@@ -50,7 +50,7 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
           label: "type",
           kind: "select" as const,
           options: typeOptions,
-          help: "DLC 类型，可选 mod、resourcepack、datapack、gunpack、config、others。"
+          help: "static.help.dlcType"
         }]
       : []),
     ...((options?.includeAppliedTarget ?? false)
@@ -67,39 +67,39 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
                 }
               }
             : {}),
-          help: "应用目标路径，填写相对路径。"
+          help: "static.help.appliedTarget"
         }]
       : []),
     {
       key: "RedirectUrl",
       label: "RedirectUrl",
       kind: "text",
-      help: "双击 DLC 名称时打开的链接。"
+      help: "static.help.redirectUrl"
     },
     {
       key: "isInList",
       label: "isInList",
       kind: "boolean",
-      help: "是否在 DLC 列表中显示该项。"
+      help: "static.help.isInDlcList"
     },
     {
       key: "isHidden",
       label: "isHidden",
       kind: "boolean",
-      help: "是否隐藏该项，适合无独立意义的库或前置。",
-      toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
+      help: "static.help.isHiddenLibrary",
+      toggleLabels: { checked: "static.label.hidden", unchecked: "static.label.hidden" }
     },
     {
       key: "AllowEnableByAll",
       label: "AllowEnableByAll",
       kind: "boolean",
-      help: "是否遵循“全部开启”而开启。"
+      help: "static.help.allowEnableByAll"
     },
     {
       key: "alarm",
       label: "alarm",
       kind: "boolean",
-      help: "启用前是否弹出警告确认页面。"
+      help: "static.help.alarm"
     }
   ]
 });
@@ -112,38 +112,38 @@ const requiredBasicSection: SectionSchema = {
       key: "identifier",
       label: "identifier",
       kind: "text",
-      help: "逻辑标识符，用于前置匹配。"
+      help: "static.help.dependencyIdentifier"
     },
     {
       key: "file_name",
       label: "file_name",
       kind: "text",
-      help: "DLC 文件名（包含扩展名），用于最终下载文件名。"
+      help: "static.help.downloadFileName"
     },
     {
       key: "appliedTarget",
       label: "appliedTarget",
       kind: "text",
-      help: "应用目标路径，填写相对路径。"
+      help: "static.help.appliedTarget"
     },
     {
       key: "RedirectUrl",
       label: "RedirectUrl",
       kind: "text",
-      help: "双击 DLC 名称时打开的链接。"
+      help: "static.help.redirectUrl"
     },
     {
       key: "isInList",
       label: "isInList",
       kind: "boolean",
-      help: "是否在必要资源列表中显示该项。"
+      help: "static.help.isInRequiredList"
     },
     {
       key: "isHidden",
       label: "isHidden",
       kind: "boolean",
-      help: "是否隐藏该项。",
-      toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
+      help: "static.help.isHidden",
+      toggleLabels: { checked: "static.label.hidden", unchecked: "static.label.hidden" }
     },
   ]
 };
@@ -156,7 +156,7 @@ const dependenciesSection: SectionSchema = {
       key: "entries",
       label: "dependencies",
       kind: "list",
-      help: "前置 identifier 或相对路径列表。"
+      help: "static.help.dependencies"
     }
   ]
 };
@@ -169,7 +169,82 @@ const conflictsSection: SectionSchema = {
       key: "entries",
       label: "conflicts",
       kind: "list",
-      help: "冲突 identifier 或相对路径列表。"
+      help: "static.help.conflicts"
+    }
+  ]
+};
+
+const packBasicSection: SectionSchema = {
+  key: "basic",
+  label: "[basic]",
+  fields: [
+    {
+      key: "identifier",
+      label: "identifier",
+      kind: "text",
+      help: "static.help.packIdentifier"
+    },
+    {
+      key: "version",
+      label: "version",
+      kind: "text",
+      help: "static.help.packVersion"
+    },
+    {
+      key: "author",
+      label: "author",
+      kind: "list",
+      help: "static.help.packAuthor"
+    }
+  ]
+};
+
+const packModpackSection: SectionSchema = {
+  key: "modpack",
+  label: "[modpack]",
+  fields: [
+    {
+      key: "modpack",
+      label: "modpack",
+      kind: "list",
+      help: "static.help.packModpack"
+    },
+    {
+      key: "base",
+      label: "base",
+      kind: "list",
+      help: "static.help.packBase"
+    },
+    {
+      key: "dlc",
+      label: "dlc",
+      kind: "list",
+      help: "static.help.packDlc"
+    }
+  ]
+};
+
+const packLinksSection: SectionSchema = {
+  key: "links",
+  label: "[links]",
+  fields: [
+    {
+      key: "homepage",
+      label: "homepage",
+      kind: "text",
+      help: "static.help.packHomepage"
+    },
+    {
+      key: "issue",
+      label: "issue",
+      kind: "text",
+      help: "static.help.packIssue"
+    },
+    {
+      key: "sponsor",
+      label: "sponsor",
+      kind: "text",
+      help: "static.help.packSponsor"
     }
   ]
 };
@@ -179,7 +254,7 @@ const displayNameSection: SectionSchema = {
   label: "[DisplayName]",
   dynamicLocale: {
     valueKind: "textarea",
-    help: "本地化显示名称。"
+    help: "static.help.displayName"
   },
   fields: []
 };
@@ -189,7 +264,7 @@ const tipSection: SectionSchema = {
   label: "[tip]",
   dynamicLocale: {
     valueKind: "textarea",
-    help: "本地化提示文本。"
+    help: "static.help.tip"
   },
   fields: []
 };
@@ -218,7 +293,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   info: {
     type: "info",
     label: "Info",
-    summary: "DLC 文件的信息\n文件存放于 <DLC>/info 下",
+    summary: "static.summary.info",
     defaultFileName: "info.dc",
     supportsStructured: true,
     sections: [
@@ -232,7 +307,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   remote: {
     type: "remote",
     label: "Remote",
-    summary: "需下载的 DLC\n文件存放于 <DLC>/remote 下",
+    summary: "static.summary.remote",
     defaultFileName: "remote.dc",
     supportsStructured: true,
     sections: [
@@ -244,38 +319,38 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "modrinth_projectid",
             label: "modrinth_projectid",
             kind: "text",
-            help: "Modrinth 项目 ID 或 slug。"
+            help: "static.help.modrinthProject"
           },
           {
             key: "modrinth_versionid",
             label: "modrinth_versionid",
             kind: "text",
-            help: "Modrinth 版本 ID 或版本号。"
+            help: "static.help.modrinthVersion"
           },
           {
             key: "curseforge_projectid",
             label: "curseforge_projectid",
             kind: "text",
-            help: "CurseForge 项目 ID 或 slug。"
+            help: "static.help.curseforgeProject"
           },
           {
             key: "curseforge_fileid",
             label: "curseforge_fileid",
             kind: "text",
-            help: "CurseForge 文件 ID、版本串或文件名。"
+            help: "static.help.curseforgeFile"
           },
           {
             key: "directUrl",
             label: "directUrl",
             kind: "list",
-            help: "直链，每行一个 URL。"
+            help: "static.help.directUrl"
           },
           {
             key: "priority",
             label: "priority",
             kind: "ordered-select-list",
             options: priorityOptions,
-            help: "调整下载源优先顺序。"
+            help: "static.help.priority"
           }
         ]
       },
@@ -289,7 +364,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   required: {
     type: "required",
     label: "Required",
-    summary: "必要资源配置\n文件存放于 <DLC>/required 下",
+    summary: "static.summary.required",
     defaultFileName: "required.dc",
     supportsStructured: true,
     sections: [
@@ -301,38 +376,38 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "modrinth_projectid",
             label: "modrinth_projectid",
             kind: "text",
-            help: "Modrinth 项目 ID 或 slug。"
+            help: "static.help.modrinthProject"
           },
           {
             key: "modrinth_versionid",
             label: "modrinth_versionid",
             kind: "text",
-            help: "Modrinth 版本 ID 或版本号。"
+            help: "static.help.modrinthVersion"
           },
           {
             key: "curseforge_projectid",
             label: "curseforge_projectid",
             kind: "text",
-            help: "CurseForge 项目 ID 或 slug。"
+            help: "static.help.curseforgeProject"
           },
           {
             key: "curseforge_fileid",
             label: "curseforge_fileid",
             kind: "text",
-            help: "CurseForge 文件 ID、版本串或文件名。"
+            help: "static.help.curseforgeFile"
           },
           {
             key: "directUrl",
             label: "directUrl",
             kind: "list",
-            help: "直链，每行一个 URL。"
+            help: "static.help.directUrl"
           },
           {
             key: "priority",
             label: "priority",
             kind: "ordered-select-list",
             options: priorityOptions,
-            help: "调整下载源优先顺序。"
+            help: "static.help.priority"
           }
         ]
       },
@@ -345,7 +420,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   required_notice: {
     type: "required_notice",
     label: "Required Notice",
-    summary: "必要资源提示配置\n文件通常为 <DLC>/required/notice.dc",
+    summary: "static.summary.requiredNotice",
     defaultFileName: "notice.dc",
     supportsStructured: false,
     sections: []
@@ -353,7 +428,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   preset: {
     type: "preset",
     label: "Preset",
-    summary: "预设配置\n文件存放于 <DLC>/preset 下",
+    summary: "static.summary.preset",
     defaultFileName: "preset.dc",
     supportsStructured: true,
     sections: [
@@ -365,13 +440,13 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "identifier",
             label: "identifier",
             kind: "text",
-            help: "预设 identifier。"
+            help: "static.help.presetIdentifier"
           },
           {
             key: "alarm",
             label: "alarm",
             kind: "boolean",
-            help: "启用预设前是否先显示警告确认。"
+            help: "static.help.presetAlarm"
           }
         ]
       },
@@ -384,28 +459,21 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   notice: {
     type: "notice",
     label: "Notice",
-    summary: "公告配置\n文件通常为 <DLC>/notice.dc",
+    summary: "static.summary.notice",
     defaultFileName: "notice.dc",
     supportsStructured: true,
     sections: [
       {
         key: ROOT_SECTION_KEY,
-        label: "根级字段",
+        label: "static.label.rootFields",
         fields: [
           {
             key: "isNoticeEnabled",
             label: "isNoticeEnabled",
             kind: "boolean",
-            help: "是否启用公告功能。",
-            toggleLabels: { checked: "启用", unchecked: "启用" }
+            help: "static.help.noticeEnabled",
+            toggleLabels: { checked: "static.label.enabled", unchecked: "static.label.enabled" }
           },
-          //{
-          //  key: "neverShow",
-          //  label: "neverShow",
-          //  kind: "boolean",
-          //  help: "是否永不显示该公告。",
-          //  toggleLabels: { checked: "永不显示", unchecked: "永不显示" }
-          //},
           {
             key: "ShowFrequency",
             label: "ShowFrequency",
@@ -416,38 +484,38 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
               { value: "perlaunchgame", label: "perlaunchgame" },
               { value: "once", label: "once" }
             ],
-            help: "公告显示频率。\nperlaunchmanager：每次进入 DLC 管理器时显示。\npergamesession：每次游戏进程期间只显示一次。\nperlaunchgame：每次启动游戏时显示一次。\nonce：仅显示一次。"
+            help: "static.help.noticeFrequency"
           }
         ]
       },
       {
-        ...localeTextareaSection("Title", "[Title]", "公告标题。")
+        ...localeTextareaSection("Title", "[Title]", "static.help.noticeTitle")
       },
       {
         key: "Subhead",
         label: "[Subhead]",
         dynamicLocale: {
           valueKind: "textarea",
-          help: "公告副标题。"
+          help: "static.help.noticeSubhead"
         },
         fields: [
           {
             key: "enabled",
             label: "enabled",
             kind: "boolean",
-            help: "是否启用副标题。",
-            toggleLabels: { checked: "启用", unchecked: "启用" }
+            help: "static.help.noticeSubheadEnabled",
+            toggleLabels: { checked: "static.label.enabled", unchecked: "static.label.enabled" }
           }
         ]
       },
       {
-        ...localeTextSection("ContentUrl", "[ContentUrl]", "在线公告内容 URL，优先级高于 Contents。")
+        ...localeTextSection("ContentUrl", "[ContentUrl]", "static.help.noticeContentUrl")
       },
       {
-        ...localeTextareaSection("Contents", "[Contents]", "公告正文，支持 Markdown 与颜色代码。"),
+        ...localeTextareaSection("Contents", "[Contents]", "static.help.noticeContents"),
         dynamicLocale: {
           valueKind: "textarea",
-          help: "公告正文，支持 Markdown 与颜色代码。",
+          help: "static.help.noticeContents",
           toolbarMode: "mc-markdown"
         }
       }
@@ -456,33 +524,33 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   redirect: {
     type: "redirect",
     label: "Redirect",
-    summary: "链接跳转配置\n文件存放于 <DLC>/remote/redirect 下",
+    summary: "static.summary.redirect",
     defaultFileName: "redirect.dc",
     supportsStructured: true,
     sections: [
       {
         key: ROOT_SECTION_KEY,
-        label: "根级字段",
+        label: "static.label.rootFields",
         fields: [
           {
             key: "RedirectUrl",
             label: "RedirectUrl",
             kind: "text",
-            help: "跳转目标 URL。"
+            help: "static.help.redirectTarget"
           },
           {
             key: "available",
             label: "available",
             kind: "language-visibility",
-            help: "控制可见性。留空时所有语言可见，勾选隐藏时所有语言隐藏。"
+            help: "static.help.visibility"
           }
         ]
       },
       {
-        ...localeTextareaSection("DisplayName", "[DisplayName]", "列表名称。")
+        ...localeTextareaSection("DisplayName", "[DisplayName]", "static.help.listName")
       },
       {
-        ...localeTextareaSection("notice", "[notice]", "跳转前确认说明。")
+        ...localeTextareaSection("notice", "[notice]", "static.help.redirectNotice")
       },
       tipSection
     ]
@@ -490,26 +558,26 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   update: {
     type: "update",
     label: "Update",
-    summary: "热更新包配置",
+    summary: "static.summary.update",
     defaultFileName: "update.dc",
     supportsStructured: true,
     sections: [
       {
         key: ROOT_SECTION_KEY,
-        label: "根级字段",
+        label: "static.label.rootFields",
         fields: [
           {
             key: "isHidden",
             label: "isHidden",
             kind: "boolean",
-            help: "是否在更新列表中隐藏该热更新包。",
-            toggleLabels: { checked: "隐藏", unchecked: "隐藏" }
+            help: "static.help.updateHidden",
+            toggleLabels: { checked: "static.label.hidden", unchecked: "static.label.hidden" }
           },
           {
             key: "UpdateDLCM",
             label: "UpdateDLCM",
             kind: "text",
-            help: "更新 DLC 管理器。"
+            help: "static.help.updateDlcm"
           }
         ]
       },
@@ -526,39 +594,39 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
               { value: "client", label: "client" },
               { value: "server", label: "server" }
             ],
-            help: "热更新包适用的平台，可选 universal、client、server。"
+            help: "static.help.updatePlatform"
           },
           {
             key: "base",
             label: "base",
             kind: "text",
-            help: "应用该热更新前要求的底包版本。"
+            help: "static.help.updateBase"
           },
           {
             key: "base_new",
             label: "base_new",
             kind: "text",
-            help: "应用后新的底包版本，不变时可留空。"
+            help: "static.help.updateBaseNew"
           },
           {
             key: "dlc",
             label: "dlc",
             kind: "text",
-            help: "应用该热更新前要求的 DLC 版本。"
+            help: "static.help.updateDlc"
           },
           {
             key: "dlc_new",
             label: "dlc_new",
             kind: "text",
-            help: "应用后新的 DLC 版本，不变时可留空。"
+            help: "static.help.updateDlcNew"
           }
         ]
       },
       {
-        ...localeTextareaSection("changelog", "[changelog]", "更新日志。"),
+        ...localeTextareaSection("changelog", "[changelog]", "static.help.changelog"),
         dynamicLocale: {
           valueKind: "textarea",
-          help: "更新日志。",
+          help: "static.help.changelog",
           toolbarMode: "mc-markdown"
         }
       },
@@ -570,7 +638,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "entries",
             label: "entries",
             kind: "update-file-del",
-            help: "需删除文件的相对路径。"
+            help: "static.help.updateDeletePath"
           }
         ]
       },
@@ -582,7 +650,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "entries",
             label: "entries",
             kind: "update-file-add",
-            help: "新增文件规则。覆盖模式：\n勾选：覆盖（true），文件夹内替换每一个文件。\n不勾选：不覆盖（false），文件夹内跳过同名文件。\nall：替换整个文件夹，需在原文中手动调整。\nnone：存在同名文件夹时跳过，需在原文中手动调整。"
+            help: "static.help.updateAddRule"
           }
         ]
       },
@@ -594,14 +662,14 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
             key: "entries",
             label: "entries",
             kind: "update-file-move",
-            help: "移动规则：原路径 => 新路径。"
+            help: "static.help.updateMoveRule"
           }
         ]
       },
       {
         key: "file_modify",
         label: "[file].modify",
-        description: "请在原文模式中编辑 [file].modify。",
+        description: "static.help.updateModifyRaw",
         fields: []
       }
     ]
@@ -609,27 +677,56 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   version: {
     type: "version",
     label: "Version",
-    summary: "整合包版本配置\n文件通常为 <DLC>/info/version.dc",
+    summary: "static.summary.version",
     defaultFileName: "version.dc",
     supportsStructured: true,
     sections: [
       {
         key: ROOT_SECTION_KEY,
-        label: "根级字段",
+        label: "static.label.rootFields",
         fields: [
+          {
+            key: "modpack",
+            label: "modpack",
+            kind: "text",
+            help: "static.help.versionModpack"
+          },
           {
             key: "base",
             label: "base",
             kind: "text",
-            help: "当前整合包底包版本。"
+            help: "static.help.versionBase"
           },
           {
             key: "dlc",
             label: "dlc",
             kind: "text",
-            help: "当前 DLC 版本。"
+            help: "static.help.versionDlc"
           }
         ]
+      }
+    ]
+  },
+  pack: {
+    type: "pack",
+    label: "DLC Pack",
+    summary: "static.summary.pack",
+    defaultFileName: "pack.dc",
+    supportsStructured: true,
+    sections: [
+      packBasicSection,
+      packModpackSection,
+      packLinksSection,
+      dependenciesSection,
+      conflictsSection,
+      displayNameSection,
+      {
+        ...localeTextareaSection("description", "[description]", "static.help.packDescription"),
+        dynamicLocale: {
+          valueKind: "textarea",
+          help: "static.help.packDescription",
+          toolbarMode: "mc"
+        }
       }
     ]
   }
@@ -644,7 +741,8 @@ export const orderedDocumentTypes: DocumentType[] = [
   "notice",
   "redirect",
   "update",
-  "version"
+  "version",
+  "pack"
 ];
 
 export const configurableDocumentTypes: DocumentType[] = [
@@ -655,7 +753,8 @@ export const configurableDocumentTypes: DocumentType[] = [
   "notice",
   "redirect",
   "update",
-  "version"
+  "version",
+  "pack"
 ];
 
 export const internalDocumentTypes = new Set<DocumentType>([

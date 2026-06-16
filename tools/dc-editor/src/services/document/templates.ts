@@ -143,8 +143,35 @@ export function createEmptyTemplate(type: DocumentType): string {
       ].join("\n");
     case "version":
       return [
+        "modpack = \"\"",
         "base = \"1.0.0\"",
         "dlc = \"1.0.0\""
+      ].join("\n");
+    case "pack":
+      return [
+        "[basic]",
+        'identifier = ""',
+        'version = "1.0.0"',
+        "author = []",
+        "",
+        "[modpack]",
+        "modpack = any",
+        'base = ["any"]',
+        'dlc = ["any"]',
+        "",
+        "[links]",
+        'homepage = ""',
+        'issue = ""',
+        'sponsor = ""',
+        "",
+        "[dependencies]",
+        "",
+        "[conflicts]",
+        "",
+        "[DisplayName]",
+        "",
+        "[description]",
+        ""
       ].join("\n");
     default:
       return "";

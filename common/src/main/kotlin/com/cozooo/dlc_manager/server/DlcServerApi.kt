@@ -10,7 +10,6 @@ import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DcFormatUtil
 import com.cozooo.dlc_manager.core.DlcPathConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.google.gson.Gson
@@ -37,7 +36,6 @@ import java.nio.file.SimpleFileVisitor
 import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.Base64
-import java.util.Comparator
 import java.util.Locale
 import java.util.Objects
 import java.util.concurrent.ExecutorService
@@ -156,7 +154,6 @@ object DlcServerApi {
                     method == "GET" && path == "/api/state" -> sendResult(exchange, DlcApiService.state())
                     method == "GET" && path == "/api/dlc/list" -> sendResult(exchange, DlcApiService.listDlc())
                     method == "GET" && path == "/api/dlc/pending" -> sendResult(exchange, DlcApiService.listPendingDlc())
-                    method == "GET" && path == "/api/dlc/root/list" -> handleDlcRootList(exchange)
                     method == "POST" && path == "/api/dlc/apply" -> handleDlcApply(exchange)
                     method == "POST" && path == "/api/dlc/enable" -> handleDlcSetEnabled(exchange, true)
                     method == "POST" && path == "/api/dlc/disable" -> handleDlcSetEnabled(exchange, false)
@@ -176,10 +173,6 @@ object DlcServerApi {
                     method == "POST" && path == "/api/update/rollback" -> handleUpdateRollback(exchange)
                     method == "POST" && path == "/api/update/import" -> handleUpdateImport(exchange)
                     method == "POST" && path == "/api/update/import-url" -> handleUpdateImportUrl(exchange)
-                    method == "POST" && path == "/api/dc/detect-type" -> handleDetectType(exchange)
-                    method == "POST" && path == "/api/dc/validate" -> handleValidate(exchange)
-                    method == "POST" && path == "/api/dc/read" -> handleReadDc(exchange)
-                    method == "POST" && path == "/api/dc/write" -> handleWriteDc(exchange)
                     method == "POST" && path == "/api/notice/content" -> handleNoticeContent(exchange)
                     method == "POST" && path == "/api/file/add" -> handleFileAdd(exchange)
                     method == "POST" && path == "/api/file/del" -> handleFileDelete(exchange)
@@ -210,35 +203,6 @@ object DlcServerApi {
     @Throws(IOException::class)
     private fun handleDlcSetEnabled(exchange: HttpExchange, enabled: Boolean) {
         sendResult(exchange, DlcApiService.setDlcEnabled(readJsonBody(exchange), enabled))
-    }
-
-    @Throws(IOException::class)
-    private fun handleDlcRootList(exchange: HttpExchange) {
-        val data = JsonObject()
-        val roots = JsonArray()
-        val dlcRoots = DlcPathConfig.getDlcRoots()
-        for (i in dlcRoots.indices) {
-            val root = dlcRoots[i]
-            val rootJson = JsonObject()
-            rootJson.addProperty("rootIndex", i)
-            rootJson.addProperty("rootPath", root.toString())
-            val files = JsonArray()
-            for (relative in listEditableDcFiles(root)) {
-                val relativePath = normalizeRelativePath(relative)
-                val fileJson = JsonObject()
-                fileJson.addProperty("name", relative.fileName?.toString() ?: relativePath)
-                fileJson.addProperty("path", relativePath)
-                val type = detectDcType(fileJson.get("name").asString, relativePath, "")
-                fileJson.addProperty("type", type)
-                fileJson.addProperty("supported", isSupportedType(type))
-                files.add(fileJson)
-            }
-            rootJson.add("files", files)
-            roots.add(rootJson)
-        }
-        data.add("roots", roots)
-        data.addProperty("rootCount", dlcRoots.size)
-        sendOk(exchange, data)
     }
 
     @Throws(IOException::class)
@@ -330,120 +294,6 @@ object DlcServerApi {
         val ids = readStringArray(request, "ids")
         val data = JsonObject()
         data.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcPathConfig.getDlcRoot(), ids))
-        sendOk(exchange, data)
-    }
-
-    @Throws(IOException::class)
-    private fun handleDetectType(exchange: HttpExchange) {
-        val request = readJsonBody(exchange)
-        val name = blank(getString(request, "name"))
-        val path = blank(getString(request, "path"))
-        val content = blank(getString(request, "content"))
-        val type = detectDcType(name, path, content)
-        val data = JsonObject()
-        data.addProperty("type", type)
-        data.addProperty("supported", isSupportedType(type))
-        sendOk(exchange, data)
-    }
-
-    @Throws(IOException::class)
-    private fun handleValidate(exchange: HttpExchange) {
-        val request = readJsonBody(exchange)
-        val name = blank(getString(request, "name"))
-        val path = blank(getString(request, "path"))
-        val content = blank(getString(request, "content"))
-        val explicitType = blank(getString(request, "type"))
-        val type = if (explicitType.isBlank()) detectDcType(name, path, content) else explicitType.trim().lowercase(Locale.ROOT)
-        val issues = JsonArray()
-        if (content.isBlank()) {
-            issues.add(issue("error", "schema", "content", "Content is empty."))
-        }
-        if (type == "unknown") {
-            issues.add(issue("warning", "schema", "type", "Unable to detect config type."))
-        }
-        val parsed = if (content.isNotBlank() && isSupportedType(type)) parseDc(type, name, content) else null
-        if (content.isNotBlank() && isSupportedType(type) && parsed == null) {
-            issues.add(issue("error", "syntax", "content", "Failed to parse DC content."))
-        }
-        if (parsed != null) {
-            validateParsed(type, parsed, issues)
-        }
-        var valid = true
-        for (element in issues) {
-            if (element != null && element.isJsonObject) {
-                val severity = getString(element.asJsonObject, "severity")
-                if ("error".equals(severity, ignoreCase = true)) {
-                    valid = false
-                    break
-                }
-            }
-        }
-        val data = JsonObject()
-        data.addProperty("type", type)
-        data.addProperty("supported", isSupportedType(type))
-        data.addProperty("valid", valid)
-        data.add("issues", issues)
-        sendOk(exchange, data)
-    }
-
-    @Throws(IOException::class)
-    private fun handleReadDc(exchange: HttpExchange) {
-        val request = readJsonBody(exchange)
-        val resolved = resolveRequestedDcPath(request, false)
-        if (resolved == null) {
-            sendError(exchange, 400, "invalid_path", "Requested path is outside the allowed DLC config workspace.")
-            return
-        }
-        if (!Files.exists(resolved.absolutePath) || !Files.isRegularFile(resolved.absolutePath)) {
-            sendError(exchange, 404, "not_found", "Requested DC file does not exist.")
-            return
-        }
-        val content = Files.readString(resolved.absolutePath, StandardCharsets.UTF_8)
-        val fileName = resolved.absolutePath.fileName?.toString() ?: ""
-        val type = detectDcType(fileName, resolved.relativePath(), content)
-        val data = JsonObject()
-        data.addProperty("name", resolved.absolutePath.fileName?.toString() ?: resolved.relativePath())
-        data.addProperty("path", resolved.relativePath())
-        data.addProperty("rootIndex", resolved.rootIndex)
-        data.addProperty("type", type)
-        data.addProperty("supported", isSupportedType(type))
-        data.addProperty("content", content)
-        sendOk(exchange, data)
-    }
-
-    @Throws(IOException::class)
-    private fun handleWriteDc(exchange: HttpExchange) {
-        val request = readJsonBody(exchange)
-        val content = blank(getString(request, "content"))
-        if (content.isBlank()) {
-            sendError(exchange, 400, "content_empty", "Content is empty.")
-            return
-        }
-        val resolved = resolveRequestedDcPath(request, true)
-        if (resolved == null) {
-            sendError(exchange, 400, "invalid_path", "Requested path is outside the allowed DLC config workspace.")
-            return
-        }
-        val explicitType = blank(getString(request, "type"))
-        val fileName = resolved.absolutePath.fileName?.toString() ?: ""
-        val detectedType = if (explicitType.isBlank()) {
-            detectDcType(fileName, resolved.relativePath(), content)
-        } else {
-            explicitType.trim().lowercase(Locale.ROOT)
-        }
-        if (isSupportedType(detectedType) && parseDc(detectedType, fileName, content) == null) {
-            sendError(exchange, 400, "parse_failed", "Failed to parse DC content.")
-            return
-        }
-        resolved.absolutePath.parent?.let { Files.createDirectories(it) }
-        Files.writeString(resolved.absolutePath, content, StandardCharsets.UTF_8)
-        val data = JsonObject()
-        data.addProperty("name", resolved.absolutePath.fileName?.toString() ?: resolved.relativePath())
-        data.addProperty("path", resolved.relativePath())
-        data.addProperty("rootIndex", resolved.rootIndex)
-        data.addProperty("type", detectedType)
-        data.addProperty("supported", isSupportedType(detectedType))
-        data.addProperty("written", true)
         sendOk(exchange, data)
     }
 
@@ -743,142 +593,6 @@ object DlcServerApi {
         sendOk(exchange, data)
     }
 
-    private fun validateParsed(type: String, root: JsonObject, issues: JsonArray) {
-        when (type) {
-            "info" -> {
-                requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.")
-                requireString(issues, getSection(root, "basic"), "file_name", "[basic].file_name is required.")
-                val itemType = getString(getSection(root, "basic"), "type")
-                if ("others".equals(blank(itemType), ignoreCase = true) || "config".equals(blank(itemType), ignoreCase = true)) {
-                    requireString(issues, root, "appliedTarget", "appliedTarget is required for info type others/config.")
-                }
-            }
-            "remote" -> {
-                val itemType = getString(getSection(root, "basic"), "type")
-                if (!"dlcpack".equals(blank(itemType), ignoreCase = true)) {
-                    requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.")
-                }
-                requireString(issues, getSection(root, "basic"), "file_name", "[basic].file_name is required.")
-                if (!hasAnyDownloadSource(getSection(root, "download"))) {
-                    issues.add(issue("error", "schema", "download", "At least one download source is required."))
-                }
-                if ("others".equals(blank(itemType), ignoreCase = true)) {
-                    requireString(issues, root, "appliedTarget", "appliedTarget is required for remote type others.")
-                }
-            }
-            "required" -> {
-                requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.")
-                requireString(issues, getSection(root, "basic"), "file_name", "[basic].file_name is required.")
-                if (!hasAnyDownloadSource(getSection(root, "download"))) {
-                    issues.add(issue("error", "schema", "download", "At least one download source is required."))
-                }
-            }
-            "redirect" -> requireString(issues, root, "RedirectUrl", "RedirectUrl is required.")
-            "version" -> {
-                requireString(issues, root, "base", "base is required.")
-                requireString(issues, root, "dlc", "dlc is required.")
-            }
-            "update" -> {
-                val version = getSection(root, "version")
-                requireString(issues, version, "base", "[version].base is required.")
-                requireString(issues, version, "dlc", "[version].dlc is required.")
-                val baseNew = blank(getString(version, "base_new"))
-                val dlcNew = blank(getString(version, "dlc_new"))
-                if (baseNew.isBlank() && dlcNew.isBlank()) {
-                    issues.add(issue("error", "schema", "version", "[version].base_new and [version].dlc_new cannot both be empty."))
-                }
-            }
-        }
-    }
-
-    private fun hasAnyDownloadSource(download: JsonObject?): Boolean {
-        if (download == null) {
-            return false
-        }
-        return hasNonBlankString(download, "modrinth_projectid") ||
-            hasNonBlankString(download, "curseforge_projectid") ||
-            hasNonBlankString(download, "directUrl")
-    }
-
-    private fun parseDc(type: String, name: String?, content: String): JsonObject? {
-        var temp: Path? = null
-        try {
-            val fileName = if (name.isNullOrBlank()) defaultFileName(type) else name
-            temp = Files.createTempFile(stripExtension(fileName), DcFormatUtil.DC_EXTENSION)
-            Files.writeString(temp, content, StandardCharsets.UTF_8)
-            val layout = if (usesStructuredLayout(type)) DcConfigIO.Layout.DLC_STRUCTURED else DcConfigIO.Layout.GENERIC
-            return DcConfigIO.read(temp, layout)
-        } catch (_: IOException) {
-            return null
-        } finally {
-            if (temp != null) {
-                try {
-                    Files.deleteIfExists(temp)
-                } catch (_: IOException) {
-                }
-            }
-        }
-    }
-
-    private fun usesStructuredLayout(type: String): Boolean = type == "info" || type == "remote" || type == "required"
-
-    private fun defaultFileName(type: String): String {
-        return when (type) {
-            "version" -> "version.dc"
-            "notice" -> "notice.dc"
-            "redirect" -> "redirect.dc"
-            "update" -> "update.dc"
-            "required_notice" -> "notice.dc"
-            else -> "$type.dc"
-        }
-    }
-
-    private fun stripExtension(name: String): String {
-        val dot = name.lastIndexOf('.')
-        return if (dot > 0) name.substring(0, dot) else name
-    }
-
-    private fun detectDcType(name: String?, path: String?, content: String?): String {
-        val lowerName = blank(name).lowercase(Locale.ROOT)
-        val lowerPath = blank(path).replace('\\', '/').lowercase(Locale.ROOT)
-        val text = blank(content)
-        if (lowerPath.contains("/required/notice.") || lowerName == "notice.dc") {
-            if (containsIgnoreCase(text, "[download_desc]") || containsIgnoreCase(text, "[manage_desc]")) {
-                return "required_notice"
-            }
-        }
-        if (lowerPath.contains("/info/version.") || lowerName == "version.dc") return "version"
-        if (lowerPath.contains("/remote/redirect/") || lowerName == "redirect.dc" || containsIgnoreCase(text, "RedirectUrl")) return "redirect"
-        if (containsIgnoreCase(text, "[version]") || containsIgnoreCase(text, "[file]") || containsIgnoreCase(text, "[update]")) return "update"
-        if (lowerPath.contains("/preset/")) return "preset"
-        if (lowerPath.contains("/remote/")) return "remote"
-        if (lowerPath.contains("/required/")) return "required"
-        if (lowerPath.contains("/info/")) return "info"
-        if (lowerName == "notice.dc" || containsIgnoreCase(text, "isNoticeEnabled") || containsIgnoreCase(text, "[Contents]")) return "notice"
-        if (containsIgnoreCase(text, "modrinth_projectid") || containsIgnoreCase(text, "curseforge_projectid") || containsIgnoreCase(text, "directUrl")) {
-            return if (containsIgnoreCase(text, "type =") ||
-                containsIgnoreCase(text, "AllowEnableByAll") ||
-                containsIgnoreCase(text, "conflicts") ||
-                containsIgnoreCase(text, "alarm")
-            ) {
-                "remote"
-            } else {
-                "required"
-            }
-        }
-        if (containsIgnoreCase(text, "[DisplayName]") && containsIgnoreCase(text, "enable")) return "preset"
-        if (containsIgnoreCase(text, "file_name") || containsIgnoreCase(text, "identifier")) return "info"
-        if (containsIgnoreCase(text, "base =") && containsIgnoreCase(text, "dlc =")) return "version"
-        return "unknown"
-    }
-
-    private fun isSupportedType(type: String): Boolean {
-        return when (type) {
-            "info", "remote", "required", "preset", "notice", "redirect", "update", "version" -> true
-            else -> false
-        }
-    }
-
     private fun toUpdatePackageJson(pkg: DlcUpdatePackage?): JsonObject? {
         val manifest = pkg?.getManifest() ?: return null
         val info: DlcUpdateManifest.VersionInfo = manifest.getVersion() ?: return null
@@ -892,99 +606,6 @@ object DlcServerApi {
         json.addProperty("hidden", manifest.isHidden())
         json.add("changelog", GSON.toJsonTree(manifest.getChangelog()))
         return json
-    }
-
-    private fun listEditableDcFiles(root: Path?): MutableList<Path> {
-        val files = ArrayList<Path>()
-        if (root == null) {
-            return files
-        }
-        val normalizedRoot = root.toAbsolutePath().normalize()
-        val rootNotice = normalizedRoot.resolve("notice.dc").normalize()
-        if (Files.isRegularFile(rootNotice)) {
-            files.add(normalizedRoot.relativize(rootNotice))
-        }
-        for (dirName in listOf("info", "remote", "required", "preset", "update")) {
-            val dir = normalizedRoot.resolve(dirName).normalize()
-            if (!Files.isDirectory(dir)) {
-                continue
-            }
-            try {
-                Files.walk(dir).use { stream ->
-                    stream.filter(Files::isRegularFile)
-                        .filter { path -> DcConfigIO.isDc(path) || path.fileName?.toString()?.lowercase(Locale.ROOT)?.endsWith(".dc") == true }
-                        .map { path -> normalizedRoot.relativize(path.normalize()) }
-                        .sorted(Comparator.comparing { path: Path -> normalizeRelativePath(path) })
-                        .forEach(files::add)
-                }
-            } catch (_: IOException) {
-            }
-        }
-        files.sortWith(Comparator.comparing { path: Path -> normalizeRelativePath(path) })
-        return files
-    }
-
-    private fun resolveRequestedDcPath(request: JsonObject?, allowCreate: Boolean): ResolvedDcPath? {
-        val rawPath = if (request == null) "" else blank(getString(request, "path"))
-        if (rawPath.isBlank()) {
-            return null
-        }
-        val roots = DlcPathConfig.getDlcRoots()
-        if (roots.isEmpty()) {
-            return null
-        }
-        val requestedRootIndex = getOptionalInt(request, "rootIndex")
-        val candidate = DlcPaths.parsePathLenient(rawPath) ?: return null
-        if (candidate.isAbsolute) {
-            val absolute = candidate.normalize()
-            for (i in roots.indices) {
-                if (requestedRootIndex != null && requestedRootIndex != i) {
-                    continue
-                }
-                val root = roots[i].toAbsolutePath().normalize()
-                if (absolute.startsWith(root) && isAllowedDlcConfigPath(root, absolute, allowCreate)) {
-                    return ResolvedDcPath(i, root.relativize(absolute), absolute)
-                }
-            }
-            return null
-        }
-        val start = requestedRootIndex ?: 0
-        val end = if (requestedRootIndex == null) roots.size else minOf(roots.size, requestedRootIndex + 1)
-        for (i in start until end) {
-            val root = roots[i].toAbsolutePath().normalize()
-            val absolute = root.resolve(candidate).normalize()
-            if (isAllowedDlcConfigPath(root, absolute, allowCreate)) {
-                return ResolvedDcPath(i, root.relativize(absolute), absolute)
-            }
-        }
-        return null
-    }
-
-    private fun isAllowedDlcConfigPath(root: Path?, target: Path?, allowCreate: Boolean): Boolean {
-        if (root == null || target == null) {
-            return false
-        }
-        val normalizedRoot = root.toAbsolutePath().normalize()
-        val normalizedTarget = target.toAbsolutePath().normalize()
-        if (!normalizedTarget.startsWith(normalizedRoot)) {
-            return false
-        }
-        if (normalizedTarget.fileName == null) {
-            return false
-        }
-        val fileName = normalizedTarget.fileName.toString().lowercase(Locale.ROOT)
-        if (!fileName.endsWith(".dc")) {
-            return false
-        }
-        val relative = normalizedRoot.relativize(normalizedTarget)
-        if (relative.nameCount == 1) {
-            return "notice.dc".equals(fileName, ignoreCase = true)
-        }
-        val first = relative.getName(0).toString().lowercase(Locale.ROOT)
-        if (!listOf("info", "remote", "required", "preset", "update").contains(first)) {
-            return false
-        }
-        return allowCreate || Files.exists(normalizedTarget)
     }
 
     private fun resolveGameRelativePath(rawPath: String?): Path? {
@@ -1092,28 +713,6 @@ object DlcServerApi {
 
     private fun normalizeRelativePath(relative: Path?): String = relative?.toString()?.replace('\\', '/') ?: ""
 
-    private fun getOptionalInt(obj: JsonObject?, key: String): Int? {
-        if (obj == null) {
-            return null
-        }
-        val element = DcConfigIO.getIgnoreCase(obj, key)
-        if (element == null || element.isJsonNull) {
-            return null
-        }
-        if (element.isJsonPrimitive && element.asJsonPrimitive.isNumber) {
-            return element.asInt
-        }
-        val value = blank(element.asString)
-        if (value.isBlank()) {
-            return null
-        }
-        return try {
-            value.toInt()
-        } catch (_: NumberFormatException) {
-            null
-        }
-    }
-
     private fun readStringArray(obj: JsonObject?, key: String): List<String> {
         val array = if (obj == null) null else DcConfigIO.getArrayIgnoreCase(obj, key)
         val values = ArrayList<String>()
@@ -1130,29 +729,6 @@ object DlcServerApi {
         }
         return values
     }
-
-    private fun containsIgnoreCase(haystack: String?, needle: String?): Boolean {
-        return haystack != null && needle != null && haystack.lowercase(Locale.ROOT).contains(needle.lowercase(Locale.ROOT))
-    }
-
-    private fun issue(severity: String, source: String, field: String, message: String): JsonObject {
-        val issue = JsonObject()
-        issue.addProperty("severity", severity)
-        issue.addProperty("source", source)
-        issue.addProperty("field", field)
-        issue.addProperty("message", message)
-        return issue
-    }
-
-    private fun requireString(issues: JsonArray, section: JsonObject?, key: String, message: String) {
-        if (!hasNonBlankString(section, key)) {
-            issues.add(issue("error", "schema", key, message))
-        }
-    }
-
-    private fun hasNonBlankString(obj: JsonObject?, key: String): Boolean = blank(getString(obj, key)).isNotBlank()
-
-    private fun getSection(root: JsonObject?, key: String): JsonObject? = if (root == null) null else DcConfigIO.getObjectIgnoreCase(root, key)
 
     private fun getString(obj: JsonObject?, key: String): String = if (obj == null) "" else blank(DcConfigIO.getStringIgnoreCase(obj, key))
 
@@ -1267,11 +843,4 @@ object DlcServerApi {
 
     private fun blank(value: String?): String = value ?: ""
 
-    private data class ResolvedDcPath(
-        val rootIndex: Int,
-        val relative: Path,
-        val absolutePath: Path,
-    ) {
-        fun relativePath(): String = normalizeRelativePath(relative)
-    }
 }

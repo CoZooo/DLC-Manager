@@ -102,7 +102,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
 
                 const parseListText = (rawText: string) => {
                   return rawText
-                    .split(/[\r\n,]+/)
+                    .split(/\r?\n/)
                     .map((item) => item.trim())
                     .filter(Boolean);
                 };

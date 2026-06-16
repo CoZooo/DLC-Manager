@@ -7,6 +7,9 @@ import {
   ValidationIssue
 } from "../../models/editor";
 
+const PRESERVED_RELATION_BLOCKS_SECTION = "__preserved_relation_blocks__";
+const PRESERVED_RELATION_BLOCKS_FIELD = "blocks";
+
 function parseQuoted(text: string): string {
   if (text.length >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
     return text.slice(1, -1).replace(/\\n/g, "\n").replace(/\\"/g, "\"");
@@ -116,6 +119,66 @@ function parseStringArray(valueText: string): string[] | null {
   return result;
 }
 
+function parsePackModpackValue(valueText: string): string[] {
+  const normalized = valueText.trim();
+  if (!normalized.startsWith("[") || !normalized.endsWith("]")) {
+    return [parsePackModpackToken(normalized)].filter(Boolean);
+  }
+  const inner = normalized.slice(1, -1).trim();
+  if (!inner) {
+    return [];
+  }
+  const result: string[] = [];
+  let token = "";
+  let inQuote = false;
+  let escaped = false;
+
+  for (let index = 0; index < inner.length; index++) {
+    const ch = inner[index];
+    if (escaped) {
+      token += ch;
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      token += ch;
+      escaped = true;
+      continue;
+    }
+    if (ch === "\"") {
+      token += ch;
+      inQuote = !inQuote;
+      continue;
+    }
+    if (ch === "," && !inQuote) {
+      const parsed = parsePackModpackToken(token.trim());
+      if (parsed) {
+        result.push(parsed);
+      }
+      token = "";
+      continue;
+    }
+    token += ch;
+  }
+
+  const parsed = parsePackModpackToken(token.trim());
+  if (parsed) {
+    result.push(parsed);
+  }
+  return result;
+}
+
+function parsePackModpackToken(token: string): string {
+  if (!token) {
+    return "";
+  }
+  if (token.length >= 2 && token.startsWith("\"") && token.endsWith("\"")) {
+    const parsed = parseQuoted(token);
+    return parsed === "any" ? formatString(parsed) : parsed;
+  }
+  return parseQuoted(token);
+}
+
 function parseValueByKind(valueText: string, kind: FieldKind): StructuredValue {
   if (kind === "boolean") {
     return valueText === "true";
@@ -167,6 +230,10 @@ function isRelationSection(sectionKey: string): boolean {
   return sectionKey === "dependencies" || sectionKey === "conflicts";
 }
 
+function isRelationSubsection(sectionKey: string): boolean {
+  return sectionKey.startsWith("dependencies.") || sectionKey.startsWith("conflicts.");
+}
+
 function parseUpdateDLCMValue(valueText: string): StructuredValue {
   const normalized = valueText.trim();
   if (normalized === "true") {
@@ -214,7 +281,23 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
   for (let index = 0; index < lines.length; index++) {
     const rawLine = lines[index];
     const trimmed = rawLine.trim();
+    const indent = countLeadingSpaces(rawLine);
     if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+    if (indent === 0 && trimmed.startsWith("[") && trimmed.endsWith("]") && isRelationSubsection(trimmed.slice(1, -1).trim())) {
+      const blockLines = [rawLine];
+      while (index + 1 < lines.length) {
+        const nextLine = lines[index + 1];
+        const nextTrimmed = nextLine.trim();
+        const nextIndent = countLeadingSpaces(nextLine);
+        if (nextIndent === 0 && nextTrimmed.startsWith("[") && nextTrimmed.endsWith("]")) {
+          break;
+        }
+        index += 1;
+        blockLines.push(nextLine);
+      }
+      appendPreservedRelationBlock(model, blockLines.join("\n"));
       continue;
     }
     if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
@@ -308,6 +391,10 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
 
     if (schema.type === "update" && currentSection === ROOT_SECTION_KEY && key === "UpdateDLCM") {
       model[currentSection][key] = parseUpdateDLCMValue(valueText);
+      continue;
+    }
+    if (schema.type === "pack" && currentSection === "modpack" && key === "modpack") {
+      model[currentSection][key] = parsePackModpackValue(valueText);
       continue;
     }
 
@@ -415,6 +502,13 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
     } else if (sectionKey !== ROOT_SECTION_KEY) {
       out.push("");
     }
+  }
+  const preservedRelationBlocks = readPreservedRelationBlocks(model);
+  if (preservedRelationBlocks) {
+    if (out.length > 0 && out[out.length - 1] !== "") {
+      out.push("");
+    }
+    out.push(preservedRelationBlocks);
   }
   return out.join("\n").replace(/\n+$/g, "\n");
 }
@@ -535,7 +629,7 @@ function normalizeInfoMultiFileModel(model: StructuredModel) {
 }
 
 function normalizeRelationModel(model: StructuredModel, type: DocumentSchema["type"]) {
-  if (type !== "info" && type !== "remote" && type !== "required" && type !== "preset") {
+  if (type !== "info" && type !== "remote" && type !== "required" && type !== "preset" && type !== "pack") {
     return;
   }
   const basic = model.basic || {};
@@ -551,6 +645,15 @@ function normalizeRelationModel(model: StructuredModel, type: DocumentSchema["ty
       moveLegacyRelationField(model, basic, "conflicts", "conflicts");
     }
   }
+}
+
+function appendPreservedRelationBlock(model: StructuredModel, block: string) {
+  const section = model[PRESERVED_RELATION_BLOCKS_SECTION] || {};
+  const current = typeof section[PRESERVED_RELATION_BLOCKS_FIELD] === "string"
+    ? section[PRESERVED_RELATION_BLOCKS_FIELD] as string
+    : "";
+  section[PRESERVED_RELATION_BLOCKS_FIELD] = current ? `${current}\n\n${block}` : block;
+  model[PRESERVED_RELATION_BLOCKS_SECTION] = section;
 }
 
 function moveLegacyRelationField(
@@ -600,6 +703,32 @@ function shouldUseExpandedListFormat(value: StructuredValue, context?: Serialize
     && (context.fieldKey === "enable" || context.fieldKey === "conflicts");
 }
 
+function shouldUsePackModpackFormat(value: StructuredValue, context?: SerializeFieldContext): value is string[] {
+  return Array.isArray(value)
+    && context?.schemaType === "pack"
+    && context.sectionKey === "modpack"
+    && context.fieldKey === "modpack";
+}
+
+function serializePackModpackValue(value: string[]): string {
+  const normalized = value.map((item) => item.trim()).filter(Boolean);
+  if (normalized.length === 1) {
+    return serializePackModpackItem(normalized[0]);
+  }
+  return `[${normalized.map((item) => serializePackModpackItem(item)).join(", ")}]`;
+}
+
+function serializePackModpackItem(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "any") {
+    return "any";
+  }
+  if (trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+    return formatString(parseQuoted(trimmed));
+  }
+  return formatString(trimmed);
+}
+
 function serializeExpandedStringList(value: string[]): string {
   if (value.length === 0) {
     return "[]";
@@ -620,6 +749,9 @@ function serializeValue(value: StructuredValue, context?: SerializeFieldContext)
   }
   if (Array.isArray(value)) {
     const listValue = value as string[];
+    if (shouldUsePackModpackFormat(listValue, context)) {
+      return serializePackModpackValue(listValue);
+    }
     if (shouldUseExpandedListFormat(listValue, context)) {
       return serializeExpandedStringList(listValue);
     }
@@ -629,6 +761,11 @@ function serializeValue(value: StructuredValue, context?: SerializeFieldContext)
     return formatString("");
   }
   return formatString(value);
+}
+
+function readPreservedRelationBlocks(model: StructuredModel): string {
+  const value = model[PRESERVED_RELATION_BLOCKS_SECTION]?.[PRESERVED_RELATION_BLOCKS_FIELD];
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function serializeUpdateDLCMValue(value: StructuredValue): string | null {
@@ -1190,6 +1327,29 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
     const root = model[ROOT_SECTION_KEY] || {};
     requireNonEmptyString(issues, root.base, "[根级字段].base 为空。", "error");
     requireNonEmptyString(issues, root.dlc, "[根级字段].dlc 为空。", "error");
+    return;
+  }
+
+  if (schema.type === "pack") {
+    const basic = model.basic || {};
+    requireNonEmptyString(issues, basic.identifier, "[basic].identifier 为空。", "error");
+    requireNonEmptyString(issues, basic.version, "[basic].version 为空。", "error");
+    const identifier = readString(basic.identifier);
+    if (identifier && (/[\\/:*?"<>|]/.test(identifier) || /[\x00-\x1F]/.test(identifier) || identifier !== identifier.trim())) {
+      issues.push({
+        severity: "error",
+        message: "[basic].identifier 包含非法字符。",
+        source: "schema"
+      });
+    }
+    const version = readString(basic.version);
+    if (version && !/^\d+(?:\.\d+)*(?:[-+][A-Za-z0-9_.-]+)?$/.test(version)) {
+      issues.push({
+        severity: "error",
+        message: "[basic].version 格式不合法。",
+        source: "schema"
+      });
+    }
     return;
   }
 

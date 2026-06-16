@@ -16,7 +16,7 @@ export interface ParsedDocumentResult {
 }
 
 export interface EditorBackend {
-  readonly mode: "local" | "api";
+  readonly mode: "local";
   openWithPicker(): Promise<OpenDocumentResult | null>;
   openManyWithPicker(): Promise<OpenDocumentResult[]>;
   pickFile(): Promise<PickedFileResult | null>;

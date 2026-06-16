@@ -10,7 +10,6 @@ import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.ApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
@@ -178,10 +177,6 @@ public final class DlcServerApi {
                     handleDlcPending(exchange);
                     return;
                 }
-                if ("GET".equals(method) && "/api/dlc/root/list".equals(path)) {
-                    handleDlcRootList(exchange);
-                    return;
-                }
                 if ("POST".equals(method) && "/api/dlc/apply".equals(path)) {
                     handleDlcApply(exchange);
                     return;
@@ -256,22 +251,6 @@ public final class DlcServerApi {
                 }
                 if ("POST".equals(method) && "/api/update/import-url".equals(path)) {
                     handleUpdateImportUrl(exchange);
-                    return;
-                }
-                if ("POST".equals(method) && "/api/dc/detect-type".equals(path)) {
-                    handleDetectType(exchange);
-                    return;
-                }
-                if ("POST".equals(method) && "/api/dc/validate".equals(path)) {
-                    handleValidate(exchange);
-                    return;
-                }
-                if ("POST".equals(method) && "/api/dc/read".equals(path)) {
-                    handleReadDc(exchange);
-                    return;
-                }
-                if ("POST".equals(method) && "/api/dc/write".equals(path)) {
-                    handleWriteDc(exchange);
                     return;
                 }
                 if ("POST".equals(method) && "/api/notice/content".equals(path)) {
@@ -422,34 +401,6 @@ public final class DlcServerApi {
         JsonObject data = new JsonObject();
         data.add("items", items);
         data.addProperty("count", items.size());
-        sendOk(exchange, data);
-    }
-
-    private static void handleDlcRootList(HttpExchange exchange) throws IOException {
-        JsonObject data = new JsonObject();
-        JsonArray roots = new JsonArray();
-        List<Path> dlcRoots = DlcPathConfig.getDlcRoots();
-        for (int i = 0; i < dlcRoots.size(); i++) {
-            Path root = dlcRoots.get(i);
-            JsonObject rootJson = new JsonObject();
-            rootJson.addProperty("rootIndex", i);
-            rootJson.addProperty("rootPath", root == null ? "" : root.toString());
-            JsonArray files = new JsonArray();
-            for (Path relative : listEditableDcFiles(root)) {
-                String relativePath = normalizeRelativePath(relative);
-                JsonObject fileJson = new JsonObject();
-                fileJson.addProperty("name", relative.getFileName() == null ? relativePath : relative.getFileName().toString());
-                fileJson.addProperty("path", relativePath);
-                String type = detectDcType(fileJson.get("name").getAsString(), relativePath, "");
-                fileJson.addProperty("type", type);
-                fileJson.addProperty("supported", isSupportedType(type));
-                files.add(fileJson);
-            }
-            rootJson.add("files", files);
-            roots.add(rootJson);
-        }
-        data.add("roots", roots);
-        data.addProperty("rootCount", dlcRoots.size());
         sendOk(exchange, data);
     }
 
@@ -869,122 +820,6 @@ public final class DlcServerApi {
         sendOk(exchange, data);
     }
 
-    private static void handleDetectType(HttpExchange exchange) throws IOException {
-        JsonObject request = readJsonBody(exchange);
-        String name = request == null ? "" : blank(getString(request, "name"));
-        String path = request == null ? "" : blank(getString(request, "path"));
-        String content = request == null ? "" : blank(getString(request, "content"));
-        String type = detectDcType(name, path, content);
-        JsonObject data = new JsonObject();
-        data.addProperty("type", type);
-        data.addProperty("supported", isSupportedType(type));
-        sendOk(exchange, data);
-    }
-
-    private static void handleValidate(HttpExchange exchange) throws IOException {
-        JsonObject request = readJsonBody(exchange);
-        String name = request == null ? "" : blank(getString(request, "name"));
-        String path = request == null ? "" : blank(getString(request, "path"));
-        String content = request == null ? "" : blank(getString(request, "content"));
-        String explicitType = request == null ? "" : blank(getString(request, "type"));
-        String type = explicitType.isBlank() ? detectDcType(name, path, content) : explicitType.trim().toLowerCase(Locale.ROOT);
-
-        JsonArray issues = new JsonArray();
-        if (content.isBlank()) {
-            issues.add(issue("error", "schema", "content", "Content is empty."));
-        }
-        if ("unknown".equals(type)) {
-            issues.add(issue("warning", "schema", "type", "Unable to detect config type."));
-        }
-
-        JsonObject parsed = null;
-        if (!content.isBlank() && isSupportedType(type)) {
-            parsed = parseDc(type, name, content);
-            if (parsed == null) {
-                issues.add(issue("error", "syntax", "content", "Failed to parse DC content."));
-            }
-        }
-        if (parsed != null) {
-            validateParsed(type, parsed, issues);
-        }
-
-        boolean valid = true;
-        for (JsonElement element : issues) {
-            if (element != null && element.isJsonObject()) {
-                String severity = getString(element.getAsJsonObject(), "severity");
-                if ("error".equalsIgnoreCase(severity)) {
-                    valid = false;
-                    break;
-                }
-            }
-        }
-        JsonObject data = new JsonObject();
-        data.addProperty("type", type);
-        data.addProperty("supported", isSupportedType(type));
-        data.addProperty("valid", valid);
-        data.add("issues", issues);
-        sendOk(exchange, data);
-    }
-
-    private static void handleReadDc(HttpExchange exchange) throws IOException {
-        JsonObject request = readJsonBody(exchange);
-        ResolvedDcPath resolved = resolveRequestedDcPath(request, false);
-        if (resolved == null) {
-            sendError(exchange, 400, "invalid_path", "Requested path is outside the allowed DLC config workspace.");
-            return;
-        }
-        if (!Files.exists(resolved.absolutePath()) || !Files.isRegularFile(resolved.absolutePath())) {
-            sendError(exchange, 404, "not_found", "Requested DC file does not exist.");
-            return;
-        }
-        String content = Files.readString(resolved.absolutePath(), StandardCharsets.UTF_8);
-        String type = detectDcType(resolved.absolutePath().getFileName() == null ? "" : resolved.absolutePath().getFileName().toString(),
-            resolved.relativePath(), content);
-        JsonObject data = new JsonObject();
-        data.addProperty("name", resolved.absolutePath().getFileName() == null ? resolved.relativePath() : resolved.absolutePath().getFileName().toString());
-        data.addProperty("path", resolved.relativePath());
-        data.addProperty("rootIndex", resolved.rootIndex());
-        data.addProperty("type", type);
-        data.addProperty("supported", isSupportedType(type));
-        data.addProperty("content", content);
-        sendOk(exchange, data);
-    }
-
-    private static void handleWriteDc(HttpExchange exchange) throws IOException {
-        JsonObject request = readJsonBody(exchange);
-        String content = request == null ? "" : blank(getString(request, "content"));
-        if (content.isBlank()) {
-            sendError(exchange, 400, "content_empty", "Content is empty.");
-            return;
-        }
-        ResolvedDcPath resolved = resolveRequestedDcPath(request, true);
-        if (resolved == null) {
-            sendError(exchange, 400, "invalid_path", "Requested path is outside the allowed DLC config workspace.");
-            return;
-        }
-        String explicitType = request == null ? "" : blank(getString(request, "type"));
-        String detectedType = explicitType.isBlank()
-            ? detectDcType(resolved.absolutePath().getFileName() == null ? "" : resolved.absolutePath().getFileName().toString(), resolved.relativePath(), content)
-            : explicitType.trim().toLowerCase(Locale.ROOT);
-        if (isSupportedType(detectedType) && parseDc(detectedType, resolved.absolutePath().getFileName() == null ? "" : resolved.absolutePath().getFileName().toString(), content) == null) {
-            sendError(exchange, 400, "parse_failed", "Failed to parse DC content.");
-            return;
-        }
-        Path parent = resolved.absolutePath().getParent();
-        if (parent != null) {
-            Files.createDirectories(parent);
-        }
-        Files.writeString(resolved.absolutePath(), content, StandardCharsets.UTF_8);
-        JsonObject data = new JsonObject();
-        data.addProperty("name", resolved.absolutePath().getFileName() == null ? resolved.relativePath() : resolved.absolutePath().getFileName().toString());
-        data.addProperty("path", resolved.relativePath());
-        data.addProperty("rootIndex", resolved.rootIndex());
-        data.addProperty("type", detectedType);
-        data.addProperty("supported", isSupportedType(detectedType));
-        data.addProperty("written", true);
-        sendOk(exchange, data);
-    }
-
     private static void handleNoticeContent(HttpExchange exchange) throws IOException {
         JsonObject request = readJsonBody(exchange);
         String url = blank(getString(request, "url"));
@@ -1285,169 +1120,15 @@ public final class DlcServerApi {
         sendOk(exchange, data);
     }
 
-    private static void validateParsed(String type, JsonObject root, JsonArray issues) {
-        switch (type) {
-            case "info" -> {
-                requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.");
-                requireString(issues, getSection(root, "basic"), "file_name", "[basic].file_name is required.");
-                String itemType = getString(getSection(root, "basic"), "type");
-                if ("others".equalsIgnoreCase(blank(itemType)) || "config".equalsIgnoreCase(blank(itemType))) {
-                    requireString(issues, root, "appliedTarget", "appliedTarget is required for info type others/config.");
-                }
-            }
-            case "remote" -> {
-                String itemType = getString(getSection(root, "basic"), "type");
-                if (!"dlcpack".equalsIgnoreCase(blank(itemType))) {
-                    requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.");
-                }
-                requireString(issues, getSection(root, "basic"), "file_name", "[basic].file_name is required.");
-                if (!hasAnyDownloadSource(getSection(root, "download"))) {
-                    issues.add(issue("error", "schema", "download", "At least one download source is required."));
-                }
-                if ("others".equalsIgnoreCase(blank(itemType))) {
-                    requireString(issues, root, "appliedTarget", "appliedTarget is required for remote type others.");
-                }
-            }
-            case "required" -> {
-                requireString(issues, getSection(root, "basic"), "identifier", "[basic].identifier is required.");
-                requireString(issues, getSection(root, "basic"), "file_name", "[basic].file_name is required.");
-                if (!hasAnyDownloadSource(getSection(root, "download"))) {
-                    issues.add(issue("error", "schema", "download", "At least one download source is required."));
-                }
-            }
-            case "redirect" -> requireString(issues, root, "RedirectUrl", "RedirectUrl is required.");
-            case "version" -> {
-                requireString(issues, root, "base", "base is required.");
-                requireString(issues, root, "dlc", "dlc is required.");
-            }
-            case "update" -> {
-                JsonObject version = getSection(root, "version");
-                requireString(issues, version, "base", "[version].base is required.");
-                requireString(issues, version, "dlc", "[version].dlc is required.");
-                String baseNew = blank(getString(version, "base_new"));
-                String dlcNew = blank(getString(version, "dlc_new"));
-                if (baseNew.isBlank() && dlcNew.isBlank()) {
-                    issues.add(issue("error", "schema", "version", "[version].base_new and [version].dlc_new cannot both be empty."));
-                }
-            }
-            default -> {
-            }
-        }
-    }
-
-    private static boolean hasAnyDownloadSource(JsonObject download) {
-        if (download == null) {
-            return false;
-        }
-        return hasNonBlankString(download, "modrinth_projectid")
-            || hasNonBlankString(download, "curseforge_projectid")
-            || hasNonBlankString(download, "directUrl");
-    }
-
-    private static JsonObject parseDc(String type, String name, String content) {
-        Path temp = null;
-        try {
-            String fileName = (name == null || name.isBlank()) ? defaultFileName(type) : name;
-            temp = Files.createTempFile(stripExtension(fileName), DcFormatUtil.DC_EXTENSION);
-            Files.writeString(temp, content, StandardCharsets.UTF_8);
-            DcConfigIO.Layout layout = usesStructuredLayout(type) ? DcConfigIO.Layout.DLC_STRUCTURED : DcConfigIO.Layout.GENERIC;
-            return DcConfigIO.read(temp, layout);
-        } catch (IOException ignored) {
-            return null;
-        } finally {
-            if (temp != null) {
-                try {
-                    Files.deleteIfExists(temp);
-                } catch (IOException ignored) {
-                }
-            }
-        }
-    }
-
-    private static boolean usesStructuredLayout(String type) {
-        return "info".equals(type) || "remote".equals(type) || "required".equals(type);
-    }
-
-    private static String defaultFileName(String type) {
-        return switch (type) {
-            case "version" -> "version.dc";
-            case "notice" -> "notice.dc";
-            case "redirect" -> "redirect.dc";
-            case "update" -> "update.dc";
-            case "required_notice" -> "notice.dc";
-            default -> type + ".dc";
-        };
-    }
-
-    private static String stripExtension(String name) {
-        int dot = name.lastIndexOf('.');
-        return dot > 0 ? name.substring(0, dot) : name;
-    }
-
-    private static String detectDcType(String name, String path, String content) {
-        String lowerName = blank(name).toLowerCase(Locale.ROOT);
-        String lowerPath = blank(path).replace('\\', '/').toLowerCase(Locale.ROOT);
-        String text = blank(content);
-        if (lowerPath.contains("/required/notice.") || lowerName.equals("notice.dc")) {
-            if (containsIgnoreCase(text, "[download_desc]") || containsIgnoreCase(text, "[manage_desc]")) {
-                return "required_notice";
-            }
-        }
-        if (lowerPath.contains("/info/version.") || lowerName.equals("version.dc")) {
-            return "version";
-        }
-        if (lowerPath.contains("/remote/redirect/") || lowerName.equals("redirect.dc") || containsIgnoreCase(text, "RedirectUrl")) {
-            return "redirect";
-        }
-        if (containsIgnoreCase(text, "[version]") || containsIgnoreCase(text, "[file]") || containsIgnoreCase(text, "[update]")) {
-            return "update";
-        }
-        if (lowerPath.contains("/preset/")) {
-            return "preset";
-        }
-        if (lowerPath.contains("/remote/")) {
-            return "remote";
-        }
-        if (lowerPath.contains("/required/")) {
-            return "required";
-        }
-        if (lowerPath.contains("/info/")) {
-            return "info";
-        }
-        if (lowerName.equals("notice.dc") || containsIgnoreCase(text, "isNoticeEnabled") || containsIgnoreCase(text, "[Contents]")) {
-            return "notice";
-        }
-        if (containsIgnoreCase(text, "modrinth_projectid") || containsIgnoreCase(text, "curseforge_projectid") || containsIgnoreCase(text, "directUrl")) {
-            if (containsIgnoreCase(text, "type =") || containsIgnoreCase(text, "AllowEnableByAll") || containsIgnoreCase(text, "conflicts") || containsIgnoreCase(text, "alarm")) {
-                return "remote";
-            }
-            return "required";
-        }
-        if (containsIgnoreCase(text, "[DisplayName]") && containsIgnoreCase(text, "enable")) {
-            return "preset";
-        }
-        if (containsIgnoreCase(text, "file_name") || containsIgnoreCase(text, "identifier")) {
-            return "info";
-        }
-        if (containsIgnoreCase(text, "base =") && containsIgnoreCase(text, "dlc =")) {
-            return "version";
-        }
-        return "unknown";
-    }
-
-    private static boolean isSupportedType(String type) {
-        return switch (type) {
-            case "info", "remote", "required", "preset", "notice", "redirect", "update", "version" -> true;
-            default -> false;
-        };
-    }
-
     private static JsonObject toUpdatePackageJson(DlcUpdatePackage pkg) {
-        if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+        DlcUpdateManifest manifest = pkg == null ? null : pkg.getManifest();
+        if (manifest == null) {
             return null;
         }
-        DlcUpdateManifest manifest = pkg.getManifest();
         DlcUpdateManifest.VersionInfo info = manifest.getVersion();
+        if (info == null) {
+            return null;
+        }
         JsonObject json = new JsonObject();
         json.addProperty("name", blank(pkg.getName()));
         json.addProperty("platform", blank(info.getPlatform()));
@@ -1458,105 +1139,6 @@ public final class DlcServerApi {
         json.addProperty("hidden", manifest.isHidden());
         json.add("changelog", GSON.toJsonTree(manifest.getChangelog()));
         return json;
-    }
-
-    private static List<Path> listEditableDcFiles(Path root) {
-        List<Path> files = new ArrayList<>();
-        if (root == null) {
-            return files;
-        }
-        Path normalizedRoot = root.toAbsolutePath().normalize();
-        Path rootNotice = normalizedRoot.resolve("notice.dc").normalize();
-        if (Files.isRegularFile(rootNotice)) {
-            files.add(normalizedRoot.relativize(rootNotice));
-        }
-        for (String dirName : List.of("info", "remote", "required", "preset", "update")) {
-            Path dir = normalizedRoot.resolve(dirName).normalize();
-            if (!Files.isDirectory(dir)) {
-                continue;
-            }
-            try (var stream = Files.walk(dir)) {
-                stream.filter(Files::isRegularFile)
-                    .filter(path -> DcConfigIO.isDc(path) || path.getFileName() != null && path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".dc"))
-                    .map(path -> normalizedRoot.relativize(path.normalize()))
-                    .sorted(Comparator.comparing(DlcServerApi::normalizeRelativePath))
-                    .forEach(files::add);
-            } catch (IOException ignored) {
-            }
-        }
-        files.sort(Comparator.comparing(DlcServerApi::normalizeRelativePath));
-        return files;
-    }
-
-    private static ResolvedDcPath resolveRequestedDcPath(JsonObject request, boolean allowCreate) {
-        String rawPath = request == null ? "" : blank(getString(request, "path"));
-        if (rawPath.isBlank()) {
-            return null;
-        }
-        List<Path> roots = DlcPathConfig.getDlcRoots();
-        if (roots.isEmpty()) {
-            return null;
-        }
-        Integer requestedRootIndex = getOptionalInt(request, "rootIndex");
-        Path candidate = DlcPaths.parsePathLenient(rawPath);
-        if (candidate == null) {
-            return null;
-        }
-
-        if (candidate.isAbsolute()) {
-            Path absolute = candidate.normalize();
-            for (int i = 0; i < roots.size(); i++) {
-                if (requestedRootIndex != null && requestedRootIndex != i) {
-                    continue;
-                }
-                Path root = roots.get(i).toAbsolutePath().normalize();
-                if (absolute.startsWith(root) && isAllowedDlcConfigPath(root, absolute, allowCreate)) {
-                    return new ResolvedDcPath(i, root.relativize(absolute), absolute);
-                }
-            }
-            return null;
-        }
-
-        int start = requestedRootIndex == null ? 0 : requestedRootIndex;
-        int end = requestedRootIndex == null ? roots.size() : Math.min(roots.size(), requestedRootIndex + 1);
-        for (int i = start; i < end; i++) {
-            Path root = roots.get(i).toAbsolutePath().normalize();
-            Path absolute = root.resolve(candidate).normalize();
-            if (isAllowedDlcConfigPath(root, absolute, allowCreate)) {
-                return new ResolvedDcPath(i, root.relativize(absolute), absolute);
-            }
-        }
-        return null;
-    }
-
-    private static boolean isAllowedDlcConfigPath(Path root, Path target, boolean allowCreate) {
-        if (root == null || target == null) {
-            return false;
-        }
-        Path normalizedRoot = root.toAbsolutePath().normalize();
-        Path normalizedTarget = target.toAbsolutePath().normalize();
-        if (!normalizedTarget.startsWith(normalizedRoot)) {
-            return false;
-        }
-        if (normalizedTarget.getFileName() == null) {
-            return false;
-        }
-        String fileName = normalizedTarget.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (!fileName.endsWith(".dc")) {
-            return false;
-        }
-        Path relative = normalizedRoot.relativize(normalizedTarget);
-        if (relative.getNameCount() == 1) {
-            return "notice.dc".equalsIgnoreCase(fileName);
-        }
-        String first = relative.getName(0).toString().toLowerCase(Locale.ROOT);
-        if (!List.of("info", "remote", "required", "preset", "update").contains(first)) {
-            return false;
-        }
-        if (!allowCreate && !Files.exists(normalizedTarget)) {
-            return false;
-        }
-        return true;
     }
 
     private static Path resolveGameRelativePath(String rawPath) {
@@ -1672,28 +1254,6 @@ public final class DlcServerApi {
         return relative == null ? "" : relative.toString().replace('\\', '/');
     }
 
-    private static Integer getOptionalInt(JsonObject obj, String key) {
-        if (obj == null) {
-            return null;
-        }
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
-        if (element == null || element.isJsonNull()) {
-            return null;
-        }
-        if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber()) {
-            return element.getAsInt();
-        }
-        String value = blank(element.getAsString());
-        if (value.isBlank()) {
-            return null;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
-    }
-
     private static List<String> readStringArray(JsonObject obj, String key) {
         JsonArray array = obj == null ? null : DcConfigIO.getArrayIgnoreCase(obj, key);
         List<String> values = new ArrayList<>();
@@ -1709,33 +1269,6 @@ public final class DlcServerApi {
             }
         }
         return values;
-    }
-
-    private static boolean containsIgnoreCase(String haystack, String needle) {
-        return haystack != null && needle != null && haystack.toLowerCase(Locale.ROOT).contains(needle.toLowerCase(Locale.ROOT));
-    }
-
-    private static JsonObject issue(String severity, String source, String field, String message) {
-        JsonObject issue = new JsonObject();
-        issue.addProperty("severity", severity);
-        issue.addProperty("source", source);
-        issue.addProperty("field", field);
-        issue.addProperty("message", message);
-        return issue;
-    }
-
-    private static void requireString(JsonArray issues, JsonObject section, String key, String message) {
-        if (!hasNonBlankString(section, key)) {
-            issues.add(issue("error", "schema", key, message));
-        }
-    }
-
-    private static boolean hasNonBlankString(JsonObject obj, String key) {
-        return !blank(getString(obj, key)).isBlank();
-    }
-
-    private static JsonObject getSection(JsonObject root, String key) {
-        return root == null ? null : DcConfigIO.getObjectIgnoreCase(root, key);
     }
 
     private static String getString(JsonObject obj, String key) {
@@ -1866,9 +1399,4 @@ public final class DlcServerApi {
         return value == null ? "" : value;
     }
 
-    private record ResolvedDcPath(int rootIndex, Path relative, Path absolutePath) {
-        private String relativePath() {
-            return normalizeRelativePath(relative);
-        }
-    }
 }
