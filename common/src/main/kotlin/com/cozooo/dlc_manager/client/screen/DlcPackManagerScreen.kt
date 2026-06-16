@@ -384,13 +384,13 @@ class DlcPackManagerScreen(
 
     private fun toggleInstall(entry: PackArchiveEntry) {
         val identifier = entry.metadata.identifier
-        if (isEntryCurrentlyInstalled(entry)) {
+        if (pendingUninstalls.remove(identifier)) {
+            pendingInstalls.remove(identifier)
+        } else if (isEntryCurrentlyInstalled(entry)) {
             pendingUninstalls.add(identifier)
             pendingInstalls.remove(identifier)
         } else if (pendingInstalls[identifier] === entry) {
             pendingInstalls.remove(identifier)
-        } else if (pendingUninstalls.remove(identifier)) {
-            pendingInstalls[identifier] = entry
         } else {
             val installed = installedByIdentifier[identifier]
             if (installed != null && entry.metadata.version == installed.version) {

@@ -424,13 +424,13 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
     private void toggleInstall(PackArchiveEntry entry) {
         String identifier = entry.metadata.identifier;
-        if (isEntryCurrentlyInstalled(entry)) {
+        if (pendingUninstalls.remove(identifier)) {
+            pendingInstalls.remove(identifier);
+        } else if (isEntryCurrentlyInstalled(entry)) {
             pendingUninstalls.add(identifier);
             pendingInstalls.remove(identifier);
         } else if (pendingInstalls.containsKey(identifier) && pendingInstalls.get(identifier) == entry) {
             pendingInstalls.remove(identifier);
-        } else if (pendingUninstalls.remove(identifier)) {
-            pendingInstalls.put(identifier, entry);
         } else {
             DlcPackMeta installed = installedByIdentifier.get(identifier);
             if (installed != null && entry.metadata.version.equals(installed.version)) {
