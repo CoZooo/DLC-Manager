@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -63,13 +62,14 @@ class DlcPackMetadataTest {
             "mods/b.jar"
             """);
 
-        DlcPackMetadata.Result result = DlcPackMetadata.read(DcConfigIO.read(pack, DcConfigIO.Layout.GENERIC));
+        DlcPackMetadata.Result result = DlcPackMetadata.read(pack);
 
         assertTrue(result.valid);
         assertNotNull(result.metadata);
         assertEquals("example_pack", result.metadata.identifier);
         assertEquals(List.of("Steve", "Alex"), result.metadata.authors);
         assertEquals(List.of("any"), result.metadata.modpacks);
+        assertTrue(result.metadata.modpackAnyWildcard);
         assertEquals(List.of("1.0.x", "1.2.0~1.3.0"), result.metadata.baseVersions);
         assertEquals(List.of("any"), result.metadata.dlcVersions);
         assertEquals("中文名", result.metadata.resolveDisplayName("zh_cn"));
@@ -90,11 +90,42 @@ class DlcPackMetadataTest {
             version = "1.0.0"
             """);
 
-        DlcPackMetadata.Result result = DlcPackMetadata.read(DcConfigIO.read(pack, DcConfigIO.Layout.GENERIC));
+        DlcPackMetadata.Result result = DlcPackMetadata.read(pack);
 
         assertTrue(result.valid);
         assertNotNull(result.metadata);
         assertEquals(List.of("Unknown Author"), result.metadata.authors);
+    }
+
+    @Test
+    void quotedAnyModpackIsLiteralAndBareAnyIsWildcard() throws Exception {
+        Path bare = tempDir.resolve("bare.dc");
+        Files.writeString(bare, """
+            [basic]
+            identifier = "bare"
+            version = "1.0.0"
+
+            [modpack]
+            modpack = any
+            """);
+        Path quoted = tempDir.resolve("quoted.dc");
+        Files.writeString(quoted, """
+            [basic]
+            identifier = "quoted"
+            version = "1.0.0"
+
+            [modpack]
+            modpack = "any"
+            """);
+
+        DlcPackMetadata.Result bareResult = DlcPackMetadata.read(bare);
+        DlcPackMetadata.Result quotedResult = DlcPackMetadata.read(quoted);
+
+        assertTrue(bareResult.metadata.modpackAnyWildcard);
+        assertFalse(quotedResult.metadata.modpackAnyWildcard);
+        assertTrue(DlcPackMetadata.anyStringMatches(bareResult.metadata.modpacks, "MainPack", bareResult.metadata.modpackAnyWildcard));
+        assertFalse(DlcPackMetadata.anyStringMatches(quotedResult.metadata.modpacks, "MainPack", quotedResult.metadata.modpackAnyWildcard));
+        assertTrue(DlcPackMetadata.anyStringMatches(quotedResult.metadata.modpacks, "any", quotedResult.metadata.modpackAnyWildcard));
     }
 
     @Test

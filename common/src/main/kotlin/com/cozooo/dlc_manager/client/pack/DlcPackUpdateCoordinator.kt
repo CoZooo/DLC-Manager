@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
-import com.cozooo.dlc_manager.core.DcConfigIO
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -147,7 +146,7 @@ class DlcPackUpdateCoordinator(
         if (!Files.isRegularFile(metadataPath)) {
             return null
         }
-        val result = DlcPackMetadata.read(DcConfigIO.read(metadataPath, DcConfigIO.Layout.GENERIC))
+        val result = DlcPackMetadata.read(metadataPath)
         return if (result.valid) result.metadata else null
     }
 

@@ -1,7 +1,5 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -136,7 +134,7 @@ public class DlcPackPackage {
     }
 
     private static DlcPackMetadata.Result readMetadata(Path path) {
-        return DlcPackMetadata.read(DcConfigIO.read(path, DcConfigIO.Layout.GENERIC));
+        return DlcPackMetadata.read(path);
     }
 
     public enum Format {

@@ -65,10 +65,16 @@ public class DlcPackInstaller {
         DlcPackTransaction txn = DlcPackTransaction.running(pack.metadata.identifier, replacementStaging.getFileName().toString());
         txn.replacement = true;
         try {
+            if (options.progressListener != null) {
+                options.progressListener.onProgress("Backing up " + pack.metadata.identifier, -1f);
+            }
             Files.createDirectories(replacementStaging);
             txn.save(txnPath);
             backupExistingInstallation(oldMeta, packDir, backupDir);
-            uninstall(oldMeta.identifier);
+            if (options.progressListener != null) {
+                options.progressListener.onProgress("Uninstalling " + oldMeta.identifier, -1f);
+            }
+            uninstall(oldMeta.identifier, options.progressListener);
             InstallReport report = installFresh(pack, options);
             txn.status = DlcPackTransaction.Status.COMMITTED;
             txn.save(txnPath);
@@ -108,21 +114,38 @@ public class DlcPackInstaller {
         DlcPackMeta meta = new DlcPackMeta(identifier, metadata.version, pack.format.name(), Instant.now().toString(), java.util.List.of());
         try {
             checkCanceled(effectiveOptions.cancelChecker);
+            if (effectiveOptions.progressListener != null) {
+                effectiveOptions.progressListener.onProgress("Preparing " + identifier, 0f);
+            }
             Files.createDirectories(staging);
             Files.createDirectories(packDir);
             archiveMetadata(pack, packDir);
+            if (effectiveOptions.progressListener != null) {
+                effectiveOptions.progressListener.onProgress("Applying runtime changes", 0.05f);
+            }
             applyRuntimeChanges(dependencies, conflicts, txn, txnPath);
             moveConfiguredConflicts(metadata.conflicts, packDir, txn, txnPath);
             java.util.List<DlcPackInstallPlan.FileEntry> manifestFiles = DlcPackCFResolver.downloadManifestFiles(
                 pack,
                 staging,
                 packDir,
-                effectiveOptions.cancelChecker
+                effectiveOptions.cancelChecker,
+                (status, progress) -> {
+                    if (effectiveOptions.progressListener != null) {
+                        float normalized = progress < 0f ? -1f : 0.05f + Math.max(0f, Math.min(1f, progress)) * 0.45f;
+                        effectiveOptions.progressListener.onProgress(status, normalized);
+                    }
+                }
             );
             DlcPackInstallPlan planWithManifest = DlcPackInstallPlan.merge(plan, manifestFiles, instanceRoot, dlcRoot);
-            for (DlcPackInstallPlan.FileEntry entry : planWithManifest.files) {
+            int totalFiles = Math.max(1, planWithManifest.files.size());
+            for (int index = 0; index < planWithManifest.files.size(); index++) {
+                DlcPackInstallPlan.FileEntry entry = planWithManifest.files.get(index);
                 checkCanceled(effectiveOptions.cancelChecker);
                 String relative = entry.relativePath;
+                if (effectiveOptions.progressListener != null) {
+                    effectiveOptions.progressListener.onProgress("Installing " + relative, 0.5f + index / (float) totalFiles * 0.45f);
+                }
                 Path target = resolveInside(instanceRoot, relative);
                 if (Files.exists(target)) {
                     Path displaced = resolveInside(packDir, relative);
@@ -138,12 +161,18 @@ public class DlcPackInstaller {
                 meta.addInstalledPath(relative);
             }
             checkCanceled(effectiveOptions.cancelChecker);
+            if (effectiveOptions.progressListener != null) {
+                effectiveOptions.progressListener.onProgress("Writing metadata", 0.98f);
+            }
             if (!meta.save(metaPath)) {
                 throw new IOException("Failed to write DLC Pack meta: " + metaPath);
             }
             txn.status = DlcPackTransaction.Status.COMMITTED;
             txn.save(txnPath);
             deleteRecursive(staging);
+            if (effectiveOptions.progressListener != null) {
+                effectiveOptions.progressListener.onProgress("Installed " + identifier, 1f);
+            }
             return new InstallReport(identifier, meta.installedPaths.size(), txn.movedPaths.size(), txn.enabledDlc.size(), txn.disabledDlc.size(), txn.enabledPresets.size(), txn.disabledPresets.size());
         } catch (Throwable error) {
             rollback(txn, packDir);
@@ -248,6 +277,10 @@ public class DlcPackInstaller {
     }
 
     public UninstallReport uninstall(String identifier) throws IOException {
+        return uninstall(identifier, null);
+    }
+
+    public UninstallReport uninstall(String identifier, ProgressListener progressListener) throws IOException {
         if (!DlcPackMetadata.isValidIdentifier(identifier)) {
             throw new IOException("Invalid DLC Pack identifier: " + identifier);
         }
@@ -259,7 +292,12 @@ public class DlcPackInstaller {
         int deleted = 0;
         java.util.List<String> paths = new java.util.ArrayList<>(meta.installedPaths);
         java.util.Collections.reverse(paths);
-        for (String relative : paths) {
+        int deleteTotal = Math.max(1, paths.size());
+        for (int index = 0; index < paths.size(); index++) {
+            String relative = paths.get(index);
+            if (progressListener != null) {
+                progressListener.onProgress("Uninstalling " + relative, index / (float) deleteTotal * 0.5f);
+            }
             Path target = resolveInside(instanceRoot, relative);
             if (Files.deleteIfExists(target)) {
                 deleted++;
@@ -269,10 +307,16 @@ public class DlcPackInstaller {
         int restored = 0;
         if (Files.isDirectory(packDir)) {
             try (Stream<Path> stream = Files.walk(packDir)) {
-                for (Path archived : stream.filter(Files::isRegularFile).sorted(Comparator.reverseOrder()).toList()) {
+                java.util.List<Path> archivedFiles = stream.filter(Files::isRegularFile).sorted(Comparator.reverseOrder()).toList();
+                int restoreTotal = Math.max(1, archivedFiles.size());
+                for (int index = 0; index < archivedFiles.size(); index++) {
+                    Path archived = archivedFiles.get(index);
                     String relative = DlcPackMeta.normalizeRelativePath(packDir.relativize(archived).toString());
                     if (relative == null || isPackRecordPath(relative)) {
                         continue;
+                    }
+                    if (progressListener != null) {
+                        progressListener.onProgress("Restoring " + relative, 0.5f + index / (float) restoreTotal * 0.45f);
                     }
                     Path target = resolveInside(instanceRoot, relative);
                     Files.createDirectories(target.getParent());
@@ -282,6 +326,9 @@ public class DlcPackInstaller {
             }
         }
         deletePackInstallState(packDir);
+        if (progressListener != null) {
+            progressListener.onProgress("Uninstalled " + identifier, 1f);
+        }
         return new UninstallReport(identifier, deleted, restored);
     }
 
@@ -368,7 +415,7 @@ public class DlcPackInstaller {
         String currentModpack = version == null ? null : version.getModpack();
         String currentBase = version == null ? null : version.getBase();
         String currentDlc = version == null ? null : version.getDlc();
-        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack)) {
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack, metadata.modpackAnyWildcard)) {
             result.incompatible.add("modpack " + safeText(currentModpack) + " not in " + String.join(", ", metadata.modpacks));
         }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, currentBase)) {
@@ -652,18 +699,25 @@ public class DlcPackInstaller {
         public final boolean disableDlcConflicts;
         public final boolean disablePresetConflicts;
         public final DlcDownloadService.CancelChecker cancelChecker;
+        public final ProgressListener progressListener;
 
         public InstallOptions(boolean enableMissingDlcDependencies, boolean enableMissingPresetDependencies, boolean disableDlcConflicts, boolean disablePresetConflicts) {
-            this(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, null);
+            this(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, null, null);
         }
 
         public InstallOptions(boolean enableMissingDlcDependencies, boolean enableMissingPresetDependencies, boolean disableDlcConflicts, boolean disablePresetConflicts,
                               DlcDownloadService.CancelChecker cancelChecker) {
+            this(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, cancelChecker, null);
+        }
+
+        public InstallOptions(boolean enableMissingDlcDependencies, boolean enableMissingPresetDependencies, boolean disableDlcConflicts, boolean disablePresetConflicts,
+                              DlcDownloadService.CancelChecker cancelChecker, ProgressListener progressListener) {
             this.enableMissingDlcDependencies = enableMissingDlcDependencies;
             this.enableMissingPresetDependencies = enableMissingPresetDependencies;
             this.disableDlcConflicts = disableDlcConflicts;
             this.disablePresetConflicts = disablePresetConflicts;
             this.cancelChecker = cancelChecker;
+            this.progressListener = progressListener;
         }
 
         public static InstallOptions strict() {
@@ -675,8 +729,16 @@ public class DlcPackInstaller {
         }
 
         public InstallOptions withCancelChecker(DlcDownloadService.CancelChecker cancelChecker) {
-            return new InstallOptions(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, cancelChecker);
+            return new InstallOptions(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, cancelChecker, progressListener);
         }
+
+        public InstallOptions withProgressListener(ProgressListener progressListener) {
+            return new InstallOptions(enableMissingDlcDependencies, enableMissingPresetDependencies, disableDlcConflicts, disablePresetConflicts, cancelChecker, progressListener);
+        }
+    }
+
+    public interface ProgressListener {
+        void onProgress(String status, float progress);
     }
 
     public static class InstallReport {

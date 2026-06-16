@@ -1,7 +1,10 @@
 package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.core.DlcFilePicker
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
+import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive
+import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta
@@ -21,6 +24,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.renderer.texture.DynamicTexture
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
+import net.minecraft.util.FormattedCharSequence
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -50,14 +54,37 @@ class DlcPackManagerScreen(
     private var lastClickAt = 0L
     private var status: Component? = null
     @Volatile private var busy = false
+    @Volatile private var cancelRequested = false
+    @Volatile private var operationProgress = -1f
+    @Volatile private var operationStatus: Component? = null
     private var iconTextureSerial = 0
 
     override fun init() {
-        refreshEntries()
+        if (!busy) {
+            refreshEntries()
+        }
         clearWidgets()
         val buttonWidth = 104
         val buttonHeight = 20
         val y = height - 28
+        if (busy) {
+            val gap = 8
+            val startX = width / 2 - buttonWidth - gap / 2
+            val cancel = Button.builder(
+                if (cancelRequested) Component.translatable("dlc_manager.pack.canceling") else Component.translatable("dlc_manager.pack.cancel")
+            ) { onBackOrCancel() }
+                .bounds(startX, y, buttonWidth, buttonHeight)
+                .build()
+            cancel.active = !cancelRequested
+            val back = Button.builder(Component.translatable("dlc_manager.pack.back")) {}
+                .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
+                .build()
+            back.active = false
+            backButton = cancel
+            addRenderableWidget(cancel)
+            addRenderableWidget(back)
+            return
+        }
         val gap = 8
         val total = buttonWidth * 4 + gap * 3
         val startX = width / 2 - total / 2
@@ -73,11 +100,15 @@ class DlcPackManagerScreen(
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build()
         apply.active = DlcPathConfig.isPackFuncOn() && hasPendingChanges() && !busy
-        val backLabel = if (hasPendingChanges()) Component.translatable("dlc_manager.pack.cancel_changes") else Component.translatable("dlc_manager.pack.back")
+        val backLabel = when {
+            busy -> Component.translatable("dlc_manager.pack.cancel")
+            hasPendingChanges() -> Component.translatable("dlc_manager.pack.cancel_changes")
+            else -> Component.translatable("dlc_manager.pack.back")
+        }
         val back = Button.builder(backLabel) { onBackOrCancel() }
             .bounds(startX + (buttonWidth + gap) * 3, y, buttonWidth, buttonHeight)
             .build()
-        back.active = !busy
+        back.active = true
         importButton = import
         urlButton = url
         applyButton = apply
@@ -91,12 +122,32 @@ class DlcPackManagerScreen(
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
         guiGraphics.drawCenteredString(font, title, width / 2, 18, 0xFFFFFF)
+        if (busy) {
+            renderOperation(guiGraphics)
+            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
+            return
+        }
         if (!DlcPathConfig.isPackFuncOn()) {
             guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.pack.disabled"), width / 2, height / 2 - 8, 0xFFCC66)
         } else {
             renderPackList(guiGraphics, mouseX, mouseY)
         }
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
+    }
+
+    private fun renderOperation(guiGraphics: GuiGraphics) {
+        val centerX = width / 2
+        var y = height / 2 - 44
+        val progressText = if (operationProgress >= 0f) {
+            "${(operationProgress.coerceIn(0f, 1f) * 100f).roundToInt()}%"
+        } else {
+            "..."
+        }
+        val message = operationStatus ?: status ?: Component.translatable("dlc_manager.pack.applying")
+        guiGraphics.drawCenteredString(font, formatOperationTitle(message, operationProgress, progressText), centerX, y, 0xE6E6E6)
+        y += 24
+        drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, operationProgress)
+        guiGraphics.drawCenteredString(font, progressText, centerX, y + 14, 0xC8C8C8)
     }
 
     private fun renderPackList(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
@@ -125,25 +176,26 @@ class DlcPackManagerScreen(
         guiGraphics.drawString(font, Component.literal("^"), arrowX, y + 8, if (canMoveUp(index)) 0xFFFFFF else 0x666666, false)
         guiGraphics.drawString(font, Component.literal("v"), arrowX, y + 30, if (canMoveDown(index)) 0xFFFFFF else 0x666666, false)
         val iconX = left + 24
-        val iconY = y + 11
+        val iconY = y + 16
         val iconTexture = entry.iconTexture
         if (iconTexture != null) {
             guiGraphics.blit(iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE, 0.0f, 0.0f, entry.iconWidth, entry.iconHeight, entry.iconWidth, entry.iconHeight)
         } else {
             guiGraphics.fill(iconX, iconY, iconX + ICON_SIZE, iconY + ICON_SIZE, 0xFF3B3B3B.toInt())
-            val initial = entry.displayName.ifBlank { "P" }.substring(0, 1).uppercase(Locale.ROOT)
+            val initial = entry.displayNameText.ifBlank { "P" }.substring(0, 1).uppercase(Locale.ROOT)
             guiGraphics.drawCenteredString(font, Component.literal(initial), iconX + ICON_SIZE / 2, iconY + 12, 0xFFFFFF)
         }
         val textX = iconX + ICON_SIZE + 8
         val textRight = right - (BUTTON_WIDTH + 5) * 4 - 14
-        guiGraphics.drawString(font, Component.literal(trimToWidth(entry.displayName, textRight - textX)), textX, y + 8, 0xFFFFFF, false)
-        guiGraphics.drawString(font, Component.literal(trimToWidth(entry.authorText, textRight - textX)), textX, y + 23, 0xC8C8C8, false)
-        guiGraphics.drawString(font, Component.translatable("dlc_manager.pack.version_line", entry.metadata.version), textX, y + 38, 0xAFC8FF, false)
+        guiGraphics.drawString(font, trimToWidth(entry.displayName, textRight - textX), textX, y + 6, 0xFFFFFF, false)
+        guiGraphics.drawString(font, trimToWidth(entry.author, textRight - textX), textX, y + 20, 0xC8C8C8, false)
+        guiGraphics.drawString(font, Component.translatable("dlc_manager.pack.version_line", entry.metadata.version), textX, y + 34, 0xAFC8FF, false)
+        guiGraphics.drawString(font, trimToWidth(entry.description, textRight - textX), textX, y + 48, 0xB0B0B0, false)
         val buttonX = right - (BUTTON_WIDTH + 5) * 4
-        drawRowButton(guiGraphics, buttonX, y + 8, installButtonLabel(entry), mouseX, mouseY)
-        drawRowButton(guiGraphics, buttonX + BUTTON_WIDTH + 5, y + 8, Component.translatable("dlc_manager.pack.delete"), mouseX, mouseY)
-        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 2, y + 8, Component.translatable("dlc_manager.pack.feedback"), mouseX, mouseY)
-        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 3, y + 8, Component.translatable("dlc_manager.pack.support_author"), mouseX, mouseY)
+        drawRowButton(guiGraphics, buttonX, y + 18, installButtonLabel(entry), mouseX, mouseY)
+        drawRowButton(guiGraphics, buttonX + BUTTON_WIDTH + 5, y + 18, Component.translatable("dlc_manager.pack.delete"), mouseX, mouseY)
+        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 2, y + 18, Component.translatable("dlc_manager.pack.feedback"), mouseX, mouseY)
+        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 3, y + 18, Component.translatable("dlc_manager.pack.support_author"), mouseX, mouseY)
     }
 
     private fun drawRowButton(guiGraphics: GuiGraphics, x: Int, y: Int, label: Component, mouseX: Int, mouseY: Int) {
@@ -230,7 +282,7 @@ class DlcPackManagerScreen(
             }
         }
         val buttonX = right - (BUTTON_WIDTH + 5) * 4
-        if (mouseY >= rowTop + 8 && mouseY < rowTop + 8 + BUTTON_HEIGHT && mouseX >= buttonX) {
+        if (mouseY >= rowTop + 18 && mouseY < rowTop + 18 + BUTTON_HEIGHT && mouseX >= buttonX) {
             val action = ((mouseX - buttonX) / (BUTTON_WIDTH + 5)).toInt()
             if (action in 0..3) {
                 when (action) {
@@ -318,10 +370,22 @@ class DlcPackManagerScreen(
         }
         val zip = DlcFilePicker.pickUpdateZip(Component.translatable("dlc_manager.pack.import").string) ?: return
         setBusy(true, Component.translatable("dlc_manager.pack.importing"))
+        updateOperationProgress(Component.translatable("dlc_manager.pack.importing"), -1f)
         Thread({
+            var copied: Path? = null
             try {
-                val copied = copyArchiveToPackRoot(zip)
+                checkCanceled()
+                copied = copyArchiveToPackRoot(zip)
+                checkCanceled()
                 finishBusy(Component.translatable("dlc_manager.pack.import_staged", copied.fileName.toString()))
+            } catch (_: DlcDownloadService.DownloadCanceledException) {
+                copied?.let {
+                    try {
+                        Files.deleteIfExists(it)
+                    } catch (_: IOException) {
+                    }
+                }
+                finishBusy(Component.translatable("dlc_manager.pack.canceled"))
             } catch (ex: Exception) {
                 finishBusy(Component.translatable("dlc_manager.pack.import_failed", ex.message ?: ex.javaClass.simpleName))
             }
@@ -369,7 +433,7 @@ class DlcPackManagerScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
-                            startApplyPendingChanges()
+                            continueApplyAfterReplacementConfirm()
                         }
                     },
                     Component.translatable("dlc_manager.pack.apply_confirm_title"),
@@ -380,32 +444,62 @@ class DlcPackManagerScreen(
             )
             return
         }
-        startApplyPendingChanges()
+        continueApplyAfterReplacementConfirm()
     }
 
-    private fun startApplyPendingChanges() {
+    private fun continueApplyAfterReplacementConfirm() {
+        val runtimeConfirmText = buildRuntimeConfirmText()
+        if (runtimeConfirmText != null) {
+            Minecraft.getInstance().setScreen(
+                ConfirmScreen(
+                    { accepted ->
+                        Minecraft.getInstance().setScreen(this)
+                        if (accepted) {
+                            startApplyPendingChanges(true)
+                        }
+                    },
+                    Component.translatable("dlc_manager.pack.runtime_confirm_title"),
+                    Component.literal(runtimeConfirmText),
+                    DlcConfirmUtil.confirmYes(),
+                    DlcConfirmUtil.confirmNo(),
+                )
+            )
+            return
+        }
+        startApplyPendingChanges(false)
+    }
+
+    private fun startApplyPendingChanges(allowRuntimeChanges: Boolean) {
         setBusy(true, Component.translatable("dlc_manager.pack.applying"))
+        updateOperationProgress(Component.translatable("dlc_manager.pack.applying"), 0f)
         Thread({
             try {
                 val installer = DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot())
-                applyOrderedChanges(installer)
+                applyOrderedChanges(installer, allowRuntimeChanges)
                 pendingUninstalls.clear()
                 pendingInstalls.clear()
                 finishBusy(Component.translatable("dlc_manager.pack.apply_success"))
+            } catch (_: DlcDownloadService.DownloadCanceledException) {
+                finishBusy(Component.translatable("dlc_manager.pack.canceled"))
             } catch (ex: Exception) {
                 finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)))
             }
         }, "dlc-pack-apply").start()
     }
 
-    private fun applyOrderedChanges(installer: DlcPackInstaller) {
+    private fun applyOrderedChanges(installer: DlcPackInstaller, allowRuntimeChanges: Boolean) {
         val ordered = archiveEntries.sortedBy { orderIndex(it.key) }
         val reinstallIdentifiers = collectAffectedReinstallIdentifiers(ordered)
+        val displayMode = determineOperationDisplayMode(reinstallIdentifiers)
         val uninstalled = LinkedHashSet<String>()
         for (entry in ordered) {
             val identifier = entry.metadata.identifier
             if (!uninstalled.contains(identifier) && isEntryCurrentlyInstalled(entry) && (pendingUninstalls.contains(identifier) || reinstallIdentifiers.contains(identifier))) {
-                installer.uninstall(identifier)
+                checkCanceled()
+                updateOperationProgress(operationStatusFor(displayMode, entry), -1f)
+                installer.uninstall(identifier) { message, progress ->
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0f, 0.35f, progress))
+                }
                 uninstalled.add(identifier)
             }
         }
@@ -414,12 +508,26 @@ class DlcPackManagerScreen(
             val entry = ordered[i]
             val identifier = entry.metadata.identifier
             if (!installed.contains(identifier) && !pendingUninstalls.contains(identifier) && (pendingInstalls[identifier] === entry || (reinstallIdentifiers.contains(identifier) && isEntryCurrentlyInstalled(entry)))) {
-                installArchive(installer, entry)
+                checkCanceled()
+                updateOperationProgress(operationStatusFor(displayMode, entry), 0.35f)
+                installArchive(installer, entry, allowRuntimeChanges, displayMode)
                 installed.add(identifier)
             }
         }
+        checkCanceled()
         committedArchiveOrder = currentArchiveOrder.toList()
         DlcPackOrder.save(packOrderPath(), committedArchiveOrder)
+    }
+
+    private fun determineOperationDisplayMode(reinstallIdentifiers: Set<String>): OperationDisplayMode {
+        val hasInstallOps = pendingInstalls.isNotEmpty() || reinstallIdentifiers.isNotEmpty()
+        val hasReplacementInstalls = pendingInstalls.keys.any { installedByIdentifier.containsKey(it) }
+        val hasUninstallOps = pendingUninstalls.isNotEmpty() || reinstallIdentifiers.isNotEmpty() || hasReplacementInstalls
+        return when {
+            hasUninstallOps && !hasInstallOps -> OperationDisplayMode.UNINSTALLING
+            hasInstallOps && !hasUninstallOps -> OperationDisplayMode.INSTALLING
+            else -> OperationDisplayMode.APPLYING
+        }
     }
 
     private fun collectAffectedReinstallIdentifiers(ordered: List<PackArchiveEntry>): Set<String> {
@@ -485,7 +593,10 @@ class DlcPackManagerScreen(
             if (!result.valid || pack == null) {
                 throw IOException(result.error ?: "invalid DLC Pack")
             }
-            DlcPackInstallPlan.build(pack, DlcPaths.gameDir(), DlcPaths.dlcRoot()).files.mapTo(LinkedHashSet()) { it.relativePath }
+            val plan = DlcPackInstallPlan.build(pack, DlcPaths.gameDir(), DlcPaths.dlcRoot())
+            DlcPackInstallPlan.merge(plan, DlcPackCFResolver.resolveManifestTargets(pack), DlcPaths.gameDir(), DlcPaths.dlcRoot())
+                .files
+                .mapTo(LinkedHashSet()) { it.relativePath }
         } finally {
             DlcPackArchive.deleteRecursive(staging)
         }
@@ -500,18 +611,57 @@ class DlcPackManagerScreen(
             val installed = installedByIdentifier[entry.metadata.identifier] ?: continue
             val compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version)
             if (compare > 0) {
-                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_upgrade", entry.displayName, installed.version, entry.metadata.version).string)
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_upgrade", entry.displayNameText, installed.version, entry.metadata.version).string)
             } else if (compare < 0) {
-                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_downgrade", entry.displayName, installed.version, entry.metadata.version).string)
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_downgrade", entry.displayNameText, installed.version, entry.metadata.version).string)
             } else {
-                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_replace", entry.displayName, installed.version).string)
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_replace", entry.displayNameText, installed.version).string)
             }
         }
         return lines.takeIf { it.isNotEmpty() }?.joinToString("\n")
     }
 
+    private fun buildRuntimeConfirmText(): String? {
+        val messages = ArrayList<String>()
+        val installer = DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot())
+        for (entry in archiveEntries) {
+            if (pendingInstalls[entry.metadata.identifier] !== entry) {
+                continue
+            }
+            var staging: Path? = null
+            try {
+                staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir
+                val result = DlcPackPackage.inspect(staging)
+                val pack = result.pack
+                if (!result.valid || pack == null) {
+                    messages.add(result.error ?: "invalid DLC Pack")
+                    continue
+                }
+                val precheck = installer.precheck(pack)
+                if (precheck.hasBlockingIssues()) {
+                    messages.add(DlcConfirmUtil.describePackBlockingPrecheck(precheck))
+                    continue
+                }
+                if (precheck.requiresRuntimeConfirmation()) {
+                    messages.add(
+                        Component.translatable(
+                            "dlc_manager.pack.runtime_confirm_entry",
+                            entry.displayNameText,
+                            DlcConfirmUtil.describePackBlockingPrecheck(precheck),
+                        ).string
+                    )
+                }
+            } catch (ex: Exception) {
+                messages.add(describeFailure(ex))
+            } finally {
+                DlcPackArchive.deleteRecursive(staging)
+            }
+        }
+        return messages.takeIf { it.isNotEmpty() }?.joinToString("\n\n")
+    }
+
     @Throws(IOException::class)
-    private fun installArchive(installer: DlcPackInstaller, entry: PackArchiveEntry) {
+    private fun installArchive(installer: DlcPackInstaller, entry: PackArchiveEntry, allowRuntimeChanges: Boolean, displayMode: OperationDisplayMode) {
         var staging: Path? = null
         try {
             staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir
@@ -519,13 +669,49 @@ class DlcPackManagerScreen(
             val pack = result.pack
             if (!result.valid || pack == null) throw IOException(result.error ?: "invalid DLC Pack")
             val precheck = installer.precheck(pack)
-            if (precheck.hasBlockingIssues() || precheck.requiresRuntimeConfirmation()) {
+            if (precheck.hasBlockingIssues() || (precheck.requiresRuntimeConfirmation() && !allowRuntimeChanges)) {
                 throw IOException(DlcConfirmUtil.describePackBlockingPrecheck(precheck))
             }
             val replace = installedByIdentifier.containsKey(pack.metadata.identifier)
-            installer.install(pack, replace, DlcPackInstaller.InstallOptions.strict())
+            val options = (if (allowRuntimeChanges) {
+                DlcPackInstaller.InstallOptions.applyConfirmedRuntimeChanges()
+            } else {
+                DlcPackInstaller.InstallOptions.strict()
+            })
+                .withCancelChecker { cancelRequested }
+                .withProgressListener { message, progress ->
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0.35f, 0.65f, progress))
+                }
+            installer.install(pack, replace, options)
         } finally {
             DlcPackArchive.deleteRecursive(staging)
+        }
+    }
+
+    private fun checkCanceled() {
+        if (cancelRequested) {
+            throw DlcDownloadService.DownloadCanceledException("canceled")
+        }
+    }
+
+    private fun normalizePhaseProgress(offset: Float, span: Float, progress: Float): Float {
+        return if (progress < 0f) -1f else offset + progress.coerceIn(0f, 1f) * span
+    }
+
+    private fun operationStatusFor(mode: OperationDisplayMode, entry: PackArchiveEntry, fallback: String? = null): Component {
+        return when (mode) {
+            OperationDisplayMode.UNINSTALLING -> Component.translatable("dlc_manager.pack.operation_uninstalling")
+            OperationDisplayMode.INSTALLING -> Component.translatable("dlc_manager.pack.operation_installing")
+            OperationDisplayMode.APPLYING -> Component.translatable("dlc_manager.pack.operation_applying")
+        }
+    }
+
+    private fun formatOperationTitle(message: Component, progress: Float, progressText: String): Component {
+        val text = message.string.trimEnd('.', '。', '…')
+        return if (progress >= 0f) {
+            Component.literal("$text：$progressText")
+        } else {
+            Component.literal("$text...")
         }
     }
 
@@ -535,6 +721,11 @@ class DlcPackManagerScreen(
     }
 
     private fun setBusy(value: Boolean, message: Component) {
+        if (value) {
+            cancelRequested = false
+            operationProgress = -1f
+            operationStatus = message
+        }
         busy = value
         status = message
         rebuildPackWidgets()
@@ -543,6 +734,9 @@ class DlcPackManagerScreen(
     private fun finishBusy(message: Component) {
         Minecraft.getInstance().execute {
             busy = false
+            cancelRequested = false
+            operationProgress = -1f
+            operationStatus = null
             status = message
             refreshEntries()
             rebuildPackWidgets()
@@ -550,6 +744,13 @@ class DlcPackManagerScreen(
     }
 
     private fun onBackOrCancel() {
+        if (busy) {
+            cancelRequested = true
+            status = Component.translatable("dlc_manager.pack.canceling")
+            operationStatus = status
+            rebuildPackWidgets()
+            return
+        }
         if (hasPendingChanges()) {
             pendingInstalls.clear()
             pendingUninstalls.clear()
@@ -639,10 +840,16 @@ class DlcPackManagerScreen(
             val result = DlcPackPackage.inspect(staging)
             val pack = result.pack
             if (!result.valid || pack == null) return null
-            val displayName = pack.metadata.resolveDisplayName(Minecraft.getInstance().options.languageCode)
-            val authorText = if (pack.metadata.authors.isEmpty()) Component.translatable("dlc_manager.pack.unknown_author").string else pack.metadata.authors.joinToString(", ")
+            val lang = Minecraft.getInstance().options.languageCode
+            val displayName = pack.metadata.displayNameComponent(lang)
+            val description = pack.metadata.descriptionComponent(lang)
+            val author = if (pack.metadata.authors.isEmpty()) {
+                Component.translatable("dlc_manager.pack.unknown_author")
+            } else {
+                DlcTextFormatter.parse(pack.metadata.authors.joinToString(", "))
+            }
             val icon = loadIconTexture(pack.iconFile)
-            PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, authorText, icon?.location, icon?.width ?: 0, icon?.height ?: 0)
+            PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, description, author, icon?.location, icon?.width ?: 0, icon?.height ?: 0)
         } catch (_: Exception) {
             null
         } finally {
@@ -765,15 +972,25 @@ class DlcPackManagerScreen(
         guiGraphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight, 0xFF66CCFF.toInt())
     }
 
-    private fun trimToWidth(text: String?, width: Int): String {
-        if (text.isNullOrEmpty()) return ""
-        if (font.width(text) <= width) return text
-        val ellipsis = "..."
-        var value = text.orEmpty()
-        while (value.isNotEmpty() && font.width(value + ellipsis) > width) {
-            value = value.substring(0, value.length - 1)
+    private fun drawProgressBar(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
+        val filled = if (progress >= 0f) (width * progress.coerceIn(0f, 1f)).roundToInt() else 0
+        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B.toInt())
+        if (progress < 0f) {
+            val pulse = ((Util.getMillis() / 12L) % width).toInt()
+            guiGraphics.fill(x + pulse.coerceAtMost(width - 24), y, x + (pulse + 24).coerceAtMost(width), y + height, 0xFF66CCFF.toInt())
+        } else {
+            guiGraphics.fill(x, y, x + filled, y + height, 0xFF66CCFF.toInt())
         }
-        return value + ellipsis
+    }
+
+    private fun updateOperationProgress(message: Component, progress: Float) {
+        operationStatus = message
+        operationProgress = progress
+    }
+
+    private fun trimToWidth(text: Component, width: Int): FormattedCharSequence {
+        if (font.width(text) <= width) return text.visualOrderText
+        return font.split(text, max(1, width)).firstOrNull() ?: FormattedCharSequence.EMPTY
     }
 
     private fun rebuildPackWidgets() {
@@ -797,19 +1014,25 @@ class DlcPackManagerScreen(
     private class PackArchiveEntry(
         val archivePath: Path,
         val metadata: DlcPackMetadata,
-        displayName: String?,
-        authorText: String?,
+        val displayName: Component,
+        val description: Component,
+        val author: Component,
         val iconTexture: ResourceLocation?,
         val iconWidth: Int,
         val iconHeight: Int,
     ) {
-        val displayName: String = displayName ?: metadata.identifier
-        val authorText: String = authorText ?: ""
+        val displayNameText: String = displayName.string.ifBlank { metadata.identifier }
         val key: String = archivePath.toString() + "#" + metadata.identifier + "@" + metadata.version
     }
 
+    private enum class OperationDisplayMode {
+        APPLYING,
+        INSTALLING,
+        UNINSTALLING,
+    }
+
     companion object {
-        private const val ROW_HEIGHT = 58
+        private const val ROW_HEIGHT = 72
         private const val ICON_SIZE = 32
         private const val BUTTON_WIDTH = 46
         private const val BUTTON_HEIGHT = 16

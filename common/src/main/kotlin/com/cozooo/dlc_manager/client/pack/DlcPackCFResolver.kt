@@ -13,11 +13,39 @@ import java.util.Locale
 object DlcPackCFResolver {
     @JvmStatic
     @Throws(IOException::class, InterruptedException::class)
+    fun resolveManifestTargets(pack: DlcPackPackage?): List<DlcPackInstallPlan.FileEntry> {
+        if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
+            return emptyList()
+        }
+        val entries = ArrayList<DlcPackInstallPlan.FileEntry>()
+        for (ref in pack.manifestFiles) {
+            val target = resolveManifestTarget(pack, ref)
+            if (target != null && entries.none { it.relativePath == target.relativePath }) {
+                entries.add(DlcPackInstallPlan.FileEntry(pack.manifestFile ?: pack.root, target.relativePath))
+            }
+        }
+        return entries
+    }
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
     fun downloadManifestFiles(
         pack: DlcPackPackage?,
         staging: Path,
         packDir: Path,
         cancelChecker: DlcDownloadService.CancelChecker?,
+    ): List<DlcPackInstallPlan.FileEntry> {
+        return downloadManifestFiles(pack, staging, packDir, cancelChecker, null)
+    }
+
+    @JvmStatic
+    @Throws(IOException::class, InterruptedException::class)
+    fun downloadManifestFiles(
+        pack: DlcPackPackage?,
+        staging: Path,
+        packDir: Path,
+        cancelChecker: DlcDownloadService.CancelChecker?,
+        progressListener: DlcPackInstaller.ProgressListener?,
     ): List<DlcPackInstallPlan.FileEntry> {
         if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
             return emptyList()
@@ -25,39 +53,34 @@ object DlcPackCFResolver {
         val downloadRoot = staging.resolve("manifest")
         val cacheRoot = packDir.resolve("cf_cache")
         val entries = ArrayList<DlcPackInstallPlan.FileEntry>()
-        for (ref in pack.manifestFiles) {
+        val totalRefs = pack.manifestFiles.size
+        for ((index, ref) in pack.manifestFiles.withIndex()) {
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw DlcDownloadService.DownloadCanceledException("canceled")
             }
-            val file = CurseForgeClient.fetchFile(ref.projectId, ref.fileId)
-                ?: throw IOException("Failed to resolve CurseForge file: ${ref.projectId}/${ref.fileId}")
-            val mod = CurseForgeClient.fetchMod(ref.projectId)
-            if (file.url.isNullOrBlank()) {
-                throw IOException("Failed to resolve CurseForge file: ${ref.projectId}/${ref.fileId}")
-            }
-            var fileName = DlcDownloadUtil.sanitizeFileName(file.fileName)
-            if (fileName.isNullOrBlank()) {
-                fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(file.url))
-            }
-            if (fileName.isNullOrBlank()) {
-                throw IOException("CurseForge file name is not available: ${ref.projectId}/${ref.fileId}")
-            }
-            val targetDirectory = targetDirectory(file, mod)
-            val relative = targetDirectory.resolve(fileName).toString().replace('\\', '/')
-            if (hasBundledOverride(pack, relative) || hasDownloadedEntry(entries, relative)) {
+            val target = resolveManifestTarget(pack, ref) ?: continue
+            if (hasDownloadedEntry(entries, target.relativePath)) {
                 continue
             }
+            val file = target.file
+            val fileName = target.fileName
+            val targetDirectory = target.targetDirectory
+            val relative = target.relativePath
             val candidate = DlcDownloadCandidate.curseForge(file)
             val cached = cacheFile(cacheRoot, targetDirectory, ref, fileName)
             if (!isUsableCachedFile(cached, candidate)) {
                 Files.deleteIfExists(cached)
                 val outputDir = downloadRoot.resolve(targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId))
+                progressListener?.onProgress("Downloading $fileName", index / totalRefs.toFloat())
                 val downloaded = DlcDownloadService.downloadKnown(
                     candidate.url,
                     outputDir,
                     fileName,
                     candidate.expectedSize,
-                    null,
+                    DlcDownloadService.ProgressListener { done, total ->
+                        val fileProgress = if (total > 0) done / total.toFloat() else 0f
+                        progressListener?.onProgress("Downloading $fileName", (index + fileProgress.coerceIn(0f, 1f)) / totalRefs.toFloat())
+                    },
                     cancelChecker,
                 )
                 verifyDownloaded(downloaded, candidate)
@@ -65,8 +88,31 @@ object DlcPackCFResolver {
                 Files.move(downloaded, cached, StandardCopyOption.REPLACE_EXISTING)
             }
             entries.add(DlcPackInstallPlan.FileEntry(cached, relative))
+            progressListener?.onProgress("Resolved $fileName", (index + 1) / totalRefs.toFloat())
         }
         return entries
+    }
+
+    private fun resolveManifestTarget(pack: DlcPackPackage, ref: DlcPackManifest.FileRef): ManifestTarget? {
+        val file = CurseForgeClient.fetchFile(ref.projectId, ref.fileId)
+            ?: throw IOException("Failed to resolve CurseForge file: ${ref.projectId}/${ref.fileId}")
+        val mod = CurseForgeClient.fetchMod(ref.projectId)
+        if (file.url.isNullOrBlank()) {
+            throw IOException("Failed to resolve CurseForge file: ${ref.projectId}/${ref.fileId}")
+        }
+        var fileName = DlcDownloadUtil.sanitizeFileName(file.fileName)
+        if (fileName.isNullOrBlank()) {
+            fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(file.url))
+        }
+        if (fileName.isNullOrBlank()) {
+            throw IOException("CurseForge file name is not available: ${ref.projectId}/${ref.fileId}")
+        }
+        val targetDirectory = targetDirectory(file, mod)
+        val relative = targetDirectory.resolve(fileName).toString().replace('\\', '/')
+        if (hasBundledOverride(pack, relative)) {
+            return null
+        }
+        return ManifestTarget(file, targetDirectory, fileName, relative)
     }
 
     private fun targetDirectory(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?): Path {
@@ -166,4 +212,11 @@ object DlcPackCFResolver {
     private fun normalize(value: String?): String? {
         return value?.trim()?.lowercase(Locale.ROOT)?.takeIf { it.isNotBlank() }
     }
+
+    private class ManifestTarget(
+        val file: CurseForgeClient.CurseForgeFile,
+        val targetDirectory: Path,
+        val fileName: String,
+        val relativePath: String,
+    )
 }

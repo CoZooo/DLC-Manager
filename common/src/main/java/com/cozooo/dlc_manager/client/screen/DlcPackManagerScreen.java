@@ -1,7 +1,10 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcFilePicker;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
+import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstallPlan;
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
@@ -20,6 +23,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FormattedCharSequence;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +41,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
-    private static final int ROW_HEIGHT = 58;
+    private static final int ROW_HEIGHT = 72;
     private static final int ICON_SIZE = 32;
     private static final int BUTTON_WIDTH = 46;
     private static final int BUTTON_HEIGHT = 16;
@@ -61,6 +65,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private long lastClickAt;
     private Component status;
     private volatile boolean busy;
+    private volatile boolean cancelRequested;
+    private volatile float operationProgress = -1f;
+    private volatile Component operationStatus;
     private int iconTextureSerial;
 
     public DlcPackManagerScreen(Screen parent) {
@@ -70,11 +77,29 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
     @Override
     protected void init() {
-        refreshEntries();
+        if (!busy) {
+            refreshEntries();
+        }
         clearWidgets();
         int buttonWidth = 104;
         int buttonHeight = 20;
         int y = this.height - 28;
+        if (busy) {
+            int gap = 8;
+            int startX = this.width / 2 - buttonWidth - gap / 2;
+            Component cancelLabel = cancelRequested ? Component.translatable("dlc_manager.pack.canceling") : Component.translatable("dlc_manager.pack.cancel");
+            backButton = Button.builder(cancelLabel, btn -> onBackOrCancel())
+                .bounds(startX, y, buttonWidth, buttonHeight)
+                .build();
+            backButton.active = !cancelRequested;
+            Button returnButton = Button.builder(Component.translatable("dlc_manager.pack.back"), btn -> {})
+                .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
+                .build();
+            returnButton.active = false;
+            addRenderableWidget(backButton);
+            addRenderableWidget(returnButton);
+            return;
+        }
         int gap = 8;
         int total = buttonWidth * 4 + gap * 3;
         int startX = this.width / 2 - total / 2;
@@ -90,11 +115,13 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build();
         applyButton.active = DlcPathConfig.isPackFuncOn() && hasPendingChanges() && !busy;
-        Component backLabel = hasPendingChanges() ? Component.translatable("dlc_manager.pack.cancel_changes") : Component.translatable("dlc_manager.pack.back");
+        Component backLabel = busy
+            ? Component.translatable("dlc_manager.pack.cancel")
+            : hasPendingChanges() ? Component.translatable("dlc_manager.pack.cancel_changes") : Component.translatable("dlc_manager.pack.back");
         backButton = Button.builder(backLabel, btn -> onBackOrCancel())
             .bounds(startX + (buttonWidth + gap) * 3, y, buttonWidth, buttonHeight)
             .build();
-        backButton.active = !busy;
+        backButton.active = true;
         addRenderableWidget(importButton);
         addRenderableWidget(urlButton);
         addRenderableWidget(applyButton);
@@ -105,12 +132,28 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 18, 0xFFFFFF);
+        if (busy) {
+            renderOperation(guiGraphics);
+            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
+            return;
+        }
         if (!DlcPathConfig.isPackFuncOn()) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack.disabled"), this.width / 2, this.height / 2 - 8, 0xFFCC66);
         } else {
             renderPackList(guiGraphics, mouseX, mouseY);
         }
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private void renderOperation(GuiGraphics guiGraphics) {
+        int centerX = this.width / 2;
+        int y = this.height / 2 - 44;
+        Component message = operationStatus != null ? operationStatus : status != null ? status : Component.translatable("dlc_manager.pack.applying");
+        String progressText = operationProgress >= 0f ? Math.round(Math.max(0f, Math.min(1f, operationProgress)) * 100f) + "%" : "...";
+        guiGraphics.drawCenteredString(this.font, formatOperationTitle(message, operationProgress, progressText), centerX, y, 0xE6E6E6);
+        y += 24;
+        drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, operationProgress);
+        guiGraphics.drawCenteredString(this.font, progressText, centerX, y + 14, 0xC8C8C8);
     }
 
     private void renderPackList(GuiGraphics guiGraphics, int mouseX, int mouseY) {
@@ -145,27 +188,28 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         guiGraphics.drawString(this.font, Component.literal("^"), arrowX, y + 8, canMoveUp(index) ? 0xFFFFFF : 0x666666, false);
         guiGraphics.drawString(this.font, Component.literal("v"), arrowX, y + 30, canMoveDown(index) ? 0xFFFFFF : 0x666666, false);
         int iconX = left + 24;
-        int iconY = y + 11;
+        int iconY = y + 16;
         if (entry.iconTexture != null) {
             guiGraphics.blit(entry.iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE, 0.0F, 0.0F, entry.iconWidth, entry.iconHeight, entry.iconWidth, entry.iconHeight);
         } else {
             guiGraphics.fill(iconX, iconY, iconX + ICON_SIZE, iconY + ICON_SIZE, 0xFF3B3B3B);
-            String initial = entry.displayName.isBlank() ? "P" : entry.displayName.substring(0, 1).toUpperCase(Locale.ROOT);
+            String initial = entry.displayNameText.isBlank() ? "P" : entry.displayNameText.substring(0, 1).toUpperCase(Locale.ROOT);
             guiGraphics.drawCenteredString(this.font, Component.literal(initial), iconX + ICON_SIZE / 2, iconY + 12, 0xFFFFFF);
         }
 
         int textX = iconX + ICON_SIZE + 8;
         int textRight = right - (BUTTON_WIDTH + 5) * 4 - 14;
-        guiGraphics.drawString(this.font, Component.literal(trimToWidth(entry.displayName, textRight - textX)), textX, y + 8, 0xFFFFFF, false);
-        guiGraphics.drawString(this.font, Component.literal(trimToWidth(entry.authorText, textRight - textX)), textX, y + 23, 0xC8C8C8, false);
+        guiGraphics.drawString(this.font, trimToWidth(entry.displayName, textRight - textX), textX, y + 6, 0xFFFFFF, false);
+        guiGraphics.drawString(this.font, trimToWidth(entry.author, textRight - textX), textX, y + 20, 0xC8C8C8, false);
         Component version = Component.translatable("dlc_manager.pack.version_line", entry.metadata.version);
-        guiGraphics.drawString(this.font, version, textX, y + 38, 0xAFC8FF, false);
+        guiGraphics.drawString(this.font, version, textX, y + 34, 0xAFC8FF, false);
+        guiGraphics.drawString(this.font, trimToWidth(entry.description, textRight - textX), textX, y + 48, 0xB0B0B0, false);
 
         int buttonX = right - (BUTTON_WIDTH + 5) * 4;
-        drawRowButton(guiGraphics, buttonX, y + 8, installButtonLabel(entry), mouseX, mouseY);
-        drawRowButton(guiGraphics, buttonX + BUTTON_WIDTH + 5, y + 8, Component.translatable("dlc_manager.pack.delete"), mouseX, mouseY);
-        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 2, y + 8, Component.translatable("dlc_manager.pack.feedback"), mouseX, mouseY);
-        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 3, y + 8, Component.translatable("dlc_manager.pack.support_author"), mouseX, mouseY);
+        drawRowButton(guiGraphics, buttonX, y + 18, installButtonLabel(entry), mouseX, mouseY);
+        drawRowButton(guiGraphics, buttonX + BUTTON_WIDTH + 5, y + 18, Component.translatable("dlc_manager.pack.delete"), mouseX, mouseY);
+        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 2, y + 18, Component.translatable("dlc_manager.pack.feedback"), mouseX, mouseY);
+        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 3, y + 18, Component.translatable("dlc_manager.pack.support_author"), mouseX, mouseY);
     }
 
     private void drawRowButton(GuiGraphics guiGraphics, int x, int y, Component label, int mouseX, int mouseY) {
@@ -277,7 +321,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             }
         }
         int buttonX = right - (BUTTON_WIDTH + 5) * 4;
-        if (mouseY >= rowTop + 8 && mouseY < rowTop + 8 + BUTTON_HEIGHT) {
+        if (mouseY >= rowTop + 18 && mouseY < rowTop + 18 + BUTTON_HEIGHT) {
             int action = (int) ((mouseX - buttonX) / (BUTTON_WIDTH + 5));
             if (mouseX >= buttonX && action >= 0 && action < 4) {
                 if (action == 0) {
@@ -373,10 +417,22 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             return;
         }
         setBusy(true, Component.translatable("dlc_manager.pack.importing"));
+        updateOperationProgress(Component.translatable("dlc_manager.pack.importing"), -1f);
         new Thread(() -> {
+            Path copied = null;
             try {
-                Path copied = copyArchiveToPackRoot(zip);
+                checkCanceled();
+                copied = copyArchiveToPackRoot(zip);
+                checkCanceled();
                 finishBusy(Component.translatable("dlc_manager.pack.import_staged", copied.getFileName().toString()));
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                if (copied != null) {
+                    try {
+                        Files.deleteIfExists(copied);
+                    } catch (IOException ignored) {
+                    }
+                }
+                finishBusy(Component.translatable("dlc_manager.pack.canceled"));
             } catch (Exception ex) {
                 finishBusy(Component.translatable("dlc_manager.pack.import_failed", ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
             }
@@ -429,38 +485,60 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             Minecraft.getInstance().setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
                 if (accepted) {
-                    startApplyPendingChanges();
+                    continueApplyAfterReplacementConfirm();
                 }
             }, Component.translatable("dlc_manager.pack.apply_confirm_title"), Component.literal(confirmText), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
             return;
         }
-        startApplyPendingChanges();
+        continueApplyAfterReplacementConfirm();
     }
 
-    private void startApplyPendingChanges() {
+    private void continueApplyAfterReplacementConfirm() {
+        String runtimeConfirmText = buildRuntimeConfirmText();
+        if (runtimeConfirmText != null) {
+            Minecraft.getInstance().setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(accepted -> {
+                Minecraft.getInstance().setScreen(this);
+                if (accepted) {
+                    startApplyPendingChanges(true);
+                }
+            }, Component.translatable("dlc_manager.pack.runtime_confirm_title"), Component.literal(runtimeConfirmText), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+            return;
+        }
+        startApplyPendingChanges(false);
+    }
+
+    private void startApplyPendingChanges(boolean allowRuntimeChanges) {
         setBusy(true, Component.translatable("dlc_manager.pack.applying"));
+        updateOperationProgress(Component.translatable("dlc_manager.pack.applying"), 0f);
         new Thread(() -> {
             try {
                 DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
-                applyOrderedChanges(installer);
+                applyOrderedChanges(installer, allowRuntimeChanges);
                 pendingUninstalls.clear();
                 pendingInstalls.clear();
                 finishBusy(Component.translatable("dlc_manager.pack.apply_success"));
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                finishBusy(Component.translatable("dlc_manager.pack.canceled"));
             } catch (Exception ex) {
                 finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)));
             }
         }, "dlc-pack-apply").start();
     }
 
-    private void applyOrderedChanges(DlcPackInstaller installer) throws IOException {
+    private void applyOrderedChanges(DlcPackInstaller installer, boolean allowRuntimeChanges) throws IOException {
         List<PackArchiveEntry> ordered = new ArrayList<>(archiveEntries);
         ordered.sort(Comparator.comparingInt(entry -> orderIndex(entry.key)));
         Set<String> reinstallIdentifiers = collectAffectedReinstallIdentifiers(ordered);
+        OperationDisplayMode displayMode = determineOperationDisplayMode(reinstallIdentifiers);
         Set<String> uninstalled = new HashSet<>();
         for (PackArchiveEntry entry : ordered) {
             String identifier = entry.metadata.identifier;
             if (!uninstalled.contains(identifier) && isEntryCurrentlyInstalled(entry) && (pendingUninstalls.contains(identifier) || reinstallIdentifiers.contains(identifier))) {
-                installer.uninstall(identifier);
+                checkCanceled();
+                updateOperationProgress(operationStatusFor(displayMode, entry, null), -1f);
+                installer.uninstall(identifier, (message, progress) ->
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0f, 0.35f, progress))
+                );
                 uninstalled.add(identifier);
             }
         }
@@ -469,12 +547,34 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             PackArchiveEntry entry = ordered.get(i);
             String identifier = entry.metadata.identifier;
             if (!installed.contains(identifier) && !pendingUninstalls.contains(identifier) && (pendingInstalls.get(identifier) == entry || (reinstallIdentifiers.contains(identifier) && isEntryCurrentlyInstalled(entry)))) {
-                installArchive(installer, entry);
+                checkCanceled();
+                updateOperationProgress(operationStatusFor(displayMode, entry, null), 0.35f);
+                installArchive(installer, entry, allowRuntimeChanges, displayMode);
                 installed.add(identifier);
             }
         }
+        checkCanceled();
         committedArchiveOrder = List.copyOf(currentArchiveOrder);
         DlcPackOrder.save(packOrderPath(), committedArchiveOrder);
+    }
+
+    private OperationDisplayMode determineOperationDisplayMode(Set<String> reinstallIdentifiers) {
+        boolean hasInstallOps = !pendingInstalls.isEmpty() || !reinstallIdentifiers.isEmpty();
+        boolean hasReplacementInstalls = false;
+        for (String identifier : pendingInstalls.keySet()) {
+            if (installedByIdentifier.containsKey(identifier)) {
+                hasReplacementInstalls = true;
+                break;
+            }
+        }
+        boolean hasUninstallOps = !pendingUninstalls.isEmpty() || !reinstallIdentifiers.isEmpty() || hasReplacementInstalls;
+        if (hasUninstallOps && !hasInstallOps) {
+            return OperationDisplayMode.UNINSTALLING;
+        }
+        if (hasInstallOps && !hasUninstallOps) {
+            return OperationDisplayMode.INSTALLING;
+        }
+        return OperationDisplayMode.APPLYING;
     }
 
     private Set<String> collectAffectedReinstallIdentifiers(List<PackArchiveEntry> ordered) throws IOException {
@@ -546,6 +646,12 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             }
             Set<String> files = new HashSet<>();
             DlcPackInstallPlan plan = DlcPackInstallPlan.build(result.pack, DlcPaths.gameDir(), DlcPaths.dlcRoot());
+            try {
+                plan = DlcPackInstallPlan.merge(plan, DlcPackCFResolver.resolveManifestTargets(result.pack), DlcPaths.gameDir(), DlcPaths.dlcRoot());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted", ex);
+            }
             for (DlcPackInstallPlan.FileEntry file : plan.files) {
                 files.add(file.relativePath);
             }
@@ -567,17 +673,53 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             }
             int compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
             if (compare > 0) {
-                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_upgrade", entry.displayName, installed.version, entry.metadata.version).getString());
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_upgrade", entry.displayNameText, installed.version, entry.metadata.version).getString());
             } else if (compare < 0) {
-                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_downgrade", entry.displayName, installed.version, entry.metadata.version).getString());
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_downgrade", entry.displayNameText, installed.version, entry.metadata.version).getString());
             } else {
-                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_replace", entry.displayName, installed.version).getString());
+                lines.add(Component.translatable("dlc_manager.pack.apply_confirm_replace", entry.displayNameText, installed.version).getString());
             }
         }
         return lines.isEmpty() ? null : String.join("\n", lines);
     }
 
-    private void installArchive(DlcPackInstaller installer, PackArchiveEntry entry) throws IOException {
+    private String buildRuntimeConfirmText() {
+        List<String> messages = new ArrayList<>();
+        DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+        for (PackArchiveEntry entry : archiveEntries) {
+            if (pendingInstalls.get(entry.metadata.identifier) != entry) {
+                continue;
+            }
+            Path staging = null;
+            try {
+                staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir;
+                DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+                if (!result.valid || result.pack == null) {
+                    messages.add(result.error == null ? "invalid DLC Pack" : result.error);
+                    continue;
+                }
+                DlcPackInstaller.PrecheckResult precheck = installer.precheck(result.pack);
+                if (precheck.hasBlockingIssues()) {
+                    messages.add(DlcConfirmUtil.describePackBlockingPrecheck(precheck));
+                    continue;
+                }
+                if (precheck.requiresRuntimeConfirmation()) {
+                    messages.add(Component.translatable(
+                        "dlc_manager.pack.runtime_confirm_entry",
+                        entry.displayNameText,
+                        DlcConfirmUtil.describePackBlockingPrecheck(precheck)
+                    ).getString());
+                }
+            } catch (Exception ex) {
+                messages.add(describeFailure(ex));
+            } finally {
+                DlcPackArchive.deleteRecursive(staging);
+            }
+        }
+        return messages.isEmpty() ? null : String.join("\n\n", messages);
+    }
+
+    private void installArchive(DlcPackInstaller installer, PackArchiveEntry entry, boolean allowRuntimeChanges, OperationDisplayMode displayMode) throws IOException {
         Path staging = null;
         try {
             staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir;
@@ -586,14 +728,48 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 throw new IOException(result.error == null ? "invalid DLC Pack" : result.error);
             }
             DlcPackInstaller.PrecheckResult precheck = installer.precheck(result.pack);
-            if (precheck.hasBlockingIssues() || precheck.requiresRuntimeConfirmation()) {
+            if (precheck.hasBlockingIssues() || (precheck.requiresRuntimeConfirmation() && !allowRuntimeChanges)) {
                 throw new IOException(DlcConfirmUtil.describePackBlockingPrecheck(precheck));
             }
             boolean replace = installedByIdentifier.containsKey(result.pack.metadata.identifier);
-            installer.install(result.pack, replace, DlcPackInstaller.InstallOptions.strict());
+            DlcPackInstaller.InstallOptions options = allowRuntimeChanges
+                ? DlcPackInstaller.InstallOptions.applyConfirmedRuntimeChanges()
+                : DlcPackInstaller.InstallOptions.strict();
+            options = options
+                .withCancelChecker(() -> cancelRequested)
+                .withProgressListener((message, progress) ->
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0.35f, 0.65f, progress))
+                );
+            installer.install(result.pack, replace, options);
         } finally {
             DlcPackArchive.deleteRecursive(staging);
         }
+    }
+
+    private void checkCanceled() throws DlcDownloadService.DownloadCanceledException {
+        if (cancelRequested) {
+            throw new DlcDownloadService.DownloadCanceledException("canceled");
+        }
+    }
+
+    private float normalizePhaseProgress(float offset, float span, float progress) {
+        return progress < 0f ? -1f : offset + Math.max(0f, Math.min(1f, progress)) * span;
+    }
+
+    private Component operationStatusFor(OperationDisplayMode mode, PackArchiveEntry entry, String fallback) {
+        return switch (mode) {
+            case UNINSTALLING -> Component.translatable("dlc_manager.pack.operation_uninstalling");
+            case INSTALLING -> Component.translatable("dlc_manager.pack.operation_installing");
+            case APPLYING -> Component.translatable("dlc_manager.pack.operation_applying");
+        };
+    }
+
+    private Component formatOperationTitle(Component message, float progress, String progressText) {
+        String text = message.getString();
+        while (text.endsWith(".") || text.endsWith("。") || text.endsWith("…")) {
+            text = text.substring(0, text.length() - 1);
+        }
+        return progress >= 0f ? Component.literal(text + "：" + progressText) : Component.literal(text + "...");
     }
 
     private String describeFailure(Exception ex) {
@@ -608,6 +784,11 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void setBusy(boolean busy, Component message) {
+        if (busy) {
+            cancelRequested = false;
+            operationProgress = -1f;
+            operationStatus = message;
+        }
         this.busy = busy;
         this.status = message;
         rebuildPackWidgets();
@@ -616,6 +797,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private void finishBusy(Component message) {
         Minecraft.getInstance().execute(() -> {
             busy = false;
+            cancelRequested = false;
+            operationProgress = -1f;
+            operationStatus = null;
             status = message;
             refreshEntries();
             rebuildPackWidgets();
@@ -623,6 +807,13 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void onBackOrCancel() {
+        if (busy) {
+            cancelRequested = true;
+            status = Component.translatable("dlc_manager.pack.canceling");
+            operationStatus = status;
+            rebuildPackWidgets();
+            return;
+        }
         if (hasPendingChanges()) {
             pendingInstalls.clear();
             pendingUninstalls.clear();
@@ -730,10 +921,14 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 return null;
             }
             DlcPackPackage pack = result.pack;
-            String displayName = pack.metadata.resolveDisplayName(Minecraft.getInstance().options.languageCode);
-            String authorText = pack.metadata.authors.isEmpty() ? Component.translatable("dlc_manager.pack.unknown_author").getString() : String.join(", ", pack.metadata.authors);
+            String lang = Minecraft.getInstance().options.languageCode;
+            Component displayName = pack.metadata.displayNameComponent(lang);
+            Component description = pack.metadata.descriptionComponent(lang);
+            Component author = pack.metadata.authors.isEmpty()
+                ? Component.translatable("dlc_manager.pack.unknown_author")
+                : DlcTextFormatter.parse(String.join(", ", pack.metadata.authors));
             IconTexture icon = loadIconTexture(pack.iconFile);
-            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, authorText, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
+            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, description, author, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
         } catch (Exception ignored) {
             return null;
         } finally {
@@ -902,19 +1097,28 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         guiGraphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight, 0xFF66CCFF);
     }
 
-    private String trimToWidth(String text, int width) {
-        if (text == null) {
-            return "";
+    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
+        int filled = progress >= 0f ? Math.round(width * Math.max(0f, Math.min(1f, progress))) : 0;
+        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);
+        if (progress < 0f) {
+            int pulse = (int) ((Util.getMillis() / 12L) % width);
+            guiGraphics.fill(x + Math.min(pulse, width - 24), y, x + Math.min(pulse + 24, width), y + height, 0xFF66CCFF);
+        } else {
+            guiGraphics.fill(x, y, x + filled, y + height, 0xFF66CCFF);
         }
+    }
+
+    private void updateOperationProgress(Component message, float progress) {
+        operationStatus = message;
+        operationProgress = progress;
+    }
+
+    private FormattedCharSequence trimToWidth(Component text, int width) {
         if (this.font.width(text) <= width) {
-            return text;
+            return text.getVisualOrderText();
         }
-        String ellipsis = "...";
-        String value = text;
-        while (!value.isEmpty() && this.font.width(value + ellipsis) > width) {
-            value = value.substring(0, value.length() - 1);
-        }
-        return value + ellipsis;
+        List<FormattedCharSequence> lines = this.font.split(text, Math.max(1, width));
+        return lines.isEmpty() ? FormattedCharSequence.EMPTY : lines.get(0);
     }
 
     private void rebuildPackWidgets() {
@@ -948,22 +1152,33 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final class PackArchiveEntry {
         private final Path archivePath;
         private final DlcPackMetadata metadata;
-        private final String displayName;
-        private final String authorText;
+        private final Component displayName;
+        private final String displayNameText;
+        private final Component description;
+        private final Component author;
         private final ResourceLocation iconTexture;
         private final int iconWidth;
         private final int iconHeight;
         private final String key;
 
-        private PackArchiveEntry(Path archivePath, DlcPackMetadata metadata, String displayName, String authorText, ResourceLocation iconTexture, int iconWidth, int iconHeight) {
+        private PackArchiveEntry(Path archivePath, DlcPackMetadata metadata, Component displayName, Component description, Component author, ResourceLocation iconTexture, int iconWidth, int iconHeight) {
             this.archivePath = archivePath;
             this.metadata = metadata;
-            this.displayName = displayName == null ? metadata.identifier : displayName;
-            this.authorText = authorText == null ? "" : authorText;
+            this.displayName = displayName == null ? Component.literal(metadata.identifier) : displayName;
+            String rawDisplayName = this.displayName.getString();
+            this.displayNameText = rawDisplayName.isBlank() ? metadata.identifier : rawDisplayName;
+            this.description = description == null ? Component.empty() : description;
+            this.author = author == null ? Component.empty() : author;
             this.iconTexture = iconTexture;
             this.iconWidth = iconWidth;
             this.iconHeight = iconHeight;
             this.key = archivePath.toString() + "#" + metadata.identifier + "@" + metadata.version;
         }
+    }
+
+    private enum OperationDisplayMode {
+        APPLYING,
+        INSTALLING,
+        UNINSTALLING
     }
 }

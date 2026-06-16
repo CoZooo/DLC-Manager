@@ -16,8 +16,29 @@ public final class DlcPackCFResolver {
     private DlcPackCFResolver() {
     }
 
+    public static List<DlcPackInstallPlan.FileEntry> resolveManifestTargets(DlcPackPackage pack) throws IOException, InterruptedException {
+        if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
+            return List.of();
+        }
+        List<DlcPackInstallPlan.FileEntry> entries = new ArrayList<>();
+        for (DlcPackManifest.FileRef ref : pack.manifestFiles) {
+            ManifestTarget target = resolveManifestTarget(pack, ref);
+            if (target != null && !hasDownloadedEntry(entries, target.relativePath)) {
+                entries.add(new DlcPackInstallPlan.FileEntry(null, target.relativePath));
+            }
+        }
+        return entries;
+    }
+
     public static List<DlcPackInstallPlan.FileEntry> downloadManifestFiles(DlcPackPackage pack, Path staging, Path packDir,
                                                                            DlcDownloadService.CancelChecker cancelChecker)
+        throws IOException, InterruptedException {
+        return downloadManifestFiles(pack, staging, packDir, cancelChecker, null);
+    }
+
+    public static List<DlcPackInstallPlan.FileEntry> downloadManifestFiles(DlcPackPackage pack, Path staging, Path packDir,
+                                                                           DlcDownloadService.CancelChecker cancelChecker,
+                                                                           DlcPackInstaller.ProgressListener progressListener)
         throws IOException, InterruptedException {
         if (pack == null || pack.format != DlcPackPackage.Format.CURSEFORGE || pack.manifestFiles.isEmpty()) {
             return List.of();
@@ -25,47 +46,70 @@ public final class DlcPackCFResolver {
         Path downloadRoot = staging.resolve("manifest");
         Path cacheRoot = packDir.resolve("cf_cache");
         List<DlcPackInstallPlan.FileEntry> entries = new ArrayList<>();
-        for (DlcPackManifest.FileRef ref : pack.manifestFiles) {
+        int totalRefs = pack.manifestFiles.size();
+        for (int index = 0; index < pack.manifestFiles.size(); index++) {
+            DlcPackManifest.FileRef ref = pack.manifestFiles.get(index);
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw new DlcDownloadService.DownloadCanceledException("canceled");
             }
-            CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFile(ref.projectId, ref.fileId);
-            if (file == null || file.url == null || file.url.isBlank()) {
-                throw new IOException("Failed to resolve CurseForge file: " + ref.projectId + "/" + ref.fileId);
-            }
-            CurseForgeClient.CurseForgeMod mod = CurseForgeClient.fetchMod(ref.projectId);
-            String fileName = DlcDownloadUtil.sanitizeFileName(file.fileName);
-            if (fileName == null || fileName.isBlank()) {
-                fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(file.url));
-            }
-            if (fileName == null || fileName.isBlank()) {
-                throw new IOException("CurseForge file name is not available: " + ref.projectId + "/" + ref.fileId);
-            }
-            Path targetDirectory = targetDirectory(file, mod);
-            String relative = targetDirectory.resolve(fileName).toString().replace('\\', '/');
-            if (hasBundledOverride(pack, relative) || hasDownloadedEntry(entries, relative)) {
+            ManifestTarget target = resolveManifestTarget(pack, ref);
+            if (target == null || hasDownloadedEntry(entries, target.relativePath)) {
                 continue;
             }
-            DlcDownloadCandidate candidate = DlcDownloadCandidate.curseForge(file);
-            Path cached = cacheFile(cacheRoot, targetDirectory, ref, fileName);
+            DlcDownloadCandidate candidate = DlcDownloadCandidate.curseForge(target.file);
+            Path cached = cacheFile(cacheRoot, target.targetDirectory, ref, target.fileName);
             if (!isUsableCachedFile(cached, candidate)) {
                 Files.deleteIfExists(cached);
-                Path outputDir = downloadRoot.resolve(targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId));
+                Path outputDir = downloadRoot.resolve(target.targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId));
+                int fileIndex = index;
+                if (progressListener != null) {
+                    progressListener.onProgress("Downloading " + target.fileName, fileIndex / (float) totalRefs);
+                }
                 Path downloaded = DlcDownloadService.downloadKnown(
                     candidate.url,
                     outputDir,
-                    fileName,
+                    target.fileName,
                     candidate.expectedSize,
-                    null,
+                    (done, total) -> {
+                        if (progressListener != null) {
+                            float fileProgress = total > 0 ? done / (float) total : 0f;
+                            fileProgress = Math.max(0f, Math.min(1f, fileProgress));
+                            progressListener.onProgress("Downloading " + target.fileName, (fileIndex + fileProgress) / (float) totalRefs);
+                        }
+                    },
                     cancelChecker
                 );
                 verifyDownloaded(downloaded, candidate);
                 Files.createDirectories(cached.getParent());
                 Files.move(downloaded, cached, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
-            entries.add(new DlcPackInstallPlan.FileEntry(cached, relative));
+            entries.add(new DlcPackInstallPlan.FileEntry(cached, target.relativePath));
+            if (progressListener != null) {
+                progressListener.onProgress("Resolved " + target.fileName, (index + 1) / (float) totalRefs);
+            }
         }
         return entries;
+    }
+
+    private static ManifestTarget resolveManifestTarget(DlcPackPackage pack, DlcPackManifest.FileRef ref) throws IOException, InterruptedException {
+        CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFile(ref.projectId, ref.fileId);
+        if (file == null || file.url == null || file.url.isBlank()) {
+            throw new IOException("Failed to resolve CurseForge file: " + ref.projectId + "/" + ref.fileId);
+        }
+        CurseForgeClient.CurseForgeMod mod = CurseForgeClient.fetchMod(ref.projectId);
+        String fileName = DlcDownloadUtil.sanitizeFileName(file.fileName);
+        if (fileName == null || fileName.isBlank()) {
+            fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(file.url));
+        }
+        if (fileName == null || fileName.isBlank()) {
+            throw new IOException("CurseForge file name is not available: " + ref.projectId + "/" + ref.fileId);
+        }
+        Path targetDirectory = targetDirectory(file, mod);
+        String relative = targetDirectory.resolve(fileName).toString().replace('\\', '/');
+        if (hasBundledOverride(pack, relative)) {
+            return null;
+        }
+        return new ManifestTarget(file, targetDirectory, fileName, relative);
     }
 
     private static Path targetDirectory(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod) {
@@ -175,5 +219,19 @@ public final class DlcPackCFResolver {
 
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static final class ManifestTarget {
+        private final CurseForgeClient.CurseForgeFile file;
+        private final Path targetDirectory;
+        private final String fileName;
+        private final String relativePath;
+
+        private ManifestTarget(CurseForgeClient.CurseForgeFile file, Path targetDirectory, String fileName, String relativePath) {
+            this.file = file;
+            this.targetDirectory = targetDirectory;
+            this.fileName = fileName;
+            this.relativePath = relativePath;
+        }
     }
 }

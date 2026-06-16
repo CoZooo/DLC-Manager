@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.core.DcConfigIO
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -137,7 +136,7 @@ class DlcPackPackage(
         }
 
         private fun readMetadata(path: Path): DlcPackMetadata.Result {
-            return DlcPackMetadata.read(DcConfigIO.read(path, DcConfigIO.Layout.GENERIC))
+            return DlcPackMetadata.read(path)
         }
     }
 

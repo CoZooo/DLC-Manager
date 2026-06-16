@@ -25,6 +25,7 @@ class DlcPackUrlScreen(
     private var pasteButton: Button? = null
     private var backButton: Button? = null
     @Volatile private var downloading = false
+    @Volatile private var cancelRequested = false
     @Volatile private var progress = 0f
     @Volatile private var errorText: String? = null
     @Volatile private var statusText: String? = null
@@ -52,8 +53,11 @@ class DlcPackUrlScreen(
         val centerX = width / 2 - buttonWidth / 2
         val rightX = width / 2 + buttonWidth / 2 + 10
 
-        val download = Button.builder(Component.translatable("dlc_manager.update.url_download")) { startDownload() }
-            .bounds(leftX, buttonY, buttonWidth, buttonHeight)
+        val downloadX = if (downloading) centerX else leftX
+        val download = Button.builder(Component.translatable("dlc_manager.update.url_download")) {
+            if (downloading) cancelDownload() else startDownload()
+        }
+            .bounds(downloadX, buttonY, buttonWidth, buttonHeight)
             .build()
         val paste = Button.builder(Component.translatable("dlc_manager.update.url_paste")) { pasteClipboard() }
             .bounds(centerX, buttonY, buttonWidth, buttonHeight)
@@ -67,26 +71,39 @@ class DlcPackUrlScreen(
         addRenderableWidget(download)
         addRenderableWidget(paste)
         addRenderableWidget(back)
+        if (downloading) {
+            setButtonsForDownload()
+        }
     }
 
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
         val centerX = width / 2
+        if (downloading) {
+            renderDownloadProgress(guiGraphics, centerX)
+            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
+            return
+        }
         var y = height / 2 - 80
         guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
         y += 18
         guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.pack.url_prompt"), centerX, y, 0xC8C8C8)
 
-        if (downloading) {
-            val barY = height / 2 + 60
-            guiGraphics.drawCenteredString(font, statusText ?: "", centerX, barY - 14, 0xE6E6E6)
-            drawProgressBar(guiGraphics, centerX - 120, barY, 240, 8, progress)
-            val percent = if (totalBytes > 0) round(max(0f, min(1f, progress)) * 100f).toInt() else 0
-            guiGraphics.drawCenteredString(font, "$percent%", centerX, barY + 10, 0xC8C8C8)
-        } else if (!errorText.isNullOrBlank()) {
+        if (!errorText.isNullOrBlank()) {
             guiGraphics.drawCenteredString(font, errorText ?: "", centerX, height / 2 + 60, 0xFF6B6B)
         }
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
+    }
+
+    private fun renderDownloadProgress(guiGraphics: GuiGraphics, centerX: Int) {
+        var y = height / 2 - 44
+        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
+        y += 24
+        guiGraphics.drawCenteredString(font, statusText ?: "", centerX, y, 0xE6E6E6)
+        y += 18
+        drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, progress)
+        val percent = if (totalBytes > 0) round(max(0f, min(1f, progress)) * 100f).toInt() else 0
+        guiGraphics.drawCenteredString(font, "$percent%", centerX, y + 14, 0xC8C8C8)
     }
 
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
@@ -131,12 +148,13 @@ class DlcPackUrlScreen(
             return
         }
         downloading = true
+        cancelRequested = false
         progress = 0f
         downloadedBytes = 0L
         totalBytes = 0L
         errorText = null
         statusText = Component.translatable("dlc_manager.pack.url_downloading").string
-        setButtonsActive(false)
+        setButtonsForDownload()
 
         Thread({
             var downloaded: Path? = null
@@ -147,6 +165,19 @@ class DlcPackUrlScreen(
                     downloading = false
                     Minecraft.getInstance().setScreen(parent)
                     parent.importDownloadedPack(finalDownloaded)
+                }
+            } catch (_: DlcDownloadService.DownloadCanceledException) {
+                if (downloaded != null) {
+                    try {
+                        Files.deleteIfExists(downloaded)
+                    } catch (_: IOException) {
+                    }
+                }
+                Minecraft.getInstance().execute {
+                    errorText = Component.translatable("dlc_manager.pack.url_canceled").string
+                    downloading = false
+                    cancelRequested = false
+                    setButtonsActive(true)
                 }
             } catch (ex: Exception) {
                 if (downloaded != null) {
@@ -159,10 +190,21 @@ class DlcPackUrlScreen(
                 Minecraft.getInstance().execute {
                     errorText = Component.translatable("dlc_manager.update.url_failed", msg).string
                     downloading = false
+                    cancelRequested = false
                     setButtonsActive(true)
                 }
             }
         }, "dlc-pack-url-download").start()
+    }
+
+    private fun cancelDownload() {
+        if (!downloading) {
+            return
+        }
+        cancelRequested = true
+        statusText = Component.translatable("dlc_manager.pack.canceling").string
+        downloadButton?.active = false
+        downloadButton?.message = Component.translatable("dlc_manager.pack.canceling")
     }
 
     @Throws(IOException::class)
@@ -189,7 +231,7 @@ class DlcPackUrlScreen(
                 totalBytes = total
                 progress = if (total > 0) done / total.toFloat() else 0f
             },
-            null,
+            DlcDownloadService.CancelChecker { cancelRequested },
         )
     }
 
@@ -211,8 +253,24 @@ class DlcPackUrlScreen(
 
     private fun setButtonsActive(active: Boolean) {
         downloadButton?.active = active
+        downloadButton?.message = Component.translatable("dlc_manager.update.url_download")
+        downloadButton?.visible = true
+        urlField?.visible = true
         pasteButton?.active = active
+        pasteButton?.visible = true
         backButton?.active = active
+        backButton?.visible = true
+    }
+
+    private fun setButtonsForDownload() {
+        downloadButton?.active = !cancelRequested
+        downloadButton?.message = if (cancelRequested) Component.translatable("dlc_manager.pack.canceling") else Component.translatable("dlc_manager.pack.cancel")
+        downloadButton?.visible = true
+        urlField?.visible = false
+        pasteButton?.active = false
+        pasteButton?.visible = false
+        backButton?.active = false
+        backButton?.visible = true
     }
 
     override fun shouldCloseOnEsc(): Boolean {

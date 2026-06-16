@@ -6,6 +6,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import net.minecraft.network.chat.Component
+import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.util.Locale
@@ -15,6 +16,7 @@ class DlcPackMetadata(
     @JvmField val version: String,
     @JvmField val authors: List<String>,
     @JvmField val modpacks: List<String>,
+    @JvmField val modpackAnyWildcard: Boolean,
     @JvmField val baseVersions: List<String>,
     @JvmField val dlcVersions: List<String>,
     @JvmField val displayNames: Map<String, String>,
@@ -46,6 +48,24 @@ class DlcPackMetadata(
 
         @JvmStatic
         fun read(obj: JsonObject?): Result {
+            return read(obj, null)
+        }
+
+        @JvmStatic
+        fun read(path: Path?): Result {
+            if (path == null) {
+                return Result.invalid("missing pack.dc")
+            }
+            val text = try {
+                Files.readString(path)
+            } catch (_: Exception) {
+                null
+            }
+            return read(DcConfigIO.read(path, DcConfigIO.Layout.GENERIC), text)
+        }
+
+        @JvmStatic
+        fun read(obj: JsonObject?, sourceText: String?): Result {
             if (obj == null) {
                 return Result.invalid("missing pack.dc")
             }
@@ -59,11 +79,13 @@ class DlcPackMetadata(
                 return Result.invalid("invalid version")
             }
             val modpack = DcConfigIO.getObjectIgnoreCase(obj, "modpack")
+            val modpackValues = readStringList(DcConfigIO.getIgnoreCase(modpack, "modpack"))
             val metadata = DlcPackMetadata(
                 identifier!!,
                 version!!,
                 readStringList(DcConfigIO.getIgnoreCase(basic, "author")).ifEmpty { listOf("Unknown Author") },
-                readStringList(DcConfigIO.getIgnoreCase(modpack, "modpack")).ifEmpty { listOf("any") },
+                modpackValues.ifEmpty { listOf("any") },
+                resolveModpackAnyWildcard(modpackValues, sourceText),
                 readStringList(DcConfigIO.getIgnoreCase(modpack, "base")).ifEmpty { listOf("any") },
                 readStringList(DcConfigIO.getIgnoreCase(modpack, "dlc")).ifEmpty { listOf("any") },
                 readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
@@ -141,16 +163,23 @@ class DlcPackMetadata(
 
         @JvmStatic
         fun anyStringMatches(rules: List<String>?, current: String?): Boolean {
+            return anyStringMatches(rules, current, true)
+        }
+
+        @JvmStatic
+        fun anyStringMatches(rules: List<String>?, current: String?, allowAnyWildcard: Boolean): Boolean {
             if (rules.isNullOrEmpty()) {
                 return true
             }
             val currentValue = current?.trim().orEmpty()
             if (currentValue.isEmpty()) {
-                return rules.any { it.trim().equals("any", ignoreCase = true) }
+                return allowAnyWildcard && rules.any { it.trim().equals("any", ignoreCase = true) }
             }
             return rules.any {
                 val normalized = it.trim()
-                normalized.isEmpty() || normalized.equals("any", ignoreCase = true) || currentValue.equals(normalized, ignoreCase = true)
+                normalized.isEmpty() ||
+                    (allowAnyWildcard && normalized.equals("any", ignoreCase = true)) ||
+                    currentValue.equals(normalized, ignoreCase = true)
             }
         }
 
@@ -252,6 +281,131 @@ class DlcPackMetadata(
                 }
             }
             return out
+        }
+
+        private fun resolveModpackAnyWildcard(values: List<String>, sourceText: String?): Boolean {
+            if (values.isEmpty()) {
+                return true
+            }
+            if (values.none { it.trim().equals("any", ignoreCase = true) }) {
+                return false
+            }
+            val rawValues = readRawModpackValues(sourceText)
+            if (rawValues.isEmpty()) {
+                return true
+            }
+            return rawValues.any { isBareAnyToken(it) }
+        }
+
+        private fun readRawModpackValues(sourceText: String?): List<String> {
+            if (sourceText.isNullOrBlank()) {
+                return emptyList()
+            }
+            val out = ArrayList<String>()
+            var inModpack = false
+            val lines = sourceText.lines()
+            var index = 0
+            while (index < lines.size) {
+                val stripped = stripComment(lines[index]).trim()
+                if (stripped.startsWith("[") && stripped.endsWith("]")) {
+                    val section = stripped.substring(1, stripped.length - 1).trim().trim('"', '\'')
+                    inModpack = section.equals("modpack", ignoreCase = true)
+                    index++
+                    continue
+                }
+                if (inModpack) {
+                    val eq = stripped.indexOf('=')
+                    if (eq > 0 && stripped.substring(0, eq).trim().equals("modpack", ignoreCase = true)) {
+                        val valueText = StringBuilder(stripped.substring(eq + 1).trim())
+                        while (valueText.toString().trimStart().startsWith("[") && !valueText.toString().trimEnd().endsWith("]") && index + 1 < lines.size) {
+                            index++
+                            valueText.append('\n').append(stripComment(lines[index]).trim())
+                        }
+                        out.addAll(splitRawValues(valueText.toString()))
+                    }
+                }
+                index++
+            }
+            return out
+        }
+
+        private fun splitRawValues(raw: String): List<String> {
+            val value = raw.trim()
+            if (!value.startsWith("[") || !value.endsWith("]")) {
+                return listOf(value)
+            }
+            val inner = value.substring(1, value.length - 1)
+            val out = ArrayList<String>()
+            val current = StringBuilder()
+            var quote = '\u0000'
+            var escaped = false
+            for (ch in inner) {
+                if (escaped) {
+                    current.append(ch)
+                    escaped = false
+                    continue
+                }
+                if (quote != '\u0000') {
+                    current.append(ch)
+                    if (quote == '"' && ch == '\\') {
+                        escaped = true
+                    } else if (ch == quote) {
+                        quote = '\u0000'
+                    }
+                    continue
+                }
+                if (ch == '"' || ch == '\'') {
+                    quote = ch
+                    current.append(ch)
+                    continue
+                }
+                if (ch == ',') {
+                    val token = current.toString().trim()
+                    if (token.isNotEmpty()) {
+                        out.add(token)
+                    }
+                    current.setLength(0)
+                    continue
+                }
+                current.append(ch)
+            }
+            val token = current.toString().trim()
+            if (token.isNotEmpty()) {
+                out.add(token)
+            }
+            return out
+        }
+
+        private fun stripComment(line: String): String {
+            var quote = '\u0000'
+            var escaped = false
+            for (i in line.indices) {
+                val ch = line[i]
+                if (escaped) {
+                    escaped = false
+                    continue
+                }
+                if (quote != '\u0000') {
+                    if (quote == '"' && ch == '\\') {
+                        escaped = true
+                    } else if (ch == quote) {
+                        quote = '\u0000'
+                    }
+                    continue
+                }
+                if (ch == '"' || ch == '\'') {
+                    quote = ch
+                    continue
+                }
+                if (ch == '#') {
+                    return line.substring(0, i)
+                }
+            }
+            return line
+        }
+
+        private fun isBareAnyToken(raw: String): Boolean {
+            return raw.trim().equals("any", ignoreCase = true)
         }
 
         private fun primitiveString(element: JsonElement?): String? {

@@ -47,6 +47,18 @@ class DlcPackUpdateGuardTest {
     }
 
     @Test
+    void quotedAnyModpackIsTreatedAsLiteralName() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        writeVersion(dlcRoot, "MainPack", "1.0.0", "1.0.0");
+        writeInstalledPack(dlcRoot, "Blocked", "\"any\"", "any", "any");
+
+        DlcPackUpdateGuard.CheckResult result = DlcPackUpdateGuard.check(dlcRoot, "1.0.0", "1.0.0");
+
+        assertEquals(List.of("Blocked"), result.incompatiblePacks.stream().map(DlcPackUpdateGuard.PackStatus::identifier).toList());
+        assertTrue(result.incompatiblePacks.get(0).reasons.get(0).contains("modpack MainPack"));
+    }
+
+    @Test
     void treatsMissingArchivedPackMetadataAsIncompatible() {
         Path dlcRoot = tempDir.resolve("DLC");
         Path packDir = dlcRoot.resolve("tmp").resolve("pack").resolve("MissingMetadata");
@@ -86,10 +98,10 @@ class DlcPackUpdateGuardTest {
             version = "1.0.0"
 
             [modpack]
-            modpack = "%s"
+            modpack = %s
             base = "%s"
             dlc = "%s"
-            """.formatted(identifier, modpackRule, baseRule, dlcRule));
+            """.formatted(identifier, dcValue(modpackRule), baseRule, dlcRule));
         DlcPackMeta meta = new DlcPackMeta(identifier, "1.0.0", "STANDARD", Instant.now().toString(), List.of("mods/" + identifier + ".jar"));
         meta.save(packDir.resolve("meta.dc"));
     }
@@ -102,5 +114,9 @@ class DlcPackUpdateGuardTest {
             base = "%s"
             dlc = "%s"
             """.formatted(modpack, base, dlc));
+    }
+
+    private static String dcValue(String value) {
+        return "any".equals(value) ? "any" : value;
     }
 }

@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.core.DcConfigIO
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import java.nio.file.Files
 import java.nio.file.Path
@@ -36,14 +35,14 @@ object DlcPackUpdateGuard {
         if (!Files.isRegularFile(metadataPath)) {
             return PackStatus(packDir, meta, null, false, listOf("missing metadata/pack.dc"))
         }
-        val parsed = DlcPackMetadata.read(DcConfigIO.read(metadataPath, DcConfigIO.Layout.GENERIC))
+        val parsed = DlcPackMetadata.read(metadataPath)
         if (!parsed.valid || parsed.metadata == null) {
             return PackStatus(packDir, meta, null, false, listOf(parsed.error ?: "invalid metadata/pack.dc"))
         }
         val metadata = parsed.metadata
         val reasons = ArrayList<String>()
         val targetModpack = DlcUpdateVersion.load(dlcRoot).getModpack()
-        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack)) {
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack, metadata.modpackAnyWildcard)) {
             reasons.add("modpack ${safeText(targetModpack)} not in ${metadata.modpacks.joinToString(", ")}")
         }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, targetBase)) {

@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.network.chat.Component;
 
+import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class DlcPackMetadata {
     public final String version;
     public final List<String> authors;
     public final List<String> modpacks;
+    public final boolean modpackAnyWildcard;
     public final List<String> baseVersions;
     public final List<String> dlcVersions;
     public final Map<String, String> displayNames;
@@ -38,6 +40,7 @@ public class DlcPackMetadata {
         String version,
         List<String> authors,
         List<String> modpacks,
+        boolean modpackAnyWildcard,
         List<String> baseVersions,
         List<String> dlcVersions,
         Map<String, String> displayNames,
@@ -50,6 +53,7 @@ public class DlcPackMetadata {
         this.version = version;
         this.authors = authors == null ? List.of() : List.copyOf(authors);
         this.modpacks = modpacks == null ? List.of() : List.copyOf(modpacks);
+        this.modpackAnyWildcard = modpackAnyWildcard;
         this.baseVersions = baseVersions == null ? List.of() : List.copyOf(baseVersions);
         this.dlcVersions = dlcVersions == null ? List.of() : List.copyOf(dlcVersions);
         this.displayNames = displayNames == null ? Map.of() : Map.copyOf(displayNames);
@@ -76,6 +80,22 @@ public class DlcPackMetadata {
     }
 
     public static Result read(JsonObject obj) {
+        return read(obj, null);
+    }
+
+    public static Result read(Path path) {
+        if (path == null) {
+            return Result.invalid("missing pack.dc");
+        }
+        String text = null;
+        try {
+            text = Files.readString(path);
+        } catch (Exception ignored) {
+        }
+        return read(DcConfigIO.read(path, DcConfigIO.Layout.GENERIC), text);
+    }
+
+    public static Result read(JsonObject obj, String sourceText) {
         if (obj == null) {
             return Result.invalid("missing pack.dc");
         }
@@ -110,6 +130,7 @@ public class DlcPackMetadata {
             version,
             authors,
             modpacks,
+            resolveModpackAnyWildcard(modpacks, sourceText),
             baseVersions,
             dlcVersions,
             readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
@@ -179,6 +200,10 @@ public class DlcPackMetadata {
     }
 
     public static boolean anyStringMatches(List<String> rules, String current) {
+        return anyStringMatches(rules, current, true);
+    }
+
+    public static boolean anyStringMatches(List<String> rules, String current, boolean allowAnyWildcard) {
         if (rules == null || rules.isEmpty()) {
             return true;
         }
@@ -186,7 +211,7 @@ public class DlcPackMetadata {
         if (currentValue == null || currentValue.isEmpty()) {
             for (String rule : rules) {
                 String normalized = trim(rule);
-                if (normalized != null && "any".equalsIgnoreCase(normalized)) {
+                if (allowAnyWildcard && normalized != null && "any".equalsIgnoreCase(normalized)) {
                     return true;
                 }
             }
@@ -194,7 +219,7 @@ public class DlcPackMetadata {
         }
         for (String rule : rules) {
             String normalized = trim(rule);
-            if (normalized == null || normalized.isEmpty() || "any".equalsIgnoreCase(normalized)) {
+            if (normalized == null || normalized.isEmpty() || (allowAnyWildcard && "any".equalsIgnoreCase(normalized))) {
                 return true;
             }
             if (currentValue.equalsIgnoreCase(normalized)) {
@@ -319,6 +344,148 @@ public class DlcPackMetadata {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private static boolean resolveModpackAnyWildcard(List<String> values, String sourceText) {
+        if (values == null || values.isEmpty()) {
+            return true;
+        }
+        boolean containsAny = false;
+        for (String value : values) {
+            String normalized = trim(value);
+            if (normalized != null && "any".equalsIgnoreCase(normalized)) {
+                containsAny = true;
+                break;
+            }
+        }
+        if (!containsAny) {
+            return false;
+        }
+        List<String> rawValues = readRawModpackValues(sourceText);
+        if (rawValues.isEmpty()) {
+            return true;
+        }
+        for (String raw : rawValues) {
+            if (isBareAnyToken(raw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<String> readRawModpackValues(String sourceText) {
+        if (sourceText == null || sourceText.isBlank()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        boolean inModpack = false;
+        String[] lines = sourceText.split("\\R", -1);
+        int index = 0;
+        while (index < lines.length) {
+            String stripped = stripComment(lines[index]).trim();
+            if (stripped.startsWith("[") && stripped.endsWith("]")) {
+                String section = stripped.substring(1, stripped.length() - 1).trim();
+                if ((section.startsWith("\"") && section.endsWith("\"")) || (section.startsWith("'") && section.endsWith("'"))) {
+                    section = section.substring(1, section.length() - 1);
+                }
+                inModpack = "modpack".equalsIgnoreCase(section);
+                index++;
+                continue;
+            }
+            if (inModpack) {
+                int eq = stripped.indexOf('=');
+                if (eq > 0 && "modpack".equalsIgnoreCase(stripped.substring(0, eq).trim())) {
+                    StringBuilder valueText = new StringBuilder(stripped.substring(eq + 1).trim());
+                    while (valueText.toString().stripLeading().startsWith("[") && !valueText.toString().stripTrailing().endsWith("]") && index + 1 < lines.length) {
+                        index++;
+                        valueText.append('\n').append(stripComment(lines[index]).trim());
+                    }
+                    out.addAll(splitRawValues(valueText.toString()));
+                }
+            }
+            index++;
+        }
+        return out;
+    }
+
+    private static List<String> splitRawValues(String raw) {
+        String value = raw == null ? "" : raw.trim();
+        if (!value.startsWith("[") || !value.endsWith("]")) {
+            return value.isEmpty() ? List.of() : List.of(value);
+        }
+        String inner = value.substring(1, value.length() - 1);
+        List<String> out = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = 0; i < inner.length(); i++) {
+            char ch = inner.charAt(i);
+            if (escaped) {
+                current.append(ch);
+                escaped = false;
+                continue;
+            }
+            if (quote != 0) {
+                current.append(ch);
+                if (quote == '"' && ch == '\\') {
+                    escaped = true;
+                } else if (ch == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (ch == '"' || ch == '\'') {
+                quote = ch;
+                current.append(ch);
+                continue;
+            }
+            if (ch == ',') {
+                String token = current.toString().trim();
+                if (!token.isEmpty()) {
+                    out.add(token);
+                }
+                current.setLength(0);
+                continue;
+            }
+            current.append(ch);
+        }
+        String token = current.toString().trim();
+        if (!token.isEmpty()) {
+            out.add(token);
+        }
+        return out;
+    }
+
+    private static String stripComment(String line) {
+        char quote = 0;
+        boolean escaped = false;
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (quote != 0) {
+                if (quote == '"' && ch == '\\') {
+                    escaped = true;
+                } else if (ch == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (ch == '"' || ch == '\'') {
+                quote = ch;
+                continue;
+            }
+            if (ch == '#') {
+                return line.substring(0, i);
+            }
+        }
+        return line;
+    }
+
+    private static boolean isBareAnyToken(String raw) {
+        return raw != null && "any".equalsIgnoreCase(raw.trim());
     }
 
     private static String trim(String value) {

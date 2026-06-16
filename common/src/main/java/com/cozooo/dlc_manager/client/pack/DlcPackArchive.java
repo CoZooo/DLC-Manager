@@ -1,8 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,7 +61,7 @@ public final class DlcPackArchive {
                     try (var input = zip.getInputStream(entry); var output = Files.newOutputStream(metadata)) {
                         input.transferTo(output);
                     }
-                    DlcPackMetadata.Result parsed = DlcPackMetadata.read(DcConfigIO.read(metadata, DcConfigIO.Layout.GENERIC));
+                    DlcPackMetadata.Result parsed = DlcPackMetadata.read(metadata);
                     if (parsed.valid && parsed.metadata != null) {
                         return parsed.metadata.identifier;
                     }

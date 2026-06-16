@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil
-import com.cozooo.dlc_manager.core.DcConfigIO
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -54,7 +53,7 @@ object DlcPackArchive {
                         zip.getInputStream(entry).use { input ->
                             Files.newOutputStream(metadata).use { output -> input.copyTo(output) }
                         }
-                        val parsed = DlcPackMetadata.read(DcConfigIO.read(metadata, DcConfigIO.Layout.GENERIC))
+                        val parsed = DlcPackMetadata.read(metadata)
                         if (parsed.valid && parsed.metadata != null) {
                             return parsed.metadata.identifier
                         }

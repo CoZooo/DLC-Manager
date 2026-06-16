@@ -22,6 +22,7 @@ public class DlcPackUrlScreen extends Screen {
     private Button pasteButton;
     private Button backButton;
     private volatile boolean downloading;
+    private volatile boolean cancelRequested;
     private volatile float progress;
     private volatile String errorText;
     private volatile String statusText;
@@ -53,8 +54,15 @@ public class DlcPackUrlScreen extends Screen {
         int centerX = this.width / 2 - buttonWidth / 2;
         int rightX = this.width / 2 + buttonWidth / 2 + 10;
 
-        downloadButton = Button.builder(Component.translatable("dlc_manager.update.url_download"), btn -> startDownload())
-            .bounds(leftX, buttonY, buttonWidth, buttonHeight)
+        int downloadX = downloading ? centerX : leftX;
+        downloadButton = Button.builder(Component.translatable("dlc_manager.update.url_download"), btn -> {
+                if (downloading) {
+                    cancelDownload();
+                } else {
+                    startDownload();
+                }
+            })
+            .bounds(downloadX, buttonY, buttonWidth, buttonHeight)
             .build();
         pasteButton = Button.builder(Component.translatable("dlc_manager.update.url_paste"), btn -> pasteClipboard())
             .bounds(centerX, buttonY, buttonWidth, buttonHeight)
@@ -65,28 +73,40 @@ public class DlcPackUrlScreen extends Screen {
         addRenderableWidget(downloadButton);
         addRenderableWidget(pasteButton);
         addRenderableWidget(backButton);
+        if (downloading) {
+            setButtonsForDownload();
+        }
     }
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         int centerX = this.width / 2;
+        if (downloading) {
+            renderDownloadProgress(guiGraphics, centerX);
+            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
+            return;
+        }
         int y = this.height / 2 - 80;
         guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
         y += 18;
         guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack.url_prompt"), centerX, y, 0xC8C8C8);
 
-        if (downloading) {
-            int barY = this.height / 2 + 60;
-            String status = statusText == null ? "" : statusText;
-            guiGraphics.drawCenteredString(this.font, status, centerX, barY - 14, 0xE6E6E6);
-            drawProgressBar(guiGraphics, centerX - 120, barY, 240, 8, progress);
-            int percent = totalBytes > 0 ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : 0;
-            guiGraphics.drawCenteredString(this.font, percent + "%", centerX, barY + 10, 0xC8C8C8);
-        } else if (errorText != null && !errorText.isBlank()) {
+        if (errorText != null && !errorText.isBlank()) {
             guiGraphics.drawCenteredString(this.font, errorText, centerX, this.height / 2 + 60, 0xFF6B6B);
         }
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
+    }
+
+    private void renderDownloadProgress(GuiGraphics guiGraphics, int centerX) {
+        int y = this.height / 2 - 44;
+        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
+        y += 24;
+        guiGraphics.drawCenteredString(this.font, statusText == null ? "" : statusText, centerX, y, 0xE6E6E6);
+        y += 18;
+        drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, progress);
+        int percent = totalBytes > 0 ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : 0;
+        guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 14, 0xC8C8C8);
     }
 
     @Override
@@ -133,12 +153,13 @@ public class DlcPackUrlScreen extends Screen {
             return;
         }
         downloading = true;
+        cancelRequested = false;
         progress = 0f;
         downloadedBytes = 0L;
         totalBytes = 0L;
         errorText = null;
         statusText = Component.translatable("dlc_manager.pack.url_downloading").getString();
-        setButtonsActive(false);
+        setButtonsForDownload();
 
         new Thread(() -> {
             Path downloaded = null;
@@ -149,6 +170,19 @@ public class DlcPackUrlScreen extends Screen {
                     downloading = false;
                     Minecraft.getInstance().setScreen(parent);
                     parent.importDownloadedPack(finalDownloaded);
+                });
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                if (downloaded != null) {
+                    try {
+                        Files.deleteIfExists(downloaded);
+                    } catch (IOException ignored) {
+                    }
+                }
+                Minecraft.getInstance().execute(() -> {
+                    errorText = Component.translatable("dlc_manager.pack.url_canceled").getString();
+                    downloading = false;
+                    cancelRequested = false;
+                    setButtonsActive(true);
                 });
             } catch (Exception ex) {
                 if (downloaded != null) {
@@ -161,10 +195,23 @@ public class DlcPackUrlScreen extends Screen {
                 Minecraft.getInstance().execute(() -> {
                     errorText = Component.translatable("dlc_manager.update.url_failed", msg).getString();
                     downloading = false;
+                    cancelRequested = false;
                     setButtonsActive(true);
                 });
             }
         }, "dlc-pack-url-download").start();
+    }
+
+    private void cancelDownload() {
+        if (!downloading) {
+            return;
+        }
+        cancelRequested = true;
+        statusText = Component.translatable("dlc_manager.pack.canceling").getString();
+        if (downloadButton != null) {
+            downloadButton.active = false;
+            downloadButton.setMessage(Component.translatable("dlc_manager.pack.canceling"));
+        }
     }
 
     private Path downloadToDir(String url, Path outputDir) throws IOException {
@@ -185,7 +232,7 @@ public class DlcPackUrlScreen extends Screen {
             downloadedBytes = done;
             totalBytes = total;
             progress = total > 0 ? (done / (float) total) : 0f;
-        }, null);
+        }, () -> cancelRequested);
     }
 
     private String uniqueFileName(Path dir, String fileName) {
@@ -207,12 +254,38 @@ public class DlcPackUrlScreen extends Screen {
     private void setButtonsActive(boolean active) {
         if (downloadButton != null) {
             downloadButton.active = active;
+            downloadButton.setMessage(Component.translatable("dlc_manager.update.url_download"));
+            downloadButton.visible = true;
         }
         if (pasteButton != null) {
             pasteButton.active = active;
+            pasteButton.visible = true;
         }
         if (backButton != null) {
             backButton.active = active;
+            backButton.visible = true;
+        }
+        if (urlField != null) {
+            urlField.visible = true;
+        }
+    }
+
+    private void setButtonsForDownload() {
+        if (downloadButton != null) {
+            downloadButton.active = !cancelRequested;
+            downloadButton.setMessage(cancelRequested ? Component.translatable("dlc_manager.pack.canceling") : Component.translatable("dlc_manager.pack.cancel"));
+            downloadButton.visible = true;
+        }
+        if (pasteButton != null) {
+            pasteButton.active = false;
+            pasteButton.visible = false;
+        }
+        if (backButton != null) {
+            backButton.active = false;
+            backButton.visible = true;
+        }
+        if (urlField != null) {
+            urlField.visible = false;
         }
     }
 

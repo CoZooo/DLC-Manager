@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 
 import java.nio.file.Files;
@@ -41,7 +40,7 @@ public final class DlcPackUpdateGuard {
         if (!Files.isRegularFile(metadataPath)) {
             return new PackStatus(packDir, meta, null, false, List.of("missing metadata/pack.dc"));
         }
-        DlcPackMetadata.Result parsed = DlcPackMetadata.read(DcConfigIO.read(metadataPath, DcConfigIO.Layout.GENERIC));
+        DlcPackMetadata.Result parsed = DlcPackMetadata.read(metadataPath);
         if (!parsed.valid || parsed.metadata == null) {
             return new PackStatus(packDir, meta, null, false, List.of(parsed.error == null ? "invalid metadata/pack.dc" : parsed.error));
         }
@@ -49,7 +48,7 @@ public final class DlcPackUpdateGuard {
         List<String> reasons = new ArrayList<>();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         String targetModpack = version == null ? null : version.getModpack();
-        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack)) {
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack, metadata.modpackAnyWildcard)) {
             reasons.add("modpack " + safeText(targetModpack) + " not in " + String.join(", ", metadata.modpacks));
         }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, targetBase)) {

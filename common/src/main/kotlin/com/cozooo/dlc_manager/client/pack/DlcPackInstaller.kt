@@ -60,10 +60,12 @@ class DlcPackInstaller(
         val txn = DlcPackTransaction.running(pack.metadata.identifier, replacementStaging.name)
         txn.replacement = true
         try {
+            options.progressListener?.onProgress("Backing up ${pack.metadata.identifier}", -1f)
             Files.createDirectories(replacementStaging)
             txn.save(txnPath)
             backupExistingInstallation(oldMeta, packDir, backupDir)
-            uninstall(oldMeta.identifier)
+            options.progressListener?.onProgress("Uninstalling ${oldMeta.identifier}", -1f)
+            uninstall(oldMeta.identifier, options.progressListener)
             val report = installFresh(pack, options)
             txn.status = DlcPackTransaction.Status.COMMITTED
             txn.save(txnPath)
@@ -111,16 +113,23 @@ class DlcPackInstaller(
         val meta = DlcPackMeta(identifier, metadata.version, pack.format.name, Instant.now().toString(), emptyList())
         try {
             checkCanceled(effectiveOptions.cancelChecker)
+            effectiveOptions.progressListener?.onProgress("Preparing $identifier", 0f)
             Files.createDirectories(staging)
             Files.createDirectories(packDir)
             archiveMetadata(pack, packDir)
+            effectiveOptions.progressListener?.onProgress("Applying runtime changes", 0.05f)
             applyRuntimeChanges(dependencies, conflicts, txn, txnPath)
             moveConfiguredConflicts(metadata.conflicts, packDir, txn, txnPath)
-            val manifestFiles = DlcPackCFResolver.downloadManifestFiles(pack, staging, packDir, effectiveOptions.cancelChecker)
+            val manifestFiles = DlcPackCFResolver.downloadManifestFiles(pack, staging, packDir, effectiveOptions.cancelChecker) { status, progress ->
+                val normalized = if (progress < 0f) -1f else 0.05f + progress.coerceIn(0f, 1f) * 0.45f
+                effectiveOptions.progressListener?.onProgress(status, normalized)
+            }
             val planWithManifest = DlcPackInstallPlan.merge(plan, manifestFiles, instanceRoot, dlcRoot)
-            for (entry in planWithManifest.files) {
+            val totalFiles = planWithManifest.files.size.coerceAtLeast(1)
+            for ((index, entry) in planWithManifest.files.withIndex()) {
                 checkCanceled(effectiveOptions.cancelChecker)
                 val relative = entry.relativePath
+                effectiveOptions.progressListener?.onProgress("Installing $relative", 0.5f + index / totalFiles.toFloat() * 0.45f)
                 val target = resolveInside(instanceRoot, relative)
                 if (Files.exists(target)) {
                     val displaced = resolveInside(packDir, relative)
@@ -136,12 +145,14 @@ class DlcPackInstaller(
                 meta.addInstalledPath(relative)
             }
             checkCanceled(effectiveOptions.cancelChecker)
+            effectiveOptions.progressListener?.onProgress("Writing metadata", 0.98f)
             if (!meta.save(metaPath)) {
                 throw IOException("Failed to write DLC Pack meta: $metaPath")
             }
             txn.status = DlcPackTransaction.Status.COMMITTED
             txn.save(txnPath)
             deleteRecursive(staging)
+            effectiveOptions.progressListener?.onProgress("Installed $identifier", 1f)
             return InstallReport(
                 identifier,
                 meta.installedPaths.size,
@@ -266,13 +277,19 @@ class DlcPackInstaller(
     }
 
     fun uninstall(identifier: String): UninstallReport {
+        return uninstall(identifier, null)
+    }
+
+    fun uninstall(identifier: String, progressListener: ProgressListener?): UninstallReport {
         if (!DlcPackMetadata.isValidIdentifier(identifier)) {
             throw IOException("Invalid DLC Pack identifier: $identifier")
         }
         val packDir = packDir(identifier)
         val meta = DlcPackMeta.load(packDir.resolve("meta.dc")) ?: throw IOException("DLC Pack is not installed: $identifier")
         var deleted = 0
-        for (relative in meta.installedPaths.asReversed()) {
+        val deleteTotal = meta.installedPaths.size.coerceAtLeast(1)
+        for ((index, relative) in meta.installedPaths.asReversed().withIndex()) {
+            progressListener?.onProgress("Uninstalling $relative", index / deleteTotal.toFloat() * 0.5f)
             val target = resolveInside(instanceRoot, relative)
             if (Files.deleteIfExists(target)) {
                 deleted++
@@ -282,21 +299,25 @@ class DlcPackInstaller(
         var restored = 0
         if (Files.isDirectory(packDir)) {
             Files.walk(packDir).use { stream ->
-                stream.filter { Files.isRegularFile(it) }
+                val archivedFiles = stream.filter { Files.isRegularFile(it) }
                     .sorted(Comparator.reverseOrder())
-                    .forEach { archived ->
-                        val relative = DlcPackMeta.normalizeRelativePath(packDir.relativize(archived).toString()) ?: return@forEach
-                        if (isPackRecordPath(relative)) {
-                            return@forEach
-                        }
-                        val target = resolveInside(instanceRoot, relative)
-                        Files.createDirectories(target.parent)
-                        Files.move(archived, target, StandardCopyOption.REPLACE_EXISTING)
-                        restored++
+                    .toList()
+                val restoreTotal = archivedFiles.size.coerceAtLeast(1)
+                for ((index, archived) in archivedFiles.withIndex()) {
+                    val relative = DlcPackMeta.normalizeRelativePath(packDir.relativize(archived).toString()) ?: continue
+                    progressListener?.onProgress("Restoring $relative", 0.5f + index / restoreTotal.toFloat() * 0.45f)
+                    if (isPackRecordPath(relative)) {
+                        continue
                     }
+                    val target = resolveInside(instanceRoot, relative)
+                    Files.createDirectories(target.parent)
+                    Files.move(archived, target, StandardCopyOption.REPLACE_EXISTING)
+                    restored++
+                }
             }
         }
         deletePackInstallState(packDir)
+        progressListener?.onProgress("Uninstalled $identifier", 1f)
         return UninstallReport(identifier, deleted, restored)
     }
 
@@ -374,7 +395,7 @@ class DlcPackInstaller(
         val currentModpack = version?.getModpack()
         val currentBase = version?.getBase()
         val currentDlc = version?.getDlc()
-        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack)) {
+        if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack, metadata.modpackAnyWildcard)) {
             result.incompatible.add("modpack ${safeText(currentModpack)} not in ${metadata.modpacks.joinToString(", ")}")
         }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, currentBase)) {
@@ -644,6 +665,7 @@ class DlcPackInstaller(
         @JvmField val disableDlcConflicts: Boolean,
         @JvmField val disablePresetConflicts: Boolean,
         @JvmField val cancelChecker: DlcDownloadService.CancelChecker? = null,
+        @JvmField val progressListener: ProgressListener? = null,
     ) {
         fun withCancelChecker(cancelChecker: DlcDownloadService.CancelChecker?): InstallOptions {
             return InstallOptions(
@@ -652,6 +674,18 @@ class DlcPackInstaller(
                 disableDlcConflicts,
                 disablePresetConflicts,
                 cancelChecker,
+                progressListener,
+            )
+        }
+
+        fun withProgressListener(progressListener: ProgressListener?): InstallOptions {
+            return InstallOptions(
+                enableMissingDlcDependencies,
+                enableMissingPresetDependencies,
+                disableDlcConflicts,
+                disablePresetConflicts,
+                cancelChecker,
+                progressListener,
             )
         }
 
@@ -683,6 +717,10 @@ class DlcPackInstaller(
         @JvmField val filesDeleted: Int,
         @JvmField val filesRestored: Int,
     )
+
+    fun interface ProgressListener {
+        fun onProgress(status: String?, progress: Float)
+    }
 
     class PrecheckResult internal constructor(
         @JvmField val plan: DlcPackInstallPlan,
