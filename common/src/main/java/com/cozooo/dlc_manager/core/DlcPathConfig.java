@@ -63,7 +63,7 @@ public class DlcPathConfig {
     public static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 5;
     public static final int DEFAULT_MAX_SEGMENTS_PER_FILE = 4;
     public static final int DEFAULT_MIN_SEGMENT_MB = 20;
-    public static final int DEFAULT_MAX_RETRY = 5;
+    public static final int DEFAULT_MAX_RETRY = 3;
     public static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 5;
     public static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
     public static final String DEFAULT_MODPACK_URL = "";

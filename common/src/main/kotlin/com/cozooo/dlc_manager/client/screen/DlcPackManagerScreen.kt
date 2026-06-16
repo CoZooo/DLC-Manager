@@ -681,6 +681,12 @@ class DlcPackManagerScreen(
         val ordered = archiveEntries.sortedBy { orderIndex(it.key) }
         val reinstallIdentifiers = collectAffectedReinstallIdentifiers(ordered)
         val displayMode = determineOperationDisplayMode(reinstallIdentifiers)
+        val hasUninstallPhase = ordered.any { entry ->
+            val identifier = entry.metadata.identifier
+            isEntryCurrentlyInstalled(entry) && (pendingUninstalls.contains(identifier) || reinstallIdentifiers.contains(identifier))
+        }
+        val installOffset = if (hasUninstallPhase) 0.35f else 0f
+        val installSpan = if (hasUninstallPhase) 0.65f else 1f
         val uninstalled = LinkedHashSet<String>()
         for (entry in ordered) {
             val identifier = entry.metadata.identifier
@@ -699,8 +705,8 @@ class DlcPackManagerScreen(
             val identifier = entry.metadata.identifier
             if (!installed.contains(identifier) && !pendingUninstalls.contains(identifier) && (pendingInstalls[identifier] === entry || (reinstallIdentifiers.contains(identifier) && isEntryCurrentlyInstalled(entry)))) {
                 checkCanceled()
-                updateOperationProgress(operationStatusFor(displayMode, entry), 0.35f)
-                installArchive(installer, entry, allowRuntimeChanges, displayMode)
+                updateOperationProgress(operationStatusFor(displayMode, entry), installOffset)
+                installArchive(installer, entry, allowRuntimeChanges, displayMode, installOffset, installSpan)
                 installed.add(identifier)
             }
         }
@@ -851,7 +857,14 @@ class DlcPackManagerScreen(
     }
 
     @Throws(IOException::class)
-    private fun installArchive(installer: DlcPackInstaller, entry: PackArchiveEntry, allowRuntimeChanges: Boolean, displayMode: OperationDisplayMode) {
+    private fun installArchive(
+        installer: DlcPackInstaller,
+        entry: PackArchiveEntry,
+        allowRuntimeChanges: Boolean,
+        displayMode: OperationDisplayMode,
+        installOffset: Float,
+        installSpan: Float,
+    ) {
         var staging: Path? = null
         try {
             staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir
@@ -870,7 +883,7 @@ class DlcPackManagerScreen(
             })
                 .withCancelChecker { cancelRequested }
                 .withProgressListener { message, progress ->
-                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0.35f, 0.65f, progress))
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(installOffset, installSpan, progress))
                 }
             installer.install(pack, replace, options)
         } finally {

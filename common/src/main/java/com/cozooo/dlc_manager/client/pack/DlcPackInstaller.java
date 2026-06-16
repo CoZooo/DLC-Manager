@@ -132,7 +132,7 @@ public class DlcPackInstaller {
                 effectiveOptions.cancelChecker,
                 (status, progress) -> {
                     if (effectiveOptions.progressListener != null) {
-                        float normalized = progress < 0f ? -1f : 0.05f + Math.max(0f, Math.min(1f, progress)) * 0.45f;
+                        float normalized = progress < 0f ? -1f : 0.05f + Math.max(0f, Math.min(1f, progress)) * 0.9f;
                         effectiveOptions.progressListener.onProgress(status, normalized);
                     }
                 }
@@ -144,7 +144,7 @@ public class DlcPackInstaller {
                 checkCanceled(effectiveOptions.cancelChecker);
                 String relative = entry.relativePath;
                 if (effectiveOptions.progressListener != null) {
-                    effectiveOptions.progressListener.onProgress("Installing " + relative, 0.5f + index / (float) totalFiles * 0.45f);
+                    effectiveOptions.progressListener.onProgress("Installing " + relative, 0.95f + index / (float) totalFiles * 0.03f);
                 }
                 Path target = resolveInside(instanceRoot, relative);
                 if (Files.exists(target)) {

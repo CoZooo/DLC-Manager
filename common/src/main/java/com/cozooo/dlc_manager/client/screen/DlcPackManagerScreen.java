@@ -717,6 +717,16 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         ordered.sort(Comparator.comparingInt(entry -> orderIndex(entry.key)));
         Set<String> reinstallIdentifiers = collectAffectedReinstallIdentifiers(ordered);
         OperationDisplayMode displayMode = determineOperationDisplayMode(reinstallIdentifiers);
+        boolean hasUninstallPhase = false;
+        for (PackArchiveEntry entry : ordered) {
+            String identifier = entry.metadata.identifier;
+            if (isEntryCurrentlyInstalled(entry) && (pendingUninstalls.contains(identifier) || reinstallIdentifiers.contains(identifier))) {
+                hasUninstallPhase = true;
+                break;
+            }
+        }
+        float installOffset = hasUninstallPhase ? 0.35f : 0f;
+        float installSpan = hasUninstallPhase ? 0.65f : 1f;
         Set<String> uninstalled = new HashSet<>();
         for (PackArchiveEntry entry : ordered) {
             String identifier = entry.metadata.identifier;
@@ -735,8 +745,8 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             String identifier = entry.metadata.identifier;
             if (!installed.contains(identifier) && !pendingUninstalls.contains(identifier) && (pendingInstalls.get(identifier) == entry || (reinstallIdentifiers.contains(identifier) && isEntryCurrentlyInstalled(entry)))) {
                 checkCanceled();
-                updateOperationProgress(operationStatusFor(displayMode, entry, null), 0.35f);
-                installArchive(installer, entry, allowRuntimeChanges, displayMode);
+                updateOperationProgress(operationStatusFor(displayMode, entry, null), installOffset);
+                installArchive(installer, entry, allowRuntimeChanges, displayMode, installOffset, installSpan);
                 installed.add(identifier);
             }
         }
@@ -906,7 +916,14 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         return messages.isEmpty() ? null : String.join("\n\n", messages);
     }
 
-    private void installArchive(DlcPackInstaller installer, PackArchiveEntry entry, boolean allowRuntimeChanges, OperationDisplayMode displayMode) throws IOException {
+    private void installArchive(
+        DlcPackInstaller installer,
+        PackArchiveEntry entry,
+        boolean allowRuntimeChanges,
+        OperationDisplayMode displayMode,
+        float installOffset,
+        float installSpan
+    ) throws IOException {
         Path staging = null;
         try {
             staging = DlcPackArchive.extractToStaging(entry.archivePath, DlcPaths.dlcRoot()).stagingDir;
@@ -925,7 +942,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             options = options
                 .withCancelChecker(() -> cancelRequested)
                 .withProgressListener((message, progress) ->
-                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0.35f, 0.65f, progress))
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(installOffset, installSpan, progress))
                 );
             installer.install(result.pack, replace, options);
         } finally {

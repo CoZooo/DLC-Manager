@@ -57,7 +57,7 @@ object DlcPathConfig {
     const val DEFAULT_MAX_CONCURRENT_DOWNLOADS: Int = 5
     const val DEFAULT_MAX_SEGMENTS_PER_FILE: Int = 4
     const val DEFAULT_MIN_SEGMENT_MB: Int = 20
-    const val DEFAULT_MAX_RETRY: Int = 5
+    const val DEFAULT_MAX_RETRY: Int = 3
     const val DEFAULT_CONNECT_TIMEOUT_SECONDS: Int = 5
     const val DEFAULT_TASK_TIMEOUT_SECONDS: Int = 60
     const val DEFAULT_MODPACK_URL: String = ""

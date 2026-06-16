@@ -121,7 +121,7 @@ class DlcPackInstaller(
             applyRuntimeChanges(dependencies, conflicts, txn, txnPath)
             moveConfiguredConflicts(metadata.conflicts, packDir, txn, txnPath)
             val manifestFiles = DlcPackCFResolver.downloadManifestFiles(pack, staging, packDir, effectiveOptions.cancelChecker) { status, progress ->
-                val normalized = if (progress < 0f) -1f else 0.05f + progress.coerceIn(0f, 1f) * 0.45f
+                val normalized = if (progress < 0f) -1f else 0.05f + progress.coerceIn(0f, 1f) * 0.9f
                 effectiveOptions.progressListener?.onProgress(status, normalized)
             }
             val planWithManifest = DlcPackInstallPlan.merge(plan, manifestFiles, instanceRoot, dlcRoot)
@@ -129,7 +129,7 @@ class DlcPackInstaller(
             for ((index, entry) in planWithManifest.files.withIndex()) {
                 checkCanceled(effectiveOptions.cancelChecker)
                 val relative = entry.relativePath
-                effectiveOptions.progressListener?.onProgress("Installing $relative", 0.5f + index / totalFiles.toFloat() * 0.45f)
+                effectiveOptions.progressListener?.onProgress("Installing $relative", 0.95f + index / totalFiles.toFloat() * 0.03f)
                 val target = resolveInside(instanceRoot, relative)
                 if (Files.exists(target)) {
                     val displaced = resolveInside(packDir, relative)

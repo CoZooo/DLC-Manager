@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.core.DlcPathConfig
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import java.io.IOException
+import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -50,12 +51,18 @@ object CurseForgeClient {
         }
         val cacheKey = (projectId ?: "") + ":" + fileId
         CACHE[cacheKey]?.let { return it }
-        val data = fetchFileData(projectId, fileId, apiKey) ?: return null
+        val data = fetchFileDataWithRetry(projectId, fileId, apiKey) ?: return null
         val file = CurseForgeFile()
         file.id = fileId
         applyFileData(file, data)
-        if (file.url.isNullOrBlank()) {
-            file.url = fetchDownloadUrl(projectId, fileId, apiKey)
+        if (data.has("downloadUrl")) {
+            val downloadUrl = getString(data, "downloadUrl")
+            if (downloadUrl == null) {
+                return null
+            }
+            file.url = downloadUrl
+        } else if (file.url.isNullOrBlank()) {
+            file.url = fetchDownloadUrlWithRetry(projectId, fileId, apiKey)
         }
         CACHE[cacheKey] = file
         return file
@@ -74,21 +81,7 @@ object CurseForgeClient {
             return null
         }
         val endpoint = "https://api.curseforge.com/v1/mods/$resolvedModId"
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
-            .GET()
-            .build()
-        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null
-        }
-        val root = GSON.fromJson(response.body(), JsonObject::class.java)
-        if (root == null || !root.has("data") || !root.get("data").isJsonObject) {
-            return null
-        }
+        val root = fetchJsonObjectWithRetry(endpoint, apiKey) ?: return null
         val mod = CurseForgeMod()
         applyModData(mod, root.getAsJsonObject("data"))
         MOD_CACHE[resolvedModId] = mod
@@ -138,21 +131,7 @@ object CurseForgeClient {
         if (!mcVersion.isNullOrBlank()) {
             endpoint += "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8)
         }
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
-            .GET()
-            .build()
-        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null
-        }
-        val root = GSON.fromJson(response.body(), JsonObject::class.java)
-        if (root == null || !root.has("data") || !root.get("data").isJsonArray) {
-            return null
-        }
+        val root = fetchJsonArrayWithRetry(endpoint, apiKey) ?: return null
         var latest: CurseForgeFile? = null
         var latestTime: Instant? = null
         val targetLoader = loader?.trim() ?: ""
@@ -175,7 +154,7 @@ object CurseForgeClient {
         }
         val latestFile = latest ?: return null
         if (latestFile.url.isNullOrBlank()) {
-            latestFile.url = fetchDownloadUrl(resolvedProjectId, latestFile.id, apiKey)
+            latestFile.url = fetchDownloadUrlWithRetry(resolvedProjectId, latestFile.id, apiKey)
         }
         CACHE[cacheKey] = latestFile
         return latestFile
@@ -194,21 +173,7 @@ object CurseForgeClient {
         if (!mcVersion.isNullOrBlank()) {
             endpoint += "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8)
         }
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
-            .GET()
-            .build()
-        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null
-        }
-        val root = GSON.fromJson(response.body(), JsonObject::class.java)
-        if (root == null || !root.has("data") || !root.get("data").isJsonArray) {
-            return null
-        }
+        val root = fetchJsonArrayWithRetry(endpoint, apiKey) ?: return null
         var matched: CurseForgeFile? = null
         var matchedTime: Instant? = null
         val targetLoader = loader?.trim() ?: ""
@@ -239,7 +204,7 @@ object CurseForgeClient {
         }
         val matchedFile = matched ?: return null
         if (matchedFile.url.isNullOrBlank()) {
-            matchedFile.url = fetchDownloadUrl(projectId, matchedFile.id, apiKey)
+            matchedFile.url = fetchDownloadUrlWithRetry(projectId, matchedFile.id, apiKey)
         }
         return matchedFile
     }
@@ -261,20 +226,8 @@ object CurseForgeClient {
         }
         val endpoint = "https://api.curseforge.com/v1/mods/search?gameId=$MINECRAFT_GAME_ID" +
             "&slug=" + URLEncoder.encode(trimmed, StandardCharsets.UTF_8)
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
-            .GET()
-            .build()
-        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            PROJECT_ID_CACHE[lower] = ""
-            return null
-        }
-        val root = GSON.fromJson(response.body(), JsonObject::class.java)
-        if (root == null || !root.has("data") || !root.get("data").isJsonArray) {
+        val root = fetchJsonArrayWithRetry(endpoint, apiKey)
+        if (root == null) {
             PROJECT_ID_CACHE[lower] = ""
             return null
         }
@@ -350,28 +303,36 @@ object CurseForgeClient {
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun fetchFileData(projectId: String?, fileId: String, apiKey: String): JsonObject? {
+    private fun fetchFileDataWithRetry(projectId: String?, fileId: String, apiKey: String): JsonObject? {
         val endpoint = if (!projectId.isNullOrBlank()) {
             "https://api.curseforge.com/v1/mods/$projectId/files/$fileId"
         } else {
             "https://api.curseforge.com/v1/mods/files/$fileId"
         }
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
-            .GET()
-            .build()
-        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null
-        }
-        val root = GSON.fromJson(response.body(), JsonObject::class.java)
-        if (root == null || !root.has("data") || !root.get("data").isJsonObject) {
+        val root = sendJsonWithRetry(endpoint, apiKey, false) ?: return null
+        if (!root.has("data") || !root.get("data").isJsonObject) {
             return null
         }
         return root.getAsJsonObject("data")
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun fetchDownloadUrlWithRetry(projectId: String?, fileId: String?, apiKey: String): String? {
+        val maxRetry = maxOf(1, DlcPathConfig.getMaxRetryCount())
+        var lastError: IOException? = null
+        for (attempt in 1..maxRetry) {
+            try {
+                return fetchDownloadUrl(projectId, fileId, apiKey)
+            } catch (ex: DownloadUrlNotRetryableException) {
+                return ex.downloadUrl
+            } catch (ex: IOException) {
+                lastError = ex
+            }
+        }
+        if (lastError != null) {
+            throw lastError
+        }
+        return null
     }
 
     @Throws(IOException::class, InterruptedException::class)
@@ -380,23 +341,72 @@ object CurseForgeClient {
             return null
         }
         val endpoint = "https://api.curseforge.com/v1/mods/$projectId/files/$fileId/download-url"
-        val request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
-            .GET()
-            .build()
-        val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null
-        }
-        val root = GSON.fromJson(response.body(), JsonObject::class.java)
-        if (root == null || !root.has("data") || !root.get("data").isJsonObject) {
+        val root = sendJsonWithRetry(endpoint, apiKey, true) ?: return null
+        if (!root.has("data") || !root.get("data").isJsonObject) {
             return null
         }
         val data = root.getAsJsonObject("data")
-        return getString(data, "downloadUrl")
+        if (data.has("downloadUrl")) {
+            return getString(data, "downloadUrl")
+        }
+        return null
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun fetchJsonArrayWithRetry(endpoint: String, apiKey: String): JsonObject? {
+        val root = sendJsonWithRetry(endpoint, apiKey, false) ?: return null
+        if (!root.has("data") || !root.get("data").isJsonArray) {
+            return null
+        }
+        return root
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun fetchJsonObjectWithRetry(endpoint: String, apiKey: String): JsonObject? {
+        val root = sendJsonWithRetry(endpoint, apiKey, false) ?: return null
+        if (!root.has("data") || !root.get("data").isJsonObject) {
+            return null
+        }
+        return root
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun sendJsonWithRetry(endpoint: String, apiKey: String, stopOnDownloadUrlForbidden: Boolean): JsonObject? {
+        val maxRetry = maxOf(1, DlcPathConfig.getMaxRetryCount())
+        var lastError: IOException? = null
+        for (attempt in 1..maxRetry) {
+            try {
+                val request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .header("User-Agent", "DLC-Manager")
+                    .header("x-api-key", apiKey)
+                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+                    .GET()
+                    .build()
+                val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+                if (stopOnDownloadUrlForbidden && response.statusCode() == HttpURLConnection.HTTP_FORBIDDEN) {
+                    throw DownloadUrlNotRetryableException(null)
+                }
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    if (isRetryableStatus(response.statusCode()) && attempt < maxRetry) {
+                        continue
+                    }
+                    return null
+                }
+                val root = GSON.fromJson(response.body(), JsonObject::class.java)
+                return root
+            } catch (ex: IOException) {
+                lastError = ex
+            }
+        }
+        if (lastError != null) {
+            throw lastError
+        }
+        return null
+    }
+
+    private fun isRetryableStatus(statusCode: Int): Boolean {
+        return statusCode == 429 || statusCode >= 500
     }
 
     private fun getString(obj: JsonObject?, key: String): String? {
@@ -430,6 +440,8 @@ object CurseForgeClient {
         }
         return true
     }
+
+    private class DownloadUrlNotRetryableException(val downloadUrl: String?) : RuntimeException()
 
     private fun parseInstant(value: String?): Instant? {
         if (value.isNullOrBlank()) {
