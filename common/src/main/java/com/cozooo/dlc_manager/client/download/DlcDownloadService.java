@@ -219,24 +219,46 @@ public final class DlcDownloadService {
         }
     }
 
-    private static boolean shouldSwitchToMirror(double officialSpeed, MirrorPlan mirrorPlan, CancelChecker cancelChecker) throws IOException {
+    private static MirrorProbe startMirrorProbe(double officialSpeed, MirrorPlan mirrorPlan, CancelChecker cancelChecker) {
         if (officialSpeed >= mirrorPlan.requiredSpeed) {
             recordOfficialFastIfStable(officialSpeed, mirrorPlan);
-            return false;
+            return null;
         }
         synchronized (MIRROR_LOCK) {
             if (mirrorDisabled) {
-                return false;
+                return null;
             }
             if (selectedMirror != null) {
-                return selectedMirror;
+                return selectedMirror ? MirrorProbe.selected(mirrorPlan.mirrorUrl) : null;
             }
             if (mirrorComparisons >= MIRROR_MAX_COMPARISONS) {
-                return false;
+                return null;
             }
             mirrorComparisons++;
         }
-        double mirrorSpeed = probeDownloadSpeed(mirrorPlan.mirrorUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        return new MirrorProbe(
+            mirrorPlan.mirrorUrl,
+            executor.submit(() -> probeDownloadSpeed(mirrorPlan.mirrorUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker)),
+            executor,
+            false
+        );
+    }
+
+    private static boolean finishMirrorProbe(double officialSpeed, MirrorProbe probe) {
+        if (probe.preselected) {
+            return true;
+        }
+        double mirrorSpeed;
+        try {
+            mirrorSpeed = probe.future == null ? 0.0 : probe.future.get();
+        } catch (Exception ignored) {
+            mirrorSpeed = 0.0;
+        } finally {
+            if (probe.executor != null) {
+                probe.executor.shutdownNow();
+            }
+        }
         synchronized (MIRROR_LOCK) {
             if (mirrorSpeed <= 0.0) {
                 mirrorFailures++;
@@ -422,35 +444,52 @@ public final class DlcDownloadService {
         long windowBytes = 0L;
         double maxSpeed = 0.0;
         boolean checked = false;
+        MirrorProbe mirrorProbe = null;
         long compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS);
-        while (true) {
-            int len = input.read(buffer);
-            if (len < 0) {
-                return read;
-            }
-            if (cancelChecker != null && cancelChecker.isCanceled()) {
-                throw new DownloadCanceledException("canceled");
-            }
-            output.write(buffer, 0, len);
-            read += len;
-            windowBytes += len;
-            if (listener != null) {
-                listener.onProgress(read, total);
-            }
-            long now = System.nanoTime();
-            if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
-                maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
-                windowStart = now;
-                windowBytes = 0L;
-            }
-            if (!checked && now >= compareDeadline) {
-                checked = true;
-                if (windowBytes > 0) {
+        try {
+            while (true) {
+                int len = input.read(buffer);
+                if (len < 0) {
+                    return read;
+                }
+                if (cancelChecker != null && cancelChecker.isCanceled()) {
+                    throw new DownloadCanceledException("canceled");
+                }
+                output.write(buffer, 0, len);
+                read += len;
+                windowBytes += len;
+                if (listener != null) {
+                    listener.onProgress(read, total);
+                }
+                long now = System.nanoTime();
+                if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                     maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                    windowStart = now;
+                    windowBytes = 0L;
                 }
-                if (shouldSwitchToMirror(maxSpeed, mirrorPlan, cancelChecker)) {
-                    throw new SwitchToMirrorException(mirrorPlan.mirrorUrl);
+                if (!checked && now >= compareDeadline) {
+                    checked = true;
+                    if (windowBytes > 0) {
+                        maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                    }
+                    mirrorProbe = startMirrorProbe(maxSpeed, mirrorPlan, cancelChecker);
+                    if (mirrorProbe != null && mirrorProbe.preselected) {
+                        throw new SwitchToMirrorException(mirrorPlan.mirrorUrl);
+                    }
                 }
+                if (mirrorProbe != null && mirrorProbe.future != null && mirrorProbe.future.isDone()) {
+                    if (windowBytes > 0) {
+                        maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                    }
+                    if (finishMirrorProbe(maxSpeed, mirrorProbe)) {
+                        throw new SwitchToMirrorException(mirrorProbe.mirrorUrl);
+                    }
+                    mirrorProbe = null;
+                }
+            }
+        } finally {
+            if (mirrorProbe != null && mirrorProbe.executor != null) {
+                mirrorProbe.executor.shutdownNow();
             }
         }
     }
@@ -492,44 +531,70 @@ public final class DlcDownloadService {
             long start = System.nanoTime();
             long windowStart = start;
             long windowBytes = 0L;
+            boolean checked = false;
+            MirrorProbe mirrorProbe = null;
             long compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS);
             byte[] buffer = new byte[8192];
-            try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
-                 RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
-                raf.seek(0L);
-                while (System.nanoTime() < compareDeadline) {
-                    if (cancelChecker != null && cancelChecker.isCanceled()) {
-                        throw new DownloadCanceledException("canceled");
-                    }
-                    int len = in.read(buffer);
-                    if (len < 0) {
-                        return new InitialRangeResult(read, true, false);
-                    }
-                    raf.write(buffer, 0, len);
-                    read += len;
-                    windowBytes += len;
-                    if (listener != null) {
-                        listener.onProgress(read, totalBytes);
-                    }
-                    if (read >= totalBytes) {
-                        return new InitialRangeResult(read, true, false);
-                    }
-                    long now = System.nanoTime();
-                    if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
-                        maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
-                        windowStart = now;
-                        windowBytes = 0L;
+            try {
+                try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+                     RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
+                    raf.seek(0L);
+                    while (true) {
+                        long nowBeforeRead = System.nanoTime();
+                        if (checked && mirrorProbe == null && nowBeforeRead >= compareDeadline) {
+                            return new InitialRangeResult(read, false, false);
+                        }
+                        if (cancelChecker != null && cancelChecker.isCanceled()) {
+                            throw new DownloadCanceledException("canceled");
+                        }
+                        int len = in.read(buffer);
+                        if (len < 0) {
+                            return new InitialRangeResult(read, true, false);
+                        }
+                        raf.write(buffer, 0, len);
+                        read += len;
+                        windowBytes += len;
+                        if (listener != null) {
+                            listener.onProgress(read, totalBytes);
+                        }
+                        if (read >= totalBytes) {
+                            return new InitialRangeResult(read, true, false);
+                        }
+                        long now = System.nanoTime();
+                        if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                            maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                            windowStart = now;
+                            windowBytes = 0L;
+                        }
+                        if (!checked && now >= compareDeadline) {
+                            checked = true;
+                            if (windowBytes > 0) {
+                                maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                            }
+                            mirrorProbe = startMirrorProbe(maxSpeed, mirrorPlan, cancelChecker);
+                            if (mirrorProbe != null && mirrorProbe.preselected) {
+                                return new InitialRangeResult(read, false, true);
+                            }
+                            if (mirrorProbe == null) {
+                                return new InitialRangeResult(read, false, false);
+                            }
+                        }
+                        if (mirrorProbe != null && mirrorProbe.future != null && mirrorProbe.future.isDone()) {
+                            if (windowBytes > 0) {
+                                maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                            }
+                            return new InitialRangeResult(read, false, finishMirrorProbe(maxSpeed, mirrorProbe));
+                        }
                     }
                 }
-                long now = System.nanoTime();
-                if (windowBytes > 0) {
-                    maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+            } finally {
+                if (mirrorProbe != null && mirrorProbe.executor != null) {
+                    mirrorProbe.executor.shutdownNow();
                 }
             }
         } finally {
             closeQuietly(connection);
         }
-        return new InitialRangeResult(read, false, shouldSwitchToMirror(maxSpeed, mirrorPlan, cancelChecker));
     }
 
     private static void downloadSingleWithRetry(String url, Path temp, long knownTotal, long existing, ProgressListener listener,
@@ -869,6 +934,12 @@ public final class DlcDownloadService {
     }
 
     private record MirrorPlan(String mirrorUrl, long totalBytes, double timeoutSpeed, double bucketSpeed, double requiredSpeed) {
+    }
+
+    private record MirrorProbe(String mirrorUrl, Future<Double> future, ExecutorService executor, boolean preselected) {
+        private static MirrorProbe selected(String mirrorUrl) {
+            return new MirrorProbe(mirrorUrl, null, null, true);
+        }
     }
 
     private record SpeedRule(double timeoutSpeed, double bucketSpeed, double requiredSpeed) {

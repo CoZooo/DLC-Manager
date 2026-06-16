@@ -12,6 +12,7 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.util.Locale
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
@@ -224,22 +225,40 @@ object DlcDownloadService {
         }
     }
 
-    private fun shouldSwitchToMirror(officialSpeed: Double, mirrorPlan: MirrorPlan, cancelChecker: CancelChecker?): Boolean {
+    private fun startMirrorProbe(officialSpeed: Double, mirrorPlan: MirrorPlan, cancelChecker: CancelChecker?): MirrorProbe? {
         if (officialSpeed >= mirrorPlan.requiredSpeed) {
             recordOfficialFastIfStable(officialSpeed, mirrorPlan)
-            return false
+            return null
         }
         synchronized(mirrorLock) {
             if (mirrorDisabled) {
-                return false
+                return null
             }
-            selectedMirror?.let { return it }
+            selectedMirror?.let { return if (it) MirrorProbe.selected(mirrorPlan.mirrorUrl) else null }
             if (mirrorComparisons >= MIRROR_MAX_COMPARISONS) {
-                return false
+                return null
             }
             mirrorComparisons++
         }
-        val mirrorSpeed = probeDownloadSpeed(mirrorPlan.mirrorUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker)
+        val executor = Executors.newSingleThreadExecutor()
+        return MirrorProbe(
+            mirrorPlan.mirrorUrl,
+            executor.submit<Double> { probeDownloadSpeed(mirrorPlan.mirrorUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker) },
+            executor,
+        )
+    }
+
+    private fun finishMirrorProbe(officialSpeed: Double, probe: MirrorProbe): Boolean {
+        if (probe.preselected) {
+            return true
+        }
+        val mirrorSpeed = try {
+            probe.future?.get() ?: 0.0
+        } catch (_: Exception) {
+            0.0
+        } finally {
+            probe.executor?.shutdownNow()
+        }
         synchronized(mirrorLock) {
             if (mirrorSpeed <= 0.0) {
                 mirrorFailures++
@@ -432,34 +451,50 @@ object DlcDownloadService {
         var windowBytes = 0L
         var maxSpeed = 0.0
         var checked = false
+        var mirrorProbe: MirrorProbe? = null
         val compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS)
-        while (true) {
-            val len = input.read(buffer)
-            if (len < 0) {
-                return read
-            }
-            if (cancelChecker?.isCanceled() == true) {
-                throw DownloadCanceledException("canceled")
-            }
-            output.write(buffer, 0, len)
-            read += len.toLong()
-            windowBytes += len.toLong()
-            listener?.onProgress(read, total)
-            val now = System.nanoTime()
-            if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
-                maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
-                windowStart = now
-                windowBytes = 0L
-            }
-            if (!checked && now >= compareDeadline) {
-                checked = true
-                if (windowBytes > 0) {
+        try {
+            while (true) {
+                val len = input.read(buffer)
+                if (len < 0) {
+                    return read
+                }
+                if (cancelChecker?.isCanceled() == true) {
+                    throw DownloadCanceledException("canceled")
+                }
+                output.write(buffer, 0, len)
+                read += len.toLong()
+                windowBytes += len.toLong()
+                listener?.onProgress(read, total)
+                val now = System.nanoTime()
+                if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                     maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                    windowStart = now
+                    windowBytes = 0L
                 }
-                if (shouldSwitchToMirror(maxSpeed, mirrorPlan, cancelChecker)) {
-                    throw SwitchToMirrorException(mirrorPlan.mirrorUrl)
+                if (!checked && now >= compareDeadline) {
+                    checked = true
+                    if (windowBytes > 0) {
+                        maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                    }
+                    mirrorProbe = startMirrorProbe(maxSpeed, mirrorPlan, cancelChecker)
+                    if (mirrorProbe?.preselected == true) {
+                        throw SwitchToMirrorException(mirrorPlan.mirrorUrl)
+                    }
+                }
+                val probe = mirrorProbe
+                if (probe != null && probe.future?.isDone == true) {
+                    if (windowBytes > 0) {
+                        maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                    }
+                    if (finishMirrorProbe(maxSpeed, probe)) {
+                        throw SwitchToMirrorException(probe.mirrorUrl)
+                    }
+                    mirrorProbe = null
                 }
             }
+        } finally {
+            mirrorProbe?.executor?.shutdownNow()
         }
     }
 
@@ -513,43 +548,69 @@ object DlcDownloadService {
             val start = System.nanoTime()
             var windowStart = start
             var windowBytes = 0L
+            var checked = false
+            var mirrorProbe: MirrorProbe? = null
             val compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS)
             val buffer = ByteArray(8192)
-            BufferedInputStream(connection.inputStream).use { input ->
-                RandomAccessFile(tempFile.toFile(), "rw").use { raf ->
-                    raf.seek(0L)
-                    while (System.nanoTime() < compareDeadline) {
-                        if (cancelChecker?.isCanceled() == true) {
-                            throw DownloadCanceledException("canceled")
+            try {
+                BufferedInputStream(connection.inputStream).use { input ->
+                    RandomAccessFile(tempFile.toFile(), "rw").use { raf ->
+                        raf.seek(0L)
+                        while (true) {
+                            val nowBeforeRead = System.nanoTime()
+                            if (checked && mirrorProbe == null && nowBeforeRead >= compareDeadline) {
+                                return InitialRangeResult(read, false, false)
+                            }
+                            if (cancelChecker?.isCanceled() == true) {
+                                throw DownloadCanceledException("canceled")
+                            }
+                            val len = input.read(buffer)
+                            if (len < 0) {
+                                return InitialRangeResult(read, true, false)
+                            }
+                            raf.write(buffer, 0, len)
+                            read += len.toLong()
+                            windowBytes += len.toLong()
+                            listener?.onProgress(read, totalBytes)
+                            if (read >= totalBytes) {
+                                return InitialRangeResult(read, true, false)
+                            }
+                            val now = System.nanoTime()
+                            if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                                maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                                windowStart = now
+                                windowBytes = 0L
+                            }
+                            if (!checked && now >= compareDeadline) {
+                                checked = true
+                                if (windowBytes > 0) {
+                                    maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                                }
+                                mirrorProbe = startMirrorProbe(maxSpeed, mirrorPlan, cancelChecker)
+                                if (mirrorProbe?.preselected == true) {
+                                    return InitialRangeResult(read, false, true)
+                                }
+                                if (mirrorProbe == null) {
+                                    return InitialRangeResult(read, false, false)
+                                }
+                            }
+                            val probe = mirrorProbe
+                            if (probe != null && probe.future?.isDone == true) {
+                                if (windowBytes > 0) {
+                                    maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                                }
+                                return InitialRangeResult(read, false, finishMirrorProbe(maxSpeed, probe))
+                            }
                         }
-                        val len = input.read(buffer)
-                        if (len < 0) {
-                            return InitialRangeResult(read, true, false)
-                        }
-                        raf.write(buffer, 0, len)
-                        read += len.toLong()
-                        windowBytes += len.toLong()
-                        listener?.onProgress(read, totalBytes)
-                        if (read >= totalBytes) {
-                            return InitialRangeResult(read, true, false)
-                        }
-                        val now = System.nanoTime()
-                        if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
-                            maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
-                            windowStart = now
-                            windowBytes = 0L
-                        }
-                    }
-                    val now = System.nanoTime()
-                    if (windowBytes > 0) {
-                        maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
                     }
                 }
+            } finally {
+                mirrorProbe?.executor?.shutdownNow()
             }
         } finally {
             closeQuietly(connection)
         }
-        return InitialRangeResult(read, false, shouldSwitchToMirror(maxSpeed, mirrorPlan, cancelChecker))
+        return InitialRangeResult(read, false, false)
     }
 
     @Throws(IOException::class)
@@ -935,6 +996,17 @@ object DlcDownloadService {
         val bucketSpeed: Double,
         val requiredSpeed: Double,
     )
+
+    private data class MirrorProbe(
+        val mirrorUrl: String,
+        val future: Future<Double>?,
+        val executor: ExecutorService?,
+        val preselected: Boolean = false,
+    ) {
+        companion object {
+            fun selected(mirrorUrl: String): MirrorProbe = MirrorProbe(mirrorUrl, null, null, true)
+        }
+    }
 
     private data class SpeedRule(
         val timeoutSpeed: Double,
