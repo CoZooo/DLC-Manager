@@ -31,9 +31,9 @@ class DlcPackInstallPlanTest {
         DlcPackPackage.Result parsed = DlcPackPackage.inspect(root);
         DlcPackInstallPlan plan = DlcPackInstallPlan.build(parsed.pack, root, root.resolve("DLC"));
 
-        assertFalse(plan.getValid());
+        assertTrue(plan.getValid());
         assertEquals(Set.of("config/dlc_manager/config.dc", "DLC/update/u.zip"), new HashSet<>(plan.forbiddenPaths));
-        assertEquals(Set.of("config/dlc_manager/config.dc", "DLC/update/u.zip", "mods/a.jar"), new HashSet<>(plan.files.stream().map(entry -> entry.relativePath).toList()));
+        assertEquals(Set.of("mods/a.jar"), new HashSet<>(plan.files.stream().map(entry -> entry.relativePath).toList()));
     }
 
     @Test

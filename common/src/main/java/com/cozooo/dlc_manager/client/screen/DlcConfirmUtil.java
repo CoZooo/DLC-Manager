@@ -85,9 +85,6 @@ public final class DlcConfirmUtil {
 
     public static String describePackBlockingPrecheck(DlcPackInstaller.PrecheckResult precheck) {
         List<String> messages = new ArrayList<>();
-        if (!precheck.getForbiddenPaths().isEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.forbidden_paths", joinLimited(precheck.getForbiddenPaths())).getString());
-        }
         if (!precheck.getIncompatibleVersions().isEmpty()) {
             messages.add(Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.getIncompatibleVersions())).getString());
         }

@@ -4,11 +4,15 @@ import com.cozooo.dlc_manager.client.download.CurseForgeClient
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
+import com.cozooo.dlc_manager.core.DlcPathConfig
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.atomic.AtomicReferenceArray
 
 object DlcPackCFResolver {
     @JvmStatic
@@ -53,44 +57,105 @@ object DlcPackCFResolver {
         val downloadRoot = staging.resolve("manifest")
         val cacheRoot = packDir.resolve("cf_cache")
         val entries = ArrayList<DlcPackInstallPlan.FileEntry>()
-        val totalRefs = pack.manifestFiles.size
-        for ((index, ref) in pack.manifestFiles.withIndex()) {
+        val downloads = ArrayList<ManifestDownload>()
+        val seenRelative = LinkedHashSet<String>()
+        for (ref in pack.manifestFiles) {
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw DlcDownloadService.DownloadCanceledException("canceled")
             }
             val target = resolveManifestTarget(pack, ref) ?: continue
-            if (hasDownloadedEntry(entries, target.relativePath)) {
+            if (!seenRelative.add(target.relativePath)) {
                 continue
             }
-            val file = target.file
-            val fileName = target.fileName
-            val targetDirectory = target.targetDirectory
-            val relative = target.relativePath
-            val candidate = DlcDownloadCandidate.curseForge(file)
-            val cached = cacheFile(cacheRoot, targetDirectory, ref, fileName)
+            val candidate = DlcDownloadCandidate.curseForge(target.file)
+            val cached = cacheFile(cacheRoot, target.targetDirectory, target.fileName)
             if (!isUsableCachedFile(cached, candidate)) {
                 Files.deleteIfExists(cached)
-                val outputDir = downloadRoot.resolve(targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId))
-                progressListener?.onProgress("Downloading $fileName", index / totalRefs.toFloat())
-                val downloaded = DlcDownloadService.downloadKnown(
-                    candidate.url,
-                    outputDir,
-                    fileName,
-                    candidate.expectedSize,
-                    DlcDownloadService.ProgressListener { done, total ->
-                        val fileProgress = if (total > 0) done / total.toFloat() else 0f
-                        progressListener?.onProgress("Downloading $fileName", (index + fileProgress.coerceIn(0f, 1f)) / totalRefs.toFloat())
-                    },
-                    cancelChecker,
-                )
-                verifyDownloaded(downloaded, candidate)
-                Files.createDirectories(cached.parent)
-                Files.move(downloaded, cached, StandardCopyOption.REPLACE_EXISTING)
+                val outputDir = downloadRoot.resolve(target.targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId))
+                downloads.add(ManifestDownload(target, candidate, cached, outputDir))
+            } else {
+                entries.add(DlcPackInstallPlan.FileEntry(cached, target.relativePath))
             }
-            entries.add(DlcPackInstallPlan.FileEntry(cached, relative))
-            progressListener?.onProgress("Resolved $fileName", (index + 1) / totalRefs.toFloat())
         }
+        if (downloads.isNotEmpty()) {
+            entries.addAll(downloadManifestFilesConcurrent(downloads, cancelChecker, progressListener))
+        }
+        progressListener?.onProgress("Resolved CurseForge manifest files", 1f)
         return entries
+    }
+
+    private fun downloadManifestFilesConcurrent(
+        downloads: List<ManifestDownload>,
+        cancelChecker: DlcDownloadService.CancelChecker?,
+        progressListener: DlcPackInstaller.ProgressListener?,
+    ): List<DlcPackInstallPlan.FileEntry> {
+        val total = downloads.size
+        val maxConcurrent = maxOf(1, minOf(DlcPathConfig.getMaxConcurrentDownloads(), total))
+        val perFileProgress = AtomicReferenceArray<Float>(total)
+        for (i in 0 until total) {
+            perFileProgress.set(i, 0f)
+        }
+        val executor = Executors.newFixedThreadPool(maxConcurrent)
+        val futures = ArrayList<Future<DlcPackInstallPlan.FileEntry?>>()
+        try {
+            for ((index, download) in downloads.withIndex()) {
+                futures.add(executor.submit<DlcPackInstallPlan.FileEntry?> {
+                    if (cancelChecker != null && cancelChecker.isCanceled()) {
+                        throw DlcDownloadService.DownloadCanceledException("canceled")
+                    }
+                    progressListener?.onProgress("Downloading ${download.target.fileName}", aggregateProgress(perFileProgress, total))
+                    val downloaded = DlcDownloadService.downloadKnown(
+                        download.candidate.url,
+                        download.outputDir,
+                        download.target.fileName,
+                        download.candidate.expectedSize,
+                        DlcDownloadService.ProgressListener { done, fileTotal ->
+                            val fileProgress = if (fileTotal > 0) done / fileTotal.toFloat() else 0f
+                            perFileProgress.set(index, fileProgress.coerceIn(0f, 1f))
+                            progressListener?.onProgress("Downloading ${download.target.fileName}", aggregateProgress(perFileProgress, total))
+                        },
+                        cancelChecker,
+                    )
+                    verifyDownloaded(downloaded, download.candidate)
+                    Files.createDirectories(download.cached.parent)
+                    Files.move(downloaded, download.cached, StandardCopyOption.REPLACE_EXISTING)
+                    perFileProgress.set(index, 1f)
+                    progressListener?.onProgress("Resolved ${download.target.fileName}", aggregateProgress(perFileProgress, total))
+                    DlcPackInstallPlan.FileEntry(download.cached, download.target.relativePath)
+                })
+            }
+            val entries = ArrayList<DlcPackInstallPlan.FileEntry>()
+            for (future in futures) {
+                val entry = try {
+                    future.get()
+                } catch (ex: java.util.concurrent.ExecutionException) {
+                    val cause = ex.cause
+                    when (cause) {
+                        is DlcDownloadService.DownloadCanceledException -> throw cause
+                        is IOException -> throw cause
+                        is InterruptedException -> throw cause
+                        else -> throw IOException(cause ?: ex)
+                    }
+                }
+                if (entry != null && entries.none { it.relativePath == entry.relativePath }) {
+                    entries.add(entry)
+                }
+            }
+            return entries
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    private fun aggregateProgress(perFileProgress: AtomicReferenceArray<Float>, total: Int): Float {
+        if (total <= 0) {
+            return 1f
+        }
+        var progress = 0f
+        for (i in 0 until total) {
+            progress += perFileProgress.get(i).coerceIn(0f, 1f)
+        }
+        return (progress / total).coerceIn(0f, 1f)
     }
 
     private fun resolveManifestTarget(pack: DlcPackPackage, ref: DlcPackManifest.FileRef): ManifestTarget? {
@@ -156,11 +221,9 @@ object DlcPackCFResolver {
         return entries.any { it.relativePath == relative }
     }
 
-    private fun cacheFile(cacheRoot: Path, targetDirectory: Path, ref: DlcPackManifest.FileRef, fileName: String): Path {
+    private fun cacheFile(cacheRoot: Path, targetDirectory: Path, fileName: String): Path {
         return cacheRoot
             .resolve(targetDirectory)
-            .resolve(safeSegment(ref.projectId))
-            .resolve(safeSegment(ref.fileId))
             .resolve(fileName)
     }
 
@@ -218,5 +281,12 @@ object DlcPackCFResolver {
         val targetDirectory: Path,
         val fileName: String,
         val relativePath: String,
+    )
+
+    private class ManifestDownload(
+        val target: ManifestTarget,
+        val candidate: DlcDownloadCandidate,
+        val cached: Path,
+        val outputDir: Path,
     )
 }

@@ -22,6 +22,7 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.network.chat.Component;
@@ -44,11 +45,19 @@ import java.util.Map;
 import java.util.Set;
 
 public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
-    private static final int ROW_HEIGHT = 72;
+    private static final int ROW_HEIGHT = 80;
+    private static final int ROW_PADDING_TOP = 6;
+    private static final int ROW_PADDING_BOTTOM = 8;
     private static final int ICON_SIZE = 32;
-    private static final int BUTTON_WIDTH = 46;
+    private static final int BUTTON_WIDTH = 58;
     private static final int BUTTON_HEIGHT = 16;
+    private static final int BUTTON_GAP = 4;
+    private static final int ORDER_BUTTON_WIDTH = 18;
+    private static final int ORDER_BUTTON_SLOTS = 2;
+    private static final int HOMEPAGE_PROMPT_GAP = 12;
+    private static final float HOMEPAGE_PROMPT_SCALE = 0.85F;
     private static final int SCROLLBAR_WIDTH = 6;
+    private static final int SCROLL_STEP = 24;
 
     private final Screen parent;
     private Button importButton;
@@ -63,8 +72,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private List<String> currentArchiveOrder = List.of();
     private Map<String, DlcPackMeta> installedByIdentifier = Map.of();
     private int selectedIndex = -1;
-    private int scrollIndex;
+    private int scrollOffset;
     private boolean draggingScrollbar;
+    private double scrollbarDragOffset;
     private String lastClickKey;
     private long lastClickAt;
     private Component status;
@@ -193,7 +203,6 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         int left = getListLeft();
         int right = getListRight();
         int top = getListTop();
-        int bottom = getListBottom();
         guiGraphics.drawString(this.font, Component.translatable("dlc_manager.pack.archive_count", archiveEntries.size()), left, 38, 0xE6E6E6, false);
         if (status != null) {
             guiGraphics.drawString(this.font, status, left + 150, 38, 0xFFCC66, false);
@@ -203,25 +212,30 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             return;
         }
         clampScroll();
-        int visible = Math.min(getVisibleCount(), archiveEntries.size() - scrollIndex);
-        for (int row = 0; row < visible; row++) {
-            int index = scrollIndex + row;
+        int rowTop = top - scrollOffset;
+        int index = 0;
+        int contentRight = right - SCROLLBAR_WIDTH - 4;
+        guiGraphics.enableScissor(left, top, contentRight, getListBottom());
+        while (index < archiveEntries.size() && rowTop < getListBottom()) {
             PackArchiveEntry entry = archiveEntries.get(index);
-            int rowTop = top + row * ROW_HEIGHT;
-            renderEntry(guiGraphics, entry, index, left, right - SCROLLBAR_WIDTH - 4, rowTop, mouseX, mouseY);
+            int rowHeight = rowHeight(entry, contentRight);
+            if (rowTop + rowHeight > top) {
+                renderEntry(guiGraphics, entry, index, left, contentRight, rowTop, rowHeight, mouseX, mouseY);
+            }
+            rowTop += rowHeight;
+            index++;
         }
+        guiGraphics.disableScissor();
         drawScrollBar(guiGraphics);
     }
 
-    private void renderEntry(GuiGraphics guiGraphics, PackArchiveEntry entry, int index, int left, int right, int y, int mouseX, int mouseY) {
+    private void renderEntry(GuiGraphics guiGraphics, PackArchiveEntry entry, int index, int left, int right, int y, int rowHeight, int mouseX, int mouseY) {
         boolean selected = index == selectedIndex;
         int background = selected ? 0x66335566 : 0x55202020;
-        guiGraphics.fill(left, y, right, y + ROW_HEIGHT - 4, background);
-        int arrowX = left + 4;
-        guiGraphics.drawString(this.font, Component.literal("^"), arrowX, y + 8, canMoveUp(index) ? 0xFFFFFF : 0x666666, false);
-        guiGraphics.drawString(this.font, Component.literal("v"), arrowX, y + 30, canMoveDown(index) ? 0xFFFFFF : 0x666666, false);
-        int iconX = left + 24;
-        int iconY = y + 16;
+        guiGraphics.fill(left, y, right, y + rowHeight - 4, background);
+        drawOrderButtons(guiGraphics, index, left + 4, y, rowHeight, mouseX, mouseY);
+        int iconX = left + ORDER_BUTTON_WIDTH + 12;
+        int iconY = y + ROW_PADDING_TOP;
         if (entry.iconTexture != null) {
             guiGraphics.blit(entry.iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE, 0.0F, 0.0F, entry.iconWidth, entry.iconHeight, entry.iconWidth, entry.iconHeight);
         } else {
@@ -231,29 +245,60 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         }
 
         int textX = iconX + ICON_SIZE + 8;
-        int textRight = right - (BUTTON_WIDTH + 5) * 4 - 14;
-        guiGraphics.drawString(this.font, trimToWidth(entry.displayName, textRight - textX), textX, y + 6, 0xFFFFFF, false);
-        guiGraphics.drawString(this.font, trimToWidth(entry.author, textRight - textX), textX, y + 20, 0xC8C8C8, false);
+        int textRight = right - BUTTON_WIDTH - 18;
+        Component homepagePrompt = homepagePrompt(entry);
+        int homepageWidth = homepagePrompt == null ? 0 : Math.min(Math.round(this.font.width(homepagePrompt) * HOMEPAGE_PROMPT_SCALE), Math.max(1, (textRight - textX) / 2));
+        int nameWidth = Math.max(1, textRight - textX - (homepagePrompt == null ? 0 : homepageWidth + HOMEPAGE_PROMPT_GAP));
+        int textY = y + ROW_PADDING_TOP;
+        textY = drawMultiline(guiGraphics, entry.displayName, textX, textY, nameWidth, 0xFFFFFF) + 4;
+        if (homepagePrompt != null) {
+            guiGraphics.pose().pushPose();
+            guiGraphics.pose().scale(HOMEPAGE_PROMPT_SCALE, HOMEPAGE_PROMPT_SCALE, 1.0F);
+            int promptX = textRight - homepageWidth;
+            int promptY = y + ROW_PADDING_TOP + 1;
+            guiGraphics.drawString(this.font, homepagePrompt, Math.round(promptX / HOMEPAGE_PROMPT_SCALE), Math.round(promptY / HOMEPAGE_PROMPT_SCALE), 0x8FA8C8, false);
+            guiGraphics.pose().popPose();
+        }
+        textY = drawAuthorLines(guiGraphics, entry, textX, textY, textRight - textX, 0xC8C8C8) + 4;
         Component version = Component.translatable("dlc_manager.pack.version_line", entry.metadata.version);
-        guiGraphics.drawString(this.font, version, textX, y + 34, 0xAFC8FF, false);
-        guiGraphics.drawString(this.font, trimToWidth(entry.description, textRight - textX), textX, y + 48, 0xB0B0B0, false);
+        guiGraphics.drawString(this.font, version, textX, textY, 0xAFC8FF, false);
+        drawMultiline(guiGraphics, entry.description, textX, textY + 14, textRight - textX, 0xB0B0B0);
 
-        int buttonX = right - (BUTTON_WIDTH + 5) * 4;
-        drawRowButton(guiGraphics, buttonX, y + 18, installButtonLabel(entry), mouseX, mouseY);
-        drawRowButton(guiGraphics, buttonX + BUTTON_WIDTH + 5, y + 18, Component.translatable("dlc_manager.pack.delete"), mouseX, mouseY);
-        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 2, y + 18, Component.translatable("dlc_manager.pack.feedback"), mouseX, mouseY);
-        drawRowButton(guiGraphics, buttonX + (BUTTON_WIDTH + 5) * 3, y + 18, Component.translatable("dlc_manager.pack.support_author"), mouseX, mouseY);
+        drawActionButtons(guiGraphics, entry, right - BUTTON_WIDTH - 6, y, rowHeight, mouseX, mouseY);
     }
 
     private void drawRowButton(GuiGraphics guiGraphics, int x, int y, Component label, int mouseX, int mouseY) {
-        boolean hover = mouseX >= x && mouseX < x + BUTTON_WIDTH && mouseY >= y && mouseY < y + BUTTON_HEIGHT;
-        guiGraphics.fill(x, y, x + BUTTON_WIDTH, y + BUTTON_HEIGHT, hover ? 0xFF5A5A5A : 0xFF404040);
-        guiGraphics.drawCenteredString(this.font, label, x + BUTTON_WIDTH / 2, y + 4, 0xFFFFFF);
+        drawSizedButton(guiGraphics, x, y, BUTTON_WIDTH, label, mouseX, mouseY);
+    }
+
+    private void drawSizedButton(GuiGraphics guiGraphics, int x, int y, int buttonWidth, Component label, int mouseX, int mouseY) {
+        boolean hover = mouseX >= x && mouseX < x + buttonWidth && mouseY >= y && mouseY < y + BUTTON_HEIGHT;
+        guiGraphics.fill(x, y, x + buttonWidth, y + BUTTON_HEIGHT, hover ? 0xFF5A5A5A : 0xFF404040);
+        guiGraphics.drawCenteredString(this.font, label, x + buttonWidth / 2, y + 4, 0xFFFFFF);
+    }
+
+    private void drawOrderButtons(GuiGraphics guiGraphics, int index, int x, int rowY, int rowHeight, int mouseX, int mouseY) {
+        int startY = centeredButtonColumnY(rowY, rowHeight, ORDER_BUTTON_SLOTS);
+        if (canMoveUp(index)) {
+            drawSizedButton(guiGraphics, x, startY, ORDER_BUTTON_WIDTH, Component.literal("^"), mouseX, mouseY);
+        }
+        if (canMoveDown(index)) {
+            drawSizedButton(guiGraphics, x, startY + BUTTON_HEIGHT + BUTTON_GAP, ORDER_BUTTON_WIDTH, Component.literal("v"), mouseX, mouseY);
+        }
+    }
+
+    private void drawActionButtons(GuiGraphics guiGraphics, PackArchiveEntry entry, int x, int rowY, int rowHeight, int mouseX, int mouseY) {
+        List<RowAction> actions = actionButtons(entry);
+        int startY = centeredButtonColumnY(rowY, rowHeight, actions.size());
+        for (int i = 0; i < actions.size(); i++) {
+            RowAction action = actions.get(i);
+            drawRowButton(guiGraphics, x, startY + i * (BUTTON_HEIGHT + BUTTON_GAP), actionLabel(entry, action), mouseX, mouseY);
+        }
     }
 
     private Component installButtonLabel(PackArchiveEntry entry) {
         if (pendingInstalls.containsKey(entry.metadata.identifier) && pendingInstalls.get(entry.metadata.identifier) == entry) {
-            return pendingInstallButtonLabel(entry);
+            return Component.translatable("dlc_manager.pack.pending_install");
         }
         if (pendingUninstalls.contains(entry.metadata.identifier)) {
             return Component.translatable("dlc_manager.pack.pending_uninstall");
@@ -262,32 +307,35 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (installed != null && entry.metadata.version.equals(installed.version)) {
             return Component.translatable("dlc_manager.pack.uninstall");
         }
-        if (installed != null) {
-            int compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
-            if (compare > 0) {
-                return Component.translatable("dlc_manager.pack.upgrade");
-            }
-            if (compare < 0) {
-                return Component.translatable("dlc_manager.pack.downgrade");
-            }
-            return Component.translatable("dlc_manager.pack.replace");
-        }
         return Component.translatable("dlc_manager.pack.install");
     }
 
-    private Component pendingInstallButtonLabel(PackArchiveEntry entry) {
-        DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
-        if (installed == null) {
-            return Component.translatable("dlc_manager.pack.pending_install");
+    private int centeredButtonColumnY(int rowY, int rowHeight, int count) {
+        if (count <= 0) {
+            return rowY + (rowHeight - 4) / 2;
         }
-        int compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
-        if (compare > 0) {
-            return Component.translatable("dlc_manager.pack.pending_upgrade");
+        int totalHeight = count * BUTTON_HEIGHT + (count - 1) * BUTTON_GAP;
+        return rowY + Math.max(0, (rowHeight - 4 - totalHeight) / 2);
+    }
+
+    private int drawMultiline(GuiGraphics guiGraphics, Component text, int x, int y, int width, int color) {
+        List<FormattedCharSequence> lines = this.font.split(text, Math.max(1, width));
+        for (int i = 0; i < lines.size(); i++) {
+            guiGraphics.drawString(this.font, lines.get(i), x, y + i * 10, color, false);
         }
-        if (compare < 0) {
-            return Component.translatable("dlc_manager.pack.pending_downgrade");
+        return y + lines.size() * 10;
+    }
+
+    private int drawAuthorLines(GuiGraphics guiGraphics, PackArchiveEntry entry, int x, int y, int width, int color) {
+        List<List<Component>> lines = authorLines(entry, width);
+        for (int lineIndex = 0; lineIndex < lines.size(); lineIndex++) {
+            int cursor = x;
+            for (Component part : lines.get(lineIndex)) {
+                guiGraphics.drawString(this.font, part, cursor, y + lineIndex * 10, color, false);
+                cursor += this.font.width(part);
+            }
         }
-        return Component.translatable("dlc_manager.pack.pending_replace");
+        return y + lines.size() * 10;
     }
 
     @Override
@@ -299,7 +347,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (maxScroll <= 0) {
             return false;
         }
-        scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + (deltaY > 0 ? -1 : 1)));
+        scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset + (deltaY > 0 ? -SCROLL_STEP : SCROLL_STEP)));
         return true;
     }
 
@@ -308,15 +356,13 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (!busy && button == 0) {
             if (isInsideScrollbar(mouseX, mouseY)) {
                 draggingScrollbar = true;
+                scrollbarDragOffset = scrollbarDragOffset(mouseY);
                 updateScrollFromMouse(mouseY);
                 return true;
             }
-            int row = rowAt(mouseY);
-            if (row >= 0) {
-                int index = scrollIndex + row;
-                if (index >= 0 && index < archiveEntries.size()) {
-                    return handleEntryClick(archiveEntries.get(index), index, mouseX, mouseY);
-                }
+            int index = entryAt(mouseY);
+            if (index >= 0 && index < archiveEntries.size()) {
+                return handleEntryClick(archiveEntries.get(index), index, mouseX, mouseY);
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -334,44 +380,41 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         draggingScrollbar = false;
+        scrollbarDragOffset = 0.0;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
     private boolean handleEntryClick(PackArchiveEntry entry, int index, double mouseX, double mouseY) {
         selectedIndex = index;
-        int rowTop = getListTop() + (index - scrollIndex) * ROW_HEIGHT;
         int left = getListLeft();
         int right = getListRight() - SCROLLBAR_WIDTH - 4;
-        int arrowX = left + 4;
-        if (mouseX >= arrowX && mouseX < arrowX + 12) {
-            if (mouseY >= rowTop + 4 && mouseY < rowTop + 24) {
-                moveEntry(index, -1);
-                return true;
-            }
-            if (mouseY >= rowTop + 26 && mouseY < rowTop + 48) {
-                moveEntry(index, 1);
-                return true;
-            }
+        Integer rowTop = rowTop(index, right);
+        if (rowTop == null) {
+            return true;
         }
-        int buttonX = right - (BUTTON_WIDTH + 5) * 4;
-        if (mouseY >= rowTop + 18 && mouseY < rowTop + 18 + BUTTON_HEIGHT) {
-            int action = (int) ((mouseX - buttonX) / (BUTTON_WIDTH + 5));
-            if (mouseX >= buttonX && action >= 0 && action < 4) {
-                if (action == 0) {
-                    toggleInstall(entry);
-                } else if (action == 1) {
-                    deleteArchive(entry);
-                } else if (action == 2) {
-                    openLink(entry, "issue");
-                } else {
-                    openLink(entry, "sponsor");
+        int rowHeight = rowHeight(entry, right);
+        int arrowX = left + 4;
+        RowAction orderAction = orderButtonAt(index, arrowX, rowTop, rowHeight, mouseX, mouseY);
+        if (orderAction != null) {
+            moveEntry(index, orderAction == RowAction.MOVE_UP ? -1 : 1);
+            return true;
+        }
+
+        RowAction rowAction = actionButtonAt(entry, right - BUTTON_WIDTH - 6, rowTop, rowHeight, mouseX, mouseY);
+        if (rowAction != null) {
+            switch (rowAction) {
+                case INSTALL -> toggleInstall(entry);
+                case DELETE -> confirmDeleteArchive(entry);
+                case FEEDBACK -> confirmOpenLink(entry, "issue");
+                case SUPPORT -> confirmOpenLink(entry, "sponsor");
+                case MOVE_UP, MOVE_DOWN -> {
                 }
-                return true;
             }
+            return true;
         }
         long now = Util.getMillis();
         if (entry.key.equals(lastClickKey) && now - lastClickAt < 350L) {
-            openLink(entry, "homepage");
+            confirmOpenLink(entry, "homepage");
         }
         lastClickKey = entry.key;
         lastClickAt = now;
@@ -381,7 +424,10 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
     private void toggleInstall(PackArchiveEntry entry) {
         String identifier = entry.metadata.identifier;
-        if (pendingInstalls.containsKey(identifier) && pendingInstalls.get(identifier) == entry) {
+        if (isEntryCurrentlyInstalled(entry)) {
+            pendingUninstalls.add(identifier);
+            pendingInstalls.remove(identifier);
+        } else if (pendingInstalls.containsKey(identifier) && pendingInstalls.get(identifier) == entry) {
             pendingInstalls.remove(identifier);
         } else if (pendingUninstalls.remove(identifier)) {
             pendingInstalls.put(identifier, entry);
@@ -397,16 +443,41 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         rebuildPackWidgets();
     }
 
-    private void deleteArchive(PackArchiveEntry entry) {
-        DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
-        if (installed != null && entry.metadata.version.equals(installed.version)) {
-            status = Component.translatable("dlc_manager.pack.delete_installed_blocked");
-            rebuildPackWidgets();
+    private void confirmDeleteArchive(PackArchiveEntry entry) {
+        boolean uninstallFirst = isEntryCurrentlyInstalled(entry);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (accepted) {
+                startDeleteArchive(entry, uninstallFirst);
+            }
+        }, Component.translatable("dlc_manager.pack.delete_confirm_title"),
+            Component.translatable(
+                uninstallFirst ? "dlc_manager.pack.delete_confirm_uninstall" : "dlc_manager.pack.delete_confirm",
+                entry.displayName
+            ),
+            DlcConfirmUtil.confirmYes(),
+            DlcConfirmUtil.confirmNo()));
+    }
+
+    private void startDeleteArchive(PackArchiveEntry entry, boolean uninstallFirst) {
+        if (uninstallFirst) {
+            setBusy(true, Component.translatable("dlc_manager.pack.operation_uninstalling"));
+            new Thread(() -> {
+                try {
+                    DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+                    installer.uninstall(entry.metadata.identifier, (message, progress) ->
+                        updateOperationProgress(Component.translatable("dlc_manager.pack.operation_uninstalling"), progress)
+                    );
+                    deleteArchiveFile(entry);
+                    finishBusy(Component.translatable("dlc_manager.pack.delete_uninstalled_success", entry.displayName), true);
+                } catch (Exception ex) {
+                    finishBusy(Component.translatable("dlc_manager.pack.delete_failed", describeFailure(ex)));
+                }
+            }, "dlc-pack-delete").start();
             return;
         }
         try {
-            Files.deleteIfExists(entry.archivePath);
-            pendingInstalls.remove(entry.metadata.identifier, entry);
+            deleteArchiveFile(entry);
             status = Component.translatable("dlc_manager.pack.delete_success", entry.displayName);
             refreshEntries();
             rebuildPackWidgets();
@@ -415,14 +486,97 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         }
     }
 
+    private void deleteArchiveFile(PackArchiveEntry entry) throws IOException {
+        Files.deleteIfExists(entry.archivePath);
+        pendingInstalls.remove(entry.metadata.identifier, entry);
+        pendingUninstalls.remove(entry.metadata.identifier);
+        currentArchiveOrder = currentArchiveOrder.stream().filter(key -> !key.equals(entry.key)).toList();
+        committedArchiveOrder = committedArchiveOrder.stream().filter(key -> !key.equals(entry.key)).toList();
+    }
+
+    private void confirmOpenLink(PackArchiveEntry entry, String key) {
+        String url = entry.metadata.links.get(key);
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            Minecraft.getInstance().setScreen(this);
+            if (accepted) {
+                Util.getPlatform().openUri(url);
+            }
+        }, Component.translatable("dlc_manager.pack.open_link_title"),
+            Component.translatable("dlc_manager.pack.open_link_prompt", url),
+            DlcConfirmUtil.confirmYes(),
+            DlcConfirmUtil.confirmNo()));
+    }
+
     private void openLink(PackArchiveEntry entry, String key) {
         String url = entry.metadata.links.get(key);
         if (url == null || url.isBlank()) {
-            status = Component.translatable("dlc_manager.pack.link_missing");
-            rebuildPackWidgets();
             return;
         }
         Util.getPlatform().openUri(url);
+    }
+
+    private List<RowAction> orderButtons(int index) {
+        List<RowAction> out = new ArrayList<>(2);
+        if (canMoveUp(index)) {
+            out.add(RowAction.MOVE_UP);
+        }
+        if (canMoveDown(index)) {
+            out.add(RowAction.MOVE_DOWN);
+        }
+        return out;
+    }
+
+    private List<RowAction> actionButtons(PackArchiveEntry entry) {
+        List<RowAction> out = new ArrayList<>(4);
+        out.add(RowAction.INSTALL);
+        out.add(RowAction.DELETE);
+        String issue = entry.metadata.links.get("issue");
+        if (issue != null && !issue.isBlank()) {
+            out.add(RowAction.FEEDBACK);
+        }
+        String sponsor = entry.metadata.links.get("sponsor");
+        if (sponsor != null && !sponsor.isBlank()) {
+            out.add(RowAction.SUPPORT);
+        }
+        return out;
+    }
+
+    private Component actionLabel(PackArchiveEntry entry, RowAction action) {
+        return switch (action) {
+            case INSTALL -> installButtonLabel(entry);
+            case DELETE -> Component.translatable("dlc_manager.pack.delete");
+            case FEEDBACK -> Component.translatable("dlc_manager.pack.feedback");
+            case SUPPORT -> Component.translatable("dlc_manager.pack.support_author");
+            case MOVE_UP -> Component.literal("^");
+            case MOVE_DOWN -> Component.literal("v");
+        };
+    }
+
+    private RowAction orderButtonAt(int index, int x, int rowY, int rowHeight, double mouseX, double mouseY) {
+        int startY = centeredButtonColumnY(rowY, rowHeight, ORDER_BUTTON_SLOTS);
+        if (canMoveUp(index) && mouseX >= x && mouseX < x + ORDER_BUTTON_WIDTH && mouseY >= startY && mouseY < startY + BUTTON_HEIGHT) {
+            return RowAction.MOVE_UP;
+        }
+        int downY = startY + BUTTON_HEIGHT + BUTTON_GAP;
+        if (canMoveDown(index) && mouseX >= x && mouseX < x + ORDER_BUTTON_WIDTH && mouseY >= downY && mouseY < downY + BUTTON_HEIGHT) {
+            return RowAction.MOVE_DOWN;
+        }
+        return null;
+    }
+
+    private RowAction actionButtonAt(PackArchiveEntry entry, int x, int rowY, int rowHeight, double mouseX, double mouseY) {
+        List<RowAction> buttons = actionButtons(entry);
+        int startY = centeredButtonColumnY(rowY, rowHeight, buttons.size());
+        for (int i = 0; i < buttons.size(); i++) {
+            int y = startY + i * (BUTTON_HEIGHT + BUTTON_GAP);
+            if (mouseX >= x && mouseX < x + BUTTON_WIDTH && mouseY >= y && mouseY < y + BUTTON_HEIGHT) {
+                return buttons.get(i);
+            }
+        }
+        return null;
     }
 
     private void moveEntry(int index, int direction) {
@@ -549,7 +703,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 applyOrderedChanges(installer, allowRuntimeChanges);
                 pendingUninstalls.clear();
                 pendingInstalls.clear();
-                finishBusy(Component.translatable("dlc_manager.pack.apply_success"));
+                finishBusy(Component.translatable("dlc_manager.pack.apply_success"), true);
             } catch (DlcDownloadService.DownloadCanceledException ex) {
                 finishBusy(Component.translatable("dlc_manager.pack.canceled"));
             } catch (Exception ex) {
@@ -828,6 +982,10 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void finishBusy(Component message) {
+        finishBusy(message, false);
+    }
+
+    private void finishBusy(Component message, boolean promptRestart) {
         Minecraft.getInstance().execute(() -> {
             busy = false;
             cancelRequested = false;
@@ -836,7 +994,23 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             status = message;
             refreshEntries();
             rebuildPackWidgets();
+            if (promptRestart) {
+                showRestartPrompt();
+            }
         });
+    }
+
+    private void showRestartPrompt() {
+        Minecraft minecraft = Minecraft.getInstance();
+        minecraft.setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) {
+                minecraft.stop();
+            } else {
+                minecraft.setScreen(this);
+            }
+        }, Component.translatable("dlc_manager.title"), Component.translatable("dlc_manager.pack.restart_prompt"),
+            Component.translatable("dlc_manager.restart_now"),
+            Component.translatable("dlc_manager.restart_later")));
     }
 
     private void onBackOrCancel() {
@@ -882,7 +1056,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         sortArchiveEntriesByCurrentOrder();
         pendingInstalls.clear();
         for (PackArchiveEntry entry : archiveEntries) {
-            if (entry.key.equals(pendingInstallKeys.get(entry.metadata.identifier))) {
+            if (!isEntryCurrentlyInstalled(entry) && entry.key.equals(pendingInstallKeys.get(entry.metadata.identifier))) {
                 pendingInstalls.put(entry.metadata.identifier, entry);
             }
         }
@@ -957,11 +1131,12 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             String lang = Minecraft.getInstance().options.languageCode;
             Component displayName = pack.metadata.displayNameComponent(lang);
             Component description = pack.metadata.descriptionComponent(lang);
-            Component author = pack.metadata.authors.isEmpty()
-                ? Component.translatable("dlc_manager.pack.unknown_author")
-                : DlcTextFormatter.parse(String.join(", ", pack.metadata.authors));
+            List<String> authors = pack.metadata.authors.isEmpty()
+                ? List.of(Component.translatable("dlc_manager.pack.unknown_author").getString())
+                : pack.metadata.authors;
+            Component author = DlcTextFormatter.parse(String.join(", ", authors));
             IconTexture icon = loadIconTexture(pack.iconFile);
-            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, description, author, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
+            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, description, author, authors, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
         } catch (Exception ignored) {
             return null;
         } finally {
@@ -1057,40 +1232,33 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private int getListBottom() {
-        return Math.max(getListTop() + ROW_HEIGHT, this.height - 42);
-    }
-
-    private int getVisibleCount() {
-        return Math.max(1, (getListBottom() - getListTop()) / ROW_HEIGHT);
+        return Math.max(getListTop() + 96, this.height - 42);
     }
 
     private int getMaxScroll() {
-        return Math.max(0, archiveEntries.size() - getVisibleCount());
-    }
-
-    private int rowAt(double mouseY) {
-        int top = getListTop();
-        int bottom = getListBottom();
-        if (mouseY < top || mouseY >= bottom) {
-            return -1;
-        }
-        int row = (int) ((mouseY - top) / ROW_HEIGHT);
-        return row < getVisibleCount() ? row : -1;
+        return Math.max(0, totalContentHeight() - (getListBottom() - getListTop()));
     }
 
     private void clampScroll() {
-        scrollIndex = Math.max(0, Math.min(getMaxScroll(), scrollIndex));
+        scrollOffset = Math.max(0, Math.min(getMaxScroll(), scrollOffset));
     }
 
     private void ensureSelectionVisible() {
         if (selectedIndex < 0) {
             return;
         }
-        int visible = getVisibleCount();
-        if (selectedIndex < scrollIndex) {
-            scrollIndex = selectedIndex;
-        } else if (selectedIndex >= scrollIndex + visible) {
-            scrollIndex = Math.max(0, selectedIndex - visible + 1);
+        int right = getListRight() - SCROLLBAR_WIDTH - 4;
+        Integer rowTop = rowTop(selectedIndex, right);
+        if (rowTop == null) {
+            return;
+        }
+        if (rowTop < getListTop()) {
+            scrollOffset = rowContentTop(selectedIndex, right);
+        } else {
+            int rowHeight = rowHeight(archiveEntries.get(selectedIndex), right);
+            if (rowTop + rowHeight > getListBottom()) {
+                scrollOffset = rowContentTop(selectedIndex, right) + rowHeight - (getListBottom() - getListTop());
+            }
         }
         clampScroll();
     }
@@ -1111,8 +1279,26 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         }
         int top = getListTop();
         int track = Math.max(1, getListBottom() - top);
-        double ratio = Math.max(0.0, Math.min(1.0, (mouseY - top) / track));
-        scrollIndex = Math.max(0, Math.min(maxScroll, (int) Math.round(ratio * maxScroll)));
+        int barHeight = scrollBarHeight(track);
+        int travel = Math.max(1, track - barHeight);
+        double ratio = Math.max(0.0, Math.min(1.0, (mouseY - top - scrollbarDragOffset) / travel));
+        scrollOffset = Math.max(0, Math.min(maxScroll, (int) Math.round(ratio * maxScroll)));
+    }
+
+    private double scrollbarDragOffset(double mouseY) {
+        int maxScroll = getMaxScroll();
+        if (maxScroll <= 0) {
+            return 0.0;
+        }
+        int top = getListTop();
+        int track = Math.max(1, getListBottom() - top);
+        int barHeight = scrollBarHeight(track);
+        int travel = Math.max(1, track - barHeight);
+        int barY = top + (int) Math.round(travel * (scrollOffset / (double) maxScroll));
+        if (mouseY >= barY && mouseY <= barY + barHeight) {
+            return mouseY - barY;
+        }
+        return barHeight / 2.0;
     }
 
     private void drawScrollBar(GuiGraphics guiGraphics) {
@@ -1123,11 +1309,17 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         int top = getListTop();
         int bottom = getListBottom();
         int trackHeight = Math.max(1, bottom - top);
-        int barHeight = Math.max(18, trackHeight * getVisibleCount() / Math.max(1, archiveEntries.size()));
-        int barY = top + (trackHeight - barHeight) * scrollIndex / Math.max(1, maxScroll);
+        int barHeight = scrollBarHeight(trackHeight);
+        int travel = Math.max(1, trackHeight - barHeight);
+        int barY = top + (int) Math.round(travel * (scrollOffset / (double) maxScroll));
         int x = getListRight() - SCROLLBAR_WIDTH;
-        guiGraphics.fill(x, top, x + SCROLLBAR_WIDTH, bottom, 0x66333333);
-        guiGraphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight, 0xFF66CCFF);
+        guiGraphics.fill(x, top, x + SCROLLBAR_WIDTH, bottom, 0x663A3F48);
+        guiGraphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight, 0xFF8A95A8);
+    }
+
+    private int scrollBarHeight(int trackHeight) {
+        int totalHeight = Math.max(trackHeight, totalContentHeight());
+        return Math.min(trackHeight, Math.max(18, trackHeight * trackHeight / Math.max(1, totalHeight)));
     }
 
     private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
@@ -1152,6 +1344,111 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         }
         List<FormattedCharSequence> lines = this.font.split(text, Math.max(1, width));
         return lines.isEmpty() ? FormattedCharSequence.EMPTY : lines.get(0);
+    }
+
+    private int rowHeight(PackArchiveEntry entry, int right) {
+        int textX = getListLeft() + ORDER_BUTTON_WIDTH + 12 + ICON_SIZE + 8;
+        int textRight = right - BUTTON_WIDTH - 18;
+        int textWidth = Math.max(1, textRight - textX);
+        Component homepagePrompt = homepagePrompt(entry);
+        int homepageWidth = homepagePrompt == null ? 0 : Math.min(Math.round(this.font.width(homepagePrompt) * HOMEPAGE_PROMPT_SCALE), Math.max(1, textWidth / 2));
+        int nameWidth = Math.max(1, textWidth - (homepagePrompt == null ? 0 : homepageWidth + HOMEPAGE_PROMPT_GAP));
+        int nameLines = Math.max(1, this.font.split(entry.displayName, nameWidth).size());
+        int authorLines = authorLines(entry, textWidth).size();
+        int descriptionLines = Math.max(1, this.font.split(entry.description, textWidth).size());
+        int contentHeight = ROW_PADDING_TOP + nameLines * 10 + 4 + authorLines * 10 + 4 + 10 + 4 + descriptionLines * 10;
+        List<RowAction> actions = actionButtons(entry);
+        int buttonHeight = Math.max(BUTTON_HEIGHT, actions.size() * BUTTON_HEIGHT + (actions.size() - 1) * BUTTON_GAP);
+        int iconHeight = ROW_PADDING_TOP + ICON_SIZE;
+        return Math.max(ROW_HEIGHT, Math.max(contentHeight, Math.max(buttonHeight, iconHeight)) + ROW_PADDING_BOTTOM);
+    }
+
+    private Component homepagePrompt(PackArchiveEntry entry) {
+        if (entry.metadata.links.get("homepage") == null || entry.metadata.links.get("homepage").isBlank()) {
+            return null;
+        }
+        return Component.translatable("dlc_manager.pack.double_click_homepage");
+    }
+
+    private List<List<Component>> authorLines(PackArchiveEntry entry, int width) {
+        Component prefix = Component.translatable("dlc_manager.pack.author_prefix");
+        Component separator = Component.literal(", ");
+        List<List<Component>> lines = new ArrayList<>();
+        List<Component> current = new ArrayList<>();
+        int currentWidth = 0;
+        current.add(prefix);
+        currentWidth += this.font.width(prefix);
+        for (int i = 0; i < entry.authorNames.size(); i++) {
+            Component author = DlcTextFormatter.parse(entry.authorNames.get(i));
+            int groupWidth = this.font.width(author) + (i > 0 ? this.font.width(separator) : 0);
+            if (!current.isEmpty() && currentWidth + groupWidth > width) {
+                lines.add(current);
+                current = new ArrayList<>();
+                currentWidth = 0;
+            }
+            if (i > 0) {
+                current.add(separator);
+                currentWidth += this.font.width(separator);
+            }
+            current.add(author);
+            currentWidth += this.font.width(author);
+        }
+        if (!current.isEmpty()) {
+            lines.add(current);
+        }
+        if (lines.isEmpty()) {
+            lines.add(List.of(prefix));
+        }
+        return lines;
+    }
+
+    private Integer rowTop(int index, int right) {
+        if (index < 0 || index >= archiveEntries.size()) {
+            return null;
+        }
+        int y = getListTop() - scrollOffset + rowContentTop(index, right);
+        if (y >= getListBottom() || y + rowHeight(archiveEntries.get(index), right) <= getListTop()) {
+            return null;
+        }
+        return y;
+    }
+
+    private int entryAt(double mouseY) {
+        int top = getListTop();
+        int bottom = getListBottom();
+        if (mouseY < top || mouseY >= bottom) {
+            return -1;
+        }
+        int y = top - scrollOffset;
+        int index = 0;
+        int right = getListRight() - SCROLLBAR_WIDTH - 4;
+        while (index < archiveEntries.size() && y < bottom) {
+            int rowHeight = rowHeight(archiveEntries.get(index), right);
+            int rowBottom = y + rowHeight;
+            if (mouseY >= y && mouseY < rowBottom) {
+                return index;
+            }
+            y = rowBottom;
+            index++;
+        }
+        return -1;
+    }
+
+    private int rowContentTop(int index, int right) {
+        int y = 0;
+        for (int i = 0; i < index; i++) {
+            y += rowHeight(archiveEntries.get(i), right);
+        }
+        return y;
+    }
+
+    private int totalContentHeight() {
+        int right = getListRight() - SCROLLBAR_WIDTH - 4;
+        int total = 0;
+        for (PackArchiveEntry entry : archiveEntries) {
+            total += rowHeight(entry, right);
+        }
+        return total;
     }
 
     private void rebuildPackWidgets() {
@@ -1189,12 +1486,13 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         private final String displayNameText;
         private final Component description;
         private final Component author;
+        private final List<String> authorNames;
         private final ResourceLocation iconTexture;
         private final int iconWidth;
         private final int iconHeight;
         private final String key;
 
-        private PackArchiveEntry(Path archivePath, DlcPackMetadata metadata, Component displayName, Component description, Component author, ResourceLocation iconTexture, int iconWidth, int iconHeight) {
+        private PackArchiveEntry(Path archivePath, DlcPackMetadata metadata, Component displayName, Component description, Component author, List<String> authorNames, ResourceLocation iconTexture, int iconWidth, int iconHeight) {
             this.archivePath = archivePath;
             this.metadata = metadata;
             this.displayName = displayName == null ? Component.literal(metadata.identifier) : displayName;
@@ -1202,6 +1500,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             this.displayNameText = rawDisplayName.isBlank() ? metadata.identifier : rawDisplayName;
             this.description = description == null ? Component.empty() : description;
             this.author = author == null ? Component.empty() : author;
+            this.authorNames = authorNames == null || authorNames.isEmpty() ? List.of(this.author.getString()) : List.copyOf(authorNames);
             this.iconTexture = iconTexture;
             this.iconWidth = iconWidth;
             this.iconHeight = iconHeight;
@@ -1214,4 +1513,14 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         INSTALLING,
         UNINSTALLING
     }
+
+    private enum RowAction {
+        MOVE_UP,
+        MOVE_DOWN,
+        INSTALL,
+        DELETE,
+        FEEDBACK,
+        SUPPORT
+    }
+
 }

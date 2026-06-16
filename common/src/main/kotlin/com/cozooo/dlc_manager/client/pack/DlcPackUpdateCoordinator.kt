@@ -157,7 +157,7 @@ class DlcPackUpdateCoordinator(
         for (conflict in conflicts) {
             val relative = DlcPackMeta.normalizeRelativePath(conflict) ?: continue
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
-                throw IOException("DLC Pack conflict path is forbidden: $relative")
+                continue
             }
             if (isPackRecordPath(relative)) {
                 continue

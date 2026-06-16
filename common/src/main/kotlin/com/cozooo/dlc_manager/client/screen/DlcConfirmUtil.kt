@@ -97,9 +97,6 @@ object DlcConfirmUtil {
     @JvmStatic
     fun describePackBlockingPrecheck(precheck: DlcPackInstaller.PrecheckResult): String {
         val messages = ArrayList<String>()
-        if (precheck.forbiddenPaths.isNotEmpty()) {
-            messages.add(Component.translatable("dlc_manager.pack.forbidden_paths", joinLimited(precheck.forbiddenPaths)).string)
-        }
         if (precheck.incompatibleVersions.isNotEmpty()) {
             messages.add(Component.translatable("dlc_manager.pack.incompatible_versions", joinLimited(precheck.incompatibleVersions)).string)
         }

@@ -117,9 +117,12 @@ class DlcPackInstallerTest {
         Files.createDirectories(oldPackageRoot.resolve("config"));
         Files.writeString(oldPackageRoot.resolve("config").resolve("old.toml"), "old pack config");
         Path badPackageRoot = tempDir.resolve("bad-package");
-        writePack(badPackageRoot.resolve("metadata").resolve("pack.dc"), "Example", "2.0.0", "");
-        Files.createDirectories(badPackageRoot.resolve("config").resolve("dlc_manager"));
-        Files.writeString(badPackageRoot.resolve("config").resolve("dlc_manager").resolve("config.dc"), "blocked");
+        writePack(badPackageRoot.resolve("metadata").resolve("pack.dc"), "Example", "2.0.0", """
+            [dependencies]
+            path = "missing/required.txt"
+            """);
+        Files.createDirectories(badPackageRoot.resolve("mods"));
+        Files.writeString(badPackageRoot.resolve("mods").resolve("addon.jar"), "bad jar");
 
         DlcPackPackage oldPack = DlcPackPackage.inspect(oldPackageRoot).pack;
         DlcPackPackage badPack = DlcPackPackage.inspect(badPackageRoot).pack;
@@ -137,20 +140,24 @@ class DlcPackInstallerTest {
     }
 
     @Test
-    void installRejectsForbiddenPathsBeforeWritingFiles() throws Exception {
+    void installSkipsForbiddenPathsAndKeepsInstallingPack() throws Exception {
         Path instance = tempDir.resolve("instance");
         Path dlcRoot = instance.resolve("DLC");
         Path packageRoot = tempDir.resolve("package");
         writePack(packageRoot.resolve("metadata").resolve("pack.dc"), "Example");
         Files.createDirectories(packageRoot.resolve("config").resolve("dlc_manager"));
         Files.writeString(packageRoot.resolve("config").resolve("dlc_manager").resolve("config.dc"), "blocked");
+        Files.createDirectories(packageRoot.resolve("mods"));
+        Files.writeString(packageRoot.resolve("mods").resolve("addon.jar"), "new jar");
 
         DlcPackPackage pack = DlcPackPackage.inspect(packageRoot).pack;
         DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
 
-        assertThrows(IOException.class, () -> installer.install(pack));
+        DlcPackInstaller.InstallReport report = installer.install(pack);
+        assertEquals(1, report.filesWritten);
+        assertEquals("new jar", Files.readString(instance.resolve("mods").resolve("addon.jar")));
         assertFalse(Files.exists(instance.resolve("config").resolve("dlc_manager").resolve("config.dc")));
-        assertFalse(Files.exists(dlcRoot.resolve("tmp").resolve("pack").resolve("Example").resolve("meta.dc")));
+        assertTrue(Files.exists(dlcRoot.resolve("tmp").resolve("pack").resolve("Example").resolve("meta.dc")));
     }
 
     @Test

@@ -11,7 +11,7 @@ class DlcPackInstallPlan private constructor(
     @JvmField val forbiddenPaths: List<String>,
 ) {
     val valid: Boolean
-        get() = forbiddenPaths.isEmpty()
+        get() = true
 
     class FileEntry(
         @JvmField val source: Path,
@@ -42,6 +42,7 @@ class DlcPackInstallPlan private constructor(
                         }
                         if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                             forbidden.add(relative)
+                            return@forEach
                         }
                         files.add(FileEntry(source, relative))
                     }

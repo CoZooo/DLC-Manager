@@ -22,7 +22,7 @@ public class DlcPackInstallPlan {
     }
 
     public boolean getValid() {
-        return forbiddenPaths.isEmpty();
+        return true;
     }
 
     public static DlcPackInstallPlan build(DlcPackPackage pack) {
@@ -43,6 +43,7 @@ public class DlcPackInstallPlan {
                 }
                 if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                     forbidden.add(relative);
+                    return;
                 }
                 files.add(new FileEntry(source, relative));
             });

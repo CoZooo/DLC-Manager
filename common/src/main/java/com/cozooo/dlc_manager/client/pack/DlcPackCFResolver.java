@@ -4,13 +4,21 @@ import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 public final class DlcPackCFResolver {
     private DlcPackCFResolver() {
@@ -46,49 +54,121 @@ public final class DlcPackCFResolver {
         Path downloadRoot = staging.resolve("manifest");
         Path cacheRoot = packDir.resolve("cf_cache");
         List<DlcPackInstallPlan.FileEntry> entries = new ArrayList<>();
-        int totalRefs = pack.manifestFiles.size();
-        for (int index = 0; index < pack.manifestFiles.size(); index++) {
-            DlcPackManifest.FileRef ref = pack.manifestFiles.get(index);
+        List<ManifestDownload> downloads = new ArrayList<>();
+        Set<String> seenRelative = new LinkedHashSet<>();
+        for (DlcPackManifest.FileRef ref : pack.manifestFiles) {
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw new DlcDownloadService.DownloadCanceledException("canceled");
             }
             ManifestTarget target = resolveManifestTarget(pack, ref);
-            if (target == null || hasDownloadedEntry(entries, target.relativePath)) {
+            if (target == null || !seenRelative.add(target.relativePath)) {
                 continue;
             }
             DlcDownloadCandidate candidate = DlcDownloadCandidate.curseForge(target.file);
-            Path cached = cacheFile(cacheRoot, target.targetDirectory, ref, target.fileName);
+            Path cached = cacheFile(cacheRoot, target.targetDirectory, target.fileName);
             if (!isUsableCachedFile(cached, candidate)) {
                 Files.deleteIfExists(cached);
                 Path outputDir = downloadRoot.resolve(target.targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId));
-                int fileIndex = index;
-                if (progressListener != null) {
-                    progressListener.onProgress("Downloading " + target.fileName, fileIndex / (float) totalRefs);
-                }
-                Path downloaded = DlcDownloadService.downloadKnown(
-                    candidate.url,
-                    outputDir,
-                    target.fileName,
-                    candidate.expectedSize,
-                    (done, total) -> {
-                        if (progressListener != null) {
-                            float fileProgress = total > 0 ? done / (float) total : 0f;
-                            fileProgress = Math.max(0f, Math.min(1f, fileProgress));
-                            progressListener.onProgress("Downloading " + target.fileName, (fileIndex + fileProgress) / (float) totalRefs);
-                        }
-                    },
-                    cancelChecker
-                );
-                verifyDownloaded(downloaded, candidate);
-                Files.createDirectories(cached.getParent());
-                Files.move(downloaded, cached, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            }
-            entries.add(new DlcPackInstallPlan.FileEntry(cached, target.relativePath));
-            if (progressListener != null) {
-                progressListener.onProgress("Resolved " + target.fileName, (index + 1) / (float) totalRefs);
+                downloads.add(new ManifestDownload(target, candidate, cached, outputDir));
+            } else {
+                entries.add(new DlcPackInstallPlan.FileEntry(cached, target.relativePath));
             }
         }
+        if (!downloads.isEmpty()) {
+            entries.addAll(downloadManifestFilesConcurrent(downloads, cancelChecker, progressListener));
+        }
+        if (progressListener != null) {
+            progressListener.onProgress("Resolved CurseForge manifest files", 1f);
+        }
         return entries;
+    }
+
+    private static List<DlcPackInstallPlan.FileEntry> downloadManifestFilesConcurrent(
+        List<ManifestDownload> downloads,
+        DlcDownloadService.CancelChecker cancelChecker,
+        DlcPackInstaller.ProgressListener progressListener
+    ) throws IOException, InterruptedException {
+        int total = downloads.size();
+        int maxConcurrent = Math.max(1, Math.min(DlcPathConfig.getMaxConcurrentDownloads(), total));
+        AtomicReferenceArray<Float> perFileProgress = new AtomicReferenceArray<>(total);
+        for (int i = 0; i < total; i++) {
+            perFileProgress.set(i, 0f);
+        }
+        ExecutorService executor = Executors.newFixedThreadPool(maxConcurrent);
+        List<Future<DlcPackInstallPlan.FileEntry>> futures = new ArrayList<>();
+        try {
+            for (int index = 0; index < downloads.size(); index++) {
+                int fileIndex = index;
+                ManifestDownload download = downloads.get(index);
+                futures.add(executor.submit(() -> {
+                    if (cancelChecker != null && cancelChecker.isCanceled()) {
+                        throw new DlcDownloadService.DownloadCanceledException("canceled");
+                    }
+                    if (progressListener != null) {
+                        progressListener.onProgress("Downloading " + download.target.fileName, aggregateProgress(perFileProgress, total));
+                    }
+                    Path downloaded = DlcDownloadService.downloadKnown(
+                        download.candidate.url,
+                        download.outputDir,
+                        download.target.fileName,
+                        download.candidate.expectedSize,
+                        (done, fileTotal) -> {
+                            if (progressListener != null) {
+                                float fileProgress = fileTotal > 0 ? done / (float) fileTotal : 0f;
+                                perFileProgress.set(fileIndex, Math.max(0f, Math.min(1f, fileProgress)));
+                                progressListener.onProgress("Downloading " + download.target.fileName, aggregateProgress(perFileProgress, total));
+                            }
+                        },
+                        cancelChecker
+                    );
+                    verifyDownloaded(downloaded, download.candidate);
+                    Files.createDirectories(download.cached.getParent());
+                    Files.move(downloaded, download.cached, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    perFileProgress.set(fileIndex, 1f);
+                    if (progressListener != null) {
+                        progressListener.onProgress("Resolved " + download.target.fileName, aggregateProgress(perFileProgress, total));
+                    }
+                    return new DlcPackInstallPlan.FileEntry(download.cached, download.target.relativePath);
+                }));
+            }
+            List<DlcPackInstallPlan.FileEntry> entries = new ArrayList<>();
+            for (Future<DlcPackInstallPlan.FileEntry> future : futures) {
+                DlcPackInstallPlan.FileEntry entry;
+                try {
+                    entry = future.get();
+                } catch (ExecutionException ex) {
+                    Throwable cause = ex.getCause();
+                    if (cause instanceof DlcDownloadService.DownloadCanceledException canceled) {
+                        throw canceled;
+                    }
+                    if (cause instanceof IOException io) {
+                        throw io;
+                    }
+                    if (cause instanceof InterruptedException interrupted) {
+                        throw interrupted;
+                    }
+                    throw new IOException(cause == null ? ex : cause);
+                }
+                if (entry != null && !hasDownloadedEntry(entries, entry.relativePath)) {
+                    entries.add(entry);
+                }
+            }
+            return entries;
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static float aggregateProgress(AtomicReferenceArray<Float> perFileProgress, int total) {
+        if (total <= 0) {
+            return 1f;
+        }
+        float progress = 0f;
+        for (int i = 0; i < total; i++) {
+            Float value = perFileProgress.get(i);
+            progress += Math.max(0f, Math.min(1f, value == null ? 0f : value));
+        }
+        return Math.max(0f, Math.min(1f, progress / total));
     }
 
     private static ManifestTarget resolveManifestTarget(DlcPackPackage pack, DlcPackManifest.FileRef ref) throws IOException, InterruptedException {
@@ -163,11 +243,9 @@ public final class DlcPackCFResolver {
         return false;
     }
 
-    private static Path cacheFile(Path cacheRoot, Path targetDirectory, DlcPackManifest.FileRef ref, String fileName) {
+    private static Path cacheFile(Path cacheRoot, Path targetDirectory, String fileName) {
         return cacheRoot
             .resolve(targetDirectory)
-            .resolve(safeSegment(ref.projectId))
-            .resolve(safeSegment(ref.fileId))
             .resolve(fileName);
     }
 
@@ -232,6 +310,20 @@ public final class DlcPackCFResolver {
             this.targetDirectory = targetDirectory;
             this.fileName = fileName;
             this.relativePath = relativePath;
+        }
+    }
+
+    private static final class ManifestDownload {
+        private final ManifestTarget target;
+        private final DlcDownloadCandidate candidate;
+        private final Path cached;
+        private final Path outputDir;
+
+        private ManifestDownload(ManifestTarget target, DlcDownloadCandidate candidate, Path cached, Path outputDir) {
+            this.target = target;
+            this.candidate = candidate;
+            this.cached = cached;
+            this.outputDir = outputDir;
         }
     }
 }

@@ -253,9 +253,6 @@ class DlcPackInstaller(
     }
 
     private fun validatePrecheck(precheck: PrecheckResult, options: InstallOptions) {
-        if (!precheck.plan.valid) {
-            throw IOException("DLC Pack contains forbidden paths: ${precheck.forbiddenPaths.joinToString(", ")}")
-        }
         if (precheck.incompatibleVersions.isNotEmpty()) {
             throw IOException("DLC Pack is incompatible with current modpack version: ${precheck.incompatibleVersions.joinToString(", ")}")
         }
@@ -520,7 +517,7 @@ class DlcPackInstaller(
             }
             val relative = DlcPackMeta.normalizeRelativePath(conflict) ?: continue
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
-                throw IOException("DLC Pack conflict path is forbidden: $relative")
+                continue
             }
             val target = resolveInside(instanceRoot, relative)
             if (!Files.exists(target)) {
@@ -734,8 +731,7 @@ class DlcPackInstaller(
         @JvmField val forbiddenPaths: List<String> = plan.forbiddenPaths
 
         fun hasBlockingIssues(): Boolean {
-            return forbiddenPaths.isNotEmpty() ||
-                incompatibleVersions.isNotEmpty() ||
+            return incompatibleVersions.isNotEmpty() ||
                 missingDependencies.isNotEmpty()
         }
 

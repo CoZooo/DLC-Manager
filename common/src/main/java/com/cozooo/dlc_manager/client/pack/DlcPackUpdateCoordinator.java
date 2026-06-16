@@ -177,7 +177,7 @@ public class DlcPackUpdateCoordinator {
                 continue;
             }
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
-                throw new IOException("DLC Pack conflict path is forbidden: " + relative);
+                continue;
             }
             if (isPackRecordPath(relative)) {
                 continue;

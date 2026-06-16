@@ -253,9 +253,6 @@ public class DlcPackInstaller {
     }
 
     private void validatePrecheck(PrecheckResult precheck, InstallOptions options) throws IOException {
-        if (!precheck.plan.getValid()) {
-            throw new IOException("DLC Pack contains forbidden paths: " + String.join(", ", precheck.getForbiddenPaths()));
-        }
         if (!precheck.getIncompatibleVersions().isEmpty()) {
             throw new IOException("DLC Pack is incompatible with current modpack version: " + String.join(", ", precheck.getIncompatibleVersions()));
         }
@@ -545,7 +542,7 @@ public class DlcPackInstaller {
                 continue;
             }
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
-                throw new IOException("DLC Pack conflict path is forbidden: " + relative);
+                continue;
             }
             Path target = resolveInside(instanceRoot, relative);
             if (!Files.exists(target)) {
@@ -825,8 +822,7 @@ public class DlcPackInstaller {
         }
 
         public boolean hasBlockingIssues() {
-            return !getForbiddenPaths().isEmpty()
-                || !getIncompatibleVersions().isEmpty()
+            return !getIncompatibleVersions().isEmpty()
                 || !getMissingDependencies().isEmpty();
         }
 
