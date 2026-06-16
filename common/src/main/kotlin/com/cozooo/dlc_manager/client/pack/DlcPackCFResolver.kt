@@ -67,12 +67,13 @@ object DlcPackCFResolver {
             if (!seenRelative.add(target.relativePath)) {
                 continue
             }
-            val candidate = DlcDownloadCandidate.curseForge(target.file)
+            val candidates = DlcDownloadCandidate.curseForgeCandidates(target.file)
+            val candidate = candidates.firstOrNull() ?: continue
             val cached = cacheFile(cacheRoot, target.targetDirectory, target.fileName)
             if (!isUsableCachedFile(cached, candidate)) {
                 Files.deleteIfExists(cached)
                 val outputDir = downloadRoot.resolve(target.targetDirectory).resolve(safeSegment(ref.projectId)).resolve(safeSegment(ref.fileId))
-                downloads.add(ManifestDownload(target, candidate, cached, outputDir))
+                downloads.add(ManifestDownload(target, candidates, cached, outputDir))
             } else {
                 entries.add(DlcPackInstallPlan.FileEntry(cached, target.relativePath))
             }
@@ -104,19 +105,7 @@ object DlcPackCFResolver {
                         throw DlcDownloadService.DownloadCanceledException("canceled")
                     }
                     progressListener?.onProgress("Downloading ${download.target.fileName}", aggregateProgress(perFileProgress, total))
-                    val downloaded = DlcDownloadService.downloadKnown(
-                        download.candidate.url,
-                        download.outputDir,
-                        download.target.fileName,
-                        download.candidate.expectedSize,
-                        DlcDownloadService.ProgressListener { done, fileTotal ->
-                            val fileProgress = if (fileTotal > 0) done / fileTotal.toFloat() else 0f
-                            perFileProgress.set(index, fileProgress.coerceIn(0f, 1f))
-                            progressListener?.onProgress("Downloading ${download.target.fileName}", aggregateProgress(perFileProgress, total))
-                        },
-                        cancelChecker,
-                    )
-                    verifyDownloaded(downloaded, download.candidate)
+                    val downloaded = downloadManifestFile(download, index, perFileProgress, total, cancelChecker, progressListener)
                     Files.createDirectories(download.cached.parent)
                     Files.move(downloaded, download.cached, StandardCopyOption.REPLACE_EXISTING)
                     perFileProgress.set(index, 1f)
@@ -145,6 +134,44 @@ object DlcPackCFResolver {
         } finally {
             executor.shutdownNow()
         }
+    }
+
+    private fun downloadManifestFile(
+        download: ManifestDownload,
+        index: Int,
+        perFileProgress: AtomicReferenceArray<Float>,
+        total: Int,
+        cancelChecker: DlcDownloadService.CancelChecker?,
+        progressListener: DlcPackInstaller.ProgressListener?,
+    ): Path {
+        var lastError: IOException? = null
+        for (candidate in download.candidates) {
+            if (cancelChecker != null && cancelChecker.isCanceled()) {
+                throw DlcDownloadService.DownloadCanceledException("canceled")
+            }
+            perFileProgress.set(index, 0f)
+            try {
+                val downloaded = DlcDownloadService.downloadKnown(
+                    candidate.url,
+                    download.outputDir,
+                    download.target.fileName,
+                    candidate.expectedSize,
+                    DlcDownloadService.ProgressListener { done, fileTotal ->
+                        val fileProgress = if (fileTotal > 0) done / fileTotal.toFloat() else 0f
+                        perFileProgress.set(index, fileProgress.coerceIn(0f, 1f))
+                        progressListener?.onProgress("Downloading ${download.target.fileName}", aggregateProgress(perFileProgress, total))
+                    },
+                    cancelChecker,
+                )
+                verifyDownloaded(downloaded, candidate)
+                return downloaded
+            } catch (ex: DlcDownloadService.DownloadCanceledException) {
+                throw ex
+            } catch (ex: IOException) {
+                lastError = ex
+            }
+        }
+        throw lastError ?: IOException("download failed")
     }
 
     private fun aggregateProgress(perFileProgress: AtomicReferenceArray<Float>, total: Int): Float {
@@ -285,7 +312,7 @@ object DlcPackCFResolver {
 
     private class ManifestDownload(
         val target: ManifestTarget,
-        val candidate: DlcDownloadCandidate,
+        val candidates: List<DlcDownloadCandidate>,
         val cached: Path,
         val outputDir: Path,
     )

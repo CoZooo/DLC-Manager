@@ -14,9 +14,28 @@ import java.nio.file.StandardOpenOption
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 object DlcDownloadService {
+    private const val MEDIAFILEZ_HOST = "mediafilez.forgecdn.net"
+    private const val EDGE_FORGECDN_HOST = "edge.forgecdn.net"
+    private const val MIRROR_HOST = "mod.mcimirror.top"
+    private const val MIRROR_COMPARE_WINDOW_MS = 3000L
+    private const val MIRROR_MAX_COMPARISONS = 3
+    private const val MIRROR_DISABLE_FAILURES = 2
+    private const val SPEED_WINDOW_MS = 1000L
+    private const val BYTES_PER_MIB = 1024L * 1024L
+    private const val MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB
+    private val mirrorLock = Any()
+    private var mirrorComparisons = 0
+    private var officialWins = 0
+    private var officialFastWins = 0
+    private var mirrorWins = 0
+    private var mirrorFailures = 0
+    private var selectedMirror: Boolean? = null
+    private var mirrorDisabled = false
+
     fun interface ProgressListener {
         fun onProgress(downloadedBytes: Long, totalBytes: Long)
     }
@@ -127,16 +146,29 @@ object DlcDownloadService {
         val target = outputDir.resolve(fileName)
         val temp = outputDir.resolve("$fileName.part")
         val total = if (expectedSize > 0) expectedSize else -1L
+        val mirrorPlan = mirrorPlan(url, fileName, total)
+        val downloadUrl = preselectedDownloadUrl(url, mirrorPlan)
         listener?.onProgress(0L, total)
         val rangeProbe = if (total > 0
             && total >= DlcPathConfig.getMinSegmentBytes()
             && DlcPathConfig.getMaxSegmentsPerFile() > 1
         ) {
-            probeRangeSupport(url)
+            probeRangeSupport(downloadUrl)
         } else {
-            RangeProbe.unsupported(url)
+            RangeProbe.unsupported(downloadUrl)
         }
-        if (rangeProbe.supportsRanges) {
+        if (mirrorPlan != null && downloadUrl == url && rangeProbe.supportsRanges && !hasSelectedOfficial()) {
+            Files.deleteIfExists(temp)
+            try {
+                downloadSegmentedMirrorAware(rangeProbe.url, mirrorPlan, temp, total, listener, cancelChecker)
+            } catch (_: SegmentDownloadException) {
+                Files.deleteIfExists(temp)
+                downloadSingleMirrorAware(rangeProbe.url, mirrorPlan, temp, total, listener, cancelChecker)
+            } catch (ex: IOException) {
+                Files.deleteIfExists(temp)
+                throw ex
+            }
+        } else if (rangeProbe.supportsRanges) {
             Files.deleteIfExists(temp)
             try {
                 downloadSegmented(rangeProbe.url, temp, total, listener, cancelChecker)
@@ -147,9 +179,11 @@ object DlcDownloadService {
                 Files.deleteIfExists(temp)
                 throw ex
             }
+        } else if (mirrorPlan != null && downloadUrl == url && !hasSelectedOfficial() && !Files.exists(temp)) {
+            downloadSingleMirrorAware(downloadUrl, mirrorPlan, temp, total, listener, cancelChecker)
         } else {
             val existing = if (Files.exists(temp)) Files.size(temp) else 0L
-            downloadSingleWithRetry(url, temp, total, existing, listener, cancelChecker)
+            downloadSingleWithRetry(downloadUrl, temp, total, existing, listener, cancelChecker)
         }
         if (cancelChecker?.isCanceled() == true) {
             Files.deleteIfExists(temp)
@@ -157,6 +191,365 @@ object DlcDownloadService {
         }
         Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
         return target
+    }
+
+    private fun mirrorPlan(url: String, fileName: String?, totalBytes: Long): MirrorPlan? {
+        if (!DlcDownloadUtil.isLikelyFileName(fileName)
+            || totalBytes <= MIN_MIRROR_SPEED_CHECK_BYTES
+            || !isCurseForgeCdnUrl(url)
+        ) {
+            return null
+        }
+        val mirrorUrl = mirrorDownloadUrl(url) ?: return null
+        val speedRule = mirrorSpeedRule(totalBytes)
+        return MirrorPlan(mirrorUrl, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed)
+    }
+
+    private fun preselectedDownloadUrl(url: String, mirrorPlan: MirrorPlan?): String {
+        if (mirrorPlan == null) {
+            return url
+        }
+        synchronized(mirrorLock) {
+            if (mirrorDisabled) {
+                return url
+            }
+            selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
+        }
+        return url
+    }
+
+    private fun hasSelectedOfficial(): Boolean {
+        synchronized(mirrorLock) {
+            return selectedMirror == false || mirrorDisabled || mirrorComparisons >= MIRROR_MAX_COMPARISONS
+        }
+    }
+
+    private fun shouldSwitchToMirror(officialSpeed: Double, mirrorPlan: MirrorPlan, cancelChecker: CancelChecker?): Boolean {
+        if (officialSpeed >= mirrorPlan.requiredSpeed) {
+            recordOfficialFastIfStable(officialSpeed, mirrorPlan)
+            return false
+        }
+        synchronized(mirrorLock) {
+            if (mirrorDisabled) {
+                return false
+            }
+            selectedMirror?.let { return it }
+            if (mirrorComparisons >= MIRROR_MAX_COMPARISONS) {
+                return false
+            }
+            mirrorComparisons++
+        }
+        val mirrorSpeed = probeDownloadSpeed(mirrorPlan.mirrorUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker)
+        synchronized(mirrorLock) {
+            if (mirrorSpeed <= 0.0) {
+                mirrorFailures++
+                if (mirrorFailures >= MIRROR_DISABLE_FAILURES) {
+                    mirrorDisabled = true
+                }
+            } else if (mirrorSpeed > officialSpeed) {
+                mirrorWins++
+            } else {
+                officialWins++
+            }
+            if (mirrorWins >= 2) {
+                selectedMirror = true
+            } else if (officialWins >= 2) {
+                selectedMirror = false
+            }
+            selectedMirror?.let { return it }
+        }
+        return mirrorSpeed > 0.0 && mirrorSpeed > officialSpeed
+    }
+
+    private fun recordOfficialFastIfStable(officialSpeed: Double, mirrorPlan: MirrorPlan) {
+        if (mirrorPlan.totalBytes <= 10L * BYTES_PER_MIB || mirrorPlan.bucketSpeed <= mirrorPlan.timeoutSpeed || officialSpeed < mirrorPlan.bucketSpeed) {
+            return
+        }
+        synchronized(mirrorLock) {
+            if (selectedMirror != null || mirrorDisabled) {
+                return
+            }
+            officialFastWins++
+            if (officialFastWins >= 2) {
+                selectedMirror = false
+            }
+        }
+    }
+
+    private fun mirrorSpeedRule(totalBytes: Long): SpeedRule {
+        val taskTimeoutSeconds = maxOf(1.0, DlcPathConfig.getTaskTimeoutMs() / 1000.0)
+        val timeoutSpeed = totalBytes / taskTimeoutSeconds
+        val bucketSpeed = when {
+            totalBytes < 10L * BYTES_PER_MIB -> totalBytes / 10.0
+            totalBytes <= 20L * BYTES_PER_MIB -> 1.0 * BYTES_PER_MIB
+            else -> 2.0 * BYTES_PER_MIB
+        }
+        return SpeedRule(timeoutSpeed, bucketSpeed, maxOf(timeoutSpeed, bucketSpeed))
+    }
+
+    private fun probeDownloadSpeed(url: String, windowMs: Long, cancelChecker: CancelChecker?): Double {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = URI.create(url).toURL().openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = true
+            connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
+            connection.readTimeout = windowMs.toInt()
+            connection.setRequestProperty("User-Agent", "DLC-Manager")
+            connection.setRequestProperty("Range", "bytes=0-")
+            connection.connect()
+            if (connection.responseCode >= 400) {
+                return 0.0
+            }
+            val start = System.nanoTime()
+            val deadline = start + TimeUnit.MILLISECONDS.toNanos(windowMs)
+            var bytes = 0L
+            val buffer = ByteArray(8192)
+            BufferedInputStream(connection.inputStream).use { input ->
+                while (System.nanoTime() < deadline) {
+                    if (cancelChecker?.isCanceled() == true) {
+                        throw DownloadCanceledException("canceled")
+                    }
+                    val read = input.read(buffer)
+                    if (read < 0) {
+                        break
+                    }
+                    bytes += read.toLong()
+                }
+            }
+            val elapsed = maxOf(1L, System.nanoTime() - start)
+            bytes * 1_000_000_000.0 / elapsed
+        } catch (ex: DownloadCanceledException) {
+            throw ex
+        } catch (_: Exception) {
+            0.0
+        } finally {
+            closeQuietly(connection)
+        }
+    }
+
+    private fun isCurseForgeCdnUrl(url: String?): Boolean {
+        return try {
+            val host = URI.create(url).host
+            host.equals(MEDIAFILEZ_HOST, ignoreCase = true) || host.equals(EDGE_FORGECDN_HOST, ignoreCase = true)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun mirrorDownloadUrl(url: String): String? {
+        return try {
+            val uri = URI.create(url)
+            if (!uri.host.equals(MEDIAFILEZ_HOST, ignoreCase = true) && !uri.host.equals(EDGE_FORGECDN_HOST, ignoreCase = true)) {
+                null
+            } else {
+                URI(uri.scheme ?: "https", uri.userInfo, MIRROR_HOST, uri.port, uri.path, uri.query, uri.fragment).toString()
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun downloadSingleMirrorAware(
+        url: String,
+        mirrorPlan: MirrorPlan,
+        temp: Path,
+        knownTotal: Long,
+        listener: ProgressListener?,
+        cancelChecker: CancelChecker?,
+    ) {
+        var info: DownloadInfo? = null
+        try {
+            info = openDownload(url, 0L)
+            if (info.responseCode >= 400) {
+                throw IOException("http ${info.responseCode}")
+            }
+            downloadToFileMirrorAware(info.connection, temp, knownTotal, listener, cancelChecker, mirrorPlan)
+        } catch (ex: SwitchToMirrorException) {
+            closeQuietly(info?.connection)
+            Files.deleteIfExists(temp)
+            downloadSingleWithRetry(ex.mirrorUrl, temp, knownTotal, 0L, listener, cancelChecker)
+        } catch (ex: DownloadCanceledException) {
+            throw ex
+        } catch (_: IOException) {
+            val existing = if (Files.exists(temp)) Files.size(temp) else 0L
+            downloadSingleWithRetry(url, temp, knownTotal, existing, listener, cancelChecker)
+        } finally {
+            closeQuietly(info?.connection)
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun downloadToFileMirrorAware(
+        connection: HttpURLConnection?,
+        target: Path,
+        totalBytes: Long,
+        listener: ProgressListener?,
+        cancelChecker: CancelChecker?,
+        mirrorPlan: MirrorPlan,
+    ) {
+        if (connection == null) {
+            throw IOException("missing connection")
+        }
+        val total = if (totalBytes > 0) totalBytes else connection.contentLengthLong
+        var read = 0L
+        listener?.onProgress(read, total)
+        try {
+            BufferedInputStream(connection.inputStream).use { input ->
+                Files.newOutputStream(
+                    target,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                ).use { output ->
+                    copyToFileWithMirrorCheck(input, output, total, read, listener, cancelChecker, mirrorPlan).also {
+                        read = it
+                    }
+                }
+            }
+        } finally {
+            connection.disconnect()
+        }
+        if (total > 0 && read < total) {
+            throw IOException("download incomplete")
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun copyToFileWithMirrorCheck(
+        input: BufferedInputStream,
+        output: OutputStream,
+        total: Long,
+        initialRead: Long,
+        listener: ProgressListener?,
+        cancelChecker: CancelChecker?,
+        mirrorPlan: MirrorPlan,
+    ): Long {
+        val buffer = ByteArray(8192)
+        var read = initialRead
+        val start = System.nanoTime()
+        var windowStart = start
+        var windowBytes = 0L
+        var maxSpeed = 0.0
+        var checked = false
+        val compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS)
+        while (true) {
+            val len = input.read(buffer)
+            if (len < 0) {
+                return read
+            }
+            if (cancelChecker?.isCanceled() == true) {
+                throw DownloadCanceledException("canceled")
+            }
+            output.write(buffer, 0, len)
+            read += len.toLong()
+            windowBytes += len.toLong()
+            listener?.onProgress(read, total)
+            val now = System.nanoTime()
+            if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                windowStart = now
+                windowBytes = 0L
+            }
+            if (!checked && now >= compareDeadline) {
+                checked = true
+                if (windowBytes > 0) {
+                    maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                }
+                if (shouldSwitchToMirror(maxSpeed, mirrorPlan, cancelChecker)) {
+                    throw SwitchToMirrorException(mirrorPlan.mirrorUrl)
+                }
+            }
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun downloadSegmentedMirrorAware(
+        url: String,
+        mirrorPlan: MirrorPlan,
+        tempFile: Path,
+        totalBytes: Long,
+        listener: ProgressListener?,
+        cancelChecker: CancelChecker?,
+    ) {
+        val initial = downloadInitialRangeForMirrorCheck(url, mirrorPlan, tempFile, totalBytes, listener, cancelChecker)
+        if (initial.completed) {
+            return
+        }
+        if (initial.switchToMirror) {
+            Files.deleteIfExists(tempFile)
+            downloadSegmented(mirrorPlan.mirrorUrl, tempFile, totalBytes, listener, cancelChecker)
+            return
+        }
+        downloadSegmented(url, tempFile, totalBytes, listener, cancelChecker, initial.downloadedBytes)
+    }
+
+    @Throws(IOException::class)
+    private fun downloadInitialRangeForMirrorCheck(
+        url: String,
+        mirrorPlan: MirrorPlan,
+        tempFile: Path,
+        totalBytes: Long,
+        listener: ProgressListener?,
+        cancelChecker: CancelChecker?,
+    ): InitialRangeResult {
+        RandomAccessFile(tempFile.toFile(), "rw").use { raf ->
+            raf.setLength(totalBytes)
+        }
+        var connection: HttpURLConnection? = null
+        var read = 0L
+        var maxSpeed = 0.0
+        try {
+            connection = URI.create(url).toURL().openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = true
+            connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
+            connection.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            connection.setRequestProperty("User-Agent", "DLC-Manager")
+            connection.setRequestProperty("Range", "bytes=0-")
+            connection.connect()
+            if (connection.responseCode != HttpURLConnection.HTTP_PARTIAL) {
+                throw IOException("range not supported")
+            }
+            val start = System.nanoTime()
+            var windowStart = start
+            var windowBytes = 0L
+            val compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS)
+            val buffer = ByteArray(8192)
+            BufferedInputStream(connection.inputStream).use { input ->
+                RandomAccessFile(tempFile.toFile(), "rw").use { raf ->
+                    raf.seek(0L)
+                    while (System.nanoTime() < compareDeadline) {
+                        if (cancelChecker?.isCanceled() == true) {
+                            throw DownloadCanceledException("canceled")
+                        }
+                        val len = input.read(buffer)
+                        if (len < 0) {
+                            return InitialRangeResult(read, true, false)
+                        }
+                        raf.write(buffer, 0, len)
+                        read += len.toLong()
+                        windowBytes += len.toLong()
+                        listener?.onProgress(read, totalBytes)
+                        if (read >= totalBytes) {
+                            return InitialRangeResult(read, true, false)
+                        }
+                        val now = System.nanoTime()
+                        if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                            maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                            windowStart = now
+                            windowBytes = 0L
+                        }
+                    }
+                    val now = System.nanoTime()
+                    if (windowBytes > 0) {
+                        maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                    }
+                }
+            }
+        } finally {
+            closeQuietly(connection)
+        }
+        return InitialRangeResult(read, false, shouldSwitchToMirror(maxSpeed, mirrorPlan, cancelChecker))
     }
 
     @Throws(IOException::class)
@@ -438,6 +831,7 @@ object DlcDownloadService {
         totalBytes: Long,
         listener: ProgressListener?,
         cancelChecker: CancelChecker?,
+        initialDownloadedBytes: Long = 0L,
     ) {
         val maxSegments = maxOf(1, DlcPathConfig.getMaxSegmentsPerFile())
         val segments = maxOf(
@@ -450,14 +844,15 @@ object DlcDownloadService {
         }
         val executor = Executors.newFixedThreadPool(segments)
         val futures = ArrayList<Future<*>>()
-        val totalRead = AtomicLong(0L)
+        val initialRead = initialDownloadedBytes.coerceIn(0L, totalBytes)
+        val totalRead = AtomicLong(initialRead)
         val maxRetries = maxOf(1, DlcPathConfig.getMaxRetryCount())
         for (i in 0 until segments) {
             val start = i * segmentSize
             val end = if (i == segments - 1) totalBytes - 1 else start + segmentSize - 1
             val segmentTotal = end - start + 1
             futures.add(executor.submit<Unit> {
-                var segmentRead = 0L
+                var segmentRead = maxOf(0L, minOf(segmentTotal, initialRead - start))
                 var attempts = 0
                 var lastError: IOException? = null
                 while (segmentRead < segmentTotal) {
@@ -533,6 +928,26 @@ object DlcDownloadService {
         connection?.disconnect()
     }
 
+    private data class MirrorPlan(
+        val mirrorUrl: String,
+        val totalBytes: Long,
+        val timeoutSpeed: Double,
+        val bucketSpeed: Double,
+        val requiredSpeed: Double,
+    )
+
+    private data class SpeedRule(
+        val timeoutSpeed: Double,
+        val bucketSpeed: Double,
+        val requiredSpeed: Double,
+    )
+
+    private data class InitialRangeResult(
+        val downloadedBytes: Long,
+        val completed: Boolean,
+        val switchToMirror: Boolean,
+    )
+
     private data class DownloadInfo(
         val connection: HttpURLConnection,
         val fileNameHint: String?,
@@ -560,4 +975,6 @@ object DlcDownloadService {
     class DownloadCanceledException(message: String?) : IOException(message)
 
     class SegmentDownloadException(message: String?, cause: Throwable?) : IOException(message, cause)
+
+    private class SwitchToMirrorException(val mirrorUrl: String) : IOException("switch to mirror")
 }

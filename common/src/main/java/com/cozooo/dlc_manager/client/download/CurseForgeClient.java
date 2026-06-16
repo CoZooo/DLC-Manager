@@ -13,6 +13,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,6 +42,10 @@ public final class CurseForgeClient {
     private static final Map<String, CurseForgeMod> MOD_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, String> PROJECT_ID_CACHE = new ConcurrentHashMap<>();
     private static final int MINECRAFT_GAME_ID = 432;
+    private static final String[] CDN_HOSTS = new String[] {
+        "https://mediafilez.forgecdn.net"
+    };
+    private static final int API_MAX_ATTEMPTS = 2;
 
     private CurseForgeClient() {
     }
@@ -49,9 +55,6 @@ public final class CurseForgeClient {
             return null;
         }
         String apiKey = getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            return null;
-        }
         String cacheKey = (projectId == null ? "" : projectId) + ":" + fileId;
         CurseForgeFile cached = CACHE.get(cacheKey);
         if (cached != null) {
@@ -64,15 +67,25 @@ public final class CurseForgeClient {
         CurseForgeFile file = new CurseForgeFile();
         file.id = fileId;
         applyFileData(file, data);
+        String fallbackUrl = null;
+        boolean useCdnFallback = false;
         if (data.has("downloadUrl")) {
             String downloadUrl = getString(data, "downloadUrl");
             if (downloadUrl == null) {
-                return null;
+                useCdnFallback = true;
+                fallbackUrl = fallbackDownloadUrl(projectId, fileId);
+                file.url = fallbackUrl;
+            } else {
+                file.url = downloadUrl;
             }
-            file.url = downloadUrl;
         } else if (file.url == null || file.url.isBlank()) {
-            file.url = fetchDownloadUrlWithRetry(projectId, fileId, apiKey);
+            DownloadUrlResult downloadUrl = fetchDownloadUrlWithRetry(projectId, fileId, apiKey);
+            useCdnFallback = downloadUrl.useCdnFallback;
+            fallbackUrl = downloadUrl.url == null ? fallbackDownloadUrl(projectId, fileId) : null;
+            file.url = downloadUrl.url == null ? fallbackUrl : downloadUrl.url;
         }
+        resolveMissingFileName(file, fallbackUrl);
+        resolveAlternateDownloadUrls(file, fallbackUrl, useCdnFallback);
         CACHE.put(cacheKey, file);
         return file;
     }
@@ -87,9 +100,6 @@ public final class CurseForgeClient {
             return cached;
         }
         String apiKey = getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            return null;
-        }
         String endpoint = "https://api.curseforge.com/v1/mods/" + resolvedModId;
         JsonObject root = fetchJsonObjectWithRetry(endpoint, apiKey);
         if (root == null) {
@@ -135,9 +145,6 @@ public final class CurseForgeClient {
             return null;
         }
         String apiKey = getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            return null;
-        }
         String cacheKey = resolvedProjectId + ":" + (mcVersion == null ? "" : mcVersion) + ":" + (loader == null ? "" : loader);
         CurseForgeFile cached = CACHE.get(cacheKey);
         if (cached != null) {
@@ -165,6 +172,7 @@ public final class CurseForgeClient {
             CurseForgeFile file = new CurseForgeFile();
             file.id = getString(data, "id");
             applyFileData(file, data);
+            file.downloadUrlExplicitlyNull = isExplicitNullDownloadUrl(data);
             Instant time = parseInstant(file.fileDate);
             if (latest == null || isAfter(time, latestTime)) {
                 latest = file;
@@ -175,7 +183,14 @@ public final class CurseForgeClient {
             return null;
         }
         if (latest.url == null || latest.url.isBlank()) {
-            latest.url = fetchDownloadUrlWithRetry(resolvedProjectId, latest.id, apiKey);
+            DownloadUrlResult downloadUrl = fetchDownloadUrlWithRetry(resolvedProjectId, latest.id, apiKey);
+            String fallbackUrl = downloadUrl.url == null ? fallbackDownloadUrl(resolvedProjectId, latest.id) : null;
+            latest.url = downloadUrl.url == null ? fallbackUrl : downloadUrl.url;
+            resolveMissingFileName(latest, fallbackUrl);
+            resolveAlternateDownloadUrls(latest, fallbackUrl, latest.downloadUrlExplicitlyNull || downloadUrl.useCdnFallback);
+        } else {
+            resolveMissingFileName(latest, null);
+            resolveAlternateDownloadUrls(latest, null, false);
         }
         CACHE.put(cacheKey, latest);
         return latest;
@@ -187,9 +202,6 @@ public final class CurseForgeClient {
             return null;
         }
         String apiKey = getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            return null;
-        }
         String endpoint = "https://api.curseforge.com/v1/mods/" + projectId + "/files?pageSize=50";
         if (mcVersion != null && !mcVersion.isBlank()) {
             endpoint = endpoint + "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8);
@@ -218,6 +230,7 @@ public final class CurseForgeClient {
             CurseForgeFile file = new CurseForgeFile();
             file.id = getString(data, "id");
             applyFileData(file, data);
+            file.downloadUrlExplicitlyNull = isExplicitNullDownloadUrl(data);
             file.fileName = fileName;
             file.displayName = displayName;
             Instant time = parseInstant(file.fileDate);
@@ -230,7 +243,14 @@ public final class CurseForgeClient {
             return null;
         }
         if (matched.url == null || matched.url.isBlank()) {
-            matched.url = fetchDownloadUrlWithRetry(projectId, matched.id, apiKey);
+            DownloadUrlResult downloadUrl = fetchDownloadUrlWithRetry(projectId, matched.id, apiKey);
+            String fallbackUrl = downloadUrl.url == null ? fallbackDownloadUrl(projectId, matched.id) : null;
+            matched.url = downloadUrl.url == null ? fallbackUrl : downloadUrl.url;
+            resolveMissingFileName(matched, fallbackUrl);
+            resolveAlternateDownloadUrls(matched, fallbackUrl, matched.downloadUrlExplicitlyNull || downloadUrl.useCdnFallback);
+        } else {
+            resolveMissingFileName(matched, null);
+            resolveAlternateDownloadUrls(matched, null, false);
         }
         return matched;
     }
@@ -248,9 +268,6 @@ public final class CurseForgeClient {
             return cached.isBlank() ? null : cached;
         }
         String apiKey = getApiKey();
-        if (apiKey == null || apiKey.isBlank()) {
-            return null;
-        }
         String endpoint = "https://api.curseforge.com/v1/mods/search?gameId=" + MINECRAFT_GAME_ID
             + "&slug=" + URLEncoder.encode(trimmed, StandardCharsets.UTF_8);
         JsonObject root = fetchJsonArrayWithRetry(endpoint, apiKey);
@@ -339,49 +356,71 @@ public final class CurseForgeClient {
         } else {
             endpoint = "https://api.curseforge.com/v1/mods/files/" + fileId;
         }
-        JsonObject root = sendJsonWithRetry(endpoint, apiKey, false);
+        JsonObject root = sendJsonWithRetry(endpoint, apiKey);
         if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
             return null;
         }
         return root.getAsJsonObject("data");
     }
 
-    private static String fetchDownloadUrlWithRetry(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
-        int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
-        IOException lastError = null;
-        for (int attempt = 1; attempt <= maxRetry; attempt++) {
-            try {
-                return fetchDownloadUrl(projectId, fileId, apiKey);
-            } catch (DownloadUrlNotRetryableException ex) {
-                return ex.downloadUrl;
-            } catch (IOException ex) {
-                lastError = ex;
-            }
-        }
-        if (lastError != null) {
-            throw lastError;
-        }
-        return null;
+    private static DownloadUrlResult fetchDownloadUrlWithRetry(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
+        return fetchDownloadUrl(projectId, fileId, apiKey);
     }
 
-    private static String fetchDownloadUrl(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
+    private static DownloadUrlResult fetchDownloadUrl(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
         if (projectId == null || projectId.isBlank() || fileId == null || fileId.isBlank()) {
-            return null;
+            return new DownloadUrlResult(null, false);
         }
         String endpoint = "https://api.curseforge.com/v1/mods/" + projectId + "/files/" + fileId + "/download-url";
-        JsonObject root = sendJsonWithRetry(endpoint, apiKey, true);
+        boolean useCdnFallback = false;
+        IOException lastError = null;
+        try {
+            ApiJsonResult official = sendJsonWithFixedRetryResult(endpoint, apiKey);
+            if (official.statusCode == HttpURLConnection.HTTP_FORBIDDEN) {
+                useCdnFallback = true;
+            }
+            String officialUrl = extractDownloadUrl(official.root);
+            if (officialUrl != null) {
+                return new DownloadUrlResult(officialUrl, false);
+            }
+        } catch (IOException ex) {
+            lastError = ex;
+        }
+        String mirrorEndpoint = mirrorApiEndpoint(endpoint);
+        if (!mirrorEndpoint.equals(endpoint)) {
+            try {
+                ApiJsonResult mirror = sendJsonWithFixedRetryResult(mirrorEndpoint, null);
+                if (mirror.statusCode == HttpURLConnection.HTTP_FORBIDDEN) {
+                    useCdnFallback = true;
+                }
+                String mirrorUrl = extractDownloadUrl(mirror.root);
+                if (mirrorUrl != null) {
+                    return new DownloadUrlResult(mirrorUrl, false);
+                }
+            } catch (IOException ex) {
+                if (useCdnFallback) {
+                    return new DownloadUrlResult(null, true);
+                }
+                if (lastError != null) {
+                    throw ex;
+                }
+            }
+        } else if (lastError != null) {
+            throw lastError;
+        }
+        return new DownloadUrlResult(null, useCdnFallback);
+    }
+
+    private static String extractDownloadUrl(JsonObject root) {
         if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
             return null;
         }
         JsonObject data = root.getAsJsonObject("data");
-        if (data.has("downloadUrl")) {
-            return getString(data, "downloadUrl");
-        }
-        return null;
+        return data.has("downloadUrl") ? getString(data, "downloadUrl") : null;
     }
 
     private static JsonObject fetchJsonArrayWithRetry(String endpoint, String apiKey) throws IOException, InterruptedException {
-        JsonObject root = sendJsonWithRetry(endpoint, apiKey, false);
+        JsonObject root = sendJsonWithRetry(endpoint, apiKey);
         if (root == null || !root.has("data") || !root.get("data").isJsonArray()) {
             return null;
         }
@@ -389,36 +428,29 @@ public final class CurseForgeClient {
     }
 
     private static JsonObject fetchJsonObjectWithRetry(String endpoint, String apiKey) throws IOException, InterruptedException {
-        JsonObject root = sendJsonWithRetry(endpoint, apiKey, false);
+        JsonObject root = sendJsonWithRetry(endpoint, apiKey);
         if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
             return null;
         }
         return root;
     }
 
-    private static JsonObject sendJsonWithRetry(String endpoint, String apiKey, boolean stopOnDownloadUrlForbidden) throws IOException, InterruptedException {
-        int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
+    private static JsonObject sendJsonWithRetry(String endpoint, String apiKey) throws IOException, InterruptedException {
         IOException lastError = null;
-        for (int attempt = 1; attempt <= maxRetry; attempt++) {
+        if (apiKey != null && !apiKey.isBlank()) {
             try {
-                HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint))
-                    .header("User-Agent", "DLC-Manager")
-                    .header("x-api-key", apiKey)
-                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
-                    .GET()
-                    .build();
-                HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-                if (stopOnDownloadUrlForbidden && response.statusCode() == HttpURLConnection.HTTP_FORBIDDEN) {
-                    throw new DownloadUrlNotRetryableException(null);
+                JsonObject official = sendJsonWithFixedRetry(endpoint, apiKey);
+                if (official != null) {
+                    return official;
                 }
-                if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                    if (isRetryableStatus(response.statusCode()) && attempt < maxRetry) {
-                        continue;
-                    }
-                    return null;
-                }
-                return GSON.fromJson(response.body(), JsonObject.class);
+            } catch (IOException ex) {
+                lastError = ex;
+            }
+        }
+        String mirrorEndpoint = mirrorApiEndpoint(endpoint);
+        if (!mirrorEndpoint.equals(endpoint)) {
+            try {
+                return sendJsonWithFixedRetry(mirrorEndpoint, null);
             } catch (IOException ex) {
                 lastError = ex;
             }
@@ -429,15 +461,151 @@ public final class CurseForgeClient {
         return null;
     }
 
+    private static JsonObject sendJsonWithFixedRetry(String endpoint, String apiKey)
+        throws IOException, InterruptedException {
+        return sendJsonWithFixedRetryResult(endpoint, apiKey).root;
+    }
+
+    private static ApiJsonResult sendJsonWithFixedRetryResult(String endpoint, String apiKey)
+        throws IOException, InterruptedException {
+        IOException lastError = null;
+        for (int attempt = 1; attempt <= API_MAX_ATTEMPTS; attempt++) {
+            try {
+                HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .header("User-Agent", "DLC-Manager")
+                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
+                    .GET();
+                if (apiKey != null && !apiKey.isBlank()) {
+                    builder.header("x-api-key", apiKey);
+                }
+                HttpResponse<String> response = CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    if (isRetryableStatus(response.statusCode()) && attempt < API_MAX_ATTEMPTS) {
+                        continue;
+                    }
+                    return new ApiJsonResult(null, response.statusCode());
+                }
+                return new ApiJsonResult(GSON.fromJson(response.body(), JsonObject.class), response.statusCode());
+            } catch (IOException ex) {
+                lastError = ex;
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        return new ApiJsonResult(null, -1);
+    }
+
+    private static String mirrorApiEndpoint(String endpoint) {
+        return endpoint.replace("https://api.curseforge.com", "https://mod.mcimirror.top/curseforge");
+    }
+
     private static boolean isRetryableStatus(int statusCode) {
         return statusCode == 429 || statusCode >= 500;
     }
 
-    private static final class DownloadUrlNotRetryableException extends RuntimeException {
-        private final String downloadUrl;
+    private static String fallbackDownloadUrl(String projectId, String fileId) {
+        if (projectId == null || projectId.isBlank() || fileId == null || fileId.isBlank()) {
+            return null;
+        }
+        return "https://www.curseforge.com/api/v1/mods/" + projectId + "/files/" + fileId + "/download";
+    }
 
-        private DownloadUrlNotRetryableException(String downloadUrl) {
-            this.downloadUrl = downloadUrl;
+    private static void resolveMissingFileName(CurseForgeFile file, String fallbackUrl) {
+        if (file == null || file.fileName != null && !file.fileName.isBlank()) {
+            return;
+        }
+        String fileName = DlcDownloadUtil.extractFileNameFromUrl(file.url);
+        if ((fileName == null || fileName.isBlank()) && fallbackUrl != null && !fallbackUrl.isBlank()) {
+            fileName = extractFileNameFromFallbackRedirect(fallbackUrl);
+        }
+        if (fileName != null && !fileName.isBlank()) {
+            file.fileName = fileName;
+        }
+    }
+
+    private static void resolveAlternateDownloadUrls(CurseForgeFile file, String fallbackUrl, boolean useCdnFallback) {
+        if (file == null) {
+            return;
+        }
+        file.alternateUrls.clear();
+        String fileName = DlcDownloadUtil.sanitizeFileName(file.fileName);
+        if (useCdnFallback && fallbackUrl != null && !fallbackUrl.isBlank() && file.id != null && !file.id.isBlank() && fileName != null && !fileName.isBlank()) {
+            for (String host : CDN_HOSTS) {
+                addAlternateUrl(file, buildForgeCdnUrl(host, file.id, fileName));
+            }
+        }
+        addAlternateUrl(file, fallbackUrl);
+    }
+
+    private static void addAlternateUrl(CurseForgeFile file, String url) {
+        if (url == null || url.isBlank() || url.equals(file.url) || file.alternateUrls.contains(url)) {
+            return;
+        }
+        file.alternateUrls.add(url);
+    }
+
+    private static String buildForgeCdnUrl(String host, String fileId, String fileName) {
+        if (fileId == null || fileId.isBlank() || fileName == null || fileName.isBlank()) {
+            return null;
+        }
+        long id;
+        try {
+            id = Long.parseLong(fileId.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+        if (id < 0) {
+            return null;
+        }
+        long part1 = id / 1000L;
+        long part2 = id % 1000L;
+        String encodedName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+        return host + "/files/" + part1 + "/" + part2 + "/" + encodedName;
+    }
+
+    private static String extractFileNameFromFallbackRedirect(String fallbackUrl) {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) URI.create(fallbackUrl).toURL().openConnection();
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            if (!isRedirect(connection.getResponseCode())) {
+                return null;
+            }
+            String location = connection.getHeaderField("Location");
+            String redirected = resolveRedirectUrl(fallbackUrl, location);
+            return DlcDownloadUtil.extractFileNameFromUrl(redirected);
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static boolean isRedirect(int statusCode) {
+        return statusCode == HttpURLConnection.HTTP_MOVED_PERM
+            || statusCode == HttpURLConnection.HTTP_MOVED_TEMP
+            || statusCode == HttpURLConnection.HTTP_SEE_OTHER
+            || statusCode == 307
+            || statusCode == 308;
+    }
+
+    private static String resolveRedirectUrl(String baseUrl, String location) {
+        if (location == null || location.isBlank()) {
+            return null;
+        }
+        try {
+            return URI.create(baseUrl).resolve(location).toString();
+        } catch (IllegalArgumentException ignored) {
+            return location;
         }
     }
 
@@ -446,6 +614,10 @@ public final class CurseForgeClient {
             return obj.get(key).getAsString();
         }
         return null;
+    }
+
+    private static boolean isExplicitNullDownloadUrl(JsonObject data) {
+        return data != null && data.has("downloadUrl") && data.get("downloadUrl").isJsonNull();
     }
 
     private static boolean matchesGameVersion(JsonObject data, String mcVersion, String loader) {
@@ -545,6 +717,8 @@ public final class CurseForgeClient {
         public String classSlug;
         public String sha1;
         public String md5;
+        public final List<String> alternateUrls = new ArrayList<>();
+        public boolean downloadUrlExplicitlyNull;
         public long size;
     }
 
@@ -554,6 +728,12 @@ public final class CurseForgeClient {
         public String primaryCategorySlug;
         public String primaryCategoryName;
         public final java.util.List<String> categorySlugs = new java.util.ArrayList<>();
+    }
+
+    private record DownloadUrlResult(String url, boolean useCdnFallback) {
+    }
+
+    private record ApiJsonResult(JsonObject root, int statusCode) {
     }
 
     private static String readClassSlug(JsonObject data) {
