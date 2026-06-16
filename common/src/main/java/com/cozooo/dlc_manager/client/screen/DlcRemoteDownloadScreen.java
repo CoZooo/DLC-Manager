@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.download.ModrinthClient;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -47,6 +47,7 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
 
     private final Screen parent;
     private final List<DlcRemoteEntry> missing;
+    private final String partMarkerKey;
     private List<DlcRemoteEntry> previewQueue = List.of();
     private List<DlcRemoteEntry> downloadTargets = List.of();
     private final int maxConcurrentDownloads;
@@ -77,9 +78,14 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     private int scrollBarDragOffset;
 
     public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing) {
-        super(Component.translatable("dlc_manager.remote.title"));
+        this(parent, missing, DlcRemoteMarker.PART_DLC, Component.translatable("dlc_manager.remote.title"));
+    }
+
+    public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing, String partMarkerKey, Component title) {
+        super(title);
         this.parent = parent;
         this.missing = missing == null ? List.of() : missing;
+        this.partMarkerKey = partMarkerKey;
         this.maxConcurrentDownloads = Math.max(1, DlcPathConfig.getMaxConcurrentDownloads());
         this.maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
         this.connectTimeoutMs = Math.max(1, DlcPathConfig.getConnectTimeoutMs());
@@ -100,9 +106,9 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
             .build();
         downloadButton.active = false;
         downloadButton.visible = false;
-        skipButton = Button.builder(Component.translatable("dlc_manager.remote.skip"), button -> {
-            Minecraft.getInstance().setScreen(parent);
-        }).bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight).build();
+        skipButton = Button.builder(Component.translatable("dlc_manager.remote.skip"), button -> handleSkip())
+            .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
+            .build();
         addRenderableWidget(downloadButton);
         addRenderableWidget(skipButton);
         detecting = true;
@@ -400,6 +406,11 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         startDownload();
     }
 
+    private void handleSkip() {
+        writeSkipMarker();
+        Minecraft.getInstance().setScreen(parent);
+    }
+
     private void requestCancel() {
         if (!downloading || cancelRequested) {
             return;
@@ -430,14 +441,17 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         downloadButton.active = true;
         skipButton.active = false;
         List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
+        boolean fullSelection = isAllSelected();
         List<DlcRemoteEntry> targets = resolveSelectionTargets(showList);
         downloadTargets = targets;
-        updatePartMarker(showList, targets);
+        if (!fullSelection) {
+            writeSkipMarker();
+        }
         initProgressMap(targets);
-        new Thread(() -> downloadAll(targets), "dlc-remote-download").start();
+        new Thread(() -> downloadAll(targets, fullSelection), "dlc-remote-download").start();
     }
 
-    private void downloadAll(List<DlcRemoteEntry> targets) {
+    private void downloadAll(List<DlcRemoteEntry> targets, boolean clearSkipOnSuccess) {
         totalCount = targets.size();
         completedCount = 0;
         List<DlcRemoteEntry> failed = runDownloadBatch(targets);
@@ -475,6 +489,9 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         }
         errorText = null;
         downloading = false;
+        if (clearSkipOnSuccess) {
+            clearSkipMarker();
+        }
         Minecraft.getInstance().execute(() -> {
             updateDownloadButtonLabel(false);
             Minecraft.getInstance().setScreen(parent);
@@ -863,7 +880,7 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         }
         return switch (entry.getType()) {
             case MOD -> ".jar";
-            case RESOURCE_PACK, DATA_PACK, TACZ_PACK, UNKNOWN -> ".zip";
+            case RESOURCE_PACK, DATA_PACK, TACZ_PACK, DLC_PACK, UNKNOWN -> ".zip";
         };
     }
 
@@ -945,28 +962,28 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
                 targets.add(entry);
             }
         }
-        if (targets.isEmpty()) {
-            selectedKeys.clear();
-            selectedKeys.add(ALL_MARKER);
-            return new ArrayList<>(showList);
-        }
         return targets;
     }
 
-    private void updatePartMarker(List<DlcRemoteEntry> showList, List<DlcRemoteEntry> targets) {
-        if (showList == null || targets == null) {
-            return;
-        }
-        boolean partial = !isAllSelected();
-        Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+    private void writeSkipMarker() {
+        Path dlcRoot = firstDlcRoot();
         if (dlcRoot == null) {
             return;
         }
-        if (partial) {
-            DlcRemoteMarker.writePartMarker(dlcRoot);
-        } else {
-            DlcRemoteMarker.clearPartMarker(dlcRoot);
+        DlcRemoteMarker.writePartMarker(dlcRoot, partMarkerKey);
+    }
+
+    private void clearSkipMarker() {
+        Path dlcRoot = firstDlcRoot();
+        if (dlcRoot == null) {
+            return;
         }
+        DlcRemoteMarker.clearPartMarker(dlcRoot, partMarkerKey);
+    }
+
+    private Path firstDlcRoot() {
+        List<Path> roots = DlcPathConfig.getDlcRoots();
+        return roots.isEmpty() ? null : roots.get(0);
     }
 
     private void toggleSelection(DlcRemoteEntry entry, List<DlcRemoteEntry> showList) {

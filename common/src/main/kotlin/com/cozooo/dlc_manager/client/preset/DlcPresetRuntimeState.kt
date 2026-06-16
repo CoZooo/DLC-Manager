@@ -68,6 +68,48 @@ object DlcPresetRuntimeState {
     fun getPresets(): List<DlcPresetEntry> = ArrayList(PRESETS_BY_ID.values)
 
     @JvmStatic
+    fun hasPreset(id: String?): Boolean {
+        return !id.isNullOrBlank() && PRESETS_BY_ID.containsKey(id)
+    }
+
+    @JvmStatic
+    fun getPresetById(id: String?): DlcPresetEntry? {
+        if (id.isNullOrBlank()) {
+            return null
+        }
+        return PRESETS_BY_ID[id]
+    }
+
+    @JvmStatic
+    fun findPresetId(value: String?): String? {
+        if (value.isNullOrBlank()) {
+            return null
+        }
+        val trimmed = value.trim()
+        val exact = PRESETS_BY_ID[trimmed]
+        if (exact != null && !exact.getId().isNullOrBlank()) {
+            return exact.getId()
+        }
+        for (entry in PRESETS_BY_ID.values) {
+            val id = entry.getId()
+            if (!id.isNullOrBlank() && id.equals(trimmed, ignoreCase = true)) {
+                return id
+            }
+            val fileName = entry.getFileName()
+            if (!fileName.isNullOrBlank() && fileName.equals(trimmed, ignoreCase = true)) {
+                return id
+            }
+        }
+        return null
+    }
+
+    @JvmStatic
+    fun findEnabledPresetId(value: String?): String? {
+        val presetId = findPresetId(value) ?: return null
+        return if (ENABLED_PRESETS.contains(presetId)) presetId else null
+    }
+
+    @JvmStatic
     fun isPresetEnabled(id: String?): Boolean = id != null && ENABLED_PRESETS.contains(id)
 
     @JvmStatic
@@ -583,14 +625,14 @@ object DlcPresetRuntimeState {
                 return null
             }
         }
-        val resolved = findPresetId(value) ?: return null
+        val resolved = resolvePresetId(value) ?: return null
         if (!forcedPreset && DlcRuntimeState.getItemByIdentifier(value) != null) {
             return null
         }
         return resolved
     }
 
-    private fun findPresetId(value: String): String? {
+    private fun resolvePresetId(value: String): String? {
         val exact = PRESETS_BY_ID[value]
         if (exact != null && !exact.getId().isNullOrBlank()) {
             return exact.getId()
@@ -600,9 +642,6 @@ object DlcPresetRuntimeState {
                 continue
             }
             if (entry.getId().equals(value, ignoreCase = true)) {
-                return entry.getId()
-            }
-            if (!entry.getFileName().isNullOrBlank() && entry.getFileName().equals(value, ignoreCase = true)) {
                 return entry.getId()
             }
         }

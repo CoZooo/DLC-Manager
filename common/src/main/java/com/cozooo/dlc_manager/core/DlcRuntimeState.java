@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.core;
 
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -171,7 +172,9 @@ public final class DlcRuntimeState {
                 if (depName == null || depName.isBlank()) {
                     continue;
                 }
-                DEPENDENTS_BY_IDENTIFIER.computeIfAbsent(depName, key -> new java.util.ArrayList<>()).add(item);
+                if (ITEMS_BY_IDENTIFIER.containsKey(depName)) {
+                    DEPENDENTS_BY_IDENTIFIER.computeIfAbsent(depName, key -> new java.util.ArrayList<>()).add(item);
+                }
             }
         }
     }
@@ -322,7 +325,8 @@ public final class DlcRuntimeState {
                     continue;
                 }
                 DlcItem depItem = getItemByIdentifier(depName);
-                boolean satisfied = depItem != null && (depItem.isEnabled() || targetIdentifiers.contains(depItem.getIdentifier()));
+                boolean satisfied = depItem != null && (depItem.isEnabled() || targetIdentifiers.contains(depItem.getIdentifier()))
+                    || depItem == null && isRelationPathPresent(depName);
                 if (!satisfied) {
                     String key = item.getIdentifier() + "|" + depName;
                     if (seenLines.add(key)) {
@@ -393,12 +397,13 @@ public final class DlcRuntimeState {
                     continue;
                 }
                 DlcItem conflictItem = getItemByIdentifier(conflictName);
-                if (conflictItem == null) {
-                    continue;
-                }
-                boolean conflictEnabled = conflictItem.isEnabled() || targetIdentifiers.contains(conflictItem.getIdentifier());
-                if (conflictEnabled) {
-                    addConflictLine(lines, seen, item.getIdentifier(), conflictItem.getIdentifier());
+                if (conflictItem != null) {
+                    boolean conflictEnabled = conflictItem.isEnabled() || targetIdentifiers.contains(conflictItem.getIdentifier());
+                    if (conflictEnabled) {
+                        addConflictLine(lines, seen, item.getIdentifier(), conflictItem.getIdentifier());
+                    }
+                } else if (isRelationPathPresent(conflictName)) {
+                    addConflictLine(lines, seen, item.getIdentifier(), conflictName);
                 }
             }
         }
@@ -427,6 +432,11 @@ public final class DlcRuntimeState {
             }
         }
         return new ConflictBatchResult(lines);
+    }
+
+    private static boolean isRelationPathPresent(String value) {
+        java.nio.file.Path path = DlcPaths.resolveAgainstGameDir(value);
+        return path != null && Files.exists(path);
     }
 
     private static void addConflictLine(java.util.List<ConflictLine> lines, java.util.Set<String> seen, String left, String right) {
@@ -473,6 +483,9 @@ public final class DlcRuntimeState {
                 }
                 DlcItem depItem = getItemByIdentifier(depName);
                 if (depItem == null) {
+                    if (isRelationPathPresent(depName)) {
+                        continue;
+                    }
                     missing.add(depName);
                 } else {
                     queue.add(depItem);

@@ -531,20 +531,18 @@ object DlcServerService {
         val updates = ArrayList<DlcServerUpdateInfo>()
         if (!rolledBack) {
             val result = DlcUpdateService.checkForUpdates()
-            if (result.updates != null) {
-                for (pkg in result.updates) {
-                    val manifest = pkg?.getManifest()
-                    val info = manifest?.getVersion() ?: continue
-                    val row = DlcServerUpdateInfo()
-                    row.name = pkg.getName()
-                    row.baseOld = info.getBase()
-                    row.baseNew = info.getBaseNew()
-                    row.dlcOld = info.getDlcOld()
-                    row.dlcNew = info.getDlcNew()
-                    row.hidden = manifest.isHidden()
-                    row.changelog = LinkedHashMap(manifest.getChangelog())
-                    updates.add(row)
-                }
+            for (pkg in result.updates) {
+                val manifest = pkg?.getManifest()
+                val info = manifest?.getVersion() ?: continue
+                val row = DlcServerUpdateInfo()
+                row.name = pkg.getName()
+                row.baseOld = info.getBase()
+                row.baseNew = info.getBaseNew()
+                row.dlcOld = info.getDlcOld()
+                row.dlcNew = info.getDlcNew()
+                row.hidden = manifest.isHidden()
+                row.changelog = LinkedHashMap(manifest.getChangelog())
+                updates.add(row)
             }
         }
         val response = JsonObject()
@@ -566,19 +564,17 @@ object DlcServerService {
     private fun writeUpdateList(writer: BufferedWriter) {
         val result = DlcUpdateService.checkForUpdates()
         val updates = ArrayList<DlcServerUpdateInfo>()
-        if (result.updates != null) {
-            for (pkg in result.updates) {
-                val manifest = pkg?.getManifest() ?: continue
-                val version = manifest.getVersion() ?: continue
-                val info = DlcServerUpdateInfo()
-                info.name = pkg.getName()
-                info.baseOld = version.getBase()
-                info.baseNew = version.getBaseNew()
-                info.dlcOld = version.getDlcOld()
-                info.dlcNew = version.getDlcNew()
-                info.changelog = LinkedHashMap(manifest.getChangelog())
-                updates.add(info)
-            }
+        for (pkg in result.updates) {
+            val manifest = pkg?.getManifest() ?: continue
+            val version = manifest.getVersion() ?: continue
+            val info = DlcServerUpdateInfo()
+            info.name = pkg.getName()
+            info.baseOld = version.getBase()
+            info.baseNew = version.getBaseNew()
+            info.dlcOld = version.getDlcOld()
+            info.dlcNew = version.getDlcNew()
+            info.changelog = LinkedHashMap(manifest.getChangelog())
+            updates.add(info)
         }
         val response = JsonObject()
         response.addProperty("type", "update_list")
@@ -605,10 +601,10 @@ object DlcServerService {
         val apply = DlcUpdateService.applyUpdates(updates, false)
         val response = JsonObject()
         response.addProperty("type", "update_apply")
-        response.addProperty("ok", apply.isSuccess)
-        response.addProperty("missing", apply.isMissing)
-        response.addProperty("message", apply.message ?: "")
-        if (apply.isMissing) {
+        response.addProperty("ok", apply?.isSuccess == true)
+        response.addProperty("missing", apply?.isMissing == true)
+        response.addProperty("message", apply?.message ?: "")
+        if (apply?.isMissing == true) {
             response.add("missing", GSON.toJsonTree(apply.missingPaths))
         }
         writeLine(writer, response)

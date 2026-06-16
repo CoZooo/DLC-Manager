@@ -19,6 +19,8 @@ object DlcPathConfigClient {
     private val UPDATE_MANAGER_ON = DlcConfigBoolean("isUpdateManagerOn", DlcPathConfig.DEFAULT_UPDATE_MANAGER_ON, "dlc_manager.config.comment.ui.isUpdateManagerOn", "dlc_manager.config.ui.isUpdateManagerOn")
     private val SELF_UPDATE_AUTO_CHECK_ON = DlcConfigBoolean("isSelfUpdateAutoCheckOn", DlcPathConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON, "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn")
     private val PRESET_FUNC_ON = DlcConfigBoolean("isPresetFuncOn", DlcPathConfig.DEFAULT_PRESET_FUNC_ON, "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn")
+    private val PACK_FUNC_ON = DlcConfigBoolean("isPackFuncOn", DlcPathConfig.DEFAULT_PACK_FUNC_ON, "dlc_manager.config.comment.ui.isPackFuncOn", "dlc_manager.config.ui.isPackFuncOn")
+    private val P_BUTTON = DlcConfigBoolean("isPButtomShown", DlcPathConfig.DEFAULT_P_BUTTON_SHOWN, "dlc_manager.config.comment.ui.isPButtomShown", "dlc_manager.config.ui.isPButtomShown")
     private val SHOW_ON_FIRST_RUN = DlcConfigBoolean("ShowOnFirstRun", DlcPathConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun")
     private val ALARM_WAITING_TIME = DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime")
     private val SERVER_SUPPORT_CLIENT = DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport")
@@ -59,6 +61,8 @@ object DlcPathConfigClient {
         UPDATE_MANAGER_ON,
         SELF_UPDATE_AUTO_CHECK_ON,
         PRESET_FUNC_ON,
+        PACK_FUNC_ON,
+        P_BUTTON,
         SHOW_ON_FIRST_RUN,
         ALARM_WAITING_TIME,
         MODPACK_URL,
@@ -121,6 +125,8 @@ object DlcPathConfigClient {
         UPDATE_MANAGER_ON.booleanValue = DlcPathConfig.isUpdateManagerOn()
         SELF_UPDATE_AUTO_CHECK_ON.booleanValue = DlcPathConfig.isSelfUpdateAutoCheckOn()
         PRESET_FUNC_ON.booleanValue = DlcPathConfig.isPresetFuncOn()
+        PACK_FUNC_ON.booleanValue = DlcPathConfig.isPackFuncOn()
+        P_BUTTON.booleanValue = DlcPathConfig.isPButtomShown()
         SHOW_ON_FIRST_RUN.booleanValue = DlcPathConfig.isShowOnFirstRun()
         ALARM_WAITING_TIME.integerValue = DlcPathConfig.getAlarmWaitingTime()
         SERVER_SUPPORT_CLIENT.booleanValue = DlcPathConfig.isServerSupportOn()
@@ -166,6 +172,8 @@ object DlcPathConfigClient {
         DlcPathConfig.setUpdateManagerOn(UPDATE_MANAGER_ON.booleanValue)
         DlcPathConfig.setSelfUpdateAutoCheckOn(SELF_UPDATE_AUTO_CHECK_ON.booleanValue)
         DlcPathConfig.setPresetFuncOn(PRESET_FUNC_ON.booleanValue)
+        DlcPathConfig.setPackFuncOn(PACK_FUNC_ON.booleanValue)
+        DlcPathConfig.setPButtomShown(P_BUTTON.booleanValue)
         DlcPathConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.booleanValue)
         DlcPathConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.integerValue)
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.booleanValue)

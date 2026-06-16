@@ -25,7 +25,11 @@ public final class DlcRemoteRuntime {
     }
 
     public static boolean hasMissing() {
-        return !collectMissing().isEmpty();
+        return !collectMissing(false).isEmpty();
+    }
+
+    public static boolean hasMissingDlcPacks() {
+        return !collectMissing(true).isEmpty();
     }
 
     public static List<DlcRemoteEntry> pollMissingForManagerPrompt() {
@@ -33,10 +37,10 @@ public final class DlcRemoteRuntime {
             return List.of();
         }
         Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
-        if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot)) {
+        if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot, DlcRemoteMarker.PART_DLC)) {
             return List.of();
         }
-        List<DlcRemoteEntry> missing = collectMissing();
+        List<DlcRemoteEntry> missing = collectMissing(false);
         if (!missing.isEmpty()) {
             promptedThisSession = true;
         }
@@ -48,6 +52,14 @@ public final class DlcRemoteRuntime {
     }
 
     public static List<DlcRemoteEntry> collectMissing() {
+        return collectMissing(false);
+    }
+
+    public static List<DlcRemoteEntry> collectMissingDlcPacks() {
+        return collectMissing(true);
+    }
+
+    private static List<DlcRemoteEntry> collectMissing(boolean dlcPackOnly) {
         List<DlcRemoteEntry> missing = new ArrayList<>();
         Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
         if (dlcRoot == null) {
@@ -56,6 +68,10 @@ public final class DlcRemoteRuntime {
         List<DlcRemoteEntry> entries = DlcRemoteLoader.load(dlcRoot);
         for (DlcRemoteEntry entry : entries) {
             if (!entry.isInList() && !entry.isHidden()) {
+                continue;
+            }
+            boolean isPack = entry.getType() == DlcType.DLC_PACK;
+            if (dlcPackOnly != isPack) {
                 continue;
             }
             Path target = entry.getTargetPath();

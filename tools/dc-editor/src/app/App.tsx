@@ -6,7 +6,6 @@ import { RawDcEditor } from "../components/RawDcEditor";
 import { StructuredEditor } from "../components/StructuredEditor";
 import { Toolbar } from "../components/Toolbar";
 import {
-  BackendMode,
   DocumentSchema,
   DocumentType,
   EditorDocument,
@@ -18,7 +17,6 @@ import {
   documentSchemas,
   internalDocumentTypes
 } from "../schemas/documentSchemas";
-import { ApiBackend } from "../services/backend/ApiBackend";
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
 import { detectDocumentType } from "../services/document/typeDetection";
@@ -26,13 +24,15 @@ import { formatPresetListFieldsInRaw, serializeStructuredDocumentWithPreservedRa
 import { EDITOR_LOCALE_STORAGE_KEY, EditorLocale, t, translateStaticText } from "../i18n/editorI18n";
 
 const APP_STATE_STORAGE_KEY = "dlc-manager-dc-editor-state-v1";
-const BACKEND_MODE_STORAGE_KEY = "dlc-manager-dc-editor-backend-mode-v1";
 
 function makeDocumentId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function deriveDocumentName(type: DocumentType, model: StructuredModel | null, fallbackName: string): string {
+  if (type === "pack") {
+    return "pack.dc";
+  }
   if (type !== "info" || !model) {
     return fallbackName;
   }
@@ -41,6 +41,10 @@ function deriveDocumentName(type: DocumentType, model: StructuredModel | null, f
     return fallbackName;
   }
   return `${fileName.trim()}.dc`;
+}
+
+function effectiveDocumentName(document: EditorDocument): string {
+  return deriveDocumentName(document.type, document.structuredModel, document.name);
 }
 
 function stripExtension(name: string): string {
@@ -144,20 +148,6 @@ function loadPersistedLocale(): EditorLocale {
   return value === "en_us" ? "en_us" : "zh_cn";
 }
 
-function loadPersistedBackendMode(): BackendMode {
-  if (typeof window === "undefined") {
-    return "local";
-  }
-  const params = new URLSearchParams(window.location.search);
-  const queryMode = params.get("backend");
-  if (queryMode === "api" || queryMode === "local") {
-    window.localStorage.setItem(BACKEND_MODE_STORAGE_KEY, queryMode);
-    return queryMode;
-  }
-  const stored = window.localStorage.getItem(BACKEND_MODE_STORAGE_KEY);
-  return stored === "api" ? "api" : "local";
-}
-
 function getIssueSeverityLabel(locale: EditorLocale, severity: "error" | "warning" | "info") {
   if (severity === "error") {
     return t(locale, "validationSeverityError");
@@ -250,14 +240,14 @@ function buildDocument(
   text: string,
   schema: DocumentSchema,
   source: "new" | "imported",
-  backendMode: BackendMode,
   path?: string
 ): EditorDocument {
+  const documentName = type === "pack" ? "pack.dc" : name;
   return {
     id: makeDocumentId(),
-    name,
-    originalName: name,
-    path,
+    name: documentName,
+    originalName: documentName,
+    path: type === "pack" ? "pack.dc" : path,
     type,
     rawText: text,
     originalText: text,
@@ -265,8 +255,7 @@ function buildDocument(
     structuredEnabled: schema.supportsStructured,
     isDirty: false,
     issues: [],
-    source,
-    backendMode
+    source
   };
 }
 
@@ -309,7 +298,6 @@ function isEditableFocusTarget(target: EventTarget | null): boolean {
 
 export function App() {
   const initialLocale = loadPersistedLocale();
-  const initialBackendMode = loadPersistedBackendMode();
   const mainPanelRef = useRef<HTMLElement | null>(null);
   const scrollPositionsRef = useRef<Record<EditorView, number>>({
     form: 0,
@@ -321,10 +309,9 @@ export function App() {
   const currentDocumentIdRef = useRef<string | null>(null);
   const persisted = loadPersistedState();
   const [locale, setLocale] = useState<EditorLocale>(initialLocale);
-  const [backendMode] = useState<BackendMode>(initialBackendMode);
   const backend: EditorBackend = useMemo(() => {
-    return backendMode === "local" ? new LocalBackend() : new ApiBackend();
-  }, [backendMode]);
+    return new LocalBackend();
+  }, []);
 
   const [currentType, setCurrentType] = useState<DocumentType>(persisted?.currentType ?? "info");
   const [documents, setDocuments] = useState<EditorDocument[]>(persisted?.documents ?? []);
@@ -403,13 +390,6 @@ export function App() {
     if (typeof window === "undefined") {
       return;
     }
-    window.localStorage.setItem(BACKEND_MODE_STORAGE_KEY, backendMode);
-  }, [backendMode]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
     window.document.title = t(locale, "appTitle");
   }, [locale]);
 
@@ -436,12 +416,14 @@ export function App() {
           }
           const current = previous[index];
           const keepStructuredDraft = preserveStructuredDraftRef.current === current.id;
+          const currentName = effectiveDocumentName(current);
           const next = {
             ...current,
             rawText: formattedRawText,
             structuredModel: keepStructuredDraft ? current.structuredModel : parsed.model,
-            isDirty: formattedRawText !== current.originalText || current.name !== (current.originalName ?? current.name),
-            issues: [...issues, ...validateDocumentFileName(current.name)]
+            name: current.type === "pack" ? "pack.dc" : current.name,
+            isDirty: formattedRawText !== current.originalText || currentName !== (current.originalName ?? current.name),
+            issues: current.type === "pack" ? issues : [...issues, ...validateDocumentFileName(currentName)]
           };
           const copy = [...previous];
           copy[index] = next;
@@ -588,7 +570,7 @@ export function App() {
           setStatus(t(locale, "typeNotEditable", { type: documentSchemas[type].label }));
           continue;
         }
-        importedDocs.push(buildDocument(type, item.name, item.text, documentSchemas[type], "imported", backendMode, item.path));
+        importedDocs.push(buildDocument(type, item.name, item.text, documentSchemas[type], "imported", item.path));
       }
       if (!importedDocs.length) {
         return;
@@ -604,7 +586,7 @@ export function App() {
     try {
       const created = await backend.createNew(currentType);
       const type = detectDocumentType(created.path, created.text);
-      const next = buildDocument(type, created.name, created.text, documentSchemas[type], "new", backendMode, created.path);
+      const next = buildDocument(type, created.name, created.text, documentSchemas[type], "new", created.path);
       mergeDocuments([next]);
       setStatus(t(locale, "createdType", { type: documentSchemas[type].label }));
     } catch (error) {
@@ -630,7 +612,7 @@ export function App() {
 
       if (!model.basic) {
         setStatus(t(locale, "noPrefillFallback", { type: targetSchema.label }));
-        const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
+        const next = buildDocument(type, created.name, created.text, targetSchema, "new", created.path);
         mergeDocuments([next]);
         return;
       }
@@ -641,7 +623,7 @@ export function App() {
 
       if (!canFillFileName && !canFillIdentifier && !canFillType) {
         setStatus(t(locale, "noPrefillFallback", { type: targetSchema.label }));
-        const next = buildDocument(type, created.name, created.text, targetSchema, "new", backendMode, created.path);
+        const next = buildDocument(type, created.name, created.text, targetSchema, "new", created.path);
         mergeDocuments([next]);
         return;
       }
@@ -666,7 +648,6 @@ export function App() {
         nextRaw,
         targetSchema,
         "new",
-        backendMode,
         created.path
       );
       next.structuredModel = model;
@@ -686,12 +667,12 @@ export function App() {
     commitDocumentEdit({
       ...editingDocument,
       rawText,
-      isDirty: rawText !== editingDocument.originalText || editingDocument.name !== (editingDocument.originalName ?? editingDocument.name)
+      isDirty: rawText !== editingDocument.originalText || effectiveDocumentName(editingDocument) !== (editingDocument.originalName ?? editingDocument.name)
     });
   };
 
   const updateDocumentName = (name: string) => {
-    if (!editingDocument) {
+    if (!editingDocument || editingDocument.type === "pack") {
       return;
     }
     preserveStructuredDraftRef.current = editingDocument.id;
@@ -718,7 +699,8 @@ export function App() {
       ...editingDocument,
       structuredModel: model,
       rawText: nextRaw,
-      isDirty: nextRaw !== editingDocument.originalText || editingDocument.name !== (editingDocument.originalName ?? editingDocument.name)
+      name: deriveDocumentName(editingDocument.type, model, editingDocument.name),
+      isDirty: nextRaw !== editingDocument.originalText || deriveDocumentName(editingDocument.type, model, editingDocument.name) !== (editingDocument.originalName ?? editingDocument.name)
     });
   };
 
@@ -744,9 +726,10 @@ export function App() {
       if (editingDocument.structuredEnabled && editingDocument.structuredModel) {
         preserveStructuredDraftRef.current = editingDocument.id;
       }
+      const saveName = effectiveDocumentName(editingDocument);
       const result = await backend.save({
-        suggestedName: editingDocument.name,
-        path: editingDocument.path,
+        suggestedName: saveName,
+        path: editingDocument.type === "pack" ? saveName : editingDocument.path,
         text: textToSave
       });
       if (currentDocumentIdRef.current === savingDocumentId) {
@@ -758,16 +741,16 @@ export function App() {
           const copy = [...previous];
           copy[index] = {
             ...copy[index],
-            name: result.name,
-            originalName: result.name,
-            path: result.path,
+            name: saveName,
+            originalName: saveName,
+            path: editingDocument.type === "pack" ? saveName : result.path,
             rawText: textToSave,
             originalText: textToSave,
             isDirty: false
           };
           return copy;
         });
-        setStatus(t(locale, "savedFile", { name: result.name }));
+        setStatus(t(locale, "savedFile", { name: saveName }));
       }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : t(locale, "saveFailed"));
@@ -782,11 +765,11 @@ export function App() {
       await saveCurrentDocument();
       return;
     }
-    const invalidDocument = documents.find((doc) => validateDocumentFileName(doc.name).some((issue) => issue.severity === "error"));
+    const invalidDocument = documents.find((doc) => doc.type !== "pack" && validateDocumentFileName(effectiveDocumentName(doc)).some((issue) => issue.severity === "error"));
     if (invalidDocument) {
       setActiveDocumentId(invalidDocument.id);
       setActiveView("validation");
-      const message = t(locale, "validationBlocked", { count: validateDocumentFileName(invalidDocument.name).length });
+      const message = t(locale, "validationBlocked", { count: validateDocumentFileName(effectiveDocumentName(invalidDocument)).length });
       setStatus(message);
       window.alert(message);
       return;
@@ -799,7 +782,7 @@ export function App() {
             ? serializeStructuredDocumentWithPreservedRaw(doc.rawText, doc.structuredModel, documentSchemas[doc.type], { applyImplicitDefaultLocale: true })
             : await backend.serializeForSave(doc.type, doc.structuredModel)
           : doc.rawText;
-        zip.file(doc.name, textToSave);
+        zip.file(effectiveDocumentName(doc), textToSave);
       }
       const data = await zip.generateAsync({ type: "uint8array" });
       const result = await backend.saveArchive({
@@ -964,8 +947,8 @@ export function App() {
                   schema={schema}
                   model={editingDocument.structuredModel}
                   enabled={editingDocument.structuredEnabled}
-                  fileName={editingDocument.name}
-                  onFileNameChange={updateDocumentName}
+                  fileName={editingDocument.type === "pack" ? undefined : editingDocument.name}
+                  onFileNameChange={editingDocument.type === "pack" ? undefined : updateDocumentName}
                   onChange={updateStructured}
                 />
               )}

@@ -201,6 +201,9 @@ class DlcManagerClient {
             val updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon")) {
                 DlcUpdateClient.openUpdateManager(screen)
             }.bounds(updatePos[0], updatePos[1], iconSize, h).build()
+            val packButton = Button.builder(Component.translatable("dlc_manager.pack.quick_icon")) {
+                DlcClientRuntime.openPackManagerFromTitle(screen)
+            }.bounds(updatePos[0] + iconSize + 4, updatePos[1], iconSize, h).build()
             val noticeWidth = max(48, Minecraft.getInstance().font.width(Component.translatable("dlc_manager.notice")) + 8)
             val noticeHeight = 20
             val noticeDefaultX = screen.width - noticeWidth - 8
@@ -218,6 +221,9 @@ class DlcManagerClient {
             }.bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight).build()
             if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()) {
                 event.addListener(updateButton)
+            }
+            if (DlcPathConfig.isPButtomShown() && DlcPathConfig.isPackFuncOn()) {
+                event.addListener(packButton)
             }
             if (DlcClientRuntime.shouldShowMainMenuNoticeButton() &&
                 findButtonByKey(screen, "dlc_manager.notice") == null

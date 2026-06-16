@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerItem
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcPathConfig
 import com.cozooo.dlc_manager.core.DlcType
 import fi.dy.masa.malilib.gui.GuiListBase
@@ -423,10 +423,7 @@ class DlcServerMaLiLibScreen(
         if (item == null) return
         val conflicts = checkConflicts(item)
         if (conflicts.conflicts.isNotEmpty()) {
-            val message = Component.translatable(
-                "dlc_manager.conflict.prompt_prefix",
-                DlcTextFormatter.parse(conflicts.conflictNames.joinToString(", ")),
-            )
+            val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.conflictNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -446,10 +443,7 @@ class DlcServerMaLiLibScreen(
         }
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
-            val message = Component.translatable(
-                "dlc_manager.dependency.prompt",
-                DlcTextFormatter.parse(deps.missingNames.joinToString(", ")),
-            )
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -487,10 +481,7 @@ class DlcServerMaLiLibScreen(
 
         val deps = checkDependencies(item)
         if (deps.missing.isNotEmpty()) {
-            val message = Component.translatable(
-                "dlc_manager.dependency.prompt",
-                DlcTextFormatter.parse(deps.missingNames.joinToString(", ")),
-            )
+            val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
                 ConfirmScreen(
@@ -1292,6 +1283,7 @@ class DlcServerMaLiLibScreen(
             DlcType.RESOURCE_PACK -> "resource"
             DlcType.DATA_PACK -> "data"
             DlcType.TACZ_PACK -> "tacz"
+            DlcType.DLC_PACK -> "dlcpack"
             DlcType.UNKNOWN -> "other"
         }
     }
@@ -1440,11 +1432,15 @@ class DlcServerMaLiLibScreen(
             if (lower.contains("tacz")) return DlcType.TACZ_PACK
             if (lower == "mods" || lower == "mod") return DlcType.MOD
             for (dlcType in DlcType.values()) {
+                if (dlcType == DlcType.DLC_PACK) {
+                    continue
+                }
                 val id = when (dlcType) {
                     DlcType.MOD -> "mod"
                     DlcType.RESOURCE_PACK -> "resource"
                     DlcType.DATA_PACK -> "data"
                     DlcType.TACZ_PACK -> "tacz"
+                    DlcType.DLC_PACK -> "dlcpack"
                     DlcType.UNKNOWN -> "other"
                 }
                 if (id.equals(type, ignoreCase = true) || dlcType.name.equals(type, ignoreCase = true)) {

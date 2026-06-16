@@ -87,21 +87,43 @@ object DcFormatUtil {
                 while (stack.size > 1 && stack.peek().indent >= indent) {
                     stack.pop()
                 }
-                if (header == "dependencies") {
+                if (indent == 0 && (header == "dependencies" || header == "conflicts" || (!isQuotedKey(header) && header.startsWith("dependencies.")))) {
+                    while (stack.size > 1) {
+                        stack.pop()
+                    }
+                }
+                if (!isQuotedKey(header) && header.startsWith("dependencies.")) {
+                    val node = findNearestNode(stack)
+                    val depKey = unquoteKey(header.substringAfter("dependencies."))
+                    if (node != null && depKey.isNotBlank()) {
+                        val child = node.dependencies.computeIfAbsent(depKey) { DlcNode() }
+                        stack.push(Frame.node(indent, child))
+                    }
+                } else if (header == "dependencies") {
                     val node = findNearestNode(stack)
                     if (node != null) {
-                        stack.push(Frame.depContainer(indent, node))
+                        stack.push(Frame.relationContainer(indent, node, "dependencies"))
+                    }
+                } else if (header == "conflicts") {
+                    val node = findNearestNode(stack)
+                    if (node != null) {
+                        stack.push(Frame.relationContainer(indent, node, "conflicts"))
                     }
                 } else if (isSectionHeader(header)) {
                     val node = findNearestNode(stack)
                     if (node != null) {
                         stack.push(Frame.section(indent, node, header))
                     }
-                } else if (stack.peek().type == FrameType.DEP_CONTAINER) {
+                } else if (stack.peek().type == FrameType.RELATION_CONTAINER) {
+                    val relation = stack.peek().section
                     header = unquoteKey(header)
                     val parent = stack.peek().node
-                    val child = parent.dependencies.computeIfAbsent(header) { DlcNode() }
-                    stack.push(Frame.node(indent, child))
+                    if (relation == "dependencies") {
+                        val child = parent.dependencies.computeIfAbsent(header) { DlcNode() }
+                        stack.push(Frame.node(indent, child))
+                    } else if (relation == "conflicts") {
+                        parent.conflictEntries.add(header)
+                    }
                 }
                 index++
                 continue
@@ -110,12 +132,30 @@ object DcFormatUtil {
                 while (stack.size > 1 && stack.peek().indent >= indent) {
                     stack.pop()
                 }
-                if (stack.peek().type == FrameType.DEP_CONTAINER) {
+                if (stack.peek().type == FrameType.RELATION_CONTAINER) {
                     val depKey = unquoteKey(content.substring(0, content.length - 1).trim())
                     if (depKey.isNotBlank()) {
                         val parent = stack.peek().node
-                        val child = parent.dependencies.computeIfAbsent(depKey) { DlcNode() }
-                        stack.push(Frame.node(indent, child))
+                        if (stack.peek().section == "dependencies") {
+                            val child = parent.dependencies.computeIfAbsent(depKey) { DlcNode() }
+                            stack.push(Frame.node(indent, child))
+                        } else if (stack.peek().section == "conflicts") {
+                            parent.conflictEntries.add(depKey)
+                        }
+                    }
+                }
+                index++
+                continue
+            }
+            if (stack.peek().type == FrameType.RELATION_CONTAINER && !content.contains("=")) {
+                val relation = stack.peek().section
+                val node = stack.peek().node
+                val token = unquoteKey(content)
+                if (token.isNotBlank()) {
+                    if (relation == "dependencies") {
+                        node.dependencyEntries.add(token)
+                    } else if (relation == "conflicts") {
+                        node.conflictEntries.add(token)
                     }
                 }
                 index++
@@ -228,7 +268,7 @@ object DcFormatUtil {
         }
         val root = JsonObject()
         val stack = ArrayDeque<GenericFrame>()
-        stack.push(GenericFrame(-1, root))
+        stack.push(GenericFrame(-1, root, null))
         var index = 0
         while (index < lines.size) {
             var raw = lines[index]
@@ -252,8 +292,8 @@ object DcFormatUtil {
                 if (!isQuotedKey(rawHeader) && header.contains(".")) {
                     val child = ensureGenericPath(root, header)
                     stack.clear()
-                    stack.push(GenericFrame(-1, root))
-                    stack.push(GenericFrame(indent, child))
+                    stack.push(GenericFrame(-1, root, null))
+                    stack.push(GenericFrame(indent, child, header.substringAfterLast('.')))
                     index++
                     continue
                 }
@@ -267,7 +307,15 @@ object DcFormatUtil {
                 } else {
                     JsonObject().also { parent.add(header, it) }
                 }
-                stack.push(GenericFrame(indent, child))
+                stack.push(GenericFrame(indent, child, header))
+                index++
+                continue
+            }
+            if (isGenericRelationSection(stack.peek().name) && !content.contains("=")) {
+                val token = unquoteKey(content)
+                if (token.isNotBlank()) {
+                    stack.peek().obj.add(token, JsonObject())
+                }
                 index++
                 continue
             }
@@ -311,6 +359,7 @@ object DcFormatUtil {
     private fun writeGenericSection(out: StringBuilder, name: String, obj: JsonObject, sectionIndent: Int) {
         indentLine(out, sectionIndent)
         out.append('[').append(formatGenericKey(name)).append(']').append('\n')
+        val relationSection = isGenericRelationSection(name)
         val hasNestedSections = hasNestedGenericSections(obj)
         val bodyIndent = if (sectionIndent > 0 || hasNestedSections) sectionIndent + 2 else 0
         var wroteAny = false
@@ -319,11 +368,21 @@ object DcFormatUtil {
                 continue
             }
             indentLine(out, bodyIndent)
-            out.append(formatGenericKey(key)).append(" = ").append(formatGenericValue(key, value)).append('\n')
+            if (relationSection && isGenericRelationEntry(key, value)) {
+                out.append(formatStringValue(key)).append('\n')
+            } else {
+                out.append(formatGenericKey(key)).append(" = ").append(formatGenericValue(key, value)).append('\n')
+            }
             wroteAny = true
         }
         for ((key, value) in obj.entrySet()) {
             if (value == null || !value.isJsonObject) {
+                continue
+            }
+            if (relationSection && value.asJsonObject.entrySet().isEmpty()) {
+                indentLine(out, bodyIndent)
+                out.append(formatStringValue(key)).append('\n')
+                wroteAny = true
                 continue
             }
             if (wroteAny) {
@@ -344,6 +403,18 @@ object DcFormatUtil {
             }
         }
         return false
+    }
+
+    private fun isGenericRelationSection(name: String?): Boolean {
+        return name.equals("dependencies", ignoreCase = true) || name.equals("conflicts", ignoreCase = true)
+    }
+
+    private fun isGenericRelationEntry(key: String?, value: JsonElement?): Boolean {
+        if (key.isNullOrBlank() || value == null || value.isJsonNull || !value.isJsonPrimitive) {
+            return false
+        }
+        val primitive = value.asJsonPrimitive
+        return primitive.isString && primitive.asString.trim() == key.trim()
     }
 
     private fun ensureGenericPath(root: JsonObject, header: String): JsonObject {
@@ -410,8 +481,10 @@ object DcFormatUtil {
 
     private fun writeNode(out: StringBuilder, node: JsonObject, indent: Int, root: Boolean) {
         val depsElement = node.get("dependencies")
-        val basicDependencies = buildBasicDependenciesValue(depsElement)
+        val dependencyEntries = collectRelationEntries(depsElement)
         val hasNestedDependencies = depsElement != null && depsElement.isJsonObject && depsElement.asJsonObject.entrySet().isNotEmpty()
+        val conflictEntries = collectRelationEntries(node.get("conflicts"))
+        val hasConflicts = conflictEntries.isNotEmpty()
         val hasDownloadSection = hasDownloadSection(node)
         if (hasDownloadSection) {
             if (!root) {
@@ -426,20 +499,37 @@ object DcFormatUtil {
         }
         indentLine(out, indent)
         out.append("[basic]\n")
-        writeBasic(out, node, indent, basicDependencies)
+        writeBasic(out, node, indent)
 
-        if (hasNestedDependencies) {
+        if (dependencyEntries.isNotEmpty() || hasNestedDependencies) {
             indentLine(out, indent)
             out.append('\n')
             indentLine(out, indent)
             out.append("[dependencies]\n")
-            for ((key, value) in depsElement!!.asJsonObject.entrySet()) {
-                if (!value.isJsonObject) {
-                    continue
+            for (entry in dependencyEntries) {
+                indentLine(out, indent)
+                out.append(formatStringValue(entry)).append('\n')
+            }
+            if (depsElement != null && depsElement.isJsonObject) {
+                for ((key, value) in depsElement.asJsonObject.entrySet()) {
+                    if (!value.isJsonObject) {
+                        continue
+                    }
+                    indentLine(out, indent)
+                    out.append("[dependencies.").append(key).append("]\n")
+                    writeNode(out, value.asJsonObject, indent + 2, false)
                 }
-                indentLine(out, indent + 2)
-                out.append("[").append(key).append("]\n")
-                writeNode(out, value.asJsonObject, indent + 4, false)
+            }
+        }
+
+        if (hasConflicts) {
+            indentLine(out, indent)
+            out.append('\n')
+            indentLine(out, indent)
+            out.append("[conflicts]\n")
+            for (entry in conflictEntries) {
+                indentLine(out, indent)
+                out.append(formatStringValue(entry)).append('\n')
             }
         }
 
@@ -502,7 +592,7 @@ object DcFormatUtil {
         return false
     }
 
-    private fun writeBasic(out: StringBuilder, node: JsonObject, indent: Int, dependenciesValue: JsonElement?) {
+    private fun writeBasic(out: StringBuilder, node: JsonObject, indent: Int) {
         val keys = arrayOf("identifier", "type", "file_name", "appliedTarget", "isInList", "isHidden", "AllowEnableByAll", "alarm")
         for (key in keys) {
             if (!node.has(key)) {
@@ -521,14 +611,6 @@ object DcFormatUtil {
             indentLine(out, indent)
             out.append(formatKeyValue(key, value)).append('\n')
         }
-        if (dependenciesValue != null && !dependenciesValue.isJsonNull) {
-            indentLine(out, indent)
-            out.append(formatKeyValue("dependencies", dependenciesValue)).append('\n')
-        }
-        if (node.has("conflicts")) {
-            indentLine(out, indent)
-            out.append(formatKeyValue("conflicts", node.get("conflicts"))).append('\n')
-        }
     }
 
     private fun isKnownBasicKey(key: String): Boolean {
@@ -541,60 +623,35 @@ object DcFormatUtil {
             key == "curseforge_fileid" || key == "directUrl" || key == "priority"
     }
 
-    private fun buildBasicDependenciesValue(deps: JsonElement?): JsonElement? {
-        if (deps == null || deps.isJsonNull) {
-            return null
-        }
-        if (deps.isJsonPrimitive || deps.isJsonArray) {
-            return deps.deepCopy()
-        }
-        if (!deps.isJsonObject) {
-            return null
-        }
+    private fun collectRelationEntries(element: JsonElement?): List<String> {
         val names = LinkedHashSet<String>()
-        for ((key, value) in deps.asJsonObject.entrySet()) {
-            var identifier: String? = null
-            if (value != null && value.isJsonObject) {
-                identifier = readIdentifier(value.asJsonObject)
-            } else if (value != null && value.isJsonPrimitive) {
-                identifier = value.asString
-            } else if (value != null && value.isJsonArray) {
-                collectPrimitiveNames(value, names)
-            }
-            if (identifier.isNullOrBlank()) {
-                identifier = key
-            }
-            if (!identifier.isNullOrBlank()) {
-                names.add(identifier.trim())
-            }
-        }
-        if (names.isEmpty()) {
-            return null
-        }
-        if (names.size == 1) {
-            return JsonPrimitive(names.first())
-        }
-        val array = JsonArray()
-        for (name in names) {
-            array.add(JsonPrimitive(name))
-        }
-        return array
+        collectRelationEntries(element, names)
+        return ArrayList(names)
     }
 
-    private fun readIdentifier(obj: JsonObject?): String? {
-        if (obj == null) {
-            return null
+    private fun collectRelationEntries(element: JsonElement?, names: MutableSet<String>) {
+        if (element == null || element.isJsonNull) {
+            return
         }
-        for (key in arrayOf("identifier", "dlc_identifier", "file_name", "dlc_name")) {
-            val element = obj.get(key)
-            if (element != null && element.isJsonPrimitive) {
-                val value = element.asString
-                if (!value.isNullOrBlank()) {
-                    return value
+        if (element.isJsonPrimitive || element.isJsonArray) {
+            collectPrimitiveNames(element, names)
+            return
+        }
+        if (!element.isJsonObject) {
+            return
+        }
+        for ((key, value) in element.asJsonObject.entrySet()) {
+            if (value == null || value.isJsonNull) {
+                if (!key.isNullOrBlank()) {
+                    names.add(key.trim())
                 }
+                continue
+            }
+            if (value.isJsonPrimitive || value.isJsonArray) {
+                collectPrimitiveNames(value, names)
+                continue
             }
         }
-        return null
     }
 
     private fun collectPrimitiveNames(element: JsonElement?, names: MutableSet<String>?) {
@@ -692,7 +749,9 @@ object DcFormatUtil {
             "download" -> node.download.add(key, value)
             "DisplayName" -> node.displayName.add(key, value)
             "tip" -> node.tip.add(key, value)
-            "basic", "dependencies" -> node.basic.add(key, value)
+            "dependencies" -> collectPrimitiveNames(value, node.dependencyEntries)
+            "conflicts" -> collectPrimitiveNames(value, node.conflictEntries)
+            "basic" -> node.basic.add(key, value)
             else -> node.basic.add(key, value)
         }
     }
@@ -990,12 +1049,12 @@ object DcFormatUtil {
 
     private data class ParseValue(val value: JsonElement, val nextIndex: Int)
 
-    private data class GenericFrame(val indent: Int, val obj: JsonObject)
+    private data class GenericFrame(val indent: Int, val obj: JsonObject, val name: String?)
 
     private enum class FrameType {
         ROOT,
         NODE,
-        DEP_CONTAINER,
+        RELATION_CONTAINER,
         SECTION,
     }
 
@@ -1008,7 +1067,7 @@ object DcFormatUtil {
         companion object {
             fun root(node: DlcNode): Frame = Frame(-1, FrameType.ROOT, node, null)
             fun node(indent: Int, node: DlcNode): Frame = Frame(indent, FrameType.NODE, node, null)
-            fun depContainer(indent: Int, node: DlcNode): Frame = Frame(indent, FrameType.DEP_CONTAINER, node, null)
+            fun relationContainer(indent: Int, node: DlcNode, section: String): Frame = Frame(indent, FrameType.RELATION_CONTAINER, node, section)
             fun section(indent: Int, node: DlcNode, section: String): Frame = Frame(indent, FrameType.SECTION, node, section)
         }
     }
@@ -1018,6 +1077,8 @@ object DcFormatUtil {
         val basic = JsonObject()
         val displayName = JsonObject()
         val tip = JsonObject()
+        val dependencyEntries: MutableSet<String> = LinkedHashSet()
+        val conflictEntries: MutableSet<String> = LinkedHashSet()
         val dependencies: MutableMap<String, DlcNode> = LinkedHashMap()
 
         fun toJsonObject(): JsonObject {
@@ -1028,29 +1089,39 @@ object DcFormatUtil {
             for ((key, value) in basic.entrySet()) {
                 out.add(key, value)
             }
-            if (dependencies.isNotEmpty()) {
+            val basicDeps = out.get("dependencies")
+            if (basicDeps != null && !basicDeps.isJsonNull) {
+                collectPrimitiveNames(basicDeps, dependencyEntries)
+                out.remove("dependencies")
+            }
+            val basicConflicts = out.get("conflicts")
+            if (basicConflicts != null && !basicConflicts.isJsonNull) {
+                collectPrimitiveNames(basicConflicts, conflictEntries)
+                out.remove("conflicts")
+            }
+            if (dependencyEntries.isNotEmpty() || dependencies.isNotEmpty()) {
                 val deps = JsonObject()
+                for (name in dependencyEntries) {
+                    if (name.isNotBlank()) {
+                        deps.add(name, JsonPrimitive(name))
+                    }
+                }
                 for ((key, value) in dependencies) {
                     deps.add(key, value.toJsonObject())
-                }
-                val basicDeps = out.get("dependencies")
-                if (basicDeps != null && !basicDeps.isJsonNull) {
-                    val names = LinkedHashSet<String>()
-                    collectPrimitiveNames(basicDeps, names)
-                    for (name in names) {
-                        if (name.isBlank() || deps.has(name)) {
-                            continue
-                        }
-                        val idOnly = JsonObject()
-                        idOnly.addProperty("identifier", name)
-                        deps.add(name, idOnly)
-                    }
                 }
                 out.add("dependencies", deps)
             } else if (!out.has("dependencies")) {
                 out.addProperty("dependencies", "")
             }
-            if (!out.has("conflicts")) {
+            if (conflictEntries.isNotEmpty()) {
+                val conflicts = JsonObject()
+                for (name in conflictEntries) {
+                    if (name.isNotBlank()) {
+                        conflicts.add(name, JsonPrimitive(name))
+                    }
+                }
+                out.add("conflicts", conflicts)
+            } else if (!out.has("conflicts")) {
                 out.addProperty("conflicts", "")
             }
             if (displayName.entrySet().isNotEmpty()) {

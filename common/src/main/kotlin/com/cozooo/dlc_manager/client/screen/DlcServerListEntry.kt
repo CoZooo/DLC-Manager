@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.server.DlcServerItem
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcType
 import fi.dy.masa.malilib.gui.button.ButtonBase
 import fi.dy.masa.malilib.gui.button.ButtonGeneric
@@ -262,10 +262,7 @@ class DlcServerListEntry(
                 val deps = collectDependencies(screen, targets)
                 val conflicts = collectConflicts(screen, targets)
                 if (conflicts.names.isNotEmpty()) {
-                    val message = Component.translatable(
-                        "dlc_manager.conflict.prompt_prefix",
-                        DlcTextFormatter.parse(conflicts.names.joinToString(", ")),
-                    )
+                    val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names)
                     Minecraft.getInstance().setScreen(
                         ConfirmScreen(
                             { accepted ->
@@ -284,10 +281,7 @@ class DlcServerListEntry(
                     return
                 }
                 if (deps.names.isNotEmpty()) {
-                    val message = Component.translatable(
-                        "dlc_manager.dependency.prompt",
-                        DlcTextFormatter.parse(deps.names.joinToString(", ")),
-                    )
+                    val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.names)
                     Minecraft.getInstance().setScreen(
                         ConfirmScreen(
                             { accepted ->
@@ -454,8 +448,8 @@ class DlcServerListEntry(
                 }
             }
             for (existing in screen.getItemsSnapshot()) {
-                val existingIdentifier = existing?.identifier
-                if (existing == null || existingIdentifier.isNullOrBlank() || !existing.enabled) {
+                val existingIdentifier = existing.identifier
+                if (existingIdentifier.isNullOrBlank() || !existing.enabled) {
                     continue
                 }
                 val existingKey = normalizeIdentifier(existingIdentifier)
@@ -540,6 +534,9 @@ class DlcServerListEntry(
             val type = item?.type ?: return null
             val lower = type.lowercase(Locale.ROOT)
             for (dlcType in DlcType.entries) {
+                if (dlcType == DlcType.DLC_PACK) {
+                    continue
+                }
                 if (typeId(dlcType).equals(lower, ignoreCase = true)) {
                     return dlcType
                 }
@@ -553,6 +550,7 @@ class DlcServerListEntry(
                 DlcType.RESOURCE_PACK -> "resource"
                 DlcType.DATA_PACK -> "data"
                 DlcType.TACZ_PACK -> "tacz"
+                DlcType.DLC_PACK -> "dlcpack"
                 DlcType.UNKNOWN -> "other"
             }
         }

@@ -550,6 +550,13 @@ public final class DlcRequiredLoader {
                         }
                         continue;
                     }
+                    if (key != null && !key.isBlank()) {
+                        JsonObject childOrdered = new JsonObject();
+                        childOrdered.addProperty("identifier", key);
+                        ordered.add(key, childOrdered);
+                        result.names.add(key);
+                        continue;
+                    }
                 }
                 DependencyResult childResult = normalizeDependencies(value, requiredDir);
                 ordered.add(key, childResult.element == null ? new JsonPrimitive("") : childResult.element);

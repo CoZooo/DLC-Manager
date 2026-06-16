@@ -1,34 +1,32 @@
-package com.cozooo.dlc_manager.platform
+package com.cozooo.dlc_manager.platform.fabric
 
+import com.cozooo.dlc_manager.platform.PlatformServices
+import net.fabricmc.api.EnvType
+import net.fabricmc.loader.api.FabricLoader
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
-import net.minecraftforge.api.distmarker.Dist
-import net.minecraftforge.fml.ModList
-import net.minecraftforge.fml.loading.FMLEnvironment
-import net.minecraftforge.fml.loading.FMLPaths
-import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo
 import java.nio.file.Files
 import java.nio.file.Path
 
-class ForgePlatformServices : PlatformServices.Provider {
+class FabricPlatformServices : PlatformServices.Provider {
     override fun gameDir(): Path {
-        return FMLPaths.GAMEDIR.get()
+        return FabricLoader.getInstance().gameDir
     }
 
     override fun configDir(): Path {
-        return FMLPaths.CONFIGDIR.get()
+        return FabricLoader.getInstance().configDir
     }
 
     override fun isModLoaded(modId: String?): Boolean {
-        return ModList.get().isLoaded(modId)
+        return FabricLoader.getInstance().isModLoaded(modId)
     }
 
     override fun isDedicatedServer(): Boolean {
-        return FMLEnvironment.dist == Dist.DEDICATED_SERVER
+        return FabricLoader.getInstance().environmentType == EnvType.SERVER
     }
 
     override fun languageCode(): String {
-        if (FMLEnvironment.dist != Dist.CLIENT) {
+        if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) {
             return "en_us"
         }
         return try {
@@ -57,7 +55,7 @@ class ForgePlatformServices : PlatformServices.Provider {
     }
 
     override fun loaderName(): String {
-        return "Forge"
+        return "Fabric"
     }
 
     override fun mcVersion(): String {
@@ -69,26 +67,25 @@ class ForgePlatformServices : PlatformServices.Provider {
     }
 
     override fun modVersion(modId: String?): String {
-        return ModList.get().getModContainerById(modId)
-            .map { it.modInfo.version.toString() }
+        return FabricLoader.getInstance().getModContainer(modId)
+            .map { it.metadata.version.friendlyString }
             .orElse("")
     }
 
     override fun modFilePath(modId: String?): Path? {
-        val modFile = ModList.get().getModContainerById(modId)
-            .map { it.modInfo.owningFile as ModFileInfo }
-        if (modFile.isEmpty) {
+        val container = FabricLoader.getInstance().getModContainer(modId)
+        if (container.isEmpty) {
             return null
         }
         return try {
-            modFile.get().file.filePath
+            container.get().origin.paths.stream().findFirst().orElse(null)
         } catch (_: Exception) {
             null
         }
     }
 
     override fun playerName(): String {
-        if (FMLEnvironment.dist != Dist.CLIENT) {
+        if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) {
             return ""
         }
         return try {
@@ -100,7 +97,7 @@ class ForgePlatformServices : PlatformServices.Provider {
     }
 
     override fun playerUuid(): String {
-        if (FMLEnvironment.dist != Dist.CLIENT) {
+        if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) {
             return ""
         }
         return try {
@@ -116,7 +113,7 @@ class ForgePlatformServices : PlatformServices.Provider {
     companion object {
         @JvmStatic
         fun init() {
-            PlatformServices.setProvider(ForgePlatformServices())
+            PlatformServices.setProvider(FabricPlatformServices())
         }
     }
 }

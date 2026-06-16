@@ -744,7 +744,7 @@ object DlcServerDownloadService {
     }
 
     @JvmStatic
-    fun downloadAndApplyRequired(dlcRoot: Path?): DownloadResult {
+    fun downloadAndApplyRequired(dlcRoot: Path?): DownloadResult? {
         val result = DownloadResult()
         if (dlcRoot == null) {
             result.success = true
@@ -1360,7 +1360,7 @@ object DlcServerDownloadService {
         return if (entry != null) {
             when (entry.getType()) {
                 DlcType.MOD -> "download.jar"
-                DlcType.RESOURCE_PACK, DlcType.DATA_PACK, DlcType.TACZ_PACK, DlcType.UNKNOWN, null -> "download.zip"
+                DlcType.RESOURCE_PACK, DlcType.DATA_PACK, DlcType.TACZ_PACK, DlcType.DLC_PACK, DlcType.UNKNOWN, null -> "download.zip"
             }
         } else {
             "download.zip"

@@ -596,6 +596,9 @@ public class DlcScanner {
             if (fileName == null || fileName.isBlank()) {
                 continue;
             }
+            if (entry.getType() == DlcType.DLC_PACK) {
+                continue;
+            }
             String identifier = entry.getDlcIdentifier();
             if (identifier == null || identifier.isBlank()) {
                 identifier = fileName;

@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
@@ -824,12 +824,12 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             UpdateCheckResult updateCheck = DlcUpdateService.checkForUpdates(true);
             if (updateCheck != null && updateCheck.getUpdates() != null && !updateCheck.getUpdates().isEmpty()) {
                 UpdateApplyResult updateResult = DlcUpdateService.applyUpdates(updateCheck.getUpdates(), false);
-                if (updateResult.isMissing()) {
+                if (updateResult != null && updateResult.isMissing()) {
                     Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateMissingScreen(parent, updateCheck, updateResult.getMissingPaths())));
                     return;
                 }
-                if (!updateResult.isSuccess()) {
-                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, Component.translatable("dlc_manager.update.failed"))));
+                if (updateResult == null || !updateResult.isSuccess()) {
+                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, DlcUpdateService.toFailureComponent(updateResult))));
                     return;
                 }
                 updateApplied = true;

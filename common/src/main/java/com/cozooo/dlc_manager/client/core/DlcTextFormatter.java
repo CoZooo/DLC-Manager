@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.client.text;
+package com.cozooo.dlc_manager.client.core;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;

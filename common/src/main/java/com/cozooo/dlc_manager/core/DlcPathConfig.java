@@ -30,6 +30,8 @@ public class DlcPathConfig {
     public static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
     public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
     public static final boolean DEFAULT_PRESET_FUNC_ON = true;
+    public static final boolean DEFAULT_PACK_FUNC_ON = true;
+    public static final boolean DEFAULT_P_BUTTON_SHOWN = true;
     public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
     public static final int DEFAULT_ALARM_WAITING_TIME = 0;
     public static final boolean DEFAULT_SERVER_SUPPORT = false;
@@ -61,7 +63,7 @@ public class DlcPathConfig {
     public static final int DEFAULT_MAX_CONCURRENT_DOWNLOADS = 5;
     public static final int DEFAULT_MAX_SEGMENTS_PER_FILE = 4;
     public static final int DEFAULT_MIN_SEGMENT_MB = 20;
-    public static final int DEFAULT_MAX_RETRY = 5;
+    public static final int DEFAULT_MAX_RETRY = 3;
     public static final int DEFAULT_CONNECT_TIMEOUT_SECONDS = 5;
     public static final int DEFAULT_TASK_TIMEOUT_SECONDS = 60;
     public static final String DEFAULT_MODPACK_URL = "";
@@ -78,6 +80,8 @@ public class DlcPathConfig {
     private static boolean updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
     private static boolean selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
     private static boolean presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+    private static boolean packFuncOn = DEFAULT_PACK_FUNC_ON;
+    private static boolean pButtonShown = DEFAULT_P_BUTTON_SHOWN;
     private static boolean showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
     private static int alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
     private static boolean serverSupportClient = DEFAULT_SERVER_SUPPORT;
@@ -236,6 +240,14 @@ public class DlcPathConfig {
 
     public static boolean isPresetFuncOn() {
         return presetFuncOn;
+    }
+
+    public static boolean isPackFuncOn() {
+        return packFuncOn;
+    }
+
+    public static boolean isPButtomShown() {
+        return pButtonShown;
     }
 
     public static boolean isShowOnFirstRun() {
@@ -564,6 +576,14 @@ public class DlcPathConfig {
         presetFuncOn = value;
     }
 
+    public static void setPackFuncOn(boolean value) {
+        packFuncOn = value;
+    }
+
+    public static void setPButtomShown(boolean value) {
+        pButtonShown = value;
+    }
+
     public static void setShowOnFirstRun(boolean value) {
         showOnFirstRun = value;
     }
@@ -727,6 +747,8 @@ public class DlcPathConfig {
         updateManagerOn = DEFAULT_UPDATE_MANAGER_ON;
         selfUpdateAutoCheckOn = DEFAULT_SELF_UPDATE_AUTO_CHECK_ON;
         presetFuncOn = DEFAULT_PRESET_FUNC_ON;
+        packFuncOn = DEFAULT_PACK_FUNC_ON;
+        pButtonShown = DEFAULT_P_BUTTON_SHOWN;
         showOnFirstRun = DEFAULT_SHOW_ON_FIRST_RUN;
         alarmWaitingTime = DEFAULT_ALARM_WAITING_TIME;
         serverSupportClient = DEFAULT_SERVER_SUPPORT;
@@ -920,6 +942,8 @@ public class DlcPathConfig {
         obj.addProperty("isUpdateManagerOn", updateManagerOn);
         obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn);
         obj.addProperty("isPresetFuncOn", presetFuncOn);
+        obj.addProperty("isPackFuncOn", packFuncOn);
+        obj.addProperty("isPButtomShown", pButtonShown);
         obj.addProperty("ShowOnFirstRun", showOnFirstRun);
         obj.addProperty("WaitingTime", alarmWaitingTime);
         obj.addProperty("serverSupport", serverSupportClient);
@@ -1020,6 +1044,8 @@ public class DlcPathConfig {
         map.put("isUpdateManagerOn", value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON));
         map.put("isSelfUpdateAutoCheckOn", value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON));
         map.put("isPresetFuncOn", value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON));
+        map.put("isPackFuncOn", value -> packFuncOn = asBoolean(value, DEFAULT_PACK_FUNC_ON));
+        map.put("isPButtomShown", value -> pButtonShown = asBoolean(value, DEFAULT_P_BUTTON_SHOWN));
         map.put("ShowOnFirstRun", value -> showOnFirstRun = asBoolean(value, DEFAULT_SHOW_ON_FIRST_RUN));
         map.put("WaitingTime", value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME));
         map.put("serverSupport", value -> serverSupportClient = asBoolean(value, DEFAULT_SERVER_SUPPORT));

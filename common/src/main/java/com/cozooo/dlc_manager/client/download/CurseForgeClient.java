@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -36,6 +37,7 @@ public final class CurseForgeClient {
         .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs()))
         .build();
     private static final Map<String, CurseForgeFile> CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, CurseForgeMod> MOD_CACHE = new ConcurrentHashMap<>();
     private static final Map<String, String> PROJECT_ID_CACHE = new ConcurrentHashMap<>();
     private static final int MINECRAFT_GAME_ID = 432;
 
@@ -55,18 +57,48 @@ public final class CurseForgeClient {
         if (cached != null) {
             return cached;
         }
-        JsonObject data = fetchFileData(projectId, fileId, apiKey);
+        JsonObject data = fetchFileDataWithRetry(projectId, fileId, apiKey);
         if (data == null) {
             return null;
         }
         CurseForgeFile file = new CurseForgeFile();
         file.id = fileId;
         applyFileData(file, data);
-        if (file.url == null || file.url.isBlank()) {
-            file.url = fetchDownloadUrl(projectId, fileId, apiKey);
+        if (data.has("downloadUrl")) {
+            String downloadUrl = getString(data, "downloadUrl");
+            if (downloadUrl == null) {
+                return null;
+            }
+            file.url = downloadUrl;
+        } else if (file.url == null || file.url.isBlank()) {
+            file.url = fetchDownloadUrlWithRetry(projectId, fileId, apiKey);
         }
         CACHE.put(cacheKey, file);
         return file;
+    }
+
+    public static CurseForgeMod fetchMod(String modId) throws IOException, InterruptedException {
+        String resolvedModId = resolveProjectId(modId);
+        if (resolvedModId == null || resolvedModId.isBlank()) {
+            return null;
+        }
+        CurseForgeMod cached = MOD_CACHE.get(resolvedModId);
+        if (cached != null) {
+            return cached;
+        }
+        String apiKey = getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            return null;
+        }
+        String endpoint = "https://api.curseforge.com/v1/mods/" + resolvedModId;
+        JsonObject root = fetchJsonObjectWithRetry(endpoint, apiKey);
+        if (root == null) {
+            return null;
+        }
+        CurseForgeMod mod = new CurseForgeMod();
+        applyModData(mod, root.getAsJsonObject("data"));
+        MOD_CACHE.put(resolvedModId, mod);
+        return mod;
     }
 
     public static CurseForgeFile fetchFileByIdOrVersion(String projectIdOrSlug, String fileIdOrVersion, String mcVersion, String loader)
@@ -115,19 +147,8 @@ public final class CurseForgeClient {
         if (mcVersion != null && !mcVersion.isBlank()) {
             endpoint = endpoint + "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8);
         }
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
-            .GET()
-            .build();
-        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null;
-        }
-        JsonObject root = GSON.fromJson(response.body(), JsonObject.class);
-        if (root == null || !root.has("data") || !root.get("data").isJsonArray()) {
+        JsonObject root = fetchJsonArrayWithRetry(endpoint, apiKey);
+        if (root == null) {
             return null;
         }
         CurseForgeFile latest = null;
@@ -154,7 +175,7 @@ public final class CurseForgeClient {
             return null;
         }
         if (latest.url == null || latest.url.isBlank()) {
-            latest.url = fetchDownloadUrl(resolvedProjectId, latest.id, apiKey);
+            latest.url = fetchDownloadUrlWithRetry(resolvedProjectId, latest.id, apiKey);
         }
         CACHE.put(cacheKey, latest);
         return latest;
@@ -173,19 +194,8 @@ public final class CurseForgeClient {
         if (mcVersion != null && !mcVersion.isBlank()) {
             endpoint = endpoint + "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8);
         }
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
-            .GET()
-            .build();
-        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null;
-        }
-        JsonObject root = GSON.fromJson(response.body(), JsonObject.class);
-        if (root == null || !root.has("data") || !root.get("data").isJsonArray()) {
+        JsonObject root = fetchJsonArrayWithRetry(endpoint, apiKey);
+        if (root == null) {
             return null;
         }
         CurseForgeFile matched = null;
@@ -220,7 +230,7 @@ public final class CurseForgeClient {
             return null;
         }
         if (matched.url == null || matched.url.isBlank()) {
-            matched.url = fetchDownloadUrl(projectId, matched.id, apiKey);
+            matched.url = fetchDownloadUrlWithRetry(projectId, matched.id, apiKey);
         }
         return matched;
     }
@@ -243,20 +253,8 @@ public final class CurseForgeClient {
         }
         String endpoint = "https://api.curseforge.com/v1/mods/search?gameId=" + MINECRAFT_GAME_ID
             + "&slug=" + URLEncoder.encode(trimmed, StandardCharsets.UTF_8);
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
-            .GET()
-            .build();
-        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            PROJECT_ID_CACHE.put(trimmed.toLowerCase(), "");
-            return null;
-        }
-        JsonObject root = GSON.fromJson(response.body(), JsonObject.class);
-        if (root == null || !root.has("data") || !root.get("data").isJsonArray()) {
+        JsonObject root = fetchJsonArrayWithRetry(endpoint, apiKey);
+        if (root == null) {
             PROJECT_ID_CACHE.put(trimmed.toLowerCase(), "");
             return null;
         }
@@ -334,29 +332,36 @@ public final class CurseForgeClient {
         return part2;
     }
 
-    private static JsonObject fetchFileData(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
+    private static JsonObject fetchFileDataWithRetry(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
         String endpoint;
         if (projectId != null && !projectId.isBlank()) {
             endpoint = "https://api.curseforge.com/v1/mods/" + projectId + "/files/" + fileId;
         } else {
             endpoint = "https://api.curseforge.com/v1/mods/files/" + fileId;
         }
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
-            .GET()
-            .build();
-        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null;
-        }
-        JsonObject root = GSON.fromJson(response.body(), JsonObject.class);
+        JsonObject root = sendJsonWithRetry(endpoint, apiKey, false);
         if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
             return null;
         }
         return root.getAsJsonObject("data");
+    }
+
+    private static String fetchDownloadUrlWithRetry(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
+        int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
+        IOException lastError = null;
+        for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            try {
+                return fetchDownloadUrl(projectId, fileId, apiKey);
+            } catch (DownloadUrlNotRetryableException ex) {
+                return ex.downloadUrl;
+            } catch (IOException ex) {
+                lastError = ex;
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        return null;
     }
 
     private static String fetchDownloadUrl(String projectId, String fileId, String apiKey) throws IOException, InterruptedException {
@@ -364,23 +369,76 @@ public final class CurseForgeClient {
             return null;
         }
         String endpoint = "https://api.curseforge.com/v1/mods/" + projectId + "/files/" + fileId + "/download-url";
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(endpoint))
-            .header("User-Agent", "DLC-Manager")
-            .header("x-api-key", apiKey)
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
-            .GET()
-            .build();
-        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            return null;
-        }
-        JsonObject root = GSON.fromJson(response.body(), JsonObject.class);
+        JsonObject root = sendJsonWithRetry(endpoint, apiKey, true);
         if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
             return null;
         }
         JsonObject data = root.getAsJsonObject("data");
-        return getString(data, "downloadUrl");
+        if (data.has("downloadUrl")) {
+            return getString(data, "downloadUrl");
+        }
+        return null;
+    }
+
+    private static JsonObject fetchJsonArrayWithRetry(String endpoint, String apiKey) throws IOException, InterruptedException {
+        JsonObject root = sendJsonWithRetry(endpoint, apiKey, false);
+        if (root == null || !root.has("data") || !root.get("data").isJsonArray()) {
+            return null;
+        }
+        return root;
+    }
+
+    private static JsonObject fetchJsonObjectWithRetry(String endpoint, String apiKey) throws IOException, InterruptedException {
+        JsonObject root = sendJsonWithRetry(endpoint, apiKey, false);
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject()) {
+            return null;
+        }
+        return root;
+    }
+
+    private static JsonObject sendJsonWithRetry(String endpoint, String apiKey, boolean stopOnDownloadUrlForbidden) throws IOException, InterruptedException {
+        int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
+        IOException lastError = null;
+        for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .header("User-Agent", "DLC-Manager")
+                    .header("x-api-key", apiKey)
+                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
+                    .GET()
+                    .build();
+                HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                if (stopOnDownloadUrlForbidden && response.statusCode() == HttpURLConnection.HTTP_FORBIDDEN) {
+                    throw new DownloadUrlNotRetryableException(null);
+                }
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    if (isRetryableStatus(response.statusCode()) && attempt < maxRetry) {
+                        continue;
+                    }
+                    return null;
+                }
+                return GSON.fromJson(response.body(), JsonObject.class);
+            } catch (IOException ex) {
+                lastError = ex;
+            }
+        }
+        if (lastError != null) {
+            throw lastError;
+        }
+        return null;
+    }
+
+    private static boolean isRetryableStatus(int statusCode) {
+        return statusCode == 429 || statusCode >= 500;
+    }
+
+    private static final class DownloadUrlNotRetryableException extends RuntimeException {
+        private final String downloadUrl;
+
+        private DownloadUrlNotRetryableException(String downloadUrl) {
+            this.downloadUrl = downloadUrl;
+        }
     }
 
     private static String getString(JsonObject obj, String key) {
@@ -443,6 +501,7 @@ public final class CurseForgeClient {
         file.displayName = getString(data, "displayName");
         file.fileDate = getString(data, "fileDate");
         file.url = getString(data, "downloadUrl");
+        file.classSlug = readClassSlug(data);
         if (data.has("fileLength") && data.get("fileLength").isJsonPrimitive()) {
             try {
                 file.size = data.get("fileLength").getAsLong();
@@ -483,8 +542,97 @@ public final class CurseForgeClient {
         public String displayName;
         public String fileDate;
         public String url;
+        public String classSlug;
         public String sha1;
         public String md5;
         public long size;
+    }
+
+    public static final class CurseForgeMod {
+        public String id;
+        public String classSlug;
+        public String primaryCategorySlug;
+        public String primaryCategoryName;
+        public final java.util.List<String> categorySlugs = new java.util.ArrayList<>();
+    }
+
+    private static String readClassSlug(JsonObject data) {
+        if (data == null) {
+            return null;
+        }
+        String direct = getString(data, "classSlug");
+        if (direct != null && !direct.isBlank()) {
+            return direct;
+        }
+        if (data.has("class") && data.get("class").isJsonObject()) {
+            JsonObject clazz = data.getAsJsonObject("class");
+            String slug = getString(clazz, "slug");
+            if (slug != null && !slug.isBlank()) {
+                return slug;
+            }
+            String name = getString(clazz, "name");
+            if (name != null && !name.isBlank()) {
+                return name;
+            }
+        }
+        if (data.has("categories") && data.get("categories").isJsonArray()) {
+            for (var element : data.getAsJsonArray("categories")) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject category = element.getAsJsonObject();
+                String slug = getString(category, "slug");
+                if (slug != null && !slug.isBlank()) {
+                    return slug;
+                }
+                String name = getString(category, "name");
+                if (name != null && !name.isBlank()) {
+                    return name;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void applyModData(CurseForgeMod mod, JsonObject data) {
+        if (mod == null || data == null) {
+            return;
+        }
+        mod.id = getString(data, "id");
+        if (data.has("classId") && data.get("classId").isJsonPrimitive()) {
+            try {
+                mod.classSlug = getString(data, "classSlug");
+            } catch (Exception ignored) {
+                mod.classSlug = null;
+            }
+        }
+        if (data.has("categories") && data.get("categories").isJsonArray()) {
+            for (var element : data.getAsJsonArray("categories")) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject category = element.getAsJsonObject();
+                String slug = getString(category, "slug");
+                String name = getString(category, "name");
+                if (mod.primaryCategorySlug == null || mod.primaryCategorySlug.isBlank()) {
+                    if (slug != null && !slug.isBlank()) {
+                        mod.primaryCategorySlug = slug;
+                    }
+                }
+                if (mod.primaryCategoryName == null || mod.primaryCategoryName.isBlank()) {
+                    if (name != null && !name.isBlank()) {
+                        mod.primaryCategoryName = name;
+                    }
+                }
+                if (slug != null && !slug.isBlank()) {
+                    mod.categorySlugs.add(slug);
+                } else if (name != null && !name.isBlank()) {
+                    mod.categorySlugs.add(name);
+                }
+            }
+        }
+        if (mod.classSlug == null || mod.classSlug.isBlank()) {
+            mod.classSlug = mod.primaryCategorySlug;
+        }
     }
 }

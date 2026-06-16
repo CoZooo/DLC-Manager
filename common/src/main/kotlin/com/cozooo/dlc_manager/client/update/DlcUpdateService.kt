@@ -228,7 +228,7 @@ object DlcUpdateService {
         packages: MutableList<DlcUpdatePackage?>?,
         forceMissing: Boolean,
         progressListener: ApplyProgressListener? = null
-    ): UpdateApplyResult {
+    ): UpdateApplyResult? {
         CURRENT_PROGRESS_LISTENER.set(progressListener)
         try {
             return applyUpdatesInternal(packages, forceMissing)

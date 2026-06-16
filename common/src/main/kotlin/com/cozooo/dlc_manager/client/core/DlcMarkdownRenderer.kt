@@ -1,6 +1,4 @@
 package com.cozooo.dlc_manager.client.core
-
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
 import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.Font
 import net.minecraft.network.chat.ClickEvent

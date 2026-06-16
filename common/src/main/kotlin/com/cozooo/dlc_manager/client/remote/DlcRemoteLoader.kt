@@ -325,11 +325,15 @@ object DlcRemoteLoader {
         }
         val legacyShown = getBoolean(obj, "isShownInList", true)
         var inList = getBoolean(obj, "isInList", legacyShown)
-        val hidden = getBoolean(obj, "isHidden", false)
+        var hidden = getBoolean(obj, "isHidden", false)
         val allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
         val alarm = getBoolean(obj, "alarm", false)
         if (type == DlcType.UNKNOWN && appliedTarget.isNullOrBlank()) {
             inList = false
+        }
+        if (type == DlcType.DLC_PACK) {
+            inList = false
+            hidden = true
         }
 
         val deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir)
@@ -568,9 +572,43 @@ object DlcRemoteLoader {
             return result
         }
         if (element.isJsonObject) {
-            val name = resolveIdentifier(element.asJsonObject, null)
-            result.element = JsonPrimitive(name ?: "")
-            result.names.addAll(splitNames(name))
+            val obj = element.asJsonObject
+            if (isIdentifierOnlyObject(obj)) {
+                val name = resolveIdentifier(obj, null)
+                result.element = JsonPrimitive(name ?: "")
+                result.names.addAll(splitNames(name))
+                return result
+            }
+            val ordered = JsonObject()
+            for ((key, value) in obj.entrySet()) {
+                if (value == null || value.isJsonNull) {
+                    continue
+                }
+                if (value.isJsonPrimitive) {
+                    val raw = value.asString
+                    if (raw.isBlank()) {
+                        continue
+                    }
+                    ordered.addProperty(key, raw)
+                    result.names.addAll(splitNames(raw))
+                    continue
+                }
+                if (value.isJsonArray) {
+                    val childResult = normalizeConflicts(value)
+                    ordered.add(key, childResult.element)
+                    result.names.addAll(childResult.names)
+                    continue
+                }
+                if (value.isJsonObject) {
+                    val identifier = resolveIdentifier(value.asJsonObject, key)
+                    val name = if (identifier.isNullOrBlank()) key else identifier
+                    if (!name.isNullOrBlank()) {
+                        ordered.addProperty(key, name)
+                        result.names.add(name)
+                    }
+                }
+            }
+            result.element = ordered
             return result
         }
         result.element = JsonPrimitive("")

@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 
-internal object DlcDisplayNameUtil {
+object DlcDisplayNameUtil {
     @JvmStatic
     fun resolveDisplayName(item: DlcItem?): String {
         if (item == null) {

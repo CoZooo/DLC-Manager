@@ -379,7 +379,7 @@ class DlcTooltipLoader {
             if (key == null) {
                 continue
             }
-            if (isIdentifierAlias(key) || isFileNameAlias(key) || "name".equals(key, ignoreCase = true)) {
+            if (isIdentifierAlias(key)) {
                 hasIdField = true
                 continue
             }
@@ -389,18 +389,11 @@ class DlcTooltipLoader {
     }
 
     private fun resolveRelationIdentifier(obj: JsonObject?): String? {
-        var identifier = getIdentifier(obj)
-        if (identifier.isNullOrBlank()) {
-            identifier = getFileName(obj)
-        }
-        if (identifier.isNullOrBlank()) {
-            identifier = getString(obj, "name")
-        }
-        return identifier
+        return getString(obj, "identifier")
     }
 
     private fun isIdentifierAlias(key: String): Boolean {
-        return "identifier".equals(key, ignoreCase = true) || "dlc_identifier".equals(key, ignoreCase = true)
+        return "identifier".equals(key, ignoreCase = true)
     }
 
     private fun isFileNameAlias(key: String): Boolean {
@@ -582,23 +575,18 @@ class DlcTooltipLoader {
         }
         if (element.isJsonObject) {
             val obj = element.asJsonObject
-            var name = getIdentifier(obj)
-            if (name.isNullOrBlank()) {
-                name = getString(obj, "file_name")
-            }
-            if (name.isNullOrBlank()) {
-                name = getString(obj, "dlc_name")
-            }
-            if (name.isNullOrBlank()) {
-                name = getString(obj, "name")
-            }
+            val name = getString(obj, "identifier")
             if (!name.isNullOrBlank()) {
                 result.add(name.trim())
                 collectDependencyNames(DcConfigIO.getIgnoreCase(obj, "dependencies"), result)
                 return
             }
-            for ((_, value) in obj.entrySet()) {
+            for ((key, value) in obj.entrySet()) {
+                val before = result.size
                 collectDependencyNames(value, result)
+                if (result.size == before && value != null && value.isJsonObject && !key.isNullOrBlank()) {
+                    result.add(key.trim())
+                }
             }
         }
     }
@@ -672,6 +660,7 @@ class DlcTooltipLoader {
             "resourcepack" to DlcType.RESOURCE_PACK,
             "datapack" to DlcType.DATA_PACK,
             "gunpack" to DlcType.TACZ_PACK,
+            "dlcpack" to DlcType.DLC_PACK,
             "config" to DlcType.UNKNOWN,
             "others" to DlcType.UNKNOWN,
         )
@@ -694,6 +683,7 @@ class DlcTooltipLoader {
                 DlcType.RESOURCE_PACK -> "resourcepack"
                 DlcType.DATA_PACK -> "datapack"
                 DlcType.TACZ_PACK -> "gunpack"
+                DlcType.DLC_PACK -> "dlcpack"
                 DlcType.UNKNOWN -> "others"
             }
         }

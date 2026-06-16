@@ -41,12 +41,12 @@ public final class DlcServerCommandHandlers {
                 return;
             }
             DlcUpdateService.UpdateApplyResult result = DlcUpdateService.applyUpdates(check.getUpdates(), false);
-            if (result.isSuccess()) {
+            if (result != null && result.isSuccess()) {
                 execute(source, () -> {
                     sendSuccess(source, Component.translatable("dlc_manager.update.success"));
                     sendSuccess(source, Component.translatable("dlc_manager.update.restart"));
                 });
-            } else if (result.isMissing()) {
+            } else if (result != null && result.isMissing()) {
                 execute(source, () -> sendFailure(source, Component.translatable("dlc_manager.update.missing_title")));
             } else {
                 execute(source, () -> sendFailure(source, Component.translatable("dlc_manager.update.failed")));

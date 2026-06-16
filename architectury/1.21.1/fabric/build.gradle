@@ -58,6 +58,9 @@ if (kotlinEnabled) {
     }
 }
 
+rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs)
+rootProject.configureLocalDevMods(moduleProject)
+
 configurations {
     common
     shadowCommon
@@ -75,7 +78,7 @@ dependencies {
         modImplementation "net.fabricmc:fabric-language-kotlin:${rootProject.fabric_language_kotlin_version}"
     }
     obfLib "net.fabricmc:intermediary:${rootProject.minecraft_version}:v2"
-    modCompileOnly "maven.modrinth:malilib:${rootProject.malilib_version}"
+    modImplementation "maven.modrinth:malilib:${rootProject.malilib_version}"
     if (rootProject.modmenu_version) {
         modCompileOnly "com.terraformersmc:modmenu:${rootProject.modmenu_version}"
     }

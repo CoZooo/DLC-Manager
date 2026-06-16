@@ -1,10 +1,13 @@
 package com.cozooo.dlc_manager.client.screen
 
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
+import com.cozooo.dlc_manager.core.DlcPaths
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -26,7 +29,7 @@ class DlcUpdateMissingScreen(
         val buttonWidth = 120
         val buttonHeight = 20
         val y = height - 40
-        val force = Button.builder(Component.translatable("dlc_manager.update.force")) { startApply() }
+        val force = Button.builder(Component.translatable("dlc_manager.update.force")) { confirmApply() }
             .bounds(width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build()
         val cancel = Button.builder(Component.translatable("dlc_manager.update.cancel")) { Minecraft.getInstance().setScreen(parent) }
@@ -110,7 +113,13 @@ class DlcUpdateMissingScreen(
         }
     }
 
-    private fun startApply() {
+    private fun confirmApply() {
+        DlcUpdatePackGuard.confirmBeforeUpdate(this, updateResult.updates) { packCheck, uninstallIncompatible ->
+            startApply(packCheck, uninstallIncompatible)
+        }
+    }
+
+    private fun startApply(packCheck: DlcPackUpdateGuard.CheckResult?, uninstallIncompatible: Boolean) {
         if (applying) {
             return
         }
@@ -118,13 +127,36 @@ class DlcUpdateMissingScreen(
         forceButton?.active = false
         cancelButton?.active = false
         Thread({
-            val result = DlcUpdateService.applyUpdates(updateResult.updates, true)
-            Minecraft.getInstance().execute { handleResult(result) }
+            var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
+            try {
+                val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                val result = DlcUpdateService.applyUpdates(updateResult.updates, true)
+                if (result?.isSuccess == true) {
+                    packSession.finishAfterSuccessfulUpdate()
+                } else {
+                    packSession.restoreAfterFailedUpdate()
+                }
+                Minecraft.getInstance().execute { handleResult(result) }
+            } catch (ex: Exception) {
+                packSession?.let {
+                    try {
+                        it.restoreAfterFailedUpdate()
+                    } catch (restoreError: Exception) {
+                        ex.addSuppressed(restoreError)
+                    }
+                }
+                val message = ex.message ?: "Failed to apply update"
+                Minecraft.getInstance().execute {
+                    applying = false
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, Component.literal(message)))
+                }
+            }
         }, "dlc-update-force").start()
     }
 
-    private fun handleResult(result: UpdateApplyResult) {
-        if (!result.isSuccess) {
+    private fun handleResult(result: UpdateApplyResult?) {
+        if (result?.isSuccess != true) {
             val component = DlcUpdateService.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, component))
             return

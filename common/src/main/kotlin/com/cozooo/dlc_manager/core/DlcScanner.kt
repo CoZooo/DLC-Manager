@@ -607,6 +607,9 @@ class DlcScanner {
             if (fileName.isNullOrBlank()) {
                 continue
             }
+            if (entry.getType() == DlcType.DLC_PACK) {
+                continue
+            }
             var identifier = entry.getDlcIdentifier()
             if (identifier.isNullOrBlank()) {
                 identifier = fileName

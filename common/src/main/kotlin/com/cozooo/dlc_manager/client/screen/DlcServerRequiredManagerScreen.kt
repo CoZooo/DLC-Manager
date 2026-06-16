@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredProgressItem
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics

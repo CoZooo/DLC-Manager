@@ -17,7 +17,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -73,6 +73,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     private ButtonGeneric configButton;
     private ButtonGeneric updateButton;
     private ButtonGeneric presetButton;
+    private ButtonGeneric packButton;
     private ButtonGeneric serverButton;
     private ButtonGeneric enableAllButton;
     private ButtonGeneric disableAllButton;
@@ -181,6 +182,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             || isOverButton(modeButton, mouseX, mouseY)
             || isOverButton(updateButton, mouseX, mouseY)
             || isOverButton(configButton, mouseX, mouseY)
+            || isOverButton(packButton, mouseX, mouseY)
             || isOverButton(serverButton, mouseX, mouseY)
             || isOverButton(applyButton, mouseX, mouseY)
             || isOverButton(backButton, mouseX, mouseY);
@@ -399,6 +401,19 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             addButton(presetButton, new FooterButtonListener());
         }
 
+        packButton = null;
+        if (DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown()) {
+            int packWidth = Math.max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.pack.manager")) + 8);
+            packButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, packWidth, 20, StringUtils.translate("dlc_manager.pack.manager"));
+            if (updateButton != null) {
+                packButton.setX(updateButton.getX() + updateButton.getWidth() + gap);
+            }
+            if (presetButton != null) {
+                packButton.setX(presetButton.getX() + presetButton.getWidth() + gap);
+            }
+            addButton(packButton, new FooterButtonListener());
+        }
+
         configButton = null;
         if (DlcPathConfig.isConfigButtonShown()) {
             int configX = left + modeButton.getWidth() + gap;
@@ -407,6 +422,9 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             }
             if (presetButton != null) {
                 configX += presetButton.getWidth() + gap;
+            }
+            if (packButton != null) {
+                configX += packButton.getWidth() + gap;
             }
             int configWidth = Math.max(60, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.config")) + padding);
             configButton = new ButtonGeneric(configX, y, configWidth, 20, StringUtils.translate("dlc_manager.config"));
@@ -436,6 +454,9 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         if (presetButton != null) {
             leftSpanEnd = Math.max(leftSpanEnd, presetButton.getX() + presetButton.getWidth());
         }
+        if (packButton != null) {
+            leftSpanEnd = Math.max(leftSpanEnd, packButton.getX() + packButton.getWidth());
+        }
         if (configButton != null) {
             leftSpanEnd = Math.max(leftSpanEnd, configButton.getX() + configButton.getWidth());
         }
@@ -453,6 +474,9 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             }
             if (presetButton != null) {
                 presetButton.setY(row1Y);
+            }
+            if (packButton != null) {
+                packButton.setY(row1Y);
             }
             if (configButton != null) {
                 configButton.setY(row1Y);
@@ -833,6 +857,9 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         } else if (button == presetButton) {
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcPresetManagerScreen(DlcMaLiLibScreen.this));
+        } else if (button == packButton) {
+            rememberListScroll();
+            Minecraft.getInstance().setScreen(new DlcPackManagerScreen(DlcMaLiLibScreen.this));
         } else if (button == configButton) {
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcConfigScreen(DlcMaLiLibScreen.this));
@@ -888,6 +915,9 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         }
         if (presetButton != null) {
             buttonTop = Math.min(buttonTop, presetButton.getY());
+        }
+        if (packButton != null) {
+            buttonTop = Math.min(buttonTop, packButton.getY());
         }
         if (applyButton != null) {
             buttonTop = Math.min(buttonTop, applyButton.getY());
@@ -1071,6 +1101,9 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         if (presetButton != null) {
             leftEnd = Math.max(leftEnd, presetButton.getX() + presetButton.getWidth());
         }
+        if (packButton != null) {
+            leftEnd = Math.max(leftEnd, packButton.getX() + packButton.getWidth());
+        }
         if (configButton != null) {
             leftEnd = Math.max(leftEnd, configButton.getX() + configButton.getWidth());
         }
@@ -1084,6 +1117,12 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             modeButton.setY(row1Y);
             if (updateButton != null) {
                 updateButton.setY(row1Y);
+            }
+            if (presetButton != null) {
+                presetButton.setY(row1Y);
+            }
+            if (packButton != null) {
+                packButton.setY(row1Y);
             }
             if (configButton != null) {
                 configButton.setY(row1Y);
@@ -1248,7 +1287,8 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
 
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
-            Component message = getHeaderConfirmMessage(enable);
+            Component activeFilterLabel = activeFilter == null ? null : Component.translatable(activeFilter.getDisplayKey());
+            Component message = DlcConfirmUtil.buildHeaderConfirmMessage(enable, activeFilterLabel);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(DlcMaLiLibScreen.this);
@@ -1274,8 +1314,8 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
                 }
             }, Component.translatable("dlc_manager.title"),
                 message,
-                Component.translatable("dlc_manager.confirm_yes"),
-                Component.translatable("dlc_manager.confirm_no")));
+                DlcConfirmUtil.confirmYes(),
+                DlcConfirmUtil.confirmNo()));
         }
     }
 
@@ -1471,15 +1511,6 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         requiredButton.setHeight(buttonHeight);
     }
 
-    private Component getHeaderConfirmMessage(boolean enable) {
-        if (activeFilter == null) {
-            String key = enable ? "dlc_manager.confirm.enable_all" : "dlc_manager.confirm.disable_all";
-            return Component.translatable(key);
-        }
-        String key = enable ? "dlc_manager.confirm.enable_all_type" : "dlc_manager.confirm.disable_all_type";
-        return Component.translatable(key, Component.translatable(activeFilter.getDisplayKey()));
-    }
-
     private void handleBatchEnable(java.util.List<DlcItem> targets, Component scopeLabel) {
         DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(targets);
         if (!conflicts.getLines().isEmpty()) {
@@ -1511,7 +1542,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             .toList();
         if (!alarmItems.isEmpty()) {
             rememberListScroll();
-            String tip = buildBatchAlarmTip(alarmItems);
+            String tip = DlcConfirmUtil.buildBatchAlarmTip(alarmItems);
             Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(this, tip, () -> {
                 enableItems(targets, true);
                 refreshAfterStateChange();
@@ -1558,13 +1589,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     }
 
     private void showBatchConflictSkipPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines, Runnable onSkipConfirm) {
-        java.util.List<Component> components = new java.util.ArrayList<>();
-        for (DlcRuntimeState.ConflictLine line : lines) {
-            components.add(buildConflictLine(
-                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
-                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
-        }
-        Component message = joinLines(components);
+        Component message = DlcConfirmUtil.buildConflictMessage(lines);
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.DARK_RED);
         rememberListScroll();
@@ -1578,42 +1603,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             }
         }, title, message,
             Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
-            Component.translatable("dlc_manager.confirm_no")));
-    }
-
-    private String buildBatchAlarmTip(java.util.List<DlcItem> alarmItems) {
-        if (alarmItems == null || alarmItems.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        String lang = Minecraft.getInstance().options.languageCode;
-        for (DlcItem item : alarmItems) {
-            if (item == null) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append("\n\n");
-            }
-            sb.append(DlcDisplayNameUtil.resolveDisplayName(item));
-            String tip = resolveAlarmTip(item, lang);
-            if (tip != null && !tip.isBlank()) {
-                sb.append("\n").append(tip);
-            }
-        }
-        return sb.toString();
-    }
-
-    private String resolveAlarmTip(DlcItem item, String lang) {
-        if (item == null || item.getTooltips().isEmpty()) {
-            return "";
-        }
-        if (item.getTooltips().containsKey(lang)) {
-            return item.getTooltips().get(lang);
-        }
-        if (item.getTooltips().containsKey("en_us")) {
-            return item.getTooltips().get("en_us");
-        }
-        return item.getTooltips().values().stream().findFirst().orElse("");
+            DlcConfirmUtil.confirmNo()));
     }
 
     private void enableItems(java.util.Collection<DlcItem> items, boolean enabled) {
@@ -1646,29 +1636,17 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     }
 
     private void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines) {
-        java.util.List<Component> components = new java.util.ArrayList<>();
-        for (DlcRuntimeState.ConflictLine line : lines) {
-            components.add(buildConflictLine(
-                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
-                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
-        }
-        Component message = joinLines(components);
+        Component message = DlcConfirmUtil.buildConflictMessage(lines);
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.DARK_RED);
         rememberListScroll();
         Minecraft.getInstance().setScreen(new DlcSingleButtonScreen(this, title, message,
-            Component.translatable("dlc_manager.confirm_no")));
+            DlcConfirmUtil.confirmNo()));
     }
 
     private void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
         java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
-        java.util.List<Component> components = new java.util.ArrayList<>();
-        for (DlcRuntimeState.DependencyLine line : lines) {
-            components.add(Component.translatable("dlc_manager.batch.dependencies_line",
-                DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getItemName())),
-                DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName()))));
-        }
-        Component message = joinLines(components);
+        Component message = DlcConfirmUtil.buildDependencyMessage(lines);
         Component title = Component.translatable("dlc_manager.batch.dependencies_title");
         Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
         rememberListScroll();
@@ -1699,24 +1677,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             }
             enableItems(planned, true);
             refreshAfterStateChange();
-        }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
-    }
-
-    private Component buildConflictLine(String left, String right) {
-        return Component.translatable("dlc_manager.batch.conflicts_line_prefix",
-                DlcTextFormatter.parse(left), DlcTextFormatter.parse(right))
-            .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
-    }
-
-    private Component joinLines(java.util.List<Component> lines) {
-        net.minecraft.network.chat.MutableComponent result = Component.empty();
-        for (int i = 0; i < lines.size(); i++) {
-            if (i > 0) {
-                result = result.append(Component.literal("\n"));
-            }
-            result = result.append(lines.get(i));
-        }
-        return result;
+        }, title, message, enableLabel, DlcConfirmUtil.confirmNo()));
     }
 
     private HeaderLabels getHeaderLabels() {

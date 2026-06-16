@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager;
 
 import com.cozooo.dlc_manager.bootstrap.DlcBootstrap;
-import com.cozooo.dlc_manager.platform.NeoForgePlatformServices;
+import com.cozooo.dlc_manager.platform.neoforge.NeoForgePlatformServices;
 import com.cozooo.dlc_manager.server.DlcServerCommands;
 import com.cozooo.dlc_manager.world.DlcWorldSync;
 import net.neoforged.bus.api.IEventBus;

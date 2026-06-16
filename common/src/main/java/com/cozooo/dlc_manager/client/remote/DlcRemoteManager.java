@@ -22,8 +22,16 @@ public final class DlcRemoteManager {
         return DlcRemoteRuntime.hasMissing();
     }
 
+    public static boolean hasMissingDlcPacks() {
+        return DlcRemoteRuntime.hasMissingDlcPacks();
+    }
+
     public static List<DlcRemoteEntry> collectMissing() {
         return DlcRemoteRuntime.collectMissing();
+    }
+
+    public static List<DlcRemoteEntry> collectMissingDlcPacks() {
+        return DlcRemoteRuntime.collectMissingDlcPacks();
     }
 
     public static void updateFileNameKey(DlcRemoteEntry entry, String fileName) {

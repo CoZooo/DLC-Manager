@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class DcFormatUtil {
     public static final String DC_EXTENSION = ".dc";
@@ -100,21 +101,44 @@ public final class DcFormatUtil {
                 while (stack.size() > 1 && stack.peek().indent >= indent) {
                     stack.pop();
                 }
-                if (header.equals("dependencies")) {
+                if (indent == 0 && (header.equals("dependencies")
+                    || header.equals("conflicts")
+                    || (!isQuotedKey(header) && header.startsWith("dependencies.")))) {
+                    while (stack.size() > 1) {
+                        stack.pop();
+                    }
+                }
+                if (!isQuotedKey(header) && header.startsWith("dependencies.")) {
+                    DlcNode node = findNearestNode(stack);
+                    String depKey = unquoteKey(header.substring("dependencies.".length()));
+                    if (node != null && !depKey.isBlank()) {
+                        DlcNode child = node.dependencies.computeIfAbsent(depKey, key -> new DlcNode());
+                        stack.push(Frame.node(indent, child));
+                    }
+                } else if (header.equals("dependencies")) {
                     DlcNode node = findNearestNode(stack);
                     if (node != null) {
-                        stack.push(Frame.depContainer(indent, node));
+                        stack.push(Frame.relationContainer(indent, node, "dependencies"));
+                    }
+                } else if (header.equals("conflicts")) {
+                    DlcNode node = findNearestNode(stack);
+                    if (node != null) {
+                        stack.push(Frame.relationContainer(indent, node, "conflicts"));
                     }
                 } else if (isSectionHeader(header)) {
                     DlcNode node = findNearestNode(stack);
                     if (node != null) {
                         stack.push(Frame.section(indent, node, header));
                     }
-                } else if (stack.peek().type == FrameType.DEP_CONTAINER) {
+                } else if (stack.peek().type == FrameType.RELATION_CONTAINER) {
                     header = unquoteKey(header);
                     DlcNode parent = stack.peek().node;
-                    DlcNode child = parent.dependencies.computeIfAbsent(header, key -> new DlcNode());
-                    stack.push(Frame.node(indent, child));
+                    if ("dependencies".equals(stack.peek().section)) {
+                        DlcNode child = parent.dependencies.computeIfAbsent(header, key -> new DlcNode());
+                        stack.push(Frame.node(indent, child));
+                    } else if ("conflicts".equals(stack.peek().section)) {
+                        parent.conflictEntries.add(header);
+                    }
                 }
                 index++;
                 continue;
@@ -124,13 +148,32 @@ public final class DcFormatUtil {
                 while (stack.size() > 1 && stack.peek().indent >= indent) {
                     stack.pop();
                 }
-                if (stack.peek().type == FrameType.DEP_CONTAINER) {
+                if (stack.peek().type == FrameType.RELATION_CONTAINER) {
                     String rawKey = content.substring(0, content.length() - 1).trim();
                     String depKey = unquoteKey(rawKey);
                     if (!depKey.isBlank()) {
                         DlcNode parent = stack.peek().node;
-                        DlcNode child = parent.dependencies.computeIfAbsent(depKey, key -> new DlcNode());
-                        stack.push(Frame.node(indent, child));
+                        if ("dependencies".equals(stack.peek().section)) {
+                            DlcNode child = parent.dependencies.computeIfAbsent(depKey, key -> new DlcNode());
+                            stack.push(Frame.node(indent, child));
+                        } else if ("conflicts".equals(stack.peek().section)) {
+                            parent.conflictEntries.add(depKey);
+                        }
+                    }
+                }
+                index++;
+                continue;
+            }
+
+            if (stack.peek().type == FrameType.RELATION_CONTAINER && !content.contains("=")) {
+                String relation = stack.peek().section;
+                DlcNode node = stack.peek().node;
+                String token = unquoteKey(content);
+                if (!token.isBlank()) {
+                    if ("dependencies".equals(relation)) {
+                        node.dependencyEntries.add(token);
+                    } else if ("conflicts".equals(relation)) {
+                        node.conflictEntries.add(token);
                     }
                 }
                 index++;
@@ -221,7 +264,7 @@ public final class DcFormatUtil {
         }
         JsonObject root = new JsonObject();
         ArrayDeque<GenericFrame> stack = new ArrayDeque<>();
-        stack.push(new GenericFrame(-1, root));
+        stack.push(new GenericFrame(-1, root, null));
         int index = 0;
         while (index < lines.size()) {
             String raw = lines.get(index);
@@ -249,8 +292,8 @@ public final class DcFormatUtil {
                 if (!isQuotedKey(rawHeader) && header.contains(".")) {
                     JsonObject child = ensureGenericPath(root, header);
                     stack.clear();
-                    stack.push(new GenericFrame(-1, root));
-                    stack.push(new GenericFrame(indent, child));
+                    stack.push(new GenericFrame(-1, root, null));
+                    stack.push(new GenericFrame(indent, child, header.substring(header.lastIndexOf('.') + 1)));
                     index++;
                     continue;
                 }
@@ -266,7 +309,15 @@ public final class DcFormatUtil {
                     child = new JsonObject();
                     parent.add(header, child);
                 }
-                stack.push(new GenericFrame(indent, child));
+                stack.push(new GenericFrame(indent, child, header));
+                index++;
+                continue;
+            }
+            if (isGenericRelationSection(stack.peek().name) && !content.contains("=")) {
+                String token = unquoteKey(content);
+                if (!token.isBlank()) {
+                    stack.peek().obj.add(token, new JsonObject());
+                }
                 index++;
                 continue;
             }
@@ -339,6 +390,7 @@ public final class DcFormatUtil {
     private static void writeGenericSection(StringBuilder out, String name, JsonObject obj, int sectionIndent) {
         indentLine(out, sectionIndent);
         out.append('[').append(formatGenericKey(name)).append(']').append('\n');
+        boolean relationSection = isGenericRelationSection(name);
         boolean hasNestedSections = hasNestedGenericSections(obj);
         int bodyIndent = (sectionIndent > 0 || hasNestedSections) ? sectionIndent + 2 : 0;
         boolean wroteAny = false;
@@ -348,15 +400,25 @@ public final class DcFormatUtil {
                 continue;
             }
             indentLine(out, bodyIndent);
-            out.append(formatGenericKey(entry.getKey()))
-                .append(" = ")
-                .append(formatGenericValue(entry.getKey(), value))
-                .append('\n');
+            if (relationSection && isGenericRelationEntry(entry.getKey(), value)) {
+                out.append(formatStringValue(entry.getKey())).append('\n');
+            } else {
+                out.append(formatGenericKey(entry.getKey()))
+                    .append(" = ")
+                    .append(formatGenericValue(entry.getKey(), value))
+                    .append('\n');
+            }
             wroteAny = true;
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             JsonElement value = entry.getValue();
             if (value == null || !value.isJsonObject()) {
+                continue;
+            }
+            if (relationSection && value.getAsJsonObject().entrySet().isEmpty()) {
+                indentLine(out, bodyIndent);
+                out.append(formatStringValue(entry.getKey())).append('\n');
+                wroteAny = true;
                 continue;
             }
             if (wroteAny) {
@@ -378,6 +440,18 @@ public final class DcFormatUtil {
             }
         }
         return false;
+    }
+
+    private static boolean isGenericRelationSection(String name) {
+        return "dependencies".equalsIgnoreCase(name) || "conflicts".equalsIgnoreCase(name);
+    }
+
+    private static boolean isGenericRelationEntry(String key, JsonElement value) {
+        if (key == null || key.isBlank() || value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
+            return false;
+        }
+        JsonPrimitive primitive = value.getAsJsonPrimitive();
+        return primitive.isString() && primitive.getAsString().trim().equals(key.trim());
     }
 
     private static JsonObject ensureGenericPath(JsonObject root, String header) {
@@ -448,10 +522,12 @@ public final class DcFormatUtil {
 
     private static void writeNode(StringBuilder out, JsonObject node, int indent, boolean root) {
         JsonElement depsElement = node.get("dependencies");
-        JsonElement basicDependencies = buildBasicDependenciesValue(depsElement);
+        java.util.List<String> dependencyEntries = collectRelationEntries(depsElement);
         boolean hasNestedDependencies = depsElement != null
             && depsElement.isJsonObject()
             && !depsElement.getAsJsonObject().entrySet().isEmpty();
+        java.util.List<String> conflictEntries = collectRelationEntries(node.get("conflicts"));
+        boolean hasConflicts = !conflictEntries.isEmpty();
         boolean hasDownloadSection = hasDownloadSection(node);
         if (hasDownloadSection) {
             if (!root) {
@@ -469,20 +545,37 @@ public final class DcFormatUtil {
         }
         indentLine(out, indent);
         out.append("[basic]\n");
-        writeBasic(out, node, indent, basicDependencies);
+        writeBasic(out, node, indent);
 
-        if (hasNestedDependencies) {
+        if (!dependencyEntries.isEmpty() || hasNestedDependencies) {
             indentLine(out, indent);
             out.append("\n");
             indentLine(out, indent);
             out.append("[dependencies]\n");
-            for (Map.Entry<String, JsonElement> entry : depsElement.getAsJsonObject().entrySet()) {
-                if (!entry.getValue().isJsonObject()) {
-                    continue;
+            for (String entry : dependencyEntries) {
+                indentLine(out, indent);
+                out.append(formatStringValue(entry)).append('\n');
+            }
+            if (depsElement != null && depsElement.isJsonObject()) {
+                for (Map.Entry<String, JsonElement> entry : depsElement.getAsJsonObject().entrySet()) {
+                    if (!entry.getValue().isJsonObject()) {
+                        continue;
+                    }
+                    indentLine(out, indent);
+                    out.append("[dependencies.").append(entry.getKey()).append("]\n");
+                    writeNode(out, entry.getValue().getAsJsonObject(), indent + 2, false);
                 }
-                indentLine(out, indent + 2);
-                out.append("[").append(entry.getKey()).append("]\n");
-                writeNode(out, entry.getValue().getAsJsonObject(), indent + 4, false);
+            }
+        }
+
+        if (hasConflicts) {
+            indentLine(out, indent);
+            out.append("\n");
+            indentLine(out, indent);
+            out.append("[conflicts]\n");
+            for (String entry : conflictEntries) {
+                indentLine(out, indent);
+                out.append(formatStringValue(entry)).append('\n');
             }
         }
 
@@ -557,7 +650,7 @@ public final class DcFormatUtil {
         return false;
     }
 
-    private static void writeBasic(StringBuilder out, JsonObject node, int indent, JsonElement dependenciesValue) {
+    private static void writeBasic(StringBuilder out, JsonObject node, int indent) {
         String[] keys = new String[] {
             "identifier",
             "type",
@@ -593,15 +686,6 @@ public final class DcFormatUtil {
             out.append(formatKeyValue(key, entry.getValue())).append('\n');
         }
 
-        if (dependenciesValue != null && !dependenciesValue.isJsonNull()) {
-            indentLine(out, indent);
-            out.append(formatKeyValue("dependencies", dependenciesValue)).append('\n');
-        }
-
-        if (node.has("conflicts")) {
-            indentLine(out, indent);
-            out.append(formatKeyValue("conflicts", node.get("conflicts"))).append('\n');
-        }
     }
 
     private static boolean isKnownBasicKey(String key) {
@@ -624,86 +708,37 @@ public final class DcFormatUtil {
             || "priority".equals(key);
     }
 
-    private static JsonElement buildBasicDependenciesValue(JsonElement deps) {
-        if (deps == null || deps.isJsonNull()) {
-            return null;
-        }
-        if (deps.isJsonPrimitive()) {
-            return deps.deepCopy();
-        }
-        if (deps.isJsonArray()) {
-            return deps.deepCopy();
-        }
-        if (!deps.isJsonObject()) {
-            return null;
-        }
+    private static java.util.List<String> collectRelationEntries(JsonElement element) {
         java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
-        JsonObject obj = deps.getAsJsonObject();
-        for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            String key = entry.getKey();
-            JsonElement value = entry.getValue();
-            String identifier = null;
-            if (value != null && value.isJsonObject()) {
-                JsonObject depObj = value.getAsJsonObject();
-                identifier = readIdentifier(depObj);
-            } else if (value != null && value.isJsonPrimitive()) {
-                identifier = value.getAsString();
-            } else if (value != null && value.isJsonArray()) {
-                collectPrimitiveNames(value, names);
-            }
-            if (identifier == null || identifier.isBlank()) {
-                identifier = key;
-            }
-            if (identifier != null && !identifier.isBlank()) {
-                names.add(identifier.trim());
-            }
-        }
-        if (names.isEmpty()) {
-            return null;
-        }
-        if (names.size() == 1) {
-            return new JsonPrimitive(names.iterator().next());
-        }
-        JsonArray array = new JsonArray();
-        for (String name : names) {
-            array.add(new JsonPrimitive(name));
-        }
-        return array;
+        collectRelationEntries(element, names);
+        return new java.util.ArrayList<>(names);
     }
 
-    private static String readIdentifier(JsonObject obj) {
-        if (obj == null) {
-            return null;
+    private static void collectRelationEntries(JsonElement element, java.util.Set<String> names) {
+        if (element == null || element.isJsonNull()) {
+            return;
         }
-        JsonElement id = obj.get("identifier");
-        if (id != null && id.isJsonPrimitive()) {
-            String value = id.getAsString();
-            if (value != null && !value.isBlank()) {
-                return value;
+        if (element.isJsonPrimitive() || element.isJsonArray()) {
+            collectPrimitiveNames(element, names);
+            return;
+        }
+        if (!element.isJsonObject()) {
+            return;
+        }
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+            String key = entry.getKey();
+            JsonElement value = entry.getValue();
+            if (value == null || value.isJsonNull()) {
+                if (key != null && !key.isBlank()) {
+                    names.add(key.trim());
+                }
+                continue;
+            }
+            if (value.isJsonPrimitive() || value.isJsonArray()) {
+                collectPrimitiveNames(value, names);
+                continue;
             }
         }
-        JsonElement legacyId = obj.get("dlc_identifier");
-        if (legacyId != null && legacyId.isJsonPrimitive()) {
-            String value = legacyId.getAsString();
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        JsonElement fileName = obj.get("file_name");
-        if (fileName != null && fileName.isJsonPrimitive()) {
-            String value = fileName.getAsString();
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        JsonElement legacyName = obj.get("dlc_name");
-        if (legacyName != null && legacyName.isJsonPrimitive()) {
-            String value = legacyName.getAsString();
-            if (value != null && !value.isBlank()) {
-                return value;
-            }
-        }
-        return null;
     }
 
     private static void collectPrimitiveNames(JsonElement element, java.util.Set<String> names) {
@@ -807,7 +842,9 @@ public final class DcFormatUtil {
             case "download" -> node.download.add(key, value);
             case "DisplayName" -> node.displayName.add(key, value);
             case "tip" -> node.tip.add(key, value);
-            case "basic", "dependencies" -> node.basic.add(key, value);
+            case "dependencies" -> collectPrimitiveNames(value, node.dependencyEntries);
+            case "conflicts" -> collectPrimitiveNames(value, node.conflictEntries);
+            case "basic" -> node.basic.add(key, value);
             default -> node.basic.add(key, value);
         }
     }
@@ -1130,17 +1167,19 @@ public final class DcFormatUtil {
     private static final class GenericFrame {
         final int indent;
         final JsonObject obj;
+        final String name;
 
-        private GenericFrame(int indent, JsonObject obj) {
+        private GenericFrame(int indent, JsonObject obj, String name) {
             this.indent = indent;
             this.obj = obj;
+            this.name = name;
         }
     }
 
     private enum FrameType {
         ROOT,
         NODE,
-        DEP_CONTAINER,
+        RELATION_CONTAINER,
         SECTION
     }
 
@@ -1165,8 +1204,8 @@ public final class DcFormatUtil {
             return new Frame(indent, FrameType.NODE, node, null);
         }
 
-        static Frame depContainer(int indent, DlcNode node) {
-            return new Frame(indent, FrameType.DEP_CONTAINER, node, null);
+        static Frame relationContainer(int indent, DlcNode node, String section) {
+            return new Frame(indent, FrameType.RELATION_CONTAINER, node, section);
         }
 
         static Frame section(int indent, DlcNode node, String section) {
@@ -1179,6 +1218,8 @@ public final class DcFormatUtil {
         final JsonObject basic = new JsonObject();
         final JsonObject displayName = new JsonObject();
         final JsonObject tip = new JsonObject();
+        final Set<String> dependencyEntries = new java.util.LinkedHashSet<>();
+        final Set<String> conflictEntries = new java.util.LinkedHashSet<>();
         final Map<String, DlcNode> dependencies = new LinkedHashMap<>();
 
         JsonObject toJsonObject() {
@@ -1189,29 +1230,39 @@ public final class DcFormatUtil {
             for (Map.Entry<String, JsonElement> entry : basic.entrySet()) {
                 out.add(entry.getKey(), entry.getValue());
             }
-            if (!dependencies.isEmpty()) {
+            JsonElement basicDeps = out.get("dependencies");
+            if (basicDeps != null && !basicDeps.isJsonNull()) {
+                collectPrimitiveNames(basicDeps, dependencyEntries);
+                out.remove("dependencies");
+            }
+            JsonElement basicConflicts = out.get("conflicts");
+            if (basicConflicts != null && !basicConflicts.isJsonNull()) {
+                collectPrimitiveNames(basicConflicts, conflictEntries);
+                out.remove("conflicts");
+            }
+            if (!dependencyEntries.isEmpty() || !dependencies.isEmpty()) {
                 JsonObject deps = new JsonObject();
+                for (String name : dependencyEntries) {
+                    if (name != null && !name.isBlank()) {
+                        deps.add(name, new JsonPrimitive(name));
+                    }
+                }
                 for (Map.Entry<String, DlcNode> entry : dependencies.entrySet()) {
                     deps.add(entry.getKey(), entry.getValue().toJsonObject());
-                }
-                JsonElement basicDeps = out.get("dependencies");
-                if (basicDeps != null && !basicDeps.isJsonNull()) {
-                    java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
-                    collectPrimitiveNames(basicDeps, names);
-                    for (String name : names) {
-                        if (name == null || name.isBlank() || deps.has(name)) {
-                            continue;
-                        }
-                        JsonObject idOnly = new JsonObject();
-                        idOnly.addProperty("identifier", name);
-                        deps.add(name, idOnly);
-                    }
                 }
                 out.add("dependencies", deps);
             } else if (!out.has("dependencies")) {
                 out.addProperty("dependencies", "");
             }
-            if (!out.has("conflicts")) {
+            if (!conflictEntries.isEmpty()) {
+                JsonObject conflicts = new JsonObject();
+                for (String name : conflictEntries) {
+                    if (name != null && !name.isBlank()) {
+                        conflicts.add(name, new JsonPrimitive(name));
+                    }
+                }
+                out.add("conflicts", conflicts);
+            } else if (!out.has("conflicts")) {
                 out.addProperty("conflicts", "");
             }
             if (!displayName.entrySet().isEmpty()) {

@@ -1,31 +1,35 @@
-package com.cozooo.dlc_manager.platform
+package com.cozooo.dlc_manager.platform.neoforge
 
-import net.fabricmc.api.EnvType
-import net.fabricmc.loader.api.FabricLoader
+import com.cozooo.dlc_manager.platform.PlatformServices
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
+import net.neoforged.api.distmarker.Dist
+import net.neoforged.fml.ModList
+import net.neoforged.fml.loading.FMLEnvironment
+import net.neoforged.fml.loading.FMLPaths
+import net.neoforged.fml.loading.moddiscovery.ModFileInfo
 import java.nio.file.Files
 import java.nio.file.Path
 
-class FabricPlatformServices : PlatformServices.Provider {
+class NeoForgePlatformServices : PlatformServices.Provider {
     override fun gameDir(): Path {
-        return FabricLoader.getInstance().gameDir
+        return FMLPaths.GAMEDIR.get()
     }
 
     override fun configDir(): Path {
-        return FabricLoader.getInstance().configDir
+        return FMLPaths.CONFIGDIR.get()
     }
 
     override fun isModLoaded(modId: String?): Boolean {
-        return FabricLoader.getInstance().isModLoaded(modId)
+        return ModList.get().isLoaded(modId)
     }
 
     override fun isDedicatedServer(): Boolean {
-        return FabricLoader.getInstance().environmentType == EnvType.SERVER
+        return FMLEnvironment.dist == Dist.DEDICATED_SERVER
     }
 
     override fun languageCode(): String {
-        if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
             return "en_us"
         }
         return try {
@@ -54,7 +58,7 @@ class FabricPlatformServices : PlatformServices.Provider {
     }
 
     override fun loaderName(): String {
-        return "Fabric"
+        return "NeoForge"
     }
 
     override fun mcVersion(): String {
@@ -66,25 +70,26 @@ class FabricPlatformServices : PlatformServices.Provider {
     }
 
     override fun modVersion(modId: String?): String {
-        return FabricLoader.getInstance().getModContainer(modId)
-            .map { it.metadata.version.friendlyString }
+        return ModList.get().getModContainerById(modId)
+            .map { it.modInfo.version.toString() }
             .orElse("")
     }
 
     override fun modFilePath(modId: String?): Path? {
-        val container = FabricLoader.getInstance().getModContainer(modId)
-        if (container.isEmpty) {
+        val modFile = ModList.get().getModContainerById(modId)
+            .map { it.modInfo.owningFile as ModFileInfo }
+        if (modFile.isEmpty) {
             return null
         }
         return try {
-            container.get().origin.paths.stream().findFirst().orElse(null)
+            modFile.get().file.filePath
         } catch (_: Exception) {
             null
         }
     }
 
     override fun playerName(): String {
-        if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
             return ""
         }
         return try {
@@ -96,7 +101,7 @@ class FabricPlatformServices : PlatformServices.Provider {
     }
 
     override fun playerUuid(): String {
-        if (FabricLoader.getInstance().environmentType != EnvType.CLIENT) {
+        if (FMLEnvironment.dist != Dist.CLIENT) {
             return ""
         }
         return try {
@@ -112,7 +117,7 @@ class FabricPlatformServices : PlatformServices.Provider {
     companion object {
         @JvmStatic
         fun init() {
-            PlatformServices.setProvider(FabricPlatformServices())
+            PlatformServices.setProvider(NeoForgePlatformServices())
         }
     }
 }

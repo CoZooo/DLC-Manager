@@ -102,7 +102,7 @@ export function StructuredEditor(props: StructuredEditorProps) {
 
                 const parseListText = (rawText: string) => {
                   return rawText
-                    .split(/[\r\n,]+/)
+                    .split(/\r?\n/)
                     .map((item) => item.trim())
                     .filter(Boolean);
                 };
@@ -1277,7 +1277,7 @@ function FormattedTextarea(props: FormattedTextareaProps) {
       {toolbarMode === "mc-markdown" && (
         <div className="format-toolbar markdown-toolbar">
           <span className="format-toolbar-label">{t(locale, "markdownToolbar")}</span>
-          <button type="button" title={t(locale, "markdownHeading")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownLinePrefix("## ")}>
+          <button type="button" title={t(locale, "markdownHeading")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownLinePrefix("# ")}>
             {t(locale, "markdownHeading")}
           </button>
           <button type="button" title={t(locale, "markdownBold")} onMouseDown={keepTextareaSelection} onClick={() => applyMarkdownWrap("**")}>

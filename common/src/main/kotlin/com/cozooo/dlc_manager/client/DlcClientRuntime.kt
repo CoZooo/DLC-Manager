@@ -2,10 +2,13 @@ package com.cozooo.dlc_manager.client
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager
+import com.cozooo.dlc_manager.client.pack.DlcPackRecovery
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen
+import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen
 import com.cozooo.dlc_manager.client.screen.DlcPackReleaseUpdateScreen
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen
 import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
@@ -21,7 +24,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerList
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
@@ -116,6 +119,12 @@ object DlcClientRuntime {
     }
 
     @JvmStatic
+    fun openPackManagerFromTitle(parent: Screen?) {
+        if (!DlcPathConfig.isPackFuncOn()) return
+        Minecraft.getInstance().setScreen(DlcPackManagerScreen(parent))
+    }
+
+    @JvmStatic
     fun maybeOpenManagerOnFirstRun(parent: Screen?) {
         if (firstRunManagerHandled) return
         firstRunManagerHandled = true
@@ -126,6 +135,7 @@ object DlcClientRuntime {
         if (DlcRequiredManager.tryShowFromTitle(parent)) return
         try {
             Files.createDirectories(dlcRoot)
+            ensurePackArchiveRoot(dlcRoot)
             Files.createFile(markerPath)
         } catch (_: IOException) {
             return
@@ -144,6 +154,7 @@ object DlcClientRuntime {
         if (Files.exists(markerPath)) return false
         try {
             Files.createDirectories(dlcRoot)
+            ensurePackArchiveRoot(dlcRoot)
             Files.createFile(markerPath)
         } catch (_: IOException) {
             return false
@@ -636,6 +647,9 @@ object DlcClientRuntime {
         if (startupCheckRunning || startupChecksCompleted) return
         DlcServerApi.start(null)
         DlcServerApi.setClientStateChangedListener { Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen) }
+        ensurePackArchiveRoot(DlcPaths.dlcRoot())
+        DlcPackRecovery.recover(DlcPaths.gameDir(), DlcPaths.dlcRoot())
+        uninstallIncompatiblePacksForCurrentVersion()
         DlcStartupStateSync.syncOnStartup()
         startupCheckRunning = true
         startupChecksCompleted = true
@@ -1204,6 +1218,16 @@ object DlcClientRuntime {
         return false
     }
 
+    private fun ensurePackArchiveRoot(dlcRoot: Path?) {
+        if (dlcRoot == null) {
+            return
+        }
+        try {
+            Files.createDirectories(dlcRoot.resolve("pack"))
+        } catch (_: IOException) {
+        }
+    }
+
     @Throws(IOException::class)
     private fun copyRecursive(source: Path, target: Path) {
         if (Files.isDirectory(source)) {
@@ -1228,6 +1252,17 @@ object DlcClientRuntime {
         } else {
             Files.createDirectories(target.parent)
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    private fun uninstallIncompatiblePacksForCurrentVersion() {
+        try {
+            val reports = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot()).uninstallIncompatibleForCurrentVersion()
+            if (reports.isNotEmpty()) {
+                LOGGER.info("[dlc-manager] auto uninstalled incompatible DLC packs: count={}", reports.size)
+            }
+        } catch (ex: Exception) {
+            LOGGER.warn("[dlc-manager] failed to auto uninstall incompatible DLC packs", ex)
         }
     }
 }

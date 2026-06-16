@@ -1,0 +1,72 @@
+package com.cozooo.dlc_manager.client.screen;
+
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
+import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
+import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
+import com.cozooo.dlc_manager.core.DlcPaths;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.util.List;
+
+public final class DlcUpdatePackGuard {
+    private DlcUpdatePackGuard() {
+    }
+
+    public static void confirmBeforeUpdate(Screen returnScreen, List<DlcUpdatePackage> packages, DecisionHandler handler) {
+        TargetVersion target = resolveTargetVersion(packages);
+        DlcPackUpdateGuard.CheckResult check = DlcPackUpdateGuard.check(DlcPaths.dlcRoot(), target.base, target.dlc);
+        if (check == null || !check.hasInstalledPacks() || !check.hasIncompatiblePacks()) {
+            handler.proceed(check, false);
+            return;
+        }
+        Component title = Component.translatable("dlc_manager.pack.manager_title");
+        Component message = DlcConfirmUtil.buildPackUpdateIncompatibleConfirmMessage(check);
+        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+            if (accepted) {
+                Minecraft.getInstance().setScreen(returnScreen);
+                handler.proceed(check, true);
+            } else {
+                Minecraft.getInstance().setScreen(returnScreen);
+            }
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
+    }
+
+    public static TargetVersion resolveTargetVersion(List<DlcUpdatePackage> packages) {
+        String targetBase = null;
+        String targetDlc = null;
+        if (packages != null) {
+            for (DlcUpdatePackage pkg : packages) {
+                if (pkg == null || pkg.getManifest() == null || pkg.getManifest().getVersion() == null) {
+                    continue;
+                }
+                DlcUpdateManifest.VersionInfo version = pkg.getManifest().getVersion();
+                String base = normalize(version.getBase());
+                String dlcOld = normalize(version.getDlcOld());
+                String baseNew = normalize(version.getBaseNew());
+                String dlcNew = normalize(version.getDlcNew());
+                targetBase = baseNew == null ? base : baseNew;
+                targetDlc = dlcNew == null ? dlcOld : dlcNew;
+            }
+        }
+        return new TargetVersion(safeVersion(targetBase), safeVersion(targetDlc));
+    }
+
+    private static String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static String safeVersion(String value) {
+        return value == null || value.isBlank() ? "1.0.0" : value.trim();
+    }
+
+    @FunctionalInterface
+    public interface DecisionHandler {
+        void proceed(DlcPackUpdateGuard.CheckResult check, boolean uninstallIncompatible);
+    }
+
+    public record TargetVersion(String base, String dlc) {
+    }
+}

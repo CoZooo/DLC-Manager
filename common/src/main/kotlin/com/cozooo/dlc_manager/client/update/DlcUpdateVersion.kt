@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class DlcUpdateVersion {
+    private var modpack: String? = null
     private var base: String? = null
     private var dlc: String? = null
     private var rollbackFrom: String? = null
@@ -20,6 +21,7 @@ class DlcUpdateVersion {
         try {
             Files.createDirectories(path.parent)
             val obj = JsonObject()
+            obj.addProperty("modpack", modpack ?: "")
             obj.addProperty("base", if (base.isNullOrBlank()) DEFAULT_VERSION else base)
             obj.addProperty("dlc", if (dlc.isNullOrBlank()) DEFAULT_VERSION else dlc)
             if (!rollbackFrom.isNullOrBlank()) {
@@ -34,6 +36,12 @@ class DlcUpdateVersion {
     }
 
     fun getBase(): String? = base
+
+    fun getModpack(): String? = modpack
+
+    fun setModpack(modpack: String?) {
+        this.modpack = modpack
+    }
 
     fun setBase(base: String?) {
         this.base = base
@@ -63,6 +71,7 @@ class DlcUpdateVersion {
         @JvmStatic
         fun load(dlcRoot: Path?): DlcUpdateVersion {
             val version = DlcUpdateVersion()
+            version.modpack = ""
             version.base = DEFAULT_VERSION
             version.dlc = DEFAULT_VERSION
             if (dlcRoot == null) {
@@ -75,6 +84,7 @@ class DlcUpdateVersion {
             }
             try {
                 val obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return version
+                version.modpack = DcConfigIO.getStringIgnoreCase(obj, "modpack")
                 version.base = DcConfigIO.getStringIgnoreCase(obj, "base")
                 version.dlc = DcConfigIO.getStringIgnoreCase(obj, "dlc")
                 var rollback = DcConfigIO.getStringIgnoreCase(obj, "rollback_from")
@@ -94,6 +104,9 @@ class DlcUpdateVersion {
             }
             if (version.dlc.isNullOrBlank()) {
                 version.dlc = DEFAULT_VERSION
+            }
+            if (version.modpack == null) {
+                version.modpack = ""
             }
             return version
         }

@@ -1,5 +1,6 @@
-package com.cozooo.dlc_manager.platform;
+package com.cozooo.dlc_manager.platform.forge;
 
+import com.cozooo.dlc_manager.platform.PlatformServices;
 import java.nio.file.Path;
 import java.util.Optional;
 import net.minecraft.SharedConstants;

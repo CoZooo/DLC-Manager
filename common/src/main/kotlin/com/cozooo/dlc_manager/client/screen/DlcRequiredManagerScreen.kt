@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DcFormatUtil
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft

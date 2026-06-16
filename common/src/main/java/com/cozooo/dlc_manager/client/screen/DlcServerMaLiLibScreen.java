@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
@@ -468,8 +468,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         }
         ConflictCheck conflicts = checkConflicts(item);
         if (!conflicts.conflicts.isEmpty()) {
-            Component message = Component.translatable("dlc_manager.conflict.prompt_prefix",
-                DlcTextFormatter.parse(String.join(", ", conflicts.conflictNames)));
+            Component message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.conflictNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
@@ -481,8 +480,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         }
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
-            Component message = Component.translatable("dlc_manager.dependency.prompt",
-                DlcTextFormatter.parse(String.join(", ", deps.missingNames)));
+            Component message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
@@ -512,8 +510,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
         DependencyCheck deps = checkDependencies(item);
         if (!deps.missing.isEmpty()) {
-            Component message = Component.translatable("dlc_manager.dependency.prompt",
-                DlcTextFormatter.parse(String.join(", ", deps.missingNames)));
+            Component message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames);
             rememberListScroll();
             Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
                 Minecraft.getInstance().setScreen(this);
@@ -1428,6 +1425,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             case RESOURCE_PACK -> "resource";
             case DATA_PACK -> "data";
             case TACZ_PACK -> "tacz";
+            case DLC_PACK -> "dlcpack";
             case UNKNOWN -> "other";
         };
     }

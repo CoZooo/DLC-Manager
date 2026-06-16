@@ -54,8 +54,6 @@ build/
 .idea/*
 !.idea/compiler.xml
 !.idea/gradle.xml
-!.idea/modules.xml
-!.idea/modules/
 !.idea/vcs.xml
 output/
 /test/
@@ -69,8 +67,12 @@ tools/dc-editor/vite.config.js
 tools/dc-editor/vite.config.d.ts
 tools/dc-editor/tsconfig.tsbuildinfo
 tools/dc-editor/tsconfig.node.tsbuildinfo
+**/rebel.xml
+**/src/main/resources/rebel.xml
 
 **/__pycache__/
 **/logs/
 tools/dc-editor/OPERATION_TRACKING.txt
 debug.log
+
+DLC_Installer

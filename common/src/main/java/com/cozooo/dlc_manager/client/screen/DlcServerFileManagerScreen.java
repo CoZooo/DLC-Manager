@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerFileEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
+import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -279,7 +279,7 @@ public class DlcServerFileManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void uploadFile() {
-        Path file = DlcUpdateFilePicker.pickAnyFile(Component.translatable("dlc_manager.server.files_upload").getString());
+        Path file = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.server.files_upload").getString());
         if (file == null) {
             return;
         }
@@ -342,7 +342,7 @@ public class DlcServerFileManagerScreen extends DlcScreenCompat.MouseScroll {
         String basePath = pathField.getValue().trim();
         String remotePath = basePath.isEmpty() ? entry.name : basePath + "/" + entry.name;
         String fileName = entry.dir ? (entry.name + ".zip") : entry.name;
-        Path target = DlcUpdateFilePicker.pickSaveFile(Component.translatable("dlc_manager.server.files_save").getString(), fileName);
+        Path target = DlcFilePicker.pickSaveFile(Component.translatable("dlc_manager.server.files_save").getString(), fileName);
         if (target == null) {
             return;
         }
@@ -394,7 +394,7 @@ public class DlcServerFileManagerScreen extends DlcScreenCompat.MouseScroll {
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void confirmDeleteAgain(DlcServerFileEntry entry) {
@@ -406,7 +406,7 @@ public class DlcServerFileManagerScreen extends DlcScreenCompat.MouseScroll {
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void deleteSelected(DlcServerFileEntry entry) {

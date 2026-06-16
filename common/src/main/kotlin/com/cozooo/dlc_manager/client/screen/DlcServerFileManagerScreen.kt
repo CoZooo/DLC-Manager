@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerFileEntry
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker
+import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -284,7 +284,7 @@ class DlcServerFileManagerScreen(
     }
 
     private fun uploadFile() {
-        val file = DlcUpdateFilePicker.pickAnyFile(Component.translatable("dlc_manager.server.files_upload").string)
+        val file = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.server.files_upload").string)
         if (file == null) {
             return
         }
@@ -352,7 +352,7 @@ class DlcServerFileManagerScreen(
         val basePath = pathField?.value?.trim() ?: ""
         val remotePath = if (basePath.isEmpty()) entryName else "$basePath/$entryName"
         val fileName = if (fileEntry.dir) "$entryName.zip" else entryName
-        var target = DlcUpdateFilePicker.pickSaveFile(Component.translatable("dlc_manager.server.files_save").string, fileName)
+        var target = DlcFilePicker.pickSaveFile(Component.translatable("dlc_manager.server.files_save").string, fileName)
         if (target == null) {
             return
         }
@@ -410,7 +410,7 @@ class DlcServerFileManagerScreen(
                 } else {
                     Minecraft.getInstance().setScreen(this)
                 }
-            }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")),
+            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
         )
     }
 
@@ -424,7 +424,7 @@ class DlcServerFileManagerScreen(
                 } else {
                     Minecraft.getInstance().setScreen(this)
                 }
-            }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")),
+            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
         )
     }
 

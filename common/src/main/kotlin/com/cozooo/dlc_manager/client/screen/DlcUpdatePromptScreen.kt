@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
@@ -9,6 +11,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
+import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -91,16 +94,17 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
 
     private fun confirmApply() {
         val title = Component.translatable("dlc_manager.update.title")
-        val message = Component.translatable("dlc_manager.update.confirm_apply")
+        val message = DlcConfirmUtil.buildUpdateConfirmApplyMessage()
         Minecraft.getInstance().setScreen(
             ConfirmScreen({ accepted ->
                 if (accepted) {
-                    Minecraft.getInstance().setScreen(this)
-                    startApply(false)
+                    DlcUpdatePackGuard.confirmBeforeUpdate(this, result?.updates) { packCheck, uninstallIncompatible ->
+                        startApply(false, packCheck, uninstallIncompatible)
+                    }
                 } else {
                     Minecraft.getInstance().setScreen(this)
                 }
-            }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")),
+            }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()),
         )
     }
 
@@ -277,7 +281,11 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         }
     }
 
-    private fun startApply(forceMissing: Boolean) {
+    private fun startApply(
+        forceMissing: Boolean,
+        packCheck: DlcPackUpdateGuard.CheckResult?,
+        uninstallIncompatible: Boolean,
+    ) {
         if (applying) {
             return
         }
@@ -288,13 +296,37 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         cancelButton?.active = false
         skipThisUpdateButton?.active = false
         Thread({
-            val applyResult = DlcUpdateService.applyUpdates(result?.updates, forceMissing) { status, value ->
+            var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
+            try {
+                val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                val applyResult = DlcUpdateService.applyUpdates(result?.updates, forceMissing) { status, value ->
+                    Minecraft.getInstance().execute {
+                        statusText = status
+                        progress = value
+                    }
+                }
+                if (applyResult != null && applyResult.isSuccess) {
+                    packSession.finishAfterSuccessfulUpdate()
+                } else {
+                    packSession.restoreAfterFailedUpdate()
+                }
+                Minecraft.getInstance().execute { handleApplyResult(applyResult) }
+            } catch (ex: Exception) {
+                val session = packSession
+                if (session != null) {
+                    try {
+                        session.restoreAfterFailedUpdate()
+                    } catch (restoreError: Exception) {
+                        ex.addSuppressed(restoreError)
+                    }
+                }
+                val message = ex.message ?: "Failed to apply update"
                 Minecraft.getInstance().execute {
-                    statusText = status
-                    progress = value
+                    applying = false
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, Component.literal(message)))
                 }
             }
-            Minecraft.getInstance().execute { handleApplyResult(applyResult) }
         }, "dlc-update-apply").start()
     }
 

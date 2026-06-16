@@ -1,14 +1,17 @@
 package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker
+import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
+import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner
 import com.cozooo.dlc_manager.client.update.DlcUpdateRuntime
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
@@ -400,8 +403,8 @@ class DlcUpdateManagerScreen(
     }
 
     private fun confirmRollback(targetVersion: String) {
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = Component.translatable("dlc_manager.update.confirm_rollback", targetVersion)
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmRollbackMessage(targetVersion)
         Minecraft.getInstance().setScreen(
             ConfirmScreen(
                 { accepted ->
@@ -413,15 +416,15 @@ class DlcUpdateManagerScreen(
                 },
                 title,
                 message,
-                Component.translatable("dlc_manager.confirm_yes"),
-                Component.translatable("dlc_manager.confirm_no"),
+                DlcConfirmUtil.confirmYes(),
+                DlcConfirmUtil.confirmNo(),
             ),
         )
     }
 
     private fun confirmManagerRollback(targetVersion: String) {
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = Component.translatable("dlc_manager.update.confirm_rollback", targetVersion)
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmRollbackMessage(targetVersion)
         Minecraft.getInstance().setScreen(
             ConfirmScreen(
                 { accepted ->
@@ -433,36 +436,20 @@ class DlcUpdateManagerScreen(
                 },
                 title,
                 message,
-                Component.translatable("dlc_manager.confirm_yes"),
-                Component.translatable("dlc_manager.confirm_no"),
+                DlcConfirmUtil.confirmYes(),
+                DlcConfirmUtil.confirmNo(),
             ),
         )
     }
 
     private fun startReupdate(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
         val chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
-        if (chain.isEmpty()) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
-            return
-        }
-        setApplyingUpdates(true)
-        Thread({
-            val result: UpdateApplyResult = DlcUpdateService.applyUpdates(chain, false)
-            Minecraft.getInstance().execute { handleReupdateResult(result, null) }
-        }, "dlc-update-reapply").start()
+        startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, null, false)
     }
 
     private fun startApply(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
         val chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
-        if (chain.isEmpty()) {
-            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
-            return
-        }
-        setApplyingUpdates(true)
-        Thread({
-            val result: UpdateApplyResult = DlcUpdateService.applyUpdates(chain, false)
-            Minecraft.getInstance().execute { handleReupdateResult(result, null) }
-        }, "dlc-update-apply").start()
+        startApply(baseOld, dlcOld, baseNew, dlcNew, chain, null, false)
     }
 
     private fun confirmReupdate(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
@@ -474,67 +461,59 @@ class DlcUpdateManagerScreen(
     }
 
     private fun confirmApply(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = Component.translatable("dlc_manager.update.confirm_apply")
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmApplyMessage()
         Minecraft.getInstance().setScreen(
             ConfirmScreen(
                 { accepted ->
                     if (accepted) {
-                        startApply(baseOld, dlcOld, baseNew, dlcNew)
+                        val chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
+                        DlcUpdatePackGuard.confirmBeforeUpdate(this, chain) { packCheck, uninstallIncompatible ->
+                            startApply(baseOld, dlcOld, baseNew, dlcNew, chain, packCheck, uninstallIncompatible)
+                        }
                     } else {
                         Minecraft.getInstance().setScreen(this)
                     }
                 },
                 title,
                 message,
-                Component.translatable("dlc_manager.confirm_yes"),
-                Component.translatable("dlc_manager.confirm_no"),
+                DlcConfirmUtil.confirmYes(),
+                DlcConfirmUtil.confirmNo(),
             ),
         )
     }
 
     private fun confirmReupdateNow(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?, changelog: String?) {
-        val title = Component.translatable("dlc_manager.update.manager_title")
-        val message = buildReupdateMessage(baseOld, dlcOld, baseNew, dlcNew, changelog)
+        val title = DlcConfirmUtil.buildUpdateManagerTitle()
+        val message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew, changelog)
         Minecraft.getInstance().setScreen(
             ConfirmScreen(
                 { accepted ->
                     if (accepted) {
-                        startReupdate(baseOld, dlcOld, baseNew, dlcNew)
+                        val chain = DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true)
+                        DlcUpdatePackGuard.confirmBeforeUpdate(this, chain) { packCheck, uninstallIncompatible ->
+                            startReupdate(baseOld, dlcOld, baseNew, dlcNew, chain, packCheck, uninstallIncompatible)
+                        }
                     } else {
                         Minecraft.getInstance().setScreen(this)
                     }
                 },
                 title,
                 message,
-                Component.translatable("dlc_manager.confirm_yes"),
-                Component.translatable("dlc_manager.confirm_no"),
+                DlcConfirmUtil.confirmYes(),
+                DlcConfirmUtil.confirmNo(),
             ),
         )
     }
 
-    private fun buildReupdateMessage(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?, changelog: String?): Component {
-        val compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew)
-        val base = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1])
-        if (changelog.isNullOrBlank()) {
-            return base
-        }
-        return Component.empty()
-            .append(base)
-            .append("\n\n")
-            .append(Component.translatable("dlc_manager.update.changelog_tooltip_title"))
-            .append("\n")
-            .append(DlcMarkdownRenderer.renderMarkdownComponent(changelog))
-    }
-
-    private fun handleReupdateResult(result: UpdateApplyResult, check: UpdateCheckResult?) {
+    private fun handleReupdateResult(result: UpdateApplyResult?, check: UpdateCheckResult?) {
         setApplyingUpdates(false)
-        if (result.isMissing) {
+        if (result?.isMissing == true) {
             val missingCheck = check ?: DlcUpdateService.checkForUpdates(true)
             Minecraft.getInstance().setScreen(DlcUpdateMissingScreen(this, missingCheck, result.missingPaths))
             return
         }
-        if (!result.isSuccess) {
+        if (result?.isSuccess != true) {
             val component = DlcUpdateService.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, component))
             return
@@ -548,6 +527,92 @@ class DlcUpdateManagerScreen(
             Component.translatable("dlc_manager.update.success")
         }
         Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, true, message))
+    }
+
+    private fun startReupdate(
+        baseOld: String?,
+        dlcOld: String?,
+        baseNew: String?,
+        dlcNew: String?,
+        chain: MutableList<DlcUpdatePackage?>,
+        packCheck: DlcPackUpdateGuard.CheckResult?,
+        uninstallIncompatible: Boolean,
+    ) {
+        if (chain.isEmpty()) {
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
+            return
+        }
+        setApplyingUpdates(true)
+        Thread({
+            var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
+            try {
+                val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                val result = DlcUpdateService.applyUpdates(chain, false)
+                if (result?.isSuccess == true) {
+                    packSession.finishAfterSuccessfulUpdate()
+                } else {
+                    packSession.restoreAfterFailedUpdate()
+                }
+                Minecraft.getInstance().execute { handleReupdateResult(result, null) }
+            } catch (ex: Exception) {
+                packSession?.let {
+                    try {
+                        it.restoreAfterFailedUpdate()
+                    } catch (restoreError: Exception) {
+                        ex.addSuppressed(restoreError)
+                    }
+                }
+                val message = ex.message ?: "Failed to apply update"
+                Minecraft.getInstance().execute {
+                    setApplyingUpdates(false)
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.literal(message)))
+                }
+            }
+        }, "dlc-update-reapply").start()
+    }
+
+    private fun startApply(
+        baseOld: String?,
+        dlcOld: String?,
+        baseNew: String?,
+        dlcNew: String?,
+        chain: MutableList<DlcUpdatePackage?>,
+        packCheck: DlcPackUpdateGuard.CheckResult?,
+        uninstallIncompatible: Boolean,
+    ) {
+        if (chain.isEmpty()) {
+            Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.update.failed")))
+            return
+        }
+        setApplyingUpdates(true)
+        Thread({
+            var packSession: DlcPackUpdateCoordinator.UpdateSession? = null
+            try {
+                val coordinator = DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot())
+                packSession = coordinator.prepareForUpdate(packCheck, uninstallIncompatible)
+                val result = DlcUpdateService.applyUpdates(chain, false)
+                if (result?.isSuccess == true) {
+                    packSession.finishAfterSuccessfulUpdate()
+                } else {
+                    packSession.restoreAfterFailedUpdate()
+                }
+                Minecraft.getInstance().execute { handleReupdateResult(result, null) }
+            } catch (ex: Exception) {
+                packSession?.let {
+                    try {
+                        it.restoreAfterFailedUpdate()
+                    } catch (restoreError: Exception) {
+                        ex.addSuppressed(restoreError)
+                    }
+                }
+                val message = ex.message ?: "Failed to apply update"
+                Minecraft.getInstance().execute {
+                    setApplyingUpdates(false)
+                    Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.literal(message)))
+                }
+            }
+        }, "dlc-update-apply").start()
     }
 
     private fun tryShowPostUpdateDownloads(result: UpdateApplyResult?): Boolean {
@@ -602,7 +667,7 @@ class DlcUpdateManagerScreen(
     }
 
     private fun importUpdate() {
-        val picked: Path = DlcUpdateFilePicker.pickUpdateZip("Import Update") ?: return
+        val picked: Path = DlcFilePicker.pickUpdateZip("Import Update") ?: return
         val validation = DlcUpdateService.validateImportPackage(picked)
         if (!validation.isValid) {
             showToast(

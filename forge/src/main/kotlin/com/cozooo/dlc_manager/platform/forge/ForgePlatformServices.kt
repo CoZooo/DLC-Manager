@@ -1,16 +1,17 @@
-package com.cozooo.dlc_manager.platform
+package com.cozooo.dlc_manager.platform.forge
 
+import com.cozooo.dlc_manager.platform.PlatformServices
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
-import net.neoforged.api.distmarker.Dist
-import net.neoforged.fml.ModList
-import net.neoforged.fml.loading.FMLEnvironment
-import net.neoforged.fml.loading.FMLPaths
-import net.neoforged.fml.loading.moddiscovery.ModFileInfo
+import net.minecraftforge.api.distmarker.Dist
+import net.minecraftforge.fml.ModList
+import net.minecraftforge.fml.loading.FMLEnvironment
+import net.minecraftforge.fml.loading.FMLPaths
+import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo
 import java.nio.file.Files
 import java.nio.file.Path
 
-class NeoForgePlatformServices : PlatformServices.Provider {
+class ForgePlatformServices : PlatformServices.Provider {
     override fun gameDir(): Path {
         return FMLPaths.GAMEDIR.get()
     }
@@ -57,7 +58,7 @@ class NeoForgePlatformServices : PlatformServices.Provider {
     }
 
     override fun loaderName(): String {
-        return "NeoForge"
+        return "Forge"
     }
 
     override fun mcVersion(): String {
@@ -116,7 +117,7 @@ class NeoForgePlatformServices : PlatformServices.Provider {
     companion object {
         @JvmStatic
         fun init() {
-            PlatformServices.setProvider(NeoForgePlatformServices())
+            PlatformServices.setProvider(ForgePlatformServices())
         }
     }
 }

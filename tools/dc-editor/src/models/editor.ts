@@ -1,5 +1,3 @@
-export type BackendMode = "local" | "api";
-
 export type DocumentType =
   | "info"
   | "remote"
@@ -9,7 +7,8 @@ export type DocumentType =
   | "notice"
   | "redirect"
   | "update"
-  | "version";
+  | "version"
+  | "pack";
 
 export type FieldKind =
   | "text"
@@ -93,7 +92,6 @@ export interface EditorDocument {
   isDirty: boolean;
   issues: ValidationIssue[];
   source: "new" | "imported";
-  backendMode: BackendMode;
 }
 
 export interface OpenDocumentResult {

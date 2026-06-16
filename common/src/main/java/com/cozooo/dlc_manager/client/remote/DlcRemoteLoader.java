@@ -347,6 +347,10 @@ public final class DlcRemoteLoader {
         if (type == DlcType.UNKNOWN && (appliedTarget == null || appliedTarget.isBlank())) {
             inList = false;
         }
+        if (type == DlcType.DLC_PACK) {
+            inList = false;
+            hidden = true;
+        }
 
         DependencyResult deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir);
         DependencyResult conflicts = normalizeConflicts(DcConfigIO.getIgnoreCase(obj, "conflicts"));
@@ -586,9 +590,45 @@ public final class DlcRemoteLoader {
             return result;
         }
         if (element.isJsonObject()) {
-            String name = resolveIdentifier(element.getAsJsonObject(), null);
-            result.element = new com.google.gson.JsonPrimitive(name == null ? "" : name);
-            result.names.addAll(splitNames(name));
+            JsonObject obj = element.getAsJsonObject();
+            if (isIdentifierOnlyObject(obj)) {
+                String name = resolveIdentifier(obj, null);
+                result.element = new com.google.gson.JsonPrimitive(name == null ? "" : name);
+                result.names.addAll(splitNames(name));
+                return result;
+            }
+            JsonObject ordered = new JsonObject();
+            for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
+                String key = entry.getKey();
+                JsonElement value = entry.getValue();
+                if (value == null || value.isJsonNull()) {
+                    continue;
+                }
+                if (value.isJsonPrimitive()) {
+                    String raw = value.getAsString();
+                    if (raw.isBlank()) {
+                        continue;
+                    }
+                    ordered.addProperty(key, raw);
+                    result.names.addAll(splitNames(raw));
+                    continue;
+                }
+                if (value.isJsonArray()) {
+                    DependencyResult childResult = normalizeConflicts(value);
+                    ordered.add(key, childResult.element);
+                    result.names.addAll(childResult.names);
+                    continue;
+                }
+                if (value.isJsonObject()) {
+                    String identifier = resolveIdentifier(value.getAsJsonObject(), key);
+                    String name = identifier == null || identifier.isBlank() ? key : identifier;
+                    if (name != null && !name.isBlank()) {
+                        ordered.addProperty(key, name);
+                        result.names.add(name);
+                    }
+                }
+            }
+            result.element = ordered;
             return result;
         }
         result.element = new com.google.gson.JsonPrimitive("");

@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateState;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection.UpdateResponse;
-import com.cozooo.dlc_manager.client.update.DlcUpdateFilePicker;
+import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
@@ -412,40 +412,39 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
         if (targetVersion == null || targetVersion.isBlank()) {
             return;
         }
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_rollback", targetVersion);
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmRollbackMessage(targetVersion);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 startRollback(targetVersion);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        String[] compact = compactTransition(baseOld, dlcOld, baseNew, dlcNew);
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_reapply", compact[0], compact[1]);
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 startApply(baseOld, dlcOld, baseNew, dlcNew);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void confirmApply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
-        Component title = Component.translatable("dlc_manager.update.manager_title");
-        Component message = Component.translatable("dlc_manager.update.confirm_apply");
+        Component title = DlcConfirmUtil.buildUpdateManagerTitle();
+        Component message = DlcConfirmUtil.buildUpdateConfirmApplyMessage();
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             if (accepted) {
                 startApply(baseOld, dlcOld, baseNew, dlcNew);
             } else {
                 Minecraft.getInstance().setScreen(this);
             }
-        }, title, message, Component.translatable("dlc_manager.confirm_yes"), Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()));
     }
 
     private void startRollback(String targetVersion) {
@@ -530,7 +529,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
         if (applying || loading) {
             return;
         }
-        Path zip = DlcUpdateFilePicker.pickAnyFile(Component.translatable("dlc_manager.update.import").getString());
+        Path zip = DlcFilePicker.pickAnyFile(Component.translatable("dlc_manager.update.import").getString());
         if (zip == null) {
             return;
         }

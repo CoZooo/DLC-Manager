@@ -1,5 +1,6 @@
-package com.cozooo.dlc_manager.client.update;
+package com.cozooo.dlc_manager.client.core;
 
+import com.cozooo.dlc_manager.core.DlcPaths;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.File;
@@ -7,8 +8,8 @@ import java.nio.Buffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-public final class DlcUpdateFilePicker {
-    private DlcUpdateFilePicker() {
+public final class DlcFilePicker {
+    private DlcFilePicker() {
     }
 
     public static Path pickUpdateZip(String title) {
@@ -30,16 +31,16 @@ public final class DlcUpdateFilePicker {
                     return apple.path;
                 }
                 if (!tiny.available && !apple.available) {
-                    openUpdateDir();
+                    openGameDir();
                 } else if (!tiny.canceled && !apple.canceled) {
-                    openUpdateDir();
+                    openGameDir();
                 }
                 return null;
             }
             if (!tiny.available) {
-                openUpdateDir();
+                openGameDir();
             } else if (!tiny.canceled) {
-                openUpdateDir();
+                openGameDir();
             }
             return null;
         } catch (Throwable ignored) {
@@ -150,11 +151,8 @@ public final class DlcUpdateFilePicker {
 
     private static PickResult tryTinyFileDialog(String title) {
         try {
-            Path updateDir = DlcUpdateService.getUpdateDir();
-            if (updateDir != null) {
-                Files.createDirectories(updateDir);
-            }
-            String defaultPath = updateDir == null ? "" : updateDir.toString() + File.separator;
+            Path gameDir = DlcPaths.gameDir();
+            String defaultPath = gameDir.toString() + File.separator;
             Class<?> stackClass = Class.forName("org.lwjgl.system.MemoryStack");
             Class<?> memUtilClass = Class.forName("org.lwjgl.system.MemoryUtil");
             Class<?> pbClass = Class.forName("org.lwjgl.PointerBuffer");
@@ -359,8 +357,7 @@ public final class DlcUpdateFilePicker {
 
     private static PickResult tryAppleScriptFileDialog(String title) {
         try {
-            Path updateDir = DlcUpdateService.getUpdateDir();
-            String defaultLocation = updateDir == null ? "" : updateDir.toString();
+            String defaultLocation = DlcPaths.gameDir().toString();
             String safeTitle = escapeAppleScript(title == null ? "Import Update" : title);
             String safeDefault = escapeAppleScript(defaultLocation);
             String script;
@@ -466,13 +463,9 @@ public final class DlcUpdateFilePicker {
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    private static void openUpdateDir() {
-        Path folder = DlcUpdateService.getUpdateDir();
+    private static void openGameDir() {
+        Path folder = DlcPaths.gameDir();
         try {
-            if (folder == null) {
-                return;
-            }
-            Files.createDirectories(folder);
             String osName = System.getProperty("os.name", "").toLowerCase();
             if (osName.contains("mac")) {
                 new ProcessBuilder("/usr/bin/open", folder.toString()).start();

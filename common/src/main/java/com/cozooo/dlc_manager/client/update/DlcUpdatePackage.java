@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
+import com.cozooo.dlc_manager.client.core.DlcZipUtil;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.google.gson.Gson;
@@ -20,6 +21,7 @@ public class DlcUpdatePackage {
     private final String name;
     private final DlcUpdateManifest manifest;
     private final String contentRoot;
+    private Path extractionRoot;
     private Path stagingRoot;
 
     private DlcUpdatePackage(Path archivePath, String name, DlcUpdateManifest manifest, String contentRoot) {
@@ -115,46 +117,19 @@ public class DlcUpdatePackage {
             return null;
         }
         Path stagingBase = DlcTmpPaths.resolve(dlcRoot, "_staging");
-        String safeName = name == null ? "update" : name.replaceAll("[^a-zA-Z0-9._-]", "_");
-        Path target = stagingBase.resolve(safeName + "-" + System.currentTimeMillis());
+        Path target;
         try {
-            Files.createDirectories(target);
+            target = DlcZipUtil.createUniqueDir(stagingBase, name);
         } catch (IOException ignored) {
             return null;
         }
-        try (ZipFile zipFile = new ZipFile(archivePath.toFile(), StandardCharsets.UTF_8)) {
-            var entries = zipFile.entries();
-            while (entries.hasMoreElements()) {
-                ZipEntry entry = entries.nextElement();
-                if (entry == null) {
-                    continue;
-                }
-                String rawName = entry.getName();
-                if (rawName == null || rawName.isBlank()) {
-                    continue;
-                }
-                String normalizedName = rawName.replace('\\', '/');
-                if (normalizedName.startsWith("__MACOSX/") || normalizedName.startsWith("._") || normalizedName.endsWith("/.DS_Store") || normalizedName.equals(".DS_Store")) {
-                    continue;
-                }
-                Path outPath = target.resolve(rawName).normalize();
-                if (!outPath.startsWith(target)) {
-                    continue;
-                }
-                try {
-                    if (entry.isDirectory()) {
-                        Files.createDirectories(outPath);
-                    } else {
-                        Files.createDirectories(outPath.getParent());
-                        try (var in = zipFile.getInputStream(entry)) {
-                            Files.copy(in, outPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                        }
-                    }
-                } catch (IOException ignored) {
-                }
-            }
+        try {
+            DlcZipUtil.extractZip(archivePath, target);
         } catch (IOException ignored) {
+            DlcZipUtil.deleteRecursive(target);
+            return null;
         }
+        extractionRoot = target;
         if (contentRoot != null && !contentRoot.isBlank()) {
             Path rootPath = target.resolve(contentRoot).normalize();
             if (rootPath.startsWith(target)) {
@@ -169,10 +144,12 @@ public class DlcUpdatePackage {
     }
 
     public void cleanupStaging() {
-        if (stagingRoot == null) {
+        Path root = extractionRoot == null ? stagingRoot : extractionRoot;
+        if (root == null) {
             return;
         }
-        DlcUpdateService.deleteRecursive(stagingRoot);
+        DlcZipUtil.deleteRecursive(root);
+        extractionRoot = null;
         stagingRoot = null;
     }
 

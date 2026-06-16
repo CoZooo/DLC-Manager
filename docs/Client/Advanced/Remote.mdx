@@ -33,34 +33,35 @@ RedirectUrl = "https://example.com/project-page"
 isInList = true
 isHidden = false
 AllowEnableByAll = true
-dependencies = ["HelperLib"]
-conflicts = ["ConflictMod"]
 alarm = false
 
 [dependencies]
-  HelperLib:
-    [download]
-    modrinth_projectid = "helperlib"
-    modrinth_versionid = "helperlib-version"
-    directUrl = ""
-    priority = "modrinth"
+"HelperLib"
 
-    [basic]
-    identifier = "HelperLib"
-    type = "mod"
-    file_name = "helperlib-1.0.0.jar"
-    isInList = true
-    isHidden = true
-    AllowEnableByAll = true
-    dependencies = ""
-    conflicts = ""
-    alarm = false
+[dependencies.mod1]
+  [download]
+  modrinth_projectid = "helperlib"
+  modrinth_versionid = "helperlib-version"
+  directUrl = ""
+  priority = "modrinth"
 
-    [DisplayName]
-    en_us = "Helper Library"
-    zh_cn = "辅助库"
+  [basic]
+  identifier = "HelperLib"
+  type = "mod"
+  file_name = "helperlib-1.0.0.jar"
+  isInList = true
+  isHidden = true
+  AllowEnableByAll = true
+  alarm = false
 
-    [tip]
+  [DisplayName]
+  en_us = "Helper Library"
+  zh_cn = "辅助库"
+
+  [tip]
+
+[conflicts]
+"ConflictMod"
 
 [DisplayName]
 en_us = "Example Mod"

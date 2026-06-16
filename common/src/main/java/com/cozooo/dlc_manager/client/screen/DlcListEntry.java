@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
@@ -670,7 +670,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     private static void showBatchAlarmPrompt(java.util.List<DlcItem> alarmItems, Runnable onConfirm) {
         Screen returnScreen = Minecraft.getInstance().screen;
         DlcReturnPositionHost.remember(returnScreen);
-        String tip = buildBatchAlarmTip(alarmItems);
+        String tip = DlcConfirmUtil.buildBatchAlarmTip(alarmItems);
         Minecraft.getInstance().setScreen(new DlcAlarmConfirmScreen(returnScreen, tip, () -> {
             if (onConfirm != null) {
                 onConfirm.run();
@@ -679,27 +679,6 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
                 screen.refreshAfterStateChange();
             }
         }));
-    }
-
-    private static String buildBatchAlarmTip(java.util.List<DlcItem> alarmItems) {
-        if (alarmItems == null || alarmItems.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (DlcItem item : alarmItems) {
-            if (item == null) {
-                continue;
-            }
-            if (sb.length() > 0) {
-                sb.append("\n\n");
-            }
-            sb.append(DlcDisplayNameUtil.resolveDisplayName(item));
-            String tip = resolveLocalized(item.getTooltips());
-            if (tip != null && !tip.isBlank()) {
-                sb.append("\n").append(tip);
-            }
-        }
-        return sb.toString();
     }
 
     private static java.util.List<DlcItem> filterConflictTargets(java.util.List<DlcItem> targets, DlcRuntimeState.ConflictBatchResult conflicts) {
@@ -784,28 +763,6 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         return new ConflictCheck(names, toDisable);
     }
 
-    private static Component buildConflictPromptMessage(String list) {
-        return Component.translatable("dlc_manager.conflict.prompt_prefix", DlcTextFormatter.parse(list))
-            .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
-    }
-
-    private static Component buildConflictLine(String left, String right) {
-        return Component.translatable("dlc_manager.batch.conflicts_line_prefix",
-                DlcTextFormatter.parse(left), DlcTextFormatter.parse(right))
-            .append(Component.translatable("dlc_manager.conflict.word").withStyle(net.minecraft.ChatFormatting.DARK_RED));
-    }
-
-    private static Component joinLines(java.util.List<Component> lines) {
-        net.minecraft.network.chat.MutableComponent result = Component.empty();
-        for (int i = 0; i < lines.size(); i++) {
-            if (i > 0) {
-                result = result.append(Component.literal("\n"));
-            }
-            result = result.append(lines.get(i));
-        }
-        return result;
-    }
-
     private static void enableItems(java.util.Collection<DlcItem> items, boolean enabled) {
         if (items == null || items.isEmpty()) {
             return;
@@ -836,13 +793,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
     }
 
     private static void showBatchConflictPrompt(java.util.List<DlcRuntimeState.ConflictLine> lines, Runnable onSkipConfirm) {
-        java.util.List<Component> components = new java.util.ArrayList<>();
-        for (DlcRuntimeState.ConflictLine line : lines) {
-            components.add(buildConflictLine(
-                DlcDisplayNameUtil.resolveDisplayName(line.getLeftName()),
-                DlcDisplayNameUtil.resolveDisplayName(line.getRightName())));
-        }
-        Component message = joinLines(components);
+        Component message = DlcConfirmUtil.buildConflictMessage(lines);
         Screen returnScreen = Minecraft.getInstance().screen;
         if (returnScreen instanceof DlcMaLiLibScreen screen) {
             screen.rememberListScroll();
@@ -862,18 +813,12 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
         }, title, message,
             Component.translatable("dlc_manager.batch.conflicts_skip_enable"),
-            Component.translatable("dlc_manager.confirm_no")));
+            DlcConfirmUtil.confirmNo()));
     }
 
     private static void showBatchDependencyPrompt(java.util.List<DlcRuntimeState.DependencyLine> lines,
         java.util.List<DlcItem> depsToEnable, java.util.List<DlcItem> targets, Component scopeLabel) {
-        java.util.List<Component> components = new java.util.ArrayList<>();
-        for (DlcRuntimeState.DependencyLine line : lines) {
-            components.add(Component.translatable("dlc_manager.batch.dependencies_line",
-                DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getItemName())),
-                DlcTextFormatter.parse(DlcDisplayNameUtil.resolveDisplayName(line.getDependencyName()))));
-        }
-        Component message = joinLines(components);
+        Component message = DlcConfirmUtil.buildDependencyMessage(lines);
         Screen returnScreen = Minecraft.getInstance().screen;
         if (returnScreen instanceof DlcMaLiLibScreen screen) {
             screen.rememberListScroll();
@@ -909,7 +854,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             if (returnScreen instanceof DlcMaLiLibScreen screen) {
                 screen.refreshAfterStateChange();
             }
-        }, title, message, enableLabel, Component.translatable("dlc_manager.confirm_no")));
+        }, title, message, enableLabel, DlcConfirmUtil.confirmNo()));
     }
 
     private static void showDependencyPrompt(DlcItem item, DependencyCheck dependencies, fi.dy.masa.malilib.gui.button.ButtonBase button) {
@@ -920,8 +865,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         if (returnScreen instanceof DlcMaLiLibScreen screen) {
             screen.rememberListScroll();
         }
-        String list = String.join(", ", dependencies.names);
-        Component message = Component.translatable("dlc_manager.dependency.prompt", DlcTextFormatter.parse(list));
+        Component message = DlcConfirmUtil.buildDependencyPromptMessage(dependencies.names);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
@@ -939,7 +883,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
         }, Component.translatable("dlc_manager.title"), message,
             Component.translatable("dlc_manager.dependency.enable"),
-            Component.translatable("dlc_manager.confirm_no")));
+            DlcConfirmUtil.confirmNo()));
     }
 
     private static void showConflictPrompt(DlcItem item, ConflictCheck conflicts, fi.dy.masa.malilib.gui.button.ButtonBase button) {
@@ -950,8 +894,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
         if (returnScreen instanceof DlcMaLiLibScreen screen) {
             screen.rememberListScroll();
         }
-        String list = String.join(", ", conflicts.names);
-        Component message = buildConflictPromptMessage(list);
+        Component message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names);
         Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
@@ -963,7 +906,7 @@ public class DlcListEntry extends WidgetListEntryBase<DlcListRow> {
             }
         }, Component.translatable("dlc_manager.title"), message,
             Component.translatable("dlc_manager.conflict.resolve"),
-            Component.translatable("dlc_manager.confirm_no")));
+            DlcConfirmUtil.confirmNo()));
     }
 
     private static final class DependencyCheck {

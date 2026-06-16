@@ -2,11 +2,12 @@ package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
-import com.cozooo.dlc_manager.client.text.DlcTextFormatter;
+import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
@@ -23,6 +24,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
+import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
@@ -113,6 +115,13 @@ public final class DlcClientRuntime {
         DlcNoticeManager.forceShow(parent);
     }
 
+    public static void openPackManagerFromTitle(Screen parent) {
+        if (!DlcPathConfig.isPackFuncOn()) {
+            return;
+        }
+        Minecraft.getInstance().setScreen(new DlcPackManagerScreen(parent));
+    }
+
     public static void maybeOpenManagerOnFirstRun(Screen parent) {
         if (firstRunManagerHandled) {
             return;
@@ -134,6 +143,7 @@ public final class DlcClientRuntime {
         }
         try {
             Files.createDirectories(dlcRoot);
+            ensurePackArchiveRoot(dlcRoot);
             Files.createFile(markerPath);
         } catch (IOException ignored) {
             return;
@@ -162,6 +172,7 @@ public final class DlcClientRuntime {
         }
         try {
             Files.createDirectories(dlcRoot);
+            ensurePackArchiveRoot(dlcRoot);
             Files.createFile(markerPath);
         } catch (IOException ignored) {
             return false;
@@ -707,6 +718,9 @@ public final class DlcClientRuntime {
         }
         DlcServerApi.start(null);
         DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen));
+        ensurePackArchiveRoot(DlcPaths.dlcRoot());
+        com.cozooo.dlc_manager.client.pack.DlcPackRecovery.recover(DlcPaths.gameDir(), DlcPaths.dlcRoot());
+        uninstallIncompatiblePacksForCurrentVersion();
         DlcStartupStateSync.syncOnStartup();
         startupCheckRunning = true;
         startupChecksCompleted = true;
@@ -1316,6 +1330,16 @@ public final class DlcClientRuntime {
         return false;
     }
 
+    private static void ensurePackArchiveRoot(Path dlcRoot) {
+        if (dlcRoot == null) {
+            return;
+        }
+        try {
+            Files.createDirectories(dlcRoot.resolve("pack"));
+        } catch (IOException ignored) {
+        }
+    }
+
     private static void copyRecursive(java.nio.file.Path source, java.nio.file.Path target) throws java.io.IOException {
         if (java.nio.file.Files.isDirectory(source)) {
             java.nio.file.Files.walkFileTree(source, new java.nio.file.SimpleFileVisitor<>() {
@@ -1346,6 +1370,18 @@ public final class DlcClientRuntime {
         } else {
             java.nio.file.Files.createDirectories(target.getParent());
             java.nio.file.Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    private static void uninstallIncompatiblePacksForCurrentVersion() {
+        try {
+            java.util.List<com.cozooo.dlc_manager.client.pack.DlcPackInstaller.UninstallReport> reports =
+                new DlcPackUpdateCoordinator(DlcPaths.gameDir(), DlcPaths.dlcRoot()).uninstallIncompatibleForCurrentVersion();
+            if (!reports.isEmpty()) {
+                LOGGER.info("[dlc-manager] auto uninstalled incompatible DLC packs: count={}", reports.size());
+            }
+        } catch (Exception ex) {
+            LOGGER.warn("[dlc-manager] failed to auto uninstall incompatible DLC packs", ex);
         }
     }
 }

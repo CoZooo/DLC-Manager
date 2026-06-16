@@ -80,6 +80,32 @@ public final class DlcPresetRuntimeState {
         return new ArrayList<>(PRESETS_BY_ID.values());
     }
 
+    public static boolean hasPreset(String id) {
+        return id != null && !id.isBlank() && PRESETS_BY_ID.containsKey(id);
+    }
+
+    public static DlcPresetEntry getPresetById(String id) {
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        return PRESETS_BY_ID.get(id);
+    }
+
+    public static String findPresetId(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return resolvePresetId(value.trim());
+    }
+
+    public static String findEnabledPresetId(String value) {
+        String presetId = findPresetId(value);
+        if (presetId == null) {
+            return null;
+        }
+        return ENABLED_PRESETS.contains(presetId) ? presetId : null;
+    }
+
     public static boolean isPresetEnabled(String id) {
         return id != null && ENABLED_PRESETS.contains(id);
     }
@@ -596,7 +622,7 @@ public final class DlcPresetRuntimeState {
                 return null;
             }
         }
-        String resolved = findPresetId(value);
+        String resolved = resolvePresetId(value);
         if (resolved == null) {
             return null;
         }
@@ -606,7 +632,7 @@ public final class DlcPresetRuntimeState {
         return resolved;
     }
 
-    private static String findPresetId(String value) {
+    private static String resolvePresetId(String value) {
         DlcPresetEntry exact = PRESETS_BY_ID.get(value);
         if (exact != null && exact.getId() != null && !exact.getId().isBlank()) {
             return exact.getId();
@@ -616,9 +642,6 @@ public final class DlcPresetRuntimeState {
                 continue;
             }
             if (entry.getId().equalsIgnoreCase(value)) {
-                return entry.getId();
-            }
-            if (entry.getFileName() != null && !entry.getFileName().isBlank() && entry.getFileName().equalsIgnoreCase(value)) {
                 return entry.getId();
             }
         }
