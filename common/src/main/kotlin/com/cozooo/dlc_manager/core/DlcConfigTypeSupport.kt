@@ -6,7 +6,7 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.HexFormat
 
-object DlcConfigDlcSupport {
+object DlcConfigTypeSupport {
     @JvmStatic
     fun isConfigType(item: DlcItem?): Boolean {
         return item != null && item.getType() == DlcType.UNKNOWN && item.isConfigType()

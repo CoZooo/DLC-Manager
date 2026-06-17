@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
-import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
+import com.cozooo.dlc_manager.core.DlcConfigTypeSupport;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
@@ -985,7 +985,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
 
     private boolean computeModReloadChanges() {
         for (DlcItem item : allItems) {
-            if (item.getType() != DlcType.MOD && !DlcConfigDlcSupport.isConfigType(item)) {
+            if (item.getType() != DlcType.MOD && !DlcConfigTypeSupport.isConfigType(item)) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -997,7 +997,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
 
     private boolean computeNonModReloadChanges() {
         for (DlcItem item : allItems) {
-            if (item.getType() == DlcType.MOD || DlcConfigDlcSupport.isConfigType(item)) {
+            if (item.getType() == DlcType.MOD || DlcConfigTypeSupport.isConfigType(item)) {
                 continue;
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -1015,7 +1015,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
             return "";
         }
-        if (item.getType() == DlcType.MOD || DlcConfigDlcSupport.isConfigType(item)) {
+        if (item.getType() == DlcType.MOD || DlcConfigTypeSupport.isConfigType(item)) {
             return StringUtils.translate("dlc_manager.pending.restart");
         }
         return StringUtils.translate("dlc_manager.pending.reload");

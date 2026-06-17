@@ -296,7 +296,7 @@ object DlcApplier {
     private fun requiresRestartOnToggle(item: DlcItem): Boolean {
         return item.getType() == DlcType.MOD ||
             item.getType() == DlcType.TACZ_PACK ||
-            DlcConfigDlcSupport.isConfigType(item)
+            DlcConfigTypeSupport.isConfigType(item)
     }
 
     private fun applyItem(item: DlcItem, wasEnabled: Boolean): List<Path> {
@@ -312,7 +312,7 @@ object DlcApplier {
                 if (!dirTarget && sources.size > 1) {
                     return statePaths
                 }
-                if (DlcConfigDlcSupport.isConfigType(item)) {
+                if (DlcConfigTypeSupport.isConfigType(item)) {
                     return applyConfigItem(item, sources, target, dirTarget, wasEnabled)
                 }
                 if (dirTarget) {
@@ -389,12 +389,12 @@ object DlcApplier {
 
     @Throws(IOException::class)
     private fun backupConfigTarget(itemId: String?, target: Path, shouldCreate: Boolean): Path {
-        val backupPath = DlcConfigDlcSupport.backupPathForItemTarget(itemId, target)
-        val markerPath = DlcConfigDlcSupport.missingMarkerPath(backupPath)
+        val backupPath = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target)
+        val markerPath = DlcConfigTypeSupport.missingMarkerPath(backupPath)
         if (shouldCreate) {
             deleteRecursiveIfExists(backupPath)
             deleteRecursiveIfExists(markerPath)
-            Files.createDirectories(DlcConfigDlcSupport.backupRootForItem(itemId))
+            Files.createDirectories(DlcConfigTypeSupport.backupRootForItem(itemId))
             if (Files.exists(target)) {
                 copyRecursive(target, backupPath)
                 return backupPath
@@ -413,7 +413,7 @@ object DlcApplier {
         if (previous == null || previous.appliedTargets == null) {
             return RemovalResult(messages)
         }
-        if (DlcConfigDlcSupport.isConfigType(item)) {
+        if (DlcConfigTypeSupport.isConfigType(item)) {
             restoreConfigItem(item, previous, messages)
             return RemovalResult(messages)
         }
@@ -442,8 +442,8 @@ object DlcApplier {
         val stored = previous.appliedTargets ?: emptyList()
         for (i in targets.indices) {
             val target = targets[i]
-            val fallbackBackup = DlcConfigDlcSupport.backupPathForItemTarget(item.getId(), target)
-            val fallbackMarker = DlcConfigDlcSupport.missingMarkerPath(fallbackBackup)
+            val fallbackBackup = DlcConfigTypeSupport.backupPathForItemTarget(item.getId(), target)
+            val fallbackMarker = DlcConfigTypeSupport.missingMarkerPath(fallbackBackup)
             var statePath = if (i < stored.size) resolveStoredPath(stored[i]) else null
             if (statePath == null || statePath.toString().isBlank()) {
                 statePath = if (Files.exists(fallbackMarker)) {
@@ -451,8 +451,8 @@ object DlcApplier {
                 } else if (Files.exists(fallbackBackup)) {
                     fallbackBackup
                 } else {
-                    val legacyBackup = DlcConfigDlcSupport.backupPathForTarget(target)
-                    val legacyMarker = DlcConfigDlcSupport.missingMarkerPath(legacyBackup)
+                    val legacyBackup = DlcConfigTypeSupport.backupPathForTarget(target)
+                    val legacyMarker = DlcConfigTypeSupport.missingMarkerPath(legacyBackup)
                     if (Files.exists(legacyMarker)) legacyMarker else legacyBackup
                 }
             }
@@ -461,14 +461,14 @@ object DlcApplier {
             if (Files.exists(statePath) && statePath.fileName != null && statePath.fileName.toString().endsWith(".missing")) {
                 backupPath = fallbackBackup
                 if (!Files.exists(backupPath)) {
-                    backupPath = DlcConfigDlcSupport.backupPathForTarget(target)
+                    backupPath = DlcConfigTypeSupport.backupPathForTarget(target)
                 }
             } else if (statePath == fallbackBackup) {
                 markerPath = fallbackMarker
-            } else if (statePath == DlcConfigDlcSupport.backupPathForTarget(target)) {
-                markerPath = DlcConfigDlcSupport.missingMarkerPath(statePath)
+            } else if (statePath == DlcConfigTypeSupport.backupPathForTarget(target)) {
+                markerPath = DlcConfigTypeSupport.missingMarkerPath(statePath)
             } else {
-                markerPath = DlcConfigDlcSupport.missingMarkerPath(statePath)
+                markerPath = DlcConfigTypeSupport.missingMarkerPath(statePath)
             }
             try {
                 if (isMissingMarker(statePath) || isMissingMarker(markerPath)) {

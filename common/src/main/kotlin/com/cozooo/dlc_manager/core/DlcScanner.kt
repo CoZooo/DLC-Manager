@@ -305,8 +305,8 @@ class DlcScanner {
                     val normalized = entry.replace('\\', '/')
                     val check = if (dirTarget) target.resolve(normalized) else target
                     if (configType) {
-                        if (!DlcConfigDlcSupport.hasBackupForItemTarget(itemId, check) &&
-                            !DlcConfigDlcSupport.hasBackupForTarget(check)
+                        if (!DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check) &&
+                            !DlcConfigTypeSupport.hasBackupForTarget(check)
                         ) {
                             return false
                         }
@@ -322,13 +322,13 @@ class DlcScanner {
             if (dirTarget) {
                 val check = target.resolve(fileName)
                 return if (configType) {
-                    DlcConfigDlcSupport.hasBackupForItemTarget(itemId, check) || DlcConfigDlcSupport.hasBackupForTarget(check)
+                    DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check) || DlcConfigTypeSupport.hasBackupForTarget(check)
                 } else {
                     Files.exists(check)
                 }
             }
             return if (configType) {
-                DlcConfigDlcSupport.hasBackupForItemTarget(itemId, target) || DlcConfigDlcSupport.hasBackupForTarget(target)
+                DlcConfigTypeSupport.hasBackupForItemTarget(itemId, target) || DlcConfigTypeSupport.hasBackupForTarget(target)
             } else {
                 Files.exists(target)
             }
@@ -426,16 +426,16 @@ class DlcScanner {
     }
 
     private fun detectConfigStatePath(itemId: String, target: Path): Path? {
-        val backup = DlcConfigDlcSupport.backupPathForItemTarget(itemId, target)
-        val marker = DlcConfigDlcSupport.missingMarkerPath(backup)
+        val backup = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target)
+        val marker = DlcConfigTypeSupport.missingMarkerPath(backup)
         if (Files.exists(marker)) {
             return marker
         }
         if (Files.exists(backup)) {
             return backup
         }
-        val legacyBackup = DlcConfigDlcSupport.backupPathForTarget(target)
-        val legacyMarker = DlcConfigDlcSupport.missingMarkerPath(legacyBackup)
+        val legacyBackup = DlcConfigTypeSupport.backupPathForTarget(target)
+        val legacyMarker = DlcConfigTypeSupport.missingMarkerPath(legacyBackup)
         if (Files.exists(legacyMarker)) {
             return legacyMarker
         }

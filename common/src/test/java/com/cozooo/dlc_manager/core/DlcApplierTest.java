@@ -116,13 +116,13 @@ class DlcApplierTest {
         DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertEquals("value = \"override\"", Files.readString(target));
-        assertTrue(Files.exists(DlcConfigDlcSupport.backupPathForItemTarget(item.getId(), target)));
+        assertTrue(Files.exists(DlcConfigTypeSupport.backupPathForItemTarget(item.getId(), target)));
 
         item.setEnabled(false);
         DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertEquals("value = \"original\"", Files.readString(target));
-        assertFalse(Files.exists(DlcConfigDlcSupport.backupPathForItemTarget(item.getId(), target)));
+        assertFalse(Files.exists(DlcConfigTypeSupport.backupPathForItemTarget(item.getId(), target)));
     }
 
     @Test
@@ -137,7 +137,7 @@ class DlcApplierTest {
         DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertTrue(Files.exists(target));
-        Path backupRoot = DlcConfigDlcSupport.backupRootForItem(item.getId());
+        Path backupRoot = DlcConfigTypeSupport.backupRootForItem(item.getId());
         assertTrue(hasMissingMarker(backupRoot), () -> "missing marker files=" + listFiles(backupRoot));
         DlcStateConfig.DlcState enabledState = DlcStateConfig.getState(item.getId());
         assertTrue(enabledState.enabled);

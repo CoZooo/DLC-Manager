@@ -6,8 +6,8 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
 
-public final class DlcConfigDlcSupport {
-    private DlcConfigDlcSupport() {
+public final class DlcConfigTypeSupport {
+    private DlcConfigTypeSupport() {
     }
 
     public static boolean isConfigType(DlcItem item) {

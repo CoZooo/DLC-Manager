@@ -303,8 +303,8 @@ public class DlcScanner {
                     String normalized = entry.replace('\\', '/');
                     Path check = dirTarget ? target.resolve(normalized) : target;
                     if (configType) {
-                        if (!DlcConfigDlcSupport.hasBackupForItemTarget(itemId, check)
-                            && !DlcConfigDlcSupport.hasBackupForTarget(check)) {
+                        if (!DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check)
+                            && !DlcConfigTypeSupport.hasBackupForTarget(check)) {
                             return false;
                         }
                     } else if (!Files.exists(check)) {
@@ -319,11 +319,11 @@ public class DlcScanner {
             if (dirTarget) {
                 Path check = target.resolve(fileName);
                 return configType
-                    ? DlcConfigDlcSupport.hasBackupForItemTarget(itemId, check) || DlcConfigDlcSupport.hasBackupForTarget(check)
+                    ? DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check) || DlcConfigTypeSupport.hasBackupForTarget(check)
                     : Files.exists(check);
             }
             return configType
-                ? DlcConfigDlcSupport.hasBackupForItemTarget(itemId, target) || DlcConfigDlcSupport.hasBackupForTarget(target)
+                ? DlcConfigTypeSupport.hasBackupForItemTarget(itemId, target) || DlcConfigTypeSupport.hasBackupForTarget(target)
                 : Files.exists(target);
         }
         List<Path> targetDirs = switch (type) {
@@ -417,16 +417,16 @@ public class DlcScanner {
     }
 
     private Path detectConfigStatePath(String itemId, Path target) {
-        Path backup = DlcConfigDlcSupport.backupPathForItemTarget(itemId, target);
-        Path marker = DlcConfigDlcSupport.missingMarkerPath(backup);
+        Path backup = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target);
+        Path marker = DlcConfigTypeSupport.missingMarkerPath(backup);
         if (Files.exists(marker)) {
             return marker;
         }
         if (Files.exists(backup)) {
             return backup;
         }
-        Path legacyBackup = DlcConfigDlcSupport.backupPathForTarget(target);
-        Path legacyMarker = DlcConfigDlcSupport.missingMarkerPath(legacyBackup);
+        Path legacyBackup = DlcConfigTypeSupport.backupPathForTarget(target);
+        Path legacyMarker = DlcConfigTypeSupport.missingMarkerPath(legacyBackup);
         if (Files.exists(legacyMarker)) {
             return legacyMarker;
         }

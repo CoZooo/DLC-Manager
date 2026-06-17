@@ -313,7 +313,7 @@ public class DlcApplier {
     private static boolean requiresRestartOnToggle(DlcItem item) {
         return item.getType() == DlcType.MOD
             || item.getType() == DlcType.TACZ_PACK
-            || DlcConfigDlcSupport.isConfigType(item);
+            || DlcConfigTypeSupport.isConfigType(item);
     }
 
     private static List<Path> applyItem(DlcItem item, boolean wasEnabled) {
@@ -332,7 +332,7 @@ public class DlcApplier {
                 if (!dirTarget && sources.size() > 1) {
                     return statePaths;
                 }
-                if (DlcConfigDlcSupport.isConfigType(item)) {
+                if (DlcConfigTypeSupport.isConfigType(item)) {
                     return applyConfigItem(item, sources, target, dirTarget, wasEnabled);
                 }
                 if (dirTarget) {
@@ -412,12 +412,12 @@ public class DlcApplier {
     }
 
     private static Path backupConfigTarget(String itemId, Path target, boolean shouldCreate) throws IOException {
-        Path backupPath = DlcConfigDlcSupport.backupPathForItemTarget(itemId, target);
-        Path markerPath = DlcConfigDlcSupport.missingMarkerPath(backupPath);
+        Path backupPath = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target);
+        Path markerPath = DlcConfigTypeSupport.missingMarkerPath(backupPath);
         if (shouldCreate) {
             deleteRecursiveIfExists(backupPath);
             deleteRecursiveIfExists(markerPath);
-            Files.createDirectories(DlcConfigDlcSupport.backupRootForItem(itemId));
+            Files.createDirectories(DlcConfigTypeSupport.backupRootForItem(itemId));
             if (Files.exists(target)) {
                 copyRecursive(target, backupPath);
                 return backupPath;
@@ -436,7 +436,7 @@ public class DlcApplier {
         if (previous == null || previous.appliedTargets == null) {
             return new RemovalResult(messages);
         }
-        if (DlcConfigDlcSupport.isConfigType(item)) {
+        if (DlcConfigTypeSupport.isConfigType(item)) {
             restoreConfigItem(item, previous, messages);
             return new RemovalResult(messages);
         }
@@ -467,8 +467,8 @@ public class DlcApplier {
         List<String> stored = previous.appliedTargets == null ? List.of() : previous.appliedTargets;
         for (int i = 0; i < targets.size(); i++) {
             Path target = targets.get(i);
-            Path fallbackBackup = DlcConfigDlcSupport.backupPathForItemTarget(item.getId(), target);
-            Path fallbackMarker = DlcConfigDlcSupport.missingMarkerPath(fallbackBackup);
+            Path fallbackBackup = DlcConfigTypeSupport.backupPathForItemTarget(item.getId(), target);
+            Path fallbackMarker = DlcConfigTypeSupport.missingMarkerPath(fallbackBackup);
             Path statePath = i < stored.size() ? resolveStoredPath(stored.get(i)) : null;
             if (statePath == null || statePath.toString().isBlank()) {
                 if (Files.exists(fallbackMarker)) {
@@ -476,8 +476,8 @@ public class DlcApplier {
                 } else if (Files.exists(fallbackBackup)) {
                     statePath = fallbackBackup;
                 } else {
-                    Path legacyBackup = DlcConfigDlcSupport.backupPathForTarget(target);
-                    Path legacyMarker = DlcConfigDlcSupport.missingMarkerPath(legacyBackup);
+                    Path legacyBackup = DlcConfigTypeSupport.backupPathForTarget(target);
+                    Path legacyMarker = DlcConfigTypeSupport.missingMarkerPath(legacyBackup);
                     statePath = Files.exists(legacyMarker) ? legacyMarker : legacyBackup;
                 }
             }
@@ -487,14 +487,14 @@ public class DlcApplier {
                 && statePath.getFileName().toString().endsWith(".missing")) {
                 backupPath = fallbackBackup;
                 if (!Files.exists(backupPath)) {
-                    backupPath = DlcConfigDlcSupport.backupPathForTarget(target);
+                    backupPath = DlcConfigTypeSupport.backupPathForTarget(target);
                 }
             } else if (statePath.equals(fallbackBackup)) {
                 markerPath = fallbackMarker;
-            } else if (statePath.equals(DlcConfigDlcSupport.backupPathForTarget(target))) {
-                markerPath = DlcConfigDlcSupport.missingMarkerPath(statePath);
+            } else if (statePath.equals(DlcConfigTypeSupport.backupPathForTarget(target))) {
+                markerPath = DlcConfigTypeSupport.missingMarkerPath(statePath);
             } else {
-                markerPath = DlcConfigDlcSupport.missingMarkerPath(statePath);
+                markerPath = DlcConfigTypeSupport.missingMarkerPath(statePath);
             }
             try {
                 if (isMissingMarker(statePath) || isMissingMarker(markerPath)) {

@@ -12,7 +12,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.core.DlcApplyMode
 import com.cozooo.dlc_manager.core.DlcApplier
 import com.cozooo.dlc_manager.core.DlcStateConfig
-import com.cozooo.dlc_manager.core.DlcConfigDlcSupport
+import com.cozooo.dlc_manager.core.DlcConfigTypeSupport
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
@@ -835,7 +835,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
 
     private fun computeModReloadChanges(): Boolean {
         for (item in allItems) {
-            if (item.getType() != DlcType.MOD && !DlcConfigDlcSupport.isConfigType(item)) {
+            if (item.getType() != DlcType.MOD && !DlcConfigTypeSupport.isConfigType(item)) {
                 continue
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -847,7 +847,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
 
     private fun computeNonModReloadChanges(): Boolean {
         for (item in allItems) {
-            if (item.getType() == DlcType.MOD || DlcConfigDlcSupport.isConfigType(item)) {
+            if (item.getType() == DlcType.MOD || DlcConfigTypeSupport.isConfigType(item)) {
                 continue
             }
             if (DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
@@ -1566,7 +1566,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
             if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
                 return ""
             }
-            return if (item.getType() == DlcType.MOD || DlcConfigDlcSupport.isConfigType(item)) {
+            return if (item.getType() == DlcType.MOD || DlcConfigTypeSupport.isConfigType(item)) {
                 StringUtils.translate("dlc_manager.pending.restart")
             } else {
                 StringUtils.translate("dlc_manager.pending.reload")
