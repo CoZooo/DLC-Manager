@@ -96,6 +96,60 @@ class DlcUpdateServiceTest {
         assertEquals(Set.of("mods/a/target.txt", "mods/b/target.txt"), Set.copyOf(meta.getRestorePaths()));
     }
 
+    @Test
+    void rolledBackUpdateCanBeImportedAndReapplied() throws Exception {
+        Path gameDir = tempDir.resolve("game");
+        Path dlcRoot = gameDir.resolve("DLC");
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
+        DlcConfig.setDlcRoot(dlcRoot.toString());
+        Files.createDirectories(gameDir.resolve("mods"));
+        Files.writeString(gameDir.resolve("mods").resolve("example.jar"), "1.0.7");
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info").resolve("version.dc"), """
+            base = "3.13.8"
+            dlc = "1.0.7"
+            """);
+        Path zip = tempDir.resolve("Universal_3.13.8_1.0.7-3.13.8_1.0.8.zip");
+        writeZip(zip,
+            new Entry("update.dc", """
+                [version]
+                platform = "universal"
+                base = "3.13.8"
+                dlc = "1.0.7"
+                dlc_new = "1.0.8"
+
+                [file]
+                  [add]
+                    "mods/example.jar":
+                      appliedTarget = "mods/example.jar"
+                      override = true
+                """),
+            new Entry("mods/example.jar", "1.0.8"));
+
+        DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(zip);
+        DlcUpdateService.UpdateApplyResult applyResult = DlcUpdateService.applyUpdate(pkg, DlcUpdateVersion.load(dlcRoot), false);
+        assertTrue(applyResult.isSuccess());
+        assertEquals("1.0.8", DlcUpdateVersion.load(dlcRoot).getDlc());
+
+        DlcUpdateService.UpdateRollbackResult rollbackResult = DlcUpdateService.rollbackTo("3.13.8+1.0.7");
+        assertTrue(rollbackResult.isSuccess());
+        DlcUpdateVersion rolledBack = DlcUpdateVersion.load(dlcRoot);
+        assertEquals("1.0.7", rolledBack.getDlc());
+        assertEquals("3.13.8+1.0.8", rolledBack.getRollbackFrom());
+        assertEquals("1.0.7", Files.readString(gameDir.resolve("mods").resolve("example.jar")));
+
+        assertTrue(DlcUpdateService.importUpdatePackage(zip));
+        DlcUpdateService.UpdateCheckResult check = DlcUpdateService.checkForUpdates(true);
+        assertTrue(check.hasUpdates());
+        DlcUpdateService.UpdateApplyResult reapplyResult = DlcUpdateService.applyUpdates(check.getUpdates(), false);
+        assertTrue(reapplyResult.isSuccess());
+        DlcUpdateVersion reapplied = DlcUpdateVersion.load(dlcRoot);
+        assertEquals("3.13.8", reapplied.getBase());
+        assertEquals("1.0.8", reapplied.getDlc());
+        assertTrue(reapplied.getRollbackFrom() == null || reapplied.getRollbackFrom().isBlank());
+        assertEquals("1.0.8", Files.readString(gameDir.resolve("mods").resolve("example.jar")));
+    }
+
     private static void writeZip(Path zip, Entry... entries) throws Exception {
         try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(zip))) {
             for (Entry entry : entries) {
