@@ -16,6 +16,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.mojang.blaze3d.platform.NativeImage
 import net.minecraft.Util
 import net.minecraft.client.Minecraft
@@ -47,8 +48,10 @@ class DlcPackManagerScreen(
     private val pendingInstalls = LinkedHashMap<String, PackArchiveEntry>()
     private val pendingUninstalls = LinkedHashSet<String>()
     private var archiveGroups: List<PackArchiveGroup> = emptyList()
+    private var entryArchiveOrder: List<String> = emptyList()
     private var committedArchiveOrder: List<String> = emptyList()
     private var currentArchiveOrder: List<String> = emptyList()
+    private var orderSnapshotInitialized = false
     private var installedByIdentifier: Map<String, DlcPackMeta> = emptyMap()
     private val selectedVersionByIdentifier = LinkedHashMap<String, String>()
     private var selectedIndex = -1
@@ -509,6 +512,8 @@ class DlcPackManagerScreen(
         pendingUninstalls.remove(entry.metadata.identifier)
         currentArchiveOrder = currentArchiveOrder.filterNot { orderKeyMatchesIdentifier(it, entry.metadata.identifier) }
         committedArchiveOrder = committedArchiveOrder.filterNot { orderKeyMatchesIdentifier(it, entry.metadata.identifier) }
+        entryArchiveOrder = entryArchiveOrder.filterNot { orderKeyMatchesIdentifier(it, entry.metadata.identifier) }
+        saveLiveOrder(currentArchiveOrder)
     }
 
     private fun confirmOpenLink(entry: PackArchiveEntry, key: String) {
@@ -642,6 +647,7 @@ class DlcPackManagerScreen(
         mutable.add(target, entry)
         archiveGroups = mutable
         currentArchiveOrder = collectArchiveKeys(archiveGroups)
+        saveLiveOrder(currentArchiveOrder)
         selectedIndex = target
         ensureSelectionVisible()
         rebuildPackWidgets()
@@ -710,6 +716,10 @@ class DlcPackManagerScreen(
 
     private fun applyPendingChanges() {
         if (!hasPendingChanges() || busy) return
+        if (!hasPackOperationChanges()) {
+            commitCurrentOrderWithoutRestart()
+            return
+        }
         val confirmText = buildReplacementConfirmText()
         if (confirmText != null) {
             Minecraft.getInstance().setScreen(
@@ -751,6 +761,14 @@ class DlcPackManagerScreen(
             return
         }
         startApplyPendingChanges(false)
+    }
+
+    private fun commitCurrentOrderWithoutRestart() {
+        committedArchiveOrder = currentArchiveOrder.toList()
+        entryArchiveOrder = committedArchiveOrder.toList()
+        DlcPackOrder.save(packOrderPath(), committedArchiveOrder)
+        status = Component.translatable("dlc_manager.pack.order_applied")
+        rebuildPackWidgets()
     }
 
     private fun startApplyPendingChanges(allowRuntimeChanges: Boolean) {
@@ -812,6 +830,8 @@ class DlcPackManagerScreen(
         }
         checkCanceled()
         committedArchiveOrder = finalAppliedOrder()
+        currentArchiveOrder = committedArchiveOrder.toList()
+        entryArchiveOrder = committedArchiveOrder.toList()
         DlcPackOrder.save(packOrderPath(), committedArchiveOrder)
     }
 
@@ -1162,7 +1182,9 @@ class DlcPackManagerScreen(
         if (hasPendingChanges()) {
             pendingInstalls.clear()
             pendingUninstalls.clear()
-            currentArchiveOrder = committedArchiveOrder.toList()
+            currentArchiveOrder = entryArchiveOrder.toList()
+            committedArchiveOrder = entryArchiveOrder.toList()
+            saveLiveOrder(entryArchiveOrder)
             sortArchiveGroupsByCurrentOrder()
             returnToParent()
             return
@@ -1200,12 +1222,19 @@ class DlcPackManagerScreen(
         val scanned = scanPackArchives()
         val saved = DlcPackOrder.load(packOrderPath())
         val preserveCurrentOrder = currentArchiveOrder.isNotEmpty() && hasOrderChanges()
-        committedArchiveOrder = normalizeGroupOrder(saved, scanned)
-        if (!preserveCurrentOrder && saved != committedArchiveOrder) {
-            DlcPackOrder.save(packOrderPath(), committedArchiveOrder)
+        val normalizedSaved = normalizeGroupOrder(saved, scanned)
+        if (!orderSnapshotInitialized) {
+            entryArchiveOrder = normalizedSaved.toList()
+            orderSnapshotInitialized = true
         }
-        currentArchiveOrder = if (preserveCurrentOrder) {
+        committedArchiveOrder = if (preserveCurrentOrder) {
             normalizeGroupOrder(currentArchiveOrder, scanned)
+        } else {
+            normalizedSaved
+        }
+        saveLiveOrder(committedArchiveOrder)
+        currentArchiveOrder = if (preserveCurrentOrder) {
+            committedArchiveOrder
         } else {
             committedArchiveOrder
         }
@@ -1225,7 +1254,11 @@ class DlcPackManagerScreen(
     }
 
     private fun packOrderPath(): Path {
-        return DlcPaths.dlcRoot().resolve("pack").resolve("order.dc")
+        return CrossPlatformRuntime.configDir().resolve("dlc_manager").resolve("order.dc")
+    }
+
+    private fun saveLiveOrder(order: List<String>) {
+        DlcPackOrder.save(packOrderPath(), order)
     }
 
     private fun archiveOrderPath(archive: Path): String {
@@ -1248,7 +1281,7 @@ class DlcPackManagerScreen(
     }
 
     private fun committedOrderIndex(key: String): Int {
-        return committedArchiveOrder.indexOf(key)
+        return entryArchiveOrder.indexOf(key)
     }
 
     private fun sortArchiveGroupsByCurrentOrder() {
@@ -1427,9 +1460,11 @@ class DlcPackManagerScreen(
         }
     }
 
-    private fun hasPendingChanges(): Boolean = pendingInstalls.isNotEmpty() || pendingUninstalls.isNotEmpty() || hasOrderChanges()
+    private fun hasPendingChanges(): Boolean = hasPackOperationChanges() || hasOrderChanges()
 
-    private fun hasOrderChanges(): Boolean = currentArchiveOrder != committedArchiveOrder
+    private fun hasPackOperationChanges(): Boolean = pendingInstalls.isNotEmpty() || pendingUninstalls.isNotEmpty()
+
+    private fun hasOrderChanges(): Boolean = currentArchiveOrder != entryArchiveOrder
 
     private fun canMoveUp(index: Int): Boolean = index > 0
 
