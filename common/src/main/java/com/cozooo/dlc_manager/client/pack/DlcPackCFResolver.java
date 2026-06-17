@@ -21,6 +21,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 public final class DlcPackCFResolver {
+    private static final String SELECTING_SOURCE_STATUS = "dlc_manager.pack.selecting_source";
+
     private DlcPackCFResolver() {
     }
 
@@ -203,7 +205,7 @@ public final class DlcPackCFResolver {
             @Override
             public void onStatusKey(String statusKey) {
                 if (progressListener != null && "selecting_source".equals(statusKey)) {
-                    progressListener.onProgress("Selecting download source", aggregateProgress(perFileProgress, total));
+                    progressListener.onProgress(SELECTING_SOURCE_STATUS, aggregateProgress(perFileProgress, total));
                 }
             }
         };

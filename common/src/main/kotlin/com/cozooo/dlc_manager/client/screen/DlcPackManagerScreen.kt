@@ -902,6 +902,9 @@ class DlcPackManagerScreen(
     }
 
     private fun operationStatusFor(mode: OperationDisplayMode, entry: PackArchiveEntry, fallback: String? = null): Component {
+        if (fallback == "dlc_manager.pack.selecting_source") {
+            return Component.translatable("dlc_manager.pack.selecting_source")
+        }
         return when (mode) {
             OperationDisplayMode.UNINSTALLING -> Component.translatable("dlc_manager.pack.operation_uninstalling")
             OperationDisplayMode.INSTALLING -> Component.translatable("dlc_manager.pack.operation_installing")

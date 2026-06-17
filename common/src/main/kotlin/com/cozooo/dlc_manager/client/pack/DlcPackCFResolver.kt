@@ -15,6 +15,8 @@ import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicReferenceArray
 
 object DlcPackCFResolver {
+    private const val SELECTING_SOURCE_STATUS = "dlc_manager.pack.selecting_source"
+
     @JvmStatic
     @Throws(IOException::class, InterruptedException::class)
     fun resolveManifestTargets(pack: DlcPackPackage?): List<DlcPackInstallPlan.FileEntry> {
@@ -186,7 +188,7 @@ object DlcPackCFResolver {
 
             override fun onStatusKey(statusKey: String) {
                 if (statusKey == "selecting_source") {
-                    progressListener?.onProgress("Selecting download source", aggregateProgress(perFileProgress, total))
+                    progressListener?.onProgress(SELECTING_SOURCE_STATUS, aggregateProgress(perFileProgress, total))
                 }
             }
         }

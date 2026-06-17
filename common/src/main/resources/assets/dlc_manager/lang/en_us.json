@@ -548,6 +548,7 @@
   "dlc_manager.pack.applying": "Applying DLC Pack changes...",
   "dlc_manager.pack.operation_applying": "Applying",
   "dlc_manager.pack.operation_installing": "Installing",
+  "dlc_manager.pack.selecting_source": "Selecting the best download source...",
   "dlc_manager.pack.operation_uninstalling": "Uninstalling",
   "dlc_manager.pack.installing": "Installing: %s",
   "dlc_manager.pack.uninstalling": "Uninstalling: %s",
