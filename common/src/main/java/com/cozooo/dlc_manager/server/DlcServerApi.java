@@ -14,6 +14,7 @@ import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -853,7 +854,7 @@ public final class DlcServerApi {
         if (directory) {
             Files.createDirectories(target);
             JsonObject data = new JsonObject();
-            data.addProperty("path", toGameRelativePath(target));
+            data.addProperty("path", DlcPathUtil.toGameRelativePath(target));
             data.addProperty("created", true);
             data.addProperty("directory", true);
             sendOk(exchange, data);
@@ -877,7 +878,7 @@ public final class DlcServerApi {
             Files.writeString(target, content, StandardCharsets.UTF_8);
         }
         JsonObject data = new JsonObject();
-        data.addProperty("path", toGameRelativePath(target));
+        data.addProperty("path", DlcPathUtil.toGameRelativePath(target));
         data.addProperty("created", true);
         sendOk(exchange, data);
     }
@@ -896,7 +897,7 @@ public final class DlcServerApi {
         }
         boolean deleted = deleteRecursiveIfExists(target);
         JsonObject data = new JsonObject();
-        data.addProperty("path", toGameRelativePath(target));
+        data.addProperty("path", DlcPathUtil.toGameRelativePath(target));
         data.addProperty("deleted", deleted);
         sendOk(exchange, data);
     }
@@ -925,8 +926,8 @@ public final class DlcServerApi {
         }
         Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         JsonObject data = new JsonObject();
-        data.addProperty("from", toGameRelativePath(source));
-        data.addProperty("to", toGameRelativePath(target));
+        data.addProperty("from", DlcPathUtil.toGameRelativePath(source));
+        data.addProperty("to", DlcPathUtil.toGameRelativePath(target));
         data.addProperty("moved", true);
         sendOk(exchange, data);
     }
@@ -964,8 +965,8 @@ public final class DlcServerApi {
         }
         Files.move(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         JsonObject data = new JsonObject();
-        data.addProperty("from", toGameRelativePath(source));
-        data.addProperty("to", toGameRelativePath(target));
+        data.addProperty("from", DlcPathUtil.toGameRelativePath(source));
+        data.addProperty("to", DlcPathUtil.toGameRelativePath(target));
         data.addProperty("renamed", true);
         sendOk(exchange, data);
     }
@@ -991,7 +992,7 @@ public final class DlcServerApi {
         }
         Files.write(target, body);
         JsonObject data = new JsonObject();
-        data.addProperty("path", toGameRelativePath(target));
+        data.addProperty("path", DlcPathUtil.toGameRelativePath(target));
         data.addProperty("uploaded", true);
         data.addProperty("size", body.length);
         sendOk(exchange, data);
@@ -1163,21 +1164,6 @@ public final class DlcServerApi {
         return resolveGameRelativePath(rawPath);
     }
 
-    private static String toGameRelativePath(Path path) {
-        if (path == null) {
-            return "";
-        }
-        Path gameDir = DlcPaths.gameDir();
-        if (gameDir == null) {
-            return path.toString();
-        }
-        try {
-            return normalizeRelativePath(gameDir.normalize().relativize(path.toAbsolutePath().normalize()));
-        } catch (Exception ignored) {
-            return path.toString();
-        }
-    }
-
     private static boolean deleteRecursiveIfExists(Path path) throws IOException {
         if (path == null || !Files.exists(path)) {
             return false;
@@ -1248,10 +1234,6 @@ public final class DlcServerApi {
         } catch (Exception ignored) {
             return false;
         }
-    }
-
-    private static String normalizeRelativePath(Path relative) {
-        return relative == null ? "" : relative.toString().replace('\\', '/');
     }
 
     private static List<String> readStringArray(JsonObject obj, String key) {

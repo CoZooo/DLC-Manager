@@ -11,6 +11,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcPathUtil
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -331,7 +332,7 @@ object DlcServerApi {
         if (directory) {
             Files.createDirectories(target)
             val data = JsonObject()
-            data.addProperty("path", toGameRelativePath(target))
+            data.addProperty("path", DlcPathUtil.toGameRelativePath(target))
             data.addProperty("created", true)
             data.addProperty("directory", true)
             sendOk(exchange, data)
@@ -351,7 +352,7 @@ object DlcServerApi {
             Files.writeString(target, content, StandardCharsets.UTF_8)
         }
         val data = JsonObject()
-        data.addProperty("path", toGameRelativePath(target))
+        data.addProperty("path", DlcPathUtil.toGameRelativePath(target))
         data.addProperty("created", true)
         sendOk(exchange, data)
     }
@@ -370,7 +371,7 @@ object DlcServerApi {
             return
         }
         val data = JsonObject()
-        data.addProperty("path", toGameRelativePath(target))
+        data.addProperty("path", DlcPathUtil.toGameRelativePath(target))
         data.addProperty("deleted", deleteRecursiveIfExists(target))
         sendOk(exchange, data)
     }
@@ -397,8 +398,8 @@ object DlcServerApi {
         target.parent?.let { Files.createDirectories(it) }
         Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
         val data = JsonObject()
-        data.addProperty("from", toGameRelativePath(source))
-        data.addProperty("to", toGameRelativePath(target))
+        data.addProperty("from", DlcPathUtil.toGameRelativePath(source))
+        data.addProperty("to", DlcPathUtil.toGameRelativePath(target))
         data.addProperty("moved", true)
         sendOk(exchange, data)
     }
@@ -437,8 +438,8 @@ object DlcServerApi {
         }
         Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
         val data = JsonObject()
-        data.addProperty("from", toGameRelativePath(source))
-        data.addProperty("to", toGameRelativePath(target))
+        data.addProperty("from", DlcPathUtil.toGameRelativePath(source))
+        data.addProperty("to", DlcPathUtil.toGameRelativePath(target))
         data.addProperty("renamed", true)
         sendOk(exchange, data)
     }
@@ -462,7 +463,7 @@ object DlcServerApi {
         target.parent?.let { Files.createDirectories(it) }
         Files.write(target, body)
         val data = JsonObject()
-        data.addProperty("path", toGameRelativePath(target))
+        data.addProperty("path", DlcPathUtil.toGameRelativePath(target))
         data.addProperty("uploaded", true)
         data.addProperty("size", body.size)
         sendOk(exchange, data)
@@ -623,18 +624,6 @@ object DlcServerApi {
 
     private fun resolveWritableGamePath(rawPath: String?): Path? = resolveGameRelativePath(rawPath)
 
-    private fun toGameRelativePath(path: Path?): String {
-        if (path == null) {
-            return ""
-        }
-        val gameDir = DlcPaths.gameDir()
-        return try {
-            normalizeRelativePath(gameDir.normalize().relativize(path.toAbsolutePath().normalize()))
-        } catch (_: Exception) {
-            path.toString()
-        }
-    }
-
     @Throws(IOException::class)
     private fun deleteRecursiveIfExists(path: Path?): Boolean {
         if (path == null || !Files.exists(path)) {
@@ -710,8 +699,6 @@ object DlcServerApi {
             false
         }
     }
-
-    private fun normalizeRelativePath(relative: Path?): String = relative?.toString()?.replace('\\', '/') ?: ""
 
     private fun readStringArray(obj: JsonObject?, key: String): List<String> {
         val array = if (obj == null) null else DlcDcConfigIO.getArrayIgnoreCase(obj, key)

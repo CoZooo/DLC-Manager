@@ -1008,7 +1008,7 @@ public final class DlcUpdateService {
                 continue;
             }
             for (Path target : DlcPathUtil.findMatches(gameDir, raw)) {
-                String actualRelative = toGameRelativePath(target);
+                String actualRelative = DlcPathUtil.toGameRelativePath(target);
                 backupPath(actualRelative, target, context);
                 handleSpecialDelete(target, raw, context);
                 deleteRecursive(target);
@@ -1097,12 +1097,12 @@ public final class DlcUpdateService {
                 to = to.resolve(from.getFileName().toString());
             }
             boolean destExisted = Files.exists(to);
-            backupPath(toGameRelativePath(from), from, context);
+            backupPath(DlcPathUtil.toGameRelativePath(from), from, context);
             if (destExisted) {
-                backupPath(toGameRelativePath(to), to, context);
+                backupPath(DlcPathUtil.toGameRelativePath(to), to, context);
                 deleteRecursive(to);
             } else {
-                context.meta.getCreatedPaths().add(toGameRelativePath(to));
+                context.meta.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(to));
             }
             try {
                 if (to.getParent() != null) {
@@ -1135,7 +1135,7 @@ public final class DlcUpdateService {
                     return;
                 }
                 case ALL -> {
-                    backupPath(toGameRelativePath(target), target, context);
+                    backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
                     syncDirectory(source, target);
                     return;
                 }
@@ -1144,13 +1144,13 @@ public final class DlcUpdateService {
                     return;
                 }
                 case TRUE -> {
-                    backupPath(toGameRelativePath(target), target, context);
+                    backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
                     copyDirectory(source, target, true);
                     return;
                 }
             }
         } else {
-            context.meta.getCreatedPaths().add(toGameRelativePath(target));
+            context.meta.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target));
             copyRecursive(source, target);
         }
     }
@@ -1165,9 +1165,9 @@ public final class DlcUpdateService {
             if (mode == DlcUpdateManifest.OverrideMode.FALSE || mode == DlcUpdateManifest.OverrideMode.NONE) {
                 return;
             }
-            backupPath(toGameRelativePath(actualTarget), actualTarget, context);
+            backupPath(DlcPathUtil.toGameRelativePath(actualTarget), actualTarget, context);
         } else {
-            context.meta.getCreatedPaths().add(toGameRelativePath(actualTarget));
+            context.meta.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(actualTarget));
         }
         try {
             if (actualTarget.getParent() != null) {
@@ -1256,7 +1256,7 @@ public final class DlcUpdateService {
             if (updateEntry == null) {
                 continue;
             }
-            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context);
             updateInfoConfigFields(infoPath, updateEntry);
         }
     }
@@ -1279,7 +1279,7 @@ public final class DlcUpdateService {
             if (updateEntry == null) {
                 continue;
             }
-            backupPath(toGameRelativePath(presetPath), presetPath, context);
+            backupPath(DlcPathUtil.toGameRelativePath(presetPath), presetPath, context);
             updatePresetConfigFields(presetPath, updateEntry);
         }
     }
@@ -1314,7 +1314,7 @@ public final class DlcUpdateService {
             DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
             Path configPath = entry.getConfigPath();
             if (configPath != null && Files.exists(configPath)) {
-                backupPath(toGameRelativePath(configPath), configPath, context);
+                backupPath(DlcPathUtil.toGameRelativePath(configPath), configPath, context);
                 updateRemoteConfigFields(configPath, updateEntry);
                 entry = DlcRemoteLoader.loadSingle(configPath, context.dlcRoot);
                 if (entry == null) {
@@ -1329,7 +1329,7 @@ public final class DlcUpdateService {
                 throw new IOException("remote update download failed");
             }
             if (context != null && downloaded.path != null) {
-                String created = toGameRelativePath(downloaded.path);
+                String created = DlcPathUtil.toGameRelativePath(downloaded.path);
                 if (created != null && !created.isBlank() && !context.meta.getCreatedPaths().contains(created)) {
                     context.meta.getCreatedPaths().add(created);
                 }
@@ -1384,7 +1384,7 @@ public final class DlcUpdateService {
             DlcUpdateManifest.UpdateEntry updateEntry = update.getValue();
             Path configPath = entry.getConfigPath();
             if (configPath != null && Files.exists(configPath)) {
-                backupPath(toGameRelativePath(configPath), configPath, context);
+                backupPath(DlcPathUtil.toGameRelativePath(configPath), configPath, context);
                 updateRequiredConfigFields(configPath, updateEntry);
                 syncInfoConfigFields(infoPath, updateEntry, context);
                 entry = DlcRequiredLoader.loadSingle(configPath, context.dlcRoot);
@@ -1400,7 +1400,7 @@ public final class DlcUpdateService {
                 throw new IOException("required update download failed");
             }
             if (context != null && downloaded.path != null) {
-                String created = toGameRelativePath(downloaded.path);
+                String created = DlcPathUtil.toGameRelativePath(downloaded.path);
                 if (created != null && !created.isBlank() && !context.meta.getCreatedPaths().contains(created)) {
                     context.meta.getCreatedPaths().add(created);
                 }
@@ -1673,7 +1673,7 @@ public final class DlcUpdateService {
             return;
         }
         if (applyEntryFieldUpdates(info, update, FieldUpdateMode.INFO_ALLOWED)) {
-            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context);
             writeJson(infoPath, info);
         }
     }
@@ -2005,19 +2005,19 @@ public final class DlcUpdateService {
         upsertCaseInsensitive(info, "file_name", safeCopy(new com.google.gson.JsonPrimitive(fileName)));
         Path infoDir = infoPath.getParent();
         if (infoDir == null) {
-            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context);
             writeJson(infoPath, info);
             return;
         }
         Path targetPath = DlcDcFormatUtil.resolveConfigPath(infoDir, fileName);
         if (targetPath == null) {
-            backupPath(toGameRelativePath(infoPath), infoPath, context);
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context);
             writeJson(infoPath, info);
             return;
         }
-        backupPath(toGameRelativePath(infoPath), infoPath, context);
+        backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context);
         if (!targetPath.normalize().equals(infoPath.normalize()) && Files.exists(targetPath)) {
-            backupPath(toGameRelativePath(targetPath), targetPath, context);
+            backupPath(DlcPathUtil.toGameRelativePath(targetPath), targetPath, context);
             if (!deleteWithHelperFallback(targetPath)) {
                 throw new IllegalStateException(latestFailureMessage("Failed to replace info file: " + targetPath));
             }
@@ -2296,9 +2296,9 @@ public final class DlcUpdateService {
             return;
         }
         if (Files.exists(target)) {
-            backupPath(toGameRelativePath(target), target, context);
+            backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
         } else {
-            context.meta.getCreatedPaths().add(toGameRelativePath(target));
+            context.meta.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target));
         }
     }
 
@@ -2317,7 +2317,7 @@ public final class DlcUpdateService {
         }
         state.enabled = true;
         state.appliedTargets = applied.stream()
-            .map(DlcUpdateService::toGameRelativePath)
+            .map(DlcPathUtil::toGameRelativePath)
             .toList();
         DlcStateConfig.setState(key, state);
         DlcStateConfig.save();
@@ -2327,7 +2327,7 @@ public final class DlcUpdateService {
         if (dlcRoot == null || source == null || type == null) {
             return null;
         }
-        String rootId = toGameRelativePath(dlcRoot).replace('\\', '/');
+        String rootId = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/');
         String relative = dlcRoot.relativize(source).toString().replace('\\', '/');
         return type.name().toLowerCase(java.util.Locale.ROOT) + ":" + rootId + "|" + relative;
     }
@@ -2371,9 +2371,9 @@ public final class DlcUpdateService {
         if (!hasRemoteAdd && Files.isDirectory(remoteDir)) {
             Path target = context.dlcRoot.resolve("remote");
             if (Files.exists(target)) {
-                backupPath(toGameRelativePath(target), target, context);
+                backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
             } else {
-                context.meta.getCreatedPaths().add(toGameRelativePath(target));
+                context.meta.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target));
             }
             copyDirectory(remoteDir, target, true);
             context.addedRemote = true;
@@ -2382,9 +2382,9 @@ public final class DlcUpdateService {
         if (!hasRequiredAdd && Files.isDirectory(requiredDir)) {
             Path target = context.dlcRoot.resolve("required");
             if (Files.exists(target)) {
-                backupPath(toGameRelativePath(target), target, context);
+                backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
             } else {
-                context.meta.getCreatedPaths().add(toGameRelativePath(target));
+                context.meta.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target));
             }
             copyDirectory(requiredDir, target, true);
             addedRequiredFiles.add(target);
@@ -2528,7 +2528,7 @@ public final class DlcUpdateService {
         if (target == null || dlcRoot == null) {
             return;
         }
-        String rootId = toGameRelativePath(dlcRoot).replace('\\', '/');
+        String rootId = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/');
         String relative = dlcRoot.relativize(target).toString().replace('\\', '/');
         String suffix = ":" + rootId + "|" + relative;
         for (Map.Entry<String, DlcStateConfig.DlcState> entry : DlcStateConfig.getAllStates().entrySet()) {
@@ -2602,7 +2602,7 @@ public final class DlcUpdateService {
             return;
         }
         if (Files.exists(target) && context != null) {
-            backupPath(toGameRelativePath(target), target, context);
+            backupPath(DlcPathUtil.toGameRelativePath(target), target, context);
         }
         deleteRecursive(target);
     }
@@ -3766,29 +3766,6 @@ public final class DlcUpdateService {
         return DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
     }
 
-    private static String toGameRelativePath(Path path) {
-        if (path == null) {
-            return "";
-        }
-        Path gameDir = DlcPaths.gameDir().toAbsolutePath().normalize();
-        Path normalized = path.toAbsolutePath().normalize();
-        try {
-            Path gameReal = gameDir.toRealPath();
-            Path pathReal = normalized.toRealPath();
-            if (pathReal.startsWith(gameReal)) {
-                return gameReal.relativize(pathReal).toString().replace('\\', '/');
-            }
-        } catch (Exception ignored) {
-        }
-        try {
-            if (normalized.startsWith(gameDir)) {
-                return gameDir.relativize(normalized).toString().replace('\\', '/');
-            }
-        } catch (Exception ignored) {
-        }
-        return normalized.toString().replace('\\', '/');
-    }
-
     private static Path resolveStoredPath(String rawPath) {
         if (rawPath == null || rawPath.isBlank()) {
             return Path.of("");
@@ -3822,7 +3799,7 @@ public final class DlcUpdateService {
         if (context == null || path == null) {
             return;
         }
-        String relative = toGameRelativePath(path);
+        String relative = DlcPathUtil.toGameRelativePath(path);
         String label = relative == null || relative.isBlank() ? path.toString() : relative;
         recordFileOpFailure(context, "Failed to " + operation + ": " + label, path, operation);
     }
@@ -3833,7 +3810,7 @@ public final class DlcUpdateService {
         }
         String finalMessage = message;
         if (finalMessage == null || finalMessage.isBlank()) {
-            String relative = path == null ? "" : toGameRelativePath(path);
+            String relative = path == null ? "" : DlcPathUtil.toGameRelativePath(path);
             String label = relative == null || relative.isBlank()
                 ? (path == null ? "" : path.toString())
                 : relative;

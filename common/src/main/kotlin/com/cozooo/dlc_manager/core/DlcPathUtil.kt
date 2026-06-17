@@ -13,14 +13,21 @@ object DlcPathUtil {
 
     @JvmStatic
     fun normalizePattern(pattern: String?): String? {
-        if (pattern.isNullOrBlank()) {
+        return normalizeRelativePath(pattern)
+    }
+
+    @JvmStatic
+    fun normalizeRelativePath(path: String?): String? {
+        if (path.isNullOrBlank()) {
             return null
         }
-        val value = pattern.replace('\\', '/').trim().trim('/')
+        val raw = path.replace('\\', '/').trim()
+        val value = raw.trim('/')
         if (value.isBlank() ||
             value.startsWith("../") ||
             value == ".." ||
             value.contains("/../") ||
+            value.endsWith("/..") ||
             value.contains("//")
         ) {
             return null
@@ -75,6 +82,50 @@ object DlcPathUtil {
         }
         result.sortBy { normalizeRelative(normalizedRoot.relativize(it)) }
         return result.toList()
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun resolveInside(root: Path?, relative: String?): Path {
+        val normalizedRoot = root?.toAbsolutePath()?.normalize() ?: throw IOException("Root directory is not available")
+        val normalizedRelative = normalizeRelativePath(relative) ?: throw IOException("Invalid relative path: $relative")
+        val target = normalizedRoot.resolve(normalizedRelative).normalize()
+        if (!target.startsWith(normalizedRoot)) {
+            throw IOException("Path escapes root: $relative")
+        }
+        return target
+    }
+
+    @JvmStatic
+    fun toGameRelativePath(path: Path?): String {
+        return toRelativePath(DlcPaths.gameDir(), path)
+    }
+
+    @JvmStatic
+    fun toRelativePath(root: Path?, path: Path?): String {
+        if (path == null) {
+            return ""
+        }
+        val normalized = path.toAbsolutePath().normalize()
+        if (root == null) {
+            return normalized.toString().replace('\\', '/')
+        }
+        val normalizedRoot = root.toAbsolutePath().normalize()
+        try {
+            val rootReal = normalizedRoot.toRealPath()
+            val pathReal = normalized.toRealPath()
+            if (pathReal.startsWith(rootReal)) {
+                return rootReal.relativize(pathReal).toString().replace('\\', '/')
+            }
+        } catch (_: Exception) {
+        }
+        try {
+            if (normalized.startsWith(normalizedRoot)) {
+                return normalizedRoot.relativize(normalized).toString().replace('\\', '/')
+            }
+        } catch (_: Exception) {
+        }
+        return normalized.toString().replace('\\', '/')
     }
 
     private fun normalizeRelative(path: Path?): String? {

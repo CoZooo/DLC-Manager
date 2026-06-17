@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
+import com.cozooo.dlc_manager.core.DlcPathUtil
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import java.io.IOException
 import java.nio.file.Files
@@ -86,11 +87,11 @@ object DlcPackRecovery {
             DlcZipUtil.deleteRecursive(packDir)
             copyRecursive(backupPackDir, packDir)
             for (relative in oldMeta.installedPaths) {
-                val source = resolveInside(installedSnapshot, relative)
+                val source = DlcPathUtil.resolveInside(installedSnapshot, relative)
                 if (!Files.exists(source)) {
                     continue
                 }
-                val target = resolveInside(instanceRoot, relative)
+                val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                 copyRecursive(source, target)
                 report.restored++
             }
@@ -101,7 +102,7 @@ object DlcPackRecovery {
     private fun rollback(instanceRoot: Path, packDir: Path, txn: DlcPackTransaction, report: RecoveryReport) {
         for (relative in txn.writtenPaths.asReversed()) {
             try {
-                val target = resolveInside(instanceRoot, relative)
+                val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                 if (Files.deleteIfExists(target)) {
                     report.deletedWritten++
                 }
@@ -115,11 +116,11 @@ object DlcPackRecovery {
         toRestore.sortBy { it.length }
         for (relative in toRestore) {
             try {
-                val archived = resolveInside(packDir, relative)
+                val archived = DlcPathUtil.resolveInside(packDir, relative)
                 if (!Files.exists(archived)) {
                     continue
                 }
-                val target = resolveInside(instanceRoot, relative)
+                val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                 Files.createDirectories(target.parent)
                 Files.move(archived, target, StandardCopyOption.REPLACE_EXISTING)
                 report.restored++
@@ -139,7 +140,7 @@ object DlcPackRecovery {
                 stream.filter { Files.isRegularFile(it) }
                     .sorted(Comparator.reverseOrder())
                     .forEach { archived ->
-                        val relative = DlcPackMeta.normalizeRelativePath(packDir.relativize(archived).toString())
+                        val relative = DlcPathUtil.normalizeRelativePath(packDir.relativize(archived).toString())
                         if (relative != null && !isPackRecordPath(relative)) {
                             paths.add(relative)
                         }
@@ -158,11 +159,11 @@ object DlcPackRecovery {
             stream.filter { Files.isRegularFile(it) }
                 .sorted(Comparator.reverseOrder())
                 .forEach { archived ->
-                    val relative = DlcPackMeta.normalizeRelativePath(backupPackDir.relativize(archived).toString())
+                    val relative = DlcPathUtil.normalizeRelativePath(backupPackDir.relativize(archived).toString())
                     if (relative == null || isPackRecordPath(relative)) {
                         return@forEach
                     }
-                    val target = resolveInside(instanceRoot, relative)
+                    val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                     Files.deleteIfExists(target)
                     pruneEmptyParents(target.parent, instanceRoot)
                 }
@@ -221,16 +222,6 @@ object DlcPackRecovery {
 
     private fun packDir(dlcRoot: Path, identifier: String): Path {
         return dlcRoot.resolve("tmp").resolve("pack").resolve(identifier).toAbsolutePath().normalize()
-    }
-
-    private fun resolveInside(root: Path, relative: String): Path {
-        val normalizedRoot = root.toAbsolutePath().normalize()
-        val normalizedRelative = DlcPackMeta.normalizeRelativePath(relative) ?: throw IOException("Invalid relative path: $relative")
-        val target = normalizedRoot.resolve(normalizedRelative).normalize()
-        if (!target.startsWith(normalizedRoot)) {
-            throw IOException("Path escapes root: $relative")
-        }
-        return target
     }
 
     private fun isPackRecordPath(relative: String): Boolean {

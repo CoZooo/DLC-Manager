@@ -206,7 +206,7 @@ public class DlcScanner {
         Map<String, DlcTooltipLoader.TooltipData> tooltips, RemoteMetadataLookup remoteMetadata,
         DlcTooltipLoader tooltipLoader, Path infoDir, boolean detectInstalledState) {
         String relative = root.relativize(source).toString().replace('\\', '/');
-        String rootId = toGameRelativePath(root).replace('\\', '/');
+        String rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/');
         String name = source.getFileName().toString();
         DlcTooltipLoader.TooltipData tooltipData = remoteMetadata.get(name);
         if (tooltipData == null && tooltips != null) {
@@ -659,26 +659,4 @@ public class DlcScanner {
         }
     }
 
-    private String toGameRelativePath(Path path) {
-        if (path == null) {
-            return "";
-        }
-        Path gameDir = DlcPaths.gameDir().toAbsolutePath().normalize();
-        Path normalized = path.toAbsolutePath().normalize();
-        try {
-            Path gameReal = gameDir.toRealPath();
-            Path pathReal = normalized.toRealPath();
-            if (pathReal.startsWith(gameReal)) {
-                return gameReal.relativize(pathReal).toString();
-            }
-        } catch (Exception ignored) {
-        }
-        try {
-            if (normalized.startsWith(gameDir)) {
-                return gameDir.relativize(normalized).toString();
-            }
-        } catch (Exception ignored) {
-        }
-        return normalized.toString();
-    }
 }

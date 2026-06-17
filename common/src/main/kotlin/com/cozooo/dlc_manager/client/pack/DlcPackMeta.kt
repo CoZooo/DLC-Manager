@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcPathUtil
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import java.nio.file.Files
@@ -76,14 +77,7 @@ class DlcPackMeta(
 
         @JvmStatic
         fun normalizeRelativePath(path: String?): String? {
-            if (path.isNullOrBlank()) {
-                return null
-            }
-            val value = path.replace('\\', '/').trim().trim('/')
-            if (value.isBlank() || value.startsWith("../") || value == ".." || value.contains("/../")) {
-                return null
-            }
-            return value
+            return DlcPathUtil.normalizeRelativePath(path)
         }
     }
 }

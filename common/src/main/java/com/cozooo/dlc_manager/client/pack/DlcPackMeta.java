@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -92,29 +93,11 @@ public class DlcPackMeta {
     }
 
     public static String normalizeRelativePath(String path) {
-        if (path == null || path.isBlank()) {
-            return null;
-        }
-        String value = trimSlashes(path.replace('\\', '/').trim());
-        if (value.isBlank() || value.startsWith("../") || value.equals("..") || value.contains("/../")) {
-            return null;
-        }
-        return value;
+        return DlcPathUtil.normalizeRelativePath(path);
     }
 
     private static String trim(String value) {
         return value == null ? null : value.trim();
     }
 
-    private static String trimSlashes(String value) {
-        int start = 0;
-        int end = value.length();
-        while (start < end && value.charAt(start) == '/') {
-            start++;
-        }
-        while (end > start && value.charAt(end - 1) == '/') {
-            end--;
-        }
-        return value.substring(start, end);
-    }
 }

@@ -45,7 +45,7 @@ object DlcApplier {
                     if (statePaths.isNotEmpty()) {
                         val state = DlcStateConfig.DlcState()
                         state.enabled = true
-                        state.appliedTargets = statePaths.map(::toGameRelativePath)
+                        state.appliedTargets = statePaths.map(DlcPathUtil::toGameRelativePath)
                         DlcStateConfig.setState(item.getId(), state)
                     }
                 } else {
@@ -428,7 +428,7 @@ object DlcApplier {
                     messages.add(message)
                     continue
                 }
-                failedPaths.add(toGameRelativePath(resolved))
+                failedPaths.add(DlcPathUtil.toGameRelativePath(resolved))
             }
         }
         if (failedPaths.isNotEmpty()) {
@@ -485,7 +485,7 @@ object DlcApplier {
                 if (message != null && message.startsWith("Failed to ")) {
                     messages.add(message)
                 } else {
-                    messages.add("Failed to restore: " + toGameRelativePath(target))
+                    messages.add("Failed to restore: " + DlcPathUtil.toGameRelativePath(target))
                 }
             }
         }
@@ -694,29 +694,6 @@ object DlcApplier {
         if (context != null) {
             context.helperScheduled = true
         }
-    }
-
-    private fun toGameRelativePath(path: Path?): String {
-        if (path == null) {
-            return ""
-        }
-        val gameDir = DlcPaths.gameDir().toAbsolutePath().normalize()
-        val normalized = path.toAbsolutePath().normalize()
-        try {
-            val gameReal = gameDir.toRealPath()
-            val pathReal = normalized.toRealPath()
-            if (pathReal.startsWith(gameReal)) {
-                return gameReal.relativize(pathReal).toString()
-            }
-        } catch (_: Exception) {
-        }
-        try {
-            if (normalized.startsWith(gameDir)) {
-                return gameDir.relativize(normalized).toString()
-            }
-        } catch (_: Exception) {
-        }
-        return normalized.toString()
     }
 
     private fun resolveStoredPath(rawPath: String?): Path {

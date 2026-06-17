@@ -131,9 +131,9 @@ class DlcPackInstaller(
                 checkCanceled(effectiveOptions.cancelChecker)
                 val relative = entry.relativePath
                 effectiveOptions.progressListener?.onProgress("Installing $relative", 0.95f + index / totalFiles.toFloat() * 0.03f)
-                val target = resolveInside(instanceRoot, relative)
+                val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                 if (Files.exists(target)) {
-                    val displaced = resolveInside(packDir, relative)
+                    val displaced = DlcPathUtil.resolveInside(packDir, relative)
                     txn.addMovedPath(relative)
                     txn.save(txnPath)
                     Files.createDirectories(displaced.parent)
@@ -185,11 +185,11 @@ class DlcPackInstaller(
         val backupInstalledDir = backupDir.resolve("installed")
         copyRecursive(packDir, backupPackDir)
         for (relative in oldMeta.installedPaths) {
-            val source = resolveInside(instanceRoot, relative)
+            val source = DlcPathUtil.resolveInside(instanceRoot, relative)
             if (!Files.isRegularFile(source)) {
                 continue
             }
-            val target = resolveInside(backupInstalledDir, relative)
+            val target = DlcPathUtil.resolveInside(backupInstalledDir, relative)
             Files.createDirectories(target.parent)
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
         }
@@ -205,11 +205,11 @@ class DlcPackInstaller(
         copyRecursive(backupPackDir, packDir)
         copyRecursive(currentCacheBackup, packDir.resolve("cf_cache"))
         for (relative in oldMeta.installedPaths) {
-            val source = resolveInside(backupInstalledDir, relative)
+            val source = DlcPathUtil.resolveInside(backupInstalledDir, relative)
             if (!Files.isRegularFile(source)) {
                 continue
             }
-            val target = resolveInside(instanceRoot, relative)
+            val target = DlcPathUtil.resolveInside(instanceRoot, relative)
             Files.createDirectories(target.parent)
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
         }
@@ -223,11 +223,11 @@ class DlcPackInstaller(
             stream.filter { Files.isRegularFile(it) }
                 .sorted(Comparator.reverseOrder())
                 .forEach { archived ->
-                    val relative = DlcPackMeta.normalizeRelativePath(backupPackDir.relativize(archived).toString())
+                    val relative = DlcPathUtil.normalizeRelativePath(backupPackDir.relativize(archived).toString())
                     if (relative == null || isPackRecordPath(relative)) {
                         return@forEach
                     }
-                    val target = resolveInside(instanceRoot, relative)
+                    val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                     Files.deleteIfExists(target)
                     pruneEmptyParents(target.parent, instanceRoot)
                 }
@@ -288,7 +288,7 @@ class DlcPackInstaller(
         val deleteTotal = meta.installedPaths.size.coerceAtLeast(1)
         for ((index, relative) in meta.installedPaths.asReversed().withIndex()) {
             progressListener?.onProgress("Uninstalling $relative", index / deleteTotal.toFloat() * 0.5f)
-            val target = resolveInside(instanceRoot, relative)
+            val target = DlcPathUtil.resolveInside(instanceRoot, relative)
             if (Files.deleteIfExists(target)) {
                 deleted++
                 pruneEmptyParents(target.parent, instanceRoot)
@@ -302,12 +302,12 @@ class DlcPackInstaller(
                     .toList()
                 val restoreTotal = archivedFiles.size.coerceAtLeast(1)
                 for ((index, archived) in archivedFiles.withIndex()) {
-                    val relative = DlcPackMeta.normalizeRelativePath(packDir.relativize(archived).toString()) ?: continue
+                    val relative = DlcPathUtil.normalizeRelativePath(packDir.relativize(archived).toString()) ?: continue
                     progressListener?.onProgress("Restoring $relative", 0.5f + index / restoreTotal.toFloat() * 0.45f)
                     if (isPackRecordPath(relative)) {
                         continue
                     }
-                    val target = resolveInside(instanceRoot, relative)
+                    val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                     Files.createDirectories(target.parent)
                     Files.move(archived, target, StandardCopyOption.REPLACE_EXISTING)
                     restored++
@@ -343,7 +343,7 @@ class DlcPackInstaller(
     private fun rollback(txn: DlcPackTransaction, packDir: Path) {
         for (relative in txn.writtenPaths.asReversed()) {
             try {
-                val target = resolveInside(instanceRoot, relative)
+                val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                 Files.deleteIfExists(target)
                 pruneEmptyParents(target.parent, instanceRoot)
             } catch (_: Exception) {
@@ -351,11 +351,11 @@ class DlcPackInstaller(
         }
         for (relative in txn.movedPaths.asReversed()) {
             try {
-                val archived = resolveInside(packDir, relative)
+                val archived = DlcPathUtil.resolveInside(packDir, relative)
                 if (!Files.exists(archived)) {
                     continue
                 }
-                val target = resolveInside(instanceRoot, relative)
+                val target = DlcPathUtil.resolveInside(instanceRoot, relative)
                 Files.createDirectories(target.parent)
                 Files.move(archived, target, StandardCopyOption.REPLACE_EXISTING)
             } catch (_: Exception) {
@@ -421,7 +421,7 @@ class DlcPackInstaller(
                 }
                 continue
             }
-            val relative = DlcPackMeta.normalizeRelativePath(dependency) ?: continue
+            val relative = DlcPathUtil.normalizeRelativePath(dependency) ?: continue
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                 result.missing.add(relative)
                 continue
@@ -515,7 +515,7 @@ class DlcPackInstaller(
             if (isRuntimeIdentifier(conflict)) {
                 continue
             }
-            val relative = DlcPackMeta.normalizeRelativePath(conflict) ?: continue
+            val relative = DlcPathUtil.normalizeRelativePath(conflict) ?: continue
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                 continue
             }
@@ -524,12 +524,12 @@ class DlcPackInstaller(
                 continue
             }
             for (target in targets) {
-                val targetRelative = DlcPackMeta.normalizeRelativePath(
+                val targetRelative = DlcPathUtil.normalizeRelativePath(
                     instanceRoot.toAbsolutePath().normalize()
                         .relativize(target.toAbsolutePath().normalize())
                         .toString(),
                 ) ?: continue
-                val displaced = resolveInside(packDir, targetRelative)
+                val displaced = DlcPathUtil.resolveInside(packDir, targetRelative)
                 txn.addMovedPath(targetRelative)
                 txn.save(txnPath)
                 Files.createDirectories(displaced.parent)
@@ -542,16 +542,6 @@ class DlcPackInstaller(
         val token = normalizeToken(value) ?: return false
         return DlcRuntimeState.getItemByIdentifier(token) != null ||
             DlcPresetRuntimeState.findPresetId(token) != null
-    }
-
-    private fun resolveInside(root: Path, relative: String): Path {
-        val normalizedRoot = root.toAbsolutePath().normalize()
-        val normalizedRelative = DlcPackMeta.normalizeRelativePath(relative) ?: throw IOException("Invalid relative path: $relative")
-        val target = normalizedRoot.resolve(normalizedRelative).normalize()
-        if (!target.startsWith(normalizedRoot)) {
-            throw IOException("Path escapes root: $relative")
-        }
-        return target
     }
 
     private fun isPackRecordPath(relative: String): Boolean {

@@ -26,14 +26,20 @@ public final class DlcPathUtil {
     }
 
     public static String normalizePattern(String pattern) {
-        if (pattern == null || pattern.isBlank()) {
+        return normalizeRelativePath(pattern);
+    }
+
+    public static String normalizeRelativePath(String path) {
+        if (path == null || path.isBlank()) {
             return null;
         }
-        String value = trimSlashes(pattern.replace('\\', '/').trim());
+        String raw = path.replace('\\', '/').trim();
+        String value = trimSlashes(raw);
         if (value.isBlank()
             || value.startsWith("../")
             || value.equals("..")
             || value.contains("/../")
+            || value.endsWith("/..")
             || value.contains("//")) {
             return null;
         }
@@ -92,6 +98,52 @@ public final class DlcPathUtil {
         }
         result.sort(Comparator.comparing(path -> normalizeRelative(normalizedRoot.relativize(path))));
         return List.copyOf(result);
+    }
+
+    public static Path resolveInside(Path root, String relative) throws IOException {
+        Path normalizedRoot = root == null ? null : root.toAbsolutePath().normalize();
+        if (normalizedRoot == null) {
+            throw new IOException("Root directory is not available");
+        }
+        String normalizedRelative = normalizeRelativePath(relative);
+        if (normalizedRelative == null) {
+            throw new IOException("Invalid relative path: " + relative);
+        }
+        Path target = normalizedRoot.resolve(normalizedRelative).normalize();
+        if (!target.startsWith(normalizedRoot)) {
+            throw new IOException("Path escapes root: " + relative);
+        }
+        return target;
+    }
+
+    public static String toGameRelativePath(Path path) {
+        return toRelativePath(DlcPaths.gameDir(), path);
+    }
+
+    public static String toRelativePath(Path root, Path path) {
+        if (path == null) {
+            return "";
+        }
+        Path normalized = path.toAbsolutePath().normalize();
+        if (root == null) {
+            return normalized.toString().replace('\\', '/');
+        }
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        try {
+            Path rootReal = normalizedRoot.toRealPath();
+            Path pathReal = normalized.toRealPath();
+            if (pathReal.startsWith(rootReal)) {
+                return rootReal.relativize(pathReal).toString().replace('\\', '/');
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            if (normalized.startsWith(normalizedRoot)) {
+                return normalizedRoot.relativize(normalized).toString().replace('\\', '/');
+            }
+        } catch (Exception ignored) {
+        }
+        return normalized.toString().replace('\\', '/');
     }
 
     private static String normalizeRelative(Path path) {

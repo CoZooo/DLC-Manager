@@ -102,11 +102,11 @@ public class DlcPackUpdateCoordinator {
         Path installedSnapshot = staging.resolve("installed");
         copyRecursive(status.packDir, packDirSnapshot);
         for (String relative : status.meta.installedPaths) {
-            Path source = resolveInside(instanceRoot, relative);
+            Path source = DlcPathUtil.resolveInside(instanceRoot, relative);
             if (!Files.exists(source)) {
                 continue;
             }
-            Path target = resolveInside(installedSnapshot, relative);
+            Path target = DlcPathUtil.resolveInside(installedSnapshot, relative);
             copyRecursive(source, target);
         }
         DlcPackTransaction txn = DlcPackTransaction.running(identifier, staging.getFileName().toString());
@@ -145,13 +145,13 @@ public class DlcPackUpdateCoordinator {
             moveConfiguredConflicts(metadata.conflicts, packDir);
         }
         for (String relative : snapshot.meta.installedPaths) {
-            Path source = resolveInside(snapshot.installedSnapshot, relative);
+            Path source = DlcPathUtil.resolveInside(snapshot.installedSnapshot, relative);
             if (!Files.exists(source)) {
                 continue;
             }
-            Path target = resolveInside(instanceRoot, relative);
+            Path target = DlcPathUtil.resolveInside(instanceRoot, relative);
             if (Files.exists(target)) {
-                Path displaced = resolveInside(packDir, relative);
+                Path displaced = DlcPathUtil.resolveInside(packDir, relative);
                 Files.createDirectories(displaced.getParent());
                 Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING);
             }
@@ -173,7 +173,7 @@ public class DlcPackUpdateCoordinator {
             return;
         }
         for (String conflict : conflicts) {
-            String relative = DlcPackMeta.normalizeRelativePath(conflict);
+            String relative = DlcPathUtil.normalizeRelativePath(conflict);
             if (relative == null) {
                 continue;
             }
@@ -188,7 +188,7 @@ public class DlcPackUpdateCoordinator {
                 continue;
             }
             for (Path target : targets) {
-                String targetRelative = DlcPackMeta.normalizeRelativePath(
+                String targetRelative = DlcPathUtil.normalizeRelativePath(
                     instanceRoot.toAbsolutePath().normalize()
                         .relativize(target.toAbsolutePath().normalize())
                         .toString()
@@ -196,24 +196,11 @@ public class DlcPackUpdateCoordinator {
                 if (targetRelative == null) {
                     continue;
                 }
-                Path displaced = resolveInside(packDir, targetRelative);
+                Path displaced = DlcPathUtil.resolveInside(packDir, targetRelative);
                 Files.createDirectories(displaced.getParent());
                 Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING);
             }
         }
-    }
-
-    private Path resolveInside(Path root, String relative) throws IOException {
-        Path normalizedRoot = root.toAbsolutePath().normalize();
-        String normalizedRelative = DlcPackMeta.normalizeRelativePath(relative);
-        if (normalizedRelative == null) {
-            throw new IOException("Invalid relative path: " + relative);
-        }
-        Path target = normalizedRoot.resolve(normalizedRelative).normalize();
-        if (!target.startsWith(normalizedRoot)) {
-            throw new IOException("Path escapes root: " + relative);
-        }
-        return target;
     }
 
     private void copyRecursive(Path source, Path target) throws IOException {

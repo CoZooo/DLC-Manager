@@ -204,7 +204,7 @@ class DlcScanner {
         detectInstalledState: Boolean,
     ) {
         val relative = root.relativize(source).toString().replace('\\', '/')
-        val rootId = toGameRelativePath(root).replace('\\', '/')
+        val rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/')
         val name = source.fileName.toString()
         var tooltipData = remoteMetadata.get(name)
         if (tooltipData == null) {
@@ -669,26 +669,4 @@ class DlcScanner {
         }
     }
 
-    private fun toGameRelativePath(path: Path?): String {
-        if (path == null) {
-            return ""
-        }
-        val gameDir = DlcPaths.gameDir().toAbsolutePath().normalize()
-        val normalized = path.toAbsolutePath().normalize()
-        try {
-            val gameReal = gameDir.toRealPath()
-            val pathReal = normalized.toRealPath()
-            if (pathReal.startsWith(gameReal)) {
-                return gameReal.relativize(pathReal).toString()
-            }
-        } catch (_: Exception) {
-        }
-        try {
-            if (normalized.startsWith(gameDir)) {
-                return gameDir.relativize(normalized).toString()
-            }
-        } catch (_: Exception) {
-        }
-        return normalized.toString()
-    }
 }

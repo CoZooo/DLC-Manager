@@ -39,6 +39,7 @@ class DlcPackMetaTest {
     void loadRejectsInvalidIdentifierOrMissingPath() {
         assertNull(DlcPackMeta.load(tempDir.resolve("missing.dc")));
         assertNull(DlcPackMeta.normalizeRelativePath("../bad"));
+        assertNull(DlcPackMeta.normalizeRelativePath("mods//a.jar"));
         assertEquals("mods/a.jar", DlcPackMeta.normalizeRelativePath("/mods/a.jar/"));
     }
 

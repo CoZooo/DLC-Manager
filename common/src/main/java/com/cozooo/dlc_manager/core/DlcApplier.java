@@ -51,7 +51,7 @@ public class DlcApplier {
                         DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
                         state.enabled = true;
                         state.appliedTargets = statePaths.stream()
-                            .map(DlcApplier::toGameRelativePath)
+                            .map(DlcPathUtil::toGameRelativePath)
                             .toList();
                         DlcStateConfig.setState(item.getId(), state);
                     }
@@ -452,7 +452,7 @@ public class DlcApplier {
                     continue;
                 }
                 if (resolved != null) {
-                    failedPaths.add(toGameRelativePath(resolved));
+                    failedPaths.add(DlcPathUtil.toGameRelativePath(resolved));
                 }
             }
         }
@@ -511,7 +511,7 @@ public class DlcApplier {
                 if (message != null && message.startsWith("Failed to ")) {
                     messages.add(message);
                 } else if (target != null) {
-                    messages.add("Failed to restore: " + toGameRelativePath(target));
+                    messages.add("Failed to restore: " + DlcPathUtil.toGameRelativePath(target));
                 }
             }
         }
@@ -711,29 +711,6 @@ public class DlcApplier {
         if (context != null) {
             context.helperScheduled = true;
         }
-    }
-
-    private static String toGameRelativePath(Path path) {
-        if (path == null) {
-            return "";
-        }
-        Path gameDir = DlcPaths.gameDir().toAbsolutePath().normalize();
-        Path normalized = path.toAbsolutePath().normalize();
-        try {
-            Path gameReal = gameDir.toRealPath();
-            Path pathReal = normalized.toRealPath();
-            if (pathReal.startsWith(gameReal)) {
-                return gameReal.relativize(pathReal).toString();
-            }
-        } catch (Exception ignored) {
-        }
-        try {
-            if (normalized.startsWith(gameDir)) {
-                return gameDir.relativize(normalized).toString();
-            }
-        } catch (Exception ignored) {
-        }
-        return normalized.toString();
     }
 
     private static Path resolveStoredPath(String rawPath) {

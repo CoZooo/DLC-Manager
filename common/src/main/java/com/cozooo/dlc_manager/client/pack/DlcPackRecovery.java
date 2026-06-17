@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.pack;
 import com.cozooo.dlc_manager.client.core.DlcZipUtil;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 
 import java.io.IOException;
@@ -98,11 +99,11 @@ public final class DlcPackRecovery {
             DlcZipUtil.deleteRecursive(packDir);
             copyRecursive(backupPackDir, packDir);
             for (String relative : oldMeta.installedPaths) {
-                Path source = resolveInside(installedSnapshot, relative);
+                Path source = DlcPathUtil.resolveInside(installedSnapshot, relative);
                 if (!Files.exists(source)) {
                     continue;
                 }
-                Path target = resolveInside(instanceRoot, relative);
+                Path target = DlcPathUtil.resolveInside(instanceRoot, relative);
                 copyRecursive(source, target);
                 report.restored++;
             }
@@ -115,7 +116,7 @@ public final class DlcPackRecovery {
         java.util.Collections.reverse(written);
         for (String relative : written) {
             try {
-                Path target = resolveInside(instanceRoot, relative);
+                Path target = DlcPathUtil.resolveInside(instanceRoot, relative);
                 if (Files.deleteIfExists(target)) {
                     report.deletedWritten++;
                 }
@@ -129,11 +130,11 @@ public final class DlcPackRecovery {
         toRestore.sort(Comparator.comparingInt(String::length));
         for (String relative : toRestore) {
             try {
-                Path archived = resolveInside(packDir, relative);
+                Path archived = DlcPathUtil.resolveInside(packDir, relative);
                 if (!Files.exists(archived)) {
                     continue;
                 }
-                Path target = resolveInside(instanceRoot, relative);
+                Path target = DlcPathUtil.resolveInside(instanceRoot, relative);
                 Files.createDirectories(target.getParent());
                 Files.move(archived, target, StandardCopyOption.REPLACE_EXISTING);
                 report.restored++;
@@ -150,7 +151,7 @@ public final class DlcPackRecovery {
         }
         try (Stream<Path> stream = Files.walk(packDir)) {
             for (Path archived : stream.filter(Files::isRegularFile).sorted(Comparator.reverseOrder()).toList()) {
-                String relative = DlcPackMeta.normalizeRelativePath(packDir.relativize(archived).toString());
+                String relative = DlcPathUtil.normalizeRelativePath(packDir.relativize(archived).toString());
                 if (relative != null && !isPackRecordPath(relative)) {
                     paths.add(relative);
                 }
@@ -166,11 +167,11 @@ public final class DlcPackRecovery {
         }
         try (Stream<Path> stream = Files.walk(backupPackDir)) {
             for (Path archived : stream.filter(Files::isRegularFile).sorted(Comparator.reverseOrder()).toList()) {
-                String relative = DlcPackMeta.normalizeRelativePath(backupPackDir.relativize(archived).toString());
+                String relative = DlcPathUtil.normalizeRelativePath(backupPackDir.relativize(archived).toString());
                 if (relative == null || isPackRecordPath(relative)) {
                     continue;
                 }
-                Path target = resolveInside(instanceRoot, relative);
+                Path target = DlcPathUtil.resolveInside(instanceRoot, relative);
                 Files.deleteIfExists(target);
                 pruneEmptyParents(target.getParent(), instanceRoot);
             }
@@ -235,19 +236,6 @@ public final class DlcPackRecovery {
 
     private static Path packDir(Path dlcRoot, String identifier) {
         return dlcRoot.resolve("tmp").resolve("pack").resolve(identifier).toAbsolutePath().normalize();
-    }
-
-    private static Path resolveInside(Path root, String relative) throws IOException {
-        Path normalizedRoot = root.toAbsolutePath().normalize();
-        String normalizedRelative = DlcPackMeta.normalizeRelativePath(relative);
-        if (normalizedRelative == null) {
-            throw new IOException("Invalid relative path: " + relative);
-        }
-        Path target = normalizedRoot.resolve(normalizedRelative).normalize();
-        if (!target.startsWith(normalizedRoot)) {
-            throw new IOException("Path escapes root: " + relative);
-        }
-        return target;
     }
 
     private static boolean isPackRecordPath(String relative) {

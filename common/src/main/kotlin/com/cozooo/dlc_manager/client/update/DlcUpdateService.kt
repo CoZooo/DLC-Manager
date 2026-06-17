@@ -1125,7 +1125,7 @@ object DlcUpdateService {
                 continue
             }
             for (target in DlcPathUtil.findMatches(gameDir, raw)) {
-                val actualRelative = toGameRelativePath(target)
+                val actualRelative = DlcPathUtil.toGameRelativePath(target)
                 backupPath(actualRelative, target, context)
                 handleSpecialDelete(target, raw, context)
                 deleteRecursive(target)
@@ -1211,12 +1211,12 @@ object DlcUpdateService {
                 to = to.resolve(from.getFileName().toString())
             }
             val destExisted = Files.exists(to)
-            backupPath(toGameRelativePath(from), from, context)
+            backupPath(DlcPathUtil.toGameRelativePath(from), from, context)
             if (destExisted) {
-                backupPath(toGameRelativePath(to), to, context)
+                backupPath(DlcPathUtil.toGameRelativePath(to), to, context)
                 deleteRecursive(to)
             } else {
-                context.meta!!.getCreatedPaths().add(toGameRelativePath(to))
+                context.meta!!.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(to))
             }
             try {
                 if (to.getParent() != null) {
@@ -1253,7 +1253,7 @@ object DlcUpdateService {
                 }
 
                 DlcUpdateManifest.OverrideMode.ALL -> {
-                    backupPath(toGameRelativePath(target), target, context)
+                    backupPath(DlcPathUtil.toGameRelativePath(target), target, context)
                     syncDirectory(source, target)
                     return
                 }
@@ -1264,13 +1264,13 @@ object DlcUpdateService {
                 }
 
                 DlcUpdateManifest.OverrideMode.TRUE -> {
-                    backupPath(toGameRelativePath(target), target, context)
+                    backupPath(DlcPathUtil.toGameRelativePath(target), target, context)
                     copyDirectory(source, target, true)
                     return
                 }
             }
         } else {
-            context.meta!!.getCreatedPaths().add(toGameRelativePath(target))
+            context.meta!!.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target))
             copyRecursive(source, target)
         }
     }
@@ -1291,9 +1291,9 @@ object DlcUpdateService {
             if (mode == DlcUpdateManifest.OverrideMode.FALSE || mode == DlcUpdateManifest.OverrideMode.NONE) {
                 return
             }
-            backupPath(toGameRelativePath(actualTarget), actualTarget, context)
+            backupPath(DlcPathUtil.toGameRelativePath(actualTarget), actualTarget, context)
         } else {
-            context.meta!!.getCreatedPaths().add(toGameRelativePath(actualTarget))
+            context.meta!!.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(actualTarget))
         }
         try {
             if (actualTarget!!.getParent() != null) {
@@ -1380,7 +1380,7 @@ object DlcUpdateService {
                 continue
             }
             val updateEntry = update.value
-            backupPath(toGameRelativePath(infoPath), infoPath, context)
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context)
             updateInfoConfigFields(infoPath, updateEntry)
         }
     }
@@ -1403,7 +1403,7 @@ object DlcUpdateService {
                 continue
             }
             val updateEntry = update.value
-            backupPath(toGameRelativePath(presetPath), presetPath, context)
+            backupPath(DlcPathUtil.toGameRelativePath(presetPath), presetPath, context)
             updatePresetConfigFields(presetPath, updateEntry)
         }
     }
@@ -1441,7 +1441,7 @@ object DlcUpdateService {
             val updateEntry = update.value
             val configPath: Path? = entry.getConfigPath()
             if (configPath != null && Files.exists(configPath)) {
-                backupPath(toGameRelativePath(configPath), configPath, context)
+                backupPath(DlcPathUtil.toGameRelativePath(configPath), configPath, context)
                 updateRemoteConfigFields(configPath, updateEntry)
                 entry = DlcRemoteLoader.loadSingle(configPath, context.dlcRoot)
                 if (entry == null) {
@@ -1456,7 +1456,7 @@ object DlcUpdateService {
                 throw IOException("remote update download failed")
             }
             if (downloaded.path != null) {
-                val created: kotlin.String = toGameRelativePath(downloaded.path)
+                val created: kotlin.String = DlcPathUtil.toGameRelativePath(downloaded.path)
                 if (!created.isBlank() && !context.meta!!.getCreatedPaths().contains(created)) {
                     context.meta.getCreatedPaths().add(created)
                 }
@@ -1515,7 +1515,7 @@ object DlcUpdateService {
             val updateEntry = update.value
             val configPath = entry.getConfigPath()
             if (configPath != null && Files.exists(configPath)) {
-                backupPath(toGameRelativePath(configPath), configPath, context)
+                backupPath(DlcPathUtil.toGameRelativePath(configPath), configPath, context)
                 updateRequiredConfigFields(configPath, updateEntry)
                 syncInfoConfigFields(infoPath, updateEntry, context)
                 entry = DlcRequiredLoader.loadSingle(configPath, context.dlcRoot)
@@ -1531,7 +1531,7 @@ object DlcUpdateService {
                 throw IOException("required update download failed")
             }
             if (downloaded.path != null) {
-                val created: kotlin.String = toGameRelativePath(downloaded.path)
+                val created: kotlin.String = DlcPathUtil.toGameRelativePath(downloaded.path)
                 if (!created.isBlank() && !context.meta!!.getCreatedPaths().contains(created)) {
                     context.meta.getCreatedPaths().add(created)
                 }
@@ -1814,7 +1814,7 @@ object DlcUpdateService {
             return
         }
         if (applyEntryFieldUpdates(info, update, FieldUpdateMode.INFO_ALLOWED)) {
-            backupPath(toGameRelativePath(infoPath), infoPath, context)
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context)
             writeJson(infoPath, info)
         }
     }
@@ -2157,19 +2157,19 @@ object DlcUpdateService {
         upsertCaseInsensitive(info, "file_name", safeCopy(JsonPrimitive(fileName)))
         val infoDir = infoPath.getParent()
         if (infoDir == null) {
-            backupPath(toGameRelativePath(infoPath), infoPath, context)
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context)
             writeJson(infoPath, info)
             return
         }
         val targetPath: Path? = DlcDcFormatUtil.resolveConfigPath(infoDir, fileName)
         if (targetPath == null) {
-            backupPath(toGameRelativePath(infoPath), infoPath, context)
+            backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context)
             writeJson(infoPath, info)
             return
         }
-        backupPath(toGameRelativePath(infoPath), infoPath, context)
+        backupPath(DlcPathUtil.toGameRelativePath(infoPath), infoPath, context)
         if (targetPath.normalize() != infoPath.normalize() && Files.exists(targetPath)) {
-            backupPath(toGameRelativePath(targetPath), targetPath, context)
+            backupPath(DlcPathUtil.toGameRelativePath(targetPath), targetPath, context)
             check(deleteWithHelperFallback(targetPath)) { latestFailureMessage("Failed to replace info file: " + targetPath)!! }
         }
         if (targetPath.normalize() != infoPath.normalize()) {
@@ -2463,9 +2463,9 @@ object DlcUpdateService {
             return
         }
         if (Files.exists(target)) {
-            backupPath(toGameRelativePath(target), target, context)
+            backupPath(DlcPathUtil.toGameRelativePath(target), target, context)
         } else {
-            context.meta!!.getCreatedPaths().add(toGameRelativePath(target))
+            context.meta!!.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target))
         }
     }
 
@@ -2489,7 +2489,7 @@ object DlcUpdateService {
         }
         state.enabled = true
         state.appliedTargets = applied.stream()
-            .map<kotlin.String?> { obj: Path? -> DlcUpdateService.toGameRelativePath(obj) }
+            .map<kotlin.String?> { obj: Path? -> DlcPathUtil.toGameRelativePath(obj) }
             .filter { obj: kotlin.String? -> obj != null }
             .map { obj: kotlin.String? -> obj!! }
             .toList()
@@ -2501,7 +2501,7 @@ object DlcUpdateService {
         if (dlcRoot == null || source == null || type == null) {
             return null
         }
-        val rootId: kotlin.String = toGameRelativePath(dlcRoot).replace('\\', '/')
+        val rootId: kotlin.String = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/')
         val relative = dlcRoot.relativize(source).toString().replace('\\', '/')
         return type.name.lowercase() + ":" + rootId + "|" + relative
     }
@@ -2540,9 +2540,9 @@ object DlcUpdateService {
         if (!hasRemoteAdd && Files.isDirectory(remoteDir)) {
             val target: Path = context.dlcRoot.resolve("remote")
             if (Files.exists(target)) {
-                backupPath(toGameRelativePath(target), target, context)
+                backupPath(DlcPathUtil.toGameRelativePath(target), target, context)
             } else {
-                context.meta!!.getCreatedPaths().add(toGameRelativePath(target))
+                context.meta!!.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target))
             }
             copyDirectory(remoteDir, target, true)
             context.addedRemote = true
@@ -2551,9 +2551,9 @@ object DlcUpdateService {
         if (!hasRequiredAdd && Files.isDirectory(requiredDir)) {
             val target: Path = context.dlcRoot.resolve("required")
             if (Files.exists(target)) {
-                backupPath(toGameRelativePath(target), target, context)
+                backupPath(DlcPathUtil.toGameRelativePath(target), target, context)
             } else {
-                context.meta!!.getCreatedPaths().add(toGameRelativePath(target))
+                context.meta!!.getCreatedPaths().add(DlcPathUtil.toGameRelativePath(target))
             }
             copyDirectory(requiredDir, target, true)
             addedRequiredFiles.add(target)
@@ -2702,7 +2702,7 @@ object DlcUpdateService {
         if (target == null || dlcRoot == null) {
             return
         }
-        val rootId: kotlin.String = toGameRelativePath(dlcRoot).replace('\\', '/')
+        val rootId: kotlin.String = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/')
         val relative = dlcRoot.relativize(target).toString().replace('\\', '/')
         val suffix = ":" + rootId + "|" + relative
         for (entry in DlcStateConfig.getAllStates().entries) {
@@ -2783,7 +2783,7 @@ object DlcUpdateService {
             return
         }
         if (Files.exists(target) && context != null) {
-            backupPath(toGameRelativePath(target), target, context)
+            backupPath(DlcPathUtil.toGameRelativePath(target), target, context)
         }
         deleteRecursive(target)
     }
@@ -3858,29 +3858,6 @@ object DlcUpdateService {
                 .isEmpty()
         ) null else DlcConfig.getDlcRoots().get(0)
 
-    private fun toGameRelativePath(path: Path?): kotlin.String {
-        if (path == null) {
-            return ""
-        }
-        val gameDir: Path = DlcPaths.gameDir().toAbsolutePath().normalize()
-        val normalized = path.toAbsolutePath().normalize()
-        try {
-            val gameReal = gameDir.toRealPath()
-            val pathReal = normalized.toRealPath()
-            if (pathReal.startsWith(gameReal)) {
-                return gameReal.relativize(pathReal).toString().replace('\\', '/')
-            }
-        } catch (ignored: Exception) {
-        }
-        try {
-            if (normalized.startsWith(gameDir)) {
-                return gameDir.relativize(normalized).toString().replace('\\', '/')
-            }
-        } catch (ignored: Exception) {
-        }
-        return normalized.toString().replace('\\', '/')
-    }
-
     private fun resolveStoredPath(rawPath: kotlin.String?): Path {
         if (rawPath == null || rawPath.isBlank()) {
             return Path.of("")
@@ -3896,7 +3873,7 @@ object DlcUpdateService {
         if (context == null || path == null) {
             return
         }
-        val relative: kotlin.String = toGameRelativePath(path)
+        val relative: kotlin.String = DlcPathUtil.toGameRelativePath(path)
         val label = if (relative.isBlank()) path.toString() else relative
         recordFileOpFailure(context, "Failed to " + operation + ": " + label, path, operation)
     }
@@ -3912,7 +3889,7 @@ object DlcUpdateService {
         }
         var finalMessage = message
         if (finalMessage == null || finalMessage.isBlank()) {
-            val relative: kotlin.String = if (path == null) "" else toGameRelativePath(path)
+            val relative: kotlin.String = if (path == null) "" else DlcPathUtil.toGameRelativePath(path)
             val label = if (relative.isBlank())
                 (if (path == null) "" else path.toString())
             else

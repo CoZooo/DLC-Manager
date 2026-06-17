@@ -87,11 +87,11 @@ class DlcPackUpdateCoordinator(
         val installedSnapshot = staging.resolve("installed")
         copyRecursive(status.packDir, packDirSnapshot)
         for (relative in meta.installedPaths) {
-            val source = resolveInside(instanceRoot, relative)
+            val source = DlcPathUtil.resolveInside(instanceRoot, relative)
             if (!Files.exists(source)) {
                 continue
             }
-            val target = resolveInside(installedSnapshot, relative)
+            val target = DlcPathUtil.resolveInside(installedSnapshot, relative)
             copyRecursive(source, target)
         }
         val txn = DlcPackTransaction.running(identifier, staging.fileName.toString())
@@ -128,13 +128,13 @@ class DlcPackUpdateCoordinator(
             moveConfiguredConflicts(metadata.conflicts, packDir)
         }
         for (relative in snapshot.meta.installedPaths) {
-            val source = resolveInside(snapshot.installedSnapshot, relative)
+            val source = DlcPathUtil.resolveInside(snapshot.installedSnapshot, relative)
             if (!Files.exists(source)) {
                 continue
             }
-            val target = resolveInside(instanceRoot, relative)
+            val target = DlcPathUtil.resolveInside(instanceRoot, relative)
             if (Files.exists(target)) {
-                val displaced = resolveInside(packDir, relative)
+                val displaced = DlcPathUtil.resolveInside(packDir, relative)
                 Files.createDirectories(displaced.parent)
                 Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING)
             }
@@ -156,7 +156,7 @@ class DlcPackUpdateCoordinator(
             return
         }
         for (conflict in conflicts) {
-            val relative = DlcPackMeta.normalizeRelativePath(conflict) ?: continue
+            val relative = DlcPathUtil.normalizeRelativePath(conflict) ?: continue
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                 continue
             }
@@ -168,27 +168,16 @@ class DlcPackUpdateCoordinator(
                 continue
             }
             for (target in targets) {
-                val targetRelative = DlcPackMeta.normalizeRelativePath(
+                val targetRelative = DlcPathUtil.normalizeRelativePath(
                     instanceRoot.toAbsolutePath().normalize()
                         .relativize(target.toAbsolutePath().normalize())
                         .toString(),
                 ) ?: continue
-                val displaced = resolveInside(packDir, targetRelative)
+                val displaced = DlcPathUtil.resolveInside(packDir, targetRelative)
                 Files.createDirectories(displaced.parent)
                 Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING)
             }
         }
-    }
-
-    private fun resolveInside(root: Path, relative: String?): Path {
-        val normalizedRoot = root.toAbsolutePath().normalize()
-        val normalizedRelative = DlcPackMeta.normalizeRelativePath(relative)
-            ?: throw IOException("Invalid relative path: $relative")
-        val target = normalizedRoot.resolve(normalizedRelative).normalize()
-        if (!target.startsWith(normalizedRoot)) {
-            throw IOException("Path escapes root: $relative")
-        }
-        return target
     }
 
     private fun copyRecursive(source: Path?, target: Path?) {
