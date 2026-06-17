@@ -961,6 +961,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private Component operationStatusFor(OperationDisplayMode mode, PackArchiveEntry entry, String fallback) {
+        if ("dlc_manager.pack.selecting_source".equals(fallback)) {
+            return Component.translatable("dlc_manager.pack.selecting_source");
+        }
         return switch (mode) {
             case UNINSTALLING -> Component.translatable("dlc_manager.pack.operation_uninstalling");
             case INSTALLING -> Component.translatable("dlc_manager.pack.operation_installing");

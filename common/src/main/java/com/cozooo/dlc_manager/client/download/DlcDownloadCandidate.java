@@ -33,6 +33,32 @@ public final class DlcDownloadCandidate {
     }
 
     public static DlcDownloadCandidate curseForge(CurseForgeClient.CurseForgeFile file) {
+        return curseForgeCandidate(file == null ? null : file.url, file);
+    }
+
+    public static List<DlcDownloadCandidate> curseForgeCandidates(CurseForgeClient.CurseForgeFile file) {
+        if (file == null) {
+            return List.of();
+        }
+        List<DlcDownloadCandidate> candidates = new ArrayList<>();
+        String primaryUrl = file.url;
+        boolean primaryIsWebsiteFallback = isCurseForgeWebsiteDownloadUrl(primaryUrl);
+        if (!primaryIsWebsiteFallback && primaryUrl != null && !primaryUrl.isBlank()) {
+            candidates.add(curseForgeCandidate(primaryUrl, file));
+        }
+        for (String url : file.alternateUrls) {
+            if (url != null && !url.isBlank() && candidates.stream().noneMatch(candidate -> url.equals(candidate.url))) {
+                candidates.add(curseForgeCandidate(url, file));
+            }
+        }
+        if (primaryIsWebsiteFallback && primaryUrl != null && !primaryUrl.isBlank()
+            && candidates.stream().noneMatch(candidate -> primaryUrl.equals(candidate.url))) {
+            candidates.add(curseForgeCandidate(primaryUrl, file));
+        }
+        return candidates;
+    }
+
+    private static DlcDownloadCandidate curseForgeCandidate(String url, CurseForgeClient.CurseForgeFile file) {
         String hashType = null;
         String hashValue = null;
         if (file != null) {
@@ -44,7 +70,14 @@ public final class DlcDownloadCandidate {
                 hashValue = file.md5;
             }
         }
-        return new DlcDownloadCandidate(file.url, false, file.fileName, hashType, hashValue, file.size);
+        return new DlcDownloadCandidate(url == null ? "" : url, false, file == null ? null : file.fileName, hashType, hashValue, file == null ? -1L : file.size);
+    }
+
+    private static boolean isCurseForgeWebsiteDownloadUrl(String url) {
+        return url != null
+            && !url.isBlank()
+            && url.contains("curseforge.com/api/v1/mods/")
+            && url.endsWith("/download");
     }
 
     public static DlcDownloadCandidate modrinth(ModrinthClient.ModrinthVersion version) {
@@ -258,7 +291,7 @@ public final class DlcDownloadCandidate {
             CrossPlatformRuntime.loaderName()
         );
         if (file != null && file.url != null && !file.url.isBlank()) {
-            candidates.add(curseForge(file));
+            candidates.addAll(curseForgeCandidates(file));
         }
     }
 

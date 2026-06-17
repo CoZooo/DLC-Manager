@@ -38,6 +38,8 @@ object CurseForgeClient {
     private val MOD_CACHE: MutableMap<String, CurseForgeMod> = ConcurrentHashMap()
     private val PROJECT_ID_CACHE: MutableMap<String, String> = ConcurrentHashMap()
     private const val MINECRAFT_GAME_ID = 432
+    private val CDN_HOSTS = arrayOf("https://mediafilez.forgecdn.net")
+    private const val API_MAX_ATTEMPTS = 2
 
     @JvmStatic
     @Throws(IOException::class, InterruptedException::class)
@@ -46,24 +48,31 @@ object CurseForgeClient {
             return null
         }
         val apiKey = getApiKey()
-        if (apiKey.isNullOrBlank()) {
-            return null
-        }
         val cacheKey = (projectId ?: "") + ":" + fileId
         CACHE[cacheKey]?.let { return it }
         val data = fetchFileDataWithRetry(projectId, fileId, apiKey) ?: return null
         val file = CurseForgeFile()
         file.id = fileId
         applyFileData(file, data)
+        var fallbackUrl: String? = null
+        var useCdnFallback = false
         if (data.has("downloadUrl")) {
             val downloadUrl = getString(data, "downloadUrl")
             if (downloadUrl == null) {
-                return null
+                useCdnFallback = true
+                fallbackUrl = fallbackDownloadUrl(projectId, fileId)
+                file.url = fallbackUrl
+            } else {
+                file.url = downloadUrl
             }
-            file.url = downloadUrl
         } else if (file.url.isNullOrBlank()) {
-            file.url = fetchDownloadUrlWithRetry(projectId, fileId, apiKey)
+            val downloadUrl = fetchDownloadUrlWithRetry(projectId, fileId, apiKey)
+            useCdnFallback = downloadUrl.useCdnFallback
+            fallbackUrl = if (downloadUrl.url == null) fallbackDownloadUrl(projectId, fileId) else null
+            file.url = downloadUrl.url ?: fallbackUrl
         }
+        resolveMissingFileName(file, fallbackUrl)
+        resolveAlternateDownloadUrls(file, fallbackUrl, useCdnFallback)
         CACHE[cacheKey] = file
         return file
     }
@@ -77,9 +86,6 @@ object CurseForgeClient {
         }
         MOD_CACHE[resolvedModId]?.let { return it }
         val apiKey = getApiKey()
-        if (apiKey.isNullOrBlank()) {
-            return null
-        }
         val endpoint = "https://api.curseforge.com/v1/mods/$resolvedModId"
         val root = fetchJsonObjectWithRetry(endpoint, apiKey) ?: return null
         val mod = CurseForgeMod()
@@ -122,9 +128,6 @@ object CurseForgeClient {
             return null
         }
         val apiKey = getApiKey()
-        if (apiKey.isNullOrBlank()) {
-            return null
-        }
         val cacheKey = resolvedProjectId + ":" + (mcVersion ?: "") + ":" + (loader ?: "")
         CACHE[cacheKey]?.let { return it }
         var endpoint = "https://api.curseforge.com/v1/mods/$resolvedProjectId/files?pageSize=50"
@@ -146,6 +149,7 @@ object CurseForgeClient {
             val file = CurseForgeFile()
             file.id = getString(data, "id")
             applyFileData(file, data)
+            file.downloadUrlExplicitlyNull = isExplicitNullDownloadUrl(data)
             val time = parseInstant(file.fileDate)
             if (latest == null || isAfter(time, latestTime)) {
                 latest = file
@@ -154,7 +158,14 @@ object CurseForgeClient {
         }
         val latestFile = latest ?: return null
         if (latestFile.url.isNullOrBlank()) {
-            latestFile.url = fetchDownloadUrlWithRetry(resolvedProjectId, latestFile.id, apiKey)
+            val downloadUrl = fetchDownloadUrlWithRetry(resolvedProjectId, latestFile.id, apiKey)
+            val fallbackUrl = if (downloadUrl.url == null) fallbackDownloadUrl(resolvedProjectId, latestFile.id) else null
+            latestFile.url = downloadUrl.url ?: fallbackUrl
+            resolveMissingFileName(latestFile, fallbackUrl)
+            resolveAlternateDownloadUrls(latestFile, fallbackUrl, latestFile.downloadUrlExplicitlyNull || downloadUrl.useCdnFallback)
+        } else {
+            resolveMissingFileName(latestFile, null)
+            resolveAlternateDownloadUrls(latestFile, null, false)
         }
         CACHE[cacheKey] = latestFile
         return latestFile
@@ -166,9 +177,6 @@ object CurseForgeClient {
             return null
         }
         val apiKey = getApiKey()
-        if (apiKey.isNullOrBlank()) {
-            return null
-        }
         var endpoint = "https://api.curseforge.com/v1/mods/$projectId/files?pageSize=50"
         if (!mcVersion.isNullOrBlank()) {
             endpoint += "&gameVersion=" + URLEncoder.encode(mcVersion, StandardCharsets.UTF_8)
@@ -194,6 +202,7 @@ object CurseForgeClient {
             val file = CurseForgeFile()
             file.id = getString(data, "id")
             applyFileData(file, data)
+            file.downloadUrlExplicitlyNull = isExplicitNullDownloadUrl(data)
             file.fileName = fileName
             file.displayName = displayName
             val time = parseInstant(file.fileDate)
@@ -204,7 +213,14 @@ object CurseForgeClient {
         }
         val matchedFile = matched ?: return null
         if (matchedFile.url.isNullOrBlank()) {
-            matchedFile.url = fetchDownloadUrlWithRetry(projectId, matchedFile.id, apiKey)
+            val downloadUrl = fetchDownloadUrlWithRetry(projectId, matchedFile.id, apiKey)
+            val fallbackUrl = if (downloadUrl.url == null) fallbackDownloadUrl(projectId, matchedFile.id) else null
+            matchedFile.url = downloadUrl.url ?: fallbackUrl
+            resolveMissingFileName(matchedFile, fallbackUrl)
+            resolveAlternateDownloadUrls(matchedFile, fallbackUrl, matchedFile.downloadUrlExplicitlyNull || downloadUrl.useCdnFallback)
+        } else {
+            resolveMissingFileName(matchedFile, null)
+            resolveAlternateDownloadUrls(matchedFile, null, false)
         }
         return matchedFile
     }
@@ -221,9 +237,6 @@ object CurseForgeClient {
         val lower = trimmed.lowercase()
         PROJECT_ID_CACHE[lower]?.let { return if (it.isBlank()) null else it }
         val apiKey = getApiKey()
-        if (apiKey.isNullOrBlank()) {
-            return null
-        }
         val endpoint = "https://api.curseforge.com/v1/mods/search?gameId=$MINECRAFT_GAME_ID" +
             "&slug=" + URLEncoder.encode(trimmed, StandardCharsets.UTF_8)
         val root = fetchJsonArrayWithRetry(endpoint, apiKey)
@@ -303,13 +316,13 @@ object CurseForgeClient {
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun fetchFileDataWithRetry(projectId: String?, fileId: String, apiKey: String): JsonObject? {
+    private fun fetchFileDataWithRetry(projectId: String?, fileId: String, apiKey: String?): JsonObject? {
         val endpoint = if (!projectId.isNullOrBlank()) {
             "https://api.curseforge.com/v1/mods/$projectId/files/$fileId"
         } else {
             "https://api.curseforge.com/v1/mods/files/$fileId"
         }
-        val root = sendJsonWithRetry(endpoint, apiKey, false) ?: return null
+        val root = sendJsonWithRetry(endpoint, apiKey) ?: return null
         if (!root.has("data") || !root.get("data").isJsonObject) {
             return null
         }
@@ -317,44 +330,60 @@ object CurseForgeClient {
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun fetchDownloadUrlWithRetry(projectId: String?, fileId: String?, apiKey: String): String? {
-        val maxRetry = maxOf(1, DlcPathConfig.getMaxRetryCount())
-        var lastError: IOException? = null
-        for (attempt in 1..maxRetry) {
-            try {
-                return fetchDownloadUrl(projectId, fileId, apiKey)
-            } catch (ex: DownloadUrlNotRetryableException) {
-                return ex.downloadUrl
-            } catch (ex: IOException) {
-                lastError = ex
-            }
-        }
-        if (lastError != null) {
-            throw lastError
-        }
-        return null
+    private fun fetchDownloadUrlWithRetry(projectId: String?, fileId: String?, apiKey: String?): DownloadUrlResult {
+        return fetchDownloadUrl(projectId, fileId, apiKey)
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun fetchDownloadUrl(projectId: String?, fileId: String?, apiKey: String): String? {
+    private fun fetchDownloadUrl(projectId: String?, fileId: String?, apiKey: String?): DownloadUrlResult {
         if (projectId.isNullOrBlank() || fileId.isNullOrBlank()) {
-            return null
+            return DownloadUrlResult(null, false)
         }
         val endpoint = "https://api.curseforge.com/v1/mods/$projectId/files/$fileId/download-url"
-        val root = sendJsonWithRetry(endpoint, apiKey, true) ?: return null
-        if (!root.has("data") || !root.get("data").isJsonObject) {
+        var useCdnFallback = false
+        var lastError: IOException? = null
+        try {
+            val official = sendJsonWithFixedRetryResult(endpoint, apiKey)
+            if (official.statusCode == HttpURLConnection.HTTP_FORBIDDEN) {
+                useCdnFallback = true
+            }
+            extractDownloadUrl(official.root)?.let { return DownloadUrlResult(it, false) }
+        } catch (ex: IOException) {
+            lastError = ex
+        }
+        val mirrorEndpoint = mirrorApiEndpoint(endpoint)
+        if (mirrorEndpoint != endpoint) {
+            try {
+                val mirror = sendJsonWithFixedRetryResult(mirrorEndpoint, null)
+                if (mirror.statusCode == HttpURLConnection.HTTP_FORBIDDEN) {
+                    useCdnFallback = true
+                }
+                extractDownloadUrl(mirror.root)?.let { return DownloadUrlResult(it, false) }
+            } catch (ex: IOException) {
+                if (useCdnFallback) {
+                    return DownloadUrlResult(null, true)
+                }
+                if (lastError != null) {
+                    throw ex
+                }
+            }
+        } else if (lastError != null) {
+            throw lastError
+        }
+        return DownloadUrlResult(null, useCdnFallback)
+    }
+
+    private fun extractDownloadUrl(root: JsonObject?): String? {
+        if (root == null || !root.has("data") || !root.get("data").isJsonObject) {
             return null
         }
         val data = root.getAsJsonObject("data")
-        if (data.has("downloadUrl")) {
-            return getString(data, "downloadUrl")
-        }
-        return null
+        return if (data.has("downloadUrl")) getString(data, "downloadUrl") else null
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun fetchJsonArrayWithRetry(endpoint: String, apiKey: String): JsonObject? {
-        val root = sendJsonWithRetry(endpoint, apiKey, false) ?: return null
+    private fun fetchJsonArrayWithRetry(endpoint: String, apiKey: String?): JsonObject? {
+        val root = sendJsonWithRetry(endpoint, apiKey) ?: return null
         if (!root.has("data") || !root.get("data").isJsonArray) {
             return null
         }
@@ -362,8 +391,8 @@ object CurseForgeClient {
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun fetchJsonObjectWithRetry(endpoint: String, apiKey: String): JsonObject? {
-        val root = sendJsonWithRetry(endpoint, apiKey, false) ?: return null
+    private fun fetchJsonObjectWithRetry(endpoint: String, apiKey: String?): JsonObject? {
+        val root = sendJsonWithRetry(endpoint, apiKey) ?: return null
         if (!root.has("data") || !root.get("data").isJsonObject) {
             return null
         }
@@ -371,30 +400,22 @@ object CurseForgeClient {
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun sendJsonWithRetry(endpoint: String, apiKey: String, stopOnDownloadUrlForbidden: Boolean): JsonObject? {
-        val maxRetry = maxOf(1, DlcPathConfig.getMaxRetryCount())
+    private fun sendJsonWithRetry(endpoint: String, apiKey: String?): JsonObject? {
         var lastError: IOException? = null
-        for (attempt in 1..maxRetry) {
+        if (!apiKey.isNullOrBlank()) {
             try {
-                val request = HttpRequest.newBuilder()
-                    .uri(URI.create(endpoint))
-                    .header("User-Agent", "DLC-Manager")
-                    .header("x-api-key", apiKey)
-                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
-                    .GET()
-                    .build()
-                val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
-                if (stopOnDownloadUrlForbidden && response.statusCode() == HttpURLConnection.HTTP_FORBIDDEN) {
-                    throw DownloadUrlNotRetryableException(null)
+                val official = sendJsonWithFixedRetry(endpoint, apiKey)
+                if (official != null) {
+                    return official
                 }
-                if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                    if (isRetryableStatus(response.statusCode()) && attempt < maxRetry) {
-                        continue
-                    }
-                    return null
-                }
-                val root = GSON.fromJson(response.body(), JsonObject::class.java)
-                return root
+            } catch (ex: IOException) {
+                lastError = ex
+            }
+        }
+        val mirrorEndpoint = mirrorApiEndpoint(endpoint)
+        if (mirrorEndpoint != endpoint) {
+            try {
+                return sendJsonWithFixedRetry(mirrorEndpoint, null)
             } catch (ex: IOException) {
                 lastError = ex
             }
@@ -405,8 +426,151 @@ object CurseForgeClient {
         return null
     }
 
+    @Throws(IOException::class, InterruptedException::class)
+    private fun sendJsonWithFixedRetry(endpoint: String, apiKey: String?): JsonObject? {
+        return sendJsonWithFixedRetryResult(endpoint, apiKey).root
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun sendJsonWithFixedRetryResult(endpoint: String, apiKey: String?): ApiJsonResult {
+        var lastError: IOException? = null
+        for (attempt in 1..API_MAX_ATTEMPTS) {
+            try {
+                val builder = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .header("User-Agent", "DLC-Manager")
+                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+                    .GET()
+                if (!apiKey.isNullOrBlank()) {
+                    builder.header("x-api-key", apiKey)
+                }
+                val request = builder.build()
+                val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    if (isRetryableStatus(response.statusCode()) && attempt < API_MAX_ATTEMPTS) {
+                        continue
+                    }
+                    return ApiJsonResult(null, response.statusCode())
+                }
+                val root = GSON.fromJson(response.body(), JsonObject::class.java)
+                return ApiJsonResult(root, response.statusCode())
+            } catch (ex: IOException) {
+                lastError = ex
+            }
+        }
+        if (lastError != null) {
+            throw lastError
+        }
+        return ApiJsonResult(null, -1)
+    }
+
+    private fun mirrorApiEndpoint(endpoint: String): String {
+        return endpoint.replace("https://api.curseforge.com", "https://mod.mcimirror.top/curseforge")
+    }
+
     private fun isRetryableStatus(statusCode: Int): Boolean {
         return statusCode == 429 || statusCode >= 500
+    }
+
+    private fun fallbackDownloadUrl(projectId: String?, fileId: String?): String? {
+        if (projectId.isNullOrBlank() || fileId.isNullOrBlank()) {
+            return null
+        }
+        return "https://www.curseforge.com/api/v1/mods/$projectId/files/$fileId/download"
+    }
+
+    private fun resolveMissingFileName(file: CurseForgeFile?, fallbackUrl: String?) {
+        if (file == null || !file.fileName.isNullOrBlank()) {
+            return
+        }
+        var fileName = DlcDownloadUtil.extractFileNameFromUrl(file.url)
+        if (fileName.isNullOrBlank() && !fallbackUrl.isNullOrBlank()) {
+            fileName = extractFileNameFromFallbackRedirect(fallbackUrl)
+        }
+        if (!fileName.isNullOrBlank()) {
+            file.fileName = fileName
+        }
+    }
+
+    private fun resolveAlternateDownloadUrls(file: CurseForgeFile?, fallbackUrl: String?, useCdnFallback: Boolean) {
+        if (file == null) {
+            return
+        }
+        file.alternateUrls.clear()
+        val fileName = DlcDownloadUtil.sanitizeFileName(file.fileName)
+        if (useCdnFallback && !fallbackUrl.isNullOrBlank() && !file.id.isNullOrBlank() && !fileName.isNullOrBlank()) {
+            for (host in CDN_HOSTS) {
+                addAlternateUrl(file, buildForgeCdnUrl(host, file.id, fileName))
+            }
+        }
+        addAlternateUrl(file, fallbackUrl)
+    }
+
+    private fun addAlternateUrl(file: CurseForgeFile, url: String?) {
+        if (url.isNullOrBlank() || url == file.url || file.alternateUrls.contains(url)) {
+            return
+        }
+        file.alternateUrls.add(url)
+    }
+
+    private fun buildForgeCdnUrl(host: String, fileId: String?, fileName: String?): String? {
+        if (fileId.isNullOrBlank() || fileName.isNullOrBlank()) {
+            return null
+        }
+        val id = try {
+            fileId.trim().toLong()
+        } catch (_: NumberFormatException) {
+            return null
+        }
+        if (id < 0) {
+            return null
+        }
+        val part1 = id / 1000
+        val part2 = id % 1000
+        val encodedName = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20")
+        return "$host/files/$part1/$part2/$encodedName"
+    }
+
+    private fun extractFileNameFromFallbackRedirect(fallbackUrl: String): String? {
+        var connection: HttpURLConnection? = null
+        return try {
+            connection = URI.create(fallbackUrl).toURL().openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = false
+            connection.requestMethod = "GET"
+            connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
+            connection.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            connection.setRequestProperty("User-Agent", "DLC-Manager")
+            connection.connect()
+            if (!isRedirect(connection.responseCode)) {
+                return null
+            }
+            val location = connection.getHeaderField("Location")
+            val redirected = resolveRedirectUrl(fallbackUrl, location)
+            DlcDownloadUtil.extractFileNameFromUrl(redirected)
+        } catch (_: Exception) {
+            null
+        } finally {
+            connection?.disconnect()
+        }
+    }
+
+    private fun isRedirect(statusCode: Int): Boolean {
+        return statusCode == HttpURLConnection.HTTP_MOVED_PERM
+            || statusCode == HttpURLConnection.HTTP_MOVED_TEMP
+            || statusCode == HttpURLConnection.HTTP_SEE_OTHER
+            || statusCode == 307
+            || statusCode == 308
+    }
+
+    private fun resolveRedirectUrl(baseUrl: String, location: String?): String? {
+        if (location.isNullOrBlank()) {
+            return null
+        }
+        return try {
+            URI.create(baseUrl).resolve(location).toString()
+        } catch (_: IllegalArgumentException) {
+            location
+        }
     }
 
     private fun getString(obj: JsonObject?, key: String): String? {
@@ -415,6 +579,10 @@ object CurseForgeClient {
         } else {
             null
         }
+    }
+
+    private fun isExplicitNullDownloadUrl(data: JsonObject?): Boolean {
+        return data != null && data.has("downloadUrl") && data.get("downloadUrl").isJsonNull
     }
 
     private fun matchesGameVersion(data: JsonObject?, mcVersion: String?, loader: String?): Boolean {
@@ -440,8 +608,6 @@ object CurseForgeClient {
         }
         return true
     }
-
-    private class DownloadUrlNotRetryableException(val downloadUrl: String?) : RuntimeException()
 
     private fun parseInstant(value: String?): Instant? {
         if (value.isNullOrBlank()) {
@@ -516,6 +682,8 @@ object CurseForgeClient {
         @JvmField var classSlug: String? = null
         @JvmField var sha1: String? = null
         @JvmField var md5: String? = null
+        @JvmField val alternateUrls: MutableList<String> = ArrayList()
+        @JvmField var downloadUrlExplicitlyNull: Boolean = false
         @JvmField var size: Long = 0L
     }
 
@@ -526,6 +694,16 @@ object CurseForgeClient {
         @JvmField var primaryCategoryName: String? = null
         @JvmField val categorySlugs: MutableList<String> = ArrayList()
     }
+
+    private data class DownloadUrlResult(
+        val url: String?,
+        val useCdnFallback: Boolean,
+    )
+
+    private data class ApiJsonResult(
+        val root: JsonObject?,
+        val statusCode: Int,
+    )
 
     private fun readClassSlug(data: JsonObject?): String? {
         if (data == null) {

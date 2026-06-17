@@ -229,6 +229,7 @@ public class DlcPackUrlScreen extends Screen {
         totalBytes = 0L;
         downloadedBytes = 0L;
         return DlcDownloadService.download(url, outputDir, fileName, (done, total) -> {
+            statusText = Component.translatable("dlc_manager.pack.url_downloading").getString();
             downloadedBytes = done;
             totalBytes = total;
             progress = total > 0 ? (done / (float) total) : 0f;

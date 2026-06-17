@@ -106,6 +106,18 @@ object DlcServerConfigClient {
         "taskTimeoutSeconds", DlcPathConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000,
         "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds"
     )
+    private val DOWNLOAD_MIRROR_MODE = DlcConfigString(
+        "downloadMirrorMode", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
+        "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode"
+    )
+    private val DOWNLOAD_MIRROR_PROBE_COUNT = DlcConfigInteger(
+        "downloadMirrorProbeCount", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 100,
+        "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount"
+    )
+    private val DOWNLOAD_MIRROR_PROBE_STRATEGY = DlcConfigString(
+        "downloadMirrorProbeStrategy", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
+        "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy"
+    )
 
     private val SERVER_CONFIGS: List<IConfigBase> = listOf(
         SERVER_SUPPORT,
@@ -139,7 +151,10 @@ object DlcServerConfigClient {
         MIN_SEGMENT_MB,
         MAX_RETRY,
         CONNECT_TIMEOUT,
-        TASK_TIMEOUT
+        TASK_TIMEOUT,
+        DOWNLOAD_MIRROR_MODE,
+        DOWNLOAD_MIRROR_PROBE_COUNT,
+        DOWNLOAD_MIRROR_PROBE_STRATEGY
     )
 
     @JvmStatic
@@ -191,6 +206,9 @@ object DlcServerConfigClient {
         MAX_RETRY.integerValue = getInt(downloads, "maxRetryCount", MAX_RETRY.integerValue)
         CONNECT_TIMEOUT.integerValue = getInt(downloads, "connectTimeoutSeconds", CONNECT_TIMEOUT.integerValue)
         TASK_TIMEOUT.integerValue = getInt(downloads, "taskTimeoutSeconds", TASK_TIMEOUT.integerValue)
+        DOWNLOAD_MIRROR_MODE.setValueFromString(DlcPathConfig.normalizeDownloadMirrorMode(getString(downloads, "downloadMirrorMode", DOWNLOAD_MIRROR_MODE.stringValue)))
+        DOWNLOAD_MIRROR_PROBE_COUNT.integerValue = getInt(downloads, "downloadMirrorProbeCount", DOWNLOAD_MIRROR_PROBE_COUNT.integerValue)
+        DOWNLOAD_MIRROR_PROBE_STRATEGY.setValueFromString(DlcPathConfig.normalizeDownloadMirrorProbeStrategy(getString(downloads, "downloadMirrorProbeStrategy", DOWNLOAD_MIRROR_PROBE_STRATEGY.stringValue)))
     }
 
     @JvmStatic
@@ -232,6 +250,9 @@ object DlcServerConfigClient {
         downloads.addProperty("maxRetryCount", MAX_RETRY.integerValue)
         downloads.addProperty("connectTimeoutSeconds", CONNECT_TIMEOUT.integerValue)
         downloads.addProperty("taskTimeoutSeconds", TASK_TIMEOUT.integerValue)
+        downloads.addProperty("downloadMirrorMode", DlcPathConfig.normalizeDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.stringValue))
+        downloads.addProperty("downloadMirrorProbeCount", maxOf(1, DOWNLOAD_MIRROR_PROBE_COUNT.integerValue))
+        downloads.addProperty("downloadMirrorProbeStrategy", DlcPathConfig.normalizeDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.stringValue))
         root.add("downloads", downloads)
 
         return root

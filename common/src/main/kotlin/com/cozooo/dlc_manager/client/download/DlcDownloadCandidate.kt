@@ -85,6 +85,29 @@ class DlcDownloadCandidate private constructor(
 
         @JvmStatic
         fun curseForge(file: CurseForgeClient.CurseForgeFile): DlcDownloadCandidate {
+            return curseForgeCandidate(file.url, file)
+        }
+
+        @JvmStatic
+        fun curseForgeCandidates(file: CurseForgeClient.CurseForgeFile): List<DlcDownloadCandidate> {
+            val candidates = ArrayList<DlcDownloadCandidate>()
+            val primaryUrl = file.url
+            val primaryIsWebsiteFallback = isCurseForgeWebsiteDownloadUrl(primaryUrl)
+            if (!primaryIsWebsiteFallback && !primaryUrl.isNullOrBlank()) {
+                candidates.add(curseForgeCandidate(primaryUrl, file))
+            }
+            for (url in file.alternateUrls) {
+                if (!url.isNullOrBlank() && candidates.none { it.url == url }) {
+                    candidates.add(curseForgeCandidate(url, file))
+                }
+            }
+            if (primaryIsWebsiteFallback && !primaryUrl.isNullOrBlank() && candidates.none { it.url == primaryUrl }) {
+                candidates.add(curseForgeCandidate(primaryUrl, file))
+            }
+            return candidates
+        }
+
+        private fun curseForgeCandidate(url: String?, file: CurseForgeClient.CurseForgeFile): DlcDownloadCandidate {
             var hashType: String? = null
             var hashValue: String? = null
             if (!file.sha1.isNullOrBlank()) {
@@ -94,7 +117,13 @@ class DlcDownloadCandidate private constructor(
                 hashType = "md5"
                 hashValue = file.md5
             }
-            return DlcDownloadCandidate(file.url ?: "", false, file.fileName, hashType, hashValue, file.size)
+            return DlcDownloadCandidate(url ?: "", false, file.fileName, hashType, hashValue, file.size)
+        }
+
+        private fun isCurseForgeWebsiteDownloadUrl(url: String?): Boolean {
+            return !url.isNullOrBlank()
+                && url.contains("curseforge.com/api/v1/mods/")
+                && url.endsWith("/download")
         }
 
         @JvmStatic
@@ -257,7 +286,7 @@ class DlcDownloadCandidate private constructor(
                 CrossPlatformRuntime.loaderName(),
             )
             if (file != null && !file.url.isNullOrBlank()) {
-                candidates.add(curseForge(file))
+                candidates.addAll(curseForgeCandidates(file))
             }
         }
 

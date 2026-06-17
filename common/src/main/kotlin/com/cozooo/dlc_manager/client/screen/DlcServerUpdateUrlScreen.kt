@@ -209,6 +209,7 @@ class DlcServerUpdateUrlScreen(
             updateDir,
             fileName,
             DlcDownloadService.ProgressListener { done, total ->
+                statusText = Component.translatable("dlc_manager.update.url_downloading").string
                 downloadedBytes = done
                 totalBytes = total
                 progress = if (total > 0) done / total.toFloat() else 0f

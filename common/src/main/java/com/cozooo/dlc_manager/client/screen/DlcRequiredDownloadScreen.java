@@ -676,18 +676,10 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
                         final int currentAttemptId = attemptId;
                         Path downloaded = shouldProbe
                             ? DlcDownloadService.download(candidate.url, target.getParent(), fileName,
-                                (done, total) -> {
-                                    if (total > 0) {
-                                        setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
-                                    }
-                                },
+                                progressListener(progressKey, currentAttemptId, entry),
                                 () -> cancelRequested || isSwitchRequested(progressKey))
                             : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize,
-                                (done, total) -> {
-                                    if (total > 0) {
-                                        setEntryProgress(progressKey, currentAttemptId, Math.min(1f, done / (float) total));
-                                    }
-                                },
+                                progressListener(progressKey, currentAttemptId, entry),
                                 () -> cancelRequested || isSwitchRequested(progressKey));
                         Path resolved = downloaded.equals(target)
                             ? downloaded
@@ -761,6 +753,28 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
                 activeDownloadEntry = null;
             }
         }
+    }
+
+    private DlcDownloadService.ProgressListener progressListener(String progressKey, int attemptId, DlcRequiredEntry entry) {
+        return new DlcDownloadService.StatusProgressListener() {
+            @Override
+            public void onProgress(long done, long total) {
+                if (total > 0) {
+                    setEntryProgress(progressKey, attemptId, Math.min(1f, done / (float) total));
+                }
+            }
+
+            @Override
+            public void onStatusKey(String statusKey) {
+                if ("selecting_source".equals(statusKey)) {
+                    statusText = Component.translatable("dlc_manager.required.selecting_source").getString();
+                } else if (maxConcurrentDownloads <= 1 && entry != null) {
+                    statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                } else {
+                    statusText = Component.translatable("dlc_manager.required.downloading_multi").getString();
+                }
+            }
+        };
     }
 
     private void applyAll() throws IOException {

@@ -664,11 +664,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                                     candidate.url,
                                     target.parent,
                                     fileName,
-                                    { done, total ->
-                                        if (total > 0) {
-                                            setEntryProgress(progressKey, currentAttemptId, min(1f, done.toFloat() / total.toFloat()))
-                                        }
-                                    },
+                                    progressListener(progressKey, currentAttemptId, entry),
                                     { cancelRequested || isSwitchRequested(progressKey) },
                                 )
                             } else {
@@ -677,11 +673,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                                     target.parent,
                                     fileName,
                                     candidate.expectedSize,
-                                    { done, total ->
-                                        if (total > 0) {
-                                            setEntryProgress(progressKey, currentAttemptId, min(1f, done.toFloat() / total.toFloat()))
-                                        }
-                                    },
+                                    progressListener(progressKey, currentAttemptId, entry),
                                     { cancelRequested || isSwitchRequested(progressKey) },
                                 )
                             }
@@ -1164,6 +1156,26 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         guiGraphics.fill(x, y, x + width, y + height, bg)
         val filled = (width * max(0f, min(1f, progress))).toInt()
         guiGraphics.fill(x, y, x + filled, y + height, fg)
+    }
+
+    private fun progressListener(progressKey: String, attemptId: Int, entry: DlcRequiredEntry?): DlcDownloadService.ProgressListener {
+        return object : DlcDownloadService.StatusProgressListener {
+            override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
+                if (totalBytes > 0) {
+                    setEntryProgress(progressKey, attemptId, min(1f, downloadedBytes.toFloat() / totalBytes.toFloat()))
+                }
+            }
+
+            override fun onStatusKey(statusKey: String) {
+                statusText = if (statusKey == "selecting_source") {
+                    Component.translatable("dlc_manager.required.selecting_source").string
+                } else if (maxConcurrentDownloads <= 1 && entry != null) {
+                    Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
+                } else {
+                    Component.translatable("dlc_manager.required.downloading_multi").string
+                }
+            }
+        }
     }
 
     @Throws(DownloadCanceledException::class)
