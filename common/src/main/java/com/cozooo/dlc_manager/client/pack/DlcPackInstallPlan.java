@@ -41,6 +41,9 @@ public class DlcPackInstallPlan {
                 if (relative == null || isMetadataFile(relative)) {
                     return;
                 }
+                if (isIgnoredModpackJarPath(relative)) {
+                    return;
+                }
                 if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                     forbidden.add(relative);
                     return;
@@ -69,6 +72,9 @@ public class DlcPackInstallPlan {
                     continue;
                 }
                 if (isMetadataFile(entry.relativePath)) {
+                    continue;
+                }
+                if (isIgnoredModpackJarPath(entry.relativePath)) {
                     continue;
                 }
                 if (isForbiddenPath(entry.relativePath, instanceRoot, dlcRoot)) {
@@ -144,6 +150,24 @@ public class DlcPackInstallPlan {
     private static boolean isMetadataFile(String relative) {
         String first = relative.contains("/") ? relative.substring(0, relative.indexOf('/')) : relative;
         return METADATA_DIR_NAMES.contains(first.toLowerCase(Locale.ROOT));
+    }
+
+    public static boolean isIgnoredModpackJarPath(String relativePath) {
+        String normalized = DlcPackMeta.normalizeRelativePath(relativePath);
+        if (normalized == null || normalized.isBlank()) {
+            return false;
+        }
+        int slash = normalized.lastIndexOf('/');
+        String fileName = slash >= 0 ? normalized.substring(slash + 1) : normalized;
+        return isIgnoredModpackJarFileName(fileName);
+    }
+
+    public static boolean isIgnoredModpackJarFileName(String fileName) {
+        if (fileName == null) {
+            return false;
+        }
+        String normalized = fileName.trim();
+        return normalized.startsWith("DLC-Manager-") && normalized.toLowerCase(Locale.ROOT).endsWith(".jar");
     }
 
     public static class FileEntry {

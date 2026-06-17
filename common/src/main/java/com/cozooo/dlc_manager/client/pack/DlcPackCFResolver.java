@@ -236,7 +236,10 @@ public final class DlcPackCFResolver {
         if (fileName == null || fileName.isBlank()) {
             throw new IOException("CurseForge file name is not available: " + ref.projectId + "/" + ref.fileId);
         }
-        Path targetDirectory = targetDirectory(file, mod);
+        if (DlcPackInstallPlan.isIgnoredModpackJarFileName(fileName)) {
+            return null;
+        }
+        Path targetDirectory = targetDirectory(file, mod, fileName);
         String relative = targetDirectory.resolve(fileName).toString().replace('\\', '/');
         if (hasBundledOverride(pack, relative)) {
             return null;
@@ -244,11 +247,18 @@ public final class DlcPackCFResolver {
         return new ManifestTarget(file, targetDirectory, fileName, relative);
     }
 
-    private static Path targetDirectory(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod) {
-        return Path.of(resolveTargetDirectoryName(file, mod));
+    private static Path targetDirectory(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod, String fileName) {
+        return Path.of(resolveTargetDirectoryName(file, mod, fileName));
     }
 
     public static String resolveTargetDirectoryName(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod) {
+        return resolveTargetDirectoryName(file, mod, null);
+    }
+
+    public static String resolveTargetDirectoryName(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod, String fileName) {
+        if (isJarFileName(fileName)) {
+            return "mods";
+        }
         String type = normalize(file == null ? null : file.classSlug);
         if (type == null) {
             type = normalize(mod == null ? null : mod.classSlug);
@@ -257,7 +267,7 @@ public final class DlcPackCFResolver {
             if (type.contains("resource") || type.contains("texture")) {
                 return "resourcepacks";
             }
-            if (type.contains("data-pack") || type.contains("datapack") || type.contains("world")) {
+            if (isDataPackSlug(type)) {
                 return "datapacks";
             }
         }
@@ -270,12 +280,30 @@ public final class DlcPackCFResolver {
                 if (normalized.contains("resource") || normalized.contains("texture")) {
                     return "resourcepacks";
                 }
-                if (normalized.contains("data-pack") || normalized.contains("datapack") || normalized.contains("world")) {
+                if (isDataPackSlug(normalized)) {
                     return "datapacks";
                 }
             }
         }
-        return "mods";
+        return "resourcepacks";
+    }
+
+    private static boolean isJarFileName(String fileName) {
+        return fileName != null && fileName.trim().toLowerCase(Locale.ROOT).endsWith(".jar");
+    }
+
+    private static boolean isDataPackSlug(String value) {
+        if (value == null) {
+            return false;
+        }
+        return value.equals("datapack")
+            || value.equals("data-pack")
+            || value.equals("data packs")
+            || value.equals("data-packs")
+            || value.equals("datapacks")
+            || value.contains("data pack")
+            || value.contains("data-pack")
+            || value.contains("datapack");
     }
 
     private static boolean hasBundledOverride(DlcPackPackage pack, String relative) {

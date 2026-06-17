@@ -40,6 +40,9 @@ class DlcPackInstallPlan private constructor(
                         if (isMetadataFile(relative)) {
                             return@forEach
                         }
+                        if (isIgnoredModpackJarPath(relative)) {
+                            return@forEach
+                        }
                         if (isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                             forbidden.add(relative)
                             return@forEach
@@ -67,6 +70,9 @@ class DlcPackInstallPlan private constructor(
                 for (entry in extraFiles) {
                     val relative = entry.relativePath
                     if (relative.isBlank() || isMetadataFile(relative) || isForbiddenPath(relative, instanceRoot, dlcRoot)) {
+                        continue
+                    }
+                    if (isIgnoredModpackJarPath(relative)) {
                         continue
                     }
                     if (files.none { it.relativePath == relative }) {
@@ -130,6 +136,19 @@ class DlcPackInstallPlan private constructor(
         private fun isMetadataFile(relative: String): Boolean {
             val first = relative.substringBefore('/').lowercase(Locale.ROOT)
             return METADATA_DIR_NAMES.contains(first)
+        }
+
+        @JvmStatic
+        fun isIgnoredModpackJarPath(relativePath: String?): Boolean {
+            val normalized = DlcPackMeta.normalizeRelativePath(relativePath)?.trim() ?: return false
+            val fileName = normalized.substringAfterLast('/')
+            return isIgnoredModpackJarFileName(fileName)
+        }
+
+        @JvmStatic
+        fun isIgnoredModpackJarFileName(fileName: String?): Boolean {
+            val normalized = fileName?.trim() ?: return false
+            return normalized.startsWith("DLC-Manager-") && normalized.endsWith(".jar", ignoreCase = true)
         }
     }
 }

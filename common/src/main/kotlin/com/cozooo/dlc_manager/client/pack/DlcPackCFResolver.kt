@@ -219,7 +219,10 @@ object DlcPackCFResolver {
         if (fileName.isNullOrBlank()) {
             throw IOException("CurseForge file name is not available: ${ref.projectId}/${ref.fileId}")
         }
-        val targetDirectory = targetDirectory(file, mod)
+        if (DlcPackInstallPlan.isIgnoredModpackJarFileName(fileName)) {
+            return null
+        }
+        val targetDirectory = targetDirectory(file, mod, fileName)
         val relative = targetDirectory.resolve(fileName).toString().replace('\\', '/')
         if (hasBundledOverride(pack, relative)) {
             return null
@@ -227,12 +230,20 @@ object DlcPackCFResolver {
         return ManifestTarget(file, targetDirectory, fileName, relative)
     }
 
-    private fun targetDirectory(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?): Path {
-        return Path.of(resolveTargetDirectoryName(file, mod))
+    private fun targetDirectory(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?, fileName: String?): Path {
+        return Path.of(resolveTargetDirectoryName(file, mod, fileName))
     }
 
     @JvmStatic
     fun resolveTargetDirectoryName(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?): String {
+        return resolveTargetDirectoryName(file, mod, null)
+    }
+
+    @JvmStatic
+    fun resolveTargetDirectoryName(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?, fileName: String?): String {
+        if (isJarFileName(fileName)) {
+            return "mods"
+        }
         var type = normalize(file?.classSlug)
         if (type == null) {
             type = normalize(mod?.classSlug)
@@ -241,7 +252,7 @@ object DlcPackCFResolver {
             if (type.contains("resource") || type.contains("texture")) {
                 return "resourcepacks"
             }
-            if (type.contains("data-pack") || type.contains("datapack") || type.contains("world")) {
+            if (isDataPackSlug(type)) {
                 return "datapacks"
             }
         }
@@ -251,12 +262,30 @@ object DlcPackCFResolver {
                 if (normalized.contains("resource") || normalized.contains("texture")) {
                     return "resourcepacks"
                 }
-                if (normalized.contains("data-pack") || normalized.contains("datapack") || normalized.contains("world")) {
+                if (isDataPackSlug(normalized)) {
                     return "datapacks"
                 }
             }
         }
-        return "mods"
+        return "resourcepacks"
+    }
+
+    private fun isJarFileName(fileName: String?): Boolean {
+        return fileName?.trim()?.lowercase(Locale.ROOT)?.endsWith(".jar") == true
+    }
+
+    private fun isDataPackSlug(value: String?): Boolean {
+        val normalized = value?.trim()?.lowercase(Locale.ROOT) ?: return false
+        return when (normalized) {
+            "datapack",
+            "data-pack",
+            "data packs",
+            "data-packs",
+            "datapacks" -> true
+            else -> normalized.contains("data pack")
+                || normalized.contains("data-pack")
+                || normalized.contains("datapack")
+        }
     }
 
     private fun hasBundledOverride(pack: DlcPackPackage?, relative: String?): Boolean {

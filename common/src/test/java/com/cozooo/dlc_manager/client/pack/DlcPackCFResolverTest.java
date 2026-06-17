@@ -11,7 +11,7 @@ class DlcPackCFResolverTest {
         CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
         file.classSlug = "resource-packs";
 
-        assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(file, null));
+        assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.zip"));
     }
 
     @Test
@@ -19,14 +19,38 @@ class DlcPackCFResolverTest {
         CurseForgeClient.CurseForgeMod mod = new CurseForgeClient.CurseForgeMod();
         mod.categorySlugs.add("data-packs");
 
-        assertEquals("datapacks", DlcPackCFResolver.resolveTargetDirectoryName(null, mod));
+        assertEquals("datapacks", DlcPackCFResolver.resolveTargetDirectoryName(null, mod, "example.zip"));
     }
 
     @Test
-    void defaultsUnknownCurseForgeFilesToMods() {
+    void resolvesJarFilesToMods() {
+        CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
+        file.classSlug = "data-packs";
+
+        assertEquals("mods", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.jar"));
+    }
+
+    @Test
+    void doesNotResolveNonJarFilesToMods() {
         CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
         file.classSlug = "mc-mods";
 
-        assertEquals("mods", DlcPackCFResolver.resolveTargetDirectoryName(file, null));
+        assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.zip"));
+    }
+
+    @Test
+    void doesNotMisclassifyWorldRelatedSlugsAsDatapacks() {
+        CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
+        file.classSlug = "world-generation";
+
+        assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.zip"));
+    }
+
+    @Test
+    void ignoresDlcManagerModpackJarNames() {
+        assertEquals("mods", DlcPackCFResolver.resolveTargetDirectoryName(null, null, "example.jar"));
+        assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(null, null, "example.zip"));
+        assertEquals(true, DlcPackInstallPlan.isIgnoredModpackJarFileName("DLC-Manager-Fabric-1.20.1-1.0.0.jar"));
+        assertEquals(false, DlcPackInstallPlan.isIgnoredModpackJarFileName("example.jar"));
     }
 }
