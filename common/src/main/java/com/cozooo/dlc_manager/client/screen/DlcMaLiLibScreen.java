@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.core.ApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
-import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
@@ -1037,7 +1037,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         if (item == null || item.getId() == null || item.getId().isBlank()) {
             return false;
         }
-        DlcConfig.DlcState state = DlcConfig.getState(item.getId());
+        DlcStateConfig.DlcState state = DlcStateConfig.getState(item.getId());
         boolean appliedEnabled = state != null && state.enabled;
         return appliedEnabled != item.isEnabled();
     }

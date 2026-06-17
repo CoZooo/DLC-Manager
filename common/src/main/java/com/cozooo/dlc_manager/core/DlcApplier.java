@@ -29,7 +29,7 @@ public class DlcApplier {
 
         try {
             for (DlcItem item : items) {
-                DlcConfig.DlcState previous = DlcConfig.getState(item.getId());
+                DlcStateConfig.DlcState previous = DlcStateConfig.getState(item.getId());
                 boolean wasEnabled = previous != null && previous.enabled;
                 if (requiresRestartOnToggle(item)) {
                     Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());
@@ -48,12 +48,12 @@ public class DlcApplier {
                     }
                 List<Path> statePaths = applyItem(item, wasEnabled);
                     if (!statePaths.isEmpty()) {
-                        DlcConfig.DlcState state = new DlcConfig.DlcState();
+                        DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
                         state.enabled = true;
                         state.appliedTargets = statePaths.stream()
                             .map(DlcApplier::toGameRelativePath)
                             .toList();
-                        DlcConfig.setState(item.getId(), state);
+                        DlcStateConfig.setState(item.getId(), state);
                     }
                 } else {
                     if (wasEnabled) {
@@ -61,10 +61,10 @@ public class DlcApplier {
                         RemovalResult removal = removeItem(item, previous);
                         messages.addAll(removal.messages());
                     }
-                    DlcConfig.DlcState state = new DlcConfig.DlcState();
+                    DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
                     state.enabled = false;
                     state.appliedTargets = List.of();
-                    DlcConfig.setState(item.getId(), state);
+                    DlcStateConfig.setState(item.getId(), state);
                 }
             }
             PresetConflictPathResult presetPathResult = applyPresetConflictPaths();
@@ -79,7 +79,7 @@ public class DlcApplier {
         }
 
         requiresRestart = requiresRestart || context.helperScheduled;
-        DlcConfig.save();
+        DlcStateConfig.save();
 
         return new ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled);
     }
@@ -431,7 +431,7 @@ public class DlcApplier {
         return backupPath;
     }
 
-    private static RemovalResult removeItem(DlcItem item, DlcConfig.DlcState previous) {
+    private static RemovalResult removeItem(DlcItem item, DlcStateConfig.DlcState previous) {
         List<String> messages = new ArrayList<>();
         if (previous == null || previous.appliedTargets == null) {
             return new RemovalResult(messages);
@@ -462,7 +462,7 @@ public class DlcApplier {
         return new RemovalResult(messages);
     }
 
-    private static void restoreConfigItem(DlcItem item, DlcConfig.DlcState previous, List<String> messages) {
+    private static void restoreConfigItem(DlcItem item, DlcStateConfig.DlcState previous, List<String> messages) {
         List<Path> targets = resolveConfigTargets(item);
         List<String> stored = previous.appliedTargets == null ? List.of() : previous.appliedTargets;
         for (int i = 0; i < targets.size(); i++) {

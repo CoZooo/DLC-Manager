@@ -355,7 +355,7 @@ class DlcScanner {
     }
 
     private fun isEnabledInState(id: String): Boolean {
-        val state = DlcConfig.getState(id)
+        val state = DlcStateConfig.getState(id)
         return state != null && state.enabled
     }
 

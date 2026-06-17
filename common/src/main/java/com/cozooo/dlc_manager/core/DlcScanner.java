@@ -348,7 +348,7 @@ public class DlcScanner {
     }
 
     private boolean isEnabledInState(String id) {
-        DlcConfig.DlcState state = DlcConfig.getState(id);
+        DlcStateConfig.DlcState state = DlcStateConfig.getState(id);
         return state != null && state.enabled;
     }
 

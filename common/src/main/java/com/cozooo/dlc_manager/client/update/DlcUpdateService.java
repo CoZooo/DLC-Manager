@@ -23,7 +23,7 @@ import com.cozooo.dlc_manager.core.DcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.ApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
-import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -2311,16 +2311,16 @@ public final class DlcUpdateService {
         if (key == null || key.isBlank()) {
             return;
         }
-        DlcConfig.DlcState state = DlcConfig.getState(key);
+        DlcStateConfig.DlcState state = DlcStateConfig.getState(key);
         if (state == null) {
-            state = new DlcConfig.DlcState();
+            state = new DlcStateConfig.DlcState();
         }
         state.enabled = true;
         state.appliedTargets = applied.stream()
             .map(DlcUpdateService::toGameRelativePath)
             .toList();
-        DlcConfig.setState(key, state);
-        DlcConfig.save();
+        DlcStateConfig.setState(key, state);
+        DlcStateConfig.save();
     }
 
     private static String buildConfigKey(Path dlcRoot, Path source, DlcType type) {
@@ -2531,7 +2531,7 @@ public final class DlcUpdateService {
         String rootId = toGameRelativePath(dlcRoot).replace('\\', '/');
         String relative = dlcRoot.relativize(target).toString().replace('\\', '/');
         String suffix = ":" + rootId + "|" + relative;
-        for (Map.Entry<String, DlcConfig.DlcState> entry : DlcConfig.getAllStates().entrySet()) {
+        for (Map.Entry<String, DlcStateConfig.DlcState> entry : DlcStateConfig.getAllStates().entrySet()) {
             String key = entry.getKey();
             if (key == null) {
                 continue;
@@ -2539,7 +2539,7 @@ public final class DlcUpdateService {
             if (!key.contains(suffix)) {
                 continue;
             }
-            DlcConfig.DlcState state = entry.getValue();
+            DlcStateConfig.DlcState state = entry.getValue();
             if (state != null && state.appliedTargets != null) {
                 for (String raw : state.appliedTargets) {
                     Path applied = resolveStoredPath(raw);
@@ -2547,10 +2547,10 @@ public final class DlcUpdateService {
                 }
                 state.enabled = false;
                 state.appliedTargets = List.of();
-                DlcConfig.setState(key, state);
+                DlcStateConfig.setState(key, state);
             }
         }
-        DlcConfig.save();
+        DlcStateConfig.save();
     }
 
     private static void deleteRequiredDownload(DlcRequiredEntry entry, Path dlcRoot, String requiredFileName, UpdateContext context) {

@@ -33,7 +33,7 @@ class DlcScannerTest {
         DlcPathConfig.setResourcepackRoot("resourcepacks");
         DlcPathConfig.setDatapackRoot("datapacks");
         DlcPathConfig.setTaczRoot("tacz");
-        DlcConfig.load();
+        DlcStateConfig.load();
     }
 
     @AfterEach

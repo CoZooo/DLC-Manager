@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.core.ApplyMode
 import com.cozooo.dlc_manager.core.DlcApplier
-import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcStateConfig
 import com.cozooo.dlc_manager.core.DlcConfigDlcSupport
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcPathConfig
@@ -875,7 +875,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         if (item == null || item.getId().isNullOrBlank()) {
             return false
         }
-        val state = DlcConfig.getState(item.getId())
+        val state = DlcStateConfig.getState(item.getId())
         val appliedEnabled = state != null && state.enabled
         return appliedEnabled != item.isEnabled()
     }

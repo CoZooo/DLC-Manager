@@ -17,7 +17,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredLoader
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.core.*
 import com.cozooo.dlc_manager.core.DlcApplier.ApplyResult
-import com.cozooo.dlc_manager.core.DlcConfig.DlcState
+import com.cozooo.dlc_manager.core.DlcStateConfig.DlcState
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.*
 import net.minecraft.network.chat.Component
@@ -2483,7 +2483,7 @@ object DlcUpdateService {
         if (key == null || key.isBlank()) {
             return
         }
-        var state = DlcConfig.getState(key)
+        var state = DlcStateConfig.getState(key)
         if (state == null) {
             state = DlcState()
         }
@@ -2493,8 +2493,8 @@ object DlcUpdateService {
             .filter { obj: kotlin.String? -> obj != null }
             .map { obj: kotlin.String? -> obj!! }
             .toList()
-        DlcConfig.setState(key, state)
-        DlcConfig.save()
+        DlcStateConfig.setState(key, state)
+        DlcStateConfig.save()
     }
 
     private fun buildConfigKey(dlcRoot: Path?, source: Path?, type: DlcType?): kotlin.String? {
@@ -2705,7 +2705,7 @@ object DlcUpdateService {
         val rootId: kotlin.String = toGameRelativePath(dlcRoot).replace('\\', '/')
         val relative = dlcRoot.relativize(target).toString().replace('\\', '/')
         val suffix = ":" + rootId + "|" + relative
-        for (entry in DlcConfig.getAllStates().entries) {
+        for (entry in DlcStateConfig.getAllStates().entries) {
             val key: kotlin.String? = entry.key
             if (key == null) {
                 continue
@@ -2721,10 +2721,10 @@ object DlcUpdateService {
                 }
                 state.enabled = false
                 state.appliedTargets = emptyList<kotlin.String>()
-                DlcConfig.setState(key, state)
+                DlcStateConfig.setState(key, state)
             }
         }
-        DlcConfig.save()
+        DlcStateConfig.save()
     }
 
     private fun deleteRequiredDownload(

@@ -31,7 +31,7 @@ class DlcApplierTest {
         DlcPathConfig.setResourcepackRoot("resourcepacks");
         DlcPathConfig.setDatapackRoot("datapacks");
         DlcPathConfig.setTaczRoot("tacz");
-        DlcConfig.load();
+        DlcStateConfig.load();
     }
 
     @AfterEach
@@ -53,7 +53,7 @@ class DlcApplierTest {
         Path target = gameDir.resolve("mods").resolve("mod-a.jar");
         assertTrue(Files.exists(target));
         assertTrue(enabled.requiresRestart());
-        DlcConfig.DlcState state = DlcConfig.getState(item.getId());
+        DlcStateConfig.DlcState state = DlcStateConfig.getState(item.getId());
         assertTrue(state.enabled);
         assertEquals(List.of("mods/mod-a.jar"), state.appliedTargets);
 
@@ -62,7 +62,7 @@ class DlcApplierTest {
 
         assertFalse(Files.exists(target));
         assertTrue(disabled.requiresRestart());
-        assertFalse(DlcConfig.getState(item.getId()).enabled);
+        assertFalse(DlcStateConfig.getState(item.getId()).enabled);
     }
 
     @Test
@@ -139,13 +139,13 @@ class DlcApplierTest {
         assertTrue(Files.exists(target));
         Path backupRoot = DlcConfigDlcSupport.backupRootForItem(item.getId());
         assertTrue(hasMissingMarker(backupRoot), () -> "missing marker files=" + listFiles(backupRoot));
-        DlcConfig.DlcState enabledState = DlcConfig.getState(item.getId());
+        DlcStateConfig.DlcState enabledState = DlcStateConfig.getState(item.getId());
         assertTrue(enabledState.enabled);
 
         item.setEnabled(false);
         DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
 
-        DlcConfig.DlcState disabledState = DlcConfig.getState(item.getId());
+        DlcStateConfig.DlcState disabledState = DlcStateConfig.getState(item.getId());
         assertFalse(Files.exists(target), () -> "enabledState=" + enabledState.appliedTargets
             + " disabledState=" + (disabledState == null ? null : disabledState.appliedTargets)
             + " files=" + listFiles(backupRoot));

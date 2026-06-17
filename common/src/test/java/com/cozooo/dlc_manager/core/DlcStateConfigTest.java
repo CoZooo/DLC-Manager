@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class DlcConfigTest {
+class DlcStateConfigTest {
     @TempDir
     Path tempDir;
 
@@ -41,16 +41,16 @@ class DlcConfigTest {
     void saveAndLoadPersistsStateUnderDlcSection() throws Exception {
         Files.createDirectories(gameDir.resolve("mods"));
         Files.writeString(gameDir.resolve("mods").resolve("a.jar"), "present");
-        DlcConfig.load();
-        DlcConfig.DlcState state = new DlcConfig.DlcState();
+        DlcStateConfig.load();
+        DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
         state.enabled = true;
         state.appliedTargets = List.of("mods/a.jar");
-        DlcConfig.setState("mod:DLC|a.jar", state);
+        DlcStateConfig.setState("mod:DLC|a.jar", state);
 
-        DlcConfig.save();
-        DlcConfig.load();
+        DlcStateConfig.save();
+        DlcStateConfig.load();
 
-        DlcConfig.DlcState loaded = DlcConfig.getState("mod:DLC|a.jar");
+        DlcStateConfig.DlcState loaded = DlcStateConfig.getState("mod:DLC|a.jar");
         assertNotNull(loaded, () -> readStateFile());
         assertTrue(loaded.enabled);
         assertEquals(List.of("mods/a.jar"), loaded.appliedTargets);
@@ -58,16 +58,16 @@ class DlcConfigTest {
 
     @Test
     void loadClearsInMemoryStateWhenStateFileDoesNotExist() {
-        DlcConfig.load();
-        DlcConfig.DlcState state = new DlcConfig.DlcState();
+        DlcStateConfig.load();
+        DlcStateConfig.DlcState state = new DlcStateConfig.DlcState();
         state.enabled = true;
         state.appliedTargets = List.of("mods/a.jar");
-        DlcConfig.setState("mod:DLC|a.jar", state);
+        DlcStateConfig.setState("mod:DLC|a.jar", state);
 
         PlatformServices.setProvider(new TestPlatformProvider(tempDir.resolve("other-game"), tempDir.resolve("other-config")));
-        DlcConfig.load();
+        DlcStateConfig.load();
 
-        assertTrue(DlcConfig.getAllStates().isEmpty());
+        assertTrue(DlcStateConfig.getAllStates().isEmpty());
     }
 
     @Test
@@ -81,10 +81,10 @@ class DlcConfigTest {
         Files.createDirectories(gameDir.resolve("mods"));
         Files.writeString(gameDir.resolve("mods").resolve("present.jar"), "present");
 
-        DlcConfig.load();
+        DlcStateConfig.load();
 
-        assertFalse(DlcConfig.getState("mod:DLC|missing.jar").enabled);
-        assertTrue(DlcConfig.getState("mod:DLC|present.jar").enabled);
+        assertFalse(DlcStateConfig.getState("mod:DLC|missing.jar").enabled);
+        assertTrue(DlcStateConfig.getState("mod:DLC|present.jar").enabled);
     }
 
     private String readStateFile() {

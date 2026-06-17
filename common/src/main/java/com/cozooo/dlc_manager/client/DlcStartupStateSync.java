@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client;
 
-import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -30,7 +30,7 @@ public final class DlcStartupStateSync {
                 if (item == null) {
                     continue;
                 }
-                DlcConfig.DlcState current = DlcConfig.getState(item.getId());
+                DlcStateConfig.DlcState current = DlcStateConfig.getState(item.getId());
                 boolean enabled = item.isEnabled();
                 if (enabled) {
                     List<String> appliedTargets = item.getAppliedTargets().stream()
@@ -40,24 +40,24 @@ public final class DlcStartupStateSync {
                     if (current != null && current.enabled && sameTargets(current.appliedTargets, appliedTargets)) {
                         continue;
                     }
-                    DlcConfig.DlcState next = new DlcConfig.DlcState();
+                    DlcStateConfig.DlcState next = new DlcStateConfig.DlcState();
                     next.enabled = true;
                     next.appliedTargets = appliedTargets;
-                    DlcConfig.setState(item.getId(), next);
+                    DlcStateConfig.setState(item.getId(), next);
                     changed = true;
                     continue;
                 }
                 if (current != null && current.enabled) {
-                    DlcConfig.DlcState next = new DlcConfig.DlcState();
+                    DlcStateConfig.DlcState next = new DlcStateConfig.DlcState();
                     next.enabled = false;
                     next.appliedTargets = List.of();
-                    DlcConfig.setState(item.getId(), next);
+                    DlcStateConfig.setState(item.getId(), next);
                     changed = true;
                 }
             }
         }
         if (changed) {
-            DlcConfig.save();
+            DlcStateConfig.save();
         }
     }
 

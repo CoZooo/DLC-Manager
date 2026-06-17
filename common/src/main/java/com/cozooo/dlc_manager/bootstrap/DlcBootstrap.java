@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.bootstrap;
 
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
-import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 
@@ -16,7 +16,7 @@ public final class DlcBootstrap {
         } else {
             DlcPathConfig.loadClient();
         }
-        DlcConfig.load();
+        DlcStateConfig.load();
     }
 
     public static <T> void initializeClientEntrypoint(Class<T> modBusClass, T modBus) {

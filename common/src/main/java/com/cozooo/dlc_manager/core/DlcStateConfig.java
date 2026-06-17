@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 
-public class DlcConfig {
+public class DlcStateConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Type MAP_TYPE = new TypeToken<Map<String, DlcState>>() {}.getType();
 
@@ -30,7 +30,7 @@ public class DlcConfig {
             try {
                 com.google.gson.JsonObject root = DcConfigIO.read(configPath, DcConfigIO.Layout.GENERIC);
                 if (root != null) {
-                    DlcConfigData data = GSON.fromJson(root, DlcConfigData.class);
+                    DlcStateConfigData data = GSON.fromJson(root, DlcStateConfigData.class);
                     if (data != null && data.DLC == null && data.stateById != null) {
                         migrateLegacyStateSection = true;
                     }
@@ -62,7 +62,7 @@ public class DlcConfig {
     public static void save() {
         try {
             Files.createDirectories(configPath.getParent());
-            DlcConfigData data = new DlcConfigData();
+            DlcStateConfigData data = new DlcStateConfigData();
             data.DLC = stateById;
             com.google.gson.JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
             DcConfigIO.write(configPath, root, DcConfigIO.Layout.GENERIC);
@@ -87,12 +87,12 @@ public class DlcConfig {
         public List<String> appliedTargets;
     }
 
-    private static class DlcConfigData {
+    private static class DlcStateConfigData {
         Map<String, DlcState> DLC;
         Map<String, DlcState> stateById;
     }
 
-    private static Map<String, DlcState> selectStateMap(DlcConfigData data) {
+    private static Map<String, DlcState> selectStateMap(DlcStateConfigData data) {
         if (data == null) {
             return null;
         }

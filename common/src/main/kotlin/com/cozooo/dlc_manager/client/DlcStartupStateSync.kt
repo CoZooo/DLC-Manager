@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client
 
-import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcStateConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcScanner
 import java.nio.file.Path
@@ -25,7 +25,7 @@ object DlcStartupStateSync {
                 if (item == null) {
                     continue
                 }
-                val current = DlcConfig.getState(item.getId())
+                val current = DlcStateConfig.getState(item.getId())
                 val enabled = item.isEnabled()
                 if (enabled) {
                     val appliedTargets = item.getAppliedTargets()
@@ -34,24 +34,24 @@ object DlcStartupStateSync {
                     if (current != null && current.enabled && sameTargets(current.appliedTargets, appliedTargets)) {
                         continue
                     }
-                    val next = DlcConfig.DlcState()
+                    val next = DlcStateConfig.DlcState()
                     next.enabled = true
                     next.appliedTargets = appliedTargets
-                    DlcConfig.setState(item.getId(), next)
+                    DlcStateConfig.setState(item.getId(), next)
                     changed = true
                     continue
                 }
                 if (current != null && current.enabled) {
-                    val next = DlcConfig.DlcState()
+                    val next = DlcStateConfig.DlcState()
                     next.enabled = false
                     next.appliedTargets = emptyList()
-                    DlcConfig.setState(item.getId(), next)
+                    DlcStateConfig.setState(item.getId(), next)
                     changed = true
                 }
             }
         }
         if (changed) {
-            DlcConfig.save()
+            DlcStateConfig.save()
         }
     }
 

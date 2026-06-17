@@ -24,7 +24,7 @@ object DlcApplier {
 
         try {
             for (item in items) {
-                val previous = DlcConfig.getState(item.getId())
+                val previous = DlcStateConfig.getState(item.getId())
                 val wasEnabled = previous != null && previous.enabled
                 if (requiresRestartOnToggle(item)) {
                     val baseline = DlcRuntimeState.getBaselineEnabled(item.getId())
@@ -43,10 +43,10 @@ object DlcApplier {
                     }
                     val statePaths = applyItem(item, wasEnabled)
                     if (statePaths.isNotEmpty()) {
-                        val state = DlcConfig.DlcState()
+                        val state = DlcStateConfig.DlcState()
                         state.enabled = true
                         state.appliedTargets = statePaths.map(::toGameRelativePath)
-                        DlcConfig.setState(item.getId(), state)
+                        DlcStateConfig.setState(item.getId(), state)
                     }
                 } else {
                     if (wasEnabled) {
@@ -54,10 +54,10 @@ object DlcApplier {
                         val removal = removeItem(item, previous)
                         messages.addAll(removal.messages)
                     }
-                    val state = DlcConfig.DlcState()
+                    val state = DlcStateConfig.DlcState()
                     state.enabled = false
                     state.appliedTargets = emptyList()
-                    DlcConfig.setState(item.getId(), state)
+                    DlcStateConfig.setState(item.getId(), state)
                 }
             }
             val presetPathResult = applyPresetConflictPaths()
@@ -72,7 +72,7 @@ object DlcApplier {
         }
 
         requiresRestart = requiresRestart || context.helperScheduled
-        DlcConfig.save()
+        DlcStateConfig.save()
 
         return ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled)
     }
@@ -408,7 +408,7 @@ object DlcApplier {
         return backupPath
     }
 
-    private fun removeItem(item: DlcItem, previous: DlcConfig.DlcState?): RemovalResult {
+    private fun removeItem(item: DlcItem, previous: DlcStateConfig.DlcState?): RemovalResult {
         val messages = ArrayList<String>()
         if (previous == null || previous.appliedTargets == null) {
             return RemovalResult(messages)
@@ -437,7 +437,7 @@ object DlcApplier {
         return RemovalResult(messages)
     }
 
-    private fun restoreConfigItem(item: DlcItem, previous: DlcConfig.DlcState, messages: MutableList<String>) {
+    private fun restoreConfigItem(item: DlcItem, previous: DlcStateConfig.DlcState, messages: MutableList<String>) {
         val targets = resolveConfigTargets(item)
         val stored = previous.appliedTargets ?: emptyList()
         for (i in targets.indices) {

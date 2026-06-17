@@ -10,7 +10,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Collections
 
-object DlcConfig {
+object DlcStateConfig {
     private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
 
     private var configPath: Path? = null
@@ -27,7 +27,7 @@ object DlcConfig {
             try {
                 val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC)
                 if (root != null) {
-                    val data = GSON.fromJson(root, DlcConfigData::class.java)
+                    val data = GSON.fromJson(root, DlcStateConfigData::class.java)
                     if (data != null && data.DLC == null && data.stateById != null) {
                         migrateLegacyStateSection = true
                     }
@@ -61,7 +61,7 @@ object DlcConfig {
         val path = configPath ?: return
         try {
             Files.createDirectories(path.parent)
-            val data = DlcConfigData()
+            val data = DlcStateConfigData()
             data.DLC = stateById
             val root = GSON.toJsonTree(data).asJsonObject
             DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC)
@@ -95,7 +95,7 @@ object DlcConfig {
         var appliedTargets: List<String>? = null
     }
 
-    private class DlcConfigData {
+    private class DlcStateConfigData {
         @JvmField
         var DLC: Map<String, DlcState>? = null
 
@@ -103,7 +103,7 @@ object DlcConfig {
         var stateById: Map<String, DlcState>? = null
     }
 
-    private fun selectStateMap(data: DlcConfigData?): Map<String, DlcState>? {
+    private fun selectStateMap(data: DlcStateConfigData?): Map<String, DlcState>? {
         if (data == null) {
             return null
         }
