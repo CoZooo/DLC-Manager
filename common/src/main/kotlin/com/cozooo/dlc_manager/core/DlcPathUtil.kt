@@ -8,7 +8,7 @@ object DlcPathUtil {
     @JvmStatic
     fun hasWildcard(pattern: String?): Boolean {
         val normalized = normalizePattern(pattern) ?: return false
-        return normalized.split('/').any { it == "*" }
+        return normalized.split('/').any { it.contains('*') }
     }
 
     @JvmStatic
@@ -45,12 +45,34 @@ object DlcPathUtil {
             return false
         }
         for (index in patternParts.indices) {
-            val patternPart = patternParts[index]
-            if (patternPart != "*" && patternPart != pathParts[index]) {
+            if (!matchesSegment(patternParts[index], pathParts[index])) {
                 return false
             }
         }
         return true
+    }
+
+    @JvmStatic
+    fun hasFileNameWildcard(pattern: String?): Boolean {
+        return normalizeFileNamePattern(pattern)?.contains('*') == true
+    }
+
+    @JvmStatic
+    fun matchesFileName(pattern: String?, fileName: String?): Boolean {
+        val normalizedPattern = normalizeFileNamePattern(pattern) ?: return false
+        val normalizedFileName = normalizeFileNamePattern(fileName) ?: return false
+        if (!normalizedPattern.contains('*')) {
+            return normalizedPattern == normalizedFileName
+        }
+        val regex = StringBuilder(normalizedPattern.length + 8)
+        for (ch in normalizedPattern) {
+            if (ch == '*') {
+                regex.append("[^/]*")
+            } else {
+                regex.append(Regex.escape(ch.toString()))
+            }
+        }
+        return Regex(regex.toString()).matches(normalizedFileName)
     }
 
     @JvmStatic
@@ -130,5 +152,27 @@ object DlcPathUtil {
 
     private fun normalizeRelative(path: Path?): String? {
         return if (path == null) null else normalizePattern(path.toString())
+    }
+
+    private fun normalizeFileNamePattern(value: String?): String? {
+        return normalizeRelativePath(value)
+    }
+
+    private fun matchesSegment(pattern: String, value: String): Boolean {
+        if (pattern == value) {
+            return true
+        }
+        if (!pattern.contains('*')) {
+            return false
+        }
+        val regex = StringBuilder(pattern.length + 8)
+        for (ch in pattern) {
+            if (ch == '*') {
+                regex.append(".*")
+            } else {
+                regex.append(Regex.escape(ch.toString()))
+            }
+        }
+        return Regex("^$regex$").matches(value)
     }
 }

@@ -18,7 +18,7 @@ public final class DlcPathUtil {
             return false;
         }
         for (String part : normalized.split("/")) {
-            if (part.equals("*")) {
+            if (part.contains("*")) {
                 return true;
             }
         }
@@ -58,12 +58,37 @@ public final class DlcPathUtil {
             return false;
         }
         for (int i = 0; i < patternParts.length; i++) {
-            String patternPart = patternParts[i];
-            if (!patternPart.equals("*") && !patternPart.equals(pathParts[i])) {
+            if (!matchesSegment(patternParts[i], pathParts[i])) {
                 return false;
             }
         }
         return true;
+    }
+
+    public static boolean hasFileNameWildcard(String pattern) {
+        String normalized = normalizeFileNamePattern(pattern);
+        return normalized != null && normalized.contains("*");
+    }
+
+    public static boolean matchesFileName(String pattern, String fileName) {
+        String normalizedPattern = normalizeFileNamePattern(pattern);
+        String normalizedFileName = normalizeFileNamePattern(fileName);
+        if (normalizedPattern == null || normalizedFileName == null) {
+            return false;
+        }
+        if (!normalizedPattern.contains("*")) {
+            return normalizedPattern.equals(normalizedFileName);
+        }
+        StringBuilder regex = new StringBuilder(normalizedPattern.length() + 8);
+        for (int i = 0; i < normalizedPattern.length(); i++) {
+            char ch = normalizedPattern.charAt(i);
+            if (ch == '*') {
+                regex.append("[^/]*");
+            } else {
+                appendRegexLiteral(regex, ch);
+            }
+        }
+        return normalizedFileName.matches(regex.toString());
     }
 
     public static List<Path> findMatches(Path root, String pattern) {
@@ -148,6 +173,36 @@ public final class DlcPathUtil {
 
     private static String normalizeRelative(Path path) {
         return path == null ? null : normalizePattern(path.toString());
+    }
+
+    private static boolean matchesSegment(String pattern, String value) {
+        if (pattern.equals(value)) {
+            return true;
+        }
+        if (!pattern.contains("*")) {
+            return false;
+        }
+        StringBuilder regex = new StringBuilder(pattern.length() + 8);
+        for (int i = 0; i < pattern.length(); i++) {
+            char ch = pattern.charAt(i);
+            if (ch == '*') {
+                regex.append(".*");
+            } else {
+                appendRegexLiteral(regex, ch);
+            }
+        }
+        return value.matches("^" + regex + "$");
+    }
+
+    private static String normalizeFileNamePattern(String value) {
+        return normalizeRelativePath(value);
+    }
+
+    private static void appendRegexLiteral(StringBuilder builder, char ch) {
+        if ("\\.[]{}()+-^$?|".indexOf(ch) >= 0) {
+            builder.append('\\');
+        }
+        builder.append(ch);
     }
 
     private static String trimSlashes(String value) {

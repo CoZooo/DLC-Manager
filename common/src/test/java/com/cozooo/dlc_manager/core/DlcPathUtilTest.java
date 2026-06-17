@@ -28,18 +28,33 @@ class DlcPathUtilTest {
     void wildcardMatchesOnePathSegmentOnly() {
         assertTrue(DlcPathUtil.matches("folder/*", "folder/a"));
         assertTrue(DlcPathUtil.matches("folder/*/file", "folder/a/file"));
+        assertTrue(DlcPathUtil.matches("mods/*.jar", "mods/a.jar"));
         assertFalse(DlcPathUtil.matches("folder/*", "folder/a/file"));
         assertFalse(DlcPathUtil.matches("folder/*/file", "folder/a/b/file"));
         assertFalse(DlcPathUtil.matches("folder/*/file", "folder/a/other"));
+        assertFalse(DlcPathUtil.matches("mods/*.jar", "mods/nested/a.jar"));
+        assertFalse(DlcPathUtil.matches("mods/*.jar", "mods/a.zip"));
     }
 
     @Test
     void exactPatternStillMatchesExactly() {
         assertFalse(DlcPathUtil.hasWildcard("folder/file"));
-        assertFalse(DlcPathUtil.hasWildcard("folder/file*.jar"));
+        assertTrue(DlcPathUtil.hasWildcard("folder/file*.jar"));
         assertTrue(DlcPathUtil.hasWildcard("folder/*"));
         assertTrue(DlcPathUtil.matches("folder/file", "folder/file"));
         assertFalse(DlcPathUtil.matches("folder/file", "folder/other"));
+    }
+
+    @Test
+    void fileNameWildcardMatchesWithinSingleFileName() {
+        assertTrue(DlcPathUtil.hasFileNameWildcard("DLC-Manager-*.jar"));
+        assertTrue(DlcPathUtil.matchesFileName("DLC-Manager-*.jar", "DLC-Manager-Fabric-1.20.1.jar"));
+        assertTrue(DlcPathUtil.matchesFileName("*.zip", "pack.zip"));
+        assertTrue(DlcPathUtil.hasFileNameWildcard("mods/*.jar"));
+        assertTrue(DlcPathUtil.matchesFileName("mods/*.jar", "mods/a.jar"));
+        assertFalse(DlcPathUtil.matchesFileName("*.zip", "pack.jar"));
+        assertFalse(DlcPathUtil.matchesFileName("mods/*.jar", "mods/nested/a.jar"));
+        assertFalse(DlcPathUtil.matchesFileName("*.jar", "mods/a.jar"));
     }
 
     @Test
@@ -47,9 +62,13 @@ class DlcPathUtilTest {
         Files.createDirectories(tempDir.resolve("folder/a"));
         Files.createDirectories(tempDir.resolve("folder/b"));
         Files.createDirectories(tempDir.resolve("folder/a/nested"));
+        Files.createDirectories(tempDir.resolve("mods/nested"));
         Files.writeString(tempDir.resolve("folder/a/file"), "a");
         Files.writeString(tempDir.resolve("folder/b/file"), "b");
         Files.writeString(tempDir.resolve("folder/a/nested/file"), "nested");
+        Files.writeString(tempDir.resolve("mods/a.jar"), "jar");
+        Files.writeString(tempDir.resolve("mods/a.zip"), "zip");
+        Files.writeString(tempDir.resolve("mods/nested/a.jar"), "nested jar");
 
         List<String> direct = DlcPathUtil.findMatches(tempDir, "folder/*").stream()
             .map(path -> tempDir.relativize(path).toString().replace('\\', '/'))
@@ -57,8 +76,12 @@ class DlcPathUtilTest {
         List<String> nested = DlcPathUtil.findMatches(tempDir, "folder/*/file").stream()
             .map(path -> tempDir.relativize(path).toString().replace('\\', '/'))
             .toList();
+        List<String> jars = DlcPathUtil.findMatches(tempDir, "mods/*.jar").stream()
+            .map(path -> tempDir.relativize(path).toString().replace('\\', '/'))
+            .toList();
 
         assertEquals(List.of("folder/a", "folder/b"), direct);
         assertEquals(List.of("folder/a/file", "folder/b/file"), nested);
+        assertEquals(List.of("mods/a.jar"), jars);
     }
 }
