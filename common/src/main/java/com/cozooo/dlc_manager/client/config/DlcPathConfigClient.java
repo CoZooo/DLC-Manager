@@ -53,6 +53,8 @@ public final class DlcPathConfigClient {
     private static final ConfigInteger CONNECT_TIMEOUT_SECONDS = new DlcConfigInteger("connectTimeoutSeconds", DlcPathConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds");
     private static final ConfigInteger TASK_TIMEOUT_SECONDS = new DlcConfigInteger("taskTimeoutSeconds", DlcPathConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000, "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds");
     private static final ConfigString DOWNLOAD_MIRROR_MODE = new DlcConfigString("downloadMirrorMode", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_MODE, "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode");
+    private static final ConfigInteger DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigInteger("downloadMirrorProbeCount", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 100, "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount");
+    private static final ConfigString DOWNLOAD_MIRROR_PROBE_STRATEGY = new DlcConfigString("downloadMirrorProbeStrategy", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY, "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy");
 
     private static final List<IConfigBase> PATH_CONFIGS = List.of(
             DLC_ROOT,
@@ -105,7 +107,9 @@ public final class DlcPathConfigClient {
             MAX_RETRY,
             CONNECT_TIMEOUT_SECONDS,
             TASK_TIMEOUT_SECONDS,
-            DOWNLOAD_MIRROR_MODE
+            DOWNLOAD_MIRROR_MODE,
+            DOWNLOAD_MIRROR_PROBE_COUNT,
+            DOWNLOAD_MIRROR_PROBE_STRATEGY
     );
 
     private DlcPathConfigClient() {
@@ -172,6 +176,8 @@ public final class DlcPathConfigClient {
         CONNECT_TIMEOUT_SECONDS.setIntegerValue(Math.max(1, DlcPathConfig.getConnectTimeoutMs() / 1000));
         TASK_TIMEOUT_SECONDS.setIntegerValue(Math.max(1, DlcPathConfig.getTaskTimeoutMs() / 1000));
         DOWNLOAD_MIRROR_MODE.setValueFromString(DlcPathConfig.getDownloadMirrorMode());
+        DOWNLOAD_MIRROR_PROBE_COUNT.setIntegerValue(DlcPathConfig.getDownloadMirrorProbeCount());
+        DOWNLOAD_MIRROR_PROBE_STRATEGY.setValueFromString(DlcPathConfig.getDownloadMirrorProbeStrategy());
     }
 
     public static void applyToConfig() {
@@ -219,6 +225,8 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setConnectTimeoutMs(CONNECT_TIMEOUT_SECONDS.getIntegerValue() * 1000);
         DlcPathConfig.setTaskTimeoutMs(TASK_TIMEOUT_SECONDS.getIntegerValue() * 1000);
         DlcPathConfig.setDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.getStringValue());
+        DlcPathConfig.setDownloadMirrorProbeCount(DOWNLOAD_MIRROR_PROBE_COUNT.getIntegerValue());
+        DlcPathConfig.setDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue());
     }
 
     private static int toMb(long bytes) {

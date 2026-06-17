@@ -76,10 +76,15 @@ public class DlcConfigScreen extends GuiModConfigs {
     private static final String[] DOWNLOAD_MIRROR_MODE_VALUES = new String[] {
             DlcPathConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
             DlcPathConfig.DOWNLOAD_MIRROR_SMART_MIRROR,
+            DlcPathConfig.DOWNLOAD_MIRROR_SMART_PRECHECK,
             DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
             DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_ONLY,
             DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
             DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_FIRST
+    };
+    private static final String[] DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES = new String[] {
+            DlcPathConfig.DOWNLOAD_MIRROR_PROBE_SINGLE,
+            DlcPathConfig.DOWNLOAD_MIRROR_PROBE_MAJORITY
     };
 
     public DlcConfigScreen(Screen parent) {
@@ -279,6 +284,10 @@ public class DlcConfigScreen extends GuiModConfigs {
         return config != null && "downloadMirrorMode".equals(config.getName());
     }
 
+    private static boolean isDownloadMirrorProbeStrategyConfig(IConfigBase config) {
+        return config != null && "downloadMirrorProbeStrategy".equals(config.getName());
+    }
+
     private static String normalizeNoticeDisplayMode(String value) {
         if (value == null || value.isBlank()) {
             return NOTICE_DISPLAY_MODE_VALUES[0];
@@ -322,6 +331,23 @@ public class DlcConfigScreen extends GuiModConfigs {
     private static String downloadMirrorModeLabel(String value) {
         String normalized = DlcPathConfig.normalizeDownloadMirrorMode(value);
         String key = "dlc_manager.config.download.downloadMirrorMode." + normalized;
+        String label = StringUtils.translate(key);
+        return label.equals(key) ? normalized : label;
+    }
+
+    private static String nextDownloadMirrorProbeStrategy(String value) {
+        String normalized = DlcPathConfig.normalizeDownloadMirrorProbeStrategy(value);
+        for (int i = 0; i < DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES.length; i++) {
+            if (DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[i].equals(normalized)) {
+                return DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[(i + 1) % DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES.length];
+            }
+        }
+        return DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[0];
+    }
+
+    private static String downloadMirrorProbeStrategyLabel(String value) {
+        String normalized = DlcPathConfig.normalizeDownloadMirrorProbeStrategy(value);
+        String key = "dlc_manager.config.download.downloadMirrorProbeStrategy." + normalized;
         String label = StringUtils.translate(key);
         return label.equals(key) ? normalized : label;
     }
@@ -516,6 +542,13 @@ public class DlcConfigScreen extends GuiModConfigs {
                 this.addButton(resetButton, new ConfirmResetListenerGeneric(new DownloadMirrorModeResetListener(config, modeButton, resetButton)));
                 return;
             }
+            if (isDownloadMirrorProbeStrategyConfig(config)) {
+                ButtonGeneric strategyButton = new ButtonGeneric(x, y, width, height, downloadMirrorProbeStrategyLabel(config.getStringValue()));
+                ButtonGeneric resetButton = createResetButton(resetButtonX, y, config);
+                this.addButton(strategyButton, new DownloadMirrorProbeStrategyCycleListener(config, strategyButton, resetButton));
+                this.addButton(resetButton, new ConfirmResetListenerGeneric(new DownloadMirrorProbeStrategyResetListener(config, strategyButton, resetButton)));
+                return;
+            }
             if (isAnchorConfig(config)) {
                 ButtonGeneric anchorButton = new ButtonGeneric(x, y, width, height, anchorDisplay(config.getName(), config.getStringValue()));
                 ButtonGeneric resetButton = createResetButton(resetButtonX, y, config);
@@ -693,6 +726,45 @@ public class DlcConfigScreen extends GuiModConfigs {
         public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
             config.resetToDefault();
             modeButton.setDisplayString(downloadMirrorModeLabel(config.getStringValue()));
+            resetButton.setEnabled(config.isModified());
+        }
+    }
+
+    private static class DownloadMirrorProbeStrategyCycleListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric strategyButton;
+        private final ButtonGeneric resetButton;
+
+        private DownloadMirrorProbeStrategyCycleListener(IConfigValue config, ButtonGeneric strategyButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.strategyButton = strategyButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            String nextValue = nextDownloadMirrorProbeStrategy(config.getStringValue());
+            config.setValueFromString(nextValue);
+            strategyButton.setDisplayString(downloadMirrorProbeStrategyLabel(nextValue));
+            resetButton.setEnabled(config.isModified());
+        }
+    }
+
+    private static class DownloadMirrorProbeStrategyResetListener implements IButtonActionListener {
+        private final IConfigValue config;
+        private final ButtonGeneric strategyButton;
+        private final ButtonGeneric resetButton;
+
+        private DownloadMirrorProbeStrategyResetListener(IConfigValue config, ButtonGeneric strategyButton, ButtonGeneric resetButton) {
+            this.config = config;
+            this.strategyButton = strategyButton;
+            this.resetButton = resetButton;
+        }
+
+        @Override
+        public void actionPerformedWithButton(ButtonBase button, int mouseButton) {
+            config.resetToDefault();
+            strategyButton.setDisplayString(downloadMirrorProbeStrategyLabel(config.getStringValue()));
             resetButton.setEnabled(config.isModified());
         }
     }

@@ -62,6 +62,10 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds");
     private static final ConfigString DOWNLOAD_MIRROR_MODE = new DlcConfigString("downloadMirrorMode", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
         "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode");
+    private static final ConfigInteger DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigInteger("downloadMirrorProbeCount", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 100,
+        "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount");
+    private static final ConfigString DOWNLOAD_MIRROR_PROBE_STRATEGY = new DlcConfigString("downloadMirrorProbeStrategy", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
+        "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy");
 
     private static final List<IConfigBase> SERVER_CONFIGS = List.of(
         SERVER_SUPPORT,
@@ -96,7 +100,9 @@ public final class DlcServerConfigClient {
         MAX_RETRY,
         CONNECT_TIMEOUT,
         TASK_TIMEOUT,
-        DOWNLOAD_MIRROR_MODE
+        DOWNLOAD_MIRROR_MODE,
+        DOWNLOAD_MIRROR_PROBE_COUNT,
+        DOWNLOAD_MIRROR_PROBE_STRATEGY
     );
 
     private DlcServerConfigClient() {
@@ -155,6 +161,8 @@ public final class DlcServerConfigClient {
         CONNECT_TIMEOUT.setIntegerValue(getInt(downloads, "connectTimeoutSeconds", CONNECT_TIMEOUT.getIntegerValue()));
         TASK_TIMEOUT.setIntegerValue(getInt(downloads, "taskTimeoutSeconds", TASK_TIMEOUT.getIntegerValue()));
         DOWNLOAD_MIRROR_MODE.setValueFromString(DlcPathConfig.normalizeDownloadMirrorMode(getString(downloads, "downloadMirrorMode", DOWNLOAD_MIRROR_MODE.getStringValue())));
+        DOWNLOAD_MIRROR_PROBE_COUNT.setIntegerValue(getInt(downloads, "downloadMirrorProbeCount", DOWNLOAD_MIRROR_PROBE_COUNT.getIntegerValue()));
+        DOWNLOAD_MIRROR_PROBE_STRATEGY.setValueFromString(DlcPathConfig.normalizeDownloadMirrorProbeStrategy(getString(downloads, "downloadMirrorProbeStrategy", DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue())));
     }
 
     public static JsonObject toJson() {
@@ -196,6 +204,8 @@ public final class DlcServerConfigClient {
         downloads.addProperty("connectTimeoutSeconds", CONNECT_TIMEOUT.getIntegerValue());
         downloads.addProperty("taskTimeoutSeconds", TASK_TIMEOUT.getIntegerValue());
         downloads.addProperty("downloadMirrorMode", DlcPathConfig.normalizeDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.getStringValue()));
+        downloads.addProperty("downloadMirrorProbeCount", Math.max(1, DOWNLOAD_MIRROR_PROBE_COUNT.getIntegerValue()));
+        downloads.addProperty("downloadMirrorProbeStrategy", DlcPathConfig.normalizeDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue()));
         root.add("downloads", downloads);
 
         return root;
