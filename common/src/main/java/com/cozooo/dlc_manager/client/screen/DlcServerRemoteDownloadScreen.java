@@ -6,8 +6,8 @@ import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -273,7 +273,7 @@ public class DlcServerRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
             return "";
         }
         if (item.displayNames != null && !item.displayNames.isEmpty()) {
-            String lang = DcConfigIO.normalizeLangKey(Minecraft.getInstance().options.languageCode);
+            String lang = DlcDcConfigIO.normalizeLangKey(Minecraft.getInstance().options.languageCode);
             String name = lang == null ? null : item.displayNames.get(lang);
             if (name == null || name.isBlank()) {
                 name = item.displayNames.get("en_us");

@@ -2,9 +2,9 @@ package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -47,7 +47,7 @@ public final class DlcRemoteLoader {
                 .filter(path -> !path.normalize().startsWith(redirectRoot))
                 .forEach(path -> {
                     String rel = remoteRoot.relativize(path).toString().replace('\\', '/');
-                    String key = DcFormatUtil.stripConfigExtension(rel);
+                    String key = DlcDcFormatUtil.stripConfigExtension(rel);
                     Path current = selectedFiles.get(key);
                     if (current == null || configPriority(path) > configPriority(current)) {
                         selectedFiles.put(key, path);
@@ -92,7 +92,7 @@ public final class DlcRemoteLoader {
                 return null;
             }
         }
-        Path dcAlt = DcFormatUtil.toDcPath(resolved);
+        Path dcAlt = DlcDcFormatUtil.toDcPath(resolved);
         if (dcAlt != null && Files.exists(dcAlt)) {
             resolved = dcAlt;
         }
@@ -147,7 +147,7 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return null;
         }
-        String fileName = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
+        String fileName = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString());
         Path relative = remoteRoot.relativize(path);
         Path baseDir = dlcRoot.resolve(relative.getParent() == null ? "" : relative.getParent().toString());
 
@@ -160,14 +160,14 @@ public final class DlcRemoteLoader {
         if (entry.getFileNameHint() == null || entry.getFileNameHint().isBlank()) {
             entry.setFileNameHint(fileName);
         }
-        boolean isDc = DcFormatUtil.isDcName(path.getFileName().toString());
+        boolean isDc = DlcDcFormatUtil.isDcName(path.getFileName().toString());
         if (isDc) {
             if (needsKeyMigration(obj)) {
-                DcFormatUtil.write(path, normalized.ordered);
+                DlcDcFormatUtil.write(path, normalized.ordered);
             }
         } else {
-            Path dcPath = DcFormatUtil.toDcPath(path);
-            boolean migratedToDc = dcPath != null && DcFormatUtil.write(dcPath, normalized.ordered);
+            Path dcPath = DlcDcFormatUtil.toDcPath(path);
+            boolean migratedToDc = dcPath != null && DlcDcFormatUtil.write(dcPath, normalized.ordered);
             if (migratedToDc) {
                 finalPath = dcPath;
                 try {
@@ -185,8 +185,8 @@ public final class DlcRemoteLoader {
             return null;
         }
         String name = path.getFileName().toString();
-        if (DcFormatUtil.isDcName(name)) {
-            return DcFormatUtil.read(path);
+        if (DlcDcFormatUtil.isDcName(name)) {
+            return DlcDcFormatUtil.read(path);
         }
         try (Reader reader = Files.newBufferedReader(path)) {
             JsonReader jsonReader = new JsonReader(reader);
@@ -198,7 +198,7 @@ public final class DlcRemoteLoader {
     }
 
     private static boolean isRemoteConfigName(String fileName) {
-        return DcFormatUtil.isDcName(fileName);
+        return DlcDcFormatUtil.isDcName(fileName);
     }
 
     private static int configPriority(Path path) {
@@ -206,7 +206,7 @@ public final class DlcRemoteLoader {
             return 0;
         }
         String name = path.getFileName().toString().toLowerCase();
-        if (name.endsWith(DcFormatUtil.DC_EXTENSION)) {
+        if (name.endsWith(DlcDcFormatUtil.DC_EXTENSION)) {
             return 2;
         }
         return 0;
@@ -220,8 +220,8 @@ public final class DlcRemoteLoader {
             return path;
         }
         String name = path.getFileName().toString();
-        if (DcFormatUtil.isDcName(name)) {
-            Path dc = DcFormatUtil.toDcPath(path);
+        if (DlcDcFormatUtil.isDcName(name)) {
+            Path dc = DlcDcFormatUtil.toDcPath(path);
             if (dc != null && Files.exists(dc)) {
                 return dc;
             }
@@ -232,7 +232,7 @@ public final class DlcRemoteLoader {
         if (dir == null) {
             return null;
         }
-        Path dc = dir.resolve(base + DcFormatUtil.DC_EXTENSION);
+        Path dc = dir.resolve(base + DlcDcFormatUtil.DC_EXTENSION);
         if (Files.exists(dc)) {
             return dc;
         }
@@ -322,7 +322,7 @@ public final class DlcRemoteLoader {
                 fileName = nameFallback;
             }
         }
-        JsonObject displayObj = sanitizeLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName"));
+        JsonObject displayObj = sanitizeLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName"));
         if (displayObj.entrySet().isEmpty()) {
             displayObj = new JsonObject();
             displayObj.addProperty("en_us", nameFallback == null ? "" : nameFallback);
@@ -330,7 +330,7 @@ public final class DlcRemoteLoader {
         if (identifier == null || identifier.isBlank()) {
             identifier = nameFallback == null ? "" : nameFallback;
         }
-        JsonObject tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip");
+        JsonObject tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip");
         if (tipObj == null) {
             tipObj = new JsonObject();
         }
@@ -352,8 +352,8 @@ public final class DlcRemoteLoader {
             hidden = true;
         }
 
-        DependencyResult deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir);
-        DependencyResult conflicts = normalizeConflicts(DcConfigIO.getIgnoreCase(obj, "conflicts"));
+        DependencyResult deps = normalizeDependencies(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir);
+        DependencyResult conflicts = normalizeConflicts(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"));
 
         JsonObject ordered = new JsonObject();
         ordered.addProperty("curseforge_projectid", curseProjectId == null ? "" : curseProjectId);
@@ -653,7 +653,7 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return List.of();
         }
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, "directUrl");
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, "directUrl");
         if (element == null) {
             return List.of();
         }
@@ -697,11 +697,11 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return false;
         }
-        boolean hasIdentifier = DcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "file_name")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_name")
-            || DcConfigIO.hasIgnoreCase(obj, "name");
+        boolean hasIdentifier = DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "name");
         if (!hasIdentifier) {
             return false;
         }
@@ -744,42 +744,42 @@ public final class DlcRemoteLoader {
         if (obj == null) {
             return false;
         }
-        return DcConfigIO.hasIgnoreCase(obj, "directUrl")
-            || DcConfigIO.hasIgnoreCase(obj, "modrinth_projectid")
-            || DcConfigIO.hasIgnoreCase(obj, "modrinth_versionid")
-            || DcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
-            || DcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
-            || DcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "file_name")
-            || DcConfigIO.hasIgnoreCase(obj, "type")
-            || DcConfigIO.hasIgnoreCase(obj, "appliedTarget")
-            || DcConfigIO.hasIgnoreCase(obj, "DisplayName")
-            || DcConfigIO.hasIgnoreCase(obj, "tip")
-            || DcConfigIO.hasIgnoreCase(obj, "isInList")
-            || DcConfigIO.hasIgnoreCase(obj, "isHidden")
-            || DcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
-            || DcConfigIO.hasIgnoreCase(obj, "dependencies")
-            || DcConfigIO.hasIgnoreCase(obj, "conflicts")
-            || DcConfigIO.hasIgnoreCase(obj, "alarm");
+        return DlcDcConfigIO.hasIgnoreCase(obj, "directUrl")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "modrinth_projectid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "modrinth_versionid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "type")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "tip")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "isInList")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dependencies")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "conflicts")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "alarm");
     }
 
     private static boolean needsKeyMigration(JsonObject obj) {
         if (obj == null) {
             return false;
         }
-        if (DcConfigIO.hasIgnoreCase(obj, "dlc_name") || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
+        if (DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
             return true;
         }
-        return !DcConfigIO.hasIgnoreCase(obj, "file_name") || !DcConfigIO.hasIgnoreCase(obj, "identifier");
+        return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier");
     }
 
     private static String getString(JsonObject obj, String key) {
-        return DcConfigIO.getStringIgnoreCase(obj, key);
+        return DlcDcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
+        return DlcDcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private static JsonObject sanitizeLocalized(JsonObject obj) {
@@ -789,7 +789,7 @@ public final class DlcRemoteLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = DcConfigIO.normalizeLangKey(entry.getKey());
+                String key = DlcDcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     result.addProperty(key, entry.getValue().getAsString());
                 }
@@ -805,7 +805,7 @@ public final class DlcRemoteLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = DcConfigIO.normalizeLangKey(entry.getKey());
+                String key = DlcDcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     values.put(key, entry.getValue().getAsString());
                 }

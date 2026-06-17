@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -86,7 +86,7 @@ public final class DlcPackOrder {
 
     private static boolean writeAtomicLines(Path path, List<String> lines) {
         try {
-            Path target = DcConfigIO.toDcPath(path);
+            Path target = DlcDcConfigIO.toDcPath(path);
             if (target == null) {
                 return false;
             }

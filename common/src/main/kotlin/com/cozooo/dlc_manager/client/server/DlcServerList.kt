@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.server
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.GsonBuilder
 import java.io.IOException
@@ -16,7 +16,7 @@ object DlcServerList {
     @JvmStatic
     fun load() {
         val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
-        configPath = DcConfigIO.toDcPath(configDir.resolve("servers"))
+        configPath = DlcDcConfigIO.toDcPath(configDir.resolve("servers"))
         entries = ArrayList()
         lastSelectedKey = null
         val path = configPath ?: return
@@ -24,7 +24,7 @@ object DlcServerList {
             return
         }
         try {
-            val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC)
+            val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
             if (root != null) {
                 val data = gson.fromJson(root, DlcServerListData::class.java)
                 val servers = data?.servers
@@ -41,7 +41,7 @@ object DlcServerList {
     fun save() {
         if (configPath == null) {
             val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
-            configPath = DcConfigIO.toDcPath(configDir.resolve("servers"))
+            configPath = DlcDcConfigIO.toDcPath(configDir.resolve("servers"))
         }
         val path = configPath ?: return
         try {
@@ -50,7 +50,7 @@ object DlcServerList {
             data.servers = entries
             data.lastSelected = lastSelectedKey
             val root = gson.toJsonTree(data).asJsonObject
-            DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC)
+            DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC)
         } catch (_: IOException) {
         }
     }

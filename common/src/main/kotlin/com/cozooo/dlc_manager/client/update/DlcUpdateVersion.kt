@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.update
 
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.JsonObject
 import java.io.IOException
 import java.nio.file.Files
@@ -29,17 +29,17 @@ class DlcUpdateVersion {
             if (!changelogShown.isNullOrBlank()) {
                 obj.addProperty("changelog_shown", changelogShown)
             }
-            DcConfigIO.write(path, obj, DcConfigIO.Layout.GENERIC)
+            DlcDcConfigIO.write(path, obj, DlcDcConfigIO.Layout.GENERIC)
         } catch (_: IOException) {
         }
     }
 
     fun getBase(): String? = base
 
-    fun getModpack(): String? = DlcPathConfig.getModpack()
+    fun getModpack(): String? = DlcConfig.getModpack()
 
     fun setModpack(modpack: String?) {
-        DlcPathConfig.setModpack(modpack)
+        DlcConfig.setModpack(modpack)
     }
 
     fun setBase(base: String?) {
@@ -81,17 +81,17 @@ class DlcUpdateVersion {
                 return version
             }
             try {
-                val obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return version
-                version.base = DcConfigIO.getStringIgnoreCase(obj, "base")
-                version.dlc = DcConfigIO.getStringIgnoreCase(obj, "dlc")
-                var rollback = DcConfigIO.getStringIgnoreCase(obj, "rollback_from")
+                val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return version
+                version.base = DlcDcConfigIO.getStringIgnoreCase(obj, "base")
+                version.dlc = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc")
+                var rollback = DlcDcConfigIO.getStringIgnoreCase(obj, "rollback_from")
                 if (rollback.isNullOrBlank()) {
-                    rollback = DcConfigIO.getStringIgnoreCase(obj, "rollbackFrom")
+                    rollback = DlcDcConfigIO.getStringIgnoreCase(obj, "rollbackFrom")
                 }
                 version.rollbackFrom = rollback
-                var shown = DcConfigIO.getStringIgnoreCase(obj, "changelog_shown")
+                var shown = DlcDcConfigIO.getStringIgnoreCase(obj, "changelog_shown")
                 if (shown.isNullOrBlank()) {
-                    shown = DcConfigIO.getStringIgnoreCase(obj, "changelogShown")
+                    shown = DlcDcConfigIO.getStringIgnoreCase(obj, "changelogShown")
                 }
                 version.changelogShown = shown
             } catch (_: Exception) {
@@ -107,7 +107,7 @@ class DlcUpdateVersion {
 
         private fun resolveVersionPath(dlcRoot: Path): Path {
             val infoDir = dlcRoot.resolve("info")
-            return DcConfigIO.toDcPath(infoDir.resolve("version")) ?: infoDir.resolve("version.dc")
+            return DlcDcConfigIO.toDcPath(infoDir.resolve("version")) ?: infoDir.resolve("version.dc")
         }
     }
 }

@@ -9,7 +9,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DcFormatUtil
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -363,7 +363,7 @@ class DlcRequiredManagerScreen(
                         continue
                     }
                     val name = path.fileName?.toString() ?: ""
-                    if (DcFormatUtil.isDcName(name)) {
+                    if (DlcDcFormatUtil.isDcName(name)) {
                         continue
                     }
                     return name
@@ -486,7 +486,7 @@ class DlcRequiredManagerScreen(
             return true
         }
         val name = path.fileName?.toString() ?: ""
-        return DcFormatUtil.isDcName(name)
+        return DlcDcFormatUtil.isDcName(name)
     }
 
     private fun resolveAppliedFileName(entry: DlcRequiredEntry?, targets: List<Path>?): String? {
@@ -515,7 +515,7 @@ class DlcRequiredManagerScreen(
                     Files.newDirectoryStream(target, "$base.*").use { stream ->
                         for (path in stream) {
                             val name = path.fileName?.toString() ?: ""
-                            if (!DcFormatUtil.isDcName(name)) {
+                            if (!DlcDcFormatUtil.isDcName(name)) {
                                 return name
                             }
                         }

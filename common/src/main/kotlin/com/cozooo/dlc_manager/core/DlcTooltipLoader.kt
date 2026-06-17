@@ -21,7 +21,7 @@ class DlcTooltipLoader {
         try {
             Files.list(infoDir).use { stream ->
                 stream
-                    .filter { path -> path.fileName != null && DcFormatUtil.isDcName(path.fileName.toString()) }
+                    .filter { path -> path.fileName != null && DlcDcFormatUtil.isDcName(path.fileName.toString()) }
                     .filter { path -> !isInfoMetaFile(path) }
                     .forEach { path ->
                         val entry = readEntry(path)
@@ -57,7 +57,7 @@ class DlcTooltipLoader {
         if (path?.fileName == null) {
             return false
         }
-        val base = DcFormatUtil.stripConfigExtension(path.fileName.toString())
+        val base = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
         return "version".equals(base, ignoreCase = true)
     }
 
@@ -70,7 +70,7 @@ class DlcTooltipLoader {
         } catch (_: IOException) {
             return
         }
-        var path = DcFormatUtil.resolveConfigPath(infoDir, dlcName)
+        var path = DlcDcFormatUtil.resolveConfigPath(infoDir, dlcName)
         if (path != null && Files.exists(path)) {
             updateTooltipFile(path, dlcName, type, updateExistingType)
             return
@@ -80,7 +80,7 @@ class DlcTooltipLoader {
             updateTooltipFile(existingByDlcName, dlcName, type, updateExistingType)
             return
         }
-        path = DcFormatUtil.resolveConfigPath(infoDir, dlcName)
+        path = DlcDcFormatUtil.resolveConfigPath(infoDir, dlcName)
         val obj = buildOrderedTooltipObject(
             null,
             dlcName,
@@ -107,7 +107,7 @@ class DlcTooltipLoader {
         return try {
             Files.list(infoDir).use { stream ->
                 stream
-                    .filter { path -> path.fileName != null && DcFormatUtil.isDcName(path.fileName.toString()) }
+                    .filter { path -> path.fileName != null && DlcDcFormatUtil.isDcName(path.fileName.toString()) }
                     .filter { path ->
                         val entry = readEntry(path)
                         entry != null && dlcName == entry.dlcName
@@ -123,7 +123,7 @@ class DlcTooltipLoader {
     private fun updateTooltipFile(path: Path, dlcName: String, type: DlcType?, updateExistingType: Boolean) {
         var obj = readTooltipObject(path) ?: return
         val legacyShown = getBoolean(obj, "isShownInList", true)
-        DcConfigIO.removeIgnoreCase(obj, "isShownInList")
+        DlcDcConfigIO.removeIgnoreCase(obj, "isShownInList")
         var displayName = localizedObjectFromAny(obj, "DisplayName")
         if (displayName.entrySet().isEmpty()) {
             displayName = buildDefaultDisplayName(dlcName)
@@ -140,8 +140,8 @@ class DlcTooltipLoader {
         val inList = getBoolean(obj, "isInList", legacyShown)
         val hidden = getBoolean(obj, "isHidden", false)
         val allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
-        val dependencies = normalizeRelationElement(DcConfigIO.getIgnoreCase(obj, "dependencies"))
-        val conflicts = normalizeRelationElement(DcConfigIO.getIgnoreCase(obj, "conflicts"))
+        val dependencies = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"))
+        val conflicts = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
         val alarm = getBoolean(obj, "alarm", false)
         val tip = localizedObjectFromAny(obj, "tip")
         val appliedTarget = getString(obj, "appliedTarget")
@@ -173,7 +173,7 @@ class DlcTooltipLoader {
         val entry = TooltipEntry()
         entry.dlcName = getFileName(obj)
         if (entry.dlcName.isNullOrBlank() && path?.fileName != null) {
-            entry.dlcName = DcFormatUtil.stripConfigExtension(path.fileName.toString())
+            entry.dlcName = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
         }
         if (entry.dlcName.isNullOrBlank()) {
             return null
@@ -182,20 +182,20 @@ class DlcTooltipLoader {
         if (entry.dlcIdentifier.isNullOrBlank()) {
             entry.dlcIdentifier = entry.dlcName
         }
-        entry.hasTypeField = DcConfigIO.hasIgnoreCase(obj, "type")
+        entry.hasTypeField = DlcDcConfigIO.hasIgnoreCase(obj, "type")
         val legacyShown = getBoolean(obj, "isShownInList", true)
         entry.inList = getBoolean(obj, "isInList", legacyShown)
         entry.hidden = getBoolean(obj, "isHidden", false)
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
-        entry.dependencies = parseDependencyNames(DcConfigIO.getIgnoreCase(obj, "dependencies"))
-        entry.conflicts = parseDependencyNames(DcConfigIO.getIgnoreCase(obj, "conflicts"))
+        entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"))
+        entry.conflicts = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
         entry.alarm = getBoolean(obj, "alarm", false)
-        entry.fileNames = parseFileNames(DcConfigIO.getIgnoreCase(obj, "fileNames"))
+        entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "fileNames"))
         if (entry.fileNames.isEmpty()) {
-            entry.fileNames = parseFileNames(DcConfigIO.getIgnoreCase(obj, "fileName"))
+            entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "fileName"))
         }
         if (entry.fileNames.isEmpty()) {
-            entry.fileNames = parseFileNames(DcConfigIO.getIgnoreCase(obj, "files"))
+            entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "files"))
         }
         entry.displayName = readLocalized(localizedObjectFromAny(obj, "DisplayName"))
         if (entry.displayName.isEmpty() && entry.dlcName != null) {
@@ -217,7 +217,7 @@ class DlcTooltipLoader {
             val tips = HashMap<String, String>()
             for ((key, value) in tipObj.entrySet()) {
                 if (value.isJsonPrimitive) {
-                    val normalizedKey = DcConfigIO.normalizeLangKey(key)
+                    val normalizedKey = DlcDcConfigIO.normalizeLangKey(key)
                     if (normalizedKey != null) {
                         tips[normalizedKey] = value.asString
                     }
@@ -232,40 +232,40 @@ class DlcTooltipLoader {
         if (obj == null) {
             return false
         }
-        return DcConfigIO.hasIgnoreCase(obj, "file_name") ||
-            DcConfigIO.hasIgnoreCase(obj, "dlc_name") ||
-            DcConfigIO.hasIgnoreCase(obj, "identifier") ||
-            DcConfigIO.hasIgnoreCase(obj, "dlc_identifier") ||
-            DcConfigIO.hasIgnoreCase(obj, "DisplayName") ||
-            DcConfigIO.hasIgnoreCase(obj, "tip") ||
-            DcConfigIO.hasIgnoreCase(obj, "type") ||
-            DcConfigIO.hasIgnoreCase(obj, "appliedTarget") ||
-            DcConfigIO.hasIgnoreCase(obj, "RedirectUrl") ||
-            DcConfigIO.hasIgnoreCase(obj, "dependencies") ||
-            DcConfigIO.hasIgnoreCase(obj, "conflicts") ||
-            DcConfigIO.hasIgnoreCase(obj, "isInList") ||
-            DcConfigIO.hasIgnoreCase(obj, "isShownInList") ||
-            DcConfigIO.hasIgnoreCase(obj, "isHidden") ||
-            DcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll") ||
-            DcConfigIO.hasIgnoreCase(obj, "alarm")
+        return DlcDcConfigIO.hasIgnoreCase(obj, "file_name") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "identifier") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "tip") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "type") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "RedirectUrl") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "dependencies") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "conflicts") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "isInList") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "isShownInList") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "isHidden") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "alarm")
     }
 
     private fun readTooltipObject(path: Path?): JsonObject? {
         if (path?.fileName == null) {
             return null
         }
-        return DcConfigIO.read(path, DcConfigIO.Layout.DLC_STRUCTURED)
+        return DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.DLC_STRUCTURED)
     }
 
     private fun writeTooltipObject(path: Path?, obj: JsonObject?) {
         if (path == null) {
             return
         }
-        DcConfigIO.write(path, obj, DcConfigIO.Layout.DLC_STRUCTURED)
+        DlcDcConfigIO.write(path, obj, DlcDcConfigIO.Layout.DLC_STRUCTURED)
     }
 
     private fun needsDcLayoutMigration(path: Path?): Boolean {
-        if (path?.fileName == null || !DcFormatUtil.isDcName(path.fileName.toString())) {
+        if (path?.fileName == null || !DlcDcFormatUtil.isDcName(path.fileName.toString())) {
             return false
         }
         return try {
@@ -281,7 +281,7 @@ class DlcTooltipLoader {
     }
 
     private fun getString(obj: JsonObject?, key: String): String? {
-        return DcConfigIO.getStringIgnoreCase(obj, key)
+        return DlcDcConfigIO.getStringIgnoreCase(obj, key)
     }
 
     private fun getIdentifier(obj: JsonObject?): String? {
@@ -301,7 +301,7 @@ class DlcTooltipLoader {
     }
 
     private fun getBoolean(obj: JsonObject?, key: String, fallback: Boolean): Boolean {
-        return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
+        return DlcDcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
     }
 
     private fun isValidDependencyElement(element: JsonElement?): Boolean {
@@ -315,22 +315,22 @@ class DlcTooltipLoader {
         if (obj == null) {
             return false
         }
-        if (DcConfigIO.hasIgnoreCase(obj, "dlc_name") || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
+        if (DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
             return true
         }
-        return !DcConfigIO.hasIgnoreCase(obj, "file_name") || !DcConfigIO.hasIgnoreCase(obj, "identifier")
+        return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
     }
 
     private fun hasLegacyDownloadKeys(obj: JsonObject?): Boolean {
         if (obj == null) {
             return false
         }
-        return DcConfigIO.hasIgnoreCase(obj, "modrinth_projectid") ||
-            DcConfigIO.hasIgnoreCase(obj, "modrinth_versionid") ||
-            DcConfigIO.hasIgnoreCase(obj, "curseforge_projectid") ||
-            DcConfigIO.hasIgnoreCase(obj, "curseforge_fileid") ||
-            DcConfigIO.hasIgnoreCase(obj, "directUrl") ||
-            DcConfigIO.hasIgnoreCase(obj, "priority")
+        return DlcDcConfigIO.hasIgnoreCase(obj, "modrinth_projectid") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "modrinth_versionid") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_projectid") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_fileid") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "directUrl") ||
+            DlcDcConfigIO.hasIgnoreCase(obj, "priority")
     }
 
     private fun normalizeRelationElement(element: JsonElement?): JsonElement {
@@ -476,7 +476,7 @@ class DlcTooltipLoader {
         }
         for ((key, value) in obj.entrySet()) {
             if (value.isJsonPrimitive) {
-                val normalizedKey = DcConfigIO.normalizeLangKey(key)
+                val normalizedKey = DlcDcConfigIO.normalizeLangKey(key)
                 if (normalizedKey != null) {
                     values[normalizedKey] = value.asString
                 }
@@ -492,7 +492,7 @@ class DlcTooltipLoader {
         }
         for ((key, value) in obj.entrySet()) {
             if (value.isJsonPrimitive) {
-                val normalizedKey = DcConfigIO.normalizeLangKey(key)
+                val normalizedKey = DlcDcConfigIO.normalizeLangKey(key)
                 if (normalizedKey != null) {
                     result.addProperty(normalizedKey, value.asString)
                 }
@@ -502,11 +502,11 @@ class DlcTooltipLoader {
     }
 
     private fun localizedObjectFromAny(obj: JsonObject?, key: String): JsonObject {
-        val localized = sanitizeLocalized(DcConfigIO.getObjectIgnoreCase(obj, key))
+        val localized = sanitizeLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, key))
         if (localized.entrySet().isNotEmpty()) {
             return localized
         }
-        val single = DcConfigIO.getStringIgnoreCase(obj, key)
+        val single = DlcDcConfigIO.getStringIgnoreCase(obj, key)
         if (!single.isNullOrBlank()) {
             localized.addProperty("en_us", single)
         }
@@ -578,7 +578,7 @@ class DlcTooltipLoader {
             val name = getString(obj, "identifier")
             if (!name.isNullOrBlank()) {
                 result.add(name.trim())
-                collectDependencyNames(DcConfigIO.getIgnoreCase(obj, "dependencies"), result)
+                collectDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), result)
                 return
             }
             for ((key, value) in obj.entrySet()) {

@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.bootstrap;
 
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 
 public final class DlcBootstrap {
@@ -12,9 +12,9 @@ public final class DlcBootstrap {
     public static void initializeCore() {
         DlcSelfUpdateService.applyPendingUpdate();
         if (CrossPlatformRuntime.isDedicatedServer()) {
-            DlcPathConfig.loadServer();
+            DlcConfig.loadServer();
         } else {
-            DlcPathConfig.loadClient();
+            DlcConfig.loadClient();
         }
         DlcStateConfig.load();
     }

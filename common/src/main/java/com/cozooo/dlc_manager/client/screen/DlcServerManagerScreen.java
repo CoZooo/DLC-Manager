@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.screen.DlcPresetManagerScreen;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -268,7 +268,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         int panelLeft = panelLeft();
         int panelRight = panelRight();
         int panelWidth = panelRight - panelLeft;
-        boolean showPackButton = DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown();
+        boolean showPackButton = DlcConfig.isPackFuncOn() && !DlcConfig.isPButtomShown();
         int buttonCount = showPackButton ? 6 : 5;
         int buttonWidth = Math.min(90, (panelWidth - 16 - gap * (buttonCount - 1)) / buttonCount);
         if (buttonWidth < 70) {

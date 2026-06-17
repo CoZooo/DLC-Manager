@@ -9,13 +9,13 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 
-public final class DcConfigIO {
+public final class DlcDcConfigIO {
     public enum Layout {
         DLC_STRUCTURED,
         GENERIC
     }
 
-    private DcConfigIO() {
+    private DlcDcConfigIO() {
     }
 
     public static JsonObject read(Path path, Layout layout) {
@@ -26,16 +26,16 @@ public final class DcConfigIO {
             return null;
         }
         if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)) {
-            return DcFormatUtil.read(path);
+            return DlcDcFormatUtil.read(path);
         }
-        return DcFormatUtil.readGeneric(path);
+        return DlcDcFormatUtil.readGeneric(path);
     }
 
     public static boolean write(Path originalPath, JsonObject obj, Layout layout) {
         if (originalPath == null || obj == null) {
             return false;
         }
-        Path target = DcFormatUtil.toDcPath(originalPath);
+        Path target = DlcDcFormatUtil.toDcPath(originalPath);
         if (target == null) {
             return false;
         }
@@ -44,8 +44,8 @@ public final class DcConfigIO {
             source = stripDownloadKeys(obj);
         }
         boolean written = layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(target)
-            ? DcFormatUtil.write(target, source)
-            : DcFormatUtil.writeGeneric(target, source);
+            ? DlcDcFormatUtil.write(target, source)
+            : DlcDcFormatUtil.writeGeneric(target, source);
         if (!written) {
             return false;
         }
@@ -59,13 +59,13 @@ public final class DcConfigIO {
     }
 
     public static Path toDcPath(Path path) {
-        return DcFormatUtil.toDcPath(path);
+        return DlcDcFormatUtil.toDcPath(path);
     }
 
     public static boolean isDc(Path path) {
         return path != null
             && path.getFileName() != null
-            && DcFormatUtil.isDcName(path.getFileName().toString());
+            && DlcDcFormatUtil.isDcName(path.getFileName().toString());
     }
 
     public static JsonElement getIgnoreCase(JsonObject obj, String key) {
@@ -165,7 +165,7 @@ public final class DcConfigIO {
         if (path == null || path.getFileName() == null) {
             return false;
         }
-        String base = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
+        String base = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString());
         return "notice".equalsIgnoreCase(base);
     }
 

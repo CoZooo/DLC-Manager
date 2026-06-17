@@ -102,7 +102,7 @@ object DlcUpdateService {
 
     @JvmStatic
     fun checkForUpdates(): UpdateCheckResult {
-        if (!DlcPathConfig.isUpdateManagerOn()) {
+        if (!DlcConfig.isUpdateManagerOn()) {
             val dlcRoot: Path? = dlcRoot
             return UpdateCheckResult(DlcUpdateVersion.load(dlcRoot), mutableListOf<DlcUpdatePackage?>())
         }
@@ -115,7 +115,7 @@ object DlcUpdateService {
 
     @JvmStatic
     fun checkForUpdates(ignoreRollback: Boolean): UpdateCheckResult {
-        if (!DlcPathConfig.isUpdateManagerOn()) {
+        if (!DlcConfig.isUpdateManagerOn()) {
             val dlcRoot: Path? = dlcRoot
             return UpdateCheckResult(DlcUpdateVersion.load(dlcRoot), mutableListOf<DlcUpdatePackage?>())
         }
@@ -607,7 +607,7 @@ object DlcUpdateService {
 
     @JvmStatic
     fun ensureUpdateDir() {
-        if (!DlcPathConfig.isUpdateManagerOn()) {
+        if (!DlcConfig.isUpdateManagerOn()) {
             return
         }
         val updateDir: Path? = updateDir
@@ -1662,7 +1662,7 @@ object DlcUpdateService {
                         continue
                     }
                     val fileName = path.getFileName().toString()
-                    if (!DcFormatUtil.isDcName(fileName)) {
+                    if (!DlcDcFormatUtil.isDcName(fileName)) {
                         continue
                     }
                     if (isNoticeConfig(fileName)) {
@@ -1710,8 +1710,8 @@ object DlcUpdateService {
         }
         val targets: MutableList<Path> = when (type) {
             DlcType.MOD -> mutableListOf(DlcPaths.modsDir())
-            DlcType.RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots().toMutableList()
-            DlcType.DATA_PACK -> DlcPathConfig.getDatapackRoots().toMutableList()
+            DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots().toMutableList()
+            DlcType.DATA_PACK -> DlcConfig.getDatapackRoots().toMutableList()
             DlcType.TACZ_PACK -> mutableListOf(DlcPaths.taczDir())
             else -> mutableListOf()
         }
@@ -1933,7 +1933,7 @@ object DlcUpdateService {
         if (containerKey == null) {
             return false
         }
-        val containerElement = DcConfigIO.getIgnoreCase(root, containerKey)
+        val containerElement = DlcDcConfigIO.getIgnoreCase(root, containerKey)
         val container: JsonObject?
         if (containerElement != null && containerElement.isJsonObject()) {
             container = containerElement.getAsJsonObject()
@@ -2012,7 +2012,7 @@ object DlcUpdateService {
                 upsertCaseInsensitive(current, key, value)
                 return
             }
-            val child = DcConfigIO.getIgnoreCase(current, key)
+            val child = DlcDcConfigIO.getIgnoreCase(current, key)
             val next: JsonObject?
             if (child != null && child.isJsonObject()) {
                 next = child.getAsJsonObject()
@@ -2048,10 +2048,10 @@ object DlcUpdateService {
                             return@forEach
                         }
                         val fileName = path.getFileName().toString()
-                        if (!DcFormatUtil.isDcName(fileName)) {
+                        if (!DlcDcFormatUtil.isDcName(fileName)) {
                             return@forEach
                         }
-                        val baseName: kotlin.String = DcFormatUtil.stripConfigExtension(fileName)
+                        val baseName: kotlin.String = DlcDcFormatUtil.stripConfigExtension(fileName)
                         if ("version".equals(baseName, ignoreCase = true) || "notice".equals(
                                 baseName,
                                 ignoreCase = true
@@ -2063,9 +2063,9 @@ object DlcUpdateService {
                         if (obj == null) {
                             return@forEach
                         }
-                        var identifier: kotlin.String? = DcConfigIO.getStringIgnoreCase(obj, "identifier")
+                        var identifier: kotlin.String? = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier")
                         if (identifier == null || identifier.isBlank()) {
-                            identifier = DcConfigIO.getStringIgnoreCase(obj, "dlc_identifier")
+                            identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_identifier")
                         }
                         if (identifier == null || identifier.isBlank()) {
                             return@forEach
@@ -2161,7 +2161,7 @@ object DlcUpdateService {
             writeJson(infoPath, info)
             return
         }
-        val targetPath: Path? = DcFormatUtil.resolveConfigPath(infoDir, fileName)
+        val targetPath: Path? = DlcDcFormatUtil.resolveConfigPath(infoDir, fileName)
         if (targetPath == null) {
             backupPath(toGameRelativePath(infoPath), infoPath, context)
             writeJson(infoPath, info)
@@ -2179,17 +2179,17 @@ object DlcUpdateService {
     }
 
     private fun readJson(path: Path?): JsonObject? {
-        return DcConfigIO.read(path, layoutForPath(path))
+        return DlcDcConfigIO.read(path, layoutForPath(path))
     }
 
     private fun writeJson(path: Path?, obj: JsonObject?) {
         if (path == null || obj == null) {
             return
         }
-        if (DcConfigIO.write(path, obj, layoutForPath(path))) {
+        if (DlcDcConfigIO.write(path, obj, layoutForPath(path))) {
             return
         }
-        val target: Path = DcConfigIO.toDcPath(path) ?: path
+        val target: Path = DlcDcConfigIO.toDcPath(path) ?: path
         val serialized: kotlin.String = serializeJsonForPath(target, obj)
         val result = DlcFileOpsHelperClient.scheduleWriteText(target, serialized)
         if (result.ok) {
@@ -2202,17 +2202,17 @@ object DlcUpdateService {
         recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), result.message, target, "write")
     }
 
-    private fun layoutForPath(path: Path?): DcConfigIO.Layout {
+    private fun layoutForPath(path: Path?): DlcDcConfigIO.Layout {
         if (path == null) {
-            return DcConfigIO.Layout.GENERIC
+            return DlcDcConfigIO.Layout.GENERIC
         }
         val normalized = path.toString().replace('\\', '/').lowercase()
         if (normalized.contains("/remote/")
             || normalized.contains("/required/")
         ) {
-            return DcConfigIO.Layout.DLC_STRUCTURED
+            return DlcDcConfigIO.Layout.DLC_STRUCTURED
         }
-        return DcConfigIO.Layout.GENERIC
+        return DlcDcConfigIO.Layout.GENERIC
     }
 
     @Throws(IOException::class, InterruptedException::class)
@@ -2240,7 +2240,7 @@ object DlcUpdateService {
         resolver: DlcDownloadCandidate.Resolver,
         ignoreExistingFileName: Boolean
     ): DownloadedFile {
-        val maxRetry = max(1, DlcPathConfig.getMaxRetryCount())
+        val maxRetry = max(1, DlcConfig.getMaxRetryCount())
         var lastError: IOException? = null
         var candidates: MutableList<DlcDownloadCandidate>?
         while (!(resolver.next().also { candidates = it }).isEmpty()) {
@@ -2362,8 +2362,8 @@ object DlcUpdateService {
             connection = URI.create(url).toURL().openConnection() as HttpURLConnection?
             connection!!.setInstanceFollowRedirects(true)
             connection.setRequestMethod("HEAD")
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs())
-            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs())
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs())
+            connection.setReadTimeout(DlcConfig.getTaskTimeoutMs())
             connection.setRequestProperty("User-Agent", "DLC-Manager")
             connection.connect()
             return DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection)
@@ -2412,8 +2412,8 @@ object DlcUpdateService {
             }
             val targetDirs: MutableList<Path> = when (type) {
             DlcType.MOD -> mutableListOf(DlcPaths.modsDir())
-                DlcType.RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots().toMutableList()
-                DlcType.DATA_PACK -> DlcPathConfig.getDatapackRoots().toMutableList()
+                DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots().toMutableList()
+                DlcType.DATA_PACK -> DlcConfig.getDatapackRoots().toMutableList()
             DlcType.TACZ_PACK -> mutableListOf(DlcPaths.taczDir())
             else -> mutableListOf()
             }
@@ -2587,7 +2587,7 @@ object DlcUpdateService {
         if (isUnderDir(normalized, dlcRoot.resolve("preset"))) {
             if (Files.isDirectory(normalized)) {
                 uninstallPresetConfigsInDir(normalized, dlcRoot)
-            } else if (normalized.getFileName() != null && DcFormatUtil.isDcName(normalized.getFileName().toString())) {
+            } else if (normalized.getFileName() != null && DlcDcFormatUtil.isDcName(normalized.getFileName().toString())) {
                 uninstallPresetConfig(normalized, dlcRoot)
             }
             return
@@ -2645,7 +2645,7 @@ object DlcUpdateService {
         if (configPath == null || dlcRoot == null || !Files.exists(configPath)) {
             return
         }
-        if (configPath.getFileName() == null || !DcFormatUtil.isDcName(configPath.getFileName().toString())) {
+        if (configPath.getFileName() == null || !DlcDcFormatUtil.isDcName(configPath.getFileName().toString())) {
             return
         }
         val presetId: kotlin.String? = resolvePresetId(configPath, dlcRoot)
@@ -2670,7 +2670,7 @@ object DlcUpdateService {
         try {
             Files.walk(dir).use { stream ->
                 stream.filter { path: Path? ->
-                    path!!.getFileName() != null && DcFormatUtil.isDcName(
+                    path!!.getFileName() != null && DlcDcFormatUtil.isDcName(
                         path.getFileName().toString()
                     )
                 }
@@ -2686,13 +2686,13 @@ object DlcUpdateService {
         }
         val presetRoot = dlcRoot.resolve("preset").normalize()
         val normalized = configPath.normalize()
-        val fallback: kotlin.String = DcFormatUtil.stripConfigExtension(configPath.getFileName().toString())
+        val fallback: kotlin.String = DlcDcFormatUtil.stripConfigExtension(configPath.getFileName().toString())
         if (!normalized.startsWith(presetRoot)) {
             return fallback
         }
         try {
             val relative = presetRoot.relativize(normalized).toString().replace('\\', '/')
-            return DcFormatUtil.stripConfigExtension(relative)
+            return DlcDcFormatUtil.stripConfigExtension(relative)
         } catch (ignored: Exception) {
             return fallback
         }
@@ -2768,7 +2768,7 @@ object DlcUpdateService {
         try {
             Files.newDirectoryStream(requiredDir, base + ".*").use { stream ->
                 for (file in stream) {
-                    if (file != null && !DcFormatUtil.isDcName(file.getFileName().toString())) {
+                    if (file != null && !DlcDcFormatUtil.isDcName(file.getFileName().toString())) {
                         return file.getFileName().toString()
                     }
                 }
@@ -2801,13 +2801,13 @@ object DlcUpdateService {
                 if (isUnderDir(target, requiredRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, true)
-                    } else if (target.getFileName() != null && DcFormatUtil.isDcName(target.getFileName().toString())) {
+                    } else if (target.getFileName() != null && DlcDcFormatUtil.isDcName(target.getFileName().toString())) {
                         uninstallRequiredConfig(target, dlcRoot, null)
                     }
                 } else if (isUnderDir(target, remoteRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, false)
-                    } else if (target.getFileName() != null && DcFormatUtil.isDcName(target.getFileName().toString())) {
+                    } else if (target.getFileName() != null && DlcDcFormatUtil.isDcName(target.getFileName().toString())) {
                         uninstallRemoteConfig(target, dlcRoot, null)
                     }
                 }
@@ -2831,7 +2831,7 @@ object DlcUpdateService {
         try {
             Files.walk(dir).use { stream ->
                 stream.filter { path: Path? ->
-                    path!!.getFileName() != null && DcFormatUtil.isDcName(
+                    path!!.getFileName() != null && DlcDcFormatUtil.isDcName(
                         path.getFileName().toString()
                     )
                 }
@@ -2940,7 +2940,7 @@ object DlcUpdateService {
             return false
         }
         val infoDir = dlcRoot.resolve("info")
-        val notice: Path? = DcFormatUtil.resolveConfigPath(infoDir, "notice")
+        val notice: Path? = DlcDcFormatUtil.resolveConfigPath(infoDir, "notice")
         if (notice == null) {
             return false
         }
@@ -2952,7 +2952,7 @@ object DlcUpdateService {
             return false
         }
         val infoDir = dlcRoot.resolve("info")
-        val dc = infoDir.resolve("version" + DcFormatUtil.DC_EXTENSION).normalize()
+        val dc = infoDir.resolve("version" + DlcDcFormatUtil.DC_EXTENSION).normalize()
         val normalized = path.normalize()
         return normalized == dc
     }
@@ -2961,7 +2961,7 @@ object DlcUpdateService {
         if (fileName == null || fileName.isBlank()) {
             return false
         }
-        return "notice".equals(DcFormatUtil.stripConfigExtension(fileName), ignoreCase = true)
+        return "notice".equals(DlcDcFormatUtil.stripConfigExtension(fileName), ignoreCase = true)
     }
 
     private fun isRequiredPath(target: Path?, dlcRoot: Path?): Boolean {
@@ -2989,7 +2989,7 @@ object DlcUpdateService {
     }
 
     private fun preparePresetUpdateSession(ops: DlcUpdateManifest.UpdateOps?, dlcRoot: Path?): PresetUpdateSession {
-        if (CrossPlatformRuntime.isDedicatedServer() || !DlcPathConfig.isPresetFuncOn() || ops == null || ops.getPreset()
+        if (CrossPlatformRuntime.isDedicatedServer() || !DlcConfig.isPresetFuncOn() || ops == null || ops.getPreset()
                 .isEmpty()
         ) {
             return PresetUpdateSession.Companion.empty()
@@ -3072,10 +3072,10 @@ object DlcUpdateService {
             return
         }
         val items: MutableList<DlcItem> = scanDlcItemsForLocalIndex()
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.applyOverridesToRuntime()
         }
-        var pending = DlcPathConfig.isPresetFuncOn() && DlcPresetRuntimeState.hasPendingFileConflictChanges()
+        var pending = DlcConfig.isPresetFuncOn() && DlcPresetRuntimeState.hasPendingFileConflictChanges()
         for (item in items) {
             if (item.getId() == null || item.getId()!!.isBlank()) {
                 continue
@@ -3089,7 +3089,7 @@ object DlcUpdateService {
             }
         }
         if (pending) {
-            val result = DlcApplier.apply(items, ApplyMode.RESTART_ONLY)
+            val result = DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY)
             val failureMessage: kotlin.String = extractApplyFailureMessage(result)
             if (!failureMessage.isBlank()) {
                 throw IOException(failureMessage)
@@ -3102,7 +3102,7 @@ object DlcUpdateService {
                 DlcRuntimeState.clearOverride(item.getId())
             }
         }
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.syncStatusFromRuntime()
         }
     }
@@ -3555,7 +3555,7 @@ object DlcUpdateService {
         if (metaRoot == null) {
             return null
         }
-        return DcFormatUtil.resolveConfigPath(metaRoot, "meta")
+        return DlcDcFormatUtil.resolveConfigPath(metaRoot, "meta")
     }
 
     private fun loadMetaFromRoot(metaRoot: Path?): DlcUpdateMeta? {
@@ -3854,9 +3854,9 @@ object DlcUpdateService {
     }
 
     private val dlcRoot: Path?
-        get() = if (DlcPathConfig.getDlcRoots()
+        get() = if (DlcConfig.getDlcRoots()
                 .isEmpty()
-        ) null else DlcPathConfig.getDlcRoots().get(0)
+        ) null else DlcConfig.getDlcRoots().get(0)
 
     private fun toGameRelativePath(path: Path?): kotlin.String {
         if (path == null) {
@@ -3944,13 +3944,13 @@ object DlcUpdateService {
             return ""
         }
         var source: JsonObject? = obj
-        if (layoutForPath(path) == DcConfigIO.Layout.DLC_STRUCTURED && isInfoPathForWrite(path)) {
+        if (layoutForPath(path) == DlcDcConfigIO.Layout.DLC_STRUCTURED && isInfoPathForWrite(path)) {
             source = stripDownloadKeysForInfo(obj)
         }
-        if (layoutForPath(path) == DcConfigIO.Layout.DLC_STRUCTURED && !isNoticeConfigPathForWrite(path)) {
-            return DcFormatUtil.write(source)
+        if (layoutForPath(path) == DlcDcConfigIO.Layout.DLC_STRUCTURED && !isNoticeConfigPathForWrite(path)) {
+            return DlcDcFormatUtil.write(source)
         }
-        return DcFormatUtil.writeGeneric(source)
+        return DlcDcFormatUtil.writeGeneric(source)
     }
 
     private fun isInfoPathForWrite(path: Path?): Boolean {
@@ -3965,7 +3965,7 @@ object DlcUpdateService {
         if (path == null || path.getFileName() == null) {
             return false
         }
-        val base: kotlin.String = DcFormatUtil.stripConfigExtension(path.getFileName().toString())
+        val base: kotlin.String = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString())
         return "notice".equals(base, ignoreCase = true)
     }
 
@@ -4190,7 +4190,7 @@ object DlcUpdateService {
             if (path == null || obj == null) {
                 return
             }
-            DcConfigIO.write(path, obj, layoutForPath(path))
+            DlcDcConfigIO.write(path, obj, layoutForPath(path))
         }
 
         companion object {
@@ -4198,7 +4198,7 @@ object DlcUpdateService {
                 if (path == null || !Files.exists(path)) {
                     return null
                 }
-                val obj = DcConfigIO.read(path, layoutForPath(path))
+                val obj = DlcDcConfigIO.read(path, layoutForPath(path))
                 if (obj == null) {
                     return null
                 }

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import java.nio.file.Files
@@ -94,10 +94,10 @@ class DlcPackTransaction @JvmOverloads constructor(
             if (path == null || !Files.exists(path)) {
                 return null
             }
-            val obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return null
-            val status = parseStatus(DcConfigIO.getStringIgnoreCase(obj, "status"))
-            val identifier = DcConfigIO.getStringIgnoreCase(obj, "identifier")?.trim()
-            val staging = DcConfigIO.getStringIgnoreCase(obj, "staging")?.trim().orEmpty()
+            val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return null
+            val status = parseStatus(DlcDcConfigIO.getStringIgnoreCase(obj, "status"))
+            val identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier")?.trim()
+            val staging = DlcDcConfigIO.getStringIgnoreCase(obj, "staging")?.trim().orEmpty()
             if (status == null || !DlcPackMetadata.isValidIdentifier(identifier)) {
                 return null
             }
@@ -105,12 +105,12 @@ class DlcPackTransaction @JvmOverloads constructor(
                 status,
                 identifier!!,
                 staging,
-                readArray(DcConfigIO.getArrayIgnoreCase(obj, "moved")),
-                readArray(DcConfigIO.getArrayIgnoreCase(obj, "written")),
-                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
-                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
-                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
-                readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_presets")),
+                readArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "moved")),
+                readArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "written")),
+                readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
+                readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
+                readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
+                readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "disabled_presets")),
                 getBoolean(obj, "replacement"),
             )
         }
@@ -187,7 +187,7 @@ class DlcPackTransaction @JvmOverloads constructor(
         }
 
         private fun getBoolean(obj: JsonObject, key: String): Boolean {
-            val value = DcConfigIO.getIgnoreCase(obj, key)
+            val value = DlcDcConfigIO.getIgnoreCase(obj, key)
             if (value == null || !value.isJsonPrimitive) {
                 return false
             }

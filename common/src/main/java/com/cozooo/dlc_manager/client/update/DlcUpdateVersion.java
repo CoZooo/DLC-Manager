@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -32,20 +32,20 @@ public class DlcUpdateVersion {
             return version;
         }
         try {
-            JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+            JsonObject obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
             if (obj == null) {
                 return version;
             }
-            version.base = DcConfigIO.getStringIgnoreCase(obj, "base");
-            version.dlc = DcConfigIO.getStringIgnoreCase(obj, "dlc");
-            String rollback = DcConfigIO.getStringIgnoreCase(obj, "rollback_from");
+            version.base = DlcDcConfigIO.getStringIgnoreCase(obj, "base");
+            version.dlc = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc");
+            String rollback = DlcDcConfigIO.getStringIgnoreCase(obj, "rollback_from");
             if (rollback == null || rollback.isBlank()) {
-                rollback = DcConfigIO.getStringIgnoreCase(obj, "rollbackFrom");
+                rollback = DlcDcConfigIO.getStringIgnoreCase(obj, "rollbackFrom");
             }
             version.rollbackFrom = rollback;
-            String shown = DcConfigIO.getStringIgnoreCase(obj, "changelog_shown");
+            String shown = DlcDcConfigIO.getStringIgnoreCase(obj, "changelog_shown");
             if (shown == null || shown.isBlank()) {
-                shown = DcConfigIO.getStringIgnoreCase(obj, "changelogShown");
+                shown = DlcDcConfigIO.getStringIgnoreCase(obj, "changelogShown");
             }
             version.changelogShown = shown;
         } catch (Exception ignored) {
@@ -75,14 +75,14 @@ public class DlcUpdateVersion {
             if (changelogShown != null && !changelogShown.isBlank()) {
                 obj.addProperty("changelog_shown", changelogShown);
             }
-            DcConfigIO.write(path, obj, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(path, obj, DlcDcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }
 
     private static Path resolveVersionPath(Path dlcRoot) {
         Path infoDir = dlcRoot.resolve("info");
-        return DcFormatUtil.resolveConfigPath(infoDir, "version");
+        return DlcDcFormatUtil.resolveConfigPath(infoDir, "version");
     }
 
     public String getBase() {
@@ -90,11 +90,11 @@ public class DlcUpdateVersion {
     }
 
     public String getModpack() {
-        return DlcPathConfig.getModpack();
+        return DlcConfig.getModpack();
     }
 
     public void setModpack(String modpack) {
-        DlcPathConfig.setModpack(modpack);
+        DlcConfig.setModpack(modpack);
     }
 
     public void setBase(String base) {

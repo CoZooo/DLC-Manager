@@ -12,7 +12,7 @@ import java.nio.file.Path
 import java.util.ArrayDeque
 import java.util.Locale
 
-object DcFormatUtil {
+object DlcDcFormatUtil {
     const val DC_EXTENSION: String = ".dc"
     private val compactGson: Gson = GsonBuilder().disableHtmlEscaping().create()
 

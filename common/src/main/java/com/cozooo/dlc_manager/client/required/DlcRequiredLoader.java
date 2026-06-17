@@ -1,12 +1,12 @@
 package com.cozooo.dlc_manager.client.required;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -33,7 +33,7 @@ public final class DlcRequiredLoader {
                     continue;
                 }
                 String fileName = path.getFileName().toString();
-                if (!DcFormatUtil.isDcName(fileName)) {
+                if (!DlcDcFormatUtil.isDcName(fileName)) {
                     continue;
                 }
                 if (isNoticeConfig(fileName)) {
@@ -76,9 +76,9 @@ public final class DlcRequiredLoader {
         if (normalized == null) {
             return null;
         }
-        if (path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString())) {
+        if (path.getFileName() != null && DlcDcFormatUtil.isDcName(path.getFileName().toString())) {
             if (needsKeyMigration(obj) || needsDcLayoutMigration(path)) {
-                DcFormatUtil.write(path, normalized.ordered);
+                DlcDcFormatUtil.write(path, normalized.ordered);
             }
         }
         return normalized.entry;
@@ -88,8 +88,8 @@ public final class DlcRequiredLoader {
         if (path == null || path.getFileName() == null) {
             return null;
         }
-        if (DcFormatUtil.isDcName(path.getFileName().toString())) {
-            return DcFormatUtil.read(path);
+        if (DlcDcFormatUtil.isDcName(path.getFileName().toString())) {
+            return DlcDcFormatUtil.read(path);
         }
         return null;
     }
@@ -102,12 +102,12 @@ public final class DlcRequiredLoader {
             return configPath;
         }
         String name = configPath.getFileName().toString();
-        String base = DcFormatUtil.stripConfigExtension(name);
+        String base = DlcDcFormatUtil.stripConfigExtension(name);
         Path parent = configPath.getParent();
         if (parent == null) {
             return configPath;
         }
-        Path dc = parent.resolve(base + DcFormatUtil.DC_EXTENSION);
+        Path dc = parent.resolve(base + DlcDcFormatUtil.DC_EXTENSION);
         if (Files.exists(dc)) {
             return dc;
         }
@@ -118,7 +118,7 @@ public final class DlcRequiredLoader {
         if (fileName == null || fileName.isBlank()) {
             return false;
         }
-        return "notice".equalsIgnoreCase(DcFormatUtil.stripConfigExtension(fileName));
+        return "notice".equalsIgnoreCase(DlcDcFormatUtil.stripConfigExtension(fileName));
     }
 
     public static DlcRequiredEntry fromJsonObject(JsonObject obj, Path requiredDir, Path configPath, String defaultIdentifier) {
@@ -184,7 +184,7 @@ public final class DlcRequiredLoader {
         applied = getString(obj, "appliedTarget");
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
         entry.setRedirectUrl(getString(obj, "RedirectUrl"));
-        JsonElement depsElement = DcConfigIO.getIgnoreCase(obj, "dependencies");
+        JsonElement depsElement = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir);
         }
@@ -195,9 +195,9 @@ public final class DlcRequiredLoader {
         if (obj == null || entry == null) {
             return;
         }
-        JsonObject display = DcConfigIO.getObjectIgnoreCase(obj, "displayName");
+        JsonObject display = DlcDcConfigIO.getObjectIgnoreCase(obj, "displayName");
         if (display == null) {
-            display = DcConfigIO.getObjectIgnoreCase(obj, "DisplayName");
+            display = DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName");
         }
         if (display == null) {
             String fallback = entry.getBaseName();
@@ -209,7 +209,7 @@ public final class DlcRequiredLoader {
         }
         for (var e : display.entrySet()) {
             if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                String key = DcConfigIO.normalizeLangKey(e.getKey());
+                String key = DlcDcConfigIO.normalizeLangKey(e.getKey());
                 if (key != null) {
                     entry.putDisplayName(key, e.getValue().getAsString());
                 }
@@ -228,11 +228,11 @@ public final class DlcRequiredLoader {
         if (obj == null || entry == null) {
             return;
         }
-        JsonObject tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip");
+        JsonObject tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip");
         if (tipObj != null) {
             for (var e : tipObj.entrySet()) {
                 if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                    String key = DcConfigIO.normalizeLangKey(e.getKey());
+                    String key = DlcDcConfigIO.normalizeLangKey(e.getKey());
                     if (key != null) {
                         entry.putTip(key, e.getValue().getAsString());
                     }
@@ -315,7 +315,7 @@ public final class DlcRequiredLoader {
         if (obj == null) {
             return List.of();
         }
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, "directUrl");
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, "directUrl");
         if (element == null) {
             return List.of();
         }
@@ -359,7 +359,7 @@ public final class DlcRequiredLoader {
         String fileName = entry.getRequiredFileName();
         String appliedTarget = entry.getAppliedTargetRaw();
         String redirectUrl = entry.getRedirectUrl();
-        DependencyResult deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), requiredDir);
+        DependencyResult deps = normalizeDependencies(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), requiredDir);
         JsonObject display = new JsonObject();
         entry.getDisplayNames().forEach(display::addProperty);
         JsonObject tip = new JsonObject();
@@ -605,12 +605,12 @@ public final class DlcRequiredLoader {
         if (obj == null) {
             return false;
         }
-        return DcConfigIO.hasIgnoreCase(obj, "dlc_name")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier");
+        return DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier");
     }
 
     private static boolean needsDcLayoutMigration(Path path) {
-        if (path == null || path.getFileName() == null || !DcFormatUtil.isDcName(path.getFileName().toString())) {
+        if (path == null || path.getFileName() == null || !DlcDcFormatUtil.isDcName(path.getFileName().toString())) {
             return false;
         }
         try {
@@ -655,11 +655,11 @@ public final class DlcRequiredLoader {
     }
 
     private static String getString(JsonObject obj, String key) {
-        return DcConfigIO.getStringIgnoreCase(obj, key);
+        return DlcDcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private static Boolean getBoolean(JsonObject obj, String key) {
-        return DcConfigIO.getBooleanIgnoreCase(obj, key);
+        return DlcDcConfigIO.getBooleanIgnoreCase(obj, key);
     }
 
     private static final class DependencyResult {

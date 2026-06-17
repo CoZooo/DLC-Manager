@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.preset;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
@@ -70,7 +70,7 @@ public final class DlcPresetEntry {
     }
 
     public String resolveDisplayName(String lang) {
-        String key = DcConfigIO.normalizeLangKey(lang);
+        String key = DlcDcConfigIO.normalizeLangKey(lang);
         if (key != null && displayName.containsKey(key)) {
             String value = displayName.get(key);
             if (value != null && !value.isBlank()) {
@@ -87,7 +87,7 @@ public final class DlcPresetEntry {
     }
 
     public String resolveTip(String lang) {
-        String key = DcConfigIO.normalizeLangKey(lang);
+        String key = DlcDcConfigIO.normalizeLangKey(lang);
         if (key != null && tip.containsKey(key)) {
             String value = tip.get(key);
             if (value != null && !value.isBlank()) {

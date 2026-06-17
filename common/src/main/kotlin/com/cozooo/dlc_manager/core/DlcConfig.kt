@@ -8,7 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
 
-object DlcPathConfig {
+object DlcConfig {
     const val MOD_ID: String = "dlc_manager"
     private const val CONFIG_DIR: String = "dlc_manager"
     private const val CONFIG_NAME: String = "config"
@@ -431,7 +431,7 @@ object DlcPathConfig {
     }
 
     private fun loadFromJson(path: Path) {
-        val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return
+        val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return
         readSection(root, "api", buildApiReaders())
         readSection(root, "paths", buildPathReaders())
         readSection(root, "ui", buildUiReaders())
@@ -440,7 +440,7 @@ object DlcPathConfig {
     }
 
     private fun loadFromServerJson(path: Path) {
-        val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return
+        val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return
         readSection(root, "api", buildApiReaders())
         readSection(root, "server", buildServerReaders())
         readSection(root, "ui", buildServerUiReaders())
@@ -503,7 +503,7 @@ object DlcPathConfig {
     }
 
     private fun writeJson(root: JsonObject, path: Path) {
-        DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC)
+        DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC)
     }
 
     private fun resolveManagerConfigPath(configDir: Path?, baseName: String?): Path? {
@@ -515,7 +515,7 @@ object DlcPathConfig {
     }
 
     private fun managerConfigPath(configDir: Path, baseName: String): Path {
-        return configDir.resolve(baseName + DcFormatUtil.DC_EXTENSION)
+        return configDir.resolve(baseName + DlcDcFormatUtil.DC_EXTENSION)
     }
 
     private fun migrateManagerLegacyJson(configDir: Path, baseName: String) {
@@ -626,9 +626,9 @@ object DlcPathConfig {
         if (root == null || keyMap.isEmpty()) {
             return
         }
-        val obj = DcConfigIO.getObjectIgnoreCase(root, section) ?: return
+        val obj = DlcDcConfigIO.getObjectIgnoreCase(root, section) ?: return
         for ((key, consumer) in keyMap) {
-            val value = DcConfigIO.getIgnoreCase(obj, key)
+            val value = DlcDcConfigIO.getIgnoreCase(obj, key)
             if (value != null) {
                 consumer(value)
             }
@@ -888,7 +888,7 @@ object DlcPathConfig {
             Files.walk(configDir).use { stream ->
                 stream.filter(Files::isRegularFile)
                     .filter { path -> path.fileName != null }
-                    .filter { path -> DcFormatUtil.isDcName(path.fileName.toString()) }
+                    .filter { path -> DlcDcFormatUtil.isDcName(path.fileName.toString()) }
                     .filter { path -> !isManagerConfigFile(path) }
                     .forEach { }
             }
@@ -900,7 +900,7 @@ object DlcPathConfig {
         if (path == null || path.fileName == null) {
             return false
         }
-        val base = DcFormatUtil.stripConfigExtension(path.fileName.toString())
+        val base = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
         return CONFIG_NAME.equals(base, ignoreCase = true) || CONFIG_SERVER_NAME.equals(base, ignoreCase = true)
     }
 
@@ -927,7 +927,7 @@ object DlcPathConfig {
             Files.walk(root).use { stream ->
                 stream.filter(Files::isRegularFile)
                     .filter { path -> path.fileName != null }
-                    .filter { path -> DcFormatUtil.isDcName(path.fileName.toString()) }
+                    .filter { path -> DlcDcFormatUtil.isDcName(path.fileName.toString()) }
                     .forEach { }
             }
         } catch (_: IOException) {
@@ -942,9 +942,9 @@ object DlcPathConfig {
             Files.walk(infoRoot).use { stream ->
                 stream.filter(Files::isRegularFile)
                     .filter { path -> path.fileName != null }
-                    .filter { path -> DcFormatUtil.isDcName(path.fileName.toString()) }
+                    .filter { path -> DlcDcFormatUtil.isDcName(path.fileName.toString()) }
                     .forEach { path ->
-                        val baseName = DcFormatUtil.stripConfigExtension(path.fileName.toString())
+                        val baseName = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
                         if (!baseName.equals("version", ignoreCase = true) && !baseName.equals("notice", ignoreCase = true)) {
                             migrateInfoEntryConfig(path)
                         }
@@ -958,10 +958,10 @@ object DlcPathConfig {
         if (path == null || !Files.exists(path) || path.fileName == null) {
             return
         }
-        val obj = DcConfigIO.read(path, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
-        val fallbackName = DcFormatUtil.stripConfigExtension(path.fileName.toString())
+        val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
+        val fallbackName = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
         val normalized = normalizeInfoEntry(obj, fallbackName)
-        DcConfigIO.write(path, normalized, DcConfigIO.Layout.DLC_STRUCTURED)
+        DlcDcConfigIO.write(path, normalized, DlcDcConfigIO.Layout.DLC_STRUCTURED)
     }
 
     private fun normalizeInfoEntry(input: JsonObject?, fallbackName: String?): JsonObject {
@@ -974,25 +974,25 @@ object DlcPathConfig {
                 out.add(key, value)
             }
         }
-        var fileName = DcConfigIO.getStringIgnoreCase(out, "file_name")
+        var fileName = DlcDcConfigIO.getStringIgnoreCase(out, "file_name")
         if (fileName.isNullOrBlank()) {
             fileName = fallbackName ?: ""
-            DcConfigIO.removeIgnoreCase(out, "file_name")
+            DlcDcConfigIO.removeIgnoreCase(out, "file_name")
             out.addProperty("file_name", fileName)
         }
-        var identifier = DcConfigIO.getStringIgnoreCase(out, "identifier")
+        var identifier = DlcDcConfigIO.getStringIgnoreCase(out, "identifier")
         if (identifier.isNullOrBlank()) {
             identifier = fileName
-            DcConfigIO.removeIgnoreCase(out, "identifier")
+            DlcDcConfigIO.removeIgnoreCase(out, "identifier")
             out.addProperty("identifier", identifier ?: "")
         }
-        if (!DcConfigIO.hasIgnoreCase(out, "type")) out.addProperty("type", "others")
-        if (!DcConfigIO.hasIgnoreCase(out, "isInList")) out.addProperty("isInList", DcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true))
-        if (!DcConfigIO.hasIgnoreCase(out, "isHidden")) out.addProperty("isHidden", false)
-        if (!DcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) out.addProperty("AllowEnableByAll", true)
-        if (!DcConfigIO.hasIgnoreCase(out, "dependencies")) out.addProperty("dependencies", "")
-        if (!DcConfigIO.hasIgnoreCase(out, "conflicts")) out.addProperty("conflicts", "")
-        if (!DcConfigIO.hasIgnoreCase(out, "alarm")) out.addProperty("alarm", false)
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) out.addProperty("type", "others")
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "isInList")) out.addProperty("isInList", DlcDcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true))
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) out.addProperty("isHidden", false)
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) out.addProperty("AllowEnableByAll", true)
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "dependencies")) out.addProperty("dependencies", "")
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "conflicts")) out.addProperty("conflicts", "")
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "alarm")) out.addProperty("alarm", false)
         normalizeLocalizedField(out, "DisplayName", fileName)
         normalizeLocalizedField(out, "tip", null)
         return out
@@ -1000,17 +1000,17 @@ object DlcPathConfig {
 
     private fun normalizeLocalizedField(obj: JsonObject, key: String, defaultEnUs: String?) {
         val localized = JsonObject()
-        val fromObject = DcConfigIO.getObjectIgnoreCase(obj, key)
+        val fromObject = DlcDcConfigIO.getObjectIgnoreCase(obj, key)
         if (fromObject != null) {
             for ((langKey, value) in fromObject.entrySet()) {
                 if (value == null || !value.isJsonPrimitive) continue
-                val lang = DcConfigIO.normalizeLangKey(langKey)
+                val lang = DlcDcConfigIO.normalizeLangKey(langKey)
                 if (!lang.isNullOrBlank()) {
                     localized.addProperty(lang, value.asString)
                 }
             }
         } else {
-            val single = DcConfigIO.getStringIgnoreCase(obj, key)
+            val single = DlcDcConfigIO.getStringIgnoreCase(obj, key)
             if (!single.isNullOrBlank()) {
                 localized.addProperty("en_us", single)
             }
@@ -1018,7 +1018,7 @@ object DlcPathConfig {
         if (localized.entrySet().isEmpty() && !defaultEnUs.isNullOrBlank()) {
             localized.addProperty("en_us", defaultEnUs)
         }
-        DcConfigIO.removeIgnoreCase(obj, key)
+        DlcDcConfigIO.removeIgnoreCase(obj, key)
         obj.add(key, localized)
     }
 
@@ -1031,7 +1031,7 @@ object DlcPathConfig {
             Files.walk(remoteRoot).use { stream ->
                 stream.filter(Files::isRegularFile)
                     .filter { path -> path.fileName != null }
-                    .filter { path -> DcFormatUtil.isDcName(path.fileName.toString()) }
+                    .filter { path -> DlcDcFormatUtil.isDcName(path.fileName.toString()) }
                     .forEach { path ->
                         if (!path.normalize().startsWith(redirectRoot)) {
                             migrateRemoteEntryConfig(path)
@@ -1047,9 +1047,9 @@ object DlcPathConfig {
             return
         }
         val lower = path.fileName.toString().lowercase(Locale.ROOT)
-        if (lower.endsWith(DcFormatUtil.DC_EXTENSION)) {
+        if (lower.endsWith(DlcDcFormatUtil.DC_EXTENSION)) {
             val obj = readRemoteDcObject(path) ?: return
-            DcFormatUtil.write(path, obj)
+            DlcDcFormatUtil.write(path, obj)
         }
     }
 
@@ -1057,6 +1057,6 @@ object DlcPathConfig {
         if (path == null || !Files.exists(path)) {
             return null
         }
-        return DcFormatUtil.read(path)
+        return DlcDcFormatUtil.read(path)
     }
 }

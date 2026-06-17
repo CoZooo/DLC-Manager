@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class DcConfigIOTest {
+class DlcDcConfigIOTest {
     @TempDir
     Path tempDir;
 
@@ -23,12 +23,12 @@ class DcConfigIOTest {
         JsonObject object = new JsonObject();
         object.addProperty("name", "Entry");
 
-        assertTrue(DcConfigIO.write(original, object, DcConfigIO.Layout.GENERIC));
+        assertTrue(DlcDcConfigIO.write(original, object, DlcDcConfigIO.Layout.GENERIC));
 
         Path target = tempDir.resolve("entry.json.dc");
         assertTrue(Files.exists(target));
         assertFalse(Files.exists(original));
-        JsonObject read = DcConfigIO.read(target, DcConfigIO.Layout.GENERIC);
+        JsonObject read = DlcDcConfigIO.read(target, DlcDcConfigIO.Layout.GENERIC);
         assertNotNull(read);
         assertEquals("Entry", read.get("name").getAsString());
     }
@@ -41,9 +41,9 @@ class DcConfigIOTest {
         object.addProperty("priority", "modrinth");
         object.addProperty("directUrl", "https://example.com/file.jar");
 
-        assertTrue(DcConfigIO.write(target, object, DcConfigIO.Layout.DLC_STRUCTURED));
+        assertTrue(DlcDcConfigIO.write(target, object, DlcDcConfigIO.Layout.DLC_STRUCTURED));
 
-        JsonObject read = DcConfigIO.read(target, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject read = DlcDcConfigIO.read(target, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         assertNotNull(read);
         assertEquals("Entry", read.get("name").getAsString());
         assertFalse(read.has("priority"));
@@ -55,7 +55,7 @@ class DcConfigIOTest {
         Path json = tempDir.resolve("entry.json");
         Files.writeString(json, "name = \"Entry\"");
 
-        assertFalse(DcConfigIO.isDc(json));
-        assertEquals(null, DcConfigIO.read(json, DcConfigIO.Layout.GENERIC));
+        assertFalse(DlcDcConfigIO.isDc(json));
+        assertEquals(null, DlcDcConfigIO.read(json, DlcDcConfigIO.Layout.GENERIC));
     }
 }

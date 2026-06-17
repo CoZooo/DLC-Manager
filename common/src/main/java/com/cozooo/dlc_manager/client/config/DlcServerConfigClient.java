@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.config;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import fi.dy.masa.malilib.config.IConfigBase;
@@ -13,59 +13,59 @@ import java.util.List;
 public final class DlcServerConfigClient {
     private static final ConfigBoolean SERVER_SUPPORT = new DlcConfigBoolean("serverSupport", true,
         "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
-    private static final ConfigInteger SERVER_PORT = new DlcConfigInteger("serverPort", DlcPathConfig.DEFAULT_SERVER_PORT, 1, 65535,
+    private static final ConfigInteger SERVER_PORT = new DlcConfigInteger("serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535,
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort");
     private static final ConfigString SERVER_PASSWORD = new DlcConfigString("serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword");
-    private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcPathConfig.DEFAULT_API_ENABLED,
+    private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcConfig.DEFAULT_API_ENABLED,
         "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
-    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 0, 65535,
+    private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535,
         "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
     private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", "",
         "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
-    private static final ConfigBoolean UI_ENABLE_ALL = new DlcConfigBoolean("isEnableAllButtonShown", DlcPathConfig.DEFAULT_ENABLE_ALL_SHOWN,
+    private static final ConfigBoolean UI_ENABLE_ALL = new DlcConfigBoolean("isEnableAllButtonShown", DlcConfig.DEFAULT_ENABLE_ALL_SHOWN,
         "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown");
-    private static final ConfigBoolean UI_UPDATE_MANAGER = new DlcConfigBoolean("isUpdateManagerOn", DlcPathConfig.DEFAULT_UPDATE_MANAGER_ON,
+    private static final ConfigBoolean UI_UPDATE_MANAGER = new DlcConfigBoolean("isUpdateManagerOn", DlcConfig.DEFAULT_UPDATE_MANAGER_ON,
         "dlc_manager.config.comment.ui.isUpdateManagerOn", "dlc_manager.config.ui.isUpdateManagerOn");
-    private static final ConfigBoolean UI_SELF_UPDATE = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DlcPathConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON,
+    private static final ConfigBoolean UI_SELF_UPDATE = new DlcConfigBoolean("isSelfUpdateAutoCheckOn", DlcConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON,
         "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn");
-    private static final ConfigBoolean UI_PRESET = new DlcConfigBoolean("isPresetFuncOn", DlcPathConfig.DEFAULT_PRESET_FUNC_ON,
+    private static final ConfigBoolean UI_PRESET = new DlcConfigBoolean("isPresetFuncOn", DlcConfig.DEFAULT_PRESET_FUNC_ON,
         "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
-    private static final ConfigInteger UI_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
+    private static final ConfigInteger UI_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
         "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
-    private static final ConfigString MODPACK = new DlcConfigString("modpack", DlcPathConfig.DEFAULT_MODPACK,
+    private static final ConfigString MODPACK = new DlcConfigString("modpack", DlcConfig.DEFAULT_MODPACK,
         "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack");
-    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL,
+    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL,
         "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl");
-    private static final ConfigString UPDATE_GIT_REPO = new DlcConfigString("updateGitRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
+    private static final ConfigString UPDATE_GIT_REPO = new DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
         "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo");
 
-    private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DlcPathConfig.DEFAULT_DLC_ROOT,
+    private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DlcConfig.DEFAULT_DLC_ROOT,
         "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
-    private static final ConfigString TACZ_ROOT = new DlcConfigString("taczRoot", DlcPathConfig.DEFAULT_TACZ_DLC_ROOT,
+    private static final ConfigString TACZ_ROOT = new DlcConfigString("taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT,
         "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot");
-    private static final ConfigString RESOURCEPACK_ROOT = new DlcConfigString("resourcepackRoot", DlcPathConfig.DEFAULT_RESOURCEPACK_ROOT,
+    private static final ConfigString RESOURCEPACK_ROOT = new DlcConfigString("resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT,
         "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot");
-    private static final ConfigString DATAPACK_ROOT = new DlcConfigString("datapackRoot", DlcPathConfig.DEFAULT_DATAPACK_ROOT,
+    private static final ConfigString DATAPACK_ROOT = new DlcConfigString("datapackRoot", DlcConfig.DEFAULT_DATAPACK_ROOT,
         "dlc_manager.config.comment.paths.datapackRoot", "dlc_manager.config.paths.datapackRoot");
 
-    private static final ConfigInteger MAX_CONCURRENT = new DlcConfigInteger("maxConcurrentDownloads", DlcPathConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64,
+    private static final ConfigInteger MAX_CONCURRENT = new DlcConfigInteger("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64,
         "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads");
-    private static final ConfigInteger MAX_SEGMENTS = new DlcConfigInteger("maxSegmentsPerFile", DlcPathConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64,
+    private static final ConfigInteger MAX_SEGMENTS = new DlcConfigInteger("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64,
         "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile");
-    private static final ConfigInteger MIN_SEGMENT_MB = new DlcConfigInteger("minSegmentMB", DlcPathConfig.DEFAULT_MIN_SEGMENT_MB, 1, Integer.MAX_VALUE,
+    private static final ConfigInteger MIN_SEGMENT_MB = new DlcConfigInteger("minSegmentMB", DlcConfig.DEFAULT_MIN_SEGMENT_MB, 1, Integer.MAX_VALUE,
         "dlc_manager.config.comment.download.minSegmentMB", "dlc_manager.config.download.minSegmentMB");
-    private static final ConfigInteger MAX_RETRY = new DlcConfigInteger("maxRetryCount", DlcPathConfig.DEFAULT_MAX_RETRY, 1, 100,
+    private static final ConfigInteger MAX_RETRY = new DlcConfigInteger("maxRetryCount", DlcConfig.DEFAULT_MAX_RETRY, 1, 100,
         "dlc_manager.config.comment.download.maxRetryCount", "dlc_manager.config.download.maxRetryCount");
-    private static final ConfigInteger CONNECT_TIMEOUT = new DlcConfigInteger("connectTimeoutSeconds", DlcPathConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000,
+    private static final ConfigInteger CONNECT_TIMEOUT = new DlcConfigInteger("connectTimeoutSeconds", DlcConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000,
         "dlc_manager.config.comment.download.connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds");
-    private static final ConfigInteger TASK_TIMEOUT = new DlcConfigInteger("taskTimeoutSeconds", DlcPathConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000,
+    private static final ConfigInteger TASK_TIMEOUT = new DlcConfigInteger("taskTimeoutSeconds", DlcConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000,
         "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds");
-    private static final ConfigString DOWNLOAD_MIRROR_MODE = new DlcConfigString("downloadMirrorMode", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
+    private static final ConfigString DOWNLOAD_MIRROR_MODE = new DlcConfigString("downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
         "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode");
-    private static final ConfigInteger DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigInteger("downloadMirrorProbeCount", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 100,
+    private static final ConfigInteger DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigInteger("downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 100,
         "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount");
-    private static final ConfigString DOWNLOAD_MIRROR_PROBE_STRATEGY = new DlcConfigString("downloadMirrorProbeStrategy", DlcPathConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
+    private static final ConfigString DOWNLOAD_MIRROR_PROBE_STRATEGY = new DlcConfigString("downloadMirrorProbeStrategy", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
         "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy");
 
     private static final List<IConfigBase> SERVER_CONFIGS = List.of(
@@ -174,9 +174,9 @@ public final class DlcServerConfigClient {
         MAX_RETRY.setIntegerValue(getInt(downloads, "maxRetryCount", MAX_RETRY.getIntegerValue()));
         CONNECT_TIMEOUT.setIntegerValue(getInt(downloads, "connectTimeoutSeconds", CONNECT_TIMEOUT.getIntegerValue()));
         TASK_TIMEOUT.setIntegerValue(getInt(downloads, "taskTimeoutSeconds", TASK_TIMEOUT.getIntegerValue()));
-        DOWNLOAD_MIRROR_MODE.setValueFromString(DlcPathConfig.normalizeDownloadMirrorMode(getString(downloads, "downloadMirrorMode", DOWNLOAD_MIRROR_MODE.getStringValue())));
+        DOWNLOAD_MIRROR_MODE.setValueFromString(DlcConfig.normalizeDownloadMirrorMode(getString(downloads, "downloadMirrorMode", DOWNLOAD_MIRROR_MODE.getStringValue())));
         DOWNLOAD_MIRROR_PROBE_COUNT.setIntegerValue(getInt(downloads, "downloadMirrorProbeCount", DOWNLOAD_MIRROR_PROBE_COUNT.getIntegerValue()));
-        DOWNLOAD_MIRROR_PROBE_STRATEGY.setValueFromString(DlcPathConfig.normalizeDownloadMirrorProbeStrategy(getString(downloads, "downloadMirrorProbeStrategy", DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue())));
+        DOWNLOAD_MIRROR_PROBE_STRATEGY.setValueFromString(DlcConfig.normalizeDownloadMirrorProbeStrategy(getString(downloads, "downloadMirrorProbeStrategy", DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue())));
     }
 
     public static JsonObject toJson() {
@@ -221,9 +221,9 @@ public final class DlcServerConfigClient {
         downloads.addProperty("maxRetryCount", MAX_RETRY.getIntegerValue());
         downloads.addProperty("connectTimeoutSeconds", CONNECT_TIMEOUT.getIntegerValue());
         downloads.addProperty("taskTimeoutSeconds", TASK_TIMEOUT.getIntegerValue());
-        downloads.addProperty("downloadMirrorMode", DlcPathConfig.normalizeDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.getStringValue()));
+        downloads.addProperty("downloadMirrorMode", DlcConfig.normalizeDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.getStringValue()));
         downloads.addProperty("downloadMirrorProbeCount", Math.max(1, DOWNLOAD_MIRROR_PROBE_COUNT.getIntegerValue()));
-        downloads.addProperty("downloadMirrorProbeStrategy", DlcPathConfig.normalizeDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue()));
+        downloads.addProperty("downloadMirrorProbeStrategy", DlcConfig.normalizeDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue()));
         root.add("downloads", downloads);
 
         return root;
@@ -233,7 +233,7 @@ public final class DlcServerConfigClient {
         if (root == null) {
             return new JsonObject();
         }
-        JsonElement element = DcConfigIO.getIgnoreCase(root, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(root, key);
         if (element != null && element.isJsonObject()) {
             return element.getAsJsonObject();
         }
@@ -241,7 +241,7 @@ public final class DlcServerConfigClient {
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsBoolean();
@@ -253,7 +253,7 @@ public final class DlcServerConfigClient {
     }
 
     private static int getInt(JsonObject obj, String key, int fallback) {
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsInt();
@@ -265,7 +265,7 @@ public final class DlcServerConfigClient {
     }
 
     private static String getString(JsonObject obj, String key, String fallback) {
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsString();

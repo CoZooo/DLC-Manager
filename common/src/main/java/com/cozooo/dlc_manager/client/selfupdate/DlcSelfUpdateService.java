@@ -4,8 +4,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -205,7 +205,7 @@ public final class DlcSelfUpdateService {
         }
         JsonObject obj;
         try {
-            obj = DcConfigIO.read(marker, DcConfigIO.Layout.GENERIC);
+            obj = DlcDcConfigIO.read(marker, DlcDcConfigIO.Layout.GENERIC);
         } catch (Exception ex) {
             return false;
         }
@@ -319,7 +319,7 @@ public final class DlcSelfUpdateService {
             return null;
         }
         try {
-            JsonObject root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+            JsonObject root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
             SelfUpdateHistory history = root == null ? null : GSON.fromJson(root, SelfUpdateHistory.class);
             if (history != null && history.backupFile != null && !history.backupFile.isBlank()) {
                 Path dlcRoot = DlcPaths.dlcRoot();
@@ -387,7 +387,7 @@ public final class DlcSelfUpdateService {
             }
             history.appliedAt = Instant.now().toString();
             JsonObject root = GSON.toJsonTree(history).getAsJsonObject();
-            DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC);
         } catch (Exception ignored) {
         }
     }
@@ -398,7 +398,7 @@ public final class DlcSelfUpdateService {
             return null;
         }
         Path dir = DlcTmpPaths.resolve(dlcRoot, "selfupdate");
-        return DcFormatUtil.resolveConfigPath(dir, "self_update_history");
+        return DlcDcFormatUtil.resolveConfigPath(dir, "self_update_history");
     }
 
     private static void clearPendingMarker() {
@@ -425,7 +425,7 @@ public final class DlcSelfUpdateService {
             obj.addProperty("currentVersion", result.currentVersion == null ? "" : result.currentVersion);
             obj.addProperty("latestVersion", result.latestVersion == null ? "" : result.latestVersion);
             obj.addProperty("updatedAt", Instant.now().toString());
-            DcConfigIO.write(marker, obj, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(marker, obj, DlcDcConfigIO.Layout.GENERIC);
             return SaveResult.success();
         } catch (IOException ignored) {
             return SaveResult.failed();
@@ -457,7 +457,7 @@ public final class DlcSelfUpdateService {
             return null;
         }
         Path dir = configDir.resolve("dlc_manager");
-        return DcFormatUtil.resolveConfigPath(dir, "self_update");
+        return DlcDcFormatUtil.resolveConfigPath(dir, "self_update");
     }
 
     private static String readString(JsonObject obj, String key) {

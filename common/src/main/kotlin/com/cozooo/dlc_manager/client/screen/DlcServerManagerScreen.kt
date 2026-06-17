@@ -9,7 +9,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerItem
 import com.cozooo.dlc_manager.client.server.DlcServerList
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import net.minecraft.client.Minecraft
@@ -241,7 +241,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         val panelLeft = panelLeft()
         val panelRight = panelRight()
         val panelWidth = panelRight - panelLeft
-        val showPackButton = DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown()
+        val showPackButton = DlcConfig.isPackFuncOn() && !DlcConfig.isPButtomShown()
         val buttonCount = if (showPackButton) 6 else 5
         var buttonWidth = min(90, (panelWidth - 16 - gap * (buttonCount - 1)) / buttonCount)
         if (buttonWidth < 70) {

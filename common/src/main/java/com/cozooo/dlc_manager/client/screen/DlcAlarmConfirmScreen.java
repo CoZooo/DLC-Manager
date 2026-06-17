@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -60,7 +60,7 @@ public class DlcAlarmConfirmScreen extends Screen {
         this.checkboxX = (this.width - totalCheckboxWidth) / 2;
         this.checkboxY = buttonY - 24;
 
-        int configuredWaiting = Math.max(0, Math.min(10, DlcPathConfig.getAlarmWaitingTime()));
+        int configuredWaiting = Math.max(0, Math.min(10, DlcConfig.getAlarmWaitingTime()));
         this.waitEndMillis = configuredWaiting > 0 ? (System.currentTimeMillis() + configuredWaiting * 1000L) : 0L;
         updateConfirmButtonState();
     }

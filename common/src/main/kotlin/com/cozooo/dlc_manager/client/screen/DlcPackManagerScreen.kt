@@ -14,7 +14,7 @@ import com.cozooo.dlc_manager.client.pack.DlcPackPackage
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.mojang.blaze3d.platform.NativeImage
 import net.minecraft.Util
@@ -96,15 +96,15 @@ class DlcPackManagerScreen(
         val import = Button.builder(Component.translatable("dlc_manager.pack.import")) { importPackArchive() }
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build()
-        import.active = DlcPathConfig.isPackFuncOn() && !busy
+        import.active = DlcConfig.isPackFuncOn() && !busy
         val url = Button.builder(Component.translatable("dlc_manager.pack.import_url")) {
             Minecraft.getInstance().setScreen(DlcPackUrlScreen(this))
         }.bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight).build()
-        url.active = DlcPathConfig.isPackFuncOn() && !busy
+        url.active = DlcConfig.isPackFuncOn() && !busy
         val apply = Button.builder(Component.translatable("dlc_manager.pack.apply")) { applyPendingChanges() }
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build()
-        apply.active = DlcPathConfig.isPackFuncOn() && hasPendingChanges() && !busy
+        apply.active = DlcConfig.isPackFuncOn() && hasPendingChanges() && !busy
         val backLabel = when {
             busy -> Component.translatable("dlc_manager.pack.cancel")
             hasPendingChanges() -> Component.translatable("dlc_manager.pack.cancel_changes")
@@ -125,7 +125,7 @@ class DlcPackManagerScreen(
     }
 
     private fun addCompleteButton() {
-        if (!DlcPathConfig.isPackFuncOn() || !DlcRemoteManager.hasMissingDlcPacks()) {
+        if (!DlcConfig.isPackFuncOn() || !DlcRemoteManager.hasMissingDlcPacks()) {
             completeButton = null
             return
         }
@@ -163,7 +163,7 @@ class DlcPackManagerScreen(
             DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
             return
         }
-        if (!DlcPathConfig.isPackFuncOn()) {
+        if (!DlcConfig.isPackFuncOn()) {
             guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.pack.disabled"), width / 2, height / 2 - 8, 0xFFCC66)
         } else {
             renderPackList(guiGraphics, mouseX, mouseY)
@@ -554,7 +554,7 @@ class DlcPackManagerScreen(
     }
 
     private fun importPackArchive() {
-        if (!DlcPathConfig.isPackFuncOn()) {
+        if (!DlcConfig.isPackFuncOn()) {
             status = Component.translatable("dlc_manager.pack.disabled")
             return
         }

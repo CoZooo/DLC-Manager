@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.required;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -28,22 +28,22 @@ public final class DlcRequiredNotice {
     public static DlcRequiredNotice load() {
         Map<String, String> download = new HashMap<>();
         Map<String, String> manage = new HashMap<>();
-        Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path dlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
         if (dlcRoot == null) {
             return new DlcRequiredNotice(download, manage);
         }
         Path requiredDir = dlcRoot.resolve("required");
-        Path noticePath = DcFormatUtil.resolveConfigPath(requiredDir, "notice");
+        Path noticePath = DlcDcFormatUtil.resolveConfigPath(requiredDir, "notice");
         ensureNoticeFile(noticePath);
         if (!Files.exists(noticePath)) {
             return new DlcRequiredNotice(download, manage);
         }
-        JsonObject obj = DcConfigIO.read(noticePath, DcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(noticePath, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return new DlcRequiredNotice(download, manage);
         }
-        readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "download_desc"), download);
-        readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "manage_desc"), manage);
+        readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "download_desc"), download);
+        readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "manage_desc"), manage);
         return new DlcRequiredNotice(download, manage);
     }
 
@@ -61,7 +61,7 @@ public final class DlcRequiredNotice {
         }
         for (var entry : data.entrySet()) {
             if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
-                out.put(DcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
+                out.put(DlcDcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
             }
         }
     }
@@ -70,7 +70,7 @@ public final class DlcRequiredNotice {
         if (values == null || values.isEmpty()) {
             return "";
         }
-        String lang = DcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
         if (lang != null && values.containsKey(lang)) {
             return values.get(lang);
         }
@@ -96,7 +96,7 @@ public final class DlcRequiredNotice {
         obj.add("manage_desc", manage);
         try {
             Files.createDirectories(noticePath.getParent());
-            DcConfigIO.write(noticePath, obj, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(noticePath, obj, DlcDcConfigIO.Layout.GENERIC);
         } catch (Exception ignored) {
         }
     }

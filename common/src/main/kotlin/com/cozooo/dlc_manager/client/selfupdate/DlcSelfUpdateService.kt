@@ -4,8 +4,8 @@ import com.cozooo.dlc_manager.client.download.CurseForgeClient
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DcFormatUtil
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcTmpPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
@@ -208,7 +208,7 @@ object DlcSelfUpdateService {
             return false
         }
         val obj = try {
-            DcConfigIO.read(marker, DcConfigIO.Layout.GENERIC)
+            DlcDcConfigIO.read(marker, DlcDcConfigIO.Layout.GENERIC)
         } catch (_: Exception) {
             return false
         }
@@ -311,7 +311,7 @@ object DlcSelfUpdateService {
             return null
         }
         return try {
-            val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC)
+            val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
             val history = if (root == null) null else GSON.fromJson(root, SelfUpdateHistory::class.java)
             if (history != null && !history.backupFile.isNullOrBlank()) {
                 val dlcRoot = DlcPaths.dlcRoot()
@@ -372,7 +372,7 @@ object DlcSelfUpdateService {
             }
             history.appliedAt = Instant.now().toString()
             val root = GSON.toJsonTree(history).asJsonObject
-            DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC)
+            DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC)
         } catch (_: Exception) {
         }
     }
@@ -380,7 +380,7 @@ object DlcSelfUpdateService {
     private fun getHistoryPath(): Path? {
         val dlcRoot = DlcPaths.dlcRoot() ?: return null
         val dir = DlcTmpPaths.resolve(dlcRoot, "selfupdate") ?: return null
-        return DcFormatUtil.resolveConfigPath(dir, "self_update_history")
+        return DlcDcFormatUtil.resolveConfigPath(dir, "self_update_history")
     }
 
     private fun clearPendingMarker() {
@@ -404,7 +404,7 @@ object DlcSelfUpdateService {
             obj.addProperty("currentVersion", result.currentVersion ?: "")
             obj.addProperty("latestVersion", result.latestVersion ?: "")
             obj.addProperty("updatedAt", Instant.now().toString())
-            DcConfigIO.write(marker, obj, DcConfigIO.Layout.GENERIC)
+            DlcDcConfigIO.write(marker, obj, DlcDcConfigIO.Layout.GENERIC)
             SaveResult.success()
         } catch (_: IOException) {
             SaveResult.failed()
@@ -434,7 +434,7 @@ object DlcSelfUpdateService {
     private fun getMarkerPath(): Path? {
         val configDir = CrossPlatformRuntime.configDir() ?: return null
         val dir = configDir.resolve("dlc_manager")
-        return DcFormatUtil.resolveConfigPath(dir, "self_update")
+        return DlcDcFormatUtil.resolveConfigPath(dir, "self_update")
     }
 
     private fun readString(obj: JsonObject?, key: String?): String {

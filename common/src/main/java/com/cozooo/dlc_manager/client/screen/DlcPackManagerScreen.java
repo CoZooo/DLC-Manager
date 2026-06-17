@@ -15,7 +15,7 @@ import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.Util;
@@ -121,15 +121,15 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         importButton = Button.builder(Component.translatable("dlc_manager.pack.import"), btn -> importPackArchive())
             .bounds(startX, y, buttonWidth, buttonHeight)
             .build();
-        importButton.active = DlcPathConfig.isPackFuncOn() && !busy;
+        importButton.active = DlcConfig.isPackFuncOn() && !busy;
         urlButton = Button.builder(Component.translatable("dlc_manager.pack.import_url"), btn -> Minecraft.getInstance().setScreen(new DlcPackUrlScreen(this)))
             .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
             .build();
-        urlButton.active = DlcPathConfig.isPackFuncOn() && !busy;
+        urlButton.active = DlcConfig.isPackFuncOn() && !busy;
         applyButton = Button.builder(Component.translatable("dlc_manager.pack.apply"), btn -> applyPendingChanges())
             .bounds(startX + (buttonWidth + gap) * 2, y, buttonWidth, buttonHeight)
             .build();
-        applyButton.active = DlcPathConfig.isPackFuncOn() && hasPendingChanges() && !busy;
+        applyButton.active = DlcConfig.isPackFuncOn() && hasPendingChanges() && !busy;
         Component backLabel = busy
             ? Component.translatable("dlc_manager.pack.cancel")
             : hasPendingChanges() ? Component.translatable("dlc_manager.pack.cancel_changes") : Component.translatable("dlc_manager.pack.back");
@@ -144,7 +144,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void addCompleteButton() {
-        if (!DlcPathConfig.isPackFuncOn() || !DlcRemoteManager.hasMissingDlcPacks()) {
+        if (!DlcConfig.isPackFuncOn() || !DlcRemoteManager.hasMissingDlcPacks()) {
             completeButton = null;
             return;
         }
@@ -180,7 +180,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
             return;
         }
-        if (!DlcPathConfig.isPackFuncOn()) {
+        if (!DlcConfig.isPackFuncOn()) {
             guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack.disabled"), this.width / 2, this.height / 2 - 8, 0xFFCC66);
         } else {
             renderPackList(guiGraphics, mouseX, mouseY);
@@ -595,7 +595,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void importPackArchive() {
-        if (!DlcPathConfig.isPackFuncOn()) {
+        if (!DlcConfig.isPackFuncOn()) {
             status = Component.translatable("dlc_manager.pack.disabled");
             return;
         }

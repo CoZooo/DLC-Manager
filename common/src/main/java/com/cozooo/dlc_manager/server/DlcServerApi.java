@@ -9,11 +9,11 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.ApplyMode;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -63,11 +63,11 @@ public final class DlcServerApi {
 
     public static synchronized void start(MinecraftServer server) {
         currentServer = server;
-        if (!DlcPathConfig.isApiEnabled()) {
+        if (!DlcConfig.isApiEnabled()) {
             LOGGER.info("[dlc-manager] API disabled; skip DlcServerApi start");
             return;
         }
-        if (DlcPathConfig.getApiPort() == 0) {
+        if (DlcConfig.getApiPort() == 0) {
             LOGGER.info("[dlc-manager] HTTP API disabled because apiPort is 0; Java API remains available");
             return;
         }
@@ -78,7 +78,7 @@ public final class DlcServerApi {
             RUNNING.set(false);
         }
         try {
-            HttpServer created = HttpServer.create(new InetSocketAddress(DlcPathConfig.getApiPort()), 0);
+            HttpServer created = HttpServer.create(new InetSocketAddress(DlcConfig.getApiPort()), 0);
             created.createContext("/api", new ApiHandler());
             clientPool = Executors.newCachedThreadPool(runnable -> {
                 Thread thread = new Thread(runnable, "dlc-manager-api-client");
@@ -89,10 +89,10 @@ public final class DlcServerApi {
             created.start();
             httpServer = created;
             RUNNING.set(true);
-            if (DlcPathConfig.getApiToken() == null || DlcPathConfig.getApiToken().isBlank()) {
-                LOGGER.warn("[dlc-manager] DlcServerApi started on port {} with empty token; all requests will be rejected until apiToken is configured", DlcPathConfig.getApiPort());
+            if (DlcConfig.getApiToken() == null || DlcConfig.getApiToken().isBlank()) {
+                LOGGER.warn("[dlc-manager] DlcServerApi started on port {} with empty token; all requests will be rejected until apiToken is configured", DlcConfig.getApiPort());
             } else {
-                LOGGER.info("[dlc-manager] DlcServerApi started on port {}", DlcPathConfig.getApiPort());
+                LOGGER.info("[dlc-manager] DlcServerApi started on port {}", DlcConfig.getApiPort());
             }
         } catch (IOException error) {
             RUNNING.set(false);
@@ -296,7 +296,7 @@ public final class DlcServerApi {
     }
 
     private static void handleVersion(HttpExchange exchange) throws IOException {
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         JsonObject data = new JsonObject();
         data.addProperty("base", version == null ? "" : version.getBase());
@@ -308,7 +308,7 @@ public final class DlcServerApi {
     }
 
     private static void handleState(HttpExchange exchange) throws IOException {
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
         int total = 0;
@@ -671,13 +671,13 @@ public final class DlcServerApi {
 
     private static void handleDlcApplyPending(HttpExchange exchange, String modeRaw) throws IOException {
         String normalizedMode = blank(modeRaw).toLowerCase(Locale.ROOT);
-        ApplyMode applyMode;
+        DlcApplyMode applyMode;
         String responseMode;
         if (normalizedMode.isBlank() || "restart".equals(normalizedMode)) {
-            applyMode = ApplyMode.RESTART_ONLY;
+            applyMode = DlcApplyMode.RESTART_ONLY;
             responseMode = "restart";
         } else if ("reload".equals(normalizedMode)) {
-            applyMode = ApplyMode.TRY_HOT_RELOAD;
+            applyMode = DlcApplyMode.TRY_HOT_RELOAD;
             responseMode = "reload";
         } else {
             sendError(exchange, 400, "invalid_mode", "mode must be either 'restart' or 'reload'.");
@@ -741,12 +741,12 @@ public final class DlcServerApi {
     private static void handleRemoteList(HttpExchange exchange) throws IOException {
         String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
         JsonObject data = new JsonObject();
-        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcPathConfig.getDlcRoot(), lang)));
+        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)));
         sendOk(exchange, data);
     }
 
     private static void handleRemoteDownload(HttpExchange exchange) throws IOException {
-        DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadMissingRemote(DlcPathConfig.getDlcRoot());
+        DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadMissingRemote(DlcConfig.getDlcRoot());
         JsonObject data = new JsonObject();
         data.addProperty("success", result.success);
         data.addProperty("downloaded", result.downloadedCount);
@@ -758,7 +758,7 @@ public final class DlcServerApi {
         JsonObject request = readJsonBody(exchange);
         List<String> keys = readStringArray(request, "keys");
         String lang = blank(getString(request, "lang"));
-        DlcServerRemoteStatus status = DlcServerDownloadService.startRemoteDownload(DlcPathConfig.getDlcRoot(), keys, lang);
+        DlcServerRemoteStatus status = DlcServerDownloadService.startRemoteDownload(DlcConfig.getDlcRoot(), keys, lang);
         JsonObject data = new JsonObject();
         data.add("status", GSON.toJsonTree(status));
         sendOk(exchange, data);
@@ -774,7 +774,7 @@ public final class DlcServerApi {
 
     private static void handleRequiredList(HttpExchange exchange) throws IOException {
         String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
-        List<DlcServerRequiredItem> items = DlcServerDownloadService.collectRequiredItems(DlcPathConfig.getDlcRoot(), lang);
+        List<DlcServerRequiredItem> items = DlcServerDownloadService.collectRequiredItems(DlcConfig.getDlcRoot(), lang);
         JsonObject data = new JsonObject();
         data.add("items", GSON.toJsonTree(items));
         sendOk(exchange, data);
@@ -784,7 +784,7 @@ public final class DlcServerApi {
         JsonObject request = readJsonBody(exchange);
         List<String> ids = readStringArray(request, "ids");
         String lang = blank(getString(request, "lang"));
-        DlcServerRequiredStatus status = DlcServerDownloadService.startRequiredDownload(DlcPathConfig.getDlcRoot(), ids, lang);
+        DlcServerRequiredStatus status = DlcServerDownloadService.startRequiredDownload(DlcConfig.getDlcRoot(), ids, lang);
         JsonObject data = new JsonObject();
         data.add("status", GSON.toJsonTree(status));
         sendOk(exchange, data);
@@ -808,7 +808,7 @@ public final class DlcServerApi {
         JsonObject request = readJsonBody(exchange);
         List<String> ids = readStringArray(request, "ids");
         JsonObject data = new JsonObject();
-        data.addProperty("removed", DlcServerDownloadService.uninstallRequired(DlcPathConfig.getDlcRoot(), ids));
+        data.addProperty("removed", DlcServerDownloadService.uninstallRequired(DlcConfig.getDlcRoot(), ids));
         sendOk(exchange, data);
     }
 
@@ -816,7 +816,7 @@ public final class DlcServerApi {
         JsonObject request = readJsonBody(exchange);
         List<String> ids = readStringArray(request, "ids");
         JsonObject data = new JsonObject();
-        data.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcPathConfig.getDlcRoot(), ids));
+        data.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids));
         sendOk(exchange, data);
     }
 
@@ -998,7 +998,7 @@ public final class DlcServerApi {
     }
 
     private static void handleUpdateState(HttpExchange exchange) throws IOException {
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         DlcUpdateVersion version = dlcRoot == null ? null : DlcUpdateVersion.load(dlcRoot);
         String base = version == null ? "" : blank(version.getBase());
         String dlc = version == null ? "" : blank(version.getDlc());
@@ -1239,7 +1239,7 @@ public final class DlcServerApi {
         if (obj == null) {
             return false;
         }
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (element == null || element.isJsonNull()) {
             return false;
         }
@@ -1255,7 +1255,7 @@ public final class DlcServerApi {
     }
 
     private static List<String> readStringArray(JsonObject obj, String key) {
-        JsonArray array = obj == null ? null : DcConfigIO.getArrayIgnoreCase(obj, key);
+        JsonArray array = obj == null ? null : DlcDcConfigIO.getArrayIgnoreCase(obj, key);
         List<String> values = new ArrayList<>();
         if (array == null) {
             return values;
@@ -1272,7 +1272,7 @@ public final class DlcServerApi {
     }
 
     private static String getString(JsonObject obj, String key) {
-        return obj == null ? "" : blank(DcConfigIO.getStringIgnoreCase(obj, key));
+        return obj == null ? "" : blank(DlcDcConfigIO.getStringIgnoreCase(obj, key));
     }
 
     private static JsonObject readJsonBody(HttpExchange exchange) throws IOException {
@@ -1320,7 +1320,7 @@ public final class DlcServerApi {
     }
 
     private static boolean isAuthorized(HttpExchange exchange) {
-        String expected = DlcPathConfig.getApiToken();
+        String expected = DlcConfig.getApiToken();
         if (expected == null || expected.isBlank()) {
             return false;
         }

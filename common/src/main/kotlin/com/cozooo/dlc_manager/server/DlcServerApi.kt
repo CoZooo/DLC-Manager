@@ -9,8 +9,8 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -60,11 +60,11 @@ object DlcServerApi {
     @Synchronized
     fun start(server: MinecraftServer?) {
         currentServerValue = server
-        if (!DlcPathConfig.isApiEnabled()) {
+        if (!DlcConfig.isApiEnabled()) {
             LOGGER.info("[dlc-manager] API disabled; skip DlcServerApi start")
             return
         }
-        if (DlcPathConfig.getApiPort() == 0) {
+        if (DlcConfig.getApiPort() == 0) {
             LOGGER.info("[dlc-manager] HTTP API disabled because apiPort is 0; Java API remains available")
             return
         }
@@ -75,7 +75,7 @@ object DlcServerApi {
             RUNNING.set(false)
         }
         try {
-            val created = HttpServer.create(InetSocketAddress(DlcPathConfig.getApiPort()), 0)
+            val created = HttpServer.create(InetSocketAddress(DlcConfig.getApiPort()), 0)
             created.createContext("/api", ApiHandler())
             clientPool = Executors.newCachedThreadPool { runnable ->
                 Thread(runnable, "dlc-manager-api-client").apply { isDaemon = true }
@@ -84,13 +84,13 @@ object DlcServerApi {
             created.start()
             httpServer = created
             RUNNING.set(true)
-            if (DlcPathConfig.getApiToken().isNullOrBlank()) {
+            if (DlcConfig.getApiToken().isNullOrBlank()) {
                 LOGGER.warn(
                     "[dlc-manager] DlcServerApi started on port {} with empty token; all requests will be rejected until apiToken is configured",
-                    DlcPathConfig.getApiPort(),
+                    DlcConfig.getApiPort(),
                 )
             } else {
-                LOGGER.info("[dlc-manager] DlcServerApi started on port {}", DlcPathConfig.getApiPort())
+                LOGGER.info("[dlc-manager] DlcServerApi started on port {}", DlcConfig.getApiPort())
             }
         } catch (error: IOException) {
             RUNNING.set(false)
@@ -209,13 +209,13 @@ object DlcServerApi {
     private fun handleRemoteList(exchange: HttpExchange) {
         val lang = blank(exchange.requestHeaders.getFirst("X-Dlc-Lang"))
         val data = JsonObject()
-        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcPathConfig.getDlcRoot(), lang)))
+        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)))
         sendOk(exchange, data)
     }
 
     @Throws(IOException::class)
     private fun handleRemoteDownload(exchange: HttpExchange) {
-        val result = DlcServerDownloadService.downloadMissingRemote(DlcPathConfig.getDlcRoot())
+        val result = DlcServerDownloadService.downloadMissingRemote(DlcConfig.getDlcRoot())
         val data = JsonObject()
         data.addProperty("success", result.success)
         data.addProperty("downloaded", result.downloadedCount)
@@ -228,7 +228,7 @@ object DlcServerApi {
         val request = readJsonBody(exchange)
         val keys = readStringArray(request, "keys")
         val lang = blank(getString(request, "lang"))
-        val status: DlcServerRemoteStatus = DlcServerDownloadService.startRemoteDownload(DlcPathConfig.getDlcRoot(), keys, lang)
+        val status: DlcServerRemoteStatus = DlcServerDownloadService.startRemoteDownload(DlcConfig.getDlcRoot(), keys, lang)
         val data = JsonObject()
         data.add("status", GSON.toJsonTree(status))
         sendOk(exchange, data)
@@ -246,7 +246,7 @@ object DlcServerApi {
     @Throws(IOException::class)
     private fun handleRequiredList(exchange: HttpExchange) {
         val lang = blank(exchange.requestHeaders.getFirst("X-Dlc-Lang"))
-        val items: List<DlcServerRequiredItem> = DlcServerDownloadService.collectRequiredItems(DlcPathConfig.getDlcRoot(), lang)
+        val items: List<DlcServerRequiredItem> = DlcServerDownloadService.collectRequiredItems(DlcConfig.getDlcRoot(), lang)
         val data = JsonObject()
         data.add("items", GSON.toJsonTree(items))
         sendOk(exchange, data)
@@ -257,7 +257,7 @@ object DlcServerApi {
         val request = readJsonBody(exchange)
         val ids = readStringArray(request, "ids")
         val lang = blank(getString(request, "lang"))
-        val status: DlcServerRequiredStatus = DlcServerDownloadService.startRequiredDownload(DlcPathConfig.getDlcRoot(), ids, lang)
+        val status: DlcServerRequiredStatus = DlcServerDownloadService.startRequiredDownload(DlcConfig.getDlcRoot(), ids, lang)
         val data = JsonObject()
         data.add("status", GSON.toJsonTree(status))
         sendOk(exchange, data)
@@ -284,7 +284,7 @@ object DlcServerApi {
         val request = readJsonBody(exchange)
         val ids = readStringArray(request, "ids")
         val data = JsonObject()
-        data.addProperty("removed", DlcServerDownloadService.uninstallRequired(DlcPathConfig.getDlcRoot(), ids))
+        data.addProperty("removed", DlcServerDownloadService.uninstallRequired(DlcConfig.getDlcRoot(), ids))
         sendOk(exchange, data)
     }
 
@@ -293,7 +293,7 @@ object DlcServerApi {
         val request = readJsonBody(exchange)
         val ids = readStringArray(request, "ids")
         val data = JsonObject()
-        data.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcPathConfig.getDlcRoot(), ids))
+        data.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids))
         sendOk(exchange, data)
     }
 
@@ -470,7 +470,7 @@ object DlcServerApi {
 
     @Throws(IOException::class)
     private fun handleUpdateState(exchange: HttpExchange) {
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(dlcRoot)
         val base = blank(version?.getBase())
         val dlc = blank(version?.getDlc())
@@ -700,7 +700,7 @@ object DlcServerApi {
         if (obj == null) {
             return false
         }
-        val element = DcConfigIO.getIgnoreCase(obj, key)
+        val element = DlcDcConfigIO.getIgnoreCase(obj, key)
         if (element == null || element.isJsonNull) {
             return false
         }
@@ -714,7 +714,7 @@ object DlcServerApi {
     private fun normalizeRelativePath(relative: Path?): String = relative?.toString()?.replace('\\', '/') ?: ""
 
     private fun readStringArray(obj: JsonObject?, key: String): List<String> {
-        val array = if (obj == null) null else DcConfigIO.getArrayIgnoreCase(obj, key)
+        val array = if (obj == null) null else DlcDcConfigIO.getArrayIgnoreCase(obj, key)
         val values = ArrayList<String>()
         if (array == null) {
             return values
@@ -730,7 +730,7 @@ object DlcServerApi {
         return values
     }
 
-    private fun getString(obj: JsonObject?, key: String): String = if (obj == null) "" else blank(DcConfigIO.getStringIgnoreCase(obj, key))
+    private fun getString(obj: JsonObject?, key: String): String = if (obj == null) "" else blank(DlcDcConfigIO.getStringIgnoreCase(obj, key))
 
     @Throws(IOException::class)
     private fun readJsonBody(exchange: HttpExchange): JsonObject {
@@ -780,7 +780,7 @@ object DlcServerApi {
     }
 
     private fun isAuthorized(exchange: HttpExchange): Boolean {
-        val expected = DlcPathConfig.getApiToken()
+        val expected = DlcConfig.getApiToken()
         if (expected.isNullOrBlank()) {
             return false
         }

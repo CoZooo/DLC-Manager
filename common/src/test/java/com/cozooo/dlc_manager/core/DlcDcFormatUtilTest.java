@@ -13,25 +13,25 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class DcFormatUtilTest {
+class DlcDcFormatUtilTest {
     @Test
     void recognizesAndConvertsDcPaths() {
-        assertTrue(DcFormatUtil.isDcName("example.dc"));
-        assertTrue(DcFormatUtil.isDcName("example.DC"));
-        assertFalse(DcFormatUtil.isDcName("example.json"));
-        assertFalse(DcFormatUtil.isDcName(null));
+        assertTrue(DlcDcFormatUtil.isDcName("example.dc"));
+        assertTrue(DlcDcFormatUtil.isDcName("example.DC"));
+        assertFalse(DlcDcFormatUtil.isDcName("example.json"));
+        assertFalse(DlcDcFormatUtil.isDcName(null));
 
-        assertEquals("example", DcFormatUtil.stripConfigExtension("example.dc"));
-        assertEquals("example", DcFormatUtil.stripConfigExtension("example"));
-        assertEquals("", DcFormatUtil.stripConfigExtension(null));
-        assertEquals(Path.of("folder", "example.json.dc"), DcFormatUtil.toDcPath(Path.of("folder", "example.json")));
-        assertEquals(Path.of("folder", "version.dc"), DcFormatUtil.resolveConfigPath(Path.of("folder"), "version"));
-        assertNull(DcFormatUtil.resolveConfigPath(null, "version"));
+        assertEquals("example", DlcDcFormatUtil.stripConfigExtension("example.dc"));
+        assertEquals("example", DlcDcFormatUtil.stripConfigExtension("example"));
+        assertEquals("", DlcDcFormatUtil.stripConfigExtension(null));
+        assertEquals(Path.of("folder", "example.json.dc"), DlcDcFormatUtil.toDcPath(Path.of("folder", "example.json")));
+        assertEquals(Path.of("folder", "version.dc"), DlcDcFormatUtil.resolveConfigPath(Path.of("folder"), "version"));
+        assertNull(DlcDcFormatUtil.resolveConfigPath(null, "version"));
     }
 
     @Test
     void readGenericTextParsesScalarsNestedSectionsAndDottedSections() {
-        JsonObject object = DcFormatUtil.readGenericText("""
+        JsonObject object = DlcDcFormatUtil.readGenericText("""
             name = "Example"
             enabled = true
             count = 3
@@ -62,7 +62,7 @@ class DcFormatUtilTest {
         conflicts.add("mods/b.jar");
         object.add("conflicts", conflicts);
 
-        String written = DcFormatUtil.writeGeneric(object);
+        String written = DlcDcFormatUtil.writeGeneric(object);
 
         assertTrue(written.contains("enable = ["));
         assertTrue(written.contains("\"mods/a.jar\""));
@@ -71,7 +71,7 @@ class DcFormatUtilTest {
 
     @Test
     void readGenericTextSupportsMultilineStringsAndComments() {
-        JsonObject object = DcFormatUtil.readGenericText("""
+        JsonObject object = DlcDcFormatUtil.readGenericText("""
             title = "Visible" # ignored comment
             body = \"\"\"
             line1
@@ -114,7 +114,7 @@ class DcFormatUtilTest {
         Path path = Files.createTempFile("dc-format-util-test", ".dc");
         Files.writeString(path, source);
 
-        JsonObject structured = DcFormatUtil.read(path);
+        JsonObject structured = DlcDcFormatUtil.read(path);
 
         assertNotNull(structured);
         JsonObject dependencies = structured.getAsJsonObject("dependencies");
@@ -127,7 +127,7 @@ class DcFormatUtilTest {
         assertEquals("legacy_conflict", conflicts.get("legacy_conflict").getAsString());
         assertEquals("identifier_conflict", conflicts.get("identifier_conflict").getAsString());
 
-        String written = DcFormatUtil.write(structured);
+        String written = DlcDcFormatUtil.write(structured);
         assertFalse(written.contains("dependencies ="));
         assertFalse(written.contains("conflicts ="));
         assertTrue(written.contains("[dependencies]"));

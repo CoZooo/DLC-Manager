@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -63,7 +63,7 @@ public final class DlcServerCommandHandlers {
         if (!isServerSupportEnabled(source)) {
             return 0;
         }
-        if (!DlcPathConfig.isUpdateManagerOn()) {
+        if (!DlcConfig.isUpdateManagerOn()) {
             sendFailure(source, Component.translatable("dlc_manager.update.no_updates"));
             return 0;
         }
@@ -123,7 +123,7 @@ public final class DlcServerCommandHandlers {
     }
 
     private static boolean isServerSupportEnabled(CommandSourceStack source) {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             sendFailure(source, Component.translatable("dlc_manager.server.command_disabled"));
             return false;
         }

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.download
 
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import java.io.IOException
@@ -32,7 +32,7 @@ object CurseForgeClient {
     private const val API_KEY_PART2_SEED = 0xA5
     private var API_KEY_CACHE: String? = null
     private val CLIENT: HttpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs().toLong()))
+        .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs().toLong()))
         .build()
     private val CACHE: MutableMap<String, CurseForgeFile> = ConcurrentHashMap()
     private val MOD_CACHE: MutableMap<String, CurseForgeMod> = ConcurrentHashMap()
@@ -439,7 +439,7 @@ object CurseForgeClient {
                 val builder = HttpRequest.newBuilder()
                     .uri(URI.create(endpoint))
                     .header("User-Agent", "DLC-Manager")
-                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+                    .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs().toLong()))
                     .GET()
                 if (!apiKey.isNullOrBlank()) {
                     builder.header("x-api-key", apiKey)
@@ -537,8 +537,8 @@ object CurseForgeClient {
             connection = URI.create(fallbackUrl).toURL().openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = false
             connection.requestMethod = "GET"
-            connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-            connection.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            connection.connectTimeout = DlcConfig.getConnectTimeoutMs()
+            connection.readTimeout = DlcConfig.getTaskTimeoutMs()
             connection.setRequestProperty("User-Agent", "DLC-Manager")
             connection.connect()
             if (!isRedirect(connection.responseCode)) {

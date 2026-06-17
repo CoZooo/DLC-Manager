@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.core;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -23,12 +23,12 @@ public class DlcStateConfig {
 
     public static void load() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        configPath = DcFormatUtil.resolveConfigPath(configDir, "state");
+        configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "state");
         stateById = new HashMap<>();
         boolean migrateLegacyStateSection = false;
         if (configPath != null && Files.exists(configPath)) {
             try {
-                com.google.gson.JsonObject root = DcConfigIO.read(configPath, DcConfigIO.Layout.GENERIC);
+                com.google.gson.JsonObject root = DlcDcConfigIO.read(configPath, DlcDcConfigIO.Layout.GENERIC);
                 if (root != null) {
                     DlcStateConfigData data = GSON.fromJson(root, DlcStateConfigData.class);
                     if (data != null && data.DLC == null && data.stateById != null) {
@@ -65,7 +65,7 @@ public class DlcStateConfig {
             DlcStateConfigData data = new DlcStateConfigData();
             data.DLC = stateById;
             com.google.gson.JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
-            DcConfigIO.write(configPath, root, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(configPath, root, DlcDcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }

@@ -29,10 +29,10 @@ class DlcScannerTest {
         gameDir = tempDir.resolve("game");
         dlcRoot = gameDir.resolve("DLC");
         PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
-        DlcPathConfig.setDlcRoot("DLC");
-        DlcPathConfig.setResourcepackRoot("resourcepacks");
-        DlcPathConfig.setDatapackRoot("datapacks");
-        DlcPathConfig.setTaczRoot("tacz");
+        DlcConfig.setDlcRoot("DLC");
+        DlcConfig.setResourcepackRoot("resourcepacks");
+        DlcConfig.setDatapackRoot("datapacks");
+        DlcConfig.setTaczRoot("tacz");
         DlcStateConfig.load();
     }
 

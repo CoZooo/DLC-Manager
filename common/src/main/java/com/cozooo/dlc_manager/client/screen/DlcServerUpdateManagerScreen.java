@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
@@ -605,7 +605,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
         if (applying || loading) {
             return;
         }
-        Path updateDir = DlcPathConfig.getDlcRoot().resolve("update");
+        Path updateDir = DlcConfig.getDlcRoot().resolve("update");
         if (!Files.isDirectory(updateDir)) {
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")));
             return;

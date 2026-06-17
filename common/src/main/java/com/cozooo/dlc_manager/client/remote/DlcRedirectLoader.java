@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.remote;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -26,7 +26,7 @@ public final class DlcRedirectLoader {
         }
         List<DlcRedirectEntry> entries = new ArrayList<>();
         try (var stream = Files.walk(redirectRoot)) {
-            stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
+            stream.filter(path -> path.getFileName() != null && DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
                     DlcRedirectEntry entry = readEntry(path);
                     if (entry != null) {
@@ -39,11 +39,11 @@ public final class DlcRedirectLoader {
     }
 
     private static DlcRedirectEntry readEntry(Path path) {
-        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }
-        String redirectUrl = DcConfigIO.getStringIgnoreCase(obj, "RedirectUrl");
+        String redirectUrl = DlcDcConfigIO.getStringIgnoreCase(obj, "RedirectUrl");
         if (redirectUrl == null || redirectUrl.isBlank()) {
             return null;
         }
@@ -51,14 +51,14 @@ public final class DlcRedirectLoader {
         DlcRedirectEntry entry = new DlcRedirectEntry();
         entry.setConfigPath(path);
         entry.setRedirectUrl(redirectUrl);
-        entry.setAvailable(DcConfigIO.getIgnoreCase(obj, "available"));
+        entry.setAvailable(DlcDcConfigIO.getIgnoreCase(obj, "available"));
 
         String fileName = path.getFileName() == null ? "" : path.getFileName().toString();
-        entry.setFallbackName(DcFormatUtil.stripConfigExtension(fileName));
+        entry.setFallbackName(DlcDcFormatUtil.stripConfigExtension(fileName));
 
-        entry.getDisplayNames().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")));
-        entry.getNotices().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "notice")));
-        entry.getTips().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "tip")));
+        entry.getDisplayNames().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")));
+        entry.getNotices().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "notice")));
+        entry.getTips().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "tip")));
         return entry;
     }
 
@@ -69,7 +69,7 @@ public final class DlcRedirectLoader {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = DcConfigIO.normalizeLangKey(entry.getKey());
+                String key = DlcDcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     values.put(key, entry.getValue().getAsString());
                 }

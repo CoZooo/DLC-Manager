@@ -17,11 +17,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-public final class DcFormatUtil {
+public final class DlcDcFormatUtil {
     public static final String DC_EXTENSION = ".dc";
     private static final Gson COMPACT_GSON = new GsonBuilder().disableHtmlEscaping().create();
 
-    private DcFormatUtil() {
+    private DlcDcFormatUtil() {
     }
 
     public static boolean isDcName(String name) {

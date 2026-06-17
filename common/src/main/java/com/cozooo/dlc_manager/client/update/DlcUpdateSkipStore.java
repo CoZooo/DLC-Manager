@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -51,7 +51,7 @@ public final class DlcUpdateSkipStore {
         Path storePath = resolveStorePath(STORE_BASENAME);
         JsonObject root = null;
         if (storePath != null && Files.exists(storePath)) {
-            root = DcConfigIO.read(storePath, DcConfigIO.Layout.GENERIC);
+            root = DlcDcConfigIO.read(storePath, DlcDcConfigIO.Layout.GENERIC);
         }
         if (root == null) {
             root = new JsonObject();
@@ -64,7 +64,7 @@ public final class DlcUpdateSkipStore {
         if (storePath == null) {
             return;
         }
-        DcConfigIO.write(storePath, root == null ? new JsonObject() : root, DcConfigIO.Layout.GENERIC);
+        DlcDcConfigIO.write(storePath, root == null ? new JsonObject() : root, DlcDcConfigIO.Layout.GENERIC);
     }
 
     private static Path resolveStorePath(String baseName) {
@@ -73,6 +73,6 @@ public final class DlcUpdateSkipStore {
             return null;
         }
         Path dir = configDir.resolve("dlc_manager");
-        return DcFormatUtil.resolveConfigPath(dir, baseName);
+        return DlcDcFormatUtil.resolveConfigPath(dir, baseName);
     }
 }

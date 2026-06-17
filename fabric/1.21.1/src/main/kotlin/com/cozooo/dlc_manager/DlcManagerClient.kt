@@ -5,7 +5,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback
@@ -89,7 +89,7 @@ class DlcManagerClient : ClientModInitializer {
             val noticeHeight = 20
             val noticeDefaultX = screen.width - noticeWidth - 8
             val noticeDefaultY = screen.height - noticeHeight - 8
-            val noticePos = DlcPathConfig.computeNoticeButtonPosition(
+            val noticePos = DlcConfig.computeNoticeButtonPosition(
                 screen.width,
                 screen.height,
                 noticeWidth,
@@ -104,14 +104,14 @@ class DlcManagerClient : ClientModInitializer {
             if (!hasDlcButton(screen)) {
                 Screens.getButtons(screen).add(button)
             }
-            if (DlcPathConfig.isUButtomShown() &&
-                DlcPathConfig.isUpdateManagerOn() &&
+            if (DlcConfig.isUButtomShown() &&
+                DlcConfig.isUpdateManagerOn() &&
                 findButtonByKey(screen, "dlc_manager.update.import_icon") == null
             ) {
                 Screens.getButtons(screen).add(updateButton)
             }
-            if (DlcPathConfig.isPButtomShown() &&
-                DlcPathConfig.isPackFuncOn() &&
+            if (DlcConfig.isPButtomShown() &&
+                DlcConfig.isPackFuncOn() &&
                 findButtonByKey(screen, "dlc_manager.pack.quick_icon") == null
             ) {
                 Screens.getButtons(screen).add(packButton)
@@ -354,7 +354,7 @@ class DlcManagerClient : ClientModInitializer {
                     rowY = anchor.y
                 }
             }
-            val pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, rowW, rowH, rowX, rowY)
+            val pos = DlcConfig.computeTitleButtonPosition(screen.width, screen.height, rowW, rowH, rowX, rowY)
             rowX = pos[0]
             rowY = pos[1]
 
@@ -370,10 +370,10 @@ class DlcManagerClient : ClientModInitializer {
                 val dlcX = rowX + halfWidth + gap
                 val dlcWidth = halfWidth
                 var defaultUpdateX = dlcX + dlcWidth + iconGap
-                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                if (DlcConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
                     defaultUpdateX = dlcX - iconGap - iconWidth
                 }
-                val updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
+                val updatePos = DlcConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
                 if (updateWidget != null) {
                     updateWidget.width = iconWidth
                     updateWidget.height = rowH
@@ -398,10 +398,10 @@ class DlcManagerClient : ClientModInitializer {
                 val iconWidth = 20
                 val dlcWidth = rowW
                 var defaultUpdateX = rowX + dlcWidth + iconGap
-                if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+                if (DlcConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
                     defaultUpdateX = rowX - iconGap - iconWidth
                 }
-                val updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
+                val updatePos = DlcConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY)
                 if (updateWidget != null) {
                     updateWidget.width = iconWidth
                     updateWidget.height = rowH

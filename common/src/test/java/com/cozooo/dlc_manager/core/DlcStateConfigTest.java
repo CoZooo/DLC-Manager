@@ -77,7 +77,7 @@ class DlcStateConfigTest {
         JsonObject root = new JsonObject();
         root.add("mod:DLC|missing.jar", stateObject("mods/missing.jar"));
         root.add("mod:DLC|present.jar", stateObject("mods/present.jar"));
-        DcFormatUtil.writeGeneric(stateFile, root);
+        DlcDcFormatUtil.writeGeneric(stateFile, root);
         Files.createDirectories(gameDir.resolve("mods"));
         Files.writeString(gameDir.resolve("mods").resolve("present.jar"), "present");
 

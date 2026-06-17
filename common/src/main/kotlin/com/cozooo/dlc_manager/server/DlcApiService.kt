@@ -1,10 +1,10 @@
 package com.cozooo.dlc_manager.server
 
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
-import com.cozooo.dlc_manager.core.ApplyMode
+import com.cozooo.dlc_manager.core.DlcApplyMode
 import com.cozooo.dlc_manager.core.DlcApplier
 import com.cozooo.dlc_manager.core.DlcItem
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcType
@@ -66,7 +66,7 @@ object DlcApiService {
         if (disabled != null) {
             return disabled
         }
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(dlcRoot)
         val data = JsonObject()
         data.addProperty("base", version?.getBase() ?: "")
@@ -365,13 +365,13 @@ object DlcApiService {
             return disabled
         }
         val normalizedMode = blank(getString(request, "mode")).lowercase(Locale.ROOT)
-        val applyMode: ApplyMode
+        val applyMode: DlcApplyMode
         val responseMode: String
         if (normalizedMode.isBlank() || normalizedMode == "restart") {
-            applyMode = ApplyMode.RESTART_ONLY
+            applyMode = DlcApplyMode.RESTART_ONLY
             responseMode = "restart"
         } else if (normalizedMode == "reload") {
-            applyMode = ApplyMode.TRY_HOT_RELOAD
+            applyMode = DlcApplyMode.TRY_HOT_RELOAD
             responseMode = "reload"
         } else {
             return error(400, "invalid_mode", "mode must be either 'restart' or 'reload'.")
@@ -561,7 +561,7 @@ object DlcApiService {
     }
 
     private fun ensureEnabled(): ApiResult? {
-        if (DlcPathConfig.isApiEnabled()) {
+        if (DlcConfig.isApiEnabled()) {
             return null
         }
         return error(503, "api_disabled", "API is disabled.")

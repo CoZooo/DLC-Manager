@@ -11,7 +11,7 @@ public class DlcPaths {
     }
 
     public static Path dlcRoot() {
-        return DlcPathConfig.getDlcRoot();
+        return DlcConfig.getDlcRoot();
     }
 
     public static Path tmpRoot() {
@@ -23,7 +23,7 @@ public class DlcPaths {
     }
 
     public static Path resourcePacksDir() {
-        return DlcPathConfig.getResourcepackRoot();
+        return DlcConfig.getResourcepackRoot();
     }
 
     public static Path taczDir() {
@@ -31,7 +31,7 @@ public class DlcPaths {
     }
 
     public static Path datapackStagingDir() {
-        return DlcPathConfig.getDatapackRoot();
+        return DlcConfig.getDatapackRoot();
     }
 
     public static Path resolveAppliedTarget(String raw) {

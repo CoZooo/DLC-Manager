@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -91,7 +91,7 @@ public class DlcUpdatePackage {
                     } else {
                         obj = DlcUpdateDcParser.parse(text);
                         if (obj == null || obj.entrySet().isEmpty()) {
-                            obj = DcFormatUtil.readGenericText(text);
+                            obj = DlcDcFormatUtil.readGenericText(text);
                         }
                     }
                 }

@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.notice
 
 import com.cozooo.dlc_manager.client.screen.DlcNoticeScreen
-import com.cozooo.dlc_manager.core.DlcNoticeConfig
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 

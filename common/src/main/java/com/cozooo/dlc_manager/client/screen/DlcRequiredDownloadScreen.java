@@ -15,8 +15,8 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -93,10 +93,10 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         this.entries = entries == null ? List.of() : entries;
         this.forceRequired = DlcRequiredManager.hasForceMarker();
         this.forceRestartRequired = DlcRequiredManager.hasForceRestartMarker();
-        this.maxConcurrentDownloads = Math.max(1, DlcPathConfig.getMaxConcurrentDownloads());
-        this.maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
-        this.connectTimeoutMs = Math.max(1, DlcPathConfig.getConnectTimeoutMs());
-        this.taskTimeoutMs = Math.max(1, DlcPathConfig.getTaskTimeoutMs());
+        this.maxConcurrentDownloads = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
+        this.maxRetry = Math.max(1, DlcConfig.getMaxRetryCount());
+        this.connectTimeoutMs = Math.max(1, DlcConfig.getConnectTimeoutMs());
+        this.taskTimeoutMs = Math.max(1, DlcConfig.getTaskTimeoutMs());
     }
 
     @Override
@@ -1022,7 +1022,7 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         if (fileName == null) {
             return false;
         }
-        return DcFormatUtil.isDcName(fileName);
+        return DlcDcFormatUtil.isDcName(fileName);
     }
 
     private boolean isTempFileName(String fileName) {
@@ -1090,7 +1090,7 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
                 try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
                     for (Path path : stream) {
                         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!DcFormatUtil.isDcName(name)) {
+                        if (!DlcDcFormatUtil.isDcName(name)) {
                             return name;
                         }
                     }

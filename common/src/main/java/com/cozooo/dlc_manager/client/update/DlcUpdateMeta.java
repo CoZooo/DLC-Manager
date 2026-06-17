@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -29,29 +29,29 @@ public class DlcUpdateMeta {
         if (metaPath == null || !Files.exists(metaPath)) {
             return null;
         }
-        JsonObject obj = DcConfigIO.read(metaPath, DcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(metaPath, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }
         DlcUpdateMeta meta = new DlcUpdateMeta();
-        meta.dlcOld = DcConfigIO.getStringIgnoreCase(obj, "dlc_old");
-        meta.dlcNew = DcConfigIO.getStringIgnoreCase(obj, "dlc_new");
-        meta.baseOld = DcConfigIO.getStringIgnoreCase(obj, "base_old");
-        meta.baseNew = DcConfigIO.getStringIgnoreCase(obj, "base_new");
-        meta.timestamp = DcConfigIO.getStringIgnoreCase(obj, "timestamp");
-        meta.hidden = DcConfigIO.getBooleanIgnoreCase(obj, "hidden", false);
-        JsonObject logObj = DcConfigIO.getObjectIgnoreCase(obj, "changelog");
+        meta.dlcOld = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_old");
+        meta.dlcNew = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_new");
+        meta.baseOld = DlcDcConfigIO.getStringIgnoreCase(obj, "base_old");
+        meta.baseNew = DlcDcConfigIO.getStringIgnoreCase(obj, "base_new");
+        meta.timestamp = DlcDcConfigIO.getStringIgnoreCase(obj, "timestamp");
+        meta.hidden = DlcDcConfigIO.getBooleanIgnoreCase(obj, "hidden", false);
+        JsonObject logObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "changelog");
         if (logObj != null) {
             for (var entry : logObj.entrySet()) {
                 if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
                     String raw = entry.getValue().getAsString();
                     if (raw != null && !raw.isBlank()) {
-                        meta.changelog.put(DcConfigIO.normalizeLangKey(entry.getKey()), raw);
+                        meta.changelog.put(DlcDcConfigIO.normalizeLangKey(entry.getKey()), raw);
                     }
                 }
             }
         }
-        var restoreArray = DcConfigIO.getArrayIgnoreCase(obj, "restore");
+        var restoreArray = DlcDcConfigIO.getArrayIgnoreCase(obj, "restore");
         if (restoreArray != null) {
             restoreArray.forEach(el -> {
                 if (el != null && el.isJsonPrimitive()) {
@@ -59,7 +59,7 @@ public class DlcUpdateMeta {
                 }
             });
         }
-        var createdArray = DcConfigIO.getArrayIgnoreCase(obj, "created");
+        var createdArray = DlcDcConfigIO.getArrayIgnoreCase(obj, "created");
         if (createdArray != null) {
             createdArray.forEach(el -> {
                 if (el != null && el.isJsonPrimitive()) {
@@ -104,7 +104,7 @@ public class DlcUpdateMeta {
             }
             obj.add("restore", restore);
             obj.add("created", created);
-            DcConfigIO.write(metaPath, obj, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(metaPath, obj, DlcDcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }
@@ -168,7 +168,7 @@ public class DlcUpdateMeta {
         }
         for (Map.Entry<String, String> entry : values.entrySet()) {
             if (entry.getKey() != null && entry.getValue() != null && !entry.getValue().isBlank()) {
-                changelog.put(DcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue());
+                changelog.put(DlcDcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue());
             }
         }
     }
@@ -177,7 +177,7 @@ public class DlcUpdateMeta {
         if (changelog.isEmpty()) {
             return "";
         }
-        String key = DcConfigIO.normalizeLangKey(lang);
+        String key = DlcDcConfigIO.normalizeLangKey(lang);
         if (key != null && changelog.containsKey(key)) {
             return changelog.get(key);
         }

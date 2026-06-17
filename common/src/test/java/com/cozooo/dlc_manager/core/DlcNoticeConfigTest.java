@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.core;
 
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.test.TestPlatformProvider;
 import org.junit.jupiter.api.AfterEach;
@@ -27,7 +28,7 @@ class DlcNoticeConfigTest {
         dlcRoot = gameDir.resolve("DLC");
         Files.createDirectories(dlcRoot);
         PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
-        DlcPathConfig.setDlcRoot("DLC");
+        DlcConfig.setDlcRoot("DLC");
     }
 
     @AfterEach

@@ -1,5 +1,7 @@
-package com.cozooo.dlc_manager.core
+package com.cozooo.dlc_manager.client.notice
 
+import com.cozooo.dlc_manager.core.DlcConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
@@ -58,7 +60,7 @@ class DlcNoticeConfig {
             if (values.isEmpty()) {
                 return ""
             }
-            val key = DcConfigIO.normalizeLangKey(lang)
+            val key = DlcDcConfigIO.normalizeLangKey(lang)
             if (key != null && values.containsKey(key)) {
                 return values[key] ?: ""
             }
@@ -110,7 +112,7 @@ class DlcNoticeConfig {
             obj.add("ContentUrl", writeLocalized(contentUrls))
         }
         obj.add("Contents", writeLocalized(contents))
-        DcConfigIO.write(noticePath, obj, DcConfigIO.Layout.GENERIC)
+        DlcDcConfigIO.write(noticePath, obj, DlcDcConfigIO.Layout.GENERIC)
     }
 
     fun isNoticeEnabled(): Boolean {
@@ -229,7 +231,7 @@ class DlcNoticeConfig {
                 return config
             }
             config.exists = true
-            val obj = DcConfigIO.read(noticePath, DcConfigIO.Layout.GENERIC)
+            val obj = DlcDcConfigIO.read(noticePath, DlcDcConfigIO.Layout.GENERIC)
             if (obj == null) {
                 config.noticeEnabled = false
                 return config
@@ -237,14 +239,14 @@ class DlcNoticeConfig {
             config.noticeEnabled = getBoolean(obj, "isNoticeEnabled", true)
             config.neverShow = getBoolean(obj, "neverShow", false)
             config.showFrequency = ShowFrequency.fromString(getString(obj, "ShowFrequency"))
-            config.title.getValues().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "Title")))
-            val subheadObj = DcConfigIO.getObjectIgnoreCase(obj, "Subhead")
+            config.title.getValues().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "Title")))
+            val subheadObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "Subhead")
             if (subheadObj != null) {
                 config.subhead.enabled = getBoolean(subheadObj, "enabled", true)
                 config.subhead.text.getValues().putAll(readLocalized(subheadObj))
             }
-            config.contentUrls.getValues().putAll(readLocalizedUrlValues(DcConfigIO.getIgnoreCase(obj, "ContentUrl")))
-            config.contents.getValues().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "Contents")))
+            config.contentUrls.getValues().putAll(readLocalizedUrlValues(DlcDcConfigIO.getIgnoreCase(obj, "ContentUrl")))
+            config.contents.getValues().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "Contents")))
             config.ensureDefaults()
             return config
         }
@@ -279,13 +281,13 @@ class DlcNoticeConfig {
             obj.add("Contents", contents)
             try {
                 Files.createDirectories(noticePath.parent)
-                DcConfigIO.write(noticePath, obj, DcConfigIO.Layout.GENERIC)
+                DlcDcConfigIO.write(noticePath, obj, DlcDcConfigIO.Layout.GENERIC)
             } catch (_: IOException) {
             }
         }
 
         private fun firstDlcRoot(): Path? {
-            return DlcPathConfig.getDlcRoots().firstOrNull()
+            return DlcConfig.getDlcRoots().firstOrNull()
         }
 
         private fun readLocalized(obj: JsonObject?): Map<String, String> {
@@ -295,7 +297,7 @@ class DlcNoticeConfig {
             }
             for ((key, value) in obj.entrySet()) {
                 if (value.isJsonPrimitive) {
-                    val normalized = DcConfigIO.normalizeLangKey(key)
+                    val normalized = DlcDcConfigIO.normalizeLangKey(key)
                     if (normalized != null) {
                         values[normalized] = value.asString
                     }
@@ -323,7 +325,7 @@ class DlcNoticeConfig {
             for ((key, value) in obj.entrySet()) {
                 if (value.isJsonPrimitive) {
                     val url = normalizeUrl(value.asString)
-                    val normalized = DcConfigIO.normalizeLangKey(key)
+                    val normalized = DlcDcConfigIO.normalizeLangKey(key)
                     if (url.isNotBlank() && normalized != null) {
                         values[normalized] = url
                     }
@@ -341,11 +343,11 @@ class DlcNoticeConfig {
         }
 
         private fun getBoolean(obj: JsonObject, key: String, fallback: Boolean): Boolean {
-            return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
+            return DlcDcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
         }
 
         private fun getString(obj: JsonObject, key: String): String? {
-            return DcConfigIO.getStringIgnoreCase(obj, key)
+            return DlcDcConfigIO.getStringIgnoreCase(obj, key)
         }
 
         private fun normalizeUrl(raw: String?): String {

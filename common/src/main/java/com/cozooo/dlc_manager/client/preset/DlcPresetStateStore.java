@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.preset;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -19,7 +19,7 @@ public final class DlcPresetStateStore {
 
     public static Path getStatePath() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        return DcFormatUtil.resolveConfigPath(configDir, STATE_BASE_NAME);
+        return DlcDcFormatUtil.resolveConfigPath(configDir, STATE_BASE_NAME);
     }
 
     public static Map<String, DlcPresetStatus> loadPresetStatus() {
@@ -28,11 +28,11 @@ public final class DlcPresetStateStore {
         if (path == null || !Files.exists(path)) {
             return result;
         }
-        JsonObject root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+        JsonObject root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (root == null) {
             return result;
         }
-        JsonObject presets = DcConfigIO.getObjectIgnoreCase(root, PRESETS_KEY);
+        JsonObject presets = DlcDcConfigIO.getObjectIgnoreCase(root, PRESETS_KEY);
         if (presets == null) {
             return result;
         }
@@ -63,7 +63,7 @@ public final class DlcPresetStateStore {
         } catch (IOException ignored) {
             return;
         }
-        JsonObject root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+        JsonObject root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (root == null) {
             root = new JsonObject();
         }
@@ -75,8 +75,8 @@ public final class DlcPresetStateStore {
             }
             presets.addProperty(entry.getKey(), entry.getValue().toConfigValue());
         }
-        DcConfigIO.removeIgnoreCase(root, PRESETS_KEY);
+        DlcDcConfigIO.removeIgnoreCase(root, PRESETS_KEY);
         root.add(PRESETS_KEY, presets);
-        DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
+        DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC);
     }
 }

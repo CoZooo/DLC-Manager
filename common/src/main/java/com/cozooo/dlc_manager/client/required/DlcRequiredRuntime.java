@@ -4,9 +4,9 @@ import com.cozooo.dlc_manager.client.download.ModrinthClient;
 import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -139,7 +139,7 @@ public final class DlcRequiredRuntime {
     }
 
     private static Path getDlcRoot() {
-        return DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        return DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
     }
 
     private static Path getRequiredDir() {
@@ -525,7 +525,7 @@ public final class DlcRequiredRuntime {
         try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
             for (Path path : stream) {
                 String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (!DcFormatUtil.isDcName(name) && !name.endsWith(".part")) {
+                if (!DlcDcFormatUtil.isDcName(name) && !name.endsWith(".part")) {
                     return name;
                 }
             }
@@ -550,7 +550,7 @@ public final class DlcRequiredRuntime {
             return;
         }
         try {
-            com.google.gson.JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+            com.google.gson.JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
             if (obj == null) {
                 return;
             }
@@ -574,7 +574,7 @@ public final class DlcRequiredRuntime {
             return;
         }
         try {
-            com.google.gson.JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+            com.google.gson.JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
             if (obj == null) {
                 return;
             }
@@ -594,7 +594,7 @@ public final class DlcRequiredRuntime {
             return;
         }
         try {
-            com.google.gson.JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+            com.google.gson.JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
             if (obj == null) {
                 return;
             }
@@ -615,11 +615,11 @@ public final class DlcRequiredRuntime {
         if (config == null || ordered == null) {
             return null;
         }
-        Path target = DcFormatUtil.toDcPath(config);
+        Path target = DlcDcFormatUtil.toDcPath(config);
         if (target == null) {
             return null;
         }
-        if (!DcFormatUtil.write(target, ordered)) {
+        if (!DlcDcFormatUtil.write(target, ordered)) {
             return null;
         }
         if (!target.equals(config)) {
@@ -746,7 +746,7 @@ public final class DlcRequiredRuntime {
         if (trimmed.isEmpty()) {
             return null;
         }
-        if (DcFormatUtil.isDcName(trimmed)) {
+        if (DlcDcFormatUtil.isDcName(trimmed)) {
             return null;
         }
         return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");

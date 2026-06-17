@@ -10,7 +10,7 @@ import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import net.minecraft.client.Minecraft
@@ -582,7 +582,7 @@ class DlcServerUpdateManagerScreen(
         if (applying || loading) {
             return
         }
-        val updateDir = DlcPathConfig.getDlcRoot().resolve("update")
+        val updateDir = DlcConfig.getDlcRoot().resolve("update")
         if (!Files.isDirectory(updateDir)) {
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, Component.translatable("dlc_manager.server.update_push_failed")))
             return

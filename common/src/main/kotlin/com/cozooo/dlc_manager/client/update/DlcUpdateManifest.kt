@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
@@ -55,7 +55,7 @@ class DlcUpdateManifest {
         if (values.isNullOrEmpty()) {
             return ""
         }
-        val key = DcConfigIO.normalizeLangKey(lang)
+        val key = DlcDcConfigIO.normalizeLangKey(lang)
         if (key != null && values.containsKey(key)) {
             return values[key] ?: ""
         }
@@ -363,17 +363,17 @@ class DlcUpdateManifest {
                 return null
             }
             val manifest = DlcUpdateManifest()
-            manifest.version = parseVersion(DcConfigIO.getObjectIgnoreCase(obj, "version"))
+            manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"))
             manifest.hidden = getBoolean(obj, "isHidden", false)
-            val updateDLCMConfig = parseUpdateDLCM(DcConfigIO.getIgnoreCase(obj, "UpdateDLCM"))
+            val updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"))
             manifest.updateDLCM = updateDLCMConfig.enabled
             manifest.updateDLCMVersion = updateDLCMConfig.version
-            val fileObj = DcConfigIO.getObjectIgnoreCase(obj, "file")
+            val fileObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "file")
             manifest.fileOps = parseFileOps(fileObj)
-            manifest.updateOps = parseUpdateOps(DcConfigIO.getIgnoreCase(obj, "update"))
-            manifest.changelog = parseChangelog(DcConfigIO.getIgnoreCase(obj, "changelog"))
-            if (manifest.changelog.isNullOrEmpty() && fileObj != null && DcConfigIO.hasIgnoreCase(fileObj, "changelog")) {
-                manifest.changelog = parseChangelog(DcConfigIO.getIgnoreCase(fileObj, "changelog"))
+            manifest.updateOps = parseUpdateOps(DlcDcConfigIO.getIgnoreCase(obj, "update"))
+            manifest.changelog = parseChangelog(DlcDcConfigIO.getIgnoreCase(obj, "changelog"))
+            if (manifest.changelog.isNullOrEmpty() && fileObj != null && DlcDcConfigIO.hasIgnoreCase(fileObj, "changelog")) {
+                manifest.changelog = parseChangelog(DlcDcConfigIO.getIgnoreCase(fileObj, "changelog"))
             }
             return manifest
         }
@@ -412,7 +412,7 @@ class DlcUpdateManifest {
                 for ((key, value) in obj.entrySet()) {
                     if (value != null && value.isJsonPrimitive) {
                         val raw = value.asString
-                        val normalized = DcConfigIO.normalizeLangKey(key)
+                        val normalized = DlcDcConfigIO.normalizeLangKey(key)
                         if (!raw.isNullOrBlank() && normalized != null) {
                             values[normalized] = raw
                         }
@@ -450,11 +450,11 @@ class DlcUpdateManifest {
             if (obj == null) {
                 return ops
             }
-            if (DcConfigIO.hasIgnoreCase(obj, "del")) {
-                ops.getDel().addAll(readStringArray(DcConfigIO.getIgnoreCase(obj, "del")))
+            if (DlcDcConfigIO.hasIgnoreCase(obj, "del")) {
+                ops.getDel().addAll(readStringArray(DlcDcConfigIO.getIgnoreCase(obj, "del")))
             }
-            if (DcConfigIO.hasIgnoreCase(obj, "add")) {
-                val addEl = DcConfigIO.getIgnoreCase(obj, "add")
+            if (DlcDcConfigIO.hasIgnoreCase(obj, "add")) {
+                val addEl = DlcDcConfigIO.getIgnoreCase(obj, "add")
                 if (addEl != null && addEl.isJsonObject) {
                     val addObj = addEl.asJsonObject
                     for ((key, value) in addObj.entrySet()) {
@@ -468,8 +468,8 @@ class DlcUpdateManifest {
                     }
                 }
             }
-            if (DcConfigIO.hasIgnoreCase(obj, "move")) {
-                val moveEl = DcConfigIO.getIgnoreCase(obj, "move")
+            if (DlcDcConfigIO.hasIgnoreCase(obj, "move")) {
+                val moveEl = DlcDcConfigIO.getIgnoreCase(obj, "move")
                 if (moveEl != null && moveEl.isJsonObject) {
                     val moveObj = moveEl.asJsonObject
                     for ((from, value) in moveObj.entrySet()) {
@@ -484,8 +484,8 @@ class DlcUpdateManifest {
                     }
                 }
             }
-            if (DcConfigIO.hasIgnoreCase(obj, "modify")) {
-                val modEl = DcConfigIO.getIgnoreCase(obj, "modify")
+            if (DlcDcConfigIO.hasIgnoreCase(obj, "modify")) {
+                val modEl = DlcDcConfigIO.getIgnoreCase(obj, "modify")
                 if (modEl != null && modEl.isJsonObject) {
                     val modObj = modEl.asJsonObject
                     for ((key, value) in modObj.entrySet()) {
@@ -529,7 +529,7 @@ class DlcUpdateManifest {
                 return ops
             }
             val obj = element.asJsonObject
-            val infoObj = DcConfigIO.getObjectIgnoreCase(obj, "info")
+            val infoObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "info")
             if (infoObj != null) {
                 for ((key, value) in infoObj.entrySet()) {
                     if (key.isNullOrBlank()) {
@@ -541,7 +541,7 @@ class DlcUpdateManifest {
                     }
                 }
             }
-            val remoteObj = DcConfigIO.getObjectIgnoreCase(obj, "remote")
+            val remoteObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "remote")
             if (remoteObj != null) {
                 for ((key, value) in remoteObj.entrySet()) {
                     if (key.isNullOrBlank()) {
@@ -553,7 +553,7 @@ class DlcUpdateManifest {
                     }
                 }
             }
-            val requiredObj = DcConfigIO.getObjectIgnoreCase(obj, "required")
+            val requiredObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "required")
             if (requiredObj != null) {
                 for ((key, value) in requiredObj.entrySet()) {
                     if (key.isNullOrBlank()) {
@@ -565,7 +565,7 @@ class DlcUpdateManifest {
                     }
                 }
             }
-            val presetObj = DcConfigIO.getObjectIgnoreCase(obj, "preset")
+            val presetObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "preset")
             if (presetObj != null) {
                 for ((key, value) in presetObj.entrySet()) {
                     if (key.isNullOrBlank()) {
@@ -587,7 +587,7 @@ class DlcUpdateManifest {
             val obj = element.asJsonObject
             val curseforge = getString(obj, "curseforge")
             val modrinth = getString(obj, "modrinth")
-            val directUrl = DcConfigIO.getIgnoreCase(obj, "directUrl")
+            val directUrl = DlcDcConfigIO.getIgnoreCase(obj, "directUrl")
             val extraFields: MutableMap<String, JsonElement> = LinkedHashMap()
             for ((key, value) in obj.entrySet()) {
                 if (key.isNullOrBlank()) {
@@ -647,7 +647,7 @@ class DlcUpdateManifest {
             val entry = AddEntry()
             entry.setSourcePath(key)
             entry.setAppliedTarget(getString(obj, "appliedTarget"))
-            entry.setOverrideMode(parseOverride(DcConfigIO.getIgnoreCase(obj, "override")))
+            entry.setOverrideMode(parseOverride(DlcDcConfigIO.getIgnoreCase(obj, "override")))
             entry.setSourceIsDir(key != null && key.endsWith("/"))
             return entry
         }
@@ -666,7 +666,7 @@ class DlcUpdateManifest {
             entry.setTargetPath(path)
             entry.setFind(find)
             entry.setReplace(replace)
-            entry.setWhich(parseWhich(DcConfigIO.getIgnoreCase(obj, "which")))
+            entry.setWhich(parseWhich(DlcDcConfigIO.getIgnoreCase(obj, "which")))
             entry.setNormalizedFind(normalizeFind(find))
             return entry
         }
@@ -810,11 +810,11 @@ class DlcUpdateManifest {
         }
 
         private fun getString(obj: JsonObject, key: String): String? {
-            return DcConfigIO.getStringIgnoreCase(obj, key)
+            return DlcDcConfigIO.getStringIgnoreCase(obj, key)
         }
 
         private fun getBoolean(obj: JsonObject, key: String, fallback: Boolean): Boolean {
-            return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
+            return DlcDcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
         }
 
         private fun normalizePlatform(value: String?): String {

@@ -20,7 +20,7 @@ public class DlcApplier {
     private static final String CONFIG_MISSING_MARKER = "__dlc_config_missing__";
     private static final ThreadLocal<ApplyContext> CURRENT_APPLY_CONTEXT = new ThreadLocal<>();
 
-    public static ApplyResult apply(List<DlcItem> items, ApplyMode mode) {
+    public static ApplyResult apply(List<DlcItem> items, DlcApplyMode mode) {
         List<String> messages = new ArrayList<>();
         boolean requiresRestart = false;
         boolean attemptedHotReload = false;
@@ -85,7 +85,7 @@ public class DlcApplier {
     }
 
     private static PresetConflictPathResult applyPresetConflictPaths() {
-        java.util.Map<String, java.util.Set<String>> desiredByPreset = DlcPathConfig.isPresetFuncOn()
+        java.util.Map<String, java.util.Set<String>> desiredByPreset = DlcConfig.isPresetFuncOn()
             ? DlcPresetRuntimeState.getDesiredDisabledRelativePathsByPreset()
             : java.util.Map.of();
         java.util.Map<String, java.util.Set<String>> currentByPreset = DlcPresetRuntimeState.getAppliedDisabledRelativePathsByPreset();
@@ -364,8 +364,8 @@ public class DlcApplier {
             }
             List<Path> targetDirs = switch (item.getType()) {
                 case MOD -> List.of(DlcPaths.modsDir());
-                case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
-                case DATA_PACK -> DlcPathConfig.getDatapackRoots();
+                case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
+                case DATA_PACK -> DlcConfig.getDatapackRoots();
                 case TACZ_PACK -> List.of(DlcPaths.taczDir());
                 default -> List.of();
             };
@@ -589,8 +589,8 @@ public class DlcApplier {
             return;
         }
         Path backupRoot = null;
-        if (!DlcPathConfig.getDlcRoots().isEmpty()) {
-            backupRoot = DlcTmpPaths.resolve(DlcPathConfig.getDlcRoots().get(0), "backup");
+        if (!DlcConfig.getDlcRoots().isEmpty()) {
+            backupRoot = DlcTmpPaths.resolve(DlcConfig.getDlcRoots().get(0), "backup");
         }
         if (backupRoot == null) {
             backupRoot = DlcTmpPaths.resolve(DlcPaths.gameDir(), "backup");

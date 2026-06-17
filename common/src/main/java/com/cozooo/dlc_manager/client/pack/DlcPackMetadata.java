@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -93,36 +93,36 @@ public class DlcPackMetadata {
             text = Files.readString(path);
         } catch (Exception ignored) {
         }
-        return read(DcConfigIO.read(path, DcConfigIO.Layout.GENERIC), text);
+        return read(DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC), text);
     }
 
     public static Result read(JsonObject obj, String sourceText) {
         if (obj == null) {
             return Result.invalid("missing pack.dc");
         }
-        JsonObject basic = DcConfigIO.getObjectIgnoreCase(obj, "basic");
-        String identifier = trim(DcConfigIO.getStringIgnoreCase(basic, "identifier"));
+        JsonObject basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic");
+        String identifier = trim(DlcDcConfigIO.getStringIgnoreCase(basic, "identifier"));
         if (!isValidIdentifier(identifier)) {
             return Result.invalid("invalid identifier");
         }
-        String version = trim(DcConfigIO.getStringIgnoreCase(basic, "version"));
+        String version = trim(DlcDcConfigIO.getStringIgnoreCase(basic, "version"));
         if (!isValidVersion(version)) {
             return Result.invalid("invalid version");
         }
-        JsonObject modpack = DcConfigIO.getObjectIgnoreCase(obj, "modpack");
-        List<String> authors = readStringList(DcConfigIO.getIgnoreCase(basic, "author"));
+        JsonObject modpack = DlcDcConfigIO.getObjectIgnoreCase(obj, "modpack");
+        List<String> authors = readStringList(DlcDcConfigIO.getIgnoreCase(basic, "author"));
         if (authors.isEmpty()) {
             authors = List.of("Unknown Author");
         }
-        List<String> modpacks = readStringList(DcConfigIO.getIgnoreCase(modpack, "modpack"));
+        List<String> modpacks = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "modpack"));
         if (modpacks.isEmpty()) {
             modpacks = List.of("any");
         }
-        List<String> baseVersions = readStringList(DcConfigIO.getIgnoreCase(modpack, "base"));
+        List<String> baseVersions = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "base"));
         if (baseVersions.isEmpty()) {
             baseVersions = List.of("any");
         }
-        List<String> dlcVersions = readStringList(DcConfigIO.getIgnoreCase(modpack, "dlc"));
+        List<String> dlcVersions = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "dlc"));
         if (dlcVersions.isEmpty()) {
             dlcVersions = List.of("any");
         }
@@ -134,11 +134,11 @@ public class DlcPackMetadata {
             resolveModpackAnyWildcard(modpacks, sourceText),
             baseVersions,
             dlcVersions,
-            readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
-            readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "description")),
-            readLinks(DcConfigIO.getObjectIgnoreCase(obj, "links")),
-            readStringSection(DcConfigIO.getIgnoreCase(obj, "dependencies")),
-            readStringSection(DcConfigIO.getIgnoreCase(obj, "conflicts"))
+            readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
+            readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "description")),
+            readLinks(DlcDcConfigIO.getObjectIgnoreCase(obj, "links")),
+            readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "dependencies")),
+            readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
         ));
     }
 
@@ -240,7 +240,7 @@ public class DlcPackMetadata {
         if (values == null || values.isEmpty()) {
             return fallback;
         }
-        String current = DcConfigIO.normalizeLangKey(lang);
+        String current = DlcDcConfigIO.normalizeLangKey(lang);
         if (current != null) {
             String exact = values.get(current);
             if (exact != null && !exact.isBlank()) {
@@ -265,7 +265,7 @@ public class DlcPackMetadata {
         }
         Map<String, String> out = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            String lang = DcConfigIO.normalizeLangKey(entry.getKey());
+            String lang = DlcDcConfigIO.normalizeLangKey(entry.getKey());
             String text = primitiveString(entry.getValue());
             if (lang != null && text != null) {
                 out.put(lang, trimEnd(text));
@@ -280,7 +280,7 @@ public class DlcPackMetadata {
         }
         Map<String, String> out = new LinkedHashMap<>();
         for (String key : LINK_KEYS) {
-            String value = trim(DcConfigIO.getStringIgnoreCase(obj, key));
+            String value = trim(DlcDcConfigIO.getStringIgnoreCase(obj, key));
             if (value != null && !value.isEmpty()) {
                 out.put(key, value);
             }
@@ -323,7 +323,7 @@ public class DlcPackMetadata {
             }
             JsonElement value = entry.getValue();
             if (value != null && value.isJsonObject()) {
-                String identifier = trim(DcConfigIO.getStringIgnoreCase(value.getAsJsonObject(), "identifier"));
+                String identifier = trim(DlcDcConfigIO.getStringIgnoreCase(value.getAsJsonObject(), "identifier"));
                 if (identifier != null && !identifier.isEmpty()) {
                     out.add(identifier);
                 } else if (entry.getKey() != null && !entry.getKey().isBlank()) {

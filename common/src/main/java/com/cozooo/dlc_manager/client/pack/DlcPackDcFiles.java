@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.JsonObject;
 
 import java.io.IOException;
@@ -17,7 +17,7 @@ final class DlcPackDcFiles {
         if (path == null || obj == null) {
             return false;
         }
-        Path target = DcConfigIO.toDcPath(path);
+        Path target = DlcDcConfigIO.toDcPath(path);
         if (target == null) {
             return false;
         }
@@ -30,7 +30,7 @@ final class DlcPackDcFiles {
             } else {
                 temp = Files.createTempFile(target.getFileName().toString() + ".", ".dc");
             }
-            if (!DcConfigIO.write(temp, obj, DcConfigIO.Layout.GENERIC)) {
+            if (!DlcDcConfigIO.write(temp, obj, DlcDcConfigIO.Layout.GENERIC)) {
                 return false;
             }
             moveReplacing(temp, target);

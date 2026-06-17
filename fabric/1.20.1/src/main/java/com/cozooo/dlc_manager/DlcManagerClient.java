@@ -5,7 +5,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -133,7 +133,7 @@ public class DlcManagerClient implements ClientModInitializer {
             int noticeHeight = 20;
             int noticeDefaultX = screen.width - noticeWidth - 8;
             int noticeDefaultY = screen.height - noticeHeight - 8;
-            int[] noticePos = DlcPathConfig.computeNoticeButtonPosition(
+            int[] noticePos = DlcConfig.computeNoticeButtonPosition(
                 screen.width, screen.height, noticeWidth, noticeHeight, noticeDefaultX, noticeDefaultY
             );
             Button noticeButton = Button.builder(Component.translatable("dlc_manager.notice"),
@@ -144,11 +144,11 @@ public class DlcManagerClient implements ClientModInitializer {
             if (!hasDlcButton(screen)) {
                 Screens.getButtons(screen).add(button);
             }
-            if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()
+            if (DlcConfig.isUButtomShown() && DlcConfig.isUpdateManagerOn()
                 && findButtonByKey(screen, "dlc_manager.update.import_icon") == null) {
                 Screens.getButtons(screen).add(updateButton);
             }
-            if (DlcPathConfig.isPButtomShown() && DlcPathConfig.isPackFuncOn()
+            if (DlcConfig.isPButtomShown() && DlcConfig.isPackFuncOn()
                 && findButtonByKey(screen, "dlc_manager.pack.quick_icon") == null) {
                 Screens.getButtons(screen).add(packButton);
             }
@@ -316,7 +316,7 @@ public class DlcManagerClient implements ClientModInitializer {
                 rowY = anchor.getY();
             }
         }
-        int[] pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, rowW, rowH, rowX, rowY);
+        int[] pos = DlcConfig.computeTitleButtonPosition(screen.width, screen.height, rowW, rowH, rowX, rowY);
         rowX = pos[0];
         rowY = pos[1];
 
@@ -331,10 +331,10 @@ public class DlcManagerClient implements ClientModInitializer {
             int dlcX = rowX + halfWidth + gap;
             int dlcWidth = halfWidth;
             int defaultUpdateX = dlcX + dlcWidth + iconGap;
-            if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+            if (DlcConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
                 defaultUpdateX = dlcX - iconGap - iconWidth;
             }
-            int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
+            int[] updatePos = DlcConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
             if (updateWidget != null) {
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);
@@ -356,10 +356,10 @@ public class DlcManagerClient implements ClientModInitializer {
             int iconWidth = 20;
             int dlcWidth = rowW;
             int defaultUpdateX = rowX + dlcWidth + iconGap;
-            if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+            if (DlcConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
                 defaultUpdateX = rowX - iconGap - iconWidth;
             }
-            int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
+            int[] updatePos = DlcConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconWidth, rowH, defaultUpdateX, rowY);
             if (updateWidget != null) {
                 updateWidget.setWidth(iconWidth);
                 updateWidget.setX(updatePos[0]);

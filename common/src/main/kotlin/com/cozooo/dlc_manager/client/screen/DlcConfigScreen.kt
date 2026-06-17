@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.config.DlcPathConfigClient
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.client.config.DlcConfigClient
+import com.cozooo.dlc_manager.core.DlcConfig
 import fi.dy.masa.malilib.config.IConfigBase
 import fi.dy.masa.malilib.config.IConfigDouble
 import fi.dy.masa.malilib.config.IConfigInteger
@@ -41,7 +41,7 @@ class DlcConfigScreen private constructor(
     tab: Tab,
     private val session: ConfigSession,
     syncFromBacking: Boolean,
-) : GuiModConfigs(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab), syncFromBacking), false, "dlc_manager.config.menu.title") {
+) : GuiModConfigs(DlcConfig.MOD_ID, buildOptions(resolveTab(tab), syncFromBacking), false, "dlc_manager.config.menu.title") {
     private val currentTab: Tab = resolveTab(tab)
     private var maxLabelWidth = 220
     private var listWidget: WidgetListConfigOptionsBase<*, *>? = null
@@ -177,8 +177,8 @@ class DlcConfigScreen private constructor(
 
     private fun saveAndClose() {
         flushCurrentModifications()
-        DlcPathConfigClient.applyToConfig()
-        DlcPathConfig.save()
+        DlcConfigClient.applyToConfig()
+        DlcConfig.save()
         session.modified = false
         mc.setScreen(getParent())
     }
@@ -201,8 +201,8 @@ class DlcConfigScreen private constructor(
                     if (!accepted) {
                         return@ConfirmScreen
                     }
-                    DlcPathConfig.load()
-                    DlcPathConfigClient.syncFromConfig()
+                    DlcConfig.load()
+                    DlcConfigClient.syncFromConfig()
                     session.modified = false
                     minecraft.setScreen(getParent())
                 },
@@ -474,7 +474,7 @@ class DlcConfigScreen private constructor(
         @JvmStatic
         private fun buildOptions(tab: Tab, syncFromBacking: Boolean): List<ConfigOptionWrapper> {
             if (syncFromBacking) {
-                DlcPathConfigClient.syncFromConfig()
+                DlcConfigClient.syncFromConfig()
             }
             val configs: List<IConfigBase> = getConfigsForTab(tab)
             return ArrayList(ConfigOptionWrapper.createFor(configs))
@@ -483,11 +483,11 @@ class DlcConfigScreen private constructor(
         @JvmStatic
         private fun getConfigsForTab(tab: Tab): List<IConfigBase> {
             return when (tab) {
-                Tab.SERVER -> DlcPathConfigClient.getServerConfigs()
-                Tab.UI -> DlcPathConfigClient.getUiConfigs()
-                Tab.MODPACK -> DlcPathConfigClient.getModpackConfigs()
-                Tab.DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs()
-                Tab.PATHS -> DlcPathConfigClient.getPathConfigs()
+                Tab.SERVER -> DlcConfigClient.getServerConfigs()
+                Tab.UI -> DlcConfigClient.getUiConfigs()
+                Tab.MODPACK -> DlcConfigClient.getModpackConfigs()
+                Tab.DOWNLOADS -> DlcConfigClient.getDownloadConfigs()
+                Tab.PATHS -> DlcConfigClient.getPathConfigs()
             }
         }
 

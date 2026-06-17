@@ -26,10 +26,10 @@ class DlcScanner {
             grouped[type] = ArrayList()
         }
 
-        val roots = DlcPathConfig.getDlcRoots()
-        val taczRoots = DlcPathConfig.getTaczDlcRoots()
+        val roots = DlcConfig.getDlcRoots()
+        val taczRoots = DlcConfig.getTaczDlcRoots()
         val tooltipLoader = DlcTooltipLoader()
-        val mainDlcRoot = if (DlcPathConfig.getDlcRoots().isEmpty()) null else DlcPathConfig.getDlcRoots()[0]
+        val mainDlcRoot = if (DlcConfig.getDlcRoots().isEmpty()) null else DlcConfig.getDlcRoots()[0]
         val mainInfoDir = mainDlcRoot?.resolve("info")
         val tooltips = if (mainDlcRoot == null) emptyMap() else tooltipLoader.loadTooltips(mainDlcRoot)
         val seen = HashSet<Path>()
@@ -335,8 +335,8 @@ class DlcScanner {
         }
         val targetDirs = when (type) {
             DlcType.MOD -> listOf(DlcPaths.modsDir())
-            DlcType.RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots()
-            DlcType.DATA_PACK -> DlcPathConfig.getDatapackRoots()
+            DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots()
+            DlcType.DATA_PACK -> DlcConfig.getDatapackRoots()
             DlcType.TACZ_PACK -> listOf(DlcPaths.taczDir())
             else -> emptyList()
         }
@@ -406,8 +406,8 @@ class DlcScanner {
         }
         val targetDirs = when (type) {
             DlcType.MOD -> listOf(DlcPaths.modsDir())
-            DlcType.RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots()
-            DlcType.DATA_PACK -> DlcPathConfig.getDatapackRoots()
+            DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots()
+            DlcType.DATA_PACK -> DlcConfig.getDatapackRoots()
             DlcType.TACZ_PACK -> listOf(DlcPaths.taczDir())
             else -> emptyList()
         }
@@ -565,11 +565,11 @@ class DlcScanner {
         tooltipLoader: DlcTooltipLoader,
         detectInstalledState: Boolean,
     ) {
-        val mainDlcRoot = if (DlcPathConfig.getDlcRoots().isEmpty()) null else DlcPathConfig.getDlcRoots()[0]
+        val mainDlcRoot = if (DlcConfig.getDlcRoots().isEmpty()) null else DlcConfig.getDlcRoots()[0]
         val mainInfoDir = mainDlcRoot?.resolve("info")
         val tooltips = if (mainDlcRoot == null) emptyMap() else tooltipLoader.loadTooltips(mainDlcRoot)
 
-        for (root in DlcPathConfig.getTaczDlcRoots()) {
+        for (root in DlcConfig.getTaczDlcRoots()) {
             if (!Files.exists(root) || !Files.isDirectory(root)) {
                 continue
             }

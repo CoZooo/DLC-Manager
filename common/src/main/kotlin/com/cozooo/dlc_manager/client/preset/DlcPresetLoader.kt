@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.preset
 
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
@@ -33,7 +33,7 @@ object DlcPresetLoader {
             }
             try {
                 Files.walk(presetRoot).use { stream ->
-                    stream.filter { path -> path.fileName != null && DcConfigIO.isDc(path) }
+                    stream.filter { path -> path.fileName != null && DlcDcConfigIO.isDc(path) }
                         .forEach { path ->
                             val entry = readEntry(path)
                             if (entry != null) {
@@ -64,14 +64,14 @@ object DlcPresetLoader {
     }
 
     private fun readEntry(path: Path): DlcPresetEntry? {
-        val obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return null
-        val basic = DcConfigIO.getObjectIgnoreCase(obj, "basic")
-        val displayName = readLangMap(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName"))
-        val tip = readLangMap(DcConfigIO.getObjectIgnoreCase(obj, "tip"))
-        val enable = readRelationList(DcConfigIO.getIgnoreCase(obj, "dependencies"), DcConfigIO.getIgnoreCase(obj, "enable"))
-        val conflicts = readRelationList(DcConfigIO.getIgnoreCase(obj, "conflicts"), null)
-        val alarm = DcConfigIO.getBooleanIgnoreCase(basic, "alarm")
-            ?: DcConfigIO.getBooleanIgnoreCase(obj, "alarm", false)
+        val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return null
+        val basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic")
+        val displayName = readLangMap(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName"))
+        val tip = readLangMap(DlcDcConfigIO.getObjectIgnoreCase(obj, "tip"))
+        val enable = readRelationList(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), DlcDcConfigIO.getIgnoreCase(obj, "enable"))
+        val conflicts = readRelationList(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"), null)
+        val alarm = DlcDcConfigIO.getBooleanIgnoreCase(basic, "alarm")
+            ?: DlcDcConfigIO.getBooleanIgnoreCase(obj, "alarm", false)
 
         val fileName = stripExtension(path.fileName.toString())
         val id = readIdentifier(basic, obj, fileName)
@@ -91,7 +91,7 @@ object DlcPresetLoader {
             try {
                 val text = value.asString
                 if (text != null) {
-                    val normalized = DcConfigIO.normalizeLangKey(key)
+                    val normalized = DlcDcConfigIO.normalizeLangKey(key)
                     if (normalized != null) {
                         map[normalized] = text
                     }
@@ -125,7 +125,7 @@ object DlcPresetLoader {
         }
         if (element.isJsonObject) {
             val obj = element.asJsonObject
-            val identifier = DcConfigIO.getStringIgnoreCase(obj, "identifier")
+            val identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier")
             if (!identifier.isNullOrBlank()) {
                 result.add(identifier.trim())
                 return
@@ -153,11 +153,11 @@ object DlcPresetLoader {
     }
 
     private fun readIdentifier(basic: JsonObject?, obj: JsonObject, fallback: String): String {
-        val identifier = DcConfigIO.getStringIgnoreCase(basic, "identifier")?.trim()
+        val identifier = DlcDcConfigIO.getStringIgnoreCase(basic, "identifier")?.trim()
         if (!identifier.isNullOrEmpty()) {
             return identifier
         }
-        val legacyIdentifier = DcConfigIO.getStringIgnoreCase(obj, "identifier")?.trim()
+        val legacyIdentifier = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier")?.trim()
         if (!legacyIdentifier.isNullOrEmpty()) {
             return legacyIdentifier
         }
@@ -165,12 +165,12 @@ object DlcPresetLoader {
     }
 
     private fun migrateIfNeeded(path: Path, obj: JsonObject, identifier: String, alarm: Boolean, enable: List<String>, conflicts: List<String>) {
-        val basic = DcConfigIO.getObjectIgnoreCase(obj, "basic")
-        val hasMissingIdentifier = DcConfigIO.getStringIgnoreCase(basic, "identifier").isNullOrBlank()
-        val hasRootIdentifier = DcConfigIO.hasIgnoreCase(obj, "identifier")
-        val hasRootAlarm = DcConfigIO.hasIgnoreCase(obj, "alarm")
-        val hasLegacyEnable = DcConfigIO.hasIgnoreCase(obj, "enable")
-        val conflictsElement = DcConfigIO.getIgnoreCase(obj, "conflicts")
+        val basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic")
+        val hasMissingIdentifier = DlcDcConfigIO.getStringIgnoreCase(basic, "identifier").isNullOrBlank()
+        val hasRootIdentifier = DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
+        val hasRootAlarm = DlcDcConfigIO.hasIgnoreCase(obj, "alarm")
+        val hasLegacyEnable = DlcDcConfigIO.hasIgnoreCase(obj, "enable")
+        val conflictsElement = DlcDcConfigIO.getIgnoreCase(obj, "conflicts")
         val hasLegacyConflicts = conflictsElement != null && !conflictsElement.isJsonObject
         if (!hasMissingIdentifier && !hasRootIdentifier && !hasRootAlarm && !hasLegacyEnable && !hasLegacyConflicts) {
             return
@@ -202,7 +202,7 @@ object DlcPresetLoader {
             }
             migrated.add(key, value)
         }
-        DcConfigIO.write(path, migrated, DcConfigIO.Layout.GENERIC)
+        DlcDcConfigIO.write(path, migrated, DlcDcConfigIO.Layout.GENERIC)
     }
 
     private fun relationObject(values: List<String>): JsonObject {
@@ -223,6 +223,6 @@ object DlcPresetLoader {
     }
 
     private fun getDlcRoots(): List<Path> {
-        return DlcPathConfig.getDlcRoots()
+        return DlcConfig.getDlcRoots()
     }
 }

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.download;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ModrinthClient {
     private static final Gson GSON = new Gson();
     private static final HttpClient CLIENT = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs()))
+        .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs()))
         .build();
     private static final Map<String, ModrinthVersion> CACHE = new ConcurrentHashMap<>();
 
@@ -40,7 +40,7 @@ public final class ModrinthClient {
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create("https://api.modrinth.com/v2/version/" + versionId))
             .header("User-Agent", "DLC-Manager")
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
+            .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs()))
             .GET()
             .build();
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
@@ -128,7 +128,7 @@ public final class ModrinthClient {
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create(endpoint))
             .header("User-Agent", "DLC-Manager")
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
+            .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs()))
             .GET()
             .build();
         HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());

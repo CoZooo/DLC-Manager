@@ -2,8 +2,8 @@ package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import net.minecraft.client.Minecraft
@@ -67,12 +67,12 @@ class DlcServerConfigScreen(
         var y = 40
         val row = 22
 
-        serverSupport = DlcPathConfig.isServerSupportOnServer()
-        apiEnabled = DlcPathConfig.isApiEnabled()
-        uiEnableAll = DlcPathConfig.isEnableAllButtonShown()
-        uiUpdateManagerOn = DlcPathConfig.isUpdateManagerOn()
-        uiSelfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn()
-        uiPresetFuncOn = DlcPathConfig.isPresetFuncOn()
+        serverSupport = DlcConfig.isServerSupportOnServer()
+        apiEnabled = DlcConfig.isApiEnabled()
+        uiEnableAll = DlcConfig.isEnableAllButtonShown()
+        uiUpdateManagerOn = DlcConfig.isUpdateManagerOn()
+        uiSelfUpdateAutoCheckOn = DlcConfig.isSelfUpdateAutoCheckOn()
+        uiPresetFuncOn = DlcConfig.isPresetFuncOn()
 
         addLabel("dlc_manager.config.ui.serverSupport", y)
         serverSupportButton = Button.builder(toggleLabel("dlc_manager.config.ui.serverSupport", serverSupport)) { btn ->
@@ -230,19 +230,19 @@ class DlcServerConfigScreen(
     }
 
     private fun populateFromDefaults() {
-        serverPortField.value = DlcPathConfig.getServerPort().toString()
-        serverPasswordField.value = DlcPathConfig.getServerPassword()
+        serverPortField.value = DlcConfig.getServerPort().toString()
+        serverPasswordField.value = DlcConfig.getServerPassword()
         apiEnabledButton.message = toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled)
-        apiPortField.value = DlcPathConfig.getApiPort().toString()
-        apiTokenField.value = DlcPathConfig.getApiToken()
-        dlcRootField.value = DlcPathConfig.getDlcRootRaw()
-        taczRootField.value = DlcPathConfig.getTaczRootRaw()
-        resourcepackRootField.value = DlcPathConfig.getResourcepackRootRaw()
-        datapackRootField.value = DlcPathConfig.getDatapackRootRaw()
-        maxConcurrentField.value = DlcPathConfig.getMaxConcurrentDownloads().toString()
-        maxSegmentsField.value = DlcPathConfig.getMaxSegmentsPerFile().toString()
+        apiPortField.value = DlcConfig.getApiPort().toString()
+        apiTokenField.value = DlcConfig.getApiToken()
+        dlcRootField.value = DlcConfig.getDlcRootRaw()
+        taczRootField.value = DlcConfig.getTaczRootRaw()
+        resourcepackRootField.value = DlcConfig.getResourcepackRootRaw()
+        datapackRootField.value = DlcConfig.getDatapackRootRaw()
+        maxConcurrentField.value = DlcConfig.getMaxConcurrentDownloads().toString()
+        maxSegmentsField.value = DlcConfig.getMaxSegmentsPerFile().toString()
         minSegmentField.value = getDefaultMinSegmentMb().toString()
-        maxRetryField.value = DlcPathConfig.getMaxRetryCount().toString()
+        maxRetryField.value = DlcConfig.getMaxRetryCount().toString()
         connectTimeoutField.value = getDefaultConnectTimeoutSeconds().toString()
         taskTimeoutField.value = getDefaultTaskTimeoutSeconds().toString()
     }
@@ -273,21 +273,21 @@ class DlcServerConfigScreen(
     }
 
     private fun applyConfig(root: JsonObject) {
-        val server = DcConfigIO.getObjectIgnoreCase(root, "server")
+        val server = DlcDcConfigIO.getObjectIgnoreCase(root, "server")
         if (server != null) {
             serverSupport = getBoolean(server, "serverSupport", serverSupport)
-            serverPortField.value = getInt(server, "serverPort", DlcPathConfig.getServerPort()).toString()
+            serverPortField.value = getInt(server, "serverPort", DlcConfig.getServerPort()).toString()
             serverPasswordField.value = getString(server, "serverPassword", "")
             serverSupportButton.message = toggleLabel("dlc_manager.config.ui.serverSupport", serverSupport)
         }
-        val api = DcConfigIO.getObjectIgnoreCase(root, "api")
+        val api = DlcDcConfigIO.getObjectIgnoreCase(root, "api")
         if (api != null) {
             apiEnabled = getBoolean(api, "apiEnabled", apiEnabled)
-            apiPortField.value = getInt(api, "apiPort", DlcPathConfig.getApiPort()).toString()
-            apiTokenField.value = getString(api, "apiToken", DlcPathConfig.getApiToken())
+            apiPortField.value = getInt(api, "apiPort", DlcConfig.getApiPort()).toString()
+            apiTokenField.value = getString(api, "apiToken", DlcConfig.getApiToken())
             apiEnabledButton.message = toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled)
         }
-        val ui = DcConfigIO.getObjectIgnoreCase(root, "ui")
+        val ui = DlcDcConfigIO.getObjectIgnoreCase(root, "ui")
         if (ui != null) {
             uiEnableAll = getBoolean(ui, "isEnableAllButtonShown", uiEnableAll)
             uiUpdateManagerOn = getBoolean(ui, "isUpdateManagerOn", uiUpdateManagerOn)
@@ -298,19 +298,19 @@ class DlcServerConfigScreen(
             uiSelfUpdateButton.message = toggleLabel("dlc_manager.config.ui.isSelfUpdateAutoCheckOn", uiSelfUpdateAutoCheckOn)
             uiPresetButton.message = toggleLabel("dlc_manager.config.ui.isPresetFuncOn", uiPresetFuncOn)
         }
-        val paths = DcConfigIO.getObjectIgnoreCase(root, "paths")
+        val paths = DlcDcConfigIO.getObjectIgnoreCase(root, "paths")
         if (paths != null) {
-            dlcRootField.value = getString(paths, "dlcRoot", DlcPathConfig.getDlcRootRaw())
-            taczRootField.value = getString(paths, "taczRoot", DlcPathConfig.getTaczRootRaw())
-            resourcepackRootField.value = getString(paths, "resourcepackRoot", DlcPathConfig.getResourcepackRootRaw())
-            datapackRootField.value = getString(paths, "datapackRoot", DlcPathConfig.getDatapackRootRaw())
+            dlcRootField.value = getString(paths, "dlcRoot", DlcConfig.getDlcRootRaw())
+            taczRootField.value = getString(paths, "taczRoot", DlcConfig.getTaczRootRaw())
+            resourcepackRootField.value = getString(paths, "resourcepackRoot", DlcConfig.getResourcepackRootRaw())
+            datapackRootField.value = getString(paths, "datapackRoot", DlcConfig.getDatapackRootRaw())
         }
-        val downloads = DcConfigIO.getObjectIgnoreCase(root, "downloads")
+        val downloads = DlcDcConfigIO.getObjectIgnoreCase(root, "downloads")
         if (downloads != null) {
-            maxConcurrentField.value = getInt(downloads, "maxConcurrentDownloads", DlcPathConfig.getMaxConcurrentDownloads()).toString()
-            maxSegmentsField.value = getInt(downloads, "maxSegmentsPerFile", DlcPathConfig.getMaxSegmentsPerFile()).toString()
+            maxConcurrentField.value = getInt(downloads, "maxConcurrentDownloads", DlcConfig.getMaxConcurrentDownloads()).toString()
+            maxSegmentsField.value = getInt(downloads, "maxSegmentsPerFile", DlcConfig.getMaxSegmentsPerFile()).toString()
             minSegmentField.value = getInt(downloads, "minSegmentMB", getDefaultMinSegmentMb()).toString()
-            maxRetryField.value = getInt(downloads, "maxRetryCount", DlcPathConfig.getMaxRetryCount()).toString()
+            maxRetryField.value = getInt(downloads, "maxRetryCount", DlcConfig.getMaxRetryCount()).toString()
             connectTimeoutField.value = getInt(downloads, "connectTimeoutSeconds", getDefaultConnectTimeoutSeconds()).toString()
             taskTimeoutField.value = getInt(downloads, "taskTimeoutSeconds", getDefaultTaskTimeoutSeconds()).toString()
         }
@@ -320,13 +320,13 @@ class DlcServerConfigScreen(
         val root = JsonObject()
         val server = JsonObject()
         server.addProperty("serverSupport", serverSupport)
-        server.addProperty("serverPort", clampInt(parseInt(serverPortField.value, DlcPathConfig.getServerPort()), 1, 65535))
+        server.addProperty("serverPort", clampInt(parseInt(serverPortField.value, DlcConfig.getServerPort()), 1, 65535))
         server.addProperty("serverPassword", serverPasswordField.value)
         root.add("server", server)
 
         val api = JsonObject()
         api.addProperty("apiEnabled", apiEnabled)
-        api.addProperty("apiPort", clampInt(parseInt(apiPortField.value, DlcPathConfig.getApiPort()), 0, 65535))
+        api.addProperty("apiPort", clampInt(parseInt(apiPortField.value, DlcConfig.getApiPort()), 0, 65535))
         api.addProperty("apiToken", apiTokenField.value)
         root.add("api", api)
 
@@ -345,10 +345,10 @@ class DlcServerConfigScreen(
         root.add("paths", paths)
 
         val downloads = JsonObject()
-        downloads.addProperty("maxConcurrentDownloads", parseInt(maxConcurrentField.value, DlcPathConfig.getMaxConcurrentDownloads()))
-        downloads.addProperty("maxSegmentsPerFile", parseInt(maxSegmentsField.value, DlcPathConfig.getMaxSegmentsPerFile()))
+        downloads.addProperty("maxConcurrentDownloads", parseInt(maxConcurrentField.value, DlcConfig.getMaxConcurrentDownloads()))
+        downloads.addProperty("maxSegmentsPerFile", parseInt(maxSegmentsField.value, DlcConfig.getMaxSegmentsPerFile()))
         downloads.addProperty("minSegmentMB", parseInt(minSegmentField.value, getDefaultMinSegmentMb()))
-        downloads.addProperty("maxRetryCount", parseInt(maxRetryField.value, DlcPathConfig.getMaxRetryCount()))
+        downloads.addProperty("maxRetryCount", parseInt(maxRetryField.value, DlcConfig.getMaxRetryCount()))
         downloads.addProperty("connectTimeoutSeconds", parseInt(connectTimeoutField.value, getDefaultConnectTimeoutSeconds()))
         downloads.addProperty("taskTimeoutSeconds", parseInt(taskTimeoutField.value, getDefaultTaskTimeoutSeconds()))
         root.add("downloads", downloads)
@@ -408,7 +408,7 @@ class DlcServerConfigScreen(
 
         @JvmStatic
         private fun getInt(obj: JsonObject, key: String, fallback: Int): Int {
-            val element: JsonElement? = DcConfigIO.getIgnoreCase(obj, key)
+            val element: JsonElement? = DlcDcConfigIO.getIgnoreCase(obj, key)
             if (element != null && element.isJsonPrimitive) {
                 return try {
                     element.asInt
@@ -421,7 +421,7 @@ class DlcServerConfigScreen(
 
         @JvmStatic
         private fun getBoolean(obj: JsonObject, key: String, fallback: Boolean): Boolean {
-            val element: JsonElement? = DcConfigIO.getIgnoreCase(obj, key)
+            val element: JsonElement? = DlcDcConfigIO.getIgnoreCase(obj, key)
             if (element != null && element.isJsonPrimitive) {
                 return try {
                     element.asBoolean
@@ -434,7 +434,7 @@ class DlcServerConfigScreen(
 
         @JvmStatic
         private fun getString(obj: JsonObject, key: String, fallback: String): String {
-            val element: JsonElement? = DcConfigIO.getIgnoreCase(obj, key)
+            val element: JsonElement? = DlcDcConfigIO.getIgnoreCase(obj, key)
             if (element != null && element.isJsonPrimitive) {
                 return try {
                     element.asString
@@ -447,17 +447,17 @@ class DlcServerConfigScreen(
 
         @JvmStatic
         private fun getDefaultMinSegmentMb(): Int {
-            return toMb(DlcPathConfig.getMinSegmentBytes())
+            return toMb(DlcConfig.getMinSegmentBytes())
         }
 
         @JvmStatic
         private fun getDefaultConnectTimeoutSeconds(): Int {
-            return maxOf(1, DlcPathConfig.getConnectTimeoutMs() / 1000)
+            return maxOf(1, DlcConfig.getConnectTimeoutMs() / 1000)
         }
 
         @JvmStatic
         private fun getDefaultTaskTimeoutSeconds(): Int {
-            return maxOf(1, DlcPathConfig.getTaskTimeoutMs() / 1000)
+            return maxOf(1, DlcConfig.getTaskTimeoutMs() / 1000)
         }
 
         @JvmStatic

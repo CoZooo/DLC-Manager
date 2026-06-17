@@ -1,11 +1,11 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.core.ApplyMode;
+import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfigDlcSupport;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.client.notice.DlcNoticeManager;
@@ -59,10 +59,10 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     private final List<DlcListRow> rows = new ArrayList<>();
     private final List<DlcItem> items = new ArrayList<>();
     private final List<DlcItem> allItems = new ArrayList<>();
-    private ApplyMode applyMode;
+    private DlcApplyMode applyMode;
     private boolean hasModItems;
     private boolean hasModChanges;
-    private boolean userSelectedApplyMode;
+    private boolean userSelectedDlcApplyMode;
     private int savedScrollOffset;
     private DlcType savedScrollFilter;
     private boolean restoreScrollPending;
@@ -99,8 +99,8 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     public DlcMaLiLibScreen(Screen parent) {
         super(10, 34);
         this.parent = parent;
-        this.applyMode = ApplyMode.RESTART_ONLY;
-        this.userSelectedApplyMode = false;
+        this.applyMode = DlcApplyMode.RESTART_ONLY;
+        this.userSelectedDlcApplyMode = false;
         setTitle(StringUtils.translate("dlc_manager.title"));
         setParent(parent);
         setListPosition(18, 42);
@@ -189,11 +189,11 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     }
 
     private boolean canShowServerButton() {
-        return DlcPathConfig.isServerSupportOn();
+        return DlcConfig.isServerSupportOn();
     }
 
     private boolean hasRequiredEntries() {
-        for (Path dlcRoot : DlcPathConfig.getDlcRoots()) {
+        for (Path dlcRoot : DlcConfig.getDlcRoots()) {
             if (!DlcRequiredLoader.load(dlcRoot).isEmpty()) {
                 return true;
             }
@@ -213,7 +213,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
 
     private void addHeaderButtons() {
         HeaderLabels labels = getHeaderLabels();
-        boolean showEnable = DlcPathConfig.isEnableAllButtonShown();
+        boolean showEnable = DlcConfig.isEnableAllButtonShown();
         int right = this.width - 18;
         int y = 0;
         int h = 12;
@@ -243,7 +243,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     }
 
     private void addNoticeButton() {
-        if (!DlcPathConfig.isNoticeDisplayModeManagerButton() || !DlcNoticeManager.isNoticeEnabled()) {
+        if (!DlcConfig.isNoticeDisplayModeManagerButton() || !DlcNoticeManager.isNoticeEnabled()) {
             noticeButton = null;
             return;
         }
@@ -380,19 +380,19 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         int left = margin;
         int right = this.width - margin;
 
-        int modeWidth = Math.max(90, StringUtils.getStringWidth(getApplyModeLabel()) + padding);
-        modeButton = new ButtonGeneric(left, y, modeWidth, 20, getApplyModeLabel());
+        int modeWidth = Math.max(90, StringUtils.getStringWidth(getDlcApplyModeLabel()) + padding);
+        modeButton = new ButtonGeneric(left, y, modeWidth, 20, getDlcApplyModeLabel());
         addButton(modeButton, new FooterButtonListener());
 
         updateButton = null;
-        if (DlcPathConfig.isUpdateManagerOn() && !DlcPathConfig.isUButtomShown()) {
+        if (DlcConfig.isUpdateManagerOn() && !DlcConfig.isUButtomShown()) {
             int updateWidth = Math.max(80, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.update.manager")) + padding);
             updateButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, updateWidth, 20, StringUtils.translate("dlc_manager.update.manager"));
             addButton(updateButton, new FooterButtonListener());
         }
 
         presetButton = null;
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             int presetWidth = Math.max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.preset.manager")) + 8);
             presetButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, presetWidth, 20, StringUtils.translate("dlc_manager.preset.manager"));
             if (updateButton != null) {
@@ -402,7 +402,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         }
 
         packButton = null;
-        if (DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown()) {
+        if (DlcConfig.isPackFuncOn() && !DlcConfig.isPButtomShown()) {
             int packWidth = Math.max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.pack.manager")) + 8);
             packButton = new ButtonGeneric(left + modeButton.getWidth() + gap, y, packWidth, 20, StringUtils.translate("dlc_manager.pack.manager"));
             if (updateButton != null) {
@@ -415,7 +415,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         }
 
         configButton = null;
-        if (DlcPathConfig.isConfigButtonShown()) {
+        if (DlcConfig.isConfigButtonShown()) {
             int configX = left + modeButton.getWidth() + gap;
             if (updateButton != null) {
                 configX += updateButton.getWidth() + gap;
@@ -497,9 +497,9 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         allItems.clear();
         hasModItems = false;
         hasModChanges = false;
-        userSelectedApplyMode = false;
+        userSelectedDlcApplyMode = false;
 
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.reload();
         } else {
             DlcPresetRuntimeState.clearAll();
@@ -578,7 +578,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
 
     private void appendRedirectRows() {
         List<DlcRedirectEntry> redirectEntries = new ArrayList<>();
-        for (Path dlcRoot : DlcPathConfig.getDlcRoots()) {
+        for (Path dlcRoot : DlcConfig.getDlcRoots()) {
             redirectEntries.addAll(DlcRedirectLoader.load(dlcRoot));
         }
         if (redirectEntries.isEmpty()) {
@@ -610,7 +610,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         try {
             Path source = item.getSourcePath();
             String relative = null;
-            for (Path dlcRoot : DlcPathConfig.getDlcRoots()) {
+            for (Path dlcRoot : DlcConfig.getDlcRoots()) {
                 if (source.startsWith(dlcRoot)) {
                     relative = dlcRoot.relativize(source).toString().replace('\\', '/');
                     break;
@@ -636,7 +636,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         return raw;
     }
 
-    private String getApplyModeLabel() {
+    private String getDlcApplyModeLabel() {
         String modeName = StringUtils.translate(applyMode.getLabelKey());
         return StringUtils.translate("dlc_manager.apply_mode_label", modeName);
     }
@@ -649,16 +649,16 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         return active ? "[" + base + "]" : base;
     }
 
-    private void toggleApplyMode() {
+    private void toggleDlcApplyMode() {
         if (hasModChanges) {
-            applyMode = ApplyMode.RESTART_ONLY;
+            applyMode = DlcApplyMode.RESTART_ONLY;
             updateModeAvailability();
             return;
         }
-        applyMode = applyMode == ApplyMode.RESTART_ONLY ? ApplyMode.TRY_HOT_RELOAD : ApplyMode.RESTART_ONLY;
-        userSelectedApplyMode = true;
+        applyMode = applyMode == DlcApplyMode.RESTART_ONLY ? DlcApplyMode.TRY_HOT_RELOAD : DlcApplyMode.RESTART_ONLY;
+        userSelectedDlcApplyMode = true;
         if (modeButton != null) {
-            modeButton.setDisplayString(getApplyModeLabel());
+            modeButton.setDisplayString(getDlcApplyModeLabel());
         }
     }
 
@@ -707,7 +707,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         boolean modReloadNeeded = computeModReloadChanges();
         boolean otherReloadNeeded = computeNonModReloadChanges();
         boolean requiredPending = DlcRequiredRuntimeState.hasPendingChanges();
-        boolean presetChanged = DlcPathConfig.isPresetFuncOn() && hasPresetChanges();
+        boolean presetChanged = DlcConfig.isPresetFuncOn() && hasPresetChanges();
         if (!applyNeeded && !modReloadNeeded && !otherReloadNeeded) {
             if (presetChanged) {
                 DlcPresetRuntimeState.syncStatusFromRuntime();
@@ -744,7 +744,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
                 return;
             }
         }
-        if (DlcPathConfig.isPresetFuncOn() && (presetChanged || applyNeeded)) {
+        if (DlcConfig.isPresetFuncOn() && (presetChanged || applyNeeded)) {
             DlcPresetRuntimeState.syncStatusFromRuntime();
         }
 
@@ -771,14 +771,14 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             message = "dlc_manager.apply.deferred_restart";
         } else if (modReloadNeeded) {
             message = "dlc_manager.message.restart";
-        } else if (otherReloadNeeded && applyMode == ApplyMode.TRY_HOT_RELOAD) {
+        } else if (otherReloadNeeded && applyMode == DlcApplyMode.TRY_HOT_RELOAD) {
             message = "dlc_manager.message.reload_prompt";
         } else {
             message = "dlc_manager.message.reopen_world";
         }
 
         Minecraft minecraft = Minecraft.getInstance();
-        if (applyMode == ApplyMode.RESTART_ONLY) {
+        if (applyMode == DlcApplyMode.RESTART_ONLY) {
             minecraft.setScreen(new ConfirmScreen(accepted -> {
                 if (accepted) {
                     minecraft.stop();
@@ -788,7 +788,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             }, Component.translatable("dlc_manager.title"), Component.translatable(message),
                 Component.translatable("dlc_manager.restart_now"),
                 Component.translatable("dlc_manager.restart_later")));
-        } else if (applyMode == ApplyMode.TRY_HOT_RELOAD) {
+        } else if (applyMode == DlcApplyMode.TRY_HOT_RELOAD) {
             minecraft.setScreen(new ConfirmScreen(accepted -> {
                 if (accepted) {
                     var future = tryReloadResources();
@@ -867,7 +867,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             rememberListScroll();
             Minecraft.getInstance().setScreen(new DlcServerListScreen(DlcMaLiLibScreen.this));
         } else if (button == modeButton) {
-            toggleApplyMode();
+            toggleDlcApplyMode();
         }
         }
     }
@@ -950,20 +950,20 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         boolean otherChanges = computeNonModReloadChanges();
         hasModChanges = modChanges;
         if (modChanges) {
-            applyMode = ApplyMode.RESTART_ONLY;
-            userSelectedApplyMode = false;
+            applyMode = DlcApplyMode.RESTART_ONLY;
+            userSelectedDlcApplyMode = false;
         } else if (otherChanges) {
-            if (!userSelectedApplyMode) {
-                applyMode = ApplyMode.TRY_HOT_RELOAD;
+            if (!userSelectedDlcApplyMode) {
+                applyMode = DlcApplyMode.TRY_HOT_RELOAD;
             }
         } else {
-            if (!userSelectedApplyMode) {
-                applyMode = ApplyMode.RESTART_ONLY;
+            if (!userSelectedDlcApplyMode) {
+                applyMode = DlcApplyMode.RESTART_ONLY;
             }
         }
         if (modeButton != null) {
             modeButton.setEnabled(!modChanges);
-            modeButton.setDisplayString(getApplyModeLabel());
+            modeButton.setDisplayString(getDlcApplyModeLabel());
         }
         updateBackButtonLabel();
     }
@@ -1388,7 +1388,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
             return;
         }
         HeaderLabels labels = getHeaderLabels();
-        boolean showEnable = DlcPathConfig.isEnableAllButtonShown();
+        boolean showEnable = DlcConfig.isEnableAllButtonShown();
         int right = this.width - 18;
         int y = 0;
         int h = 12;
@@ -1717,7 +1717,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
         if (presetSnapshotCaptured) {
             return;
         }
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             presetSnapshot.clear();
             presetSnapshotCaptured = true;
             return;
@@ -1728,7 +1728,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
     }
 
     private boolean hasPresetChanges() {
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             return false;
         }
         if (!presetSnapshotCaptured) {

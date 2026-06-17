@@ -1,9 +1,9 @@
 package com.cozooo.dlc_manager.client.required;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.nio.file.Path;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,7 +38,7 @@ public class DlcRequiredEntry {
         this.configPath = configPath;
         this.requiredDir = requiredDir;
         String name = configPath == null ? "" : configPath.getFileName().toString();
-        name = DcFormatUtil.stripConfigExtension(name);
+        name = DlcDcFormatUtil.stripConfigExtension(name);
         this.baseName = name;
         this.identifier = name;
     }
@@ -337,7 +337,7 @@ public class DlcRequiredEntry {
         if (displayNames.isEmpty()) {
             return fallback;
         }
-        String lang = DcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
         if (displayNames.containsKey(lang)) {
             return displayNames.get(lang);
         }

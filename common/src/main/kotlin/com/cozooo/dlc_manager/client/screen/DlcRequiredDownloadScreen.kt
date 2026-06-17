@@ -15,8 +15,8 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
-import com.cozooo.dlc_manager.core.DcFormatUtil
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -51,10 +51,10 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private val forceRequired = DlcRequiredManager.hasForceMarker()
     private val forceRestartRequired = DlcRequiredManager.hasForceRestartMarker()
     private var updatePackageRequired = false
-    private val maxConcurrentDownloads = max(1, DlcPathConfig.getMaxConcurrentDownloads())
-    private val maxRetry = max(1, DlcPathConfig.getMaxRetryCount())
-    private val connectTimeoutMs = max(1, DlcPathConfig.getConnectTimeoutMs())
-    private val taskTimeoutMs = max(1, DlcPathConfig.getTaskTimeoutMs())
+    private val maxConcurrentDownloads = max(1, DlcConfig.getMaxConcurrentDownloads())
+    private val maxRetry = max(1, DlcConfig.getMaxRetryCount())
+    private val connectTimeoutMs = max(1, DlcConfig.getConnectTimeoutMs())
+    private val taskTimeoutMs = max(1, DlcConfig.getTaskTimeoutMs())
     private val progressByKey: MutableMap<String, Float> = ConcurrentHashMap()
     private val attemptByKey: MutableMap<String, Int> = ConcurrentHashMap()
     private val attemptCounter = AtomicInteger()
@@ -995,7 +995,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         if (fileName == null) {
             return false
         }
-        return DcFormatUtil.isDcName(fileName)
+        return DlcDcFormatUtil.isDcName(fileName)
     }
 
     private fun isTempFileName(fileName: String?): Boolean {
@@ -1058,7 +1058,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                     Files.newDirectoryStream(target, "$base.*").use { stream ->
                         for (path in stream) {
                             val name = path.fileName?.toString() ?: ""
-                            if (!DcFormatUtil.isDcName(name)) {
+                            if (!DlcDcFormatUtil.isDcName(name)) {
                                 return name
                             }
                         }

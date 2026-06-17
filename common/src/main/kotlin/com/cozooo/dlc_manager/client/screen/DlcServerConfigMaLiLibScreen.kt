@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.config.DlcServerConfigClient
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.JsonObject
 import fi.dy.masa.malilib.config.IConfigBase
 import fi.dy.masa.malilib.config.IConfigDouble
@@ -44,7 +44,7 @@ class DlcServerConfigMaLiLibScreen private constructor(
     private val entry: DlcServerEntry,
     tab: Tab,
     private val session: ConfigSession,
-) : GuiModConfigs(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab)), false, "dlc_manager.server.config_title") {
+) : GuiModConfigs(DlcConfig.MOD_ID, buildOptions(resolveTab(tab)), false, "dlc_manager.server.config_title") {
     private val currentTab: Tab = resolveTab(tab)
     private var maxLabelWidth = 220
     private var listWidget: WidgetListConfigOptionsBase<*, *>? = null

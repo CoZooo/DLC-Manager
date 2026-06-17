@@ -11,10 +11,10 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
-import com.cozooo.dlc_manager.core.ApplyMode;
+import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
@@ -67,7 +67,7 @@ public class DlcServerService {
     private static volatile MinecraftServer currentServer;
 
     public static void start() {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             LOGGER.info("[dlc-manager] server support disabled; skip server manager TCP start");
             return;
         }
@@ -89,7 +89,7 @@ public class DlcServerService {
         acceptThread = new Thread(DlcServerService::acceptLoop, "dlc-manager-server");
         acceptThread.setDaemon(true);
         acceptThread.start();
-        LOGGER.info("[dlc-manager] server manager TCP starting on port {}", DlcPathConfig.getServerPort());
+        LOGGER.info("[dlc-manager] server manager TCP starting on port {}", DlcConfig.getServerPort());
     }
 
     public static void stop() {
@@ -112,7 +112,7 @@ public class DlcServerService {
     }
 
     public static void updateServerStatus(MinecraftServer server) {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             return;
         }
         currentServer = server;
@@ -136,10 +136,10 @@ public class DlcServerService {
     }
 
     public static String getServerVersionLabel() {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             return "";
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         if (version == null) {
             return "";
@@ -153,7 +153,7 @@ public class DlcServerService {
     }
 
     private static void acceptLoop() {
-        try (ServerSocket socket = new ServerSocket(DlcPathConfig.getServerPort())) {
+        try (ServerSocket socket = new ServerSocket(DlcConfig.getServerPort())) {
             serverSocket = socket;
             while (RUNNING.get()) {
                 Socket client = socket.accept();
@@ -290,7 +290,7 @@ public class DlcServerService {
     }
 
     private static boolean handleHello(JsonObject request, BufferedWriter writer) throws IOException {
-        String expected = DlcPathConfig.getServerPassword();
+        String expected = DlcConfig.getServerPassword();
         String provided = request.has("password") ? request.get("password").getAsString() : "";
         String player = request.has("player") ? request.get("player").getAsString() : "";
         String uuid = request.has("uuid") ? request.get("uuid").getAsString() : "";
@@ -359,7 +359,7 @@ public class DlcServerService {
                 items.add(serverItem);
             }
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         int remoteMissing = DlcServerDownloadService.collectMissingRemote(dlcRoot).size();
         int requiredMissing = DlcServerDownloadService.collectMissingRequired(dlcRoot).size();
@@ -370,14 +370,14 @@ public class DlcServerService {
         response.addProperty("remoteMissing", remoteMissing);
         response.addProperty("requiredMissing", requiredMissing);
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot));
-        response.addProperty("modpackUrl", DlcPathConfig.getServerModpackUrl());
-        response.addProperty("updateGithubRepo", DlcPathConfig.getServerUpdateGithubRepoUrl());
+        response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
+        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl());
         response.add("items", GSON.toJsonTree(items));
         writeLine(writer, response);
     }
 
     private static void handleRemoteDownload(BufferedWriter writer) throws IOException {
-        DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadMissingRemote(DlcPathConfig.getDlcRoot());
+        DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadMissingRemote(DlcConfig.getDlcRoot());
         JsonObject response = new JsonObject();
         response.addProperty("type", "remote_download");
         response.addProperty("ok", result.success);
@@ -392,7 +392,7 @@ public class DlcServerService {
         JsonObject response = new JsonObject();
         response.addProperty("type", "remote_list");
         response.addProperty("ok", true);
-        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcPathConfig.getDlcRoot(), lang)));
+        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)));
         writeLine(writer, response);
     }
 
@@ -400,7 +400,7 @@ public class DlcServerService {
         try {
             java.nio.file.Path source = item.getSourcePath();
             String relative = null;
-            for (java.nio.file.Path dlcRoot : DlcPathConfig.getDlcRoots()) {
+            for (java.nio.file.Path dlcRoot : DlcConfig.getDlcRoots()) {
                 if (source.startsWith(dlcRoot)) {
                     relative = dlcRoot.relativize(source).toString().replace('\\', '/');
                     break;
@@ -428,7 +428,7 @@ public class DlcServerService {
                 }
             });
         }
-        DlcServerRemoteStatus status = DlcServerDownloadService.startRemoteDownload(DlcPathConfig.getDlcRoot(), keys, lang);
+        DlcServerRemoteStatus status = DlcServerDownloadService.startRemoteDownload(DlcConfig.getDlcRoot(), keys, lang);
         JsonObject response = new JsonObject();
         response.addProperty("type", "remote_download_start");
         response.addProperty("ok", true);
@@ -446,7 +446,7 @@ public class DlcServerService {
     }
 
     private static void handleRequiredList(BufferedWriter writer, String lang) throws IOException {
-        List<DlcServerRequiredItem> items = DlcServerDownloadService.collectRequiredItems(DlcPathConfig.getDlcRoot(), lang);
+        List<DlcServerRequiredItem> items = DlcServerDownloadService.collectRequiredItems(DlcConfig.getDlcRoot(), lang);
         JsonObject response = new JsonObject();
         response.addProperty("type", "required_list");
         response.addProperty("ok", true);
@@ -463,7 +463,7 @@ public class DlcServerService {
                 }
             });
         }
-        DlcServerRequiredStatus status = DlcServerDownloadService.startRequiredDownload(DlcPathConfig.getDlcRoot(), ids, lang);
+        DlcServerRequiredStatus status = DlcServerDownloadService.startRequiredDownload(DlcConfig.getDlcRoot(), ids, lang);
         JsonObject response = new JsonObject();
         response.addProperty("type", "required_download_start");
         response.addProperty("ok", true);
@@ -498,7 +498,7 @@ public class DlcServerService {
                 }
             });
         }
-        int removed = DlcServerDownloadService.uninstallRequired(DlcPathConfig.getDlcRoot(), ids);
+        int removed = DlcServerDownloadService.uninstallRequired(DlcConfig.getDlcRoot(), ids);
         JsonObject response = new JsonObject();
         response.addProperty("type", "required_uninstall");
         response.addProperty("ok", true);
@@ -515,7 +515,7 @@ public class DlcServerService {
                 }
             });
         }
-        int applied = DlcServerDownloadService.applyRequiredByIds(DlcPathConfig.getDlcRoot(), ids);
+        int applied = DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids);
         JsonObject response = new JsonObject();
         response.addProperty("type", "required_apply");
         response.addProperty("ok", true);
@@ -552,7 +552,7 @@ public class DlcServerService {
                 item.setEnabled(desired);
             }
         }
-        DlcApplier.ApplyResult result = DlcApplier.apply(items, ApplyMode.RESTART_ONLY);
+        DlcApplier.ApplyResult result = DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY);
         JsonObject response = new JsonObject();
         response.addProperty("type", "apply");
         response.addProperty("ok", true);
@@ -561,7 +561,7 @@ public class DlcServerService {
     }
 
     private static void writeUpdateState(BufferedWriter writer) throws IOException {
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         DlcUpdateVersion version = dlcRoot == null ? null : DlcUpdateVersion.load(dlcRoot);
         String base = version == null ? "" : version.getBase();
         String dlc = version == null ? "" : version.getDlc();
@@ -596,8 +596,8 @@ public class DlcServerService {
         response.addProperty("ok", true);
         response.addProperty("base", base == null ? "" : base);
         response.addProperty("dlc", dlc == null ? "" : dlc);
-        response.addProperty("modpackUrl", DlcPathConfig.getServerModpackUrl());
-        response.addProperty("updateGithubRepo", DlcPathConfig.getServerUpdateGithubRepoUrl());
+        response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
+        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl());
         if (rollbackFrom != null && !rollbackFrom.isBlank()) {
             response.addProperty("rollbackFrom", rollbackFrom);
         }
@@ -734,7 +734,7 @@ public class DlcServerService {
                 }
             });
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");
         try {
             Files.createDirectories(tempDir);
@@ -780,7 +780,7 @@ public class DlcServerService {
         if (state.tempFile == null || !Files.exists(state.tempFile)) {
             return false;
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Path gameDir = CrossPlatformRuntime.gameDir();
         boolean includeAll = state.targets.stream().anyMatch(value -> "all".equalsIgnoreCase(value));
@@ -903,7 +903,7 @@ public class DlcServerService {
             writeError(writer, "invalid path");
             return;
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         try (DlcServerOps.ServerOpContext op = DlcServerOps.begin(dlcRoot, root, "delete")) {
             op.backupIfExists(target);
             op.deleteRecursive(target);
@@ -923,7 +923,7 @@ public class DlcServerService {
             writeError(writer, "invalid path");
             return null;
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");
         try {
             Files.createDirectories(tempDir);
@@ -958,7 +958,7 @@ public class DlcServerService {
         boolean ok = false;
         if (state != null && state.tempFile != null) {
             Path root = CrossPlatformRuntime.gameDir();
-            Path dlcRoot = DlcPathConfig.getDlcRoot();
+            Path dlcRoot = DlcConfig.getDlcRoot();
             try (DlcServerOps.ServerOpContext op = DlcServerOps.begin(dlcRoot, root, "upload")) {
                 Path target = state.targetPath;
                 if (target != null) {
@@ -994,7 +994,7 @@ public class DlcServerService {
             return;
         }
         boolean isDir = Files.isDirectory(target);
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         Path sendFile = target;
         Path tempZip = null;
         if (isDir) {
@@ -1079,9 +1079,9 @@ public class DlcServerService {
         JsonObject response = new JsonObject();
         response.addProperty("type", "rcon_get");
         response.addProperty("ok", true);
-        response.addProperty("host", DlcPathConfig.getServerRconHost());
-        response.addProperty("port", DlcPathConfig.getServerRconPort());
-        response.addProperty("password", DlcPathConfig.getServerRconPassword());
+        response.addProperty("host", DlcConfig.getServerRconHost());
+        response.addProperty("port", DlcConfig.getServerRconPort());
+        response.addProperty("password", DlcConfig.getServerRconPassword());
         writeLine(writer, response);
     }
 
@@ -1098,12 +1098,12 @@ public class DlcServerService {
 
     private static void handleRconSet(JsonObject request, BufferedWriter writer) throws IOException {
         String host = request.has("host") ? request.get("host").getAsString() : "";
-        int port = request.has("port") ? request.get("port").getAsInt() : DlcPathConfig.getServerRconPort();
+        int port = request.has("port") ? request.get("port").getAsInt() : DlcConfig.getServerRconPort();
         String password = request.has("password") ? request.get("password").getAsString() : "";
-        DlcPathConfig.setServerRconHost(host);
-        DlcPathConfig.setServerRconPort(port);
-        DlcPathConfig.setServerRconPassword(password);
-        DlcPathConfig.saveServer();
+        DlcConfig.setServerRconHost(host);
+        DlcConfig.setServerRconPort(port);
+        DlcConfig.setServerRconPassword(password);
+        DlcConfig.saveServer();
         JsonObject response = new JsonObject();
         response.addProperty("type", "rcon_set");
         response.addProperty("ok", true);
@@ -1114,7 +1114,7 @@ public class DlcServerService {
         JsonObject response = new JsonObject();
         response.addProperty("type", "config_get");
         response.addProperty("ok", true);
-        response.add("config", DlcPathConfig.buildServerConfigJson());
+        response.add("config", DlcConfig.buildServerConfigJson());
         writeLine(writer, response);
     }
 
@@ -1122,8 +1122,8 @@ public class DlcServerService {
         boolean ok = false;
         if (request.has("config") && request.get("config").isJsonObject()) {
             JsonObject config = request.getAsJsonObject("config");
-            DlcPathConfig.applyServerConfigJson(config);
-            DlcPathConfig.saveServer();
+            DlcConfig.applyServerConfigJson(config);
+            DlcConfig.saveServer();
             ok = true;
         }
         JsonObject response = new JsonObject();
@@ -1136,9 +1136,9 @@ public class DlcServerService {
         String command = request.has("command") ? request.get("command").getAsString() : "";
         String message = null;
         boolean ok = false;
-        String host = DlcPathConfig.getServerRconHost();
-        String password = DlcPathConfig.getServerRconPassword();
-        int port = DlcPathConfig.getServerRconPort();
+        String host = DlcConfig.getServerRconHost();
+        String password = DlcConfig.getServerRconPassword();
+        int port = DlcConfig.getServerRconPort();
         if (host != null && !host.isBlank() && password != null && !password.isBlank()) {
             message = DlcRconClient.execute(host, port, password, command, 5000);
             ok = message != null;

@@ -4,9 +4,9 @@ import com.cozooo.dlc_manager.client.download.CurseForgeClient
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.client.download.ModrinthClient
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DcFormatUtil
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -124,7 +124,7 @@ object DlcRequiredRuntime {
     }
 
     private fun getDlcRoot(): Path? {
-        val roots = DlcPathConfig.getDlcRoots()
+        val roots = DlcConfig.getDlcRoots()
         return if (roots.isEmpty()) null else roots[0]
     }
 
@@ -508,7 +508,7 @@ object DlcRequiredRuntime {
             Files.newDirectoryStream(requiredDir, "$base.*").use { stream ->
                 for (path in stream) {
                     val name = path.fileName?.toString() ?: ""
-                    if (!DcFormatUtil.isDcName(name) && !name.endsWith(".part")) {
+                    if (!DlcDcFormatUtil.isDcName(name) && !name.endsWith(".part")) {
                         return name
                     }
                 }
@@ -532,7 +532,7 @@ object DlcRequiredRuntime {
             return
         }
         try {
-            val obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
+            val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
             val reordered = reorderRequiredJson(obj, normalized)
             writeRequiredConfig(config, reordered)
             entry.setRequiredFileName(normalized)
@@ -551,7 +551,7 @@ object DlcRequiredRuntime {
             return
         }
         try {
-            val obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
+            val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
             val reordered = reorderRequiredJson(obj, normalized)
             writeRequiredConfig(config, reordered)
             entry.setRequiredFileName(normalized)
@@ -569,7 +569,7 @@ object DlcRequiredRuntime {
             return
         }
         try {
-            val obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
+            val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
             if (userRemoved) {
                 obj.addProperty("UserRemoved", true)
             } else {
@@ -587,8 +587,8 @@ object DlcRequiredRuntime {
         if (config == null || ordered == null) {
             return null
         }
-        val target = DcFormatUtil.toDcPath(config) ?: return null
-        if (!DcFormatUtil.write(target, ordered)) {
+        val target = DlcDcFormatUtil.toDcPath(config) ?: return null
+        if (!DlcDcFormatUtil.write(target, ordered)) {
             return null
         }
         if (target != config) {
@@ -710,7 +710,7 @@ object DlcRequiredRuntime {
         if (trimmed.isEmpty()) {
             return null
         }
-        if (DcFormatUtil.isDcName(trimmed)) {
+        if (DlcDcFormatUtil.isDcName(trimmed)) {
             return null
         }
         return trimmed.replace(Regex("[\\\\/:*?\"<>|]"), "_")

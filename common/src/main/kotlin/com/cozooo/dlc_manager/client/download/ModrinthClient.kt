@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.download
 
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
 object ModrinthClient {
     private val GSON = Gson()
     private val CLIENT: HttpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs().toLong()))
+        .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs().toLong()))
         .build()
     private val CACHE: MutableMap<String, ModrinthVersion> = ConcurrentHashMap()
 
@@ -32,7 +32,7 @@ object ModrinthClient {
         val request = HttpRequest.newBuilder()
             .uri(URI.create("https://api.modrinth.com/v2/version/$versionId"))
             .header("User-Agent", "DLC-Manager")
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs().toLong()))
             .GET()
             .build()
         val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())
@@ -115,7 +115,7 @@ object ModrinthClient {
         val request = HttpRequest.newBuilder()
             .uri(URI.create(endpoint))
             .header("User-Agent", "DLC-Manager")
-            .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs().toLong()))
+            .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs().toLong()))
             .GET()
             .build()
         val response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString())

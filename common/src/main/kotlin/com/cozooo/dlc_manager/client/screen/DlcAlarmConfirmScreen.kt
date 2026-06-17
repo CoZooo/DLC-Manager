@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -58,7 +58,7 @@ class DlcAlarmConfirmScreen(
         checkboxX = (width - totalCheckboxWidth) / 2
         checkboxY = buttonY - 24
 
-        val configuredWaiting = max(0, min(10, DlcPathConfig.getAlarmWaitingTime()))
+        val configuredWaiting = max(0, min(10, DlcConfig.getAlarmWaitingTime()))
         waitEndMillis = if (configuredWaiting > 0) System.currentTimeMillis() + configuredWaiting * 1000L else 0L
         updateConfirmButtonState()
     }

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.required
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import java.nio.file.Path
@@ -245,7 +245,7 @@ class DlcRequiredEntry(
         if (displayNames.isEmpty()) {
             return fallback
         }
-        val lang = DcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
+        val lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
         if (displayNames.containsKey(lang)) {
             return displayNames[lang] ?: fallback
         }

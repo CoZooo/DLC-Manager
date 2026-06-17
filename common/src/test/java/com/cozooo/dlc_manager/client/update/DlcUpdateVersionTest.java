@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,12 +19,12 @@ class DlcUpdateVersionTest {
 
     @BeforeEach
     void resetModpackBefore() {
-        DlcPathConfig.setModpack("");
+        DlcConfig.setModpack("");
     }
 
     @AfterEach
     void resetModpackAfter() {
-        DlcPathConfig.setModpack("");
+        DlcConfig.setModpack("");
     }
 
     @Test

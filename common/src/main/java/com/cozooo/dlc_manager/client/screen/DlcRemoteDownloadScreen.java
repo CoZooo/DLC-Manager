@@ -9,8 +9,8 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
 import com.cozooo.dlc_manager.client.download.ModrinthClient;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -86,10 +86,10 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         this.parent = parent;
         this.missing = missing == null ? List.of() : missing;
         this.partMarkerKey = partMarkerKey;
-        this.maxConcurrentDownloads = Math.max(1, DlcPathConfig.getMaxConcurrentDownloads());
-        this.maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
-        this.connectTimeoutMs = Math.max(1, DlcPathConfig.getConnectTimeoutMs());
-        this.taskTimeoutMs = Math.max(1, DlcPathConfig.getTaskTimeoutMs());
+        this.maxConcurrentDownloads = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
+        this.maxRetry = Math.max(1, DlcConfig.getMaxRetryCount());
+        this.connectTimeoutMs = Math.max(1, DlcConfig.getConnectTimeoutMs());
+        this.taskTimeoutMs = Math.max(1, DlcConfig.getTaskTimeoutMs());
     }
 
     @Override
@@ -996,7 +996,7 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private Path firstDlcRoot() {
-        List<Path> roots = DlcPathConfig.getDlcRoots();
+        List<Path> roots = DlcConfig.getDlcRoots();
         return roots.isEmpty() ? null : roots.get(0);
     }
 
@@ -1247,6 +1247,6 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private String stripJson(String name) {
-        return DcFormatUtil.stripConfigExtension(name);
+        return DlcDcFormatUtil.stripConfigExtension(name);
     }
 }

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -114,13 +114,13 @@ public class DlcPackTransaction {
         if (path == null || !Files.exists(path)) {
             return null;
         }
-        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }
-        Status status = parseStatus(DcConfigIO.getStringIgnoreCase(obj, "status"));
-        String identifier = trim(DcConfigIO.getStringIgnoreCase(obj, "identifier"));
-        String staging = trim(DcConfigIO.getStringIgnoreCase(obj, "staging"));
+        Status status = parseStatus(DlcDcConfigIO.getStringIgnoreCase(obj, "status"));
+        String identifier = trim(DlcDcConfigIO.getStringIgnoreCase(obj, "identifier"));
+        String staging = trim(DlcDcConfigIO.getStringIgnoreCase(obj, "staging"));
         if (status == null || !DlcPackMetadata.isValidIdentifier(identifier)) {
             return null;
         }
@@ -128,12 +128,12 @@ public class DlcPackTransaction {
             status,
             identifier,
             staging == null ? "" : staging,
-            readArray(DcConfigIO.getArrayIgnoreCase(obj, "moved")),
-            readArray(DcConfigIO.getArrayIgnoreCase(obj, "written")),
-            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
-            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
-            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
-            readTokenArray(DcConfigIO.getArrayIgnoreCase(obj, "disabled_presets")),
+            readArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "moved")),
+            readArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "written")),
+            readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "enabled_dlc")),
+            readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "disabled_dlc")),
+            readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "enabled_presets")),
+            readTokenArray(DlcDcConfigIO.getArrayIgnoreCase(obj, "disabled_presets")),
             getBoolean(obj, "replacement")
         );
     }
@@ -223,7 +223,7 @@ public class DlcPackTransaction {
     }
 
     private static boolean getBoolean(JsonObject obj, String key) {
-        var value = DcConfigIO.getIgnoreCase(obj, key);
+        var value = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (value == null || !value.isJsonPrimitive()) {
             return false;
         }

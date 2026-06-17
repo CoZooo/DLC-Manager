@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.preset
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import java.nio.file.Path
 import java.util.Collections
 
@@ -40,7 +40,7 @@ class DlcPresetEntry(
     }
 
     fun resolveDisplayName(lang: String?): String? {
-        val key = DcConfigIO.normalizeLangKey(lang)
+        val key = DlcDcConfigIO.normalizeLangKey(lang)
         if (key != null && displayName.containsKey(key)) {
             val value = displayName[key]
             if (!value.isNullOrBlank()) {
@@ -57,7 +57,7 @@ class DlcPresetEntry(
     }
 
     fun resolveTip(lang: String?): String? {
-        val key = DcConfigIO.normalizeLangKey(lang)
+        val key = DlcDcConfigIO.normalizeLangKey(lang)
         if (key != null && tip.containsKey(key)) {
             val value = tip[key]
             if (!value.isNullOrBlank()) {

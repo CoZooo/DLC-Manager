@@ -18,7 +18,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateRollbackResult
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import net.minecraft.client.Minecraft
@@ -700,7 +700,7 @@ class DlcUpdateManagerScreen(
     }
 
     private fun checkPackUpdate() {
-        val repoUrl = DlcPathConfig.getUpdateGithubRepoUrl()
+        val repoUrl = DlcConfig.getUpdateGithubRepoUrl()
         if (repoUrl.isNullOrBlank()) {
             return
         }
@@ -710,7 +710,7 @@ class DlcUpdateManagerScreen(
         Thread({
             val result = try {
                 DlcPackReleaseUpdateService.checkForUpdates(
-                    DlcPathConfig.getModpackUrl(),
+                    DlcConfig.getModpackUrl(),
                     repoUrl,
                     base,
                     dlc,
@@ -741,7 +741,7 @@ class DlcUpdateManagerScreen(
     }
 
     private fun hasPackUpdateRepoConfigured(): Boolean {
-        val repoUrl = DlcPathConfig.getUpdateGithubRepoUrl()
+        val repoUrl = DlcConfig.getUpdateGithubRepoUrl()
         return !repoUrl.isNullOrBlank()
     }
 

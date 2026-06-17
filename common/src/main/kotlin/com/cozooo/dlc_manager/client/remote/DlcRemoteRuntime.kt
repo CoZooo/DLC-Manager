@@ -2,9 +2,9 @@ package com.cozooo.dlc_manager.client.remote
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DcFormatUtil
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
@@ -31,7 +31,7 @@ object DlcRemoteRuntime {
         if (promptedThisSession) {
             return emptyList()
         }
-        val dlcRoot = DlcPathConfig.getDlcRoots().firstOrNull()
+        val dlcRoot = DlcConfig.getDlcRoots().firstOrNull()
         if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot, DlcRemoteMarker.PART_DLC)) {
             return emptyList()
         }
@@ -59,7 +59,7 @@ object DlcRemoteRuntime {
 
     private fun collectMissing(dlcPackOnly: Boolean): List<DlcRemoteEntry> {
         val missing = ArrayList<DlcRemoteEntry>()
-        val dlcRoot = DlcPathConfig.getDlcRoots().firstOrNull() ?: return missing
+        val dlcRoot = DlcConfig.getDlcRoots().firstOrNull() ?: return missing
         val entries = DlcRemoteLoader.load(dlcRoot)
         for (entry in entries) {
             if (!entry.isInList() && !entry.isHidden()) {
@@ -87,10 +87,10 @@ object DlcRemoteRuntime {
         if (config == null || !Files.exists(config)) {
             return
         }
-        val obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
+        val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
         val reordered = reorderRemoteJson(obj, normalized)
-        val target = DcFormatUtil.toDcPath(config)
-        if (target != null && DcFormatUtil.write(target, reordered)) {
+        val target = DlcDcFormatUtil.toDcPath(config)
+        if (target != null && DlcDcFormatUtil.write(target, reordered)) {
             if (target != config) {
                 try {
                     Files.deleteIfExists(config)
@@ -245,7 +245,7 @@ object DlcRemoteRuntime {
         if (values.isNotEmpty()) {
             return values
         }
-        val obj = if (entry == null) null else DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED)
+        val obj = if (entry == null) null else DlcDcConfigIO.read(entry.getConfigPath(), DlcDcConfigIO.Layout.DLC_STRUCTURED)
         values.putAll(readLocalizedAny(obj, "DisplayName"))
         return values
     }
@@ -258,7 +258,7 @@ object DlcRemoteRuntime {
         if (values.isNotEmpty()) {
             return values
         }
-        val obj = if (entry == null) null else DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED)
+        val obj = if (entry == null) null else DlcDcConfigIO.read(entry.getConfigPath(), DlcDcConfigIO.Layout.DLC_STRUCTURED)
         values.putAll(readLocalizedAny(obj, "tip"))
         return values
     }
@@ -268,20 +268,20 @@ object DlcRemoteRuntime {
         if (obj == null || key.isNullOrBlank()) {
             return values
         }
-        val jsonObject = DcConfigIO.getObjectIgnoreCase(obj, key)
+        val jsonObject = DlcDcConfigIO.getObjectIgnoreCase(obj, key)
         if (jsonObject != null) {
             for ((entryKey, value) in jsonObject.entrySet()) {
                 if (value == null || !value.isJsonPrimitive) {
                     continue
                 }
-                val lang = DcConfigIO.normalizeLangKey(entryKey) ?: continue
+                val lang = DlcDcConfigIO.normalizeLangKey(entryKey) ?: continue
                 values[lang] = value.asString
             }
         }
         if (values.isNotEmpty()) {
             return values
         }
-        val single = DcConfigIO.getStringIgnoreCase(obj, key)
+        val single = DlcDcConfigIO.getStringIgnoreCase(obj, key)
         if (!single.isNullOrBlank()) {
             values["en_us"] = single
         }
@@ -308,7 +308,7 @@ object DlcRemoteRuntime {
         if (trimmed.isEmpty()) {
             return null
         }
-        if (DcFormatUtil.isDcName(trimmed)) {
+        if (DlcDcFormatUtil.isDcName(trimmed)) {
             return null
         }
         return trimmed.replace(Regex("[\\\\/:*?\"<>|]"), "_")

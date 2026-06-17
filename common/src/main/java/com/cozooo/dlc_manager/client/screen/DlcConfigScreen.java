@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.config.DlcPathConfigClient;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.client.config.DlcConfigClient;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import fi.dy.masa.malilib.config.IConfigBase;
 import fi.dy.masa.malilib.config.IConfigDouble;
 import fi.dy.masa.malilib.config.IConfigInteger;
@@ -74,17 +74,17 @@ public class DlcConfigScreen extends GuiModConfigs {
             "main_menu_panel"
     };
     private static final String[] DOWNLOAD_MIRROR_MODE_VALUES = new String[] {
-            DlcPathConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
-            DlcPathConfig.DOWNLOAD_MIRROR_SMART_MIRROR,
-            DlcPathConfig.DOWNLOAD_MIRROR_SMART_PRECHECK,
-            DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
-            DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_ONLY,
-            DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
-            DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_FIRST
+            DlcConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
+            DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR,
+            DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK,
+            DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
+            DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY,
+            DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
+            DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST
     };
     private static final String[] DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES = new String[] {
-            DlcPathConfig.DOWNLOAD_MIRROR_PROBE_SINGLE,
-            DlcPathConfig.DOWNLOAD_MIRROR_PROBE_MAJORITY
+            DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE,
+            DlcConfig.DOWNLOAD_MIRROR_PROBE_MAJORITY
     };
 
     public DlcConfigScreen(Screen parent) {
@@ -96,7 +96,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private DlcConfigScreen(Screen parent, Tab tab, ConfigSession session, boolean syncFromBacking) {
-        super(DlcPathConfig.MOD_ID, buildOptions(resolveTab(tab), syncFromBacking), false, "dlc_manager.config.menu.title");
+        super(DlcConfig.MOD_ID, buildOptions(resolveTab(tab), syncFromBacking), false, "dlc_manager.config.menu.title");
         this.currentTab = resolveTab(tab);
         this.session = session;
         this.setParent(parent);
@@ -207,7 +207,7 @@ public class DlcConfigScreen extends GuiModConfigs {
 
     private static List<ConfigOptionWrapper> buildOptions(Tab tab, boolean syncFromBacking) {
         if (syncFromBacking) {
-            DlcPathConfigClient.syncFromConfig();
+            DlcConfigClient.syncFromConfig();
         }
         List<IConfigBase> configs = getConfigsForTab(tab);
         return new ArrayList<>(ConfigOptionWrapper.createFor(configs));
@@ -215,11 +215,11 @@ public class DlcConfigScreen extends GuiModConfigs {
 
     private static List<IConfigBase> getConfigsForTab(Tab tab) {
         return switch (tab) {
-            case SERVER -> DlcPathConfigClient.getServerConfigs();
-            case UI -> DlcPathConfigClient.getUiConfigs();
-            case MODPACK -> DlcPathConfigClient.getModpackConfigs();
-            case DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs();
-            case PATHS -> DlcPathConfigClient.getPathConfigs();
+            case SERVER -> DlcConfigClient.getServerConfigs();
+            case UI -> DlcConfigClient.getUiConfigs();
+            case MODPACK -> DlcConfigClient.getModpackConfigs();
+            case DOWNLOADS -> DlcConfigClient.getDownloadConfigs();
+            case PATHS -> DlcConfigClient.getPathConfigs();
         };
     }
 
@@ -322,7 +322,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private static String nextDownloadMirrorMode(String value) {
-        String normalized = DlcPathConfig.normalizeDownloadMirrorMode(value);
+        String normalized = DlcConfig.normalizeDownloadMirrorMode(value);
         for (int i = 0; i < DOWNLOAD_MIRROR_MODE_VALUES.length; i++) {
             if (DOWNLOAD_MIRROR_MODE_VALUES[i].equals(normalized)) {
                 return DOWNLOAD_MIRROR_MODE_VALUES[(i + 1) % DOWNLOAD_MIRROR_MODE_VALUES.length];
@@ -332,14 +332,14 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private static String downloadMirrorModeLabel(String value) {
-        String normalized = DlcPathConfig.normalizeDownloadMirrorMode(value);
+        String normalized = DlcConfig.normalizeDownloadMirrorMode(value);
         String key = "dlc_manager.config.download.downloadMirrorMode." + normalized;
         String label = StringUtils.translate(key);
         return label.equals(key) ? normalized : label;
     }
 
     private static String nextDownloadMirrorProbeStrategy(String value) {
-        String normalized = DlcPathConfig.normalizeDownloadMirrorProbeStrategy(value);
+        String normalized = DlcConfig.normalizeDownloadMirrorProbeStrategy(value);
         for (int i = 0; i < DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES.length; i++) {
             if (DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[i].equals(normalized)) {
                 return DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[(i + 1) % DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES.length];
@@ -349,7 +349,7 @@ public class DlcConfigScreen extends GuiModConfigs {
     }
 
     private static String downloadMirrorProbeStrategyLabel(String value) {
-        String normalized = DlcPathConfig.normalizeDownloadMirrorProbeStrategy(value);
+        String normalized = DlcConfig.normalizeDownloadMirrorProbeStrategy(value);
         String key = "dlc_manager.config.download.downloadMirrorProbeStrategy." + normalized;
         String label = StringUtils.translate(key);
         return label.equals(key) ? normalized : label;
@@ -412,8 +412,8 @@ public class DlcConfigScreen extends GuiModConfigs {
 
     private void saveAndClose() {
         flushCurrentModifications();
-        DlcPathConfigClient.applyToConfig();
-        DlcPathConfig.save();
+        DlcConfigClient.applyToConfig();
+        DlcConfig.save();
         this.session.modified = false;
         this.mc.setScreen(this.getParent());
     }
@@ -434,8 +434,8 @@ public class DlcConfigScreen extends GuiModConfigs {
             if (!accepted) {
                 return;
             }
-            DlcPathConfig.load();
-            DlcPathConfigClient.syncFromConfig();
+            DlcConfig.load();
+            DlcConfigClient.syncFromConfig();
             DlcConfigScreen.this.session.modified = false;
             minecraft.setScreen(this.getParent());
         }, title, message, yes, no));

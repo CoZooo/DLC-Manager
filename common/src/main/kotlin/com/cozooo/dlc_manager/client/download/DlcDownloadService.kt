@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.download
 
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import java.io.BufferedInputStream
 import java.io.IOException
 import java.io.OutputStream
@@ -100,8 +100,8 @@ object DlcDownloadService {
         listener?.onProgress(0L, probe.totalBytes)
         if (probe.supportsRanges
             && probe.totalBytes > 0
-            && probe.totalBytes >= DlcPathConfig.getMinSegmentBytes()
-            && DlcPathConfig.getMaxSegmentsPerFile() > 1
+            && probe.totalBytes >= DlcConfig.getMinSegmentBytes()
+            && DlcConfig.getMaxSegmentsPerFile() > 1
         ) {
             Files.deleteIfExists(temp)
             try {
@@ -154,7 +154,7 @@ object DlcDownloadService {
         val target = outputDir.resolve(fileName)
         val temp = outputDir.resolve("$fileName.part")
         val total = if (expectedSize > 0) expectedSize else -1L
-        val mode = DownloadMirrorMode.fromConfig(DlcPathConfig.getDownloadMirrorMode())
+        val mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode())
         val mirrorPlan = mirrorPlan(url, fileName, total)
         notifyStatus(listener, "selecting_source", mode, mirrorPlan)
         val downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode)
@@ -162,8 +162,8 @@ object DlcDownloadService {
         val switchPlan = sourceSwitchPlan(url, mirrorPlan, mode, downloadUrl)
         listener?.onProgress(0L, total)
         val rangeProbe = if (total > 0
-            && total >= DlcPathConfig.getMinSegmentBytes()
-            && DlcPathConfig.getMaxSegmentsPerFile() > 1
+            && total >= DlcConfig.getMinSegmentBytes()
+            && DlcConfig.getMaxSegmentsPerFile() > 1
         ) {
             probeRangeSupport(downloadUrl)
         } else {
@@ -395,10 +395,10 @@ object DlcDownloadService {
         }
     }
 
-    private fun maxMirrorProbeCount(): Int = maxOf(1, DlcPathConfig.getDownloadMirrorProbeCount())
+    private fun maxMirrorProbeCount(): Int = maxOf(1, DlcConfig.getDownloadMirrorProbeCount())
 
     private fun requiredMirrorProbeWins(): Int {
-        return if (DlcPathConfig.getDownloadMirrorProbeStrategy() == DlcPathConfig.DOWNLOAD_MIRROR_PROBE_SINGLE) {
+        return if (DlcConfig.getDownloadMirrorProbeStrategy() == DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE) {
             1
         } else {
             maxMirrorProbeCount() / 2 + 1
@@ -429,7 +429,7 @@ object DlcDownloadService {
     }
 
     private fun mirrorSpeedRule(totalBytes: Long): SpeedRule {
-        val taskTimeoutSeconds = maxOf(1.0, DlcPathConfig.getTaskTimeoutMs() / 1000.0)
+        val taskTimeoutSeconds = maxOf(1.0, DlcConfig.getTaskTimeoutMs() / 1000.0)
         val timeoutSpeed = totalBytes / taskTimeoutSeconds
         val bucketSpeed = when {
             totalBytes < 10L * BYTES_PER_MIB -> totalBytes / 10.0
@@ -449,7 +449,7 @@ object DlcDownloadService {
         return try {
             connection = URI.create(url).toURL().openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = true
-            connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
+            connection.connectTimeout = DlcConfig.getConnectTimeoutMs()
             connection.readTimeout = windowMs.toInt()
             connection.setRequestProperty("User-Agent", "DLC-Manager")
             connection.setRequestProperty("Range", "bytes=0-")
@@ -743,8 +743,8 @@ object DlcDownloadService {
         try {
             connection = URI.create(url).toURL().openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = true
-            connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-            connection.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            connection.connectTimeout = DlcConfig.getConnectTimeoutMs()
+            connection.readTimeout = DlcConfig.getTaskTimeoutMs()
             connection.setRequestProperty("User-Agent", "DLC-Manager")
             connection.setRequestProperty("Range", "bytes=0-")
             connection.connect()
@@ -828,7 +828,7 @@ object DlcDownloadService {
         listener: ProgressListener?,
         cancelChecker: CancelChecker?,
     ) {
-        val maxRetry = maxOf(1, DlcPathConfig.getMaxRetryCount())
+        val maxRetry = maxOf(1, DlcConfig.getMaxRetryCount())
         var lastError: IOException? = null
         var offset = maxOf(0L, existing)
         for (attempt in 1..maxRetry) {
@@ -872,8 +872,8 @@ object DlcDownloadService {
     private fun openDownload(url: String, offset: Long): DownloadInfo {
         val connection = URI.create(url).toURL().openConnection() as HttpURLConnection
         connection.instanceFollowRedirects = true
-        connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-        connection.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+        connection.connectTimeout = DlcConfig.getConnectTimeoutMs()
+        connection.readTimeout = DlcConfig.getTaskTimeoutMs()
         connection.setRequestProperty("User-Agent", "DLC-Manager")
         if (offset > 0) {
             connection.setRequestProperty("Range", "bytes=$offset-")
@@ -960,8 +960,8 @@ object DlcDownloadService {
             head = URI.create(url).toURL().openConnection() as HttpURLConnection
             head.instanceFollowRedirects = true
             head.requestMethod = "HEAD"
-            head.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-            head.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            head.connectTimeout = DlcConfig.getConnectTimeoutMs()
+            head.readTimeout = DlcConfig.getTaskTimeoutMs()
             head.setRequestProperty("User-Agent", "DLC-Manager")
             head.connect()
             fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(head)
@@ -985,8 +985,8 @@ object DlcDownloadService {
         try {
             range = URI.create(url).toURL().openConnection() as HttpURLConnection
             range.instanceFollowRedirects = true
-            range.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-            range.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            range.connectTimeout = DlcConfig.getConnectTimeoutMs()
+            range.readTimeout = DlcConfig.getTaskTimeoutMs()
             range.setRequestProperty("User-Agent", "DLC-Manager")
             range.setRequestProperty("Range", "bytes=0-0")
             range.connect()
@@ -1026,8 +1026,8 @@ object DlcDownloadService {
         try {
             connection = URI.create(url).toURL().openConnection() as HttpURLConnection
             connection.instanceFollowRedirects = false
-            connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-            connection.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            connection.connectTimeout = DlcConfig.getConnectTimeoutMs()
+            connection.readTimeout = DlcConfig.getTaskTimeoutMs()
             connection.setRequestProperty("User-Agent", "DLC-Manager")
             connection.connect()
             val code = connection.responseCode
@@ -1054,8 +1054,8 @@ object DlcDownloadService {
         try {
             range = URI.create(url).toURL().openConnection() as HttpURLConnection
             range.instanceFollowRedirects = false
-            range.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-            range.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+            range.connectTimeout = DlcConfig.getConnectTimeoutMs()
+            range.readTimeout = DlcConfig.getTaskTimeoutMs()
             range.setRequestProperty("User-Agent", "DLC-Manager")
             range.setRequestProperty("Range", "bytes=0-0")
             range.connect()
@@ -1100,10 +1100,10 @@ object DlcDownloadService {
         cancelChecker: CancelChecker?,
         initialDownloadedBytes: Long = 0L,
     ) {
-        val maxSegments = maxOf(1, DlcPathConfig.getMaxSegmentsPerFile())
+        val maxSegments = maxOf(1, DlcConfig.getMaxSegmentsPerFile())
         val segments = maxOf(
             1L,
-            minOf(maxSegments.toLong(), maxOf(1L, totalBytes / maxOf(1L, DlcPathConfig.getMinSegmentBytes()))),
+            minOf(maxSegments.toLong(), maxOf(1L, totalBytes / maxOf(1L, DlcConfig.getMinSegmentBytes()))),
         ).toInt()
         val segmentSize = maxOf(1L, totalBytes / segments)
         RandomAccessFile(tempFile.toFile(), "rw").use { raf ->
@@ -1113,7 +1113,7 @@ object DlcDownloadService {
         val futures = ArrayList<Future<*>>()
         val initialRead = initialDownloadedBytes.coerceIn(0L, totalBytes)
         val totalRead = AtomicLong(initialRead)
-        val maxRetries = maxOf(1, DlcPathConfig.getMaxRetryCount())
+        val maxRetries = maxOf(1, DlcConfig.getMaxRetryCount())
         for (i in 0 until segments) {
             val start = i * segmentSize
             val end = if (i == segments - 1) totalBytes - 1 else start + segmentSize - 1
@@ -1134,8 +1134,8 @@ object DlcDownloadService {
                     try {
                         connection = URI.create(url).toURL().openConnection() as HttpURLConnection
                         connection.instanceFollowRedirects = true
-                        connection.connectTimeout = DlcPathConfig.getConnectTimeoutMs()
-                        connection.readTimeout = DlcPathConfig.getTaskTimeoutMs()
+                        connection.connectTimeout = DlcConfig.getConnectTimeoutMs()
+                        connection.readTimeout = DlcConfig.getTaskTimeoutMs()
                         connection.setRequestProperty("User-Agent", "DLC-Manager")
                         val rangeStart = start + segmentRead
                         connection.setRequestProperty("Range", "bytes=$rangeStart-$end")
@@ -1250,13 +1250,13 @@ object DlcDownloadService {
 
         companion object {
             fun fromConfig(value: String?): DownloadMirrorMode {
-                return when (DlcPathConfig.normalizeDownloadMirrorMode(value)) {
-                    DlcPathConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR
-                    DlcPathConfig.DOWNLOAD_MIRROR_SMART_PRECHECK -> SMART_PRECHECK
-                    DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY
-                    DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY
-                    DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST
-                    DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST
+                return when (DlcConfig.normalizeDownloadMirrorMode(value)) {
+                    DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR
+                    DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK -> SMART_PRECHECK
+                    DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY
+                    DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY
+                    DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST
+                    DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST
                     else -> SMART_OFFICIAL
                 }
             }

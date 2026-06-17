@@ -13,7 +13,7 @@ object DlcPaths {
 
     @JvmStatic
     fun dlcRoot(): Path {
-        return DlcPathConfig.getDlcRoot()
+        return DlcConfig.getDlcRoot()
     }
 
     @JvmStatic
@@ -28,7 +28,7 @@ object DlcPaths {
 
     @JvmStatic
     fun resourcePacksDir(): Path {
-        return DlcPathConfig.getResourcepackRoot()
+        return DlcConfig.getResourcepackRoot()
     }
 
     @JvmStatic
@@ -38,7 +38,7 @@ object DlcPaths {
 
     @JvmStatic
     fun datapackStagingDir(): Path {
-        return DlcPathConfig.getDatapackRoot()
+        return DlcConfig.getDatapackRoot()
     }
 
     @JvmStatic

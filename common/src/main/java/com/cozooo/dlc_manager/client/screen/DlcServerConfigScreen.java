@@ -3,8 +3,8 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.minecraft.client.Minecraft;
@@ -87,12 +87,12 @@ public class DlcServerConfigScreen extends Screen {
         int y = 40;
         int row = 22;
 
-        serverSupport = DlcPathConfig.isServerSupportOnServer();
-        apiEnabled = DlcPathConfig.isApiEnabled();
-        uiEnableAll = DlcPathConfig.isEnableAllButtonShown();
-        uiUpdateManagerOn = DlcPathConfig.isUpdateManagerOn();
-        uiSelfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn();
-        uiPresetFuncOn = DlcPathConfig.isPresetFuncOn();
+        serverSupport = DlcConfig.isServerSupportOnServer();
+        apiEnabled = DlcConfig.isApiEnabled();
+        uiEnableAll = DlcConfig.isEnableAllButtonShown();
+        uiUpdateManagerOn = DlcConfig.isUpdateManagerOn();
+        uiSelfUpdateAutoCheckOn = DlcConfig.isSelfUpdateAutoCheckOn();
+        uiPresetFuncOn = DlcConfig.isPresetFuncOn();
 
         addLabel("dlc_manager.config.ui.serverSupport", y);
         serverSupportButton = Button.builder(toggleLabel("dlc_manager.config.ui.serverSupport", serverSupport), btn -> {
@@ -273,19 +273,19 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private void populateFromDefaults() {
-        serverPortField.setValue(Integer.toString(DlcPathConfig.getServerPort()));
-        serverPasswordField.setValue(DlcPathConfig.getServerPassword());
+        serverPortField.setValue(Integer.toString(DlcConfig.getServerPort()));
+        serverPasswordField.setValue(DlcConfig.getServerPassword());
         apiEnabledButton.setMessage(toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled));
-        apiPortField.setValue(Integer.toString(DlcPathConfig.getApiPort()));
-        apiTokenField.setValue(DlcPathConfig.getApiToken());
-        dlcRootField.setValue(DlcPathConfig.getDlcRootRaw());
-        taczRootField.setValue(DlcPathConfig.getTaczRootRaw());
-        resourcepackRootField.setValue(DlcPathConfig.getResourcepackRootRaw());
-        datapackRootField.setValue(DlcPathConfig.getDatapackRootRaw());
-        maxConcurrentField.setValue(Integer.toString(DlcPathConfig.getMaxConcurrentDownloads()));
-        maxSegmentsField.setValue(Integer.toString(DlcPathConfig.getMaxSegmentsPerFile()));
+        apiPortField.setValue(Integer.toString(DlcConfig.getApiPort()));
+        apiTokenField.setValue(DlcConfig.getApiToken());
+        dlcRootField.setValue(DlcConfig.getDlcRootRaw());
+        taczRootField.setValue(DlcConfig.getTaczRootRaw());
+        resourcepackRootField.setValue(DlcConfig.getResourcepackRootRaw());
+        datapackRootField.setValue(DlcConfig.getDatapackRootRaw());
+        maxConcurrentField.setValue(Integer.toString(DlcConfig.getMaxConcurrentDownloads()));
+        maxSegmentsField.setValue(Integer.toString(DlcConfig.getMaxSegmentsPerFile()));
         minSegmentField.setValue(Integer.toString(getDefaultMinSegmentMb()));
-        maxRetryField.setValue(Integer.toString(DlcPathConfig.getMaxRetryCount()));
+        maxRetryField.setValue(Integer.toString(DlcConfig.getMaxRetryCount()));
         connectTimeoutField.setValue(Integer.toString(getDefaultConnectTimeoutSeconds()));
         taskTimeoutField.setValue(Integer.toString(getDefaultTaskTimeoutSeconds()));
     }
@@ -314,21 +314,21 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private void applyConfig(JsonObject root) {
-        JsonObject server = DcConfigIO.getObjectIgnoreCase(root, "server");
+        JsonObject server = DlcDcConfigIO.getObjectIgnoreCase(root, "server");
         if (server != null) {
             serverSupport = getBoolean(server, "serverSupport", serverSupport);
-            serverPortField.setValue(Integer.toString(getInt(server, "serverPort", DlcPathConfig.getServerPort())));
+            serverPortField.setValue(Integer.toString(getInt(server, "serverPort", DlcConfig.getServerPort())));
             serverPasswordField.setValue(getString(server, "serverPassword", ""));
             serverSupportButton.setMessage(toggleLabel("dlc_manager.config.ui.serverSupport", serverSupport));
         }
-        JsonObject api = DcConfigIO.getObjectIgnoreCase(root, "api");
+        JsonObject api = DlcDcConfigIO.getObjectIgnoreCase(root, "api");
         if (api != null) {
             apiEnabled = getBoolean(api, "apiEnabled", apiEnabled);
-            apiPortField.setValue(Integer.toString(getInt(api, "apiPort", DlcPathConfig.getApiPort())));
-            apiTokenField.setValue(getString(api, "apiToken", DlcPathConfig.getApiToken()));
+            apiPortField.setValue(Integer.toString(getInt(api, "apiPort", DlcConfig.getApiPort())));
+            apiTokenField.setValue(getString(api, "apiToken", DlcConfig.getApiToken()));
             apiEnabledButton.setMessage(toggleLabel("dlc_manager.config.ui.apiEnabled", apiEnabled));
         }
-        JsonObject ui = DcConfigIO.getObjectIgnoreCase(root, "ui");
+        JsonObject ui = DlcDcConfigIO.getObjectIgnoreCase(root, "ui");
         if (ui != null) {
             uiEnableAll = getBoolean(ui, "isEnableAllButtonShown", uiEnableAll);
             uiUpdateManagerOn = getBoolean(ui, "isUpdateManagerOn", uiUpdateManagerOn);
@@ -339,19 +339,19 @@ public class DlcServerConfigScreen extends Screen {
             uiSelfUpdateButton.setMessage(toggleLabel("dlc_manager.config.ui.isSelfUpdateAutoCheckOn", uiSelfUpdateAutoCheckOn));
             uiPresetButton.setMessage(toggleLabel("dlc_manager.config.ui.isPresetFuncOn", uiPresetFuncOn));
         }
-        JsonObject paths = DcConfigIO.getObjectIgnoreCase(root, "paths");
+        JsonObject paths = DlcDcConfigIO.getObjectIgnoreCase(root, "paths");
         if (paths != null) {
-            dlcRootField.setValue(getString(paths, "dlcRoot", DlcPathConfig.getDlcRootRaw()));
-            taczRootField.setValue(getString(paths, "taczRoot", DlcPathConfig.getTaczRootRaw()));
-            resourcepackRootField.setValue(getString(paths, "resourcepackRoot", DlcPathConfig.getResourcepackRootRaw()));
-            datapackRootField.setValue(getString(paths, "datapackRoot", DlcPathConfig.getDatapackRootRaw()));
+            dlcRootField.setValue(getString(paths, "dlcRoot", DlcConfig.getDlcRootRaw()));
+            taczRootField.setValue(getString(paths, "taczRoot", DlcConfig.getTaczRootRaw()));
+            resourcepackRootField.setValue(getString(paths, "resourcepackRoot", DlcConfig.getResourcepackRootRaw()));
+            datapackRootField.setValue(getString(paths, "datapackRoot", DlcConfig.getDatapackRootRaw()));
         }
-        JsonObject downloads = DcConfigIO.getObjectIgnoreCase(root, "downloads");
+        JsonObject downloads = DlcDcConfigIO.getObjectIgnoreCase(root, "downloads");
         if (downloads != null) {
-            maxConcurrentField.setValue(Integer.toString(getInt(downloads, "maxConcurrentDownloads", DlcPathConfig.getMaxConcurrentDownloads())));
-            maxSegmentsField.setValue(Integer.toString(getInt(downloads, "maxSegmentsPerFile", DlcPathConfig.getMaxSegmentsPerFile())));
+            maxConcurrentField.setValue(Integer.toString(getInt(downloads, "maxConcurrentDownloads", DlcConfig.getMaxConcurrentDownloads())));
+            maxSegmentsField.setValue(Integer.toString(getInt(downloads, "maxSegmentsPerFile", DlcConfig.getMaxSegmentsPerFile())));
             minSegmentField.setValue(Integer.toString(getInt(downloads, "minSegmentMB", getDefaultMinSegmentMb())));
-            maxRetryField.setValue(Integer.toString(getInt(downloads, "maxRetryCount", DlcPathConfig.getMaxRetryCount())));
+            maxRetryField.setValue(Integer.toString(getInt(downloads, "maxRetryCount", DlcConfig.getMaxRetryCount())));
             connectTimeoutField.setValue(Integer.toString(getInt(downloads, "connectTimeoutSeconds", getDefaultConnectTimeoutSeconds())));
             taskTimeoutField.setValue(Integer.toString(getInt(downloads, "taskTimeoutSeconds", getDefaultTaskTimeoutSeconds())));
         }
@@ -361,13 +361,13 @@ public class DlcServerConfigScreen extends Screen {
         JsonObject root = new JsonObject();
         JsonObject server = new JsonObject();
         server.addProperty("serverSupport", serverSupport);
-        server.addProperty("serverPort", clampInt(parseInt(serverPortField.getValue(), DlcPathConfig.getServerPort()), 1, 65535));
+        server.addProperty("serverPort", clampInt(parseInt(serverPortField.getValue(), DlcConfig.getServerPort()), 1, 65535));
         server.addProperty("serverPassword", serverPasswordField.getValue());
         root.add("server", server);
 
         JsonObject api = new JsonObject();
         api.addProperty("apiEnabled", apiEnabled);
-        api.addProperty("apiPort", clampInt(parseInt(apiPortField.getValue(), DlcPathConfig.getApiPort()), 0, 65535));
+        api.addProperty("apiPort", clampInt(parseInt(apiPortField.getValue(), DlcConfig.getApiPort()), 0, 65535));
         api.addProperty("apiToken", apiTokenField.getValue());
         root.add("api", api);
 
@@ -386,10 +386,10 @@ public class DlcServerConfigScreen extends Screen {
         root.add("paths", paths);
 
         JsonObject downloads = new JsonObject();
-        downloads.addProperty("maxConcurrentDownloads", parseInt(maxConcurrentField.getValue(), DlcPathConfig.getMaxConcurrentDownloads()));
-        downloads.addProperty("maxSegmentsPerFile", parseInt(maxSegmentsField.getValue(), DlcPathConfig.getMaxSegmentsPerFile()));
+        downloads.addProperty("maxConcurrentDownloads", parseInt(maxConcurrentField.getValue(), DlcConfig.getMaxConcurrentDownloads()));
+        downloads.addProperty("maxSegmentsPerFile", parseInt(maxSegmentsField.getValue(), DlcConfig.getMaxSegmentsPerFile()));
         downloads.addProperty("minSegmentMB", parseInt(minSegmentField.getValue(), getDefaultMinSegmentMb()));
-        downloads.addProperty("maxRetryCount", parseInt(maxRetryField.getValue(), DlcPathConfig.getMaxRetryCount()));
+        downloads.addProperty("maxRetryCount", parseInt(maxRetryField.getValue(), DlcConfig.getMaxRetryCount()));
         downloads.addProperty("connectTimeoutSeconds", parseInt(connectTimeoutField.getValue(), getDefaultConnectTimeoutSeconds()));
         downloads.addProperty("taskTimeoutSeconds", parseInt(taskTimeoutField.getValue(), getDefaultTaskTimeoutSeconds()));
         root.add("downloads", downloads);
@@ -443,7 +443,7 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private static int getInt(JsonObject obj, String key, int fallback) {
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsInt();
@@ -455,7 +455,7 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsBoolean();
@@ -467,7 +467,7 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private static String getString(JsonObject obj, String key, String fallback) {
-        JsonElement element = DcConfigIO.getIgnoreCase(obj, key);
+        JsonElement element = DlcDcConfigIO.getIgnoreCase(obj, key);
         if (element != null && element.isJsonPrimitive()) {
             try {
                 return element.getAsString();
@@ -479,15 +479,15 @@ public class DlcServerConfigScreen extends Screen {
     }
 
     private static int getDefaultMinSegmentMb() {
-        return toMb(DlcPathConfig.getMinSegmentBytes());
+        return toMb(DlcConfig.getMinSegmentBytes());
     }
 
     private static int getDefaultConnectTimeoutSeconds() {
-        return Math.max(1, DlcPathConfig.getConnectTimeoutMs() / 1000);
+        return Math.max(1, DlcConfig.getConnectTimeoutMs() / 1000);
     }
 
     private static int getDefaultTaskTimeoutSeconds() {
-        return Math.max(1, DlcPathConfig.getTaskTimeoutMs() / 1000);
+        return Math.max(1, DlcConfig.getTaskTimeoutMs() / 1000);
     }
 
     private static int toMb(long bytes) {

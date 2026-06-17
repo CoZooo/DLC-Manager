@@ -27,10 +27,10 @@ class DlcApplierTest {
         gameDir = tempDir.resolve("game");
         dlcRoot = gameDir.resolve("DLC");
         PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
-        DlcPathConfig.setDlcRoot("DLC");
-        DlcPathConfig.setResourcepackRoot("resourcepacks");
-        DlcPathConfig.setDatapackRoot("datapacks");
-        DlcPathConfig.setTaczRoot("tacz");
+        DlcConfig.setDlcRoot("DLC");
+        DlcConfig.setResourcepackRoot("resourcepacks");
+        DlcConfig.setDatapackRoot("datapacks");
+        DlcConfig.setTaczRoot("tacz");
         DlcStateConfig.load();
     }
 
@@ -48,7 +48,7 @@ class DlcApplierTest {
         DlcItem item = item("mod-a", DlcType.MOD, source, null, false);
 
         item.setEnabled(true);
-        DlcApplier.ApplyResult enabled = DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.ApplyResult enabled = DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         Path target = gameDir.resolve("mods").resolve("mod-a.jar");
         assertTrue(Files.exists(target));
@@ -58,7 +58,7 @@ class DlcApplierTest {
         assertEquals(List.of("mods/mod-a.jar"), state.appliedTargets);
 
         item.setEnabled(false);
-        DlcApplier.ApplyResult disabled = DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.ApplyResult disabled = DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertFalse(Files.exists(target));
         assertTrue(disabled.requiresRestart());
@@ -90,13 +90,13 @@ class DlcApplierTest {
         );
 
         item.setEnabled(true);
-        DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertEquals("a", Files.readString(gameDir.resolve("config/test/a.txt")));
         assertEquals("b", Files.readString(gameDir.resolve("config/test/b.txt")));
 
         item.setEnabled(false);
-        DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertFalse(Files.exists(gameDir.resolve("config/test/a.txt")));
         assertFalse(Files.exists(gameDir.resolve("config/test/b.txt")));
@@ -113,13 +113,13 @@ class DlcApplierTest {
         DlcItem item = item("config-override", DlcType.UNKNOWN, source, "config/app.toml", true);
 
         item.setEnabled(true);
-        DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertEquals("value = \"override\"", Files.readString(target));
         assertTrue(Files.exists(DlcConfigDlcSupport.backupPathForItemTarget(item.getId(), target)));
 
         item.setEnabled(false);
-        DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertEquals("value = \"original\"", Files.readString(target));
         assertFalse(Files.exists(DlcConfigDlcSupport.backupPathForItemTarget(item.getId(), target)));
@@ -134,7 +134,7 @@ class DlcApplierTest {
         DlcItem item = item("config-new", DlcType.UNKNOWN, source, "config/generated", true);
 
         item.setEnabled(true);
-        DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         assertTrue(Files.exists(target));
         Path backupRoot = DlcConfigDlcSupport.backupRootForItem(item.getId());
@@ -143,7 +143,7 @@ class DlcApplierTest {
         assertTrue(enabledState.enabled);
 
         item.setEnabled(false);
-        DlcApplier.apply(List.of(item), ApplyMode.RESTART_ONLY);
+        DlcApplier.apply(List.of(item), DlcApplyMode.RESTART_ONLY);
 
         DlcStateConfig.DlcState disabledState = DlcStateConfig.getState(item.getId());
         assertFalse(Files.exists(target), () -> "enabledState=" + enabledState.appliedTargets

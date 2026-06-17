@@ -9,12 +9,12 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredLoader
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
-import com.cozooo.dlc_manager.core.ApplyMode
+import com.cozooo.dlc_manager.core.DlcApplyMode
 import com.cozooo.dlc_manager.core.DlcApplier
 import com.cozooo.dlc_manager.core.DlcStateConfig
 import com.cozooo.dlc_manager.core.DlcConfigDlcSupport
 import com.cozooo.dlc_manager.core.DlcItem
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import com.cozooo.dlc_manager.core.DlcScanner
@@ -49,10 +49,10 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
     private val rows: MutableList<DlcListRow> = ArrayList()
     private val items: MutableList<DlcItem> = ArrayList()
     private val allItems: MutableList<DlcItem> = ArrayList()
-    private var applyMode = ApplyMode.RESTART_ONLY
+    private var applyMode = DlcApplyMode.RESTART_ONLY
     private var hasModItems = false
     private var hasModChanges = false
-    private var userSelectedApplyMode = false
+    private var userSelectedDlcApplyMode = false
     private var savedScrollOffset = 0
     private var savedScrollFilter: DlcType? = null
     private var restoreScrollPending = false
@@ -175,10 +175,10 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         return mouseX >= x && mouseX < x + button.getWidth() && mouseY >= y && mouseY < y + button.getHeight()
     }
 
-    private fun canShowServerButton(): Boolean = DlcPathConfig.isServerSupportOn()
+    private fun canShowServerButton(): Boolean = DlcConfig.isServerSupportOn()
 
     private fun hasRequiredEntries(): Boolean {
-        for (dlcRoot in DlcPathConfig.getDlcRoots()) {
+        for (dlcRoot in DlcConfig.getDlcRoots()) {
             if (DlcRequiredLoader.load(dlcRoot).isNotEmpty()) {
                 return true
             }
@@ -188,7 +188,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
 
     private fun addHeaderButtons() {
         val labels = getHeaderLabels()
-        val showEnable = DlcPathConfig.isEnableAllButtonShown()
+        val showEnable = DlcConfig.isEnableAllButtonShown()
         val right = width - 18
         val y = 0
         val h = 12
@@ -216,7 +216,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
     }
 
     private fun addNoticeButton() {
-        if (!DlcPathConfig.isNoticeDisplayModeManagerButton() || !DlcNoticeManager.isNoticeEnabled()) {
+        if (!DlcConfig.isNoticeDisplayModeManagerButton() || !DlcNoticeManager.isNoticeEnabled()) {
             noticeButton = null
             return
         }
@@ -338,17 +338,17 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         val padding = 12
         val left = margin
         val right = width - margin
-        val modeWidth = max(90, StringUtils.getStringWidth(getApplyModeLabel()) + padding)
-        modeButton = ButtonGeneric(left, y, modeWidth, 20, getApplyModeLabel())
+        val modeWidth = max(90, StringUtils.getStringWidth(getDlcApplyModeLabel()) + padding)
+        modeButton = ButtonGeneric(left, y, modeWidth, 20, getDlcApplyModeLabel())
         addButton(modeButton, FooterButtonListener())
         updateButton = null
-        if (DlcPathConfig.isUpdateManagerOn() && !DlcPathConfig.isUButtomShown()) {
+        if (DlcConfig.isUpdateManagerOn() && !DlcConfig.isUButtomShown()) {
             val updateWidth = max(80, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.update.manager")) + padding)
             updateButton = ButtonGeneric(left + modeButton!!.getWidth() + gap, y, updateWidth, 20, StringUtils.translate("dlc_manager.update.manager"))
             addButton(updateButton, FooterButtonListener())
         }
         presetButton = null
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             val presetWidth = max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.preset.manager")) + 8)
             presetButton = ButtonGeneric(left + modeButton!!.getWidth() + gap, y, presetWidth, 20, StringUtils.translate("dlc_manager.preset.manager"))
             if (updateButton != null) {
@@ -357,7 +357,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
             addButton(presetButton, FooterButtonListener())
         }
         packButton = null
-        if (DlcPathConfig.isPackFuncOn() && !DlcPathConfig.isPButtomShown()) {
+        if (DlcConfig.isPackFuncOn() && !DlcConfig.isPButtomShown()) {
             val packWidth = max(70, StringUtils.getStringWidth(StringUtils.translate("dlc_manager.pack.manager")) + 8)
             packButton = ButtonGeneric(left + modeButton!!.getWidth() + gap, y, packWidth, 20, StringUtils.translate("dlc_manager.pack.manager"))
             if (updateButton != null) {
@@ -369,7 +369,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
             addButton(packButton, FooterButtonListener())
         }
         configButton = null
-        if (DlcPathConfig.isConfigButtonShown()) {
+        if (DlcConfig.isConfigButtonShown()) {
             var configX = left + modeButton!!.getWidth() + gap
             if (updateButton != null) configX += updateButton!!.getWidth() + gap
             if (presetButton != null) configX += presetButton!!.getWidth() + gap
@@ -421,8 +421,8 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         allItems.clear()
         hasModItems = false
         hasModChanges = false
-        userSelectedApplyMode = false
-        if (DlcPathConfig.isPresetFuncOn()) {
+        userSelectedDlcApplyMode = false
+        if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.reload()
         } else {
             DlcPresetRuntimeState.clearAll()
@@ -491,7 +491,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
 
     private fun appendRedirectRows() {
         val redirectEntries: MutableList<DlcRedirectEntry> = ArrayList()
-        for (dlcRoot in DlcPathConfig.getDlcRoots()) {
+        for (dlcRoot in DlcConfig.getDlcRoots()) {
             redirectEntries.addAll(DlcRedirectLoader.load(dlcRoot))
         }
         if (redirectEntries.isEmpty()) {
@@ -521,7 +521,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         return try {
             val source = item.getSourcePath() ?: return ROOT_GROUP
             var relative: String? = null
-            for (dlcRoot in DlcPathConfig.getDlcRoots()) {
+            for (dlcRoot in DlcConfig.getDlcRoots()) {
                 if (source.startsWith(dlcRoot)) {
                     relative = dlcRoot.relativize(source).toString().replace('\\', '/')
                     break
@@ -541,7 +541,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         return if (raw == ROOT_GROUP) StringUtils.translate("dlc_manager.group.root") else raw
     }
 
-    private fun getApplyModeLabel(): String {
+    private fun getDlcApplyModeLabel(): String {
         val modeName = StringUtils.translate(applyMode.getLabelKey())
         return StringUtils.translate("dlc_manager.apply_mode_label", modeName)
     }
@@ -552,15 +552,15 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         return if (active) "[$base]" else base
     }
 
-    private fun toggleApplyMode() {
+    private fun toggleDlcApplyMode() {
         if (hasModChanges) {
-            applyMode = ApplyMode.RESTART_ONLY
+            applyMode = DlcApplyMode.RESTART_ONLY
             updateModeAvailability()
             return
         }
-        applyMode = if (applyMode == ApplyMode.RESTART_ONLY) ApplyMode.TRY_HOT_RELOAD else ApplyMode.RESTART_ONLY
-        userSelectedApplyMode = true
-        modeButton?.setDisplayString(getApplyModeLabel())
+        applyMode = if (applyMode == DlcApplyMode.RESTART_ONLY) DlcApplyMode.TRY_HOT_RELOAD else DlcApplyMode.RESTART_ONLY
+        userSelectedDlcApplyMode = true
+        modeButton?.setDisplayString(getDlcApplyModeLabel())
     }
 
     private fun setFilter(type: DlcType?) {
@@ -597,7 +597,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         var modReloadNeeded = computeModReloadChanges()
         var otherReloadNeeded = computeNonModReloadChanges()
         val requiredPending = DlcRequiredRuntimeState.hasPendingChanges()
-        val presetChanged = DlcPathConfig.isPresetFuncOn() && hasPresetChanges()
+        val presetChanged = DlcConfig.isPresetFuncOn() && hasPresetChanges()
         if (!applyNeeded && !modReloadNeeded && !otherReloadNeeded) {
             if (presetChanged) {
                 DlcPresetRuntimeState.syncStatusFromRuntime()
@@ -625,7 +625,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                 return
             }
         }
-        if (DlcPathConfig.isPresetFuncOn() && (presetChanged || applyNeeded)) {
+        if (DlcConfig.isPresetFuncOn() && (presetChanged || applyNeeded)) {
             DlcPresetRuntimeState.syncStatusFromRuntime()
         }
         if (!modReloadNeeded && !otherReloadNeeded) {
@@ -640,11 +640,11 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         val message = when {
             helperScheduled -> "dlc_manager.apply.deferred_restart"
             modReloadNeeded -> "dlc_manager.message.restart"
-            otherReloadNeeded && applyMode == ApplyMode.TRY_HOT_RELOAD -> "dlc_manager.message.reload_prompt"
+            otherReloadNeeded && applyMode == DlcApplyMode.TRY_HOT_RELOAD -> "dlc_manager.message.reload_prompt"
             else -> "dlc_manager.message.reopen_world"
         }
         val minecraft = Minecraft.getInstance()
-        if (applyMode == ApplyMode.RESTART_ONLY) {
+        if (applyMode == DlcApplyMode.RESTART_ONLY) {
             minecraft.setScreen(
                 ConfirmScreen(
                     { accepted -> if (accepted) minecraft.stop() else minecraft.setScreen(parent) },
@@ -654,7 +654,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                     Component.translatable("dlc_manager.restart_later"),
                 )
             )
-        } else if (applyMode == ApplyMode.TRY_HOT_RELOAD) {
+        } else if (applyMode == DlcApplyMode.TRY_HOT_RELOAD) {
             minecraft.setScreen(
                 ConfirmScreen(
                     { accepted ->
@@ -748,7 +748,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
                     rememberListScroll()
                     Minecraft.getInstance().setScreen(DlcServerListScreen(this@DlcMaLiLibScreen))
                 }
-                modeButton -> toggleApplyMode()
+                modeButton -> toggleDlcApplyMode()
             }
         }
     }
@@ -809,17 +809,17 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         val otherChanges = computeNonModReloadChanges()
         hasModChanges = modChanges
         if (modChanges) {
-            applyMode = ApplyMode.RESTART_ONLY
-            userSelectedApplyMode = false
+            applyMode = DlcApplyMode.RESTART_ONLY
+            userSelectedDlcApplyMode = false
         } else if (otherChanges) {
-            if (!userSelectedApplyMode) {
-                applyMode = ApplyMode.TRY_HOT_RELOAD
+            if (!userSelectedDlcApplyMode) {
+                applyMode = DlcApplyMode.TRY_HOT_RELOAD
             }
-        } else if (!userSelectedApplyMode) {
-            applyMode = ApplyMode.RESTART_ONLY
+        } else if (!userSelectedDlcApplyMode) {
+            applyMode = DlcApplyMode.RESTART_ONLY
         }
         modeButton?.setEnabled(!modChanges)
-        modeButton?.setDisplayString(getApplyModeLabel())
+        modeButton?.setDisplayString(getDlcApplyModeLabel())
         updateBackButtonLabel()
     }
 
@@ -1184,7 +1184,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
     private fun updateHeaderButtonsLayout() {
         val disableButton = disableAllButton ?: return
         val labels = getHeaderLabels()
-        val showEnable = DlcPathConfig.isEnableAllButtonShown()
+        val showEnable = DlcConfig.isEnableAllButtonShown()
         val right = width - 18
         val y = 0
         val h = 12
@@ -1499,7 +1499,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
         if (presetSnapshotCaptured) {
             return
         }
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             presetSnapshot.clear()
             presetSnapshotCaptured = true
             return
@@ -1510,7 +1510,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
     }
 
     private fun hasPresetChanges(): Boolean {
-        if (!DlcPathConfig.isPresetFuncOn() || !presetSnapshotCaptured) {
+        if (!DlcConfig.isPresetFuncOn() || !presetSnapshotCaptured) {
             return false
         }
         return DlcPresetRuntimeState.getEnabledPresetIds() != presetSnapshot

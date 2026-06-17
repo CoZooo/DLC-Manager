@@ -2,8 +2,8 @@ package com.cozooo.dlc_manager.client.remote
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DcFormatUtil
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcTooltipLoader
 import com.cozooo.dlc_manager.core.DlcType
 import com.google.gson.Gson
@@ -44,7 +44,7 @@ object DlcRemoteLoader {
                     .filter { path -> !path.normalize().startsWith(redirectRoot) }
                     .forEach { path ->
                         val rel = remoteRoot.relativize(path).toString().replace('\\', '/')
-                        val key = DcFormatUtil.stripConfigExtension(rel)
+                        val key = DlcDcFormatUtil.stripConfigExtension(rel)
                         val current = selectedFiles[key]
                         if (current == null || configPriority(path) > configPriority(current)) {
                             selectedFiles[key] = path
@@ -91,7 +91,7 @@ object DlcRemoteLoader {
                 return null
             }
         }
-        val dcAlt = DcFormatUtil.toDcPath(resolved)
+        val dcAlt = DlcDcFormatUtil.toDcPath(resolved)
         if (dcAlt != null && Files.exists(dcAlt)) {
             resolved = dcAlt
         }
@@ -138,7 +138,7 @@ object DlcRemoteLoader {
 
     private fun readEntry(path: Path, dlcRoot: Path, remoteRoot: Path): DlcRemoteEntry? {
         val obj = readConfigObject(path) ?: return null
-        val fileName = DcFormatUtil.stripConfigExtension(path.fileName.toString())
+        val fileName = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
         val relative = remoteRoot.relativize(path)
         val parent = relative.parent
         val baseDir = dlcRoot.resolve(parent?.toString() ?: "")
@@ -148,14 +148,14 @@ object DlcRemoteLoader {
         if (entry.getFileNameHint().isNullOrBlank()) {
             entry.setFileNameHint(fileName)
         }
-        val isDc = DcFormatUtil.isDcName(path.fileName.toString())
+        val isDc = DlcDcFormatUtil.isDcName(path.fileName.toString())
         if (isDc) {
             if (needsKeyMigration(obj)) {
-                DcFormatUtil.write(path, normalized.ordered)
+                DlcDcFormatUtil.write(path, normalized.ordered)
             }
         } else {
-            val dcPath = DcFormatUtil.toDcPath(path)
-            val migratedToDc = dcPath != null && DcFormatUtil.write(dcPath, normalized.ordered)
+            val dcPath = DlcDcFormatUtil.toDcPath(path)
+            val migratedToDc = dcPath != null && DlcDcFormatUtil.write(dcPath, normalized.ordered)
             if (migratedToDc) {
                 finalPath = dcPath!!
                 try {
@@ -173,8 +173,8 @@ object DlcRemoteLoader {
             return null
         }
         val name = path.fileName.toString()
-        if (DcFormatUtil.isDcName(name)) {
-            return DcFormatUtil.read(path)
+        if (DlcDcFormatUtil.isDcName(name)) {
+            return DlcDcFormatUtil.read(path)
         }
         return try {
             Files.newBufferedReader(path).use { reader ->
@@ -189,14 +189,14 @@ object DlcRemoteLoader {
         }
     }
 
-    private fun isRemoteConfigName(fileName: String): Boolean = DcFormatUtil.isDcName(fileName)
+    private fun isRemoteConfigName(fileName: String): Boolean = DlcDcFormatUtil.isDcName(fileName)
 
     private fun configPriority(path: Path?): Int {
         if (path == null || path.fileName == null) {
             return 0
         }
         val name = path.fileName.toString().lowercase()
-        if (name.endsWith(DcFormatUtil.DC_EXTENSION)) {
+        if (name.endsWith(DlcDcFormatUtil.DC_EXTENSION)) {
             return 2
         }
         return 0
@@ -210,15 +210,15 @@ object DlcRemoteLoader {
             return path
         }
         val name = path.fileName.toString()
-        if (DcFormatUtil.isDcName(name)) {
-            val dc = DcFormatUtil.toDcPath(path)
+        if (DlcDcFormatUtil.isDcName(name)) {
+            val dc = DlcDcFormatUtil.toDcPath(path)
             if (dc != null && Files.exists(dc)) {
                 return dc
             }
             return path
         }
         val dir = path.parent ?: return null
-        val dc = dir.resolve(name + DcFormatUtil.DC_EXTENSION)
+        val dc = dir.resolve(name + DlcDcFormatUtil.DC_EXTENSION)
         if (Files.exists(dc)) {
             return dc
         }
@@ -309,7 +309,7 @@ object DlcRemoteLoader {
                 fileName = nameFallback
             }
         }
-        var displayObj = sanitizeLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName"))
+        var displayObj = sanitizeLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName"))
         if (displayObj.entrySet().isEmpty()) {
             displayObj = JsonObject()
             displayObj.addProperty("en_us", nameFallback ?: "")
@@ -317,7 +317,7 @@ object DlcRemoteLoader {
         if (identifier.isNullOrBlank()) {
             identifier = nameFallback ?: ""
         }
-        val tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip") ?: JsonObject()
+        val tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip") ?: JsonObject()
         val typeRaw = getString(obj, "type")
         var type = DlcTooltipLoader.parseTypeString(typeRaw)
         if (type == null) {
@@ -336,8 +336,8 @@ object DlcRemoteLoader {
             hidden = true
         }
 
-        val deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir)
-        val conflicts = normalizeConflicts(DcConfigIO.getIgnoreCase(obj, "conflicts"))
+        val deps = normalizeDependencies(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), dlcRoot, baseDir)
+        val conflicts = normalizeConflicts(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
 
         val ordered = JsonObject()
         ordered.addProperty("curseforge_projectid", curseProjectId ?: "")
@@ -633,7 +633,7 @@ object DlcRemoteLoader {
         if (obj == null) {
             return emptyList()
         }
-        val element = DcConfigIO.getIgnoreCase(obj, "directUrl") ?: return emptyList()
+        val element = DlcDcConfigIO.getIgnoreCase(obj, "directUrl") ?: return emptyList()
         val urls = ArrayList<String>()
         if (element.isJsonPrimitive) {
             val url = element.asString
@@ -674,11 +674,11 @@ object DlcRemoteLoader {
         if (obj == null) {
             return false
         }
-        val hasIdentifier = DcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "file_name")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_name")
-            || DcConfigIO.hasIgnoreCase(obj, "name")
+        val hasIdentifier = DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "name")
         if (!hasIdentifier) {
             return false
         }
@@ -721,39 +721,39 @@ object DlcRemoteLoader {
         if (obj == null) {
             return false
         }
-        return DcConfigIO.hasIgnoreCase(obj, "directUrl")
-            || DcConfigIO.hasIgnoreCase(obj, "modrinth_projectid")
-            || DcConfigIO.hasIgnoreCase(obj, "modrinth_versionid")
-            || DcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
-            || DcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
-            || DcConfigIO.hasIgnoreCase(obj, "identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
-            || DcConfigIO.hasIgnoreCase(obj, "file_name")
-            || DcConfigIO.hasIgnoreCase(obj, "type")
-            || DcConfigIO.hasIgnoreCase(obj, "appliedTarget")
-            || DcConfigIO.hasIgnoreCase(obj, "DisplayName")
-            || DcConfigIO.hasIgnoreCase(obj, "tip")
-            || DcConfigIO.hasIgnoreCase(obj, "isInList")
-            || DcConfigIO.hasIgnoreCase(obj, "isHidden")
-            || DcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
-            || DcConfigIO.hasIgnoreCase(obj, "dependencies")
-            || DcConfigIO.hasIgnoreCase(obj, "conflicts")
-            || DcConfigIO.hasIgnoreCase(obj, "alarm")
+        return DlcDcConfigIO.hasIgnoreCase(obj, "directUrl")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "modrinth_projectid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "modrinth_versionid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_projectid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "curseforge_fileid")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "file_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "type")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "tip")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "isInList")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dependencies")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "conflicts")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "alarm")
     }
 
     private fun needsKeyMigration(obj: JsonObject?): Boolean {
         if (obj == null) {
             return false
         }
-        if (DcConfigIO.hasIgnoreCase(obj, "dlc_name") || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
+        if (DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name") || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")) {
             return true
         }
-        return !DcConfigIO.hasIgnoreCase(obj, "file_name") || !DcConfigIO.hasIgnoreCase(obj, "identifier")
+        return !DlcDcConfigIO.hasIgnoreCase(obj, "file_name") || !DlcDcConfigIO.hasIgnoreCase(obj, "identifier")
     }
 
-    private fun getString(obj: JsonObject?, key: String): String? = DcConfigIO.getStringIgnoreCase(obj, key)
+    private fun getString(obj: JsonObject?, key: String): String? = DlcDcConfigIO.getStringIgnoreCase(obj, key)
 
-    private fun getBoolean(obj: JsonObject?, key: String, fallback: Boolean): Boolean = DcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
+    private fun getBoolean(obj: JsonObject?, key: String, fallback: Boolean): Boolean = DlcDcConfigIO.getBooleanIgnoreCase(obj, key, fallback)
 
     private fun sanitizeLocalized(obj: JsonObject?): JsonObject {
         val result = JsonObject()
@@ -762,7 +762,7 @@ object DlcRemoteLoader {
         }
         for ((key, value) in obj.entrySet()) {
             if (value.isJsonPrimitive) {
-                val lang = DcConfigIO.normalizeLangKey(key)
+                val lang = DlcDcConfigIO.normalizeLangKey(key)
                 if (lang != null) {
                     result.addProperty(lang, value.asString)
                 }
@@ -778,7 +778,7 @@ object DlcRemoteLoader {
         }
         for ((key, value) in obj.entrySet()) {
             if (value.isJsonPrimitive) {
-                val lang = DcConfigIO.normalizeLangKey(key)
+                val lang = DlcDcConfigIO.normalizeLangKey(key)
                 if (lang != null) {
                     values[lang] = value.asString
                 }

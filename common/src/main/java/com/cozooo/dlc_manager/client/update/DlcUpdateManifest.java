@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -68,17 +68,17 @@ public class DlcUpdateManifest {
             return null;
         }
         DlcUpdateManifest manifest = new DlcUpdateManifest();
-        manifest.version = parseVersion(DcConfigIO.getObjectIgnoreCase(obj, "version"));
+        manifest.version = parseVersion(DlcDcConfigIO.getObjectIgnoreCase(obj, "version"));
         manifest.hidden = getBoolean(obj, "isHidden", false);
-        UpdateDLCMConfig updateDLCMConfig = parseUpdateDLCM(DcConfigIO.getIgnoreCase(obj, "UpdateDLCM"));
+        UpdateDLCMConfig updateDLCMConfig = parseUpdateDLCM(DlcDcConfigIO.getIgnoreCase(obj, "UpdateDLCM"));
         manifest.updateDLCM = updateDLCMConfig.enabled;
         manifest.updateDLCMVersion = updateDLCMConfig.version;
-        JsonObject fileObj = DcConfigIO.getObjectIgnoreCase(obj, "file");
+        JsonObject fileObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "file");
         manifest.fileOps = parseFileOps(fileObj);
-        manifest.updateOps = parseUpdateOps(DcConfigIO.getIgnoreCase(obj, "update"));
-        manifest.changelog = parseChangelog(DcConfigIO.getIgnoreCase(obj, "changelog"));
-        if ((manifest.changelog == null || manifest.changelog.isEmpty()) && fileObj != null && DcConfigIO.hasIgnoreCase(fileObj, "changelog")) {
-            manifest.changelog = parseChangelog(DcConfigIO.getIgnoreCase(fileObj, "changelog"));
+        manifest.updateOps = parseUpdateOps(DlcDcConfigIO.getIgnoreCase(obj, "update"));
+        manifest.changelog = parseChangelog(DlcDcConfigIO.getIgnoreCase(obj, "changelog"));
+        if ((manifest.changelog == null || manifest.changelog.isEmpty()) && fileObj != null && DlcDcConfigIO.hasIgnoreCase(fileObj, "changelog")) {
+            manifest.changelog = parseChangelog(DlcDcConfigIO.getIgnoreCase(fileObj, "changelog"));
         }
         return manifest;
     }
@@ -115,7 +115,7 @@ public class DlcUpdateManifest {
         if (changelog == null || changelog.isEmpty()) {
             return "";
         }
-        String key = DcConfigIO.normalizeLangKey(lang);
+        String key = DlcDcConfigIO.normalizeLangKey(lang);
         if (key != null && changelog.containsKey(key)) {
             return changelog.get(key);
         }
@@ -160,7 +160,7 @@ public class DlcUpdateManifest {
                 if (entry.getValue() != null && entry.getValue().isJsonPrimitive()) {
                     String raw = entry.getValue().getAsString();
                     if (raw != null && !raw.isBlank()) {
-                        values.put(DcConfigIO.normalizeLangKey(entry.getKey()), raw);
+                        values.put(DlcDcConfigIO.normalizeLangKey(entry.getKey()), raw);
                     }
                 }
             }
@@ -202,11 +202,11 @@ public class DlcUpdateManifest {
         if (obj == null) {
             return ops;
         }
-        if (DcConfigIO.hasIgnoreCase(obj, "del")) {
-            ops.del.addAll(readStringArray(DcConfigIO.getIgnoreCase(obj, "del")));
+        if (DlcDcConfigIO.hasIgnoreCase(obj, "del")) {
+            ops.del.addAll(readStringArray(DlcDcConfigIO.getIgnoreCase(obj, "del")));
         }
-        if (DcConfigIO.hasIgnoreCase(obj, "add")) {
-            JsonElement addEl = DcConfigIO.getIgnoreCase(obj, "add");
+        if (DlcDcConfigIO.hasIgnoreCase(obj, "add")) {
+            JsonElement addEl = DlcDcConfigIO.getIgnoreCase(obj, "add");
             if (addEl != null && addEl.isJsonObject()) {
                 JsonObject addObj = addEl.getAsJsonObject();
                 for (var entry : addObj.entrySet()) {
@@ -221,8 +221,8 @@ public class DlcUpdateManifest {
                 }
             }
         }
-        if (DcConfigIO.hasIgnoreCase(obj, "move")) {
-            JsonElement moveEl = DcConfigIO.getIgnoreCase(obj, "move");
+        if (DlcDcConfigIO.hasIgnoreCase(obj, "move")) {
+            JsonElement moveEl = DlcDcConfigIO.getIgnoreCase(obj, "move");
             if (moveEl != null && moveEl.isJsonObject()) {
                 JsonObject moveObj = moveEl.getAsJsonObject();
                 for (var entry : moveObj.entrySet()) {
@@ -242,8 +242,8 @@ public class DlcUpdateManifest {
                 }
             }
         }
-        if (DcConfigIO.hasIgnoreCase(obj, "modify")) {
-            JsonElement modEl = DcConfigIO.getIgnoreCase(obj, "modify");
+        if (DlcDcConfigIO.hasIgnoreCase(obj, "modify")) {
+            JsonElement modEl = DlcDcConfigIO.getIgnoreCase(obj, "modify");
             if (modEl.isJsonObject()) {
                 JsonObject modObj = modEl.getAsJsonObject();
                 for (var entry : modObj.entrySet()) {
@@ -288,7 +288,7 @@ public class DlcUpdateManifest {
             return ops;
         }
         JsonObject obj = element.getAsJsonObject();
-        JsonObject infoObj = DcConfigIO.getObjectIgnoreCase(obj, "info");
+        JsonObject infoObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "info");
         if (infoObj != null) {
             for (var entry : infoObj.entrySet()) {
                 String key = entry.getKey();
@@ -301,7 +301,7 @@ public class DlcUpdateManifest {
                 }
             }
         }
-        JsonObject remoteObj = DcConfigIO.getObjectIgnoreCase(obj, "remote");
+        JsonObject remoteObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "remote");
         if (remoteObj != null) {
             for (var entry : remoteObj.entrySet()) {
                 String key = entry.getKey();
@@ -314,7 +314,7 @@ public class DlcUpdateManifest {
                 }
             }
         }
-        JsonObject requiredObj = DcConfigIO.getObjectIgnoreCase(obj, "required");
+        JsonObject requiredObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "required");
         if (requiredObj != null) {
             for (var entry : requiredObj.entrySet()) {
                 String key = entry.getKey();
@@ -327,7 +327,7 @@ public class DlcUpdateManifest {
                 }
             }
         }
-        JsonObject presetObj = DcConfigIO.getObjectIgnoreCase(obj, "preset");
+        JsonObject presetObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "preset");
         if (presetObj != null) {
             for (var entry : presetObj.entrySet()) {
                 String key = entry.getKey();
@@ -350,7 +350,7 @@ public class DlcUpdateManifest {
         JsonObject obj = element.getAsJsonObject();
         String curseforge = getString(obj, "curseforge");
         String modrinth = getString(obj, "modrinth");
-        JsonElement directUrl = DcConfigIO.getIgnoreCase(obj, "directUrl");
+        JsonElement directUrl = DlcDcConfigIO.getIgnoreCase(obj, "directUrl");
         Map<String, JsonElement> extraFields = new LinkedHashMap<>();
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             String key = entry.getKey();
@@ -413,7 +413,7 @@ public class DlcUpdateManifest {
         AddEntry entry = new AddEntry();
         entry.sourcePath = key;
         entry.appliedTarget = getString(obj, "appliedTarget");
-        entry.overrideMode = parseOverride(DcConfigIO.getIgnoreCase(obj, "override"));
+        entry.overrideMode = parseOverride(DlcDcConfigIO.getIgnoreCase(obj, "override"));
         entry.sourceIsDir = key != null && key.endsWith("/");
         return entry;
     }
@@ -432,7 +432,7 @@ public class DlcUpdateManifest {
         entry.targetPath = path;
         entry.find = find;
         entry.replace = replace;
-        entry.which = parseWhich(DcConfigIO.getIgnoreCase(obj, "which"));
+        entry.which = parseWhich(DlcDcConfigIO.getIgnoreCase(obj, "which"));
         entry.normalizedFind = normalizeFind(find);
         return entry;
     }
@@ -584,11 +584,11 @@ public class DlcUpdateManifest {
     }
 
     private static String getString(JsonObject obj, String key) {
-        return DcConfigIO.getStringIgnoreCase(obj, key);
+        return DlcDcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
+        return DlcDcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private static final class UpdateDLCMConfig {

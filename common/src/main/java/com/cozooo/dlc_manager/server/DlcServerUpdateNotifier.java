@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -16,13 +16,13 @@ public final class DlcServerUpdateNotifier {
     }
 
     public static void onPlayerJoin(ServerPlayer player) {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             return;
         }
         if (player == null || !player.hasPermissions(2)) {
             return;
         }
-        if (!DlcPathConfig.isSelfUpdateAutoCheckOn()) {
+        if (!DlcConfig.isSelfUpdateAutoCheckOn()) {
             return;
         }
         MinecraftServer server = player.getServer();

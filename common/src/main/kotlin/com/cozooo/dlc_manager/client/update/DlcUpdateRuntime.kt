@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update
 
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import java.nio.file.Path
 
@@ -69,7 +69,7 @@ object DlcUpdateRuntime {
 
     @JvmStatic
     fun isUpdateManagerEnabled(): Boolean {
-        return DlcPathConfig.isUpdateManagerOn()
+        return DlcConfig.isUpdateManagerOn()
     }
 
     @JvmStatic

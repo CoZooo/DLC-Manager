@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -73,7 +73,7 @@ object DlcPackOrder {
 
     private fun writeAtomicLines(path: Path, lines: List<String>): Boolean {
         return try {
-            val target = DcConfigIO.toDcPath(path) ?: return false
+            val target = DlcDcConfigIO.toDcPath(path) ?: return false
             val parent = target.parent
             val temp = if (parent != null) {
                 Files.createDirectories(parent)

@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.screen.DlcConfigScreen
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.components.AbstractWidget
 import net.minecraft.client.gui.components.Button
@@ -185,7 +185,7 @@ class DlcManagerClient {
             }
             button.width = w
             button.height = h
-            val pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, w, h, x, y)
+            val pos = DlcConfig.computeTitleButtonPosition(screen.width, screen.height, w, h, x, y)
             x = pos[0]
             y = pos[1]
             button.x = x
@@ -193,11 +193,11 @@ class DlcManagerClient {
             event.addListener(button)
             val iconSize = minOf(20, h)
             var iconX = button.x + button.width + 4
-            if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+            if (DlcConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
                 iconX = button.x - iconSize - 4
             }
             val iconY = button.y
-            val updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconSize, h, iconX, iconY)
+            val updatePos = DlcConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconSize, h, iconX, iconY)
             val updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon")) {
                 DlcUpdateClient.openUpdateManager(screen)
             }.bounds(updatePos[0], updatePos[1], iconSize, h).build()
@@ -208,7 +208,7 @@ class DlcManagerClient {
             val noticeHeight = 20
             val noticeDefaultX = screen.width - noticeWidth - 8
             val noticeDefaultY = screen.height - noticeHeight - 8
-            val noticePos = DlcPathConfig.computeNoticeButtonPosition(
+            val noticePos = DlcConfig.computeNoticeButtonPosition(
                 screen.width,
                 screen.height,
                 noticeWidth,
@@ -219,10 +219,10 @@ class DlcManagerClient {
             val noticeButton = Button.builder(Component.translatable("dlc_manager.notice")) {
                 DlcClientRuntime.openNoticeFromTitle(screen)
             }.bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight).build()
-            if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()) {
+            if (DlcConfig.isUButtomShown() && DlcConfig.isUpdateManagerOn()) {
                 event.addListener(updateButton)
             }
-            if (DlcPathConfig.isPButtomShown() && DlcPathConfig.isPackFuncOn()) {
+            if (DlcConfig.isPButtomShown() && DlcConfig.isPackFuncOn()) {
                 event.addListener(packButton)
             }
             if (DlcClientRuntime.shouldShowMainMenuNoticeButton() &&

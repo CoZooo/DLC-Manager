@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -49,7 +49,7 @@ class DlcServerEditScreen(
                 passwordField!!.value = editing.password
             }
         } else {
-            portField!!.value = DlcPathConfig.getServerPort().toString()
+            portField!!.value = DlcConfig.getServerPort().toString()
         }
 
         addRenderableWidget(nameField!!)
@@ -128,7 +128,7 @@ class DlcServerEditScreen(
         entry.host = hostField!!.value.trim()
         entry.password = passwordField!!.value.trim()
         entry.useTcp = true
-        var port = DlcPathConfig.getServerPort()
+        var port = DlcConfig.getServerPort()
         try {
             port = portField!!.value.trim().toInt()
         } catch (_: NumberFormatException) {

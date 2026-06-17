@@ -15,7 +15,7 @@ object DlcApplier {
     private val CURRENT_APPLY_CONTEXT = ThreadLocal<ApplyContext>()
 
     @JvmStatic
-    fun apply(items: List<DlcItem>, mode: ApplyMode?): ApplyResult {
+    fun apply(items: List<DlcItem>, mode: DlcApplyMode?): ApplyResult {
         val messages = ArrayList<String>()
         var requiresRestart = false
         val attemptedHotReload = false
@@ -78,7 +78,7 @@ object DlcApplier {
     }
 
     private fun applyPresetConflictPaths(): PresetConflictPathResult {
-        val desiredByPreset = if (DlcPathConfig.isPresetFuncOn()) {
+        val desiredByPreset = if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.getDesiredDisabledRelativePathsByPreset()
         } else {
             emptyMap()
@@ -341,8 +341,8 @@ object DlcApplier {
             }
             val targetDirs = when (item.getType()) {
                 DlcType.MOD -> listOf(DlcPaths.modsDir())
-                DlcType.RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots()
-                DlcType.DATA_PACK -> DlcPathConfig.getDatapackRoots()
+                DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots()
+                DlcType.DATA_PACK -> DlcConfig.getDatapackRoots()
                 DlcType.TACZ_PACK -> listOf(DlcPaths.taczDir())
                 else -> emptyList()
             }
@@ -561,8 +561,8 @@ object DlcApplier {
             return
         }
         var backupRoot: Path? = null
-        if (DlcPathConfig.getDlcRoots().isNotEmpty()) {
-            backupRoot = DlcTmpPaths.resolve(DlcPathConfig.getDlcRoots()[0], "backup")
+        if (DlcConfig.getDlcRoots().isNotEmpty()) {
+            backupRoot = DlcTmpPaths.resolve(DlcConfig.getDlcRoots()[0], "backup")
         }
         if (backupRoot == null) {
             backupRoot = DlcTmpPaths.resolve(DlcPaths.gameDir(), "backup")

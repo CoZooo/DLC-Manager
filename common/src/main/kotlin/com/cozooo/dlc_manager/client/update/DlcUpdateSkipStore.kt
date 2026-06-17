@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.JsonObject
 import java.nio.file.Files
@@ -50,18 +50,18 @@ object DlcUpdateSkipStore {
         val storePath = resolveStorePath(STORE_BASENAME)
         var root: JsonObject? = null
         if (storePath != null && Files.exists(storePath)) {
-            root = DcConfigIO.read(storePath, DcConfigIO.Layout.GENERIC)
+            root = DlcDcConfigIO.read(storePath, DlcDcConfigIO.Layout.GENERIC)
         }
         return root ?: JsonObject()
     }
 
     private fun writeStoreLocked(root: JsonObject?) {
         val storePath = resolveStorePath(STORE_BASENAME) ?: return
-        DcConfigIO.write(storePath, root ?: JsonObject(), DcConfigIO.Layout.GENERIC)
+        DlcDcConfigIO.write(storePath, root ?: JsonObject(), DlcDcConfigIO.Layout.GENERIC)
     }
 
     private fun resolveStorePath(baseName: String): Path? {
         val dir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
-        return DcConfigIO.toDcPath(dir.resolve(baseName))
+        return DlcDcConfigIO.toDcPath(dir.resolve(baseName))
     }
 }

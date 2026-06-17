@@ -5,7 +5,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -277,7 +277,7 @@ class DlcServerRemoteDownloadScreen(
             return ""
         }
         if (item.displayNames.isNotEmpty()) {
-            val lang = DcConfigIO.normalizeLangKey(Minecraft.getInstance().options.languageCode)
+            val lang = DlcDcConfigIO.normalizeLangKey(Minecraft.getInstance().options.languageCode)
             var name = if (lang == null) null else item.displayNames[lang]
             if (name.isNullOrBlank()) {
                 name = item.displayNames["en_us"]

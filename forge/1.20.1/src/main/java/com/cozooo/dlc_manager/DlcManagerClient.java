@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.screen.DlcConfigScreen;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
@@ -82,7 +82,7 @@ public class DlcManagerClient {
                 button.setWidth(w);
                 button.setHeight(h);
             }
-            int[] pos = DlcPathConfig.computeTitleButtonPosition(screen.width, screen.height, w, h, x, y);
+            int[] pos = DlcConfig.computeTitleButtonPosition(screen.width, screen.height, w, h, x, y);
             x = pos[0];
             y = pos[1];
             button.setX(x);
@@ -90,11 +90,11 @@ public class DlcManagerClient {
             event.addListener(button);
             int iconSize = Math.min(20, h);
             int iconX = button.getX() + button.getWidth() + 4;
-            if (DlcPathConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
+            if (DlcConfig.shouldPlaceTitleUpdateButtonLeftOfTitle()) {
                 iconX = button.getX() - iconSize - 4;
             }
             int iconY = button.getY();
-            int[] updatePos = DlcPathConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconSize, h, iconX, iconY);
+            int[] updatePos = DlcConfig.computeTitleUpdateButtonPosition(screen.width, screen.height, iconSize, h, iconX, iconY);
             Button updateButton = Button.builder(Component.translatable("dlc_manager.update.import_icon"), btn -> DlcUpdateClient.openUpdateManager(screen))
                 .bounds(updatePos[0], updatePos[1], iconSize, h)
                 .build();
@@ -105,17 +105,17 @@ public class DlcManagerClient {
             int noticeHeight = 20;
             int noticeDefaultX = screen.width - noticeWidth - 8;
             int noticeDefaultY = screen.height - noticeHeight - 8;
-            int[] noticePos = DlcPathConfig.computeNoticeButtonPosition(
+            int[] noticePos = DlcConfig.computeNoticeButtonPosition(
                 screen.width, screen.height, noticeWidth, noticeHeight, noticeDefaultX, noticeDefaultY
             );
             Button noticeButton = Button.builder(Component.translatable("dlc_manager.notice"),
                     btn -> DlcClientRuntime.openNoticeFromTitle(screen))
                 .bounds(noticePos[0], noticePos[1], noticeWidth, noticeHeight)
                 .build();
-            if (DlcPathConfig.isUButtomShown() && DlcPathConfig.isUpdateManagerOn()) {
+            if (DlcConfig.isUButtomShown() && DlcConfig.isUpdateManagerOn()) {
                 event.addListener(updateButton);
             }
-            if (DlcPathConfig.isPButtomShown() && DlcPathConfig.isPackFuncOn()) {
+            if (DlcConfig.isPButtomShown() && DlcConfig.isPackFuncOn()) {
                 event.addListener(packButton);
             }
             if (DlcClientRuntime.shouldShowMainMenuNoticeButton()

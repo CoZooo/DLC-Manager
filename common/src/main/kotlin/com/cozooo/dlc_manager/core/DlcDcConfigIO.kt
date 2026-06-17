@@ -8,7 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
 
-object DcConfigIO {
+object DlcDcConfigIO {
     enum class Layout {
         DLC_STRUCTURED,
         GENERIC,
@@ -190,31 +190,31 @@ object DcConfigIO {
 
     private object DcFormatBridge {
         fun read(path: Path): JsonObject? {
-            return DcFormatUtil.read(path)
+            return DlcDcFormatUtil.read(path)
         }
 
         fun readGeneric(path: Path): JsonObject? {
-            return DcFormatUtil.readGeneric(path)
+            return DlcDcFormatUtil.readGeneric(path)
         }
 
         fun write(path: Path, obj: JsonObject?): Boolean {
-            return DcFormatUtil.write(path, obj)
+            return DlcDcFormatUtil.write(path, obj)
         }
 
         fun writeGeneric(path: Path, obj: JsonObject?): Boolean {
-            return DcFormatUtil.writeGeneric(path, obj)
+            return DlcDcFormatUtil.writeGeneric(path, obj)
         }
 
         fun toDcPath(path: Path?): Path? {
-            return DcFormatUtil.toDcPath(path)
+            return DlcDcFormatUtil.toDcPath(path)
         }
 
         fun isDcName(name: String): Boolean {
-            return DcFormatUtil.isDcName(name)
+            return DlcDcFormatUtil.isDcName(name)
         }
 
         fun stripConfigExtension(name: String): String? {
-            return DcFormatUtil.stripConfigExtension(name)
+            return DlcDcFormatUtil.stripConfigExtension(name)
         }
     }
 }

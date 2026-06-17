@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -62,7 +62,7 @@ class DlcPackMetadata(
             } catch (_: Exception) {
                 null
             }
-            return read(DcConfigIO.read(path, DcConfigIO.Layout.GENERIC), text)
+            return read(DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC), text)
         }
 
         @JvmStatic
@@ -70,30 +70,30 @@ class DlcPackMetadata(
             if (obj == null) {
                 return Result.invalid("missing pack.dc")
             }
-            val basic = DcConfigIO.getObjectIgnoreCase(obj, "basic")
-            val identifier = DcConfigIO.getStringIgnoreCase(basic, "identifier")?.trim()
+            val basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic")
+            val identifier = DlcDcConfigIO.getStringIgnoreCase(basic, "identifier")?.trim()
             if (!isValidIdentifier(identifier)) {
                 return Result.invalid("invalid identifier")
             }
-            val version = DcConfigIO.getStringIgnoreCase(basic, "version")?.trim()
+            val version = DlcDcConfigIO.getStringIgnoreCase(basic, "version")?.trim()
             if (!isValidVersion(version)) {
                 return Result.invalid("invalid version")
             }
-            val modpack = DcConfigIO.getObjectIgnoreCase(obj, "modpack")
-            val modpackValues = readStringList(DcConfigIO.getIgnoreCase(modpack, "modpack"))
+            val modpack = DlcDcConfigIO.getObjectIgnoreCase(obj, "modpack")
+            val modpackValues = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "modpack"))
             val metadata = DlcPackMetadata(
                 identifier!!,
                 version!!,
-                readStringList(DcConfigIO.getIgnoreCase(basic, "author")).ifEmpty { listOf("Unknown Author") },
+                readStringList(DlcDcConfigIO.getIgnoreCase(basic, "author")).ifEmpty { listOf("Unknown Author") },
                 modpackValues.ifEmpty { listOf("any") },
                 resolveModpackAnyWildcard(modpackValues, sourceText),
-                readStringList(DcConfigIO.getIgnoreCase(modpack, "base")).ifEmpty { listOf("any") },
-                readStringList(DcConfigIO.getIgnoreCase(modpack, "dlc")).ifEmpty { listOf("any") },
-                readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
-                readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "description")),
-                readLinks(DcConfigIO.getObjectIgnoreCase(obj, "links")),
-                readStringSection(DcConfigIO.getIgnoreCase(obj, "dependencies")),
-                readStringSection(DcConfigIO.getIgnoreCase(obj, "conflicts")),
+                readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "base")).ifEmpty { listOf("any") },
+                readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "dlc")).ifEmpty { listOf("any") },
+                readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
+                readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "description")),
+                readLinks(DlcDcConfigIO.getObjectIgnoreCase(obj, "links")),
+                readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "dependencies")),
+                readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "conflicts")),
             )
             return Result.valid(metadata)
         }
@@ -193,7 +193,7 @@ class DlcPackMetadata(
             if (values.isEmpty()) {
                 return fallback
             }
-            val current = DcConfigIO.normalizeLangKey(lang)
+            val current = DlcDcConfigIO.normalizeLangKey(lang)
             if (!current.isNullOrBlank()) {
                 val exact = values[current]
                 if (!exact.isNullOrBlank()) {
@@ -213,7 +213,7 @@ class DlcPackMetadata(
             }
             val out = LinkedHashMap<String, String>()
             for ((key, value) in obj.entrySet()) {
-                val lang = DcConfigIO.normalizeLangKey(key) ?: continue
+                val lang = DlcDcConfigIO.normalizeLangKey(key) ?: continue
                 val text = primitiveString(value)?.trimEnd() ?: continue
                 out[lang] = text
             }
@@ -226,7 +226,7 @@ class DlcPackMetadata(
             }
             val out = LinkedHashMap<String, String>()
             for (key in LINK_KEYS) {
-                val value = DcConfigIO.getStringIgnoreCase(obj, key)?.trim()
+                val value = DlcDcConfigIO.getStringIgnoreCase(obj, key)?.trim()
                 if (!value.isNullOrEmpty()) {
                     out[key] = value
                 }
@@ -260,7 +260,7 @@ class DlcPackMetadata(
                     continue
                 }
                 if (value != null && value.isJsonObject) {
-                    val identifier = DcConfigIO.getStringIgnoreCase(value.asJsonObject, "identifier")?.trim()
+                    val identifier = DlcDcConfigIO.getStringIgnoreCase(value.asJsonObject, "identifier")?.trim()
                     if (!identifier.isNullOrEmpty()) {
                         out.add(identifier)
                     } else if (!key.isNullOrBlank()) {

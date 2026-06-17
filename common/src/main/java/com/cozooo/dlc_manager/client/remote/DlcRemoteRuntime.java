@@ -2,9 +2,9 @@ package com.cozooo.dlc_manager.client.remote;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.JsonArray;
@@ -36,7 +36,7 @@ public final class DlcRemoteRuntime {
         if (promptedThisSession) {
             return List.of();
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path dlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
         if (dlcRoot != null && DlcRemoteMarker.hasPartMarker(dlcRoot, DlcRemoteMarker.PART_DLC)) {
             return List.of();
         }
@@ -61,7 +61,7 @@ public final class DlcRemoteRuntime {
 
     private static List<DlcRemoteEntry> collectMissing(boolean dlcPackOnly) {
         List<DlcRemoteEntry> missing = new ArrayList<>();
-        Path dlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path dlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
         if (dlcRoot == null) {
             return missing;
         }
@@ -94,13 +94,13 @@ public final class DlcRemoteRuntime {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
         JsonObject reordered = reorderRemoteJson(obj, normalized);
-        Path target = DcFormatUtil.toDcPath(config);
-        if (target != null && DcFormatUtil.write(target, reordered)) {
+        Path target = DlcDcFormatUtil.toDcPath(config);
+        if (target != null && DlcDcFormatUtil.write(target, reordered)) {
             if (!target.equals(config)) {
                 try {
                     Files.deleteIfExists(config);
@@ -252,7 +252,7 @@ public final class DlcRemoteRuntime {
         if (!values.isEmpty()) {
             return values;
         }
-        JsonObject obj = entry == null ? null : DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = entry == null ? null : DlcDcConfigIO.read(entry.getConfigPath(), DlcDcConfigIO.Layout.DLC_STRUCTURED);
         values.putAll(readLocalizedAny(obj, "DisplayName"));
         return values;
     }
@@ -265,7 +265,7 @@ public final class DlcRemoteRuntime {
         if (!values.isEmpty()) {
             return values;
         }
-        JsonObject obj = entry == null ? null : DcConfigIO.read(entry.getConfigPath(), DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = entry == null ? null : DlcDcConfigIO.read(entry.getConfigPath(), DlcDcConfigIO.Layout.DLC_STRUCTURED);
         values.putAll(readLocalizedAny(obj, "tip"));
         return values;
     }
@@ -275,13 +275,13 @@ public final class DlcRemoteRuntime {
         if (obj == null || key == null || key.isBlank()) {
             return values;
         }
-        JsonObject object = DcConfigIO.getObjectIgnoreCase(obj, key);
+        JsonObject object = DlcDcConfigIO.getObjectIgnoreCase(obj, key);
         if (object != null) {
             for (Map.Entry<String, JsonElement> entry : object.entrySet()) {
                 if (entry.getValue() == null || !entry.getValue().isJsonPrimitive()) {
                     continue;
                 }
-                String lang = DcConfigIO.normalizeLangKey(entry.getKey());
+                String lang = DlcDcConfigIO.normalizeLangKey(entry.getKey());
                 if (lang == null) {
                     continue;
                 }
@@ -291,7 +291,7 @@ public final class DlcRemoteRuntime {
         if (!values.isEmpty()) {
             return values;
         }
-        String single = DcConfigIO.getStringIgnoreCase(obj, key);
+        String single = DlcDcConfigIO.getStringIgnoreCase(obj, key);
         if (single != null && !single.isBlank()) {
             values.put("en_us", single);
         }
@@ -321,7 +321,7 @@ public final class DlcRemoteRuntime {
         if (trimmed.isEmpty()) {
             return null;
         }
-        if (DcFormatUtil.isDcName(trimmed)) {
+        if (DlcDcFormatUtil.isDcName(trimmed)) {
             return null;
         }
         return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");

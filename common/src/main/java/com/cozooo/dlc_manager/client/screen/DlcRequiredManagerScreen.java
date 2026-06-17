@@ -9,7 +9,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -375,7 +375,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
                     continue;
                 }
                 String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (DcFormatUtil.isDcName(name)) {
+                if (DlcDcFormatUtil.isDcName(name)) {
                     continue;
                 }
                 return name;
@@ -501,7 +501,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
             return true;
         }
         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-        return DcFormatUtil.isDcName(name);
+        return DlcDcFormatUtil.isDcName(name);
     }
 
     private String resolveAppliedFileName(DlcRequiredEntry entry, List<Path> targets) {
@@ -535,7 +535,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
                 try (DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
                     for (Path path : stream) {
                         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!DcFormatUtil.isDcName(name)) {
+                        if (!DlcDcFormatUtil.isDcName(name)) {
                             return name;
                         }
                     }

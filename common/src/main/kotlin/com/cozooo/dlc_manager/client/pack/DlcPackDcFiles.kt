@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.JsonObject
 import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
@@ -14,7 +14,7 @@ internal object DlcPackDcFiles {
         if (path == null || obj == null) {
             return false
         }
-        val target = DcConfigIO.toDcPath(path) ?: return false
+        val target = DlcDcConfigIO.toDcPath(path) ?: return false
         val parent = target.parent
         var temp: Path? = null
         return try {
@@ -24,7 +24,7 @@ internal object DlcPackDcFiles {
             } else {
                 temp = Files.createTempFile(target.fileName.toString() + ".", ".dc")
             }
-            if (!DcConfigIO.write(temp, obj, DcConfigIO.Layout.GENERIC)) {
+            if (!DlcDcConfigIO.write(temp, obj, DlcDcConfigIO.Layout.GENERIC)) {
                 return false
             }
             moveReplacing(temp, target)

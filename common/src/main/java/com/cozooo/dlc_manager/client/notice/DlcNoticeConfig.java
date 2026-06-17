@@ -1,6 +1,7 @@
-package com.cozooo.dlc_manager.core;
+package com.cozooo.dlc_manager.client.notice;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -61,7 +62,7 @@ public class DlcNoticeConfig {
             if (values.isEmpty()) {
                 return "";
             }
-            String key = DcConfigIO.normalizeLangKey(lang);
+            String key = DlcDcConfigIO.normalizeLangKey(lang);
             if (key != null && values.containsKey(key)) {
                 return values.get(key);
             }
@@ -104,7 +105,7 @@ public class DlcNoticeConfig {
             return config;
         }
         config.exists = true;
-        JsonObject obj = DcConfigIO.read(config.path, DcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(config.path, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             config.noticeEnabled = false;
             return config;
@@ -112,14 +113,14 @@ public class DlcNoticeConfig {
         config.noticeEnabled = getBoolean(obj, "isNoticeEnabled", true);
         config.neverShow = getBoolean(obj, "neverShow", false);
         config.showFrequency = ShowFrequency.fromString(getString(obj, "ShowFrequency"));
-        config.title.values.putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "Title")));
-        JsonObject subheadObj = DcConfigIO.getObjectIgnoreCase(obj, "Subhead");
+        config.title.values.putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "Title")));
+        JsonObject subheadObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "Subhead");
         if (subheadObj != null) {
             config.subhead.enabled = getBoolean(subheadObj, "enabled", true);
             config.subhead.text.values.putAll(readLocalized(subheadObj));
         }
-        config.contentUrls.values.putAll(readLocalizedUrlValues(DcConfigIO.getIgnoreCase(obj, "ContentUrl")));
-        config.contents.values.putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "Contents")));
+        config.contentUrls.values.putAll(readLocalizedUrlValues(DlcDcConfigIO.getIgnoreCase(obj, "ContentUrl")));
+        config.contents.values.putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "Contents")));
         config.ensureDefaults();
         return config;
     }
@@ -144,7 +145,7 @@ public class DlcNoticeConfig {
             obj.add("ContentUrl", writeLocalized(contentUrls));
         }
         obj.add("Contents", writeLocalized(contents));
-        DcConfigIO.write(path, obj, DcConfigIO.Layout.GENERIC);
+        DlcDcConfigIO.write(path, obj, DlcDcConfigIO.Layout.GENERIC);
     }
 
     public boolean isNoticeEnabled() {
@@ -196,21 +197,21 @@ public class DlcNoticeConfig {
     }
 
     private static Path resolveNoticePath() {
-        Path root = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path root = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
         if (root == null) {
             return null;
         }
         Path infoDir = root.resolve("info");
-        return DcFormatUtil.resolveConfigPath(infoDir, "notice");
+        return DlcDcFormatUtil.resolveConfigPath(infoDir, "notice");
     }
 
     private static void ensureNoticeFiles() {
-        Path root = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path root = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
         if (root == null || !Files.exists(root)) {
             return;
         }
         Path infoDir = root.resolve("info");
-        Path noticePath = DcFormatUtil.resolveConfigPath(infoDir, "notice");
+        Path noticePath = DlcDcFormatUtil.resolveConfigPath(infoDir, "notice");
         if (Files.exists(noticePath)) {
             return;
         }
@@ -230,7 +231,7 @@ public class DlcNoticeConfig {
         obj.add("Contents", contents);
         try {
             Files.createDirectories(noticePath.getParent());
-            DcConfigIO.write(noticePath, obj, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(noticePath, obj, DlcDcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }
@@ -242,7 +243,7 @@ public class DlcNoticeConfig {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                values.put(DcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
+                values.put(DlcDcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
             }
         }
         return values;
@@ -268,7 +269,7 @@ public class DlcNoticeConfig {
             if (entry.getValue().isJsonPrimitive()) {
                 String url = normalizeUrl(entry.getValue().getAsString());
                 if (!url.isBlank()) {
-                    values.put(DcConfigIO.normalizeLangKey(entry.getKey()), url);
+                    values.put(DlcDcConfigIO.normalizeLangKey(entry.getKey()), url);
                 }
             }
         }
@@ -284,11 +285,11 @@ public class DlcNoticeConfig {
     }
 
     private static boolean getBoolean(JsonObject obj, String key, boolean fallback) {
-        return DcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
+        return DlcDcConfigIO.getBooleanIgnoreCase(obj, key, fallback);
     }
 
     private static String getString(JsonObject obj, String key) {
-        return DcConfigIO.getStringIgnoreCase(obj, key);
+        return DlcDcConfigIO.getStringIgnoreCase(obj, key);
     }
 
     private synchronized String fetchContentUrlText(String contentUrl) {

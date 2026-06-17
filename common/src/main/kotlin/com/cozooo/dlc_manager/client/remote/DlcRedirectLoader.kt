@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.remote
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import java.io.IOException
@@ -20,7 +20,7 @@ object DlcRedirectLoader {
         val entries = ArrayList<DlcRedirectEntry>()
         try {
             Files.walk(redirectRoot).use { stream ->
-                stream.filter { path -> path.fileName != null && DcConfigIO.isDc(path) }
+                stream.filter { path -> path.fileName != null && DlcDcConfigIO.isDc(path) }
                     .forEach { path ->
                         val entry = readEntry(path)
                         if (entry != null) {
@@ -34,22 +34,22 @@ object DlcRedirectLoader {
     }
 
     private fun readEntry(path: Path): DlcRedirectEntry? {
-        val obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return null
-        val redirectUrl = DcConfigIO.getStringIgnoreCase(obj, "RedirectUrl")
+        val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return null
+        val redirectUrl = DlcDcConfigIO.getStringIgnoreCase(obj, "RedirectUrl")
         if (redirectUrl.isNullOrBlank()) {
             return null
         }
         val entry = DlcRedirectEntry()
         entry.setConfigPath(path)
         entry.setRedirectUrl(redirectUrl)
-        entry.setAvailable(DcConfigIO.getIgnoreCase(obj, "available"))
+        entry.setAvailable(DlcDcConfigIO.getIgnoreCase(obj, "available"))
 
         val fileName = path.fileName?.toString() ?: ""
         entry.setFallbackName(stripConfigExtension(fileName))
 
-        entry.getDisplayNames().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")))
-        entry.getNotices().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "notice")))
-        entry.getTips().putAll(readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "tip")))
+        entry.getDisplayNames().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")))
+        entry.getNotices().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "notice")))
+        entry.getTips().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "tip")))
         return entry
     }
 
@@ -60,7 +60,7 @@ object DlcRedirectLoader {
         }
         for ((key, value) in obj.entrySet()) {
             if (value.isJsonPrimitive) {
-                val normalized = DcConfigIO.normalizeLangKey(key)
+                val normalized = DlcDcConfigIO.normalizeLangKey(key)
                 if (normalized != null) {
                     values[normalized] = value.asString
                 }

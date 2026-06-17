@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.test.TestPlatformProvider;
 import org.junit.jupiter.api.AfterEach;
@@ -25,7 +25,7 @@ class DlcUpdateServiceTest {
     @AfterEach
     void resetPlatform() {
         PlatformServices.setProvider(null);
-        DlcPathConfig.setDlcRoot("DLC");
+        DlcConfig.setDlcRoot("DLC");
     }
 
     @Test
@@ -63,7 +63,7 @@ class DlcUpdateServiceTest {
         Path gameDir = tempDir.resolve("game");
         Path dlcRoot = gameDir.resolve("DLC");
         PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
-        DlcPathConfig.setDlcRoot(dlcRoot.toString());
+        DlcConfig.setDlcRoot(dlcRoot.toString());
         Files.createDirectories(gameDir.resolve("mods").resolve("a"));
         Files.createDirectories(gameDir.resolve("mods").resolve("b"));
         Files.writeString(gameDir.resolve("mods").resolve("a").resolve("target.txt"), "a");

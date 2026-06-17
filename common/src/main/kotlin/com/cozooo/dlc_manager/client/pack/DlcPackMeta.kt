@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import java.nio.file.Files
@@ -55,17 +55,17 @@ class DlcPackMeta(
             if (path == null || !Files.exists(path)) {
                 return null
             }
-            val obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return null
-            val basic = DcConfigIO.getObjectIgnoreCase(obj, "basic")
-            val identifier = DcConfigIO.getStringIgnoreCase(basic, "identifier")?.trim()
-            val version = DcConfigIO.getStringIgnoreCase(basic, "version")?.trim()
+            val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return null
+            val basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic")
+            val identifier = DlcDcConfigIO.getStringIgnoreCase(basic, "identifier")?.trim()
+            val version = DlcDcConfigIO.getStringIgnoreCase(basic, "version")?.trim()
             if (!DlcPackMetadata.isValidIdentifier(identifier) || !DlcPackMetadata.isValidVersion(version)) {
                 return null
             }
-            val format = DcConfigIO.getStringIgnoreCase(basic, "format")?.trim().orEmpty()
-            val timestamp = DcConfigIO.getStringIgnoreCase(basic, "timestamp")?.trim().orEmpty()
+            val format = DlcDcConfigIO.getStringIgnoreCase(basic, "format")?.trim().orEmpty()
+            val timestamp = DlcDcConfigIO.getStringIgnoreCase(basic, "timestamp")?.trim().orEmpty()
             val installed = ArrayList<String>()
-            val array = DcConfigIO.getArrayIgnoreCase(obj, "installed")
+            val array = DlcDcConfigIO.getArrayIgnoreCase(obj, "installed")
             array?.forEach { element ->
                 if (element != null && element.isJsonPrimitive) {
                     normalizeRelativePath(element.asString)?.let { installed.add(it) }

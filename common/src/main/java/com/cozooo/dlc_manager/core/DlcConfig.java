@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
-public class DlcPathConfig {
+public class DlcConfig {
     public static final String MOD_ID = "dlc_manager";
     private static final String CONFIG_DIR = "dlc_manager";
     private static final String CONFIG_NAME = "config";
@@ -894,7 +894,7 @@ public class DlcPathConfig {
     }
 
     private static void loadFromJson(Path jsonPath) {
-        JsonObject root = DcConfigIO.read(jsonPath, DcConfigIO.Layout.GENERIC);
+        JsonObject root = DlcDcConfigIO.read(jsonPath, DlcDcConfigIO.Layout.GENERIC);
         if (root == null) {
             return;
         }
@@ -906,7 +906,7 @@ public class DlcPathConfig {
     }
 
     private static void loadFromServerJson(Path jsonPath) {
-        JsonObject root = DcConfigIO.read(jsonPath, DcConfigIO.Layout.GENERIC);
+        JsonObject root = DlcDcConfigIO.read(jsonPath, DlcDcConfigIO.Layout.GENERIC);
         if (root == null) {
             return;
         }
@@ -972,7 +972,7 @@ public class DlcPathConfig {
     }
 
     private static void writeJson(JsonObject root, Path path) {
-        DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC);
+        DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC);
     }
 
     private static Path resolveManagerConfigPath(Path configDir, String baseName) {
@@ -988,7 +988,7 @@ public class DlcPathConfig {
     }
 
     private static Path managerConfigPath(Path configDir, String baseName) {
-        return configDir.resolve(baseName + DcFormatUtil.DC_EXTENSION);
+        return configDir.resolve(baseName + DlcDcFormatUtil.DC_EXTENSION);
     }
 
     private static void migrateManagerLegacyJson(Path configDir, String baseName) {
@@ -1099,12 +1099,12 @@ public class DlcPathConfig {
         if (root == null || keyMap.isEmpty()) {
             return;
         }
-        JsonObject obj = DcConfigIO.getObjectIgnoreCase(root, section);
+        JsonObject obj = DlcDcConfigIO.getObjectIgnoreCase(root, section);
         if (obj == null) {
             return;
         }
         for (Map.Entry<String, Consumer<JsonElement>> entry : keyMap.entrySet()) {
-            JsonElement value = DcConfigIO.getIgnoreCase(obj, entry.getKey());
+            JsonElement value = DlcDcConfigIO.getIgnoreCase(obj, entry.getKey());
             if (value != null) {
                 entry.getValue().accept(value);
             }
@@ -1401,7 +1401,7 @@ public class DlcPathConfig {
         try (var stream = Files.walk(configDir)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
+                .filter(path -> DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                 .filter(path -> !isManagerConfigFile(path))
                 .forEach(path -> {
                 });
@@ -1413,7 +1413,7 @@ public class DlcPathConfig {
         if (path == null || path.getFileName() == null) {
             return false;
         }
-        String base = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
+        String base = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString());
         return CONFIG_NAME.equalsIgnoreCase(base) || CONFIG_SERVER_NAME.equalsIgnoreCase(base);
     }
 
@@ -1441,7 +1441,7 @@ public class DlcPathConfig {
         try (var stream = Files.walk(root)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
+                .filter(path -> DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
                 });
         } catch (IOException ignored) {
@@ -1455,9 +1455,9 @@ public class DlcPathConfig {
         try (var stream = Files.walk(infoRoot)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
+                .filter(path -> DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
-                    String baseName = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
+                    String baseName = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString());
                     if ("version".equalsIgnoreCase(baseName) || "notice".equalsIgnoreCase(baseName)) {
                         return;
                     }
@@ -1471,13 +1471,13 @@ public class DlcPathConfig {
         if (path == null || !Files.exists(path) || path.getFileName() == null) {
             return;
         }
-        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
-        String fallbackName = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
+        String fallbackName = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString());
         JsonObject normalized = normalizeInfoEntry(obj, fallbackName);
-        DcConfigIO.write(path, normalized, DcConfigIO.Layout.DLC_STRUCTURED);
+        DlcDcConfigIO.write(path, normalized, DlcDcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     private static JsonObject normalizeInfoEntry(JsonObject input, String fallbackName) {
@@ -1495,40 +1495,40 @@ public class DlcPathConfig {
             }
         }
 
-        String fileName = DcConfigIO.getStringIgnoreCase(out, "file_name");
+        String fileName = DlcDcConfigIO.getStringIgnoreCase(out, "file_name");
         if (fileName == null || fileName.isBlank()) {
             fileName = fallbackName == null ? "" : fallbackName;
-            DcConfigIO.removeIgnoreCase(out, "file_name");
+            DlcDcConfigIO.removeIgnoreCase(out, "file_name");
             out.addProperty("file_name", fileName);
         }
 
-        String identifier = DcConfigIO.getStringIgnoreCase(out, "identifier");
+        String identifier = DlcDcConfigIO.getStringIgnoreCase(out, "identifier");
         if (identifier == null || identifier.isBlank()) {
             identifier = fileName;
-            DcConfigIO.removeIgnoreCase(out, "identifier");
+            DlcDcConfigIO.removeIgnoreCase(out, "identifier");
             out.addProperty("identifier", identifier == null ? "" : identifier);
         }
 
-        if (!DcConfigIO.hasIgnoreCase(out, "type")) {
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) {
             out.addProperty("type", "others");
         }
-        if (!DcConfigIO.hasIgnoreCase(out, "isInList")) {
-            boolean legacyShown = DcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true);
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "isInList")) {
+            boolean legacyShown = DlcDcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true);
             out.addProperty("isInList", legacyShown);
         }
-        if (!DcConfigIO.hasIgnoreCase(out, "isHidden")) {
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) {
             out.addProperty("isHidden", false);
         }
-        if (!DcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) {
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) {
             out.addProperty("AllowEnableByAll", true);
         }
-        if (!DcConfigIO.hasIgnoreCase(out, "dependencies")) {
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "dependencies")) {
             out.addProperty("dependencies", "");
         }
-        if (!DcConfigIO.hasIgnoreCase(out, "conflicts")) {
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "conflicts")) {
             out.addProperty("conflicts", "");
         }
-        if (!DcConfigIO.hasIgnoreCase(out, "alarm")) {
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "alarm")) {
             out.addProperty("alarm", false);
         }
 
@@ -1539,21 +1539,21 @@ public class DlcPathConfig {
 
     private static void normalizeLocalizedField(JsonObject obj, String key, String defaultEnUs) {
         JsonObject localized = new JsonObject();
-        JsonObject fromObject = DcConfigIO.getObjectIgnoreCase(obj, key);
+        JsonObject fromObject = DlcDcConfigIO.getObjectIgnoreCase(obj, key);
         if (fromObject != null) {
             for (Map.Entry<String, JsonElement> entry : fromObject.entrySet()) {
                 JsonElement value = entry.getValue();
                 if (value == null || !value.isJsonPrimitive()) {
                     continue;
                 }
-                String lang = DcConfigIO.normalizeLangKey(entry.getKey());
+                String lang = DlcDcConfigIO.normalizeLangKey(entry.getKey());
                 if (lang == null || lang.isBlank()) {
                     continue;
                 }
                 localized.addProperty(lang, value.getAsString());
             }
         } else {
-            String single = DcConfigIO.getStringIgnoreCase(obj, key);
+            String single = DlcDcConfigIO.getStringIgnoreCase(obj, key);
             if (single != null && !single.isBlank()) {
                 localized.addProperty("en_us", single);
             }
@@ -1561,7 +1561,7 @@ public class DlcPathConfig {
         if (localized.entrySet().isEmpty() && defaultEnUs != null && !defaultEnUs.isBlank()) {
             localized.addProperty("en_us", defaultEnUs);
         }
-        DcConfigIO.removeIgnoreCase(obj, key);
+        DlcDcConfigIO.removeIgnoreCase(obj, key);
         obj.add(key, localized);
     }
 
@@ -1573,7 +1573,7 @@ public class DlcPathConfig {
         try (var stream = Files.walk(remoteRoot)) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName() != null)
-                .filter(path -> DcFormatUtil.isDcName(path.getFileName().toString()))
+                .filter(path -> DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
                     Path normalized = path.normalize();
                     if (normalized.startsWith(redirectRoot)) {
@@ -1590,12 +1590,12 @@ public class DlcPathConfig {
             return;
         }
         String lower = path.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (lower.endsWith(DcFormatUtil.DC_EXTENSION)) {
+        if (lower.endsWith(DlcDcFormatUtil.DC_EXTENSION)) {
             JsonObject obj = readRemoteDcObject(path);
             if (obj == null) {
                 return;
             }
-            DcFormatUtil.write(path, obj);
+            DlcDcFormatUtil.write(path, obj);
         }
     }
 
@@ -1603,6 +1603,6 @@ public class DlcPathConfig {
         if (path == null || !Files.exists(path)) {
             return null;
         }
-        return DcFormatUtil.read(path);
+        return DlcDcFormatUtil.read(path);
     }
 }

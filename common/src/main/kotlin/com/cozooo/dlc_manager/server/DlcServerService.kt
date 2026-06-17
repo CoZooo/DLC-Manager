@@ -11,10 +11,10 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
-import com.cozooo.dlc_manager.core.ApplyMode
+import com.cozooo.dlc_manager.core.DlcApplyMode
 import com.cozooo.dlc_manager.core.DlcApplier
 import com.cozooo.dlc_manager.core.DlcItem
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcTmpPaths
@@ -63,7 +63,7 @@ object DlcServerService {
 
     @JvmStatic
     fun start() {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             LOGGER.info("[dlc-manager] server support disabled; skip server manager TCP start")
             return
         }
@@ -84,7 +84,7 @@ object DlcServerService {
             isDaemon = true
             start()
         }
-        LOGGER.info("[dlc-manager] server manager TCP starting on port {}", DlcPathConfig.getServerPort())
+        LOGGER.info("[dlc-manager] server manager TCP starting on port {}", DlcConfig.getServerPort())
     }
 
     @JvmStatic
@@ -105,7 +105,7 @@ object DlcServerService {
 
     @JvmStatic
     fun updateServerStatus(server: MinecraftServer?) {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             return
         }
         currentServer = server
@@ -129,10 +129,10 @@ object DlcServerService {
 
     @JvmStatic
     fun getServerVersionLabel(): String {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             return ""
         }
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(dlcRoot) ?: return ""
         val base = version.getBase()
         val dlc = version.getDlc()
@@ -144,7 +144,7 @@ object DlcServerService {
 
     private fun acceptLoop() {
         try {
-            ServerSocket(DlcPathConfig.getServerPort()).use { socket ->
+            ServerSocket(DlcConfig.getServerPort()).use { socket ->
                 serverSocket = socket
                 while (RUNNING.get()) {
                     val client = socket.accept()
@@ -258,7 +258,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handleHello(request: JsonObject, writer: BufferedWriter): Boolean {
-        val expected = DlcPathConfig.getServerPassword()
+        val expected = DlcConfig.getServerPassword()
         val provided = if (request.has("password")) request.get("password").asString else ""
         val player = if (request.has("player")) request.get("player").asString else ""
         val uuid = if (request.has("uuid")) request.get("uuid").asString else ""
@@ -318,7 +318,7 @@ object DlcServerService {
                 items.add(serverItem)
             }
         }
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(dlcRoot)
         val remoteMissing = DlcServerDownloadService.collectMissingRemote(dlcRoot).size
         val requiredMissing = DlcServerDownloadService.collectMissingRequired(dlcRoot).size
@@ -329,15 +329,15 @@ object DlcServerService {
         response.addProperty("remoteMissing", remoteMissing)
         response.addProperty("requiredMissing", requiredMissing)
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot))
-        response.addProperty("modpackUrl", DlcPathConfig.getServerModpackUrl())
-        response.addProperty("updateGithubRepo", DlcPathConfig.getServerUpdateGithubRepoUrl())
+        response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl())
+        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl())
         response.add("items", GSON.toJsonTree(items))
         writeLine(writer, response)
     }
 
     @Throws(IOException::class)
     private fun handleRemoteDownload(writer: BufferedWriter) {
-        val result = DlcServerDownloadService.downloadMissingRemote(DlcPathConfig.getDlcRoot())
+        val result = DlcServerDownloadService.downloadMissingRemote(DlcConfig.getDlcRoot())
         val response = JsonObject()
         response.addProperty("type", "remote_download")
         response.addProperty("ok", result.success)
@@ -353,7 +353,7 @@ object DlcServerService {
         val response = JsonObject()
         response.addProperty("type", "remote_list")
         response.addProperty("ok", true)
-        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcPathConfig.getDlcRoot(), lang)))
+        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)))
         writeLine(writer, response)
     }
 
@@ -361,7 +361,7 @@ object DlcServerService {
         return try {
             val source = item.getSourcePath()
             var relative: String? = null
-            for (dlcRoot in DlcPathConfig.getDlcRoots()) {
+            for (dlcRoot in DlcConfig.getDlcRoots()) {
                 if (source != null && source.startsWith(dlcRoot)) {
                     relative = dlcRoot.relativize(source).toString().replace('\\', '/')
                     break
@@ -380,7 +380,7 @@ object DlcServerService {
     @Throws(IOException::class)
     private fun handleRemoteDownloadStart(request: JsonObject, writer: BufferedWriter, lang: String?) {
         val keys = readStringArray(request, "keys")
-        val status: DlcServerRemoteStatus = DlcServerDownloadService.startRemoteDownload(DlcPathConfig.getDlcRoot(), keys, lang)
+        val status: DlcServerRemoteStatus = DlcServerDownloadService.startRemoteDownload(DlcConfig.getDlcRoot(), keys, lang)
         val response = JsonObject()
         response.addProperty("type", "remote_download_start")
         response.addProperty("ok", true)
@@ -400,7 +400,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handleRequiredList(writer: BufferedWriter, lang: String?) {
-        val items: List<DlcServerRequiredItem> = DlcServerDownloadService.collectRequiredItems(DlcPathConfig.getDlcRoot(), lang)
+        val items: List<DlcServerRequiredItem> = DlcServerDownloadService.collectRequiredItems(DlcConfig.getDlcRoot(), lang)
         val response = JsonObject()
         response.addProperty("type", "required_list")
         response.addProperty("ok", true)
@@ -411,7 +411,7 @@ object DlcServerService {
     @Throws(IOException::class)
     private fun handleRequiredDownloadStart(request: JsonObject, writer: BufferedWriter, lang: String?) {
         val ids = readStringArray(request, "ids")
-        val status: DlcServerRequiredStatus = DlcServerDownloadService.startRequiredDownload(DlcPathConfig.getDlcRoot(), ids, lang)
+        val status: DlcServerRequiredStatus = DlcServerDownloadService.startRequiredDownload(DlcConfig.getDlcRoot(), ids, lang)
         val response = JsonObject()
         response.addProperty("type", "required_download_start")
         response.addProperty("ok", true)
@@ -442,7 +442,7 @@ object DlcServerService {
     @Throws(IOException::class)
     private fun handleRequiredUninstall(request: JsonObject, writer: BufferedWriter) {
         val ids = readStringArray(request, "ids")
-        val removed = DlcServerDownloadService.uninstallRequired(DlcPathConfig.getDlcRoot(), ids)
+        val removed = DlcServerDownloadService.uninstallRequired(DlcConfig.getDlcRoot(), ids)
         val response = JsonObject()
         response.addProperty("type", "required_uninstall")
         response.addProperty("ok", true)
@@ -453,7 +453,7 @@ object DlcServerService {
     @Throws(IOException::class)
     private fun handleRequiredApply(request: JsonObject, writer: BufferedWriter) {
         val ids = readStringArray(request, "ids")
-        val applied = DlcServerDownloadService.applyRequiredByIds(DlcPathConfig.getDlcRoot(), ids)
+        val applied = DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids)
         val response = JsonObject()
         response.addProperty("type", "required_apply")
         response.addProperty("ok", true)
@@ -486,7 +486,7 @@ object DlcServerService {
                 item.setEnabled(desired)
             }
         }
-        val result = DlcApplier.apply(items, ApplyMode.RESTART_ONLY)
+        val result = DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY)
         val response = JsonObject()
         response.addProperty("type", "apply")
         response.addProperty("ok", true)
@@ -517,7 +517,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun writeUpdateState(writer: BufferedWriter) {
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(dlcRoot)
         val base = version.getBase()
         val dlc = version.getDlc()
@@ -550,8 +550,8 @@ object DlcServerService {
         response.addProperty("ok", true)
         response.addProperty("base", base ?: "")
         response.addProperty("dlc", dlc ?: "")
-        response.addProperty("modpackUrl", DlcPathConfig.getServerModpackUrl())
-        response.addProperty("updateGithubRepo", DlcPathConfig.getServerUpdateGithubRepoUrl())
+        response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl())
+        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl())
         if (!rollbackFrom.isNullOrBlank()) {
             response.addProperty("rollbackFrom", rollbackFrom)
         }
@@ -678,7 +678,7 @@ object DlcServerService {
         val mode = if (request.has("mode")) request.get("mode").asString else "overwrite"
         val targets = readStringArray(request, "targets")
         val paths = readStringArray(request, "paths")
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops")
         if (tempDir == null) {
             writeError(writer, "missing temp dir")
@@ -727,7 +727,7 @@ object DlcServerService {
         if (!Files.exists(state.tempFile)) {
             return false
         }
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
         val gameDir = CrossPlatformRuntime.gameDir()
         val includeAll = state.targets.any { "all".equals(it, ignoreCase = true) }
@@ -864,7 +864,7 @@ object DlcServerService {
             writeError(writer, "invalid path")
             return
         }
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         DlcServerOps.begin(dlcRoot, root, "delete").use { op ->
             op.backupIfExists(target)
             op.deleteRecursive(target)
@@ -885,7 +885,7 @@ object DlcServerService {
             writeError(writer, "invalid path")
             return null
         }
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops")
         if (tempDir == null) {
             writeError(writer, "missing temp dir")
@@ -926,7 +926,7 @@ object DlcServerService {
         var ok = false
         if (state != null) {
             val root = CrossPlatformRuntime.gameDir()
-            val dlcRoot = DlcPathConfig.getDlcRoot()
+            val dlcRoot = DlcConfig.getDlcRoot()
             try {
                 DlcServerOps.begin(dlcRoot, root, "upload").use { op ->
                     val target = state.targetPath
@@ -963,7 +963,7 @@ object DlcServerService {
             return
         }
         val isDir = Files.isDirectory(target)
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         var sendFile = target
         var tempZip: Path? = null
         if (isDir) {
@@ -1060,9 +1060,9 @@ object DlcServerService {
         val response = JsonObject()
         response.addProperty("type", "rcon_get")
         response.addProperty("ok", true)
-        response.addProperty("host", DlcPathConfig.getServerRconHost())
-        response.addProperty("port", DlcPathConfig.getServerRconPort())
-        response.addProperty("password", DlcPathConfig.getServerRconPassword())
+        response.addProperty("host", DlcConfig.getServerRconHost())
+        response.addProperty("port", DlcConfig.getServerRconPort())
+        response.addProperty("password", DlcConfig.getServerRconPassword())
         writeLine(writer, response)
     }
 
@@ -1081,12 +1081,12 @@ object DlcServerService {
     @Throws(IOException::class)
     private fun handleRconSet(request: JsonObject, writer: BufferedWriter) {
         val host = if (request.has("host")) request.get("host").asString else ""
-        val port = if (request.has("port")) request.get("port").asInt else DlcPathConfig.getServerRconPort()
+        val port = if (request.has("port")) request.get("port").asInt else DlcConfig.getServerRconPort()
         val password = if (request.has("password")) request.get("password").asString else ""
-        DlcPathConfig.setServerRconHost(host)
-        DlcPathConfig.setServerRconPort(port)
-        DlcPathConfig.setServerRconPassword(password)
-        DlcPathConfig.saveServer()
+        DlcConfig.setServerRconHost(host)
+        DlcConfig.setServerRconPort(port)
+        DlcConfig.setServerRconPassword(password)
+        DlcConfig.saveServer()
         val response = JsonObject()
         response.addProperty("type", "rcon_set")
         response.addProperty("ok", true)
@@ -1098,7 +1098,7 @@ object DlcServerService {
         val response = JsonObject()
         response.addProperty("type", "config_get")
         response.addProperty("ok", true)
-        response.add("config", DlcPathConfig.buildServerConfigJson())
+        response.add("config", DlcConfig.buildServerConfigJson())
         writeLine(writer, response)
     }
 
@@ -1107,8 +1107,8 @@ object DlcServerService {
         var ok = false
         if (request.has("config") && request.get("config").isJsonObject) {
             val config = request.getAsJsonObject("config")
-            DlcPathConfig.applyServerConfigJson(config)
-            DlcPathConfig.saveServer()
+            DlcConfig.applyServerConfigJson(config)
+            DlcConfig.saveServer()
             ok = true
         }
         val response = JsonObject()
@@ -1122,9 +1122,9 @@ object DlcServerService {
         val command = if (request.has("command")) request.get("command").asString else ""
         var message: String?
         var ok = false
-        val host = DlcPathConfig.getServerRconHost()
-        val password = DlcPathConfig.getServerRconPassword()
-        val port = DlcPathConfig.getServerRconPort()
+        val host = DlcConfig.getServerRconHost()
+        val password = DlcConfig.getServerRconPassword()
+        val port = DlcConfig.getServerRconPort()
         if (!host.isNullOrBlank() && !password.isNullOrBlank()) {
             message = DlcRconClient.execute(host, port, password, command, 5000)
             ok = message != null

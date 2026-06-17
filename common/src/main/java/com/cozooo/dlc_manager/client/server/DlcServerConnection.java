@@ -1,9 +1,9 @@
 package com.cozooo.dlc_manager.client.server;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.google.gson.Gson;
@@ -1197,11 +1197,11 @@ public class DlcServerConnection {
         if (config == null) {
             return "";
         }
-        JsonObject paths = DcConfigIO.getObjectIgnoreCase(config, "paths");
+        JsonObject paths = DlcDcConfigIO.getObjectIgnoreCase(config, "paths");
         if (paths == null) {
             return "";
         }
-        return DcConfigIO.getStringIgnoreCase(paths, "dlcRoot");
+        return DlcDcConfigIO.getStringIgnoreCase(paths, "dlcRoot");
     }
 
     private static byte[] copyOf(byte[] input, int len) {
@@ -1219,7 +1219,7 @@ public class DlcServerConnection {
         boolean includeAll = hasTargets && targets.stream().anyMatch(value -> "all".equalsIgnoreCase(value));
         boolean includeDlc = includeAll || (hasTargets && targets.stream().anyMatch(value -> "dlc".equalsIgnoreCase(value)));
         boolean includeConfig = includeAll || (hasTargets && targets.stream().anyMatch(value -> "config".equalsIgnoreCase(value)));
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
         Path gameDir = DlcPaths.gameDir();
         Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");

@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.required
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DcFormatUtil
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -26,7 +26,7 @@ object DlcRequiredLoader {
             Files.newDirectoryStream(requiredDir).use { stream ->
                 for (path in stream) {
                     val fileName = path.fileName?.toString() ?: continue
-                    if (!DcFormatUtil.isDcName(fileName)) {
+                    if (!DlcDcFormatUtil.isDcName(fileName)) {
                         continue
                     }
                     if (isNoticeConfig(fileName)) {
@@ -65,9 +65,9 @@ object DlcRequiredLoader {
         }
         val obj = readConfigObject(path) ?: return null
         val normalized = normalizeRequiredObject(obj, requiredDir, path, null) ?: return null
-        if (path.fileName != null && DcFormatUtil.isDcName(path.fileName.toString())) {
+        if (path.fileName != null && DlcDcFormatUtil.isDcName(path.fileName.toString())) {
             if (needsKeyMigration(obj) || needsDcLayoutMigration(path)) {
-                DcFormatUtil.write(path, normalized.ordered)
+                DlcDcFormatUtil.write(path, normalized.ordered)
             }
         }
         return normalized.entry
@@ -77,8 +77,8 @@ object DlcRequiredLoader {
         if (path == null || path.fileName == null) {
             return null
         }
-        if (DcFormatUtil.isDcName(path.fileName.toString())) {
-            return DcFormatUtil.read(path)
+        if (DlcDcFormatUtil.isDcName(path.fileName.toString())) {
+            return DlcDcFormatUtil.read(path)
         }
         return null
     }
@@ -91,9 +91,9 @@ object DlcRequiredLoader {
             return configPath
         }
         val name = configPath.fileName.toString()
-        val base = DcFormatUtil.stripConfigExtension(name)
+        val base = DlcDcFormatUtil.stripConfigExtension(name)
         val parent = configPath.parent ?: return configPath
-        val dc = parent.resolve(base + DcFormatUtil.DC_EXTENSION)
+        val dc = parent.resolve(base + DlcDcFormatUtil.DC_EXTENSION)
         if (Files.exists(dc)) {
             return dc
         }
@@ -104,7 +104,7 @@ object DlcRequiredLoader {
         if (fileName.isNullOrBlank()) {
             return false
         }
-        return "notice".equals(DcFormatUtil.stripConfigExtension(fileName), ignoreCase = true)
+        return "notice".equals(DlcDcFormatUtil.stripConfigExtension(fileName), ignoreCase = true)
     }
 
     @JvmStatic
@@ -170,7 +170,7 @@ object DlcRequiredLoader {
         val applied = getString(obj, "appliedTarget")
         entry.setAppliedTargetRaw(applied ?: "")
         entry.setRedirectUrl(getString(obj, "RedirectUrl"))
-        val depsElement = DcConfigIO.getIgnoreCase(obj, "dependencies")
+        val depsElement = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir)
         }
@@ -181,9 +181,9 @@ object DlcRequiredLoader {
         if (obj == null || entry == null) {
             return
         }
-        var display = DcConfigIO.getObjectIgnoreCase(obj, "displayName")
+        var display = DlcDcConfigIO.getObjectIgnoreCase(obj, "displayName")
         if (display == null) {
-            display = DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")
+            display = DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")
         }
         if (display == null) {
             var fallback = entry.getBaseName()
@@ -195,7 +195,7 @@ object DlcRequiredLoader {
         }
         for ((key, value) in display.entrySet()) {
             if (value != null && value.isJsonPrimitive) {
-                val lang = DcConfigIO.normalizeLangKey(key)
+                val lang = DlcDcConfigIO.normalizeLangKey(key)
                 if (lang != null) {
                     entry.putDisplayName(lang, value.asString)
                 }
@@ -214,11 +214,11 @@ object DlcRequiredLoader {
         if (obj == null || entry == null) {
             return
         }
-        val tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip")
+        val tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip")
         if (tipObj != null) {
             for ((key, value) in tipObj.entrySet()) {
                 if (value != null && value.isJsonPrimitive) {
-                    val lang = DcConfigIO.normalizeLangKey(key)
+                    val lang = DlcDcConfigIO.normalizeLangKey(key)
                     if (lang != null) {
                         entry.putTip(lang, value.asString)
                     }
@@ -301,7 +301,7 @@ object DlcRequiredLoader {
         if (obj == null) {
             return emptyList()
         }
-        val element = DcConfigIO.getIgnoreCase(obj, "directUrl") ?: return emptyList()
+        val element = DlcDcConfigIO.getIgnoreCase(obj, "directUrl") ?: return emptyList()
         val urls = ArrayList<String>()
         if (element.isJsonPrimitive) {
             val url = element.asString
@@ -339,7 +339,7 @@ object DlcRequiredLoader {
         val fileName = entry.getRequiredFileName()
         val appliedTarget = entry.getAppliedTargetRaw()
         val redirectUrl = entry.getRedirectUrl()
-        val deps = normalizeDependencies(DcConfigIO.getIgnoreCase(obj, "dependencies"), requiredDir)
+        val deps = normalizeDependencies(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), requiredDir)
         val display = JsonObject()
         entry.getDisplayNames().forEach(display::addProperty)
         val tip = JsonObject()
@@ -577,12 +577,12 @@ object DlcRequiredLoader {
         if (obj == null) {
             return false
         }
-        return DcConfigIO.hasIgnoreCase(obj, "dlc_name")
-            || DcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
+        return DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
     }
 
     private fun needsDcLayoutMigration(path: Path?): Boolean {
-        if (path == null || path.fileName == null || !DcFormatUtil.isDcName(path.fileName.toString())) {
+        if (path == null || path.fileName == null || !DlcDcFormatUtil.isDcName(path.fileName.toString())) {
             return false
         }
         return try {
@@ -627,9 +627,9 @@ object DlcRequiredLoader {
         return names
     }
 
-    private fun getString(obj: JsonObject?, key: String): String? = DcConfigIO.getStringIgnoreCase(obj, key)
+    private fun getString(obj: JsonObject?, key: String): String? = DlcDcConfigIO.getStringIgnoreCase(obj, key)
 
-    private fun getBoolean(obj: JsonObject?, key: String): Boolean? = DcConfigIO.getBooleanIgnoreCase(obj, key)
+    private fun getBoolean(obj: JsonObject?, key: String): Boolean? = DlcDcConfigIO.getBooleanIgnoreCase(obj, key)
 
     private class DependencyResult {
         var element: JsonElement? = null

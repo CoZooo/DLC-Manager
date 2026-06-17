@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.notice;
 
-import com.cozooo.dlc_manager.core.DlcNoticeConfig;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig;
 
 public final class DlcNoticeRuntime {
     private static boolean shownOnGameLaunch = false;

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import java.io.IOException
@@ -53,7 +53,7 @@ class DlcUpdateMeta {
             }
             obj.add("restore", restore)
             obj.add("created", created)
-            DcConfigIO.write(metaPath, obj, DcConfigIO.Layout.GENERIC)
+            DlcDcConfigIO.write(metaPath, obj, DlcDcConfigIO.Layout.GENERIC)
         } catch (_: IOException) {
         }
     }
@@ -103,7 +103,7 @@ class DlcUpdateMeta {
         }
         for ((key, value) in values) {
             if (!key.isNullOrBlank() && !value.isNullOrBlank()) {
-                val normalizedKey = DcConfigIO.normalizeLangKey(key)
+                val normalizedKey = DlcDcConfigIO.normalizeLangKey(key)
                 if (normalizedKey != null) {
                     changelog[normalizedKey] = value
                 }
@@ -115,7 +115,7 @@ class DlcUpdateMeta {
         if (changelog.isEmpty()) {
             return ""
         }
-        val key = DcConfigIO.normalizeLangKey(lang)
+        val key = DlcDcConfigIO.normalizeLangKey(lang)
         if (key != null && changelog.containsKey(key)) {
             return changelog[key] ?: ""
         }
@@ -135,21 +135,21 @@ class DlcUpdateMeta {
             if (metaPath == null || !Files.exists(metaPath)) {
                 return null
             }
-            val obj = DcConfigIO.read(metaPath, DcConfigIO.Layout.GENERIC) ?: return null
+            val obj = DlcDcConfigIO.read(metaPath, DlcDcConfigIO.Layout.GENERIC) ?: return null
             val meta = DlcUpdateMeta()
-            meta.dlcOld = DcConfigIO.getStringIgnoreCase(obj, "dlc_old")
-            meta.dlcNew = DcConfigIO.getStringIgnoreCase(obj, "dlc_new")
-            meta.baseOld = DcConfigIO.getStringIgnoreCase(obj, "base_old")
-            meta.baseNew = DcConfigIO.getStringIgnoreCase(obj, "base_new")
-            meta.timestamp = DcConfigIO.getStringIgnoreCase(obj, "timestamp")
-            meta.hidden = DcConfigIO.getBooleanIgnoreCase(obj, "hidden", false)
-            val logObj = DcConfigIO.getObjectIgnoreCase(obj, "changelog")
+            meta.dlcOld = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_old")
+            meta.dlcNew = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_new")
+            meta.baseOld = DlcDcConfigIO.getStringIgnoreCase(obj, "base_old")
+            meta.baseNew = DlcDcConfigIO.getStringIgnoreCase(obj, "base_new")
+            meta.timestamp = DlcDcConfigIO.getStringIgnoreCase(obj, "timestamp")
+            meta.hidden = DlcDcConfigIO.getBooleanIgnoreCase(obj, "hidden", false)
+            val logObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "changelog")
             if (logObj != null) {
                 for ((key, value) in logObj.entrySet()) {
                     if (value != null && value.isJsonPrimitive) {
                         val raw = value.asString
                         if (!raw.isNullOrBlank()) {
-                            val normalizedKey = DcConfigIO.normalizeLangKey(key)
+                            val normalizedKey = DlcDcConfigIO.normalizeLangKey(key)
                             if (normalizedKey != null) {
                                 meta.changelog[normalizedKey] = raw
                             }
@@ -157,13 +157,13 @@ class DlcUpdateMeta {
                     }
                 }
             }
-            val restoreArray = DcConfigIO.getArrayIgnoreCase(obj, "restore")
+            val restoreArray = DlcDcConfigIO.getArrayIgnoreCase(obj, "restore")
             restoreArray?.forEach { element ->
                 if (element != null && element.isJsonPrimitive) {
                     meta.restorePaths.add(element.asString)
                 }
             }
-            val createdArray = DcConfigIO.getArrayIgnoreCase(obj, "created")
+            val createdArray = DlcDcConfigIO.getArrayIgnoreCase(obj, "created")
             createdArray?.forEach { element ->
                 if (element != null && element.isJsonPrimitive) {
                     meta.createdPaths.add(element.asString)

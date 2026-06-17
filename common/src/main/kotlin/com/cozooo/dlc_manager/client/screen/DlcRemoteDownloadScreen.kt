@@ -9,8 +9,8 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DcFormatUtil
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -42,10 +42,10 @@ class DlcRemoteDownloadScreen(
     private val missing: List<DlcRemoteEntry> = missing ?: emptyList()
     private var previewQueue: List<DlcRemoteEntry> = emptyList()
     private var downloadTargets: List<DlcRemoteEntry> = emptyList()
-    private val maxConcurrentDownloads = max(1, DlcPathConfig.getMaxConcurrentDownloads())
-    private val maxRetry = max(1, DlcPathConfig.getMaxRetryCount())
-    private val connectTimeoutMs = max(1, DlcPathConfig.getConnectTimeoutMs())
-    private val taskTimeoutMs = max(1, DlcPathConfig.getTaskTimeoutMs())
+    private val maxConcurrentDownloads = max(1, DlcConfig.getMaxConcurrentDownloads())
+    private val maxRetry = max(1, DlcConfig.getMaxRetryCount())
+    private val connectTimeoutMs = max(1, DlcConfig.getConnectTimeoutMs())
+    private val taskTimeoutMs = max(1, DlcConfig.getTaskTimeoutMs())
     private val selectedKeys: MutableSet<String> = HashSet(setOf(ALL_MARKER))
     private val progressByKey: MutableMap<String, Float> = ConcurrentHashMap()
     private val attemptByKey: MutableMap<String, Int> = ConcurrentHashMap()
@@ -959,7 +959,7 @@ class DlcRemoteDownloadScreen(
     }
 
     private fun firstDlcRoot(): Path? {
-        val roots = DlcPathConfig.getDlcRoots()
+        val roots = DlcConfig.getDlcRoots()
         return if (roots.isEmpty()) null else roots[0]
     }
 
@@ -1201,7 +1201,7 @@ class DlcRemoteDownloadScreen(
     }
 
     private fun stripJson(name: String?): String? {
-        return DcFormatUtil.stripConfigExtension(name)
+        return DlcDcFormatUtil.stripConfigExtension(name)
     }
 
     companion object {

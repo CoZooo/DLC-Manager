@@ -18,14 +18,14 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.DownloadResult;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPathUtil;
-import com.cozooo.dlc_manager.core.ApplyMode;
+import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
@@ -69,7 +69,7 @@ public final class DlcUpdateService {
     }
 
     public static UpdateCheckResult checkForUpdates() {
-        if (!DlcPathConfig.isUpdateManagerOn()) {
+        if (!DlcConfig.isUpdateManagerOn()) {
             Path dlcRoot = getDlcRoot();
             return new UpdateCheckResult(DlcUpdateVersion.load(dlcRoot), List.of());
         }
@@ -81,7 +81,7 @@ public final class DlcUpdateService {
     }
 
     public static UpdateCheckResult checkForUpdates(boolean ignoreRollback) {
-        if (!DlcPathConfig.isUpdateManagerOn()) {
+        if (!DlcConfig.isUpdateManagerOn()) {
             Path dlcRoot = getDlcRoot();
             return new UpdateCheckResult(DlcUpdateVersion.load(dlcRoot), List.of());
         }
@@ -523,7 +523,7 @@ public final class DlcUpdateService {
     }
 
     public static void ensureUpdateDir() {
-        if (!DlcPathConfig.isUpdateManagerOn()) {
+        if (!DlcConfig.isUpdateManagerOn()) {
             return;
         }
         Path updateDir = getUpdateDir();
@@ -1523,7 +1523,7 @@ public final class DlcUpdateService {
                     continue;
                 }
                 String fileName = path.getFileName().toString();
-                if (!DcFormatUtil.isDcName(fileName)) {
+                if (!DlcDcFormatUtil.isDcName(fileName)) {
                     continue;
                 }
                 if (isNoticeConfig(fileName)) {
@@ -1569,8 +1569,8 @@ public final class DlcUpdateService {
         }
         List<Path> targets = switch (type) {
             case MOD -> List.of(DlcPaths.modsDir());
-            case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
-            case DATA_PACK -> DlcPathConfig.getDatapackRoots();
+            case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
+            case DATA_PACK -> DlcConfig.getDatapackRoots();
             case TACZ_PACK -> List.of(DlcPaths.taczDir());
             default -> List.of();
         };
@@ -1782,7 +1782,7 @@ public final class DlcUpdateService {
         if (containerKey == null) {
             return false;
         }
-        JsonElement containerElement = DcConfigIO.getIgnoreCase(root, containerKey);
+        JsonElement containerElement = DlcDcConfigIO.getIgnoreCase(root, containerKey);
         JsonObject container;
         if (containerElement != null && containerElement.isJsonObject()) {
             container = containerElement.getAsJsonObject();
@@ -1861,7 +1861,7 @@ public final class DlcUpdateService {
                 upsertCaseInsensitive(current, key, value);
                 return;
             }
-            JsonElement child = DcConfigIO.getIgnoreCase(current, key);
+            JsonElement child = DlcDcConfigIO.getIgnoreCase(current, key);
             JsonObject next;
             if (child != null && child.isJsonObject()) {
                 next = child.getAsJsonObject();
@@ -1901,10 +1901,10 @@ public final class DlcUpdateService {
                         return;
                     }
                     String fileName = path.getFileName().toString();
-                    if (!DcFormatUtil.isDcName(fileName)) {
+                    if (!DlcDcFormatUtil.isDcName(fileName)) {
                         return;
                     }
-                    String baseName = DcFormatUtil.stripConfigExtension(fileName);
+                    String baseName = DlcDcFormatUtil.stripConfigExtension(fileName);
                     if ("version".equalsIgnoreCase(baseName) || "notice".equalsIgnoreCase(baseName)) {
                         return;
                     }
@@ -1912,9 +1912,9 @@ public final class DlcUpdateService {
                     if (obj == null) {
                         return;
                     }
-                    String identifier = DcConfigIO.getStringIgnoreCase(obj, "identifier");
+                    String identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier");
                     if (identifier == null || identifier.isBlank()) {
-                        identifier = DcConfigIO.getStringIgnoreCase(obj, "dlc_identifier");
+                        identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "dlc_identifier");
                     }
                     if (identifier == null || identifier.isBlank()) {
                         return;
@@ -2009,7 +2009,7 @@ public final class DlcUpdateService {
             writeJson(infoPath, info);
             return;
         }
-        Path targetPath = DcFormatUtil.resolveConfigPath(infoDir, fileName);
+        Path targetPath = DlcDcFormatUtil.resolveConfigPath(infoDir, fileName);
         if (targetPath == null) {
             backupPath(toGameRelativePath(infoPath), infoPath, context);
             writeJson(infoPath, info);
@@ -2031,17 +2031,17 @@ public final class DlcUpdateService {
     }
 
     private static JsonObject readJson(Path path) {
-        return DcConfigIO.read(path, layoutForPath(path));
+        return DlcDcConfigIO.read(path, layoutForPath(path));
     }
 
     private static void writeJson(Path path, JsonObject obj) {
         if (path == null || obj == null) {
             return;
         }
-        if (DcConfigIO.write(path, obj, layoutForPath(path))) {
+        if (DlcDcConfigIO.write(path, obj, layoutForPath(path))) {
             return;
         }
-        Path target = DcConfigIO.toDcPath(path);
+        Path target = DlcDcConfigIO.toDcPath(path);
         String serialized = serializeJsonForPath(target, obj);
         DlcFileOpsHelperClient.FileOpResult result = DlcFileOpsHelperClient.scheduleWriteText(target, serialized);
         if (result.ok()) {
@@ -2054,16 +2054,16 @@ public final class DlcUpdateService {
         recordFileOpFailure(CURRENT_UPDATE_CONTEXT.get(), result.message(), target, "write");
     }
 
-    private static DcConfigIO.Layout layoutForPath(Path path) {
+    private static DlcDcConfigIO.Layout layoutForPath(Path path) {
         if (path == null) {
-            return DcConfigIO.Layout.GENERIC;
+            return DlcDcConfigIO.Layout.GENERIC;
         }
         String normalized = path.toString().replace('\\', '/').toLowerCase(Locale.ROOT);
         if (normalized.contains("/remote/")
             || normalized.contains("/required/")) {
-            return DcConfigIO.Layout.DLC_STRUCTURED;
+            return DlcDcConfigIO.Layout.DLC_STRUCTURED;
         }
-        return DcConfigIO.Layout.GENERIC;
+        return DlcDcConfigIO.Layout.GENERIC;
     }
 
     private static DownloadedFile downloadRemoteEntry(DlcRemoteEntry entry) throws IOException, InterruptedException {
@@ -2090,7 +2090,7 @@ public final class DlcUpdateService {
 
     private static DownloadedFile downloadWithRetry(Object entry, DlcDownloadCandidate.Resolver resolver, boolean ignoreExistingFileName)
         throws IOException, InterruptedException {
-        int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
+        int maxRetry = Math.max(1, DlcConfig.getMaxRetryCount());
         IOException lastError = null;
         List<DlcDownloadCandidate> candidates;
         while (!(candidates = resolver.next()).isEmpty()) {
@@ -2200,8 +2200,8 @@ public final class DlcUpdateService {
             connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(true);
             connection.setRequestMethod("HEAD");
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
             connection.setRequestProperty("User-Agent", "DLC-Manager");
             connection.connect();
             return DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
@@ -2250,8 +2250,8 @@ public final class DlcUpdateService {
             }
             List<Path> targetDirs = switch (type) {
                 case MOD -> List.of(DlcPaths.modsDir());
-                case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
-                case DATA_PACK -> DlcPathConfig.getDatapackRoots();
+                case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
+                case DATA_PACK -> DlcConfig.getDatapackRoots();
                 case TACZ_PACK -> List.of(DlcPaths.taczDir());
                 default -> List.of();
             };
@@ -2418,7 +2418,7 @@ public final class DlcUpdateService {
         if (isUnderDir(normalized, dlcRoot.resolve("preset"))) {
             if (Files.isDirectory(normalized)) {
                 uninstallPresetConfigsInDir(normalized, dlcRoot);
-            } else if (normalized.getFileName() != null && DcFormatUtil.isDcName(normalized.getFileName().toString())) {
+            } else if (normalized.getFileName() != null && DlcDcFormatUtil.isDcName(normalized.getFileName().toString())) {
                 uninstallPresetConfig(normalized, dlcRoot);
             }
             return;
@@ -2479,7 +2479,7 @@ public final class DlcUpdateService {
         if (configPath == null || dlcRoot == null || !Files.exists(configPath)) {
             return;
         }
-        if (configPath.getFileName() == null || !DcFormatUtil.isDcName(configPath.getFileName().toString())) {
+        if (configPath.getFileName() == null || !DlcDcFormatUtil.isDcName(configPath.getFileName().toString())) {
             return;
         }
         String presetId = resolvePresetId(configPath, dlcRoot);
@@ -2500,7 +2500,7 @@ public final class DlcUpdateService {
             return;
         }
         try (var stream = Files.walk(dir)) {
-            stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
+            stream.filter(path -> path.getFileName() != null && DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> uninstallPresetConfig(path, dlcRoot));
         } catch (IOException ignored) {
         }
@@ -2512,13 +2512,13 @@ public final class DlcUpdateService {
         }
         Path presetRoot = dlcRoot.resolve("preset").normalize();
         Path normalized = configPath.normalize();
-        String fallback = DcFormatUtil.stripConfigExtension(configPath.getFileName().toString());
+        String fallback = DlcDcFormatUtil.stripConfigExtension(configPath.getFileName().toString());
         if (!normalized.startsWith(presetRoot)) {
             return fallback;
         }
         try {
             String relative = presetRoot.relativize(normalized).toString().replace('\\', '/');
-            return DcFormatUtil.stripConfigExtension(relative);
+            return DlcDcFormatUtil.stripConfigExtension(relative);
         } catch (Exception ignored) {
             return fallback;
         }
@@ -2588,7 +2588,7 @@ public final class DlcUpdateService {
         }
         try (var stream = Files.newDirectoryStream(requiredDir, base + ".*")) {
             for (Path file : stream) {
-                if (file != null && !DcFormatUtil.isDcName(file.getFileName().toString())) {
+                if (file != null && !DlcDcFormatUtil.isDcName(file.getFileName().toString())) {
                     return file.getFileName().toString();
                 }
             }
@@ -2620,13 +2620,13 @@ public final class DlcUpdateService {
                 if (isUnderDir(target, requiredRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, true);
-                    } else if (target.getFileName() != null && DcFormatUtil.isDcName(target.getFileName().toString())) {
+                    } else if (target.getFileName() != null && DlcDcFormatUtil.isDcName(target.getFileName().toString())) {
                         uninstallRequiredConfig(target, dlcRoot, null);
                     }
                 } else if (isUnderDir(target, remoteRoot)) {
                     if (Files.isDirectory(target)) {
                         uninstallConfigsInDir(target, dlcRoot, false);
-                    } else if (target.getFileName() != null && DcFormatUtil.isDcName(target.getFileName().toString())) {
+                    } else if (target.getFileName() != null && DlcDcFormatUtil.isDcName(target.getFileName().toString())) {
                         uninstallRemoteConfig(target, dlcRoot, null);
                     }
                 }
@@ -2648,7 +2648,7 @@ public final class DlcUpdateService {
             return;
         }
         try (var stream = Files.walk(dir)) {
-            stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
+            stream.filter(path -> path.getFileName() != null && DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                 .forEach(path -> {
                     if (required) {
                         uninstallRequiredConfig(path, dlcRoot, null);
@@ -2749,7 +2749,7 @@ public final class DlcUpdateService {
             return false;
         }
         Path infoDir = dlcRoot.resolve("info");
-        Path notice = DcFormatUtil.resolveConfigPath(infoDir, "notice");
+        Path notice = DlcDcFormatUtil.resolveConfigPath(infoDir, "notice");
         if (notice == null) {
             return false;
         }
@@ -2761,7 +2761,7 @@ public final class DlcUpdateService {
             return false;
         }
         Path infoDir = dlcRoot.resolve("info");
-        Path dc = infoDir.resolve("version" + DcFormatUtil.DC_EXTENSION).normalize();
+        Path dc = infoDir.resolve("version" + DlcDcFormatUtil.DC_EXTENSION).normalize();
         Path normalized = path.normalize();
         return normalized.equals(dc);
     }
@@ -2770,7 +2770,7 @@ public final class DlcUpdateService {
         if (fileName == null || fileName.isBlank()) {
             return false;
         }
-        return "notice".equalsIgnoreCase(DcFormatUtil.stripConfigExtension(fileName));
+        return "notice".equalsIgnoreCase(DlcDcFormatUtil.stripConfigExtension(fileName));
     }
 
     private static boolean isRequiredPath(Path target, Path dlcRoot) {
@@ -2798,7 +2798,7 @@ public final class DlcUpdateService {
     }
 
     private static PresetUpdateSession preparePresetUpdateSession(DlcUpdateManifest.UpdateOps ops, Path dlcRoot) {
-        if (CrossPlatformRuntime.isDedicatedServer() || !DlcPathConfig.isPresetFuncOn() || ops == null || ops.getPreset().isEmpty()) {
+        if (CrossPlatformRuntime.isDedicatedServer() || !DlcConfig.isPresetFuncOn() || ops == null || ops.getPreset().isEmpty()) {
             return PresetUpdateSession.empty();
         }
         Map<String, Path> presetById = loadPresetConfigPathById(dlcRoot);
@@ -2876,10 +2876,10 @@ public final class DlcUpdateService {
             return;
         }
         List<DlcItem> items = scanDlcItemsForLocalIndex();
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.applyOverridesToRuntime();
         }
-        boolean pending = DlcPathConfig.isPresetFuncOn() && DlcPresetRuntimeState.hasPendingFileConflictChanges();
+        boolean pending = DlcConfig.isPresetFuncOn() && DlcPresetRuntimeState.hasPendingFileConflictChanges();
         for (DlcItem item : items) {
             if (item == null || item.getId() == null || item.getId().isBlank()) {
                 continue;
@@ -2893,7 +2893,7 @@ public final class DlcUpdateService {
             }
         }
         if (pending) {
-            DlcApplier.ApplyResult result = DlcApplier.apply(items, ApplyMode.RESTART_ONLY);
+            DlcApplier.ApplyResult result = DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY);
             String failureMessage = extractApplyFailureMessage(result);
             if (!failureMessage.isBlank()) {
                 throw new IOException(failureMessage);
@@ -2906,7 +2906,7 @@ public final class DlcUpdateService {
                 DlcRuntimeState.clearOverride(item.getId());
             }
         }
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.syncStatusFromRuntime();
         }
     }
@@ -3338,7 +3338,7 @@ public final class DlcUpdateService {
         if (metaRoot == null) {
             return null;
         }
-        return DcFormatUtil.resolveConfigPath(metaRoot, "meta");
+        return DlcDcFormatUtil.resolveConfigPath(metaRoot, "meta");
     }
 
     private static DlcUpdateMeta loadMetaFromRoot(Path metaRoot) {
@@ -3763,7 +3763,7 @@ public final class DlcUpdateService {
     }
 
     private static Path getDlcRoot() {
-        return DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        return DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
     }
 
     private static String toGameRelativePath(Path path) {
@@ -3864,13 +3864,13 @@ public final class DlcUpdateService {
             return "";
         }
         JsonObject source = obj;
-        if (layoutForPath(path) == DcConfigIO.Layout.DLC_STRUCTURED && isInfoPathForWrite(path)) {
+        if (layoutForPath(path) == DlcDcConfigIO.Layout.DLC_STRUCTURED && isInfoPathForWrite(path)) {
             source = stripDownloadKeysForInfo(obj);
         }
-        if (layoutForPath(path) == DcConfigIO.Layout.DLC_STRUCTURED && !isNoticeConfigPathForWrite(path)) {
-            return DcFormatUtil.write(source);
+        if (layoutForPath(path) == DlcDcConfigIO.Layout.DLC_STRUCTURED && !isNoticeConfigPathForWrite(path)) {
+            return DlcDcFormatUtil.write(source);
         }
-        return DcFormatUtil.writeGeneric(source);
+        return DlcDcFormatUtil.writeGeneric(source);
     }
 
     private static boolean isInfoPathForWrite(Path path) {
@@ -3885,7 +3885,7 @@ public final class DlcUpdateService {
         if (path == null || path.getFileName() == null) {
             return false;
         }
-        String base = DcFormatUtil.stripConfigExtension(path.getFileName().toString());
+        String base = DlcDcFormatUtil.stripConfigExtension(path.getFileName().toString());
         return "notice".equalsIgnoreCase(base);
     }
 
@@ -3923,7 +3923,7 @@ public final class DlcUpdateService {
             if (path == null || !Files.exists(path)) {
                 return null;
             }
-            com.google.gson.JsonObject obj = DcConfigIO.read(path, layoutForPath(path));
+            com.google.gson.JsonObject obj = DlcDcConfigIO.read(path, layoutForPath(path));
             if (obj == null) {
                 return null;
             }
@@ -3934,7 +3934,7 @@ public final class DlcUpdateService {
             if (path == null || obj == null) {
                 return;
             }
-            DcConfigIO.write(path, obj, layoutForPath(path));
+            DlcDcConfigIO.write(path, obj, layoutForPath(path));
         }
     }
 

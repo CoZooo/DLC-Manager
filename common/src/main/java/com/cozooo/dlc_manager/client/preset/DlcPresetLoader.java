@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.preset;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -21,7 +21,7 @@ public final class DlcPresetLoader {
     }
 
     public static List<DlcPresetEntry> loadAll() {
-        return loadAll(DlcPathConfig.getDlcRoots());
+        return loadAll(DlcConfig.getDlcRoots());
     }
 
     public static List<DlcPresetEntry> loadAll(List<Path> roots) {
@@ -40,7 +40,7 @@ public final class DlcPresetLoader {
                 continue;
             }
             try (var stream = Files.walk(presetRoot)) {
-                stream.filter(path -> path.getFileName() != null && DcFormatUtil.isDcName(path.getFileName().toString()))
+                stream.filter(path -> path.getFileName() != null && DlcDcFormatUtil.isDcName(path.getFileName().toString()))
                     .forEach(path -> {
                         DlcPresetEntry entry = readEntry(path);
                         if (entry != null) {
@@ -69,18 +69,18 @@ public final class DlcPresetLoader {
     }
 
     private static DlcPresetEntry readEntry(Path path) {
-        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }
 
-        JsonObject basic = DcConfigIO.getObjectIgnoreCase(obj, "basic");
-        Map<String, String> displayName = readLangMap(DcConfigIO.getObjectIgnoreCase(obj, "DisplayName"));
-        Map<String, String> tip = readLangMap(DcConfigIO.getObjectIgnoreCase(obj, "tip"));
-        List<String> enable = readRelationList(DcConfigIO.getIgnoreCase(obj, "dependencies"), DcConfigIO.getIgnoreCase(obj, "enable"));
-        List<String> conflicts = readRelationList(DcConfigIO.getIgnoreCase(obj, "conflicts"), null);
-        Boolean basicAlarm = DcConfigIO.getBooleanIgnoreCase(basic, "alarm");
-        boolean alarm = basicAlarm == null ? DcConfigIO.getBooleanIgnoreCase(obj, "alarm", false) : basicAlarm;
+        JsonObject basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic");
+        Map<String, String> displayName = readLangMap(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName"));
+        Map<String, String> tip = readLangMap(DlcDcConfigIO.getObjectIgnoreCase(obj, "tip"));
+        List<String> enable = readRelationList(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), DlcDcConfigIO.getIgnoreCase(obj, "enable"));
+        List<String> conflicts = readRelationList(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"), null);
+        Boolean basicAlarm = DlcDcConfigIO.getBooleanIgnoreCase(basic, "alarm");
+        boolean alarm = basicAlarm == null ? DlcDcConfigIO.getBooleanIgnoreCase(obj, "alarm", false) : basicAlarm;
 
         String fileName = stripExtension(path.getFileName().toString());
         String id = readIdentifier(basic, obj, fileName);
@@ -100,7 +100,7 @@ public final class DlcPresetLoader {
             try {
                 String value = entry.getValue().getAsString();
                 if (value != null) {
-                    String key = DcConfigIO.normalizeLangKey(entry.getKey());
+                    String key = DlcDcConfigIO.normalizeLangKey(entry.getKey());
                     if (key != null) {
                         map.put(key, value);
                     }
@@ -134,7 +134,7 @@ public final class DlcPresetLoader {
         }
         if (element.isJsonObject()) {
             JsonObject obj = element.getAsJsonObject();
-            String identifier = DcConfigIO.getStringIgnoreCase(obj, "identifier");
+            String identifier = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier");
             if (identifier != null && !identifier.isBlank()) {
                 result.add(identifier.trim());
                 return;
@@ -162,11 +162,11 @@ public final class DlcPresetLoader {
     }
 
     private static String readIdentifier(JsonObject basic, JsonObject obj, String fallback) {
-        String identifier = DcConfigIO.getStringIgnoreCase(basic, "identifier");
+        String identifier = DlcDcConfigIO.getStringIgnoreCase(basic, "identifier");
         if (identifier != null && !identifier.isBlank()) {
             return identifier.trim();
         }
-        String legacyIdentifier = DcConfigIO.getStringIgnoreCase(obj, "identifier");
+        String legacyIdentifier = DlcDcConfigIO.getStringIgnoreCase(obj, "identifier");
         if (legacyIdentifier != null && !legacyIdentifier.isBlank()) {
             return legacyIdentifier.trim();
         }
@@ -174,13 +174,13 @@ public final class DlcPresetLoader {
     }
 
     private static void migrateIfNeeded(Path path, JsonObject obj, String identifier, boolean alarm, List<String> enable, List<String> conflicts) {
-        JsonObject basic = DcConfigIO.getObjectIgnoreCase(obj, "basic");
-        boolean hasMissingIdentifier = DcConfigIO.getStringIgnoreCase(basic, "identifier") == null
-            || DcConfigIO.getStringIgnoreCase(basic, "identifier").isBlank();
-        boolean hasRootIdentifier = DcConfigIO.hasIgnoreCase(obj, "identifier");
-        boolean hasRootAlarm = DcConfigIO.hasIgnoreCase(obj, "alarm");
-        boolean hasLegacyEnable = DcConfigIO.hasIgnoreCase(obj, "enable");
-        JsonElement conflictsElement = DcConfigIO.getIgnoreCase(obj, "conflicts");
+        JsonObject basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic");
+        boolean hasMissingIdentifier = DlcDcConfigIO.getStringIgnoreCase(basic, "identifier") == null
+            || DlcDcConfigIO.getStringIgnoreCase(basic, "identifier").isBlank();
+        boolean hasRootIdentifier = DlcDcConfigIO.hasIgnoreCase(obj, "identifier");
+        boolean hasRootAlarm = DlcDcConfigIO.hasIgnoreCase(obj, "alarm");
+        boolean hasLegacyEnable = DlcDcConfigIO.hasIgnoreCase(obj, "enable");
+        JsonElement conflictsElement = DlcDcConfigIO.getIgnoreCase(obj, "conflicts");
         boolean hasLegacyConflicts = conflictsElement != null && !conflictsElement.isJsonObject();
         if (!hasMissingIdentifier && !hasRootIdentifier && !hasRootAlarm && !hasLegacyEnable && !hasLegacyConflicts) {
             return;
@@ -213,7 +213,7 @@ public final class DlcPresetLoader {
             }
             migrated.add(key, entry.getValue());
         }
-        DcConfigIO.write(path, migrated, DcConfigIO.Layout.GENERIC);
+        DlcDcConfigIO.write(path, migrated, DlcDcConfigIO.Layout.GENERIC);
     }
 
     private static JsonObject relationObject(List<String> values) {
@@ -227,7 +227,7 @@ public final class DlcPresetLoader {
     }
 
     private static String stripExtension(String name) {
-        return DcFormatUtil.stripConfigExtension(name);
+        return DlcDcFormatUtil.stripConfigExtension(name);
     }
 
 }

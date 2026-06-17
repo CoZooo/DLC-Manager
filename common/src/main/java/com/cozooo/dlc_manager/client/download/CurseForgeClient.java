@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.download;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -36,7 +36,7 @@ public final class CurseForgeClient {
     private static final int API_KEY_PART2_SEED = 0xA5;
     private static String API_KEY_CACHE;
     private static final HttpClient CLIENT = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofMillis(DlcPathConfig.getConnectTimeoutMs()))
+        .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs()))
         .build();
     private static final Map<String, CurseForgeFile> CACHE = new ConcurrentHashMap<>();
     private static final Map<String, CurseForgeMod> MOD_CACHE = new ConcurrentHashMap<>();
@@ -474,7 +474,7 @@ public final class CurseForgeClient {
                 HttpRequest.Builder builder = HttpRequest.newBuilder()
                     .uri(URI.create(endpoint))
                     .header("User-Agent", "DLC-Manager")
-                    .timeout(Duration.ofMillis(DlcPathConfig.getTaskTimeoutMs()))
+                    .timeout(Duration.ofMillis(DlcConfig.getTaskTimeoutMs()))
                     .GET();
                 if (apiKey != null && !apiKey.isBlank()) {
                     builder.header("x-api-key", apiKey);
@@ -571,8 +571,8 @@ public final class CurseForgeClient {
             connection = (HttpURLConnection) URI.create(fallbackUrl).toURL().openConnection();
             connection.setInstanceFollowRedirects(false);
             connection.setRequestMethod("GET");
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
             connection.setRequestProperty("User-Agent", "DLC-Manager");
             connection.connect();
             if (!isRedirect(connection.getResponseCode())) {

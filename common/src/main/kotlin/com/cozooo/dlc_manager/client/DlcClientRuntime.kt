@@ -32,8 +32,8 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import com.cozooo.dlc_manager.core.DlcItem
-import com.cozooo.dlc_manager.core.DlcNoticeConfig
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcType
@@ -102,15 +102,15 @@ object DlcClientRuntime {
 
     @JvmStatic
     fun shouldShowMainMenuNoticeButton(): Boolean {
-        return DlcPathConfig.isNoticeDisplayModeMainMenuButton() && DlcNoticeManager.isNoticeEnabled()
+        return DlcConfig.isNoticeDisplayModeMainMenuButton() && DlcNoticeManager.isNoticeEnabled()
     }
 
     @JvmStatic
     fun shouldShowMainMenuNoticePanel(): Boolean {
-        return DlcPathConfig.isNoticeDisplayModeMainMenuPanel() &&
+        return DlcConfig.isNoticeDisplayModeMainMenuPanel() &&
             DlcNoticeManager.isNoticeEnabled() &&
-            DlcPathConfig.getNoticePanelWidth() > 0 &&
-            DlcPathConfig.getNoticePanelHeight() > 0
+            DlcConfig.getNoticePanelWidth() > 0 &&
+            DlcConfig.getNoticePanelHeight() > 0
     }
 
     @JvmStatic
@@ -120,7 +120,7 @@ object DlcClientRuntime {
 
     @JvmStatic
     fun openPackManagerFromTitle(parent: Screen?) {
-        if (!DlcPathConfig.isPackFuncOn()) return
+        if (!DlcConfig.isPackFuncOn()) return
         Minecraft.getInstance().setScreen(DlcPackManagerScreen(parent))
     }
 
@@ -128,8 +128,8 @@ object DlcClientRuntime {
     fun maybeOpenManagerOnFirstRun(parent: Screen?) {
         if (firstRunManagerHandled) return
         firstRunManagerHandled = true
-        if (parent == null || !DlcPathConfig.isShowOnFirstRun()) return
-        val dlcRoot = DlcPathConfig.getDlcRoot() ?: return
+        if (parent == null || !DlcConfig.isShowOnFirstRun()) return
+        val dlcRoot = DlcConfig.getDlcRoot() ?: return
         val markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME)
         if (Files.exists(markerPath)) return
         if (DlcRequiredManager.tryShowFromTitle(parent)) return
@@ -148,8 +148,8 @@ object DlcClientRuntime {
     @JvmStatic
     fun tryContinueFirstRun(parent: Screen?): Boolean {
         if (parent == null || parent !is TitleScreen) return false
-        if (!DlcPathConfig.isShowOnFirstRun()) return false
-        val dlcRoot = DlcPathConfig.getDlcRoot() ?: return false
+        if (!DlcConfig.isShowOnFirstRun()) return false
+        val dlcRoot = DlcConfig.getDlcRoot() ?: return false
         val markerPath = dlcRoot.resolve(FIRST_RUN_MARKER_NAME)
         if (Files.exists(markerPath)) return false
         try {
@@ -375,11 +375,11 @@ object DlcClientRuntime {
         val subhead = titleNoticeSubhead
         val subheadEnabled = titleNoticeSubheadEnabled
 
-        var panelWidth = max(120, DlcPathConfig.getNoticePanelWidth())
-        var panelHeight = max(60, DlcPathConfig.getNoticePanelHeight())
+        var panelWidth = max(120, DlcConfig.getNoticePanelWidth())
+        var panelHeight = max(60, DlcConfig.getNoticePanelHeight())
         panelWidth = min(panelWidth, max(120, screen.width - 8))
         panelHeight = min(panelHeight, max(60, screen.height - 8))
-        val pos = DlcPathConfig.computeNoticePanelPosition(screen.width, screen.height, panelWidth, panelHeight, 0, 0)
+        val pos = DlcConfig.computeNoticePanelPosition(screen.width, screen.height, panelWidth, panelHeight, 0, 0)
         var x = pos[0]
         var y = pos[1]
         val maxX = max(0, screen.width - panelWidth)
@@ -555,7 +555,7 @@ object DlcClientRuntime {
 
     @JvmStatic
     fun canOpenServerManager(): Boolean {
-        if (!DlcPathConfig.isServerSupportOn()) return false
+        if (!DlcConfig.isServerSupportOn()) return false
         val minecraft = Minecraft.getInstance()
         if (minecraft.player == null) return false
         if (minecraft.hasSingleplayerServer()) return false
@@ -664,8 +664,8 @@ object DlcClientRuntime {
             var hasSelfUpdate = false
             var hasRequired = false
             var missing: List<DlcRequiredEntry> = listOf()
-            val updateManagerOn = DlcPathConfig.isUpdateManagerOn()
-            val selfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn()
+            val updateManagerOn = DlcConfig.isUpdateManagerOn()
+            val selfUpdateAutoCheckOn = DlcConfig.isSelfUpdateAutoCheckOn()
             var changelogText = ""
             var changelogVersion: String? = null
             var currentBaseVersion = "1.0.0"
@@ -678,11 +678,11 @@ object DlcClientRuntime {
             if (!version.getDlc().isNullOrBlank()) {
                 currentDlcVersion = version.getDlc()!!
             }
-            val repoUrl = DlcPathConfig.getUpdateGithubRepoUrl()
+            val repoUrl = DlcConfig.getUpdateGithubRepoUrl()
             if (!repoUrl.isNullOrBlank()) {
                 val packAt = System.currentTimeMillis()
                 packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
-                    DlcPathConfig.getModpackUrl(),
+                    DlcConfig.getModpackUrl(),
                     repoUrl,
                     currentBaseVersion,
                     currentDlcVersion,
@@ -1079,7 +1079,7 @@ object DlcClientRuntime {
         entry.name = data.name
         val ip = data.ip ?: ""
         var host = ip
-        val port = DlcPathConfig.getServerPort()
+        val port = DlcConfig.getServerPort()
         if (ip.startsWith("[") && ip.contains("]")) {
             val end = ip.indexOf(']')
             if (end > 1) {

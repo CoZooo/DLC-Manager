@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.download
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
@@ -206,7 +206,7 @@ class DlcDownloadCandidate private constructor(
 
         @JvmStatic
         fun readPriority(obj: JsonObject?): String {
-            val element = DcConfigIO.getIgnoreCase(obj, "priority")
+            val element = DlcDcConfigIO.getIgnoreCase(obj, "priority")
             return parsePriority(element)
         }
 

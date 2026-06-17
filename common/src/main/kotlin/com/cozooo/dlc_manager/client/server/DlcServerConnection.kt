@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.server
 
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcTmpPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
@@ -1108,8 +1108,8 @@ object DlcServerConnection {
 
     private fun getDlcRootFromConfig(config: JsonObject?): String? {
         if (config == null) return ""
-        val paths = DcConfigIO.getObjectIgnoreCase(config, "paths") ?: return ""
-        return DcConfigIO.getStringIgnoreCase(paths, "dlcRoot")
+        val paths = DlcDcConfigIO.getObjectIgnoreCase(config, "paths") ?: return ""
+        return DlcDcConfigIO.getStringIgnoreCase(paths, "dlcRoot")
     }
 
     private fun copyOf(input: ByteArray, len: Int): ByteArray {
@@ -1126,7 +1126,7 @@ object DlcServerConnection {
         val includeAll = hasTargets && targets!!.any { it.equals("all", ignoreCase = true) }
         val includeDlc = includeAll || (hasTargets && targets!!.any { it.equals("dlc", ignoreCase = true) })
         val includeConfig = includeAll || (hasTargets && targets!!.any { it.equals("config", ignoreCase = true) })
-        val dlcRoot = DlcPathConfig.getDlcRoot()
+        val dlcRoot = DlcConfig.getDlcRoot()
         val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
         val gameDir = DlcPaths.gameDir()
         val tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops") ?: return null

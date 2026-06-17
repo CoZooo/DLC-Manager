@@ -13,9 +13,9 @@ import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredProgressItem
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DcFormatUtil
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.Gson
@@ -116,7 +116,7 @@ object DlcServerDownloadService {
             if (!running.compareAndSet(false, true)) {
                 return
             }
-            val maxConcurrent = maxOf(1, DlcPathConfig.getMaxConcurrentDownloads())
+            val maxConcurrent = maxOf(1, DlcConfig.getMaxConcurrentDownloads())
             val executor = Executors.newFixedThreadPool(maxConcurrent)
             for (item in items) {
                 executor.submit {
@@ -232,7 +232,7 @@ object DlcServerDownloadService {
                 return
             }
             cancelRequested.set(false)
-            val maxConcurrent = maxOf(1, DlcPathConfig.getMaxConcurrentDownloads())
+            val maxConcurrent = maxOf(1, DlcConfig.getMaxConcurrentDownloads())
             val executor = Executors.newFixedThreadPool(maxConcurrent)
             for (item in items) {
                 executor.submit {
@@ -684,7 +684,7 @@ object DlcServerDownloadService {
         if (lang.isNullOrBlank()) {
             lang = CrossPlatformRuntime.languageCode()
         }
-        return DcConfigIO.normalizeLangKey(lang)
+        return DlcDcConfigIO.normalizeLangKey(lang)
     }
 
     @JvmStatic
@@ -1036,7 +1036,7 @@ object DlcServerDownloadService {
                     Files.newDirectoryStream(target, "$base.*").use { stream ->
                         for (path in stream) {
                             val name = path.fileName?.toString() ?: ""
-                            if (!DcFormatUtil.isDcName(name)) {
+                            if (!DlcDcFormatUtil.isDcName(name)) {
                                 return name
                             }
                         }
@@ -1065,7 +1065,7 @@ object DlcServerDownloadService {
             Files.newDirectoryStream(requiredDir).use { stream ->
                 for (path in stream) {
                     val fileName = path.fileName?.toString() ?: continue
-                    if (!DcFormatUtil.isDcName(fileName)) continue
+                    if (!DlcDcFormatUtil.isDcName(fileName)) continue
                     if (isNoticeConfig(fileName)) continue
                     val entry = DlcRequiredLoader.loadSingle(path, dlcRoot)
                     if (entry != null) {
@@ -1137,7 +1137,7 @@ object DlcServerDownloadService {
         return null
     }
 
-    private fun isConfigFileName(fileName: String?): Boolean = fileName != null && DcFormatUtil.isDcName(fileName)
+    private fun isConfigFileName(fileName: String?): Boolean = fileName != null && DlcDcFormatUtil.isDcName(fileName)
 
     private fun isTempFileName(fileName: String?): Boolean = fileName != null && fileName.endsWith(".part")
 
@@ -1164,7 +1164,7 @@ object DlcServerDownloadService {
             val candidates = resolver.next()
             if (candidates.isEmpty()) break
             for (candidate in candidates) {
-                for (attempt in 1..DlcPathConfig.getMaxRetryCount()) {
+                for (attempt in 1..DlcConfig.getMaxRetryCount()) {
                     try {
                         checkRequiredCanceled()
                         var fileName = candidate.fileNameOverride
@@ -1208,7 +1208,7 @@ object DlcServerDownloadService {
                         throw ex
                     } catch (ex: IOException) {
                         lastError = ex
-                        if (attempt >= DlcPathConfig.getMaxRetryCount()) {
+                        if (attempt >= DlcConfig.getMaxRetryCount()) {
                             break
                         }
                     }
@@ -1240,7 +1240,7 @@ object DlcServerDownloadService {
             val candidates = resolver.next()
             if (candidates.isEmpty()) break
             for (candidate in candidates) {
-                for (attempt in 1..DlcPathConfig.getMaxRetryCount()) {
+                for (attempt in 1..DlcConfig.getMaxRetryCount()) {
                     try {
                         var fileName = candidate.fileNameOverride
                         val fileNameExplicit = entry.isFileNameExplicit() && !fileName.isNullOrBlank()
@@ -1283,7 +1283,7 @@ object DlcServerDownloadService {
                         return actualName
                     } catch (ex: IOException) {
                         lastError = ex
-                        if (attempt >= DlcPathConfig.getMaxRetryCount()) {
+                        if (attempt >= DlcConfig.getMaxRetryCount()) {
                             break
                         }
                     }
@@ -1387,9 +1387,9 @@ object DlcServerDownloadService {
         val normalized = DlcDownloadUtil.sanitizeFileName(fileName) ?: return
         val config = entry.getConfigPath()
         if (config == null || !Files.exists(config)) return
-        val obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
+        val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
         val reordered = reorderRemoteJson(obj, normalized)
-        DcConfigIO.write(config, reordered, DcConfigIO.Layout.DLC_STRUCTURED)
+        DlcDcConfigIO.write(config, reordered, DlcDcConfigIO.Layout.DLC_STRUCTURED)
         entry.setFileNameHint(normalized)
     }
 
@@ -1413,20 +1413,20 @@ object DlcServerDownloadService {
         ordered.addProperty("isInList", getBoolean(obj, "isInList", true))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
-        val deps = DcConfigIO.getIgnoreCase(obj, "dependencies")
+        val deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
         if (deps == null || deps.isJsonNull) {
             ordered.addProperty("dependencies", "")
         } else {
             ordered.add("dependencies", normalizeRelationElement(deps))
         }
-        val conflicts = DcConfigIO.getIgnoreCase(obj, "conflicts")
+        val conflicts = DlcDcConfigIO.getIgnoreCase(obj, "conflicts")
         if (conflicts == null || conflicts.isJsonNull) {
             ordered.addProperty("conflicts", "")
         } else {
             ordered.add("conflicts", normalizeRelationElement(conflicts))
         }
         val display = JsonObject()
-        val displayObj = DcConfigIO.getIgnoreCase(obj, "DisplayName")
+        val displayObj = DlcDcConfigIO.getIgnoreCase(obj, "DisplayName")
         if (displayObj != null) {
             if (displayObj.isJsonObject) {
                 for ((key, value) in displayObj.asJsonObject.entrySet()) {
@@ -1441,7 +1441,7 @@ object DlcServerDownloadService {
         ordered.add("DisplayName", display)
         ordered.addProperty("alarm", getBoolean(obj, "alarm", false))
         val tipObj = JsonObject()
-        val tip = DcConfigIO.getIgnoreCase(obj, "tip")
+        val tip = DlcDcConfigIO.getIgnoreCase(obj, "tip")
         if (tip != null) {
             if (tip.isJsonObject) {
                 for ((key, value) in tip.asJsonObject.entrySet()) {
@@ -1462,16 +1462,16 @@ object DlcServerDownloadService {
         val normalized = DlcDownloadUtil.sanitizeFileName(fileName) ?: return
         val config = entry.getConfigPath()
         if (config == null || !Files.exists(config)) return
-        val obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
+        val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
         val ordered = reorderRequiredJson(obj, normalized)
-        DcConfigIO.write(config, ordered, DcConfigIO.Layout.DLC_STRUCTURED)
+        DlcDcConfigIO.write(config, ordered, DlcDcConfigIO.Layout.DLC_STRUCTURED)
     }
 
     private fun updateRequiredUserRemoved(entry: DlcRequiredEntry?, userRemoved: Boolean) {
         if (entry == null) return
         val config = entry.getConfigPath()
         if (config == null || !Files.exists(config)) return
-        val obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED) ?: return
+        val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
         if (userRemoved) {
             obj.addProperty("UserRemoved", true)
         } else {
@@ -1479,7 +1479,7 @@ object DlcServerDownloadService {
             obj.remove("userRemoved")
         }
         val ordered = reorderRequiredJson(obj, entry.getRequiredFileName())
-        DcConfigIO.write(config, ordered, DcConfigIO.Layout.DLC_STRUCTURED)
+        DlcDcConfigIO.write(config, ordered, DlcDcConfigIO.Layout.DLC_STRUCTURED)
         entry.setUserRemoved(userRemoved)
     }
 
@@ -1601,7 +1601,7 @@ object DlcServerDownloadService {
         if (obj == null) return values
         for ((key, value) in obj.entrySet()) {
             if (value.isJsonPrimitive) {
-                val normalizedKey = DcConfigIO.normalizeLangKey(key)
+                val normalizedKey = DlcDcConfigIO.normalizeLangKey(key)
                 if (normalizedKey != null) {
                     values[normalizedKey] = value.asString
                 }
@@ -1620,10 +1620,10 @@ object DlcServerDownloadService {
         }
         val obj = readConfigObject(entry?.getConfigPath())
         if (obj != null) {
-            val displayObj = DcConfigIO.getObjectIgnoreCase(obj, "DisplayName")
+            val displayObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")
             values.putAll(readLocalizedMap(displayObj))
             if (values.isEmpty()) {
-                val display = DcConfigIO.getStringIgnoreCase(obj, "DisplayName")
+                val display = DlcDcConfigIO.getStringIgnoreCase(obj, "DisplayName")
                 if (!display.isNullOrBlank()) {
                     values["en_us"] = display
                 }
@@ -1645,10 +1645,10 @@ object DlcServerDownloadService {
         }
         val obj = readConfigObject(entry?.getConfigPath())
         if (obj != null) {
-            val tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip")
+            val tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip")
             values.putAll(readLocalizedMap(tipObj))
             if (values.isEmpty()) {
-                val tip = DcConfigIO.getStringIgnoreCase(obj, "tip")
+                val tip = DlcDcConfigIO.getStringIgnoreCase(obj, "tip")
                 if (!tip.isNullOrBlank()) {
                     values["en_us"] = tip
                 }
@@ -1661,6 +1661,6 @@ object DlcServerDownloadService {
         if (fileName.isNullOrBlank()) {
             return false
         }
-        return "notice".equals(DcFormatUtil.stripConfigExtension(fileName), ignoreCase = true)
+        return "notice".equals(DlcDcFormatUtil.stripConfigExtension(fileName), ignoreCase = true)
     }
 }

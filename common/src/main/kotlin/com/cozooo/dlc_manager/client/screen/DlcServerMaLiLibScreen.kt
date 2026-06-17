@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerItem
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
 import fi.dy.masa.malilib.gui.GuiListBase
 import fi.dy.masa.malilib.gui.button.ButtonBase
@@ -873,7 +873,7 @@ class DlcServerMaLiLibScreen(
                         for (item in items) {
                             baseline[item.id] = item.enabled
                         }
-                        if (DlcPathConfig.isPresetFuncOn()) {
+                        if (DlcConfig.isPresetFuncOn()) {
                             syncPresetStatusFromItems()
                             updatePresetSnapshot()
                         }
@@ -915,7 +915,7 @@ class DlcServerMaLiLibScreen(
     }
 
     private fun applyPresetOverrides() {
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.clearAll()
             presetAppliedIdentifiers.clear()
             presetStatusById.clear()
@@ -1064,7 +1064,7 @@ class DlcServerMaLiLibScreen(
 
     private fun updatePresetStatusFromItems(): MutableMap<String, DlcPresetStatus> {
         presetStatusById.clear()
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             return presetStatusById
         }
         val entries = DlcPresetRuntimeState.getPresets()
@@ -1209,14 +1209,14 @@ class DlcServerMaLiLibScreen(
 
     private fun updatePresetSnapshot() {
         presetSnapshot.clear()
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             presetSnapshot.addAll(DlcPresetRuntimeState.getEnabledPresetIds())
         }
         presetSnapshotCaptured = true
     }
 
     private fun hasPresetChanges(): Boolean {
-        if (!DlcPathConfig.isPresetFuncOn()) return false
+        if (!DlcConfig.isPresetFuncOn()) return false
         if (!presetSnapshotCaptured) return false
         return DlcPresetRuntimeState.getEnabledPresetIds() != presetSnapshot
     }

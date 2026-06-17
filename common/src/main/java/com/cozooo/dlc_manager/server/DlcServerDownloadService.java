@@ -13,11 +13,11 @@ import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredProgressItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcTooltipLoader;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -140,7 +140,7 @@ public final class DlcServerDownloadService {
             if (!running.compareAndSet(false, true)) {
                 return;
             }
-            int maxConcurrent = Math.max(1, DlcPathConfig.getMaxConcurrentDownloads());
+            int maxConcurrent = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
             ExecutorService executor = Executors.newFixedThreadPool(maxConcurrent);
             for (RemoteItemState item : items) {
                 executor.submit(() -> {
@@ -263,7 +263,7 @@ public final class DlcServerDownloadService {
                 return;
             }
             cancelRequested.set(false);
-            int maxConcurrent = Math.max(1, DlcPathConfig.getMaxConcurrentDownloads());
+            int maxConcurrent = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
             ExecutorService executor = Executors.newFixedThreadPool(maxConcurrent);
             for (RequiredItemState item : items) {
                 executor.submit(() -> {
@@ -745,7 +745,7 @@ public final class DlcServerDownloadService {
         if (lang == null || lang.isBlank()) {
             lang = CrossPlatformRuntime.languageCode();
         }
-        return DcConfigIO.normalizeLangKey(lang);
+        return DlcDcConfigIO.normalizeLangKey(lang);
     }
 
 
@@ -1169,7 +1169,7 @@ public final class DlcServerDownloadService {
                 try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(target, base + ".*")) {
                     for (Path path : stream) {
                         String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                        if (!DcFormatUtil.isDcName(name)) {
+                        if (!DlcDcFormatUtil.isDcName(name)) {
                             return name;
                         }
                     }
@@ -1199,7 +1199,7 @@ public final class DlcServerDownloadService {
                     continue;
                 }
                 String fileName = path.getFileName().toString();
-                if (!DcFormatUtil.isDcName(fileName)) {
+                if (!DlcDcFormatUtil.isDcName(fileName)) {
                     continue;
                 }
                 if (isNoticeConfig(fileName)) {
@@ -1290,7 +1290,7 @@ public final class DlcServerDownloadService {
         if (fileName == null) {
             return false;
         }
-        return DcFormatUtil.isDcName(fileName);
+        return DlcDcFormatUtil.isDcName(fileName);
     }
 
     private static boolean isTempFileName(String fileName) {
@@ -1330,7 +1330,7 @@ public final class DlcServerDownloadService {
         List<DlcDownloadCandidate> candidates;
         while (!(candidates = resolver.next()).isEmpty()) {
             for (DlcDownloadCandidate candidate : candidates) {
-                for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
+                for (int attempt = 1; attempt <= DlcConfig.getMaxRetryCount(); attempt++) {
                     try {
                         checkRequiredCanceled();
                         String fileName = candidate.fileNameOverride;
@@ -1388,7 +1388,7 @@ public final class DlcServerDownloadService {
                         throw ex;
                     } catch (IOException ex) {
                         lastError = ex;
-                        if (attempt >= DlcPathConfig.getMaxRetryCount()) {
+                        if (attempt >= DlcConfig.getMaxRetryCount()) {
                             break;
                         }
                     }
@@ -1418,7 +1418,7 @@ public final class DlcServerDownloadService {
         List<DlcDownloadCandidate> candidates;
         while (!(candidates = resolver.next()).isEmpty()) {
             for (DlcDownloadCandidate candidate : candidates) {
-                for (int attempt = 1; attempt <= DlcPathConfig.getMaxRetryCount(); attempt++) {
+                for (int attempt = 1; attempt <= DlcConfig.getMaxRetryCount(); attempt++) {
                     try {
                         String fileName = candidate.fileNameOverride;
                         boolean fileNameExplicit = entry.isFileNameExplicit()
@@ -1480,7 +1480,7 @@ public final class DlcServerDownloadService {
                         return actualName;
                     } catch (IOException ex) {
                         lastError = ex;
-                        if (attempt >= DlcPathConfig.getMaxRetryCount()) {
+                        if (attempt >= DlcConfig.getMaxRetryCount()) {
                             break;
                         }
                     }
@@ -1602,12 +1602,12 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
         JsonObject reordered = reorderRemoteJson(obj, normalized);
-        DcConfigIO.write(config, reordered, DcConfigIO.Layout.DLC_STRUCTURED);
+        DlcDcConfigIO.write(config, reordered, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         entry.setFileNameHint(normalized);
     }
 
@@ -1638,20 +1638,20 @@ public final class DlcServerDownloadService {
         ordered.addProperty("isInList", getBoolean(obj, "isInList", true));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
-        JsonElement deps = DcConfigIO.getIgnoreCase(obj, "dependencies");
+        JsonElement deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
         if (deps == null || deps.isJsonNull()) {
             ordered.addProperty("dependencies", "");
         } else {
             ordered.add("dependencies", normalizeRelationElement(deps));
         }
-        JsonElement conflicts = DcConfigIO.getIgnoreCase(obj, "conflicts");
+        JsonElement conflicts = DlcDcConfigIO.getIgnoreCase(obj, "conflicts");
         if (conflicts == null || conflicts.isJsonNull()) {
             ordered.addProperty("conflicts", "");
         } else {
             ordered.add("conflicts", normalizeRelationElement(conflicts));
         }
         JsonObject display = new JsonObject();
-        JsonElement displayObj = DcConfigIO.getIgnoreCase(obj, "DisplayName");
+        JsonElement displayObj = DlcDcConfigIO.getIgnoreCase(obj, "DisplayName");
         if (displayObj != null) {
             if (displayObj.isJsonObject()) {
                 for (var e : displayObj.getAsJsonObject().entrySet()) {
@@ -1666,7 +1666,7 @@ public final class DlcServerDownloadService {
         ordered.add("DisplayName", display);
         ordered.addProperty("alarm", getBoolean(obj, "alarm", false));
         JsonObject tipObj = new JsonObject();
-        JsonElement tip = DcConfigIO.getIgnoreCase(obj, "tip");
+        JsonElement tip = DlcDcConfigIO.getIgnoreCase(obj, "tip");
         if (tip != null) {
             if (tip.isJsonObject()) {
                 for (var e : tip.getAsJsonObject().entrySet()) {
@@ -1694,12 +1694,12 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
         JsonObject ordered = reorderRequiredJson(obj, normalized);
-        DcConfigIO.write(config, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
+        DlcDcConfigIO.write(config, ordered, DlcDcConfigIO.Layout.DLC_STRUCTURED);
     }
 
     private static void updateRequiredUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
@@ -1710,7 +1710,7 @@ public final class DlcServerDownloadService {
         if (config == null || !Files.exists(config)) {
             return;
         }
-        JsonObject obj = DcConfigIO.read(config, DcConfigIO.Layout.DLC_STRUCTURED);
+        JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         if (obj == null) {
             return;
         }
@@ -1721,7 +1721,7 @@ public final class DlcServerDownloadService {
             obj.remove("userRemoved");
         }
         JsonObject ordered = reorderRequiredJson(obj, entry.getRequiredFileName());
-        DcConfigIO.write(config, ordered, DcConfigIO.Layout.DLC_STRUCTURED);
+        DlcDcConfigIO.write(config, ordered, DlcDcConfigIO.Layout.DLC_STRUCTURED);
         entry.setUserRemoved(userRemoved);
     }
 
@@ -1859,7 +1859,7 @@ public final class DlcServerDownloadService {
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
             if (entry.getValue().isJsonPrimitive()) {
-                String key = DcConfigIO.normalizeLangKey(entry.getKey());
+                String key = DlcDcConfigIO.normalizeLangKey(entry.getKey());
                 if (key != null) {
                     values.put(key, entry.getValue().getAsString());
                 }
@@ -1878,10 +1878,10 @@ public final class DlcServerDownloadService {
         }
         JsonObject obj = entry == null ? null : readConfigObject(entry.getConfigPath());
         if (obj != null) {
-            JsonObject displayObj = DcConfigIO.getObjectIgnoreCase(obj, "DisplayName");
+            JsonObject displayObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName");
             values.putAll(readLocalizedMap(displayObj));
             if (values.isEmpty()) {
-                String display = DcConfigIO.getStringIgnoreCase(obj, "DisplayName");
+                String display = DlcDcConfigIO.getStringIgnoreCase(obj, "DisplayName");
                 if (display != null && !display.isBlank()) {
                     values.put("en_us", display);
                 }
@@ -1903,10 +1903,10 @@ public final class DlcServerDownloadService {
         }
         JsonObject obj = entry == null ? null : readConfigObject(entry.getConfigPath());
         if (obj != null) {
-            JsonObject tipObj = DcConfigIO.getObjectIgnoreCase(obj, "tip");
+            JsonObject tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip");
             values.putAll(readLocalizedMap(tipObj));
             if (values.isEmpty()) {
-                String tip = DcConfigIO.getStringIgnoreCase(obj, "tip");
+                String tip = DlcDcConfigIO.getStringIgnoreCase(obj, "tip");
                 if (tip != null && !tip.isBlank()) {
                     values.put("en_us", tip);
                 }
@@ -1919,7 +1919,7 @@ public final class DlcServerDownloadService {
         if (fileName == null || fileName.isBlank()) {
             return false;
         }
-        return "notice".equalsIgnoreCase(DcFormatUtil.stripConfigExtension(fileName));
+        return "notice".equalsIgnoreCase(DlcDcFormatUtil.stripConfigExtension(fileName));
     }
 
 }

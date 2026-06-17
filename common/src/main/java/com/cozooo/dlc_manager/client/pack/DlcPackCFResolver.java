@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.client.download.CurseForgeClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -95,7 +95,7 @@ public final class DlcPackCFResolver {
         DlcPackInstaller.ProgressListener progressListener
     ) throws IOException, InterruptedException {
         int total = downloads.size();
-        int maxConcurrent = Math.max(1, Math.min(DlcPathConfig.getMaxConcurrentDownloads(), total));
+        int maxConcurrent = Math.max(1, Math.min(DlcConfig.getMaxConcurrentDownloads(), total));
         AtomicReferenceArray<Float> perFileProgress = new AtomicReferenceArray<>(total);
         for (int i = 0; i < total; i++) {
             perFileProgress.set(i, 0f);

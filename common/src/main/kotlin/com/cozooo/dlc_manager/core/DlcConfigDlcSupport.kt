@@ -74,7 +74,7 @@ object DlcConfigDlcSupport {
     }
 
     private fun getDlcRoots(): List<Path> {
-        return DlcPathConfig.getDlcRoots()
+        return DlcConfig.getDlcRoots()
     }
 
     private fun gameDir(): Path {

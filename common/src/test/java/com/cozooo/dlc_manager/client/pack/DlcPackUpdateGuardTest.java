@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,7 +20,7 @@ class DlcPackUpdateGuardTest {
 
     @AfterEach
     void resetModpack() {
-        DlcPathConfig.setModpack("");
+        DlcConfig.setModpack("");
     }
 
     @Test
@@ -114,7 +114,7 @@ class DlcPackUpdateGuardTest {
     }
 
     private static void writeVersion(Path dlcRoot, String modpack, String base, String dlc) throws Exception {
-        DlcPathConfig.setModpack(modpack);
+        DlcConfig.setModpack(modpack);
         Path version = dlcRoot.resolve("info").resolve("version.dc");
         Files.createDirectories(version.getParent());
         Files.writeString(version, """

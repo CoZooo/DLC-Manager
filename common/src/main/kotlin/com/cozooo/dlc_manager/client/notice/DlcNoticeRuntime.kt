@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.notice
 
-import com.cozooo.dlc_manager.core.DlcNoticeConfig
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig
 
 object DlcNoticeRuntime {
     private var shownOnGameLaunch = false

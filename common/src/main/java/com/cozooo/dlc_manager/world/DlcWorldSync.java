@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.world;
 
 import com.cozooo.dlc_manager.core.DlcItem;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.server.DlcServerApi;
@@ -35,7 +35,7 @@ public final class DlcWorldSync {
         LifecycleEvent.SERVER_STARTED.register(server -> {
             applyDatapacks(server);
             if (server.isDedicatedServer()) {
-                DlcPathConfig.loadServer();
+                DlcConfig.loadServer();
                 DlcServerService.updateServerStatus(server);
                 DlcServerApi.start(server);
                 DlcServerService.start();
@@ -51,7 +51,7 @@ public final class DlcWorldSync {
 
     private static void startServerRequiredDownload(MinecraftServer server) {
         new Thread(() -> {
-            DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(DlcPathConfig.getDlcRoot());
+            DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(DlcConfig.getDlcRoot());
             if (result != null && result.didWork()) {
                 LOGGER.info("[dlc-manager] server required download applied, restarting server");
                 server.halt(false);

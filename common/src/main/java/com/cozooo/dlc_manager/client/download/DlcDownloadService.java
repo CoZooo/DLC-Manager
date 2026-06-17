@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.download;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -100,8 +100,8 @@ public final class DlcDownloadService {
         }
         if (probe.supportsRanges
             && probe.totalBytes > 0
-            && probe.totalBytes >= DlcPathConfig.getMinSegmentBytes()
-            && DlcPathConfig.getMaxSegmentsPerFile() > 1) {
+            && probe.totalBytes >= DlcConfig.getMinSegmentBytes()
+            && DlcConfig.getMaxSegmentsPerFile() > 1) {
             Files.deleteIfExists(temp);
             try {
                 downloadSegmented(url, temp, probe.totalBytes, listener, cancelChecker);
@@ -145,7 +145,7 @@ public final class DlcDownloadService {
         Path target = outputDir.resolve(fileName);
         Path temp = outputDir.resolve(fileName + ".part");
         long total = expectedSize > 0 ? expectedSize : -1L;
-        DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcPathConfig.getDownloadMirrorMode());
+        DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode());
         MirrorPlan mirrorPlan = mirrorPlan(url, fileName, total);
         notifyStatus(listener, "selecting_source", mode, mirrorPlan);
         String downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode);
@@ -155,8 +155,8 @@ public final class DlcDownloadService {
             listener.onProgress(0L, total);
         }
         RangeProbe rangeProbe = total > 0
-            && total >= DlcPathConfig.getMinSegmentBytes()
-            && DlcPathConfig.getMaxSegmentsPerFile() > 1
+            && total >= DlcConfig.getMinSegmentBytes()
+            && DlcConfig.getMaxSegmentsPerFile() > 1
             ? probeRangeSupport(downloadUrl)
             : RangeProbe.unsupported(downloadUrl);
         if (switchPlan != null && rangeProbe.supportsRanges) {
@@ -415,11 +415,11 @@ public final class DlcDownloadService {
     }
 
     private static int maxMirrorProbeCount() {
-        return Math.max(1, DlcPathConfig.getDownloadMirrorProbeCount());
+        return Math.max(1, DlcConfig.getDownloadMirrorProbeCount());
     }
 
     private static int requiredMirrorProbeWins() {
-        if (DlcPathConfig.DOWNLOAD_MIRROR_PROBE_SINGLE.equals(DlcPathConfig.getDownloadMirrorProbeStrategy())) {
+        if (DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE.equals(DlcConfig.getDownloadMirrorProbeStrategy())) {
             return 1;
         }
         return maxMirrorProbeCount() / 2 + 1;
@@ -451,7 +451,7 @@ public final class DlcDownloadService {
     }
 
     private static SpeedRule mirrorSpeedRule(long totalBytes) {
-        double taskTimeoutSeconds = Math.max(1.0, DlcPathConfig.getTaskTimeoutMs() / 1000.0);
+        double taskTimeoutSeconds = Math.max(1.0, DlcConfig.getTaskTimeoutMs() / 1000.0);
         double timeoutSpeed = totalBytes / taskTimeoutSeconds;
         double bucketSpeed;
         if (totalBytes < 10L * BYTES_PER_MIB) {
@@ -470,7 +470,7 @@ public final class DlcDownloadService {
         try {
             connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(true);
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
             connection.setReadTimeout((int) windowMs);
             connection.setRequestProperty("User-Agent", "DLC-Manager");
             connection.setRequestProperty("Range", "bytes=0-");
@@ -746,8 +746,8 @@ public final class DlcDownloadService {
         try {
             connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(true);
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
             connection.setRequestProperty("User-Agent", "DLC-Manager");
             connection.setRequestProperty("Range", "bytes=0-");
             connection.connect();
@@ -825,7 +825,7 @@ public final class DlcDownloadService {
 
     private static void downloadSingleWithRetry(String url, Path temp, long knownTotal, long existing, ProgressListener listener,
                                                 CancelChecker cancelChecker) throws IOException {
-        int maxRetry = Math.max(1, DlcPathConfig.getMaxRetryCount());
+        int maxRetry = Math.max(1, DlcConfig.getMaxRetryCount());
         IOException lastError = null;
         long offset = Math.max(0L, existing);
         for (int attempt = 1; attempt <= maxRetry; attempt++) {
@@ -868,8 +868,8 @@ public final class DlcDownloadService {
     private static DownloadInfo openDownload(String url, long offset) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
         connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-        connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+        connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+        connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
         connection.setRequestProperty("User-Agent", "DLC-Manager");
         if (offset > 0) {
             connection.setRequestProperty("Range", "bytes=" + offset + "-");
@@ -929,8 +929,8 @@ public final class DlcDownloadService {
             head = (HttpURLConnection) URI.create(url).toURL().openConnection();
             head.setInstanceFollowRedirects(true);
             head.setRequestMethod("HEAD");
-            head.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            head.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            head.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            head.setReadTimeout(DlcConfig.getTaskTimeoutMs());
             head.setRequestProperty("User-Agent", "DLC-Manager");
             head.connect();
             fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(head);
@@ -954,8 +954,8 @@ public final class DlcDownloadService {
         try {
             range = (HttpURLConnection) URI.create(url).toURL().openConnection();
             range.setInstanceFollowRedirects(true);
-            range.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            range.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            range.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            range.setReadTimeout(DlcConfig.getTaskTimeoutMs());
             range.setRequestProperty("User-Agent", "DLC-Manager");
             range.setRequestProperty("Range", "bytes=0-0");
             range.connect();
@@ -995,8 +995,8 @@ public final class DlcDownloadService {
         try {
             connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
             connection.setInstanceFollowRedirects(false);
-            connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
             connection.setRequestProperty("User-Agent", "DLC-Manager");
             connection.connect();
             int code = connection.getResponseCode();
@@ -1023,8 +1023,8 @@ public final class DlcDownloadService {
         try {
             range = (HttpURLConnection) URI.create(url).toURL().openConnection();
             range.setInstanceFollowRedirects(false);
-            range.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-            range.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+            range.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            range.setReadTimeout(DlcConfig.getTaskTimeoutMs());
             range.setRequestProperty("User-Agent", "DLC-Manager");
             range.setRequestProperty("Range", "bytes=0-0");
             range.connect();
@@ -1065,8 +1065,8 @@ public final class DlcDownloadService {
 
     private static void downloadSegmented(String url, Path tempFile, long totalBytes, ProgressListener listener, CancelChecker cancelChecker,
                                           long initialDownloadedBytes) throws IOException {
-        int maxSegments = Math.max(1, DlcPathConfig.getMaxSegmentsPerFile());
-        int segments = (int) Math.max(1L, Math.min((long) maxSegments, Math.max(1L, totalBytes / Math.max(1L, DlcPathConfig.getMinSegmentBytes()))));
+        int maxSegments = Math.max(1, DlcConfig.getMaxSegmentsPerFile());
+        int segments = (int) Math.max(1L, Math.min((long) maxSegments, Math.max(1L, totalBytes / Math.max(1L, DlcConfig.getMinSegmentBytes()))));
         long segmentSize = Math.max(1L, totalBytes / segments);
         try (RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
             raf.setLength(totalBytes);
@@ -1075,7 +1075,7 @@ public final class DlcDownloadService {
         List<Future<?>> futures = new ArrayList<>();
         long initialRead = Math.max(0L, Math.min(initialDownloadedBytes, totalBytes));
         AtomicLong totalRead = new AtomicLong(initialRead);
-        int maxRetries = Math.max(1, DlcPathConfig.getMaxRetryCount());
+        int maxRetries = Math.max(1, DlcConfig.getMaxRetryCount());
         for (int i = 0; i < segments; i++) {
             long start = i * segmentSize;
             long end = (i == segments - 1) ? totalBytes - 1 : (start + segmentSize - 1);
@@ -1096,8 +1096,8 @@ public final class DlcDownloadService {
                     try {
                         connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
                         connection.setInstanceFollowRedirects(true);
-                        connection.setConnectTimeout(DlcPathConfig.getConnectTimeoutMs());
-                        connection.setReadTimeout(DlcPathConfig.getTaskTimeoutMs());
+                        connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+                        connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
                         connection.setRequestProperty("User-Agent", "DLC-Manager");
                         long rangeStart = start + segmentRead;
                         connection.setRequestProperty("Range", "bytes=" + rangeStart + "-" + end);
@@ -1198,13 +1198,13 @@ public final class DlcDownloadService {
         MIRROR_FIRST;
 
         private static DownloadMirrorMode fromConfig(String value) {
-            return switch (DlcPathConfig.normalizeDownloadMirrorMode(value)) {
-                case DlcPathConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR;
-                case DlcPathConfig.DOWNLOAD_MIRROR_SMART_PRECHECK -> SMART_PRECHECK;
-                case DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY;
-                case DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY;
-                case DlcPathConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST;
-                case DlcPathConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST;
+            return switch (DlcConfig.normalizeDownloadMirrorMode(value)) {
+                case DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR;
+                case DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK -> SMART_PRECHECK;
+                case DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY;
+                case DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY;
+                case DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST;
+                case DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST;
                 default -> SMART_OFFICIAL;
             };
         }

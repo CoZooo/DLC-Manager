@@ -1,8 +1,8 @@
 package com.cozooo.dlc_manager.client.server;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
-import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
@@ -20,14 +20,14 @@ public class DlcServerList {
 
     public static void load() {
         Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        configPath = DcFormatUtil.resolveConfigPath(configDir, "servers");
+        configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "servers");
         entries = new ArrayList<>();
         lastSelectedKey = null;
         if (!Files.exists(configPath)) {
             return;
         }
         try {
-            com.google.gson.JsonObject root = DcConfigIO.read(configPath, DcConfigIO.Layout.GENERIC);
+            com.google.gson.JsonObject root = DlcDcConfigIO.read(configPath, DlcDcConfigIO.Layout.GENERIC);
             if (root != null) {
                 DlcServerListData data = GSON.fromJson(root, DlcServerListData.class);
                 if (data != null && data.servers != null) {
@@ -42,7 +42,7 @@ public class DlcServerList {
     public static void save() {
         if (configPath == null) {
             Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-            configPath = DcFormatUtil.resolveConfigPath(configDir, "servers");
+            configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "servers");
         }
         try {
             Files.createDirectories(configPath.getParent());
@@ -50,7 +50,7 @@ public class DlcServerList {
             data.servers = entries;
             data.lastSelected = lastSelectedKey;
             com.google.gson.JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
-            DcConfigIO.write(configPath, root, DcConfigIO.Layout.GENERIC);
+            DlcDcConfigIO.write(configPath, root, DlcDcConfigIO.Layout.GENERIC);
         } catch (IOException ignored) {
         }
     }

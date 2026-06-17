@@ -32,10 +32,10 @@ public class DlcScanner {
             grouped.put(type, new ArrayList<>());
         }
 
-        List<Path> roots = DlcPathConfig.getDlcRoots();
-        List<Path> taczRoots = DlcPathConfig.getTaczDlcRoots();
+        List<Path> roots = DlcConfig.getDlcRoots();
+        List<Path> taczRoots = DlcConfig.getTaczDlcRoots();
         DlcTooltipLoader tooltipLoader = new DlcTooltipLoader();
-        Path mainDlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path mainDlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
         Path mainInfoDir = mainDlcRoot == null ? null : mainDlcRoot.resolve("info");
         Map<String, DlcTooltipLoader.TooltipData> tooltips = mainDlcRoot == null
             ? java.util.Map.of()
@@ -328,8 +328,8 @@ public class DlcScanner {
         }
         List<Path> targetDirs = switch (type) {
             case MOD -> List.of(DlcPaths.modsDir());
-            case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
-            case DATA_PACK -> DlcPathConfig.getDatapackRoots();
+            case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
+            case DATA_PACK -> DlcConfig.getDatapackRoots();
             case TACZ_PACK -> List.of(DlcPaths.taczDir());
             default -> List.of();
         };
@@ -397,8 +397,8 @@ public class DlcScanner {
         }
         List<Path> targetDirs = switch (type) {
             case MOD -> List.of(DlcPaths.modsDir());
-            case RESOURCE_PACK -> DlcPathConfig.getResourcepackRoots();
-            case DATA_PACK -> DlcPathConfig.getDatapackRoots();
+            case RESOURCE_PACK -> DlcConfig.getResourcepackRoots();
+            case DATA_PACK -> DlcConfig.getDatapackRoots();
             case TACZ_PACK -> List.of(DlcPaths.taczDir());
             default -> List.of();
         };
@@ -554,13 +554,13 @@ public class DlcScanner {
     }
 
     private void scanTaczRoots(Map<DlcType, List<DlcItem>> grouped, DlcTooltipLoader tooltipLoader, boolean detectInstalledState) {
-        Path mainDlcRoot = DlcPathConfig.getDlcRoots().isEmpty() ? null : DlcPathConfig.getDlcRoots().get(0);
+        Path mainDlcRoot = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
         Path mainInfoDir = mainDlcRoot == null ? null : mainDlcRoot.resolve("info");
         Map<String, DlcTooltipLoader.TooltipData> tooltips = mainDlcRoot == null
             ? java.util.Map.of()
             : tooltipLoader.loadTooltips(mainDlcRoot);
 
-        for (Path root : DlcPathConfig.getTaczDlcRoots()) {
+        for (Path root : DlcConfig.getTaczDlcRoots()) {
             if (!Files.exists(root) || !Files.isDirectory(root)) {
                 continue;
             }

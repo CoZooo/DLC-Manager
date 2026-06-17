@@ -10,14 +10,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class DcConfigIOFieldTest {
+class DlcDcConfigIOFieldTest {
     @Test
     void getIgnoreCasePrefersExactKeyBeforeCaseInsensitiveMatch() {
         JsonObject object = new JsonObject();
         object.addProperty("Name", "upper");
         object.addProperty("name", "exact");
 
-        assertEquals("exact", DcConfigIO.getStringIgnoreCase(object, "name"));
+        assertEquals("exact", DlcDcConfigIO.getStringIgnoreCase(object, "name"));
     }
 
     @Test
@@ -31,12 +31,12 @@ class DcConfigIOFieldTest {
         object.addProperty("Enabled", true);
         object.addProperty("Title", "Hello");
 
-        assertSame(child, DcConfigIO.getObjectIgnoreCase(object, "child"));
-        assertSame(array, DcConfigIO.getArrayIgnoreCase(object, "items"));
-        assertEquals("Hello", DcConfigIO.getStringIgnoreCase(object, "title"));
-        assertEquals(true, DcConfigIO.getBooleanIgnoreCase(object, "enabled"));
-        assertTrue(DcConfigIO.getBooleanIgnoreCase(object, "missing", true));
-        assertFalse(DcConfigIO.getBooleanIgnoreCase(object, "missing", false));
+        assertSame(child, DlcDcConfigIO.getObjectIgnoreCase(object, "child"));
+        assertSame(array, DlcDcConfigIO.getArrayIgnoreCase(object, "items"));
+        assertEquals("Hello", DlcDcConfigIO.getStringIgnoreCase(object, "title"));
+        assertEquals(true, DlcDcConfigIO.getBooleanIgnoreCase(object, "enabled"));
+        assertTrue(DlcDcConfigIO.getBooleanIgnoreCase(object, "missing", true));
+        assertFalse(DlcDcConfigIO.getBooleanIgnoreCase(object, "missing", false));
     }
 
     @Test
@@ -44,11 +44,11 @@ class DcConfigIOFieldTest {
         JsonObject object = new JsonObject();
         object.addProperty("flag", "true");
 
-        assertNull(DcConfigIO.getIgnoreCase(null, "flag"));
-        assertNull(DcConfigIO.getIgnoreCase(object, null));
-        assertNull(DcConfigIO.getBooleanIgnoreCase(object, "flag"));
-        assertNull(DcConfigIO.getObjectIgnoreCase(object, "flag"));
-        assertFalse(DcConfigIO.hasIgnoreCase(object, "missing"));
+        assertNull(DlcDcConfigIO.getIgnoreCase(null, "flag"));
+        assertNull(DlcDcConfigIO.getIgnoreCase(object, null));
+        assertNull(DlcDcConfigIO.getBooleanIgnoreCase(object, "flag"));
+        assertNull(DlcDcConfigIO.getObjectIgnoreCase(object, "flag"));
+        assertFalse(DlcDcConfigIO.hasIgnoreCase(object, "missing"));
     }
 
     @Test
@@ -56,14 +56,14 @@ class DcConfigIOFieldTest {
         JsonObject object = new JsonObject();
         object.addProperty("Priority", "curseforge");
 
-        DcConfigIO.removeIgnoreCase(object, "priority");
+        DlcDcConfigIO.removeIgnoreCase(object, "priority");
 
         assertFalse(object.has("Priority"));
     }
 
     @Test
     void normalizesLanguageKeysWithRootLocale() {
-        assertEquals("zh_cn", DcConfigIO.normalizeLangKey("ZH_CN"));
-        assertNull(DcConfigIO.normalizeLangKey(null));
+        assertEquals("zh_cn", DlcDcConfigIO.normalizeLangKey("ZH_CN"));
+        assertNull(DlcDcConfigIO.normalizeLangKey(null));
     }
 }

@@ -33,8 +33,8 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.client.DlcStartupStateSync;
 import com.cozooo.dlc_manager.server.DlcServerApi;
 import com.cozooo.dlc_manager.core.DlcItem;
-import com.cozooo.dlc_manager.core.DlcNoticeConfig;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
@@ -101,14 +101,14 @@ public final class DlcClientRuntime {
     }
 
     public static boolean shouldShowMainMenuNoticeButton() {
-        return DlcPathConfig.isNoticeDisplayModeMainMenuButton() && DlcNoticeManager.isNoticeEnabled();
+        return DlcConfig.isNoticeDisplayModeMainMenuButton() && DlcNoticeManager.isNoticeEnabled();
     }
 
     public static boolean shouldShowMainMenuNoticePanel() {
-        return DlcPathConfig.isNoticeDisplayModeMainMenuPanel()
+        return DlcConfig.isNoticeDisplayModeMainMenuPanel()
             && DlcNoticeManager.isNoticeEnabled()
-            && DlcPathConfig.getNoticePanelWidth() > 0
-            && DlcPathConfig.getNoticePanelHeight() > 0;
+            && DlcConfig.getNoticePanelWidth() > 0
+            && DlcConfig.getNoticePanelHeight() > 0;
     }
 
     public static void openNoticeFromTitle(Screen parent) {
@@ -116,7 +116,7 @@ public final class DlcClientRuntime {
     }
 
     public static void openPackManagerFromTitle(Screen parent) {
-        if (!DlcPathConfig.isPackFuncOn()) {
+        if (!DlcConfig.isPackFuncOn()) {
             return;
         }
         Minecraft.getInstance().setScreen(new DlcPackManagerScreen(parent));
@@ -127,10 +127,10 @@ public final class DlcClientRuntime {
             return;
         }
         firstRunManagerHandled = true;
-        if (parent == null || !DlcPathConfig.isShowOnFirstRun()) {
+        if (parent == null || !DlcConfig.isShowOnFirstRun()) {
             return;
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         if (dlcRoot == null) {
             return;
         }
@@ -159,10 +159,10 @@ public final class DlcClientRuntime {
         if (parent == null || !(parent instanceof net.minecraft.client.gui.screens.TitleScreen)) {
             return false;
         }
-        if (!DlcPathConfig.isShowOnFirstRun()) {
+        if (!DlcConfig.isShowOnFirstRun()) {
             return false;
         }
-        Path dlcRoot = DlcPathConfig.getDlcRoot();
+        Path dlcRoot = DlcConfig.getDlcRoot();
         if (dlcRoot == null) {
             return false;
         }
@@ -407,11 +407,11 @@ public final class DlcClientRuntime {
         String subhead = titleNoticeSubhead;
         boolean subheadEnabled = titleNoticeSubheadEnabled;
 
-        int panelWidth = Math.max(120, DlcPathConfig.getNoticePanelWidth());
-        int panelHeight = Math.max(60, DlcPathConfig.getNoticePanelHeight());
+        int panelWidth = Math.max(120, DlcConfig.getNoticePanelWidth());
+        int panelHeight = Math.max(60, DlcConfig.getNoticePanelHeight());
         panelWidth = Math.min(panelWidth, Math.max(120, screen.width - 8));
         panelHeight = Math.min(panelHeight, Math.max(60, screen.height - 8));
-        int[] pos = DlcPathConfig.computeNoticePanelPosition(screen.width, screen.height, panelWidth, panelHeight, 0, 0);
+        int[] pos = DlcConfig.computeNoticePanelPosition(screen.width, screen.height, panelWidth, panelHeight, 0, 0);
         int x = pos[0];
         int y = pos[1];
         int maxX = Math.max(0, screen.width - panelWidth);
@@ -623,7 +623,7 @@ public final class DlcClientRuntime {
     }
 
     public static boolean canOpenServerManager() {
-        if (!DlcPathConfig.isServerSupportOn()) {
+        if (!DlcConfig.isServerSupportOn()) {
             return false;
         }
         Minecraft minecraft = Minecraft.getInstance();
@@ -735,8 +735,8 @@ public final class DlcClientRuntime {
             boolean hasSelfUpdate = false;
             boolean hasRequired = false;
             java.util.List<DlcRequiredEntry> missing = java.util.List.of();
-            boolean updateManagerOn = DlcPathConfig.isUpdateManagerOn();
-            boolean selfUpdateAutoCheckOn = DlcPathConfig.isSelfUpdateAutoCheckOn();
+            boolean updateManagerOn = DlcConfig.isUpdateManagerOn();
+            boolean selfUpdateAutoCheckOn = DlcConfig.isSelfUpdateAutoCheckOn();
             String changelogText = "";
             String changelogVersion = null;
             String currentBaseVersion = "1.0.0";
@@ -753,11 +753,11 @@ public final class DlcClientRuntime {
                     }
                 }
             }
-            String repoUrl = DlcPathConfig.getUpdateGithubRepoUrl();
+            String repoUrl = DlcConfig.getUpdateGithubRepoUrl();
             if (repoUrl != null && !repoUrl.isBlank()) {
                 long packAt = System.currentTimeMillis();
                 packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
-                    DlcPathConfig.getModpackUrl(),
+                    DlcConfig.getModpackUrl(),
                     repoUrl,
                     currentBaseVersion,
                     currentDlcVersion,
@@ -1179,7 +1179,7 @@ public final class DlcClientRuntime {
         entry.name = data.name;
         String ip = data.ip == null ? "" : data.ip;
         String host = ip;
-        int port = DlcPathConfig.getServerPort();
+        int port = DlcConfig.getServerPort();
         if (ip.startsWith("[") && ip.contains("]")) {
             int end = ip.indexOf(']');
             if (end > 1) {

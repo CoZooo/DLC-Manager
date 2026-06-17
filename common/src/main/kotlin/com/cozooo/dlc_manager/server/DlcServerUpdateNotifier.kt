@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.server
 
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcConfig
 import net.minecraft.network.chat.Component
 import net.minecraft.server.level.ServerPlayer
 import java.util.concurrent.CompletableFuture
@@ -15,13 +15,13 @@ object DlcServerUpdateNotifier {
 
     @JvmStatic
     fun onPlayerJoin(player: ServerPlayer?) {
-        if (!DlcPathConfig.isServerSupportOnServer()) {
+        if (!DlcConfig.isServerSupportOnServer()) {
             return
         }
         if (player == null || !player.hasPermissions(2)) {
             return
         }
-        if (!DlcPathConfig.isSelfUpdateAutoCheckOn()) {
+        if (!DlcConfig.isSelfUpdateAutoCheckOn()) {
             return
         }
         val server = player.server

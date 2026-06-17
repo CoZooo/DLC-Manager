@@ -19,13 +19,13 @@ object DlcStateConfig {
     @JvmStatic
     fun load() {
         val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
-        configPath = DcFormatUtil.resolveConfigPath(configDir, "state")
+        configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "state")
         stateById = HashMap()
         var migrateLegacyStateSection = false
         val path = configPath
         if (path != null && Files.exists(path)) {
             try {
-                val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC)
+                val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
                 if (root != null) {
                     val data = GSON.fromJson(root, DlcStateConfigData::class.java)
                     if (data != null && data.DLC == null && data.stateById != null) {
@@ -64,7 +64,7 @@ object DlcStateConfig {
             val data = DlcStateConfigData()
             data.DLC = stateById
             val root = GSON.toJsonTree(data).asJsonObject
-            DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC)
+            DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC)
         } catch (_: IOException) {
         }
     }

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.nio.file.Path;
 import java.util.List;
@@ -65,7 +65,7 @@ public final class DlcUpdateRuntime {
     }
 
     public static boolean isUpdateManagerEnabled() {
-        return DlcPathConfig.isUpdateManagerOn();
+        return DlcConfig.isUpdateManagerOn();
     }
 
     public static ClientUpdateSnapshot loadClientSnapshot(Path dlcRoot) {

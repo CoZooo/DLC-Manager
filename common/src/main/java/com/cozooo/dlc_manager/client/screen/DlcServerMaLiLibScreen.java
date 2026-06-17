@@ -9,7 +9,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcType;
 import fi.dy.masa.malilib.gui.GuiListBase;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
@@ -940,7 +940,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
                     for (DlcServerItem item : items) {
                         baseline.put(item.id, item.enabled);
                     }
-                    if (DlcPathConfig.isPresetFuncOn()) {
+                    if (DlcConfig.isPresetFuncOn()) {
                         syncPresetStatusFromItems();
                         updatePresetSnapshot();
                     }
@@ -976,7 +976,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     }
 
     private void applyPresetOverrides() {
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.clearAll();
             presetAppliedIdentifiers.clear();
             presetStatusById.clear();
@@ -1147,7 +1147,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
     private Map<String, DlcPresetStatus> updatePresetStatusFromItems() {
         presetStatusById.clear();
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             return presetStatusById;
         }
         List<DlcPresetEntry> entries = DlcPresetRuntimeState.getPresets();
@@ -1319,14 +1319,14 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
     private void updatePresetSnapshot() {
         presetSnapshot.clear();
-        if (DlcPathConfig.isPresetFuncOn()) {
+        if (DlcConfig.isPresetFuncOn()) {
             presetSnapshot.addAll(DlcPresetRuntimeState.getEnabledPresetIds());
         }
         presetSnapshotCaptured = true;
     }
 
     private boolean hasPresetChanges() {
-        if (!DlcPathConfig.isPresetFuncOn()) {
+        if (!DlcConfig.isPresetFuncOn()) {
             return false;
         }
         if (!presetSnapshotCaptured) {

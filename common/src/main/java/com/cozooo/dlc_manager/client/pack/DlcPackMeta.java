@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.core.DcConfigIO;
+import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -64,20 +64,20 @@ public class DlcPackMeta {
         if (path == null || !Files.exists(path)) {
             return null;
         }
-        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
+        JsonObject obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
             return null;
         }
-        JsonObject basic = DcConfigIO.getObjectIgnoreCase(obj, "basic");
-        String identifier = trim(DcConfigIO.getStringIgnoreCase(basic, "identifier"));
-        String version = trim(DcConfigIO.getStringIgnoreCase(basic, "version"));
+        JsonObject basic = DlcDcConfigIO.getObjectIgnoreCase(obj, "basic");
+        String identifier = trim(DlcDcConfigIO.getStringIgnoreCase(basic, "identifier"));
+        String version = trim(DlcDcConfigIO.getStringIgnoreCase(basic, "version"));
         if (!DlcPackMetadata.isValidIdentifier(identifier) || !DlcPackMetadata.isValidVersion(version)) {
             return null;
         }
-        String format = trim(DcConfigIO.getStringIgnoreCase(basic, "format"));
-        String timestamp = trim(DcConfigIO.getStringIgnoreCase(basic, "timestamp"));
+        String format = trim(DlcDcConfigIO.getStringIgnoreCase(basic, "format"));
+        String timestamp = trim(DlcDcConfigIO.getStringIgnoreCase(basic, "timestamp"));
         List<String> installed = new ArrayList<>();
-        JsonArray array = DcConfigIO.getArrayIgnoreCase(obj, "installed");
+        JsonArray array = DlcDcConfigIO.getArrayIgnoreCase(obj, "installed");
         if (array != null) {
             array.forEach(element -> {
                 if (element != null && element.isJsonPrimitive()) {

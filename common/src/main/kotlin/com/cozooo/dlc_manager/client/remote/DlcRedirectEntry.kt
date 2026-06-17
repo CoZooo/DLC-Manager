@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.remote
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import java.nio.file.Path
@@ -70,7 +70,7 @@ open class DlcRedirectEntry {
         if (availableLangs.isEmpty()) {
             return true
         }
-        val current = DcConfigIO.normalizeLangKey(lang)
+        val current = DlcDcConfigIO.normalizeLangKey(lang)
         return current != null && availableLangs.contains(current)
     }
 
@@ -90,7 +90,7 @@ open class DlcRedirectEntry {
         if (values.isNullOrEmpty()) {
             return fallback ?: ""
         }
-        val key = DcConfigIO.normalizeLangKey(lang)
+        val key = DlcDcConfigIO.normalizeLangKey(lang)
         if (key != null && values.containsKey(key)) {
             return values[key] ?: ""
         }
@@ -123,7 +123,7 @@ open class DlcRedirectEntry {
                 availableLangs.clear()
                 return
             }
-            val wanted = DcConfigIO.normalizeLangKey(trimmed)
+            val wanted = DlcDcConfigIO.normalizeLangKey(trimmed)
             if (wanted != null) {
                 availableLangs.add(wanted)
             }

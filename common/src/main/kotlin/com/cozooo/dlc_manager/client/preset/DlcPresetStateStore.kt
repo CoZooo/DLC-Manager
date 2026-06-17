@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.preset
 
-import com.cozooo.dlc_manager.core.DcConfigIO
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.JsonElement
 import java.io.IOException
@@ -15,7 +15,7 @@ object DlcPresetStateStore {
     @JvmStatic
     fun getStatePath(): Path? {
         val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
-        return DcConfigIO.toDcPath(configDir.resolve(STATE_BASE_NAME))
+        return DlcDcConfigIO.toDcPath(configDir.resolve(STATE_BASE_NAME))
     }
 
     @JvmStatic
@@ -25,8 +25,8 @@ object DlcPresetStateStore {
         if (path == null || !Files.exists(path)) {
             return result
         }
-        val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return result
-        val presets = DcConfigIO.getObjectIgnoreCase(root, PRESETS_KEY) ?: return result
+        val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return result
+        val presets = DlcDcConfigIO.getObjectIgnoreCase(root, PRESETS_KEY) ?: return result
         for ((key, value) in presets.entrySet()) {
             if (key == null || value == null || value.isJsonNull) {
                 continue
@@ -50,7 +50,7 @@ object DlcPresetStateStore {
         } catch (_: IOException) {
             return
         }
-        val root = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: com.google.gson.JsonObject()
+        val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: com.google.gson.JsonObject()
         val presets = com.google.gson.JsonObject()
         for ((key, value) in safeStatuses) {
             if (key.isBlank() || value == null) {
@@ -58,8 +58,8 @@ object DlcPresetStateStore {
             }
             presets.addProperty(key, value.toConfigValue())
         }
-        DcConfigIO.removeIgnoreCase(root, PRESETS_KEY)
+        DlcDcConfigIO.removeIgnoreCase(root, PRESETS_KEY)
         root.add(PRESETS_KEY, presets)
-        DcConfigIO.write(path, root, DcConfigIO.Layout.GENERIC)
+        DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC)
     }
 }

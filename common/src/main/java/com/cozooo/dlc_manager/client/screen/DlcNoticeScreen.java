@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.core.DlcNoticeConfig;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;

@@ -20,7 +20,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
@@ -666,7 +666,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void checkPackUpdate() {
-        String repoUrl = DlcPathConfig.getUpdateGithubRepoUrl();
+        String repoUrl = DlcConfig.getUpdateGithubRepoUrl();
         if (repoUrl == null || repoUrl.isBlank()) {
             return;
         }
@@ -679,7 +679,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
             DlcPackReleaseUpdateService.CheckResult result;
             try {
                 result = DlcPackReleaseUpdateService.checkForUpdates(
-                    DlcPathConfig.getModpackUrl(),
+                    DlcConfig.getModpackUrl(),
                     repoUrl,
                     base,
                     dlc,
@@ -709,7 +709,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private boolean hasPackUpdateRepoConfigured() {
-        String repoUrl = DlcPathConfig.getUpdateGithubRepoUrl();
+        String repoUrl = DlcConfig.getUpdateGithubRepoUrl();
         return repoUrl != null && !repoUrl.isBlank();
     }
 

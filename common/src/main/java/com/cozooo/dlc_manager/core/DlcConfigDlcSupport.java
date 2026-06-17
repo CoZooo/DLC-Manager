@@ -15,7 +15,7 @@ public final class DlcConfigDlcSupport {
     }
 
     public static Path backupRoot() {
-        List<Path> roots = DlcPathConfig.getDlcRoots();
+        List<Path> roots = DlcConfig.getDlcRoots();
         Path base = roots.isEmpty() ? DlcPaths.gameDir() : roots.get(0);
         return DlcTmpPaths.resolve(base, "config_backup");
     }

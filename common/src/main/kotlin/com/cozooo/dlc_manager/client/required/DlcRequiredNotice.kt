@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.required
 
-import com.cozooo.dlc_manager.core.DcConfigIO
-import com.cozooo.dlc_manager.core.DlcPathConfig
+import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -42,12 +42,12 @@ class DlcRequiredNotice private constructor(
             if (!Files.exists(noticePath)) {
                 return DlcRequiredNotice(download, manage)
             }
-            val obj = DcConfigIO.read(noticePath, DcConfigIO.Layout.GENERIC)
+            val obj = DlcDcConfigIO.read(noticePath, DlcDcConfigIO.Layout.GENERIC)
             if (obj == null) {
                 return DlcRequiredNotice(download, manage)
             }
-            readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "download_desc"), download)
-            readLocalized(DcConfigIO.getObjectIgnoreCase(obj, "manage_desc"), manage)
+            readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "download_desc"), download)
+            readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "manage_desc"), manage)
             return DlcRequiredNotice(download, manage)
         }
 
@@ -57,7 +57,7 @@ class DlcRequiredNotice private constructor(
             }
             for ((key, value) in data.entrySet()) {
                 if (value != null && value.isJsonPrimitive) {
-                    val normalized = DcConfigIO.normalizeLangKey(key)
+                    val normalized = DlcDcConfigIO.normalizeLangKey(key)
                     if (normalized != null) {
                         out[normalized] = value.asString
                     }
@@ -69,7 +69,7 @@ class DlcRequiredNotice private constructor(
             if (values.isNullOrEmpty()) {
                 return ""
             }
-            val lang = DcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
+            val lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
             if (lang != null && values.containsKey(lang)) {
                 return values[lang] ?: ""
             }
@@ -92,13 +92,13 @@ class DlcRequiredNotice private constructor(
             obj.add("manage_desc", manage)
             try {
                 Files.createDirectories(noticePath.parent)
-                DcConfigIO.write(noticePath, obj, DcConfigIO.Layout.GENERIC)
+                DlcDcConfigIO.write(noticePath, obj, DlcDcConfigIO.Layout.GENERIC)
             } catch (_: Exception) {
             }
         }
 
         private fun firstDlcRoot(): Path? {
-            return DlcPathConfig.getDlcRoots().firstOrNull()
+            return DlcConfig.getDlcRoots().firstOrNull()
         }
 
     }

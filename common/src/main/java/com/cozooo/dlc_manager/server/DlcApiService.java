@@ -1,10 +1,10 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
-import com.cozooo.dlc_manager.core.ApplyMode;
+import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
-import com.cozooo.dlc_manager.core.DlcPathConfig;
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
@@ -63,7 +63,7 @@ public final class DlcApiService {
         if (disabled != null) {
             return disabled;
         }
-        var dlcRoot = DlcPathConfig.getDlcRoot();
+        var dlcRoot = DlcConfig.getDlcRoot();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         JsonObject data = new JsonObject();
         data.addProperty("base", version == null ? "" : version.getBase());
@@ -370,13 +370,13 @@ public final class DlcApiService {
             return disabled;
         }
         String normalizedMode = blank(getString(request, "mode")).toLowerCase(Locale.ROOT);
-        ApplyMode applyMode;
+        DlcApplyMode applyMode;
         String responseMode;
         if (normalizedMode.isBlank() || "restart".equals(normalizedMode)) {
-            applyMode = ApplyMode.RESTART_ONLY;
+            applyMode = DlcApplyMode.RESTART_ONLY;
             responseMode = "restart";
         } else if ("reload".equals(normalizedMode)) {
-            applyMode = ApplyMode.TRY_HOT_RELOAD;
+            applyMode = DlcApplyMode.TRY_HOT_RELOAD;
             responseMode = "reload";
         } else {
             return error(400, "invalid_mode", "mode must be either 'restart' or 'reload'.");
@@ -568,7 +568,7 @@ public final class DlcApiService {
     }
 
     private static ApiResult ensureEnabled() {
-        if (DlcPathConfig.isApiEnabled()) {
+        if (DlcConfig.isApiEnabled()) {
             return null;
         }
         return error(503, "api_disabled", "API is disabled.");
