@@ -123,7 +123,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
                 if (finalShouldCheckPackUpdate
                     && finalPackUpdateResult != null
                     && finalPackUpdateResult.hasUpdate()) {
-                    Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(this, finalPackUpdateResult, entry));
+                    Minecraft.getInstance().setScreen(new DlcModpackUpdateScreen(this, finalPackUpdateResult, entry));
                 }
             });
         }, "dlc-server-update-refresh").start();
@@ -582,7 +582,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
                     packUpdateCheckButton.active = !packUpdateRepoUrl.isBlank();
                 }
                 if (finalResult != null && finalResult.hasUpdate()) {
-                    Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(this, finalResult, entry));
+                    Minecraft.getInstance().setScreen(new DlcModpackUpdateScreen(this, finalResult, entry));
                     return;
                 }
                 if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {

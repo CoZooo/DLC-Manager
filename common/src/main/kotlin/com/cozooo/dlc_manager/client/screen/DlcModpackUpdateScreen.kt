@@ -23,7 +23,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-class DlcPackReleaseUpdateScreen @JvmOverloads constructor(
+class DlcModpackUpdateScreen @JvmOverloads constructor(
     private val parent: Screen?,
     checkResult: CheckResult?,
     private val serverEntry: DlcServerEntry? = null,

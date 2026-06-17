@@ -722,7 +722,7 @@ class DlcUpdateManagerScreen(
             Minecraft.getInstance().execute {
                 selfUpdateButton?.active = true
                 if (result != null && result.hasUpdate()) {
-                    Minecraft.getInstance().setScreen(DlcPackReleaseUpdateScreen(this, result))
+                    Minecraft.getInstance().setScreen(DlcModpackUpdateScreen(this, result))
                     return@execute
                 }
                 if (result != null && !result.error.isNullOrBlank()) {

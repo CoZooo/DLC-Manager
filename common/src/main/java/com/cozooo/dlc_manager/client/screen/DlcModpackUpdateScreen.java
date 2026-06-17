@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class DlcPackReleaseUpdateScreen extends DlcScreenCompat.MouseScroll {
+public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
     private static final int TEXT_COLOR = 0xC8C8C8;
     private static final int LABEL_COLOR = 0xDCDCDC;
     private static final int VERSION_COLOR = 0x7FD0FF;
@@ -66,19 +66,19 @@ public class DlcPackReleaseUpdateScreen extends DlcScreenCompat.MouseScroll {
     private int dragStartScroll;
     private String changelogLang = "";
 
-    public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult) {
+    public DlcModpackUpdateScreen(Screen parent, CheckResult checkResult) {
         this(parent, checkResult, null, false);
     }
 
-    public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult, boolean allowSkipThisUpdate) {
+    public DlcModpackUpdateScreen(Screen parent, CheckResult checkResult, boolean allowSkipThisUpdate) {
         this(parent, checkResult, null, allowSkipThisUpdate);
     }
 
-    public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry) {
+    public DlcModpackUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry) {
         this(parent, checkResult, serverEntry, false);
     }
 
-    public DlcPackReleaseUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry, boolean allowSkipThisUpdate) {
+    public DlcModpackUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry, boolean allowSkipThisUpdate) {
         super(Component.translatable("dlc_manager.pack_update.title"));
         this.parent = parent;
         this.checkResult = checkResult == null ? new CheckResult() : checkResult;

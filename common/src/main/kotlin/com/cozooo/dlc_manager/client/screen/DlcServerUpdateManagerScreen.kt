@@ -114,7 +114,7 @@ class DlcServerUpdateManagerScreen(
                 buildRows(finalState)
                 buildWidgets()
                 if (finalShouldCheckPackUpdate && finalPackUpdateResult != null && finalPackUpdateResult.hasUpdate()) {
-                    Minecraft.getInstance().setScreen(DlcPackReleaseUpdateScreen(this, finalPackUpdateResult, entry))
+                    Minecraft.getInstance().setScreen(DlcModpackUpdateScreen(this, finalPackUpdateResult, entry))
                 }
             }
         }, "dlc-server-update-refresh").start()
@@ -561,7 +561,7 @@ class DlcServerUpdateManagerScreen(
             Minecraft.getInstance().execute {
                 packUpdateCheckButton?.active = packUpdateRepoUrl.isNotBlank()
                 if (result != null && result.hasUpdate()) {
-                    Minecraft.getInstance().setScreen(DlcPackReleaseUpdateScreen(this, result, entry))
+                    Minecraft.getInstance().setScreen(DlcModpackUpdateScreen(this, result, entry))
                     return@execute
                 }
                 if (result != null && !result.error.isNullOrBlank()) {

@@ -14,7 +14,7 @@ import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
-import com.cozooo.dlc_manager.client.screen.DlcPackReleaseUpdateScreen;
+import com.cozooo.dlc_manager.client.screen.DlcModpackUpdateScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdatePromptScreen;
 import com.cozooo.dlc_manager.client.screen.DlcUpdateChangelogScreen;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
@@ -890,7 +890,7 @@ public final class DlcClientRuntime {
                 return;
             }
             Screen continuation = createContinuationScreen(fallback, next);
-            Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(continuation, result, true));
+            Minecraft.getInstance().setScreen(new DlcModpackUpdateScreen(continuation, result, true));
         };
     }
 

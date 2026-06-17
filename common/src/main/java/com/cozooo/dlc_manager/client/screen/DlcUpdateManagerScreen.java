@@ -694,7 +694,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
                     selfUpdateButton.active = true;
                 }
                 if (finalResult != null && finalResult.hasUpdate()) {
-                    Minecraft.getInstance().setScreen(new DlcPackReleaseUpdateScreen(this, finalResult));
+                    Minecraft.getInstance().setScreen(new DlcModpackUpdateScreen(this, finalResult));
                     return;
                 }
                 if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {

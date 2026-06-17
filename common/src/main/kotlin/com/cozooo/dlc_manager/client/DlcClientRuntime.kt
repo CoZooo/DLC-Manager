@@ -9,7 +9,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen
 import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen
-import com.cozooo.dlc_manager.client.screen.DlcPackReleaseUpdateScreen
+import com.cozooo.dlc_manager.client.screen.DlcModpackUpdateScreen
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen
 import com.cozooo.dlc_manager.client.screen.DlcScreenCompat
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen
@@ -824,7 +824,7 @@ object DlcClientRuntime {
                 return@Runnable
             }
             val continuation = createContinuationScreen(fallback, next)
-            Minecraft.getInstance().setScreen(DlcPackReleaseUpdateScreen(continuation, result, true))
+            Minecraft.getInstance().setScreen(DlcModpackUpdateScreen(continuation, result, true))
         }
     }
 
