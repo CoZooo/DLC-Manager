@@ -184,6 +184,40 @@ class DlcPackInstallerTest {
     }
 
     @Test
+    void installAcceptsWildcardPathDependenciesAndMovesWildcardConflicts() throws Exception {
+        Path instance = tempDir.resolve("instance");
+        Path dlcRoot = instance.resolve("DLC");
+        Path packageRoot = tempDir.resolve("package");
+        writePack(packageRoot.resolve("metadata").resolve("pack.dc"), "Example", """
+            [dependencies]
+            path = "mods/*/required.txt"
+
+            [conflicts]
+            path = "config/*/old.toml"
+            """);
+        Files.createDirectories(packageRoot.resolve("mods"));
+        Files.writeString(packageRoot.resolve("mods").resolve("addon.jar"), "new jar");
+        Files.createDirectories(instance.resolve("mods").resolve("alpha"));
+        Files.writeString(instance.resolve("mods").resolve("alpha").resolve("required.txt"), "required");
+        Files.createDirectories(instance.resolve("config").resolve("a"));
+        Files.writeString(instance.resolve("config").resolve("a").resolve("old.toml"), "old a");
+        Files.createDirectories(instance.resolve("config").resolve("b"));
+        Files.writeString(instance.resolve("config").resolve("b").resolve("old.toml"), "old b");
+
+        DlcPackPackage pack = DlcPackPackage.inspect(packageRoot).pack;
+        DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
+        DlcPackInstaller.InstallReport report = installer.install(pack);
+
+        assertEquals(1, report.filesWritten);
+        assertEquals(2, report.displacedFiles);
+        assertEquals("required", Files.readString(instance.resolve("mods").resolve("alpha").resolve("required.txt")));
+        assertFalse(Files.exists(instance.resolve("config").resolve("a").resolve("old.toml")));
+        assertFalse(Files.exists(instance.resolve("config").resolve("b").resolve("old.toml")));
+        assertEquals("old a", Files.readString(dlcRoot.resolve("tmp").resolve("pack").resolve("Example").resolve("config").resolve("a").resolve("old.toml")));
+        assertEquals("old b", Files.readString(dlcRoot.resolve("tmp").resolve("pack").resolve("Example").resolve("config").resolve("b").resolve("old.toml")));
+    }
+
+    @Test
     void installMovesConfiguredConflictDirectoryAndUninstallRestoresIt() throws Exception {
         Path instance = tempDir.resolve("instance");
         Path dlcRoot = instance.resolve("DLC");

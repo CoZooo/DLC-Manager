@@ -1119,16 +1119,14 @@ object DlcUpdateService {
         if (ops == null) {
             return
         }
+        val gameDir = DlcPaths.gameDir()
         for (raw in ops.getDel()) {
             if (raw.isBlank()) {
                 continue
             }
-            val target: Path? = DlcUpdateService.resolveGamePath(DlcPaths.gameDir(), raw)
-            if (target == null) {
-                continue
-            }
-            if (Files.exists(target)) {
-                backupPath(raw, target, context)
+            for (target in DlcPathUtil.findMatches(gameDir, raw)) {
+                val actualRelative = toGameRelativePath(target)
+                backupPath(actualRelative, target, context)
                 handleSpecialDelete(target, raw, context)
                 deleteRecursive(target)
             }

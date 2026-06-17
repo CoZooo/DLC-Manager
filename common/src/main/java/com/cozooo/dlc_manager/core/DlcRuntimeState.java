@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.core;
 
-import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -435,8 +434,7 @@ public final class DlcRuntimeState {
     }
 
     private static boolean isRelationPathPresent(String value) {
-        java.nio.file.Path path = DlcPaths.resolveAgainstGameDir(value);
-        return path != null && Files.exists(path);
+        return !DlcPathUtil.findMatches(DlcPaths.gameDir(), value).isEmpty();
     }
 
     private static void addConflictLine(java.util.List<ConflictLine> lines, java.util.Set<String> seen, String left, String right) {

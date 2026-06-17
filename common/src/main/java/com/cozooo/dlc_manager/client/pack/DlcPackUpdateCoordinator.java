@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
+import com.cozooo.dlc_manager.core.DlcPathUtil;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -182,13 +183,23 @@ public class DlcPackUpdateCoordinator {
             if (isPackRecordPath(relative)) {
                 continue;
             }
-            Path target = resolveInside(instanceRoot, relative);
-            if (!Files.exists(target)) {
+            List<Path> targets = DlcPathUtil.findMatches(instanceRoot, relative);
+            if (targets.isEmpty()) {
                 continue;
             }
-            Path displaced = resolveInside(packDir, relative);
-            Files.createDirectories(displaced.getParent());
-            Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING);
+            for (Path target : targets) {
+                String targetRelative = DlcPackMeta.normalizeRelativePath(
+                    instanceRoot.toAbsolutePath().normalize()
+                        .relativize(target.toAbsolutePath().normalize())
+                        .toString()
+                );
+                if (targetRelative == null) {
+                    continue;
+                }
+                Path displaced = resolveInside(packDir, targetRelative);
+                Files.createDirectories(displaced.getParent());
+                Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING);
+            }
         }
     }
 

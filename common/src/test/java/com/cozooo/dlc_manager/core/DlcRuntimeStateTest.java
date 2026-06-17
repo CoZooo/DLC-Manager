@@ -2,7 +2,12 @@ package com.cozooo.dlc_manager.core;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.test.TestPlatformProvider;
+
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
@@ -12,11 +17,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DlcRuntimeStateTest {
+    @TempDir
+    Path tempDir;
+
     @AfterEach
     void resetIndex() {
         DlcRuntimeState.updateItemIndex(null);
         DlcRuntimeState.clearOverrides();
         DlcRuntimeState.clearAllPendingReload();
+        PlatformServices.setProvider(null);
     }
 
     @Test
@@ -46,6 +55,19 @@ class DlcRuntimeStateTest {
         assertEquals("known", result.getLines().get(0).getDependencyName());
         assertEquals(Set.of("missing"), DlcRuntimeState.collectMissingDependencyIdentifiers(target));
         assertTrue(DlcRuntimeState.hasMissingDependencies(target));
+    }
+
+    @Test
+    void wildcardPathDependenciesAreSatisfiedByAnyMatchingPath() throws Exception {
+        Path gameDir = tempDir.resolve("game");
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
+        Files.createDirectories(gameDir.resolve("mods").resolve("alpha"));
+        Files.writeString(gameDir.resolve("mods").resolve("alpha").resolve("required.txt"), "required");
+        DlcItem target = item("target", false, false, List.of("mods/*/required.txt"), List.of());
+        DlcRuntimeState.updateItemIndex(List.of(target));
+
+        assertEquals(Set.of(), DlcRuntimeState.collectMissingDependencyIdentifiers(target));
+        assertFalse(DlcRuntimeState.hasMissingDependencies(target));
     }
 
     @Test

@@ -20,6 +20,7 @@ import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.DownloadRes
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult;
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.ApplyMode;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -1001,16 +1002,14 @@ public final class DlcUpdateService {
         if (ops == null) {
             return;
         }
+        Path gameDir = DlcPaths.gameDir();
         for (String raw : ops.getDel()) {
             if (raw == null || raw.isBlank()) {
                 continue;
             }
-            Path target = resolveGamePath(DlcPaths.gameDir(), raw);
-            if (target == null) {
-                continue;
-            }
-            if (Files.exists(target)) {
-                backupPath(raw, target, context);
+            for (Path target : DlcPathUtil.findMatches(gameDir, raw)) {
+                String actualRelative = toGameRelativePath(target);
+                backupPath(actualRelative, target, context);
                 handleSpecialDelete(target, raw, context);
                 deleteRecursive(target);
             }

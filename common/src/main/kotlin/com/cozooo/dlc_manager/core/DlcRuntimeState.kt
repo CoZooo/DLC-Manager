@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.core
 
-import java.nio.file.Files
 import java.util.ArrayDeque
 import java.util.Collections
 import java.util.HashMap
@@ -420,8 +419,7 @@ object DlcRuntimeState {
     }
 
     private fun isRelationPathPresent(value: String?): Boolean {
-        val path = DlcPaths.resolveAgainstGameDir(value) ?: return false
-        return Files.exists(path)
+        return DlcPathUtil.findMatches(DlcPaths.gameDir(), value).isNotEmpty()
     }
 
     private fun addConflictLine(lines: MutableList<ConflictLine>, seen: MutableSet<String>, left: String?, right: String?) {

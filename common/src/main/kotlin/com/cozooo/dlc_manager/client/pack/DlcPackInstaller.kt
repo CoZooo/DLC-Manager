@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import com.cozooo.dlc_manager.core.DlcItem
+import com.cozooo.dlc_manager.core.DlcPathUtil
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import java.io.IOException
 import java.nio.file.Files
@@ -425,8 +426,7 @@ class DlcPackInstaller(
                 result.missing.add(relative)
                 continue
             }
-            val target = resolveInside(instanceRoot, relative)
-            if (!Files.exists(target)) {
+            if (DlcPathUtil.findMatches(instanceRoot, relative).isEmpty()) {
                 result.missing.add(relative)
             }
         }
@@ -519,15 +519,22 @@ class DlcPackInstaller(
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                 continue
             }
-            val target = resolveInside(instanceRoot, relative)
-            if (!Files.exists(target)) {
+            val targets = DlcPathUtil.findMatches(instanceRoot, relative)
+            if (targets.isEmpty()) {
                 continue
             }
-            val displaced = resolveInside(packDir, relative)
-            txn.addMovedPath(relative)
-            txn.save(txnPath)
-            Files.createDirectories(displaced.parent)
-            Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING)
+            for (target in targets) {
+                val targetRelative = DlcPackMeta.normalizeRelativePath(
+                    instanceRoot.toAbsolutePath().normalize()
+                        .relativize(target.toAbsolutePath().normalize())
+                        .toString(),
+                ) ?: continue
+                val displaced = resolveInside(packDir, targetRelative)
+                txn.addMovedPath(targetRelative)
+                txn.save(txnPath)
+                Files.createDirectories(displaced.parent)
+                Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING)
+            }
         }
     }
 

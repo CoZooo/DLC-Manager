@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,6 +13,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -451,8 +453,7 @@ public class DlcPackInstaller {
                 result.missing.add(relative);
                 continue;
             }
-            Path target = resolveInside(instanceRoot, relative);
-            if (!Files.exists(target)) {
+            if (DlcPathUtil.findMatches(instanceRoot, relative).isEmpty()) {
                 result.missing.add(relative);
             }
         }
@@ -544,15 +545,25 @@ public class DlcPackInstaller {
             if (DlcPackInstallPlan.isForbiddenPath(relative, instanceRoot, dlcRoot)) {
                 continue;
             }
-            Path target = resolveInside(instanceRoot, relative);
-            if (!Files.exists(target)) {
+            List<Path> targets = DlcPathUtil.findMatches(instanceRoot, relative);
+            if (targets.isEmpty()) {
                 continue;
             }
-            Path displaced = resolveInside(packDir, relative);
-            txn.addMovedPath(relative);
-            txn.save(txnPath);
-            Files.createDirectories(displaced.getParent());
-            Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING);
+            for (Path target : targets) {
+                String targetRelative = DlcPackMeta.normalizeRelativePath(
+                    instanceRoot.toAbsolutePath().normalize()
+                        .relativize(target.toAbsolutePath().normalize())
+                        .toString()
+                );
+                if (targetRelative == null) {
+                    continue;
+                }
+                Path displaced = resolveInside(packDir, targetRelative);
+                txn.addMovedPath(targetRelative);
+                txn.save(txnPath);
+                Files.createDirectories(displaced.getParent());
+                Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING);
+            }
         }
     }
 

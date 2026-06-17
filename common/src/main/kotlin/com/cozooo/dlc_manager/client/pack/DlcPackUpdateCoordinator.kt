@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.core.DlcZipUtil
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
+import com.cozooo.dlc_manager.core.DlcPathUtil
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -162,13 +163,20 @@ class DlcPackUpdateCoordinator(
             if (isPackRecordPath(relative)) {
                 continue
             }
-            val target = resolveInside(instanceRoot, relative)
-            if (!Files.exists(target)) {
+            val targets = DlcPathUtil.findMatches(instanceRoot, relative)
+            if (targets.isEmpty()) {
                 continue
             }
-            val displaced = resolveInside(packDir, relative)
-            Files.createDirectories(displaced.parent)
-            Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING)
+            for (target in targets) {
+                val targetRelative = DlcPackMeta.normalizeRelativePath(
+                    instanceRoot.toAbsolutePath().normalize()
+                        .relativize(target.toAbsolutePath().normalize())
+                        .toString(),
+                ) ?: continue
+                val displaced = resolveInside(packDir, targetRelative)
+                Files.createDirectories(displaced.parent)
+                Files.move(target, displaced, StandardCopyOption.REPLACE_EXISTING)
+            }
         }
     }
 
