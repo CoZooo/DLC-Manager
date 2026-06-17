@@ -10,6 +10,7 @@ import kotlin.math.max
 class DlcPackVersionSelectScreen(
     private val parent: DlcPackManagerScreen,
     private val identifier: String,
+    private val displayName: Component,
     private val versions: List<String>,
     private val selectedKey: String,
     private val installedVersion: String?,
@@ -44,7 +45,7 @@ class DlcPackVersionSelectScreen(
     override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
         guiGraphics.drawCenteredString(font, title, width / 2, 18, 0xFFFFFF)
-        guiGraphics.drawCenteredString(font, Component.literal(identifier), width / 2, 32, 0xC8C8C8)
+        guiGraphics.drawCenteredString(font, displayName, width / 2, 32, 0xC8C8C8)
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
     }
 

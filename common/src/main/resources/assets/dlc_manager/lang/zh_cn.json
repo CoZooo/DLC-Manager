@@ -568,6 +568,7 @@
   "dlc_manager.pack.canceled": "已取消拓展包操作。",
   "dlc_manager.pack.url_canceled": "已取消下载。",
   "dlc_manager.pack.apply_success": "拓展包改动已应用。",
+  "dlc_manager.pack.order_applied": "拓展包排序已应用。",
   "dlc_manager.pack.restart_prompt": "拓展包改动已应用。是否立即重启游戏？",
   "dlc_manager.pack.apply_failed": "应用失败：%s",
   "dlc_manager.pack.apply_confirm_title": "确认拓展包替换",

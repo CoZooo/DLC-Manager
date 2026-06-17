@@ -272,18 +272,22 @@ class DlcPackManagerScreen(
     }
 
     private fun drawSizedButton(guiGraphics: GuiGraphics, x: Int, y: Int, buttonWidth: Int, label: Component, mouseX: Int, mouseY: Int) {
+        drawSizedButton(guiGraphics, x, y, buttonWidth, label, mouseX, mouseY, 0xFFFFFF)
+    }
+
+    private fun drawSizedButton(guiGraphics: GuiGraphics, x: Int, y: Int, buttonWidth: Int, label: Component, mouseX: Int, mouseY: Int, textColor: Int) {
         val hover = mouseX >= x && mouseX < x + buttonWidth && mouseY >= y && mouseY < y + BUTTON_HEIGHT
         guiGraphics.fill(x, y, x + buttonWidth, y + BUTTON_HEIGHT, if (hover) 0xFF5A5A5A.toInt() else 0xFF404040.toInt())
-        guiGraphics.drawCenteredString(font, label, x + buttonWidth / 2, y + 4, 0xFFFFFF)
+        guiGraphics.drawCenteredString(font, label, x + buttonWidth / 2, y + 4, textColor)
     }
 
     private fun drawOrderButtons(guiGraphics: GuiGraphics, group: PackArchiveGroup, index: Int, x: Int, rowY: Int, rowHeight: Int, mouseX: Int, mouseY: Int) {
         val startY = centeredButtonColumnY(rowY, rowHeight, ORDER_BUTTON_SLOTS)
         if (canMoveUp(index)) {
-            drawSizedButton(guiGraphics, x, startY, ORDER_BUTTON_WIDTH, Component.literal("^"), mouseX, mouseY)
+            drawSizedButton(guiGraphics, x, startY, ORDER_BUTTON_WIDTH, Component.literal("▲"), mouseX, mouseY)
         }
         if (canMoveDown(index)) {
-            drawSizedButton(guiGraphics, x, startY + BUTTON_HEIGHT + BUTTON_GAP, ORDER_BUTTON_WIDTH, Component.literal("v"), mouseX, mouseY)
+            drawSizedButton(guiGraphics, x, startY + BUTTON_HEIGHT + BUTTON_GAP, ORDER_BUTTON_WIDTH, Component.literal("▼"), mouseX, mouseY)
         }
     }
 
@@ -296,17 +300,15 @@ class DlcPackManagerScreen(
     }
 
     private fun drawVersionLine(guiGraphics: GuiGraphics, group: PackArchiveGroup, x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int) {
-        if (group.versions.size <= 1) {
-            guiGraphics.drawString(font, Component.translatable("dlc_manager.pack.version_line", group.displayEntry.metadata.version), x, y + 4, 0xAFC8FF, false)
-            return
-        }
         val prefix = Component.translatable("dlc_manager.pack.version_prefix")
         val prefixWidth = font.width(prefix)
+        val valueX = x + prefixWidth + VERSION_VALUE_GAP
         guiGraphics.drawString(font, prefix, x, y + 4, 0xAFC8FF, false)
-        val buttonLabel = versionButtonLabel(group)
-        val buttonWidth = versionButtonWidth(group)
-        val buttonX = x + prefixWidth + 6
-        drawSizedButton(guiGraphics, buttonX, y, buttonWidth, buttonLabel, mouseX, mouseY)
+        if (group.versions.size <= 1) {
+            guiGraphics.drawString(font, Component.literal(group.displayEntry.metadata.version), valueX, y + 4, 0xAFC8FF, false)
+            return
+        }
+        drawSizedButton(guiGraphics, valueX - VERSION_BUTTON_HORIZONTAL_PADDING, y, versionButtonWidth(group), versionButtonLabel(group), mouseX, mouseY, VERSION_BUTTON_TEXT_COLOR)
     }
 
     private fun centeredButtonColumnY(rowY: Int, rowHeight: Int, count: Int): Int {
@@ -406,9 +408,9 @@ class DlcPackManagerScreen(
             moveEntry(index, if (orderAction == RowAction.MOVE_UP) -1 else 1)
             return true
         }
-        val versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right) + 1, mouseX, mouseY)
+        val versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY)
         if (versionAction) {
-            Minecraft.getInstance().setScreen(DlcPackVersionSelectScreen(this, group.identifier, group.versions.map { it.key }, group.selectedVersionKey, installedByIdentifier[group.identifier]?.version))
+            Minecraft.getInstance().setScreen(DlcPackVersionSelectScreen(this, group.identifier, group.displayEntry.displayName, group.versions.map { it.key }, group.selectedVersionKey, installedByIdentifier[group.identifier]?.version))
             return true
         }
         val rowAction = actionButtonAt(group, right - BUTTON_WIDTH - 6, rowTop, rowHeight, mouseX, mouseY)
@@ -510,10 +512,25 @@ class DlcPackManagerScreen(
         Files.deleteIfExists(entry.archivePath)
         if (pendingInstalls[entry.metadata.identifier] === entry) pendingInstalls.remove(entry.metadata.identifier)
         pendingUninstalls.remove(entry.metadata.identifier)
-        currentArchiveOrder = currentArchiveOrder.filterNot { orderKeyMatchesIdentifier(it, entry.metadata.identifier) }
-        committedArchiveOrder = committedArchiveOrder.filterNot { orderKeyMatchesIdentifier(it, entry.metadata.identifier) }
-        entryArchiveOrder = entryArchiveOrder.filterNot { orderKeyMatchesIdentifier(it, entry.metadata.identifier) }
+        val replacementKey = group.versions.firstOrNull { it.key != entry.key }?.key
+        currentArchiveOrder = replaceOrRemoveDeletedOrderKey(currentArchiveOrder, entry, replacementKey)
+        committedArchiveOrder = replaceOrRemoveDeletedOrderKey(committedArchiveOrder, entry, replacementKey)
+        entryArchiveOrder = replaceOrRemoveDeletedOrderKey(entryArchiveOrder, entry, replacementKey)
         saveLiveOrder(currentArchiveOrder)
+    }
+
+    private fun replaceOrRemoveDeletedOrderKey(order: List<String>, entry: PackArchiveEntry, replacementKey: String?): List<String> {
+        val out = ArrayList<String>(order.size)
+        for (key in order) {
+            if (!orderKeyMatchesIdentifier(key, entry.metadata.identifier)) {
+                out.add(key)
+                continue
+            }
+            if (replacementKey != null && !out.contains(replacementKey)) {
+                out.add(if (key == entry.key) replacementKey else key)
+            }
+        }
+        return out
     }
 
     private fun confirmOpenLink(entry: PackArchiveEntry, key: String) {
@@ -569,8 +586,8 @@ class DlcPackManagerScreen(
             RowAction.DELETE -> Component.translatable("dlc_manager.pack.delete")
             RowAction.FEEDBACK -> Component.translatable("dlc_manager.pack.feedback")
             RowAction.SUPPORT -> Component.translatable("dlc_manager.pack.support_author")
-            RowAction.MOVE_UP -> Component.literal("^")
-            RowAction.MOVE_DOWN -> Component.literal("v")
+            RowAction.MOVE_UP -> Component.literal("▲")
+            RowAction.MOVE_DOWN -> Component.literal("▼")
         }
     }
 
@@ -607,23 +624,20 @@ class DlcPackManagerScreen(
     }
 
     private fun versionButtonLabel(group: PackArchiveGroup): Component {
+        val version = Component.literal(group.displayEntry.metadata.version)
         return if (isInstalledVersion(group.displayEntry)) {
-            Component.translatable("dlc_manager.pack.version_current_short", group.displayEntry.metadata.version)
+            Component.translatable("dlc_manager.pack.version_current_short", version)
         } else {
-            Component.literal(group.displayEntry.metadata.version)
+            version
         }
     }
 
     private fun versionButtonWidth(group: PackArchiveGroup): Int {
-        val maxVersionWidth = group.versions.maxOfOrNull {
-            val label = if (isInstalledVersion(it)) Component.translatable("dlc_manager.pack.version_current_short", it.metadata.version) else Component.literal(it.metadata.version)
-            font.width(label)
-        } ?: font.width(group.displayEntry.metadata.version)
-        return max(54, min(118, maxVersionWidth + 18))
+        return font.width(versionButtonLabel(group)) + VERSION_BUTTON_HORIZONTAL_PADDING * 2
     }
 
     private fun versionButtonX(): Int {
-        return listLeft + ORDER_BUTTON_WIDTH + 12 + ICON_SIZE + 8 + font.width(Component.translatable("dlc_manager.pack.version_prefix")) + 6
+        return listLeft + ORDER_BUTTON_WIDTH + 12 + ICON_SIZE + 8 + font.width(Component.translatable("dlc_manager.pack.version_prefix")) + VERSION_VALUE_GAP - VERSION_BUTTON_HORIZONTAL_PADDING
     }
 
     private fun versionLineY(group: PackArchiveGroup, rowY: Int, right: Int): Int {
@@ -696,22 +710,10 @@ class DlcPackManagerScreen(
         Files.createDirectories(packRoot)
         var fileName = source.fileName?.toString() ?: "pack.zip"
         if (!fileName.lowercase(Locale.ROOT).endsWith(".zip")) fileName += ".zip"
-        val target = uniquePath(packRoot, fileName)
+        val target = packRoot.resolve(fileName)
+        if (source.toAbsolutePath().normalize() == target.toAbsolutePath().normalize()) return target
         Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
         return target
-    }
-
-    private fun uniquePath(dir: Path, fileName: String): Path {
-        val target = dir.resolve(fileName)
-        if (!Files.exists(target)) return target
-        val dot = fileName.lastIndexOf('.')
-        val base = if (dot > 0) fileName.substring(0, dot) else fileName
-        val ext = if (dot > 0) fileName.substring(dot) else ""
-        for (i in 1 until 10000) {
-            val candidate = dir.resolve("$base-$i$ext")
-            if (!Files.exists(candidate)) return candidate
-        }
-        return dir.resolve("$base-${System.nanoTime()}$ext")
     }
 
     private fun applyPendingChanges() {
@@ -1232,6 +1234,9 @@ class DlcPackManagerScreen(
         } else {
             normalizedSaved
         }
+        if (!preserveCurrentOrder) {
+            entryArchiveOrder = committedArchiveOrder.toList()
+        }
         saveLiveOrder(committedArchiveOrder)
         currentArchiveOrder = if (preserveCurrentOrder) {
             committedArchiveOrder
@@ -1744,6 +1749,9 @@ class DlcPackManagerScreen(
         private const val BUTTON_HEIGHT = 16
         private const val BUTTON_GAP = 4
         private const val VERSION_LINE_HEIGHT = 18
+        private const val VERSION_VALUE_GAP = 6
+        private const val VERSION_BUTTON_HORIZONTAL_PADDING = 6
+        private const val VERSION_BUTTON_TEXT_COLOR = 0xAFC8FF
         private const val ORDER_BUTTON_WIDTH = 18
         private const val ORDER_BUTTON_SLOTS = 2
         private const val HOMEPAGE_PROMPT_GAP = 12

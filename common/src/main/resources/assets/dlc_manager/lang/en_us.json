@@ -568,6 +568,7 @@
   "dlc_manager.pack.canceled": "DLC Pack operation canceled.",
   "dlc_manager.pack.url_canceled": "Download canceled.",
   "dlc_manager.pack.apply_success": "DLC Pack changes applied.",
+  "dlc_manager.pack.order_applied": "DLC Pack order applied.",
   "dlc_manager.pack.restart_prompt": "DLC Pack changes applied. Restart Minecraft now?",
   "dlc_manager.pack.apply_failed": "Apply failed: %s",
   "dlc_manager.pack.apply_confirm_title": "Confirm DLC Pack Replacement",

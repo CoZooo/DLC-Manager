@@ -55,6 +55,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final int BUTTON_HEIGHT = 16;
     private static final int BUTTON_GAP = 4;
     private static final int VERSION_LINE_HEIGHT = 18;
+    private static final int VERSION_VALUE_GAP = 6;
+    private static final int VERSION_BUTTON_HORIZONTAL_PADDING = 6;
+    private static final int VERSION_BUTTON_TEXT_COLOR = 0xAFC8FF;
     private static final int ORDER_BUTTON_WIDTH = 18;
     private static final int ORDER_BUTTON_SLOTS = 2;
     private static final int HOMEPAGE_PROMPT_GAP = 12;
@@ -296,18 +299,22 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void drawSizedButton(GuiGraphics guiGraphics, int x, int y, int buttonWidth, Component label, int mouseX, int mouseY) {
+        drawSizedButton(guiGraphics, x, y, buttonWidth, label, mouseX, mouseY, 0xFFFFFF);
+    }
+
+    private void drawSizedButton(GuiGraphics guiGraphics, int x, int y, int buttonWidth, Component label, int mouseX, int mouseY, int textColor) {
         boolean hover = mouseX >= x && mouseX < x + buttonWidth && mouseY >= y && mouseY < y + BUTTON_HEIGHT;
         guiGraphics.fill(x, y, x + buttonWidth, y + BUTTON_HEIGHT, hover ? 0xFF5A5A5A : 0xFF404040);
-        guiGraphics.drawCenteredString(this.font, label, x + buttonWidth / 2, y + 4, 0xFFFFFF);
+        guiGraphics.drawCenteredString(this.font, label, x + buttonWidth / 2, y + 4, textColor);
     }
 
     private void drawOrderButtons(GuiGraphics guiGraphics, int index, int x, int rowY, int rowHeight, int mouseX, int mouseY) {
         int startY = centeredButtonColumnY(rowY, rowHeight, ORDER_BUTTON_SLOTS);
         if (canMoveUp(index)) {
-            drawSizedButton(guiGraphics, x, startY, ORDER_BUTTON_WIDTH, Component.literal("^"), mouseX, mouseY);
+            drawSizedButton(guiGraphics, x, startY, ORDER_BUTTON_WIDTH, Component.literal("▲"), mouseX, mouseY);
         }
         if (canMoveDown(index)) {
-            drawSizedButton(guiGraphics, x, startY + BUTTON_HEIGHT + BUTTON_GAP, ORDER_BUTTON_WIDTH, Component.literal("v"), mouseX, mouseY);
+            drawSizedButton(guiGraphics, x, startY + BUTTON_HEIGHT + BUTTON_GAP, ORDER_BUTTON_WIDTH, Component.literal("▼"), mouseX, mouseY);
         }
     }
 
@@ -321,14 +328,15 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void drawVersionLine(GuiGraphics guiGraphics, PackArchiveGroup group, int x, int y, int width, int mouseX, int mouseY) {
-        if (group.versions.size() <= 1) {
-            guiGraphics.drawString(this.font, Component.translatable("dlc_manager.pack.version_line", group.displayEntry().metadata.version), x, y + 4, 0xAFC8FF, false);
-            return;
-        }
         Component prefix = Component.translatable("dlc_manager.pack.version_prefix");
         int prefixWidth = this.font.width(prefix);
+        int valueX = x + prefixWidth + VERSION_VALUE_GAP;
         guiGraphics.drawString(this.font, prefix, x, y + 4, 0xAFC8FF, false);
-        drawSizedButton(guiGraphics, x + prefixWidth + 6, y, versionButtonWidth(group), versionButtonLabel(group), mouseX, mouseY);
+        if (group.versions.size() <= 1) {
+            guiGraphics.drawString(this.font, Component.literal(group.displayEntry().metadata.version), valueX, y + 4, 0xAFC8FF, false);
+            return;
+        }
+        drawSizedButton(guiGraphics, valueX - VERSION_BUTTON_HORIZONTAL_PADDING, y, versionButtonWidth(group), versionButtonLabel(group), mouseX, mouseY, VERSION_BUTTON_TEXT_COLOR);
     }
 
     private Component installButtonLabel(PackArchiveGroup group) {
@@ -450,9 +458,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             return true;
         }
 
-        boolean versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right) + 1, mouseX, mouseY);
+        boolean versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY);
         if (versionAction) {
-            Minecraft.getInstance().setScreen(new DlcPackVersionSelectScreen(this, group.identifier, group.versions.stream().map(item -> item.key).toList(), group.selectedVersionKey, installedByIdentifier.get(group.identifier) == null ? null : installedByIdentifier.get(group.identifier).version));
+            Minecraft.getInstance().setScreen(new DlcPackVersionSelectScreen(this, group.identifier, group.displayEntry().displayName, group.versions.stream().map(item -> item.key).toList(), group.selectedVersionKey, installedByIdentifier.get(group.identifier) == null ? null : installedByIdentifier.get(group.identifier).version));
             return true;
         }
 
@@ -550,10 +558,31 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         Files.deleteIfExists(entry.archivePath);
         pendingInstalls.remove(entry.metadata.identifier, entry);
         pendingUninstalls.remove(entry.metadata.identifier);
-        currentArchiveOrder = currentArchiveOrder.stream().filter(key -> !orderKeyMatchesIdentifier(key, entry.metadata.identifier)).toList();
-        committedArchiveOrder = committedArchiveOrder.stream().filter(key -> !orderKeyMatchesIdentifier(key, entry.metadata.identifier)).toList();
-        entryArchiveOrder = entryArchiveOrder.stream().filter(key -> !orderKeyMatchesIdentifier(key, entry.metadata.identifier)).toList();
+        String replacementKey = null;
+        for (PackArchiveEntry version : group.versions) {
+            if (!version.key.equals(entry.key)) {
+                replacementKey = version.key;
+                break;
+            }
+        }
+        currentArchiveOrder = replaceOrRemoveDeletedOrderKey(currentArchiveOrder, entry, replacementKey);
+        committedArchiveOrder = replaceOrRemoveDeletedOrderKey(committedArchiveOrder, entry, replacementKey);
+        entryArchiveOrder = replaceOrRemoveDeletedOrderKey(entryArchiveOrder, entry, replacementKey);
         saveLiveOrder(currentArchiveOrder);
+    }
+
+    private List<String> replaceOrRemoveDeletedOrderKey(List<String> order, PackArchiveEntry entry, String replacementKey) {
+        List<String> out = new ArrayList<>(order.size());
+        for (String key : order) {
+            if (!orderKeyMatchesIdentifier(key, entry.metadata.identifier)) {
+                out.add(key);
+                continue;
+            }
+            if (replacementKey != null && !out.contains(replacementKey)) {
+                out.add(key.equals(entry.key) ? replacementKey : key);
+            }
+        }
+        return out;
     }
 
     private void confirmOpenLink(PackArchiveEntry entry, String key) {
@@ -613,8 +642,8 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             case DELETE -> Component.translatable("dlc_manager.pack.delete");
             case FEEDBACK -> Component.translatable("dlc_manager.pack.feedback");
             case SUPPORT -> Component.translatable("dlc_manager.pack.support_author");
-            case MOVE_UP -> Component.literal("^");
-            case MOVE_DOWN -> Component.literal("v");
+            case MOVE_UP -> Component.literal("▲");
+            case MOVE_DOWN -> Component.literal("▼");
         };
     }
 
@@ -652,24 +681,18 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
     private Component versionButtonLabel(PackArchiveGroup group) {
         PackArchiveEntry entry = group.displayEntry();
+        Component version = Component.literal(entry.metadata.version);
         return isInstalledVersion(entry)
-            ? Component.translatable("dlc_manager.pack.version_current_short", entry.metadata.version)
-            : Component.literal(entry.metadata.version);
+            ? Component.translatable("dlc_manager.pack.version_current_short", version)
+            : version;
     }
 
     private int versionButtonWidth(PackArchiveGroup group) {
-        int maxVersionWidth = this.font.width(group.displayEntry().metadata.version);
-        for (PackArchiveEntry entry : group.versions) {
-            Component label = isInstalledVersion(entry)
-                ? Component.translatable("dlc_manager.pack.version_current_short", entry.metadata.version)
-                : Component.literal(entry.metadata.version);
-            maxVersionWidth = Math.max(maxVersionWidth, this.font.width(label));
-        }
-        return Math.max(54, Math.min(118, maxVersionWidth + 18));
+        return this.font.width(versionButtonLabel(group)) + VERSION_BUTTON_HORIZONTAL_PADDING * 2;
     }
 
     private int versionButtonX() {
-        return getListLeft() + ORDER_BUTTON_WIDTH + 12 + ICON_SIZE + 8 + this.font.width(Component.translatable("dlc_manager.pack.version_prefix")) + 6;
+        return getListLeft() + ORDER_BUTTON_WIDTH + 12 + ICON_SIZE + 8 + this.font.width(Component.translatable("dlc_manager.pack.version_prefix")) + VERSION_VALUE_GAP - VERSION_BUTTON_HORIZONTAL_PADDING;
     }
 
     private int versionLineY(PackArchiveGroup group, int rowY, int right) {
@@ -748,26 +771,12 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (!fileName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
             fileName = fileName + ".zip";
         }
-        Path target = uniquePath(packRoot, fileName);
-        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-        return target;
-    }
-
-    private Path uniquePath(Path dir, String fileName) {
-        Path target = dir.resolve(fileName);
-        if (!Files.exists(target)) {
+        Path target = packRoot.resolve(fileName);
+        if (source.toAbsolutePath().normalize().equals(target.toAbsolutePath().normalize())) {
             return target;
         }
-        int dot = fileName.lastIndexOf('.');
-        String base = dot > 0 ? fileName.substring(0, dot) : fileName;
-        String ext = dot > 0 ? fileName.substring(dot) : "";
-        for (int i = 1; i < 10000; i++) {
-            Path candidate = dir.resolve(base + "-" + i + ext);
-            if (!Files.exists(candidate)) {
-                return candidate;
-            }
-        }
-        return dir.resolve(base + "-" + System.nanoTime() + ext);
+        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+        return target;
     }
 
     private void applyPendingChanges() {
@@ -1348,6 +1357,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             orderSnapshotInitialized = true;
         }
         committedArchiveOrder = preserveCurrentOrder ? normalizeGroupOrder(currentArchiveOrder, scanned) : normalizedSaved;
+        if (!preserveCurrentOrder) {
+            entryArchiveOrder = List.copyOf(committedArchiveOrder);
+        }
         saveLiveOrder(committedArchiveOrder);
         if (preserveCurrentOrder) {
             currentArchiveOrder = committedArchiveOrder;

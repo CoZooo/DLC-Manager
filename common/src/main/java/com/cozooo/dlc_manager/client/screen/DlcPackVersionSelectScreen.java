@@ -10,6 +10,7 @@ import java.util.List;
 public class DlcPackVersionSelectScreen extends DlcScreenCompat.MouseScroll {
     private final DlcPackManagerScreen parent;
     private final String identifier;
+    private final Component displayName;
     private final List<String> versions;
     private final String selectedKey;
     private final String installedVersion;
@@ -17,6 +18,7 @@ public class DlcPackVersionSelectScreen extends DlcScreenCompat.MouseScroll {
     public DlcPackVersionSelectScreen(
         DlcPackManagerScreen parent,
         String identifier,
+        Component displayName,
         List<String> versions,
         String selectedKey,
         String installedVersion
@@ -24,6 +26,7 @@ public class DlcPackVersionSelectScreen extends DlcScreenCompat.MouseScroll {
         super(Component.translatable("dlc_manager.pack.version_select_title"));
         this.parent = parent;
         this.identifier = identifier;
+        this.displayName = displayName;
         this.versions = versions;
         this.selectedKey = selectedKey;
         this.installedVersion = installedVersion;
@@ -59,7 +62,7 @@ public class DlcPackVersionSelectScreen extends DlcScreenCompat.MouseScroll {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
         DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
         guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 18, 0xFFFFFF);
-        guiGraphics.drawCenteredString(this.font, Component.literal(identifier), this.width / 2, 32, 0xC8C8C8);
+        guiGraphics.drawCenteredString(this.font, displayName, this.width / 2, 32, 0xC8C8C8);
         DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
     }
 
