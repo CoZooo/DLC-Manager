@@ -59,8 +59,13 @@ class DlcPackManagerScreen(
     private var status: Component? = null
     @Volatile private var busy = false
     @Volatile private var cancelRequested = false
+    @Volatile private var paused = false
+    @Volatile private var busyOperation = BusyOperation.NONE
     @Volatile private var operationProgress = -1f
     @Volatile private var operationStatus: Component? = null
+    private var pausedAllowRuntimeChanges = false
+    private val pausedReinstallIdentifiers = LinkedHashSet<String>()
+    @Volatile private var activeReinstallIdentifiers: Set<String> = emptySet()
     private var iconTextureSerial = 0
 
     override fun init() {
@@ -74,16 +79,24 @@ class DlcPackManagerScreen(
         if (busy) {
             val gap = 8
             val startX = width / 2 - buttonWidth - gap / 2
+            val canResume = paused && busyOperation == BusyOperation.APPLY
             val cancel = Button.builder(
-                if (cancelRequested) Component.translatable("dlc_manager.pack.canceling") else Component.translatable("dlc_manager.pack.cancel")
-            ) { onBackOrCancel() }
+                when {
+                    canResume -> Component.translatable("dlc_manager.pack.continue_install")
+                    cancelRequested && busyOperation == BusyOperation.APPLY -> Component.translatable("dlc_manager.pack.pausing")
+                    cancelRequested -> Component.translatable("dlc_manager.pack.canceling")
+                    else -> Component.translatable("dlc_manager.pack.cancel")
+                }
+            ) {
+                if (canResume) resumePausedApply() else onBackOrCancel()
+            }
                 .bounds(startX, y, buttonWidth, buttonHeight)
                 .build()
-            cancel.active = !cancelRequested
-            val back = Button.builder(Component.translatable("dlc_manager.pack.back")) {}
+            cancel.active = canResume || (!cancelRequested && busyOperation != BusyOperation.DELETE)
+            val back = Button.builder(Component.translatable("dlc_manager.pack.back")) { returnToParent() }
                 .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
                 .build()
-            back.active = false
+            back.active = canResume
             backButton = cancel
             addRenderableWidget(cancel)
             addRenderableWidget(back)
@@ -426,7 +439,7 @@ class DlcPackManagerScreen(
 
     private fun startDeleteArchive(entry: PackArchiveEntry, uninstallFirst: Boolean) {
         if (uninstallFirst) {
-            setBusy(true, Component.translatable("dlc_manager.pack.operation_uninstalling"))
+            setBusy(true, Component.translatable("dlc_manager.pack.operation_uninstalling"), BusyOperation.DELETE)
             Thread({
                 try {
                     val installer = DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot())
@@ -559,7 +572,7 @@ class DlcPackManagerScreen(
             return
         }
         val zip = DlcFilePicker.pickUpdateZip(Component.translatable("dlc_manager.pack.import").string) ?: return
-        setBusy(true, Component.translatable("dlc_manager.pack.importing"))
+        setBusy(true, Component.translatable("dlc_manager.pack.importing"), BusyOperation.IMPORT)
         updateOperationProgress(Component.translatable("dlc_manager.pack.importing"), -1f)
         Thread({
             var copied: Path? = null
@@ -660,7 +673,8 @@ class DlcPackManagerScreen(
     }
 
     private fun startApplyPendingChanges(allowRuntimeChanges: Boolean) {
-        setBusy(true, Component.translatable("dlc_manager.pack.applying"))
+        pausedAllowRuntimeChanges = allowRuntimeChanges
+        setBusy(true, Component.translatable("dlc_manager.pack.applying"), BusyOperation.APPLY)
         updateOperationProgress(Component.translatable("dlc_manager.pack.applying"), 0f)
         Thread({
             try {
@@ -668,9 +682,11 @@ class DlcPackManagerScreen(
                 applyOrderedChanges(installer, allowRuntimeChanges)
                 pendingUninstalls.clear()
                 pendingInstalls.clear()
+                pausedReinstallIdentifiers.clear()
+                activeReinstallIdentifiers = emptySet()
                 finishBusy(Component.translatable("dlc_manager.pack.apply_success"), true)
             } catch (_: DlcDownloadService.DownloadCanceledException) {
-                finishBusy(Component.translatable("dlc_manager.pack.canceled"))
+                pauseApplyOperation()
             } catch (ex: Exception) {
                 finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)))
             }
@@ -679,7 +695,9 @@ class DlcPackManagerScreen(
 
     private fun applyOrderedChanges(installer: DlcPackInstaller, allowRuntimeChanges: Boolean) {
         val ordered = archiveEntries.sortedBy { orderIndex(it.key) }
-        val reinstallIdentifiers = collectAffectedReinstallIdentifiers(ordered)
+        val reinstallIdentifiers = LinkedHashSet(collectAffectedReinstallIdentifiers(ordered))
+        reinstallIdentifiers.addAll(pausedReinstallIdentifiers)
+        activeReinstallIdentifiers = reinstallIdentifiers.toSet()
         val displayMode = determineOperationDisplayMode(reinstallIdentifiers)
         val hasUninstallPhase = ordered.any { entry ->
             val identifier = entry.metadata.identifier
@@ -926,11 +944,16 @@ class DlcPackManagerScreen(
         return if (message.isNullOrBlank()) ex.javaClass.simpleName else message
     }
 
-    private fun setBusy(value: Boolean, message: Component) {
+    private fun setBusy(value: Boolean, message: Component, operation: BusyOperation = BusyOperation.NONE) {
         if (value) {
             cancelRequested = false
+            paused = false
+            busyOperation = operation
             operationProgress = -1f
             operationStatus = message
+        } else {
+            paused = false
+            busyOperation = BusyOperation.NONE
         }
         busy = value
         status = message
@@ -941,8 +964,11 @@ class DlcPackManagerScreen(
         Minecraft.getInstance().execute {
             busy = false
             cancelRequested = false
+            paused = false
+            busyOperation = BusyOperation.NONE
             operationProgress = -1f
             operationStatus = null
+            pausedAllowRuntimeChanges = false
             status = message
             refreshEntries()
             rebuildPackWidgets()
@@ -950,6 +976,34 @@ class DlcPackManagerScreen(
                 showRestartPrompt()
             }
         }
+    }
+
+    private fun pauseApplyOperation() {
+        Minecraft.getInstance().execute {
+            busy = true
+            cancelRequested = false
+            paused = true
+            busyOperation = BusyOperation.APPLY
+            operationProgress = -1f
+            operationStatus = Component.translatable("dlc_manager.pack.paused")
+            status = operationStatus
+            pausedReinstallIdentifiers.clear()
+            pausedReinstallIdentifiers.addAll(activeReinstallIdentifiers)
+            refreshEntries()
+            rebuildPackWidgets()
+        }
+    }
+
+    private fun resumePausedApply() {
+        if (!paused || busyOperation != BusyOperation.APPLY) {
+            return
+        }
+        val allowRuntimeChanges = pausedAllowRuntimeChanges
+        busy = false
+        paused = false
+        cancelRequested = false
+        busyOperation = BusyOperation.NONE
+        startApplyPendingChanges(allowRuntimeChanges)
     }
 
     private fun showRestartPrompt() {
@@ -967,8 +1021,19 @@ class DlcPackManagerScreen(
 
     private fun onBackOrCancel() {
         if (busy) {
+            if (paused && busyOperation == BusyOperation.APPLY) {
+                returnToParent()
+                return
+            }
+            if (busyOperation == BusyOperation.DELETE) {
+                return
+            }
             cancelRequested = true
-            status = Component.translatable("dlc_manager.pack.canceling")
+            status = if (busyOperation == BusyOperation.APPLY) {
+                Component.translatable("dlc_manager.pack.pausing")
+            } else {
+                Component.translatable("dlc_manager.pack.canceling")
+            }
             operationStatus = status
             rebuildPackWidgets()
             return
@@ -978,10 +1043,18 @@ class DlcPackManagerScreen(
             pendingUninstalls.clear()
             currentArchiveOrder = committedArchiveOrder.toList()
             sortArchiveEntriesByCurrentOrder()
-            releaseIconTextures()
-            Minecraft.getInstance().setScreen(parent)
+            returnToParent()
             return
         }
+        returnToParent()
+    }
+
+    private fun returnToParent() {
+        busy = false
+        paused = false
+        cancelRequested = false
+        busyOperation = BusyOperation.NONE
+        activeReinstallIdentifiers = emptySet()
         releaseIconTextures()
         Minecraft.getInstance().setScreen(parent)
     }
@@ -1347,10 +1420,12 @@ class DlcPackManagerScreen(
         init(Minecraft.getInstance(), width, height)
     }
 
-    override fun shouldCloseOnEsc(): Boolean = !busy
+    override fun shouldCloseOnEsc(): Boolean = !busy || paused
 
     override fun onClose() {
-        if (!busy) {
+        if (paused) {
+            returnToParent()
+        } else if (!busy) {
             onBackOrCancel()
         }
     }
@@ -1381,6 +1456,13 @@ class DlcPackManagerScreen(
         APPLYING,
         INSTALLING,
         UNINSTALLING,
+    }
+
+    private enum class BusyOperation {
+        NONE,
+        APPLY,
+        IMPORT,
+        DELETE,
     }
 
     private enum class RowAction {
