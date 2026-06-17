@@ -17,6 +17,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.atomic.AtomicLong
 
 object DlcDownloadService {
@@ -283,12 +284,14 @@ object DlcDownloadService {
             mirrorComparisons++
         }
         val executor = Executors.newSingleThreadExecutor()
+        val primarySpeedRef = AtomicReference(primarySpeed)
         return SourceProbe(
             switchPlan.alternateUrl,
             switchPlan.primaryIsMirror,
             switchPlan.alternateIsMirror,
-            executor.submit<Double> { probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker) },
+            executor.submit<Double> { probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef) },
             executor,
+            primarySpeedRef,
         )
     }
 
@@ -296,6 +299,7 @@ object DlcDownloadService {
         if (probe.preselected) {
             return true
         }
+        probe.primarySpeedRef?.set(primarySpeed)
         val alternateSpeed = try {
             probe.future?.get() ?: 0.0
         } catch (_: Exception) {
@@ -366,7 +370,12 @@ object DlcDownloadService {
         return SpeedRule(timeoutSpeed, bucketSpeed, maxOf(timeoutSpeed, bucketSpeed))
     }
 
-    private fun probeDownloadSpeed(url: String, windowMs: Long, cancelChecker: CancelChecker?): Double {
+    private fun probeDownloadSpeed(
+        url: String,
+        windowMs: Long,
+        cancelChecker: CancelChecker?,
+        primarySpeedRef: AtomicReference<Double>,
+    ): Double {
         var connection: HttpURLConnection? = null
         return try {
             connection = URI.create(url).toURL().openConnection() as HttpURLConnection
@@ -382,6 +391,9 @@ object DlcDownloadService {
             val start = System.nanoTime()
             val deadline = start + TimeUnit.MILLISECONDS.toNanos(windowMs)
             var bytes = 0L
+            var windowStart = start
+            var windowBytes = 0L
+            var maxSpeed = 0.0
             val buffer = ByteArray(8192)
             BufferedInputStream(connection.inputStream).use { input ->
                 while (System.nanoTime() < deadline) {
@@ -393,10 +405,20 @@ object DlcDownloadService {
                         break
                     }
                     bytes += read.toLong()
+                    windowBytes += read.toLong()
+                    val now = System.nanoTime()
+                    if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                        maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                        if (maxSpeed > primarySpeedRef.get()) {
+                            return maxSpeed
+                        }
+                        windowStart = now
+                        windowBytes = 0L
+                    }
                 }
             }
             val elapsed = maxOf(1L, System.nanoTime() - start)
-            bytes * 1_000_000_000.0 / elapsed
+            maxOf(maxSpeed, bytes * 1_000_000_000.0 / elapsed)
         } catch (ex: DownloadCanceledException) {
             throw ex
         } catch (_: Exception) {
@@ -547,6 +569,7 @@ object DlcDownloadService {
                 val now = System.nanoTime()
                 if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                     maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                    sourceProbe?.primarySpeedRef?.set(maxSpeed)
                     windowStart = now
                     windowBytes = 0L
                 }
@@ -554,6 +577,7 @@ object DlcDownloadService {
                     checked = true
                     if (windowBytes > 0) {
                         maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                        sourceProbe?.primarySpeedRef?.set(maxSpeed)
                     }
                     sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker)
                     if (sourceProbe?.preselected == true) {
@@ -665,6 +689,7 @@ object DlcDownloadService {
                             val now = System.nanoTime()
                             if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                                 maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                                sourceProbe?.primarySpeedRef?.set(maxSpeed)
                                 windowStart = now
                                 windowBytes = 0L
                             }
@@ -672,6 +697,7 @@ object DlcDownloadService {
                                 checked = true
                                 if (windowBytes > 0) {
                                     maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                                    sourceProbe?.primarySpeedRef?.set(maxSpeed)
                                 }
                                 sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker)
                                 if (sourceProbe?.preselected == true) {
@@ -685,6 +711,7 @@ object DlcDownloadService {
                             if (probe != null && probe.future?.isDone == true) {
                                 if (windowBytes > 0) {
                                     maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
+                                    sourceProbe?.primarySpeedRef?.set(maxSpeed)
                                 }
                                 return InitialRangeResult(read, false, finishSourceProbe(maxSpeed, probe))
                             }
@@ -1104,6 +1131,7 @@ object DlcDownloadService {
         val alternateIsMirror: Boolean,
         val future: Future<Double>?,
         val executor: ExecutorService?,
+        val primarySpeedRef: AtomicReference<Double>? = null,
         val preselected: Boolean = false,
     ) {
         companion object {
@@ -1111,6 +1139,7 @@ object DlcDownloadService {
                 switchPlan.alternateUrl,
                 switchPlan.primaryIsMirror,
                 switchPlan.alternateIsMirror,
+                null,
                 null,
                 null,
                 true,

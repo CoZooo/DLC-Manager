@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class DlcDownloadService {
@@ -288,12 +289,14 @@ public final class DlcDownloadService {
             mirrorComparisons++;
         }
         ExecutorService executor = Executors.newSingleThreadExecutor();
+        AtomicReference<Double> primarySpeedRef = new AtomicReference<>(primarySpeed);
         return new SourceProbe(
             switchPlan.alternateUrl,
             switchPlan.primaryIsMirror,
             switchPlan.alternateIsMirror,
-            executor.submit(() -> probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker)),
+            executor.submit(() -> probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef)),
             executor,
+            primarySpeedRef,
             false
         );
     }
@@ -301,6 +304,9 @@ public final class DlcDownloadService {
     private static boolean finishSourceProbe(double primarySpeed, SourceProbe probe) {
         if (probe.preselected) {
             return true;
+        }
+        if (probe.primarySpeedRef != null) {
+            probe.primarySpeedRef.set(primarySpeed);
         }
         double alternateSpeed;
         try {
@@ -382,7 +388,8 @@ public final class DlcDownloadService {
         return new SpeedRule(timeoutSpeed, bucketSpeed, Math.max(timeoutSpeed, bucketSpeed));
     }
 
-    private static double probeDownloadSpeed(String url, long windowMs, CancelChecker cancelChecker) throws IOException {
+    private static double probeDownloadSpeed(String url, long windowMs, CancelChecker cancelChecker,
+                                             AtomicReference<Double> primarySpeedRef) throws IOException {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
@@ -398,6 +405,9 @@ public final class DlcDownloadService {
             long start = System.nanoTime();
             long deadline = start + TimeUnit.MILLISECONDS.toNanos(windowMs);
             long bytes = 0L;
+            long windowStart = start;
+            long windowBytes = 0L;
+            double maxSpeed = 0.0;
             byte[] buffer = new byte[8192];
             try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream())) {
                 while (System.nanoTime() < deadline) {
@@ -409,10 +419,21 @@ public final class DlcDownloadService {
                         break;
                     }
                     bytes += read;
+                    windowBytes += read;
+                    long now = System.nanoTime();
+                    if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                        maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                        if (maxSpeed > primarySpeedRef.get()) {
+                            return maxSpeed;
+                        }
+                        windowStart = now;
+                        windowBytes = 0L;
+                    }
                 }
             }
             long elapsed = Math.max(1L, System.nanoTime() - start);
-            return bytes * 1_000_000_000.0 / elapsed;
+            maxSpeed = Math.max(maxSpeed, bytes * 1_000_000_000.0 / elapsed);
+            return maxSpeed;
         } catch (DownloadCanceledException ex) {
             throw ex;
         } catch (Exception ignored) {
@@ -553,6 +574,9 @@ public final class DlcDownloadService {
                 long now = System.nanoTime();
                 if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                     maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                    if (sourceProbe != null && sourceProbe.primarySpeedRef != null) {
+                        sourceProbe.primarySpeedRef.set(maxSpeed);
+                    }
                     windowStart = now;
                     windowBytes = 0L;
                 }
@@ -560,6 +584,9 @@ public final class DlcDownloadService {
                     checked = true;
                     if (windowBytes > 0) {
                         maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                        if (sourceProbe != null && sourceProbe.primarySpeedRef != null) {
+                            sourceProbe.primarySpeedRef.set(maxSpeed);
+                        }
                     }
                     sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker);
                     if (sourceProbe != null && sourceProbe.preselected) {
@@ -662,6 +689,9 @@ public final class DlcDownloadService {
                         long now = System.nanoTime();
                         if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                             maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                            if (sourceProbe != null && sourceProbe.primarySpeedRef != null) {
+                                sourceProbe.primarySpeedRef.set(maxSpeed);
+                            }
                             windowStart = now;
                             windowBytes = 0L;
                         }
@@ -669,6 +699,9 @@ public final class DlcDownloadService {
                             checked = true;
                             if (windowBytes > 0) {
                                 maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                                if (sourceProbe != null && sourceProbe.primarySpeedRef != null) {
+                                    sourceProbe.primarySpeedRef.set(maxSpeed);
+                                }
                             }
                             sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker);
                             if (sourceProbe != null && sourceProbe.preselected) {
@@ -681,6 +714,9 @@ public final class DlcDownloadService {
                         if (sourceProbe != null && sourceProbe.future != null && sourceProbe.future.isDone()) {
                             if (windowBytes > 0) {
                                 maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                                if (sourceProbe != null && sourceProbe.primarySpeedRef != null) {
+                                    sourceProbe.primarySpeedRef.set(maxSpeed);
+                                }
                             }
                             return new InitialRangeResult(read, false, finishSourceProbe(maxSpeed, sourceProbe));
                         }
@@ -1046,12 +1082,14 @@ public final class DlcDownloadService {
     }
 
     private record SourceProbe(String alternateUrl, boolean primaryIsMirror, boolean alternateIsMirror,
-                               Future<Double> future, ExecutorService executor, boolean preselected) {
+                               Future<Double> future, ExecutorService executor, AtomicReference<Double> primarySpeedRef,
+                               boolean preselected) {
         private static SourceProbe selected(SourceSwitchPlan switchPlan) {
             return new SourceProbe(
                 switchPlan.alternateUrl,
                 switchPlan.primaryIsMirror,
                 switchPlan.alternateIsMirror,
+                null,
                 null,
                 null,
                 true
