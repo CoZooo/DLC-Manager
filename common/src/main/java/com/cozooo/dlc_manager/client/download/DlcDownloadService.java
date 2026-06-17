@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class DlcDownloadService {
     private static final String MEDIAFILEZ_HOST = "mediafilez.forgecdn.net";
     private static final String EDGE_FORGECDN_HOST = "edge.forgecdn.net";
+    private static final String MODRINTH_CDN_HOST = "cdn.modrinth.com";
     private static final String MIRROR_HOST = "mod.mcimirror.top";
     private static final long MIRROR_COMPARE_WINDOW_MS = 3000L;
     private static final int MIRROR_DISABLE_FAILURES = 2;
@@ -189,8 +190,7 @@ public final class DlcDownloadService {
     }
 
     private static MirrorPlan mirrorPlan(String url, String fileName, long totalBytes) {
-        if (!DlcDownloadUtil.isLikelyFileName(fileName)
-            || !isCurseForgeCdnUrl(url)) {
+        if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
             return null;
         }
         String mirrorUrl = mirrorDownloadUrl(url);
@@ -544,7 +544,9 @@ public final class DlcDownloadService {
     private static String mirrorDownloadUrl(String url) {
         try {
             URI uri = URI.create(url);
-            if (!MEDIAFILEZ_HOST.equalsIgnoreCase(uri.getHost()) && !EDGE_FORGECDN_HOST.equalsIgnoreCase(uri.getHost())) {
+            boolean curseForge = MEDIAFILEZ_HOST.equalsIgnoreCase(uri.getHost()) || EDGE_FORGECDN_HOST.equalsIgnoreCase(uri.getHost());
+            boolean modrinth = MODRINTH_CDN_HOST.equalsIgnoreCase(uri.getHost()) && isModrinthDownloadPath(uri);
+            if (!curseForge && !modrinth) {
                 return null;
             }
             return new URI(
@@ -559,6 +561,11 @@ public final class DlcDownloadService {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private static boolean isModrinthDownloadPath(URI uri) {
+        String path = uri == null ? null : uri.getPath();
+        return path != null && path.matches("/data/[^/]+/versions/[^/]+/[^/]+");
     }
 
     private static void downloadSingleSwitchAware(String url, SourceSwitchPlan switchPlan, Path temp, long knownTotal,

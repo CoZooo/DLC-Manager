@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicLong
 object DlcDownloadService {
     private const val MEDIAFILEZ_HOST = "mediafilez.forgecdn.net"
     private const val EDGE_FORGECDN_HOST = "edge.forgecdn.net"
+    private const val MODRINTH_CDN_HOST = "cdn.modrinth.com"
     private const val MIRROR_HOST = "mod.mcimirror.top"
     private const val MIRROR_COMPARE_WINDOW_MS = 3000L
     private const val MIRROR_DISABLE_FAILURES = 2
@@ -199,9 +200,7 @@ object DlcDownloadService {
     }
 
     private fun mirrorPlan(url: String, fileName: String?, totalBytes: Long): MirrorPlan? {
-        if (!DlcDownloadUtil.isLikelyFileName(fileName)
-            || !isCurseForgeCdnUrl(url)
-        ) {
+        if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
             return null
         }
         val mirrorUrl = mirrorDownloadUrl(url) ?: return null
@@ -524,7 +523,9 @@ object DlcDownloadService {
     private fun mirrorDownloadUrl(url: String): String? {
         return try {
             val uri = URI.create(url)
-            if (!uri.host.equals(MEDIAFILEZ_HOST, ignoreCase = true) && !uri.host.equals(EDGE_FORGECDN_HOST, ignoreCase = true)) {
+            val curseForge = uri.host.equals(MEDIAFILEZ_HOST, ignoreCase = true) || uri.host.equals(EDGE_FORGECDN_HOST, ignoreCase = true)
+            val modrinth = uri.host.equals(MODRINTH_CDN_HOST, ignoreCase = true) && isModrinthDownloadPath(uri)
+            if (!curseForge && !modrinth) {
                 null
             } else {
                 URI(uri.scheme ?: "https", uri.userInfo, MIRROR_HOST, uri.port, uri.path, uri.query, uri.fragment).toString()
@@ -532,6 +533,11 @@ object DlcDownloadService {
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun isModrinthDownloadPath(uri: URI?): Boolean {
+        val path = uri?.path
+        return path != null && Regex("/data/[^/]+/versions/[^/]+/[^/]+").matches(path)
     }
 
     @Throws(IOException::class)
