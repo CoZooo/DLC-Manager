@@ -8,6 +8,7 @@ export type DocumentType =
   | "redirect"
   | "update"
   | "version"
+  | "config"
   | "pack";
 
 export type FieldKind =

@@ -140,6 +140,9 @@ export function detectDocumentType(path?: string, text?: string): DocumentType {
   if (name === "version.dc") {
     return "version";
   }
+  if (name === "config.dc") {
+    return "config";
+  }
   if (name === "pack.dc" && looksLikePackConfig(text)) {
     return "pack";
   }

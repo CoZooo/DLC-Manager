@@ -16,6 +16,21 @@ const priorityOptions = [
   { value: "directUrl", label: "directUrl" }
 ];
 
+const downloadMirrorModeOptions = [
+  { value: "smart_precheck", label: "smart_precheck" },
+  { value: "smart_official_first", label: "smart_official_first" },
+  { value: "smart_mirror_first", label: "smart_mirror_first" },
+  { value: "official_only", label: "official_only" },
+  { value: "mirror_only", label: "mirror_only" },
+  { value: "official_first", label: "official_first" },
+  { value: "mirror_first", label: "mirror_first" }
+];
+
+const downloadMirrorProbeStrategyOptions = [
+  { value: "single_best", label: "single_best" },
+  { value: "best_of_three", label: "best_of_three" }
+];
+
 const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: boolean; appliedTargetOnlyFor?: string[] }): SectionSchema => ({
   key: "basic",
   label: "[basic]",
@@ -246,6 +261,79 @@ const packLinksSection: SectionSchema = {
       kind: "text",
       help: "static.help.packSponsor"
     }
+  ]
+};
+
+const configPathsSection: SectionSchema = {
+  key: "paths",
+  label: "[paths]",
+  fields: [
+    { key: "dlcRoot", label: "dlcRoot", kind: "text", help: "static.help.configDlcRoot" },
+    { key: "taczRoot", label: "taczRoot", kind: "text", help: "static.help.configTaczRoot" },
+    { key: "resourcepackRoot", label: "resourcepackRoot", kind: "text", help: "static.help.configResourcepackRoot" },
+    { key: "datapackRoot", label: "datapackRoot", kind: "text", help: "static.help.configDatapackRoot" }
+  ]
+};
+
+const configUiSection: SectionSchema = {
+  key: "ui",
+  label: "[ui]",
+  fields: [
+    { key: "isEnableAllButtonShown", label: "isEnableAllButtonShown", kind: "boolean", help: "static.help.configEnableAllButton" },
+    { key: "isConfigButtonShown", label: "isConfigButtonShown", kind: "boolean", help: "static.help.configConfigButton" },
+    { key: "isUButtomShown", label: "isUButtomShown", kind: "boolean", help: "static.help.configUButton" },
+    { key: "isUpdateManagerOn", label: "isUpdateManagerOn", kind: "boolean", help: "static.help.configUpdateManager" },
+    { key: "isSelfUpdateAutoCheckOn", label: "isSelfUpdateAutoCheckOn", kind: "boolean", help: "static.help.configSelfUpdateAutoCheck" },
+    { key: "isPresetFuncOn", label: "isPresetFuncOn", kind: "boolean", help: "static.help.configPresetFunc" },
+    { key: "isPackFuncOn", label: "isPackFuncOn", kind: "boolean", help: "static.help.configPackFunc" },
+    { key: "isPButtomShown", label: "isPButtomShown", kind: "boolean", help: "static.help.configPButton" },
+    { key: "ShowOnFirstRun", label: "ShowOnFirstRun", kind: "boolean", help: "static.help.configShowOnFirstRun" },
+    { key: "WaitingTime", label: "WaitingTime", kind: "number", help: "static.help.configWaitingTime" },
+    { key: "serverSupport", label: "serverSupport", kind: "boolean", help: "static.help.configServerSupport" },
+    { key: "apiEnabled", label: "apiEnabled", kind: "boolean", help: "static.help.configApiEnabled" },
+    { key: "apiPort", label: "apiPort", kind: "number", help: "static.help.configApiPort" },
+    { key: "apiToken", label: "apiToken", kind: "text", help: "static.help.configApiToken" },
+    { key: "noticeDisplayMode", label: "noticeDisplayMode", kind: "text", help: "static.help.configNoticeDisplayMode" },
+    { key: "noticeButtonAnchor", label: "noticeButtonAnchor", kind: "text", help: "static.help.configNoticeButtonAnchor" },
+    { key: "noticeButtonOffsetX", label: "noticeButtonOffsetX", kind: "number", help: "static.help.configNoticeButtonOffset" },
+    { key: "noticeButtonOffsetY", label: "noticeButtonOffsetY", kind: "number", help: "static.help.configNoticeButtonOffset" },
+    { key: "noticePanelAnchor", label: "noticePanelAnchor", kind: "text", help: "static.help.configNoticePanelAnchor" },
+    { key: "noticePanelOffsetX", label: "noticePanelOffsetX", kind: "number", help: "static.help.configNoticePanelOffset" },
+    { key: "noticePanelOffsetY", label: "noticePanelOffsetY", kind: "number", help: "static.help.configNoticePanelOffset" },
+    { key: "noticePanelWidth", label: "noticePanelWidth", kind: "number", help: "static.help.configNoticePanelSize" },
+    { key: "noticePanelHeight", label: "noticePanelHeight", kind: "number", help: "static.help.configNoticePanelSize" },
+    { key: "titleAnchor", label: "titleAnchor", kind: "text", help: "static.help.configTitleAnchor" },
+    { key: "titleOffsetX", label: "titleOffsetX", kind: "number", help: "static.help.configTitleOffset" },
+    { key: "titleOffsetY", label: "titleOffsetY", kind: "number", help: "static.help.configTitleOffset" },
+    { key: "titleUpdateAnchor", label: "titleUpdateAnchor", kind: "text", help: "static.help.configTitleUpdateAnchor" },
+    { key: "titleUpdateOffsetX", label: "titleUpdateOffsetX", kind: "number", help: "static.help.configTitleUpdateOffset" },
+    { key: "titleUpdateOffsetY", label: "titleUpdateOffsetY", kind: "number", help: "static.help.configTitleUpdateOffset" }
+  ]
+};
+
+const configModpackSection: SectionSchema = {
+  key: "modpack",
+  label: "[modpack]",
+  fields: [
+    { key: "modpack", label: "modpack", kind: "text", help: "static.help.configModpack" },
+    { key: "modpackUrl", label: "modpackUrl", kind: "text", help: "static.help.configModpackUrl" },
+    { key: "updateGitRepo", label: "updateGitRepo", kind: "text", help: "static.help.configUpdateGitRepo" }
+  ]
+};
+
+const configDownloadsSection: SectionSchema = {
+  key: "downloads",
+  label: "[downloads]",
+  fields: [
+    { key: "maxConcurrentDownloads", label: "maxConcurrentDownloads", kind: "number", help: "static.help.configMaxConcurrentDownloads" },
+    { key: "maxSegmentsPerFile", label: "maxSegmentsPerFile", kind: "number", help: "static.help.configMaxSegmentsPerFile" },
+    { key: "minSegmentMB", label: "minSegmentMB", kind: "number", help: "static.help.configMinSegmentMB" },
+    { key: "maxRetryCount", label: "maxRetryCount", kind: "number", help: "static.help.configMaxRetryCount" },
+    { key: "connectTimeoutSeconds", label: "connectTimeoutSeconds", kind: "number", help: "static.help.configConnectTimeoutSeconds" },
+    { key: "taskTimeoutSeconds", label: "taskTimeoutSeconds", kind: "number", help: "static.help.configTaskTimeoutSeconds" },
+    { key: "downloadMirrorMode", label: "downloadMirrorMode", kind: "select", options: downloadMirrorModeOptions, help: "static.help.configDownloadMirrorMode" },
+    { key: "downloadMirrorProbeCount", label: "downloadMirrorProbeCount", kind: "number", help: "static.help.configDownloadMirrorProbeCount" },
+    { key: "downloadMirrorProbeStrategy", label: "downloadMirrorProbeStrategy", kind: "select", options: downloadMirrorProbeStrategyOptions, help: "static.help.configDownloadMirrorProbeStrategy" }
   ]
 };
 
@@ -686,12 +774,6 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         label: "static.label.rootFields",
         fields: [
           {
-            key: "modpack",
-            label: "modpack",
-            kind: "text",
-            help: "static.help.versionModpack"
-          },
-          {
             key: "base",
             label: "base",
             kind: "text",
@@ -705,6 +787,19 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
           }
         ]
       }
+    ]
+  },
+  config: {
+    type: "config",
+    label: "Config",
+    summary: "static.summary.config",
+    defaultFileName: "config.dc",
+    supportsStructured: true,
+    sections: [
+      configPathsSection,
+      configUiSection,
+      configModpackSection,
+      configDownloadsSection
     ]
   },
   pack: {
@@ -742,6 +837,7 @@ export const orderedDocumentTypes: DocumentType[] = [
   "redirect",
   "update",
   "version",
+  "config",
   "pack"
 ];
 
@@ -754,6 +850,7 @@ export const configurableDocumentTypes: DocumentType[] = [
   "redirect",
   "update",
   "version",
+  "config",
   "pack"
 ];
 

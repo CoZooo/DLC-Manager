@@ -33,6 +33,9 @@ function deriveDocumentName(type: DocumentType, model: StructuredModel | null, f
   if (type === "pack") {
     return "pack.dc";
   }
+  if (type === "config") {
+    return "config.dc";
+  }
   if (type !== "info" || !model) {
     return fallbackName;
   }
