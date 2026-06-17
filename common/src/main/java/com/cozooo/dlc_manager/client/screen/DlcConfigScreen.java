@@ -124,6 +124,8 @@ public class DlcConfigScreen extends GuiModConfigs {
         x += gap;
         x = addTabButton(Tab.UI, x, y, height);
         x += gap;
+        x = addTabButton(Tab.MODPACK, x, y, height);
+        x += gap;
         addTabButton(Tab.DOWNLOADS, x, y, height);
 
         String checkLabel = StringUtils.translate("dlc_manager.config.check_update");
@@ -215,6 +217,7 @@ public class DlcConfigScreen extends GuiModConfigs {
         return switch (tab) {
             case SERVER -> DlcPathConfigClient.getServerConfigs();
             case UI -> DlcPathConfigClient.getUiConfigs();
+            case MODPACK -> DlcPathConfigClient.getModpackConfigs();
             case DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs();
             case PATHS -> DlcPathConfigClient.getPathConfigs();
         };
@@ -812,6 +815,7 @@ public class DlcConfigScreen extends GuiModConfigs {
         SERVER("dlc_manager.config.tab.server"),
         PATHS("dlc_manager.config.tab.paths"),
         UI("dlc_manager.config.tab.ui"),
+        MODPACK("dlc_manager.config.tab.modpack"),
         DOWNLOADS("dlc_manager.config.tab.download");
 
         private final String labelKey;

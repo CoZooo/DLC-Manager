@@ -24,8 +24,6 @@ object DlcPathConfigClient {
     private val SHOW_ON_FIRST_RUN = DlcConfigBoolean("ShowOnFirstRun", DlcPathConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun")
     private val ALARM_WAITING_TIME = DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime")
     private val SERVER_SUPPORT_CLIENT = DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport")
-    private val MODPACK_URL = DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl")
-    private val UPDATE_GITHUB_REPO = DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo")
     private val API_ENABLED = DlcConfigBoolean("apiEnabled", DlcPathConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled")
     private val API_PORT = DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 0, 65535, "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort")
     private val API_TOKEN = DlcConfigString("apiToken", DlcPathConfig.DEFAULT_API_TOKEN, "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken")
@@ -44,6 +42,9 @@ object DlcPathConfigClient {
     private val TITLE_UPDATE_ANCHOR = DlcConfigString("titleUpdateAnchor", DlcPathConfig.DEFAULT_TITLE_UPDATE_ANCHOR, "dlc_manager.config.comment.ui.titleUpdateAnchor", "dlc_manager.config.ui.titleUpdateAnchor")
     private val TITLE_UPDATE_OFFSET_X = DlcConfigInteger("titleUpdateOffsetX", DlcPathConfig.DEFAULT_TITLE_UPDATE_OFFSET_X, -10000, 10000, "dlc_manager.config.comment.ui.titleUpdateOffsetX", "dlc_manager.config.ui.titleUpdateOffsetX")
     private val TITLE_UPDATE_OFFSET_Y = DlcConfigInteger("titleUpdateOffsetY", DlcPathConfig.DEFAULT_TITLE_UPDATE_OFFSET_Y, -10000, 10000, "dlc_manager.config.comment.ui.titleUpdateOffsetY", "dlc_manager.config.ui.titleUpdateOffsetY")
+    private val MODPACK = DlcConfigString("modpack", DlcPathConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
+    private val MODPACK_URL = DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
+    private val UPDATE_GIT_REPO = DlcConfigString("updateGitRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
 
     private val MAX_CONCURRENT_DOWNLOADS = DlcConfigInteger("maxConcurrentDownloads", DlcPathConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads")
     private val MAX_SEGMENTS_PER_FILE = DlcConfigInteger("maxSegmentsPerFile", DlcPathConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile")
@@ -68,8 +69,6 @@ object DlcPathConfigClient {
         P_BUTTON,
         SHOW_ON_FIRST_RUN,
         ALARM_WAITING_TIME,
-        MODPACK_URL,
-        UPDATE_GITHUB_REPO,
         NOTICE_DISPLAY_MODE,
         NOTICE_BUTTON_ANCHOR,
         NOTICE_BUTTON_OFFSET_X,
@@ -85,6 +84,12 @@ object DlcPathConfigClient {
         TITLE_UPDATE_ANCHOR,
         TITLE_UPDATE_OFFSET_X,
         TITLE_UPDATE_OFFSET_Y
+    )
+
+    private val MODPACK_CONFIGS: List<IConfigBase> = listOf(
+        MODPACK,
+        MODPACK_URL,
+        UPDATE_GIT_REPO
     )
 
     private val SERVER_CONFIGS: List<IConfigBase> = listOf(
@@ -113,6 +118,9 @@ object DlcPathConfigClient {
     fun getUiConfigs(): List<IConfigBase> = UI_CONFIGS
 
     @JvmStatic
+    fun getModpackConfigs(): List<IConfigBase> = MODPACK_CONFIGS
+
+    @JvmStatic
     fun getServerConfigs(): List<IConfigBase> = SERVER_CONFIGS
 
     @JvmStatic
@@ -136,8 +144,9 @@ object DlcPathConfigClient {
         SHOW_ON_FIRST_RUN.booleanValue = DlcPathConfig.isShowOnFirstRun()
         ALARM_WAITING_TIME.integerValue = DlcPathConfig.getAlarmWaitingTime()
         SERVER_SUPPORT_CLIENT.booleanValue = DlcPathConfig.isServerSupportOn()
+        MODPACK.setValueFromString(DlcPathConfig.getModpack())
         MODPACK_URL.setValueFromString(DlcPathConfig.getModpackUrl())
-        UPDATE_GITHUB_REPO.setValueFromString(DlcPathConfig.getUpdateGithubRepoUrl())
+        UPDATE_GIT_REPO.setValueFromString(DlcPathConfig.getUpdateGitRepoUrl())
         API_ENABLED.booleanValue = DlcPathConfig.isApiEnabled()
         API_PORT.integerValue = DlcPathConfig.getApiPort()
         API_TOKEN.setValueFromString(DlcPathConfig.getApiToken())
@@ -186,8 +195,9 @@ object DlcPathConfigClient {
         DlcPathConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.booleanValue)
         DlcPathConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.integerValue)
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.booleanValue)
+        DlcPathConfig.setModpack(MODPACK.stringValue)
         DlcPathConfig.setModpackUrl(MODPACK_URL.stringValue)
-        DlcPathConfig.setUpdateGithubRepoUrl(UPDATE_GITHUB_REPO.stringValue)
+        DlcPathConfig.setUpdateGitRepoUrl(UPDATE_GIT_REPO.stringValue)
         DlcPathConfig.setApiEnabled(API_ENABLED.booleanValue)
         DlcPathConfig.setApiPort(API_PORT.integerValue)
         DlcPathConfig.setApiToken(API_TOKEN.stringValue)

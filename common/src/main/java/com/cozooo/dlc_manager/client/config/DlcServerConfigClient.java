@@ -23,11 +23,6 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
     private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", "",
         "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
-    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL,
-        "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
-    private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
-        "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
-
     private static final ConfigBoolean UI_ENABLE_ALL = new DlcConfigBoolean("isEnableAllButtonShown", DlcPathConfig.DEFAULT_ENABLE_ALL_SHOWN,
         "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown");
     private static final ConfigBoolean UI_UPDATE_MANAGER = new DlcConfigBoolean("isUpdateManagerOn", DlcPathConfig.DEFAULT_UPDATE_MANAGER_ON,
@@ -38,6 +33,12 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn");
     private static final ConfigInteger UI_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
         "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
+    private static final ConfigString MODPACK = new DlcConfigString("modpack", DlcPathConfig.DEFAULT_MODPACK,
+        "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack");
+    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL,
+        "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl");
+    private static final ConfigString UPDATE_GIT_REPO = new DlcConfigString("updateGitRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
+        "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo");
 
     private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DlcPathConfig.DEFAULT_DLC_ROOT,
         "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot");
@@ -73,9 +74,13 @@ public final class DlcServerConfigClient {
         SERVER_PASSWORD,
         API_ENABLED,
         API_PORT,
-        API_TOKEN,
+        API_TOKEN
+    );
+
+    private static final List<IConfigBase> MODPACK_CONFIGS = List.of(
+        MODPACK,
         MODPACK_URL,
-        UPDATE_GITHUB_REPO
+        UPDATE_GIT_REPO
     );
 
     private static final List<IConfigBase> UI_CONFIGS = List.of(
@@ -116,6 +121,10 @@ public final class DlcServerConfigClient {
         return UI_CONFIGS;
     }
 
+    public static List<IConfigBase> getModpackConfigs() {
+        return MODPACK_CONFIGS;
+    }
+
     public static List<IConfigBase> getPathConfigs() {
         return PATH_CONFIGS;
     }
@@ -133,7 +142,7 @@ public final class DlcServerConfigClient {
         SERVER_PORT.setIntegerValue(getInt(server, "serverPort", SERVER_PORT.getIntegerValue()));
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.getStringValue()));
         MODPACK_URL.setValueFromString(getString(server, "modpackUrl", MODPACK_URL.getStringValue()));
-        UPDATE_GITHUB_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GITHUB_REPO.getStringValue()));
+        UPDATE_GIT_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GIT_REPO.getStringValue()));
 
         JsonObject api = asObject(root, "api");
         API_ENABLED.setBooleanValue(getBoolean(api, "apiEnabled", API_ENABLED.getBooleanValue()));
@@ -146,6 +155,11 @@ public final class DlcServerConfigClient {
         UI_SELF_UPDATE.setBooleanValue(getBoolean(ui, "isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.getBooleanValue()));
         UI_PRESET.setBooleanValue(getBoolean(ui, "isPresetFuncOn", UI_PRESET.getBooleanValue()));
         UI_WAITING_TIME.setIntegerValue(getInt(ui, "WaitingTime", UI_WAITING_TIME.getIntegerValue()));
+
+        JsonObject modpack = asObject(root, "modpack");
+        MODPACK.setValueFromString(getString(modpack, "modpack", MODPACK.getStringValue()));
+        MODPACK_URL.setValueFromString(getString(modpack, "modpackUrl", MODPACK_URL.getStringValue()));
+        UPDATE_GIT_REPO.setValueFromString(getString(modpack, "updateGitRepo", getString(modpack, "updateGithubRepo", UPDATE_GIT_REPO.getStringValue())));
 
         JsonObject paths = asObject(root, "paths");
         DLC_ROOT.setValueFromString(getString(paths, "dlcRoot", DLC_ROOT.getStringValue()));
@@ -171,8 +185,6 @@ public final class DlcServerConfigClient {
         server.addProperty("serverSupport", SERVER_SUPPORT.getBooleanValue());
         server.addProperty("serverPort", SERVER_PORT.getIntegerValue());
         server.addProperty("serverPassword", SERVER_PASSWORD.getStringValue());
-        server.addProperty("modpackUrl", MODPACK_URL.getStringValue());
-        server.addProperty("updateGithubRepo", UPDATE_GITHUB_REPO.getStringValue());
         root.add("server", server);
 
         JsonObject api = new JsonObject();
@@ -188,6 +200,12 @@ public final class DlcServerConfigClient {
         ui.addProperty("isPresetFuncOn", UI_PRESET.getBooleanValue());
         ui.addProperty("WaitingTime", UI_WAITING_TIME.getIntegerValue());
         root.add("ui", ui);
+
+        JsonObject modpack = new JsonObject();
+        modpack.addProperty("modpack", MODPACK.getStringValue());
+        modpack.addProperty("modpackUrl", MODPACK_URL.getStringValue());
+        modpack.addProperty("updateGitRepo", UPDATE_GIT_REPO.getStringValue());
+        root.add("modpack", modpack);
 
         JsonObject paths = new JsonObject();
         paths.addProperty("dlcRoot", DLC_ROOT.getStringValue());

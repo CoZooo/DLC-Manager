@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
 import com.cozooo.dlc_manager.core.DcFormatUtil;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -13,7 +14,6 @@ public class DlcUpdateVersion {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String DEFAULT_VERSION = "1.0.0";
 
-    private String modpack;
     private String base;
     private String dlc;
     private String rollbackFrom;
@@ -21,7 +21,6 @@ public class DlcUpdateVersion {
 
     public static DlcUpdateVersion load(Path dlcRoot) {
         DlcUpdateVersion version = new DlcUpdateVersion();
-        version.modpack = "";
         version.base = DEFAULT_VERSION;
         version.dlc = DEFAULT_VERSION;
         if (dlcRoot == null) {
@@ -37,7 +36,6 @@ public class DlcUpdateVersion {
             if (obj == null) {
                 return version;
             }
-            version.modpack = DcConfigIO.getStringIgnoreCase(obj, "modpack");
             version.base = DcConfigIO.getStringIgnoreCase(obj, "base");
             version.dlc = DcConfigIO.getStringIgnoreCase(obj, "dlc");
             String rollback = DcConfigIO.getStringIgnoreCase(obj, "rollback_from");
@@ -58,9 +56,6 @@ public class DlcUpdateVersion {
         if (version.dlc == null || version.dlc.isBlank()) {
             version.dlc = DEFAULT_VERSION;
         }
-        if (version.modpack == null) {
-            version.modpack = "";
-        }
         return version;
     }
 
@@ -72,7 +67,6 @@ public class DlcUpdateVersion {
         try {
             Files.createDirectories(path.getParent());
             JsonObject obj = new JsonObject();
-            obj.addProperty("modpack", modpack == null ? "" : modpack);
             obj.addProperty("base", base == null || base.isBlank() ? DEFAULT_VERSION : base);
             obj.addProperty("dlc", dlc == null || dlc.isBlank() ? DEFAULT_VERSION : dlc);
             if (rollbackFrom != null && !rollbackFrom.isBlank()) {
@@ -96,11 +90,11 @@ public class DlcUpdateVersion {
     }
 
     public String getModpack() {
-        return modpack;
+        return DlcPathConfig.getModpack();
     }
 
     public void setModpack(String modpack) {
-        this.modpack = modpack;
+        DlcPathConfig.setModpack(modpack);
     }
 
     public void setBase(String base) {

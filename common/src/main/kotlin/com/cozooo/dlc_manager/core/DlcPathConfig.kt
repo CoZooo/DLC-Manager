@@ -72,6 +72,7 @@ object DlcPathConfig {
     const val DOWNLOAD_MIRROR_PROBE_SINGLE: String = "single"
     const val DOWNLOAD_MIRROR_PROBE_MAJORITY: String = "majority"
     const val DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY: String = DOWNLOAD_MIRROR_PROBE_SINGLE
+    const val DEFAULT_MODPACK: String = ""
     const val DEFAULT_MODPACK_URL: String = ""
     const val DEFAULT_UPDATE_GITHUB_REPO_URL: String = ""
 
@@ -114,6 +115,7 @@ object DlcPathConfig {
     private var noticePanelOffsetY = DEFAULT_NOTICE_PANEL_OFFSET_Y
     private var noticePanelWidth = DEFAULT_NOTICE_PANEL_WIDTH
     private var noticePanelHeight = DEFAULT_NOTICE_PANEL_HEIGHT
+    private var modpack = DEFAULT_MODPACK
     private var modpackUrlClient = DEFAULT_MODPACK_URL
     private var updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL
     private var modpackUrlServer = DEFAULT_MODPACK_URL
@@ -151,6 +153,7 @@ object DlcPathConfig {
         writeServerUi(root)
         writePaths(root)
         writeDownloads(root)
+        writeServerModpack(root)
         return root
     }
 
@@ -162,6 +165,7 @@ object DlcPathConfig {
         readSection(root, "ui", buildServerUiReaders())
         readSection(root, "paths", buildPathReaders())
         readSection(root, "downloads", buildDownloadReaders())
+        readSection(root, "modpack", buildServerModpackReaders())
     }
 
     @JvmStatic fun getDlcRoot(): Path = getDlcRoots()[0]
@@ -214,10 +218,13 @@ object DlcPathConfig {
     @JvmStatic fun getNoticePanelOffsetY(): Int = noticePanelOffsetY
     @JvmStatic fun getNoticePanelWidth(): Int = maxOf(0, noticePanelWidth)
     @JvmStatic fun getNoticePanelHeight(): Int = maxOf(0, noticePanelHeight)
+    @JvmStatic fun getModpack(): String = modpack
     @JvmStatic fun getModpackUrl(): String = modpackUrlClient
     @JvmStatic fun getUpdateGithubRepoUrl(): String = updateGithubRepoClient
+    @JvmStatic fun getUpdateGitRepoUrl(): String = getUpdateGithubRepoUrl()
     @JvmStatic fun getServerModpackUrl(): String = modpackUrlServer
     @JvmStatic fun getServerUpdateGithubRepoUrl(): String = updateGithubRepoServer
+    @JvmStatic fun getServerUpdateGitRepoUrl(): String = getServerUpdateGithubRepoUrl()
 
     @JvmStatic
     fun computeTitleButtonPosition(screenWidth: Int, screenHeight: Int, buttonWidth: Int, buttonHeight: Int, defaultX: Int, defaultY: Int): IntArray {
@@ -314,10 +321,13 @@ object DlcPathConfig {
     @JvmStatic fun setNoticePanelOffsetY(value: Int) { noticePanelOffsetY = value.coerceIn(-MAX_NOTICE_OFFSET, MAX_NOTICE_OFFSET) }
     @JvmStatic fun setNoticePanelWidth(value: Int) { noticePanelWidth = value.coerceIn(0, MAX_NOTICE_PANEL_SIZE) }
     @JvmStatic fun setNoticePanelHeight(value: Int) { noticePanelHeight = value.coerceIn(0, MAX_NOTICE_PANEL_SIZE) }
+    @JvmStatic fun setModpack(value: String?) { modpack = value ?: DEFAULT_MODPACK }
     @JvmStatic fun setModpackUrl(value: String?) { modpackUrlClient = value ?: DEFAULT_MODPACK_URL }
     @JvmStatic fun setUpdateGithubRepoUrl(value: String?) { updateGithubRepoClient = value ?: DEFAULT_UPDATE_GITHUB_REPO_URL }
+    @JvmStatic fun setUpdateGitRepoUrl(value: String?) = setUpdateGithubRepoUrl(value)
     @JvmStatic fun setServerModpackUrl(value: String?) { modpackUrlServer = value ?: DEFAULT_MODPACK_URL }
     @JvmStatic fun setServerUpdateGithubRepoUrl(value: String?) { updateGithubRepoServer = value ?: DEFAULT_UPDATE_GITHUB_REPO_URL }
+    @JvmStatic fun setServerUpdateGitRepoUrl(value: String?) = setServerUpdateGithubRepoUrl(value)
     @JvmStatic fun setMaxConcurrentDownloads(value: Int) { maxConcurrentDownloads = maxOf(1, value) }
     @JvmStatic fun setMaxSegmentsPerFile(value: Int) { maxSegmentsPerFile = maxOf(1, value) }
     @JvmStatic fun setMinSegmentBytes(value: Long) {
@@ -371,6 +381,7 @@ object DlcPathConfig {
         noticePanelOffsetY = DEFAULT_NOTICE_PANEL_OFFSET_Y
         noticePanelWidth = DEFAULT_NOTICE_PANEL_WIDTH
         noticePanelHeight = DEFAULT_NOTICE_PANEL_HEIGHT
+        modpack = DEFAULT_MODPACK
         modpackUrlClient = DEFAULT_MODPACK_URL
         updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL
         modpackUrlServer = DEFAULT_MODPACK_URL
@@ -387,6 +398,7 @@ object DlcPathConfig {
     }
 
     private fun resetServerDefaults() {
+        modpack = DEFAULT_MODPACK
         serverSupportServer = DEFAULT_SERVER_SUPPORT
         serverPort = DEFAULT_SERVER_PORT
         serverPassword = DEFAULT_SERVER_PASSWORD
@@ -424,6 +436,7 @@ object DlcPathConfig {
         readSection(root, "paths", buildPathReaders())
         readSection(root, "ui", buildUiReaders())
         readSection(root, "downloads", buildDownloadReaders())
+        readSection(root, "modpack", buildModpackReaders())
     }
 
     private fun loadFromServerJson(path: Path) {
@@ -433,6 +446,7 @@ object DlcPathConfig {
         readSection(root, "ui", buildServerUiReaders())
         readSection(root, "paths", buildPathReaders())
         readSection(root, "downloads", buildDownloadReaders())
+        readSection(root, "modpack", buildServerModpackReaders())
     }
 
     private fun ensureClientConfigFile() {
@@ -466,6 +480,7 @@ object DlcPathConfig {
         writePaths(root)
         writeUi(root)
         writeDownloads(root)
+        writeModpack(root)
         writeJson(root, path)
     }
 
@@ -483,6 +498,7 @@ object DlcPathConfig {
         writeServerUi(root)
         writePaths(root)
         writeDownloads(root)
+        writeServerModpack(root)
         writeJson(root, path)
     }
 
@@ -550,8 +566,6 @@ object DlcPathConfig {
         obj.addProperty("noticePanelOffsetY", noticePanelOffsetY)
         obj.addProperty("noticePanelWidth", noticePanelWidth)
         obj.addProperty("noticePanelHeight", noticePanelHeight)
-        obj.addProperty("modpackUrl", modpackUrlClient)
-        obj.addProperty("updateGithubRepo", updateGithubRepoClient)
         root.add("ui", obj)
     }
 
@@ -584,14 +598,28 @@ object DlcPathConfig {
         obj.addProperty("serverSupport", serverSupportServer)
         obj.addProperty("serverPort", serverPort)
         obj.addProperty("serverPassword", serverPassword)
-        obj.addProperty("modpackUrl", modpackUrlServer)
-        obj.addProperty("updateGithubRepo", updateGithubRepoServer)
         if (serverRconHost != DEFAULT_RCON_HOST || serverRconPort != DEFAULT_RCON_PORT || serverRconPassword != DEFAULT_RCON_PASSWORD) {
             obj.addProperty("rconHost", serverRconHost)
             obj.addProperty("rconPort", serverRconPort)
             obj.addProperty("rconPassword", serverRconPassword)
         }
         root.add("server", obj)
+    }
+
+    private fun writeModpack(root: JsonObject) {
+        val obj = JsonObject()
+        obj.addProperty("modpack", modpack)
+        obj.addProperty("modpackUrl", modpackUrlClient)
+        obj.addProperty("updateGitRepo", updateGithubRepoClient)
+        root.add("modpack", obj)
+    }
+
+    private fun writeServerModpack(root: JsonObject) {
+        val obj = JsonObject()
+        obj.addProperty("modpack", modpack)
+        obj.addProperty("modpackUrl", modpackUrlServer)
+        obj.addProperty("updateGitRepo", updateGithubRepoServer)
+        root.add("modpack", obj)
     }
 
     private fun readSection(root: JsonObject?, section: String, keyMap: Map<String, (JsonElement) -> Unit>) {
@@ -660,6 +688,20 @@ object DlcPathConfig {
         "rconHost" to { value -> serverRconHost = asString(value, DEFAULT_RCON_HOST) },
         "rconPort" to { value -> serverRconPort = clampInt(asInt(value, DEFAULT_RCON_PORT), 1, 65535, DEFAULT_RCON_PORT) },
         "rconPassword" to { value -> serverRconPassword = asString(value, DEFAULT_RCON_PASSWORD) },
+    )
+
+    private fun buildModpackReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
+        "modpack" to { value -> modpack = asString(value, DEFAULT_MODPACK) },
+        "modpackUrl" to { value -> modpackUrlClient = asString(value, DEFAULT_MODPACK_URL) },
+        "updateGithubRepo" to { value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
+        "updateGitRepo" to { value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
+    )
+
+    private fun buildServerModpackReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
+        "modpack" to { value -> modpack = asString(value, DEFAULT_MODPACK) },
+        "modpackUrl" to { value -> modpackUrlServer = asString(value, DEFAULT_MODPACK_URL) },
+        "updateGithubRepo" to { value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
+        "updateGitRepo" to { value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
     )
 
     private fun buildServerUiReaders(): Map<String, (JsonElement) -> Unit> = mapOf(

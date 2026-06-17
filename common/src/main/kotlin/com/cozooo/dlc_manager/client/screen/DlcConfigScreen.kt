@@ -76,6 +76,8 @@ class DlcConfigScreen private constructor(
         x += gap
         x = addTabButton(Tab.UI, x, y, height)
         x += gap
+        x = addTabButton(Tab.MODPACK, x, y, height)
+        x += gap
         addTabButton(Tab.DOWNLOADS, x, y, height)
 
         val checkLabel = StringUtils.translate("dlc_manager.config.check_update")
@@ -247,6 +249,7 @@ class DlcConfigScreen private constructor(
         SERVER("dlc_manager.config.tab.server"),
         PATHS("dlc_manager.config.tab.paths"),
         UI("dlc_manager.config.tab.ui"),
+        MODPACK("dlc_manager.config.tab.modpack"),
         DOWNLOADS("dlc_manager.config.tab.download"),
     }
 
@@ -482,6 +485,7 @@ class DlcConfigScreen private constructor(
             return when (tab) {
                 Tab.SERVER -> DlcPathConfigClient.getServerConfigs()
                 Tab.UI -> DlcPathConfigClient.getUiConfigs()
+                Tab.MODPACK -> DlcPathConfigClient.getModpackConfigs()
                 Tab.DOWNLOADS -> DlcPathConfigClient.getDownloadConfigs()
                 Tab.PATHS -> DlcPathConfigClient.getPathConfigs()
             }

@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcPathConfig;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
@@ -26,6 +27,7 @@ class DlcPackInstallerTest {
     @org.junit.jupiter.api.AfterEach
     void clearRuntimeState() {
         DlcRuntimeState.updateItemIndex(java.util.List.of());
+        DlcPathConfig.setModpack("");
         DlcPresetRuntimeState.clearAll();
         PlatformServices.setProvider(null);
     }
@@ -457,13 +459,13 @@ class DlcPackInstallerTest {
     }
 
     private static void writeCurrentVersion(Path dlcRoot, String modpack, String base, String dlc) throws Exception {
+        DlcPathConfig.setModpack(modpack);
         Path version = dlcRoot.resolve("info").resolve("version.dc");
         Files.createDirectories(version.getParent());
         Files.writeString(version, """
-            modpack = "%s"
             base = "%s"
             dlc = "%s"
-            """.formatted(modpack, base, dlc));
+            """.formatted(base, dlc));
     }
 
     private static void writePack(Path path, String identifier, String version, String extra) throws Exception {

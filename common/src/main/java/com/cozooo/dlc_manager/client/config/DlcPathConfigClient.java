@@ -25,8 +25,6 @@ public final class DlcPathConfigClient {
     private static final ConfigBoolean SHOW_ON_FIRST_RUN = new DlcConfigBoolean("ShowOnFirstRun", DlcPathConfig.DEFAULT_SHOW_ON_FIRST_RUN, "dlc_manager.config.comment.ui.ShowOnFirstRun", "dlc_manager.config.ui.ShowOnFirstRun");
     private static final ConfigInteger ALARM_WAITING_TIME = new DlcConfigInteger("WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10, "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime");
     private static final ConfigBoolean SERVER_SUPPORT_CLIENT = new DlcConfigBoolean("serverSupport", DlcPathConfig.DEFAULT_SERVER_SUPPORT, "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport");
-    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl");
-    private static final ConfigString UPDATE_GITHUB_REPO = new DlcConfigString("updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo");
     private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcPathConfig.DEFAULT_API_ENABLED, "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
     private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcPathConfig.DEFAULT_API_PORT, 0, 65535, "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort");
     private static final ConfigString API_TOKEN = new DlcConfigString("apiToken", DlcPathConfig.DEFAULT_API_TOKEN, "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken");
@@ -45,6 +43,9 @@ public final class DlcPathConfigClient {
     private static final ConfigString TITLE_UPDATE_ANCHOR = new DlcConfigString("titleUpdateAnchor", DlcPathConfig.DEFAULT_TITLE_UPDATE_ANCHOR, "dlc_manager.config.comment.ui.titleUpdateAnchor", "dlc_manager.config.ui.titleUpdateAnchor");
     private static final ConfigInteger TITLE_UPDATE_OFFSET_X = new DlcConfigInteger("titleUpdateOffsetX", DlcPathConfig.DEFAULT_TITLE_UPDATE_OFFSET_X, -10000, 10000, "dlc_manager.config.comment.ui.titleUpdateOffsetX", "dlc_manager.config.ui.titleUpdateOffsetX");
     private static final ConfigInteger TITLE_UPDATE_OFFSET_Y = new DlcConfigInteger("titleUpdateOffsetY", DlcPathConfig.DEFAULT_TITLE_UPDATE_OFFSET_Y, -10000, 10000, "dlc_manager.config.comment.ui.titleUpdateOffsetY", "dlc_manager.config.ui.titleUpdateOffsetY");
+    private static final ConfigString MODPACK = new DlcConfigString("modpack", DlcPathConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack");
+    private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl");
+    private static final ConfigString UPDATE_GIT_REPO = new DlcConfigString("updateGitRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo");
 
     private static final ConfigInteger MAX_CONCURRENT_DOWNLOADS = new DlcConfigInteger("maxConcurrentDownloads", DlcPathConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads");
     private static final ConfigInteger MAX_SEGMENTS_PER_FILE = new DlcConfigInteger("maxSegmentsPerFile", DlcPathConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile");
@@ -74,8 +75,6 @@ public final class DlcPathConfigClient {
             P_BUTTON,
             SHOW_ON_FIRST_RUN,
             ALARM_WAITING_TIME,
-            MODPACK_URL,
-            UPDATE_GITHUB_REPO,
             NOTICE_DISPLAY_MODE,
             NOTICE_BUTTON_ANCHOR,
             NOTICE_BUTTON_OFFSET_X,
@@ -91,6 +90,12 @@ public final class DlcPathConfigClient {
             TITLE_UPDATE_ANCHOR,
             TITLE_UPDATE_OFFSET_X,
             TITLE_UPDATE_OFFSET_Y
+    );
+
+    private static final List<IConfigBase> MODPACK_CONFIGS = List.of(
+            MODPACK,
+            MODPACK_URL,
+            UPDATE_GIT_REPO
     );
 
     private static final List<IConfigBase> SERVER_CONFIGS = List.of(
@@ -123,6 +128,10 @@ public final class DlcPathConfigClient {
         return UI_CONFIGS;
     }
 
+    public static List<IConfigBase> getModpackConfigs() {
+        return MODPACK_CONFIGS;
+    }
+
     public static List<IConfigBase> getServerConfigs() {
         return SERVER_CONFIGS;
     }
@@ -148,8 +157,9 @@ public final class DlcPathConfigClient {
         SHOW_ON_FIRST_RUN.setBooleanValue(DlcPathConfig.isShowOnFirstRun());
         ALARM_WAITING_TIME.setIntegerValue(DlcPathConfig.getAlarmWaitingTime());
         SERVER_SUPPORT_CLIENT.setBooleanValue(DlcPathConfig.isServerSupportOn());
+        MODPACK.setValueFromString(DlcPathConfig.getModpack());
         MODPACK_URL.setValueFromString(DlcPathConfig.getModpackUrl());
-        UPDATE_GITHUB_REPO.setValueFromString(DlcPathConfig.getUpdateGithubRepoUrl());
+        UPDATE_GIT_REPO.setValueFromString(DlcPathConfig.getUpdateGitRepoUrl());
         API_ENABLED.setBooleanValue(DlcPathConfig.isApiEnabled());
         API_PORT.setIntegerValue(DlcPathConfig.getApiPort());
         API_TOKEN.setValueFromString(DlcPathConfig.getApiToken());
@@ -197,8 +207,9 @@ public final class DlcPathConfigClient {
         DlcPathConfig.setShowOnFirstRun(SHOW_ON_FIRST_RUN.getBooleanValue());
         DlcPathConfig.setAlarmWaitingTime(ALARM_WAITING_TIME.getIntegerValue());
         DlcPathConfig.setServerSupportOn(SERVER_SUPPORT_CLIENT.getBooleanValue());
+        DlcPathConfig.setModpack(MODPACK.getStringValue());
         DlcPathConfig.setModpackUrl(MODPACK_URL.getStringValue());
-        DlcPathConfig.setUpdateGithubRepoUrl(UPDATE_GITHUB_REPO.getStringValue());
+        DlcPathConfig.setUpdateGitRepoUrl(UPDATE_GIT_REPO.getStringValue());
         DlcPathConfig.setApiEnabled(API_ENABLED.getBooleanValue());
         DlcPathConfig.setApiPort(API_PORT.getIntegerValue());
         DlcPathConfig.setApiToken(API_TOKEN.getStringValue());

@@ -35,15 +35,6 @@ object DlcServerConfigClient {
         "apiToken", "",
         "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken"
     )
-    private val MODPACK_URL = DlcConfigString(
-        "modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL,
-        "dlc_manager.config.comment.ui.modpackUrl", "dlc_manager.config.ui.modpackUrl"
-    )
-    private val UPDATE_GITHUB_REPO = DlcConfigString(
-        "updateGithubRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
-        "dlc_manager.config.comment.ui.updateGithubRepo", "dlc_manager.config.ui.updateGithubRepo"
-    )
-
     private val UI_ENABLE_ALL = DlcConfigBoolean(
         "isEnableAllButtonShown", DlcPathConfig.DEFAULT_ENABLE_ALL_SHOWN,
         "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown"
@@ -64,6 +55,9 @@ object DlcServerConfigClient {
         "WaitingTime", DlcPathConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
         "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime"
     )
+    private val MODPACK = DlcConfigString("modpack", DlcPathConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
+    private val MODPACK_URL = DlcConfigString("modpackUrl", DlcPathConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
+    private val UPDATE_GIT_REPO = DlcConfigString("updateGitRepo", DlcPathConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
 
     private val DLC_ROOT = DlcConfigString(
         "dlcRoot", DlcPathConfig.DEFAULT_DLC_ROOT,
@@ -125,9 +119,13 @@ object DlcServerConfigClient {
         SERVER_PASSWORD,
         API_ENABLED,
         API_PORT,
-        API_TOKEN,
+        API_TOKEN
+    )
+
+    private val MODPACK_CONFIGS: List<IConfigBase> = listOf(
+        MODPACK,
         MODPACK_URL,
-        UPDATE_GITHUB_REPO
+        UPDATE_GIT_REPO
     )
 
     private val UI_CONFIGS: List<IConfigBase> = listOf(
@@ -164,6 +162,9 @@ object DlcServerConfigClient {
     fun getUiConfigs(): List<IConfigBase> = UI_CONFIGS
 
     @JvmStatic
+    fun getModpackConfigs(): List<IConfigBase> = MODPACK_CONFIGS
+
+    @JvmStatic
     fun getPathConfigs(): List<IConfigBase> = PATH_CONFIGS
 
     @JvmStatic
@@ -179,7 +180,7 @@ object DlcServerConfigClient {
         SERVER_PORT.integerValue = getInt(server, "serverPort", SERVER_PORT.integerValue)
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.stringValue))
         MODPACK_URL.setValueFromString(getString(server, "modpackUrl", MODPACK_URL.stringValue))
-        UPDATE_GITHUB_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GITHUB_REPO.stringValue))
+        UPDATE_GIT_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GIT_REPO.stringValue))
 
         val api = asObject(root, "api")
         API_ENABLED.booleanValue = getBoolean(api, "apiEnabled", API_ENABLED.booleanValue)
@@ -192,6 +193,11 @@ object DlcServerConfigClient {
         UI_SELF_UPDATE.booleanValue = getBoolean(ui, "isSelfUpdateAutoCheckOn", UI_SELF_UPDATE.booleanValue)
         UI_PRESET.booleanValue = getBoolean(ui, "isPresetFuncOn", UI_PRESET.booleanValue)
         UI_WAITING_TIME.integerValue = getInt(ui, "WaitingTime", UI_WAITING_TIME.integerValue)
+
+        val modpack = asObject(root, "modpack")
+        MODPACK.setValueFromString(getString(modpack, "modpack", MODPACK.stringValue))
+        MODPACK_URL.setValueFromString(getString(modpack, "modpackUrl", MODPACK_URL.stringValue))
+        UPDATE_GIT_REPO.setValueFromString(getString(modpack, "updateGitRepo", getString(modpack, "updateGithubRepo", UPDATE_GIT_REPO.stringValue)))
 
         val paths = asObject(root, "paths")
         DLC_ROOT.setValueFromString(getString(paths, "dlcRoot", DLC_ROOT.stringValue))
@@ -218,8 +224,6 @@ object DlcServerConfigClient {
         server.addProperty("serverSupport", SERVER_SUPPORT.booleanValue)
         server.addProperty("serverPort", SERVER_PORT.integerValue)
         server.addProperty("serverPassword", SERVER_PASSWORD.stringValue)
-        server.addProperty("modpackUrl", MODPACK_URL.stringValue)
-        server.addProperty("updateGithubRepo", UPDATE_GITHUB_REPO.stringValue)
         root.add("server", server)
 
         val api = JsonObject()
@@ -235,6 +239,12 @@ object DlcServerConfigClient {
         ui.addProperty("isPresetFuncOn", UI_PRESET.booleanValue)
         ui.addProperty("WaitingTime", UI_WAITING_TIME.integerValue)
         root.add("ui", ui)
+
+        val modpack = JsonObject()
+        modpack.addProperty("modpack", MODPACK.stringValue)
+        modpack.addProperty("modpackUrl", MODPACK_URL.stringValue)
+        modpack.addProperty("updateGitRepo", UPDATE_GIT_REPO.stringValue)
+        root.add("modpack", modpack)
 
         val paths = JsonObject()
         paths.addProperty("dlcRoot", DLC_ROOT.stringValue)

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -78,6 +79,7 @@ public class DlcPathConfig {
     public static final String DOWNLOAD_MIRROR_PROBE_SINGLE = "single";
     public static final String DOWNLOAD_MIRROR_PROBE_MAJORITY = "majority";
     public static final String DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY = DOWNLOAD_MIRROR_PROBE_SINGLE;
+    public static final String DEFAULT_MODPACK = "";
     public static final String DEFAULT_MODPACK_URL = "";
     public static final String DEFAULT_UPDATE_GITHUB_REPO_URL = "";
 
@@ -121,6 +123,7 @@ public class DlcPathConfig {
     private static int noticePanelOffsetY = DEFAULT_NOTICE_PANEL_OFFSET_Y;
     private static int noticePanelWidth = DEFAULT_NOTICE_PANEL_WIDTH;
     private static int noticePanelHeight = DEFAULT_NOTICE_PANEL_HEIGHT;
+    private static String modpack = DEFAULT_MODPACK;
     private static String modpackUrlClient = DEFAULT_MODPACK_URL;
     private static String updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL;
     private static String modpackUrlServer = DEFAULT_MODPACK_URL;
@@ -171,6 +174,7 @@ public class DlcPathConfig {
         writeServerUi(root);
         writePaths(root);
         writeDownloads(root);
+        writeServerModpack(root);
         return root;
     }
 
@@ -183,6 +187,7 @@ public class DlcPathConfig {
         readSection(root, "ui", buildServerUiReaders());
         readSection(root, "paths", buildPathReaders());
         readSection(root, "downloads", buildDownloadReaders());
+        readSection(root, "modpack", buildServerModpackReaders());
     }
 
     public static Path getDlcRoot() {
@@ -385,6 +390,10 @@ public class DlcPathConfig {
         return Math.max(0, noticePanelHeight);
     }
 
+    public static String getModpack() {
+        return modpack == null ? DEFAULT_MODPACK : modpack;
+    }
+
     public static String getModpackUrl() {
         return modpackUrlClient == null ? DEFAULT_MODPACK_URL : modpackUrlClient;
     }
@@ -393,12 +402,20 @@ public class DlcPathConfig {
         return updateGithubRepoClient == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : updateGithubRepoClient;
     }
 
+    public static String getUpdateGitRepoUrl() {
+        return getUpdateGithubRepoUrl();
+    }
+
     public static String getServerModpackUrl() {
         return modpackUrlServer == null ? DEFAULT_MODPACK_URL : modpackUrlServer;
     }
 
     public static String getServerUpdateGithubRepoUrl() {
         return updateGithubRepoServer == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : updateGithubRepoServer;
+    }
+
+    public static String getServerUpdateGitRepoUrl() {
+        return getServerUpdateGithubRepoUrl();
     }
 
     public static int[] computeTitleButtonPosition(int screenWidth, int screenHeight, int buttonWidth, int buttonHeight, int defaultX, int defaultY) {
@@ -719,6 +736,10 @@ public class DlcPathConfig {
         noticePanelHeight = Math.max(0, Math.min(MAX_NOTICE_PANEL_SIZE, value));
     }
 
+    public static void setModpack(String value) {
+        modpack = value == null ? DEFAULT_MODPACK : value;
+    }
+
     public static void setModpackUrl(String value) {
         modpackUrlClient = value == null ? DEFAULT_MODPACK_URL : value;
     }
@@ -727,12 +748,20 @@ public class DlcPathConfig {
         updateGithubRepoClient = value == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : value;
     }
 
+    public static void setUpdateGitRepoUrl(String value) {
+        setUpdateGithubRepoUrl(value);
+    }
+
     public static void setServerModpackUrl(String value) {
         modpackUrlServer = value == null ? DEFAULT_MODPACK_URL : value;
     }
 
     public static void setServerUpdateGithubRepoUrl(String value) {
         updateGithubRepoServer = value == null ? DEFAULT_UPDATE_GITHUB_REPO_URL : value;
+    }
+
+    public static void setServerUpdateGitRepoUrl(String value) {
+        setServerUpdateGithubRepoUrl(value);
     }
 
     public static void setMaxConcurrentDownloads(int value) {
@@ -815,6 +844,7 @@ public class DlcPathConfig {
         noticePanelOffsetY = DEFAULT_NOTICE_PANEL_OFFSET_Y;
         noticePanelWidth = DEFAULT_NOTICE_PANEL_WIDTH;
         noticePanelHeight = DEFAULT_NOTICE_PANEL_HEIGHT;
+        modpack = DEFAULT_MODPACK;
         modpackUrlClient = DEFAULT_MODPACK_URL;
         updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL;
         modpackUrlServer = DEFAULT_MODPACK_URL;
@@ -849,6 +879,7 @@ public class DlcPathConfig {
     }
 
     private static void resetServerDefaults() {
+        modpack = DEFAULT_MODPACK;
         serverSupportServer = DEFAULT_SERVER_SUPPORT;
         serverPort = DEFAULT_SERVER_PORT;
         serverPassword = DEFAULT_SERVER_PASSWORD;
@@ -871,6 +902,7 @@ public class DlcPathConfig {
         readSection(root, "paths", buildPathReaders());
         readSection(root, "ui", buildUiReaders());
         readSection(root, "downloads", buildDownloadReaders());
+        readSection(root, "modpack", buildModpackReaders());
     }
 
     private static void loadFromServerJson(Path jsonPath) {
@@ -883,6 +915,7 @@ public class DlcPathConfig {
         readSection(root, "ui", buildServerUiReaders());
         readSection(root, "paths", buildPathReaders());
         readSection(root, "downloads", buildDownloadReaders());
+        readSection(root, "modpack", buildServerModpackReaders());
     }
 
     private static void ensureClientConfigFile() {
@@ -916,6 +949,7 @@ public class DlcPathConfig {
         writePaths(root);
         writeUi(root);
         writeDownloads(root);
+        writeModpack(root);
         writeJson(root, jsonPath);
     }
 
@@ -933,6 +967,7 @@ public class DlcPathConfig {
         writeServerUi(root);
         writePaths(root);
         writeDownloads(root);
+        writeServerModpack(root);
         writeJson(root, serverPath);
     }
 
@@ -1004,8 +1039,6 @@ public class DlcPathConfig {
         obj.addProperty("noticePanelOffsetY", noticePanelOffsetY);
         obj.addProperty("noticePanelWidth", noticePanelWidth);
         obj.addProperty("noticePanelHeight", noticePanelHeight);
-        obj.addProperty("modpackUrl", modpackUrlClient);
-        obj.addProperty("updateGithubRepo", updateGithubRepoClient);
         root.add("ui", obj);
     }
 
@@ -1038,14 +1071,28 @@ public class DlcPathConfig {
         obj.addProperty("serverSupport", serverSupportServer);
         obj.addProperty("serverPort", serverPort);
         obj.addProperty("serverPassword", serverPassword);
-        obj.addProperty("modpackUrl", modpackUrlServer);
-        obj.addProperty("updateGithubRepo", updateGithubRepoServer);
         if (!DEFAULT_RCON_HOST.equals(serverRconHost) || serverRconPort != DEFAULT_RCON_PORT || !DEFAULT_RCON_PASSWORD.equals(serverRconPassword)) {
             obj.addProperty("rconHost", serverRconHost);
             obj.addProperty("rconPort", serverRconPort);
             obj.addProperty("rconPassword", serverRconPassword);
         }
         root.add("server", obj);
+    }
+
+    private static void writeModpack(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("modpack", modpack);
+        obj.addProperty("modpackUrl", modpackUrlClient);
+        obj.addProperty("updateGitRepo", updateGithubRepoClient);
+        root.add("modpack", obj);
+    }
+
+    private static void writeServerModpack(JsonObject root) {
+        JsonObject obj = new JsonObject();
+        obj.addProperty("modpack", modpack);
+        obj.addProperty("modpackUrl", modpackUrlServer);
+        obj.addProperty("updateGitRepo", updateGithubRepoServer);
+        root.add("modpack", obj);
     }
 
     private static void readSection(JsonObject root, String section, Map<String, Consumer<JsonElement>> keyMap) {
@@ -1124,6 +1171,24 @@ public class DlcPathConfig {
         map.put("rconHost", value -> serverRconHost = asString(value, DEFAULT_RCON_HOST));
         map.put("rconPort", value -> serverRconPort = clampInt(asInt(value, DEFAULT_RCON_PORT), 1, 65535, DEFAULT_RCON_PORT));
         map.put("rconPassword", value -> serverRconPassword = asString(value, DEFAULT_RCON_PASSWORD));
+        return map;
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildModpackReaders() {
+        Map<String, Consumer<JsonElement>> map = new LinkedHashMap<>();
+        map.put("modpack", value -> modpack = asString(value, DEFAULT_MODPACK));
+        map.put("modpackUrl", value -> modpackUrlClient = asString(value, DEFAULT_MODPACK_URL));
+        map.put("updateGithubRepo", value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL));
+        map.put("updateGitRepo", value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL));
+        return map;
+    }
+
+    private static Map<String, Consumer<JsonElement>> buildServerModpackReaders() {
+        Map<String, Consumer<JsonElement>> map = new LinkedHashMap<>();
+        map.put("modpack", value -> modpack = asString(value, DEFAULT_MODPACK));
+        map.put("modpackUrl", value -> modpackUrlServer = asString(value, DEFAULT_MODPACK_URL));
+        map.put("updateGithubRepo", value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL));
+        map.put("updateGitRepo", value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL));
         return map;
     }
 

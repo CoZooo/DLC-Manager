@@ -109,6 +109,8 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
         x += gap;
         x = addTabButton(Tab.PATHS, x, y, height);
         x += gap;
+        x = addTabButton(Tab.MODPACK, x, y, height);
+        x += gap;
         addTabButton(Tab.DOWNLOADS, x, y, height);
 
         int buttonWidth = 80;
@@ -194,6 +196,7 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
             case SERVER -> DlcServerConfigClient.getServerConfigs();
             case UI -> DlcServerConfigClient.getUiConfigs();
             case PATHS -> DlcServerConfigClient.getPathConfigs();
+            case MODPACK -> DlcServerConfigClient.getModpackConfigs();
             case DOWNLOADS -> DlcServerConfigClient.getDownloadConfigs();
         };
     }
@@ -594,6 +597,7 @@ public class DlcServerConfigMaLiLibScreen extends GuiModConfigs {
         SERVER("dlc_manager.config.tab.server"),
         UI("dlc_manager.config.tab.ui"),
         PATHS("dlc_manager.config.tab.paths"),
+        MODPACK("dlc_manager.config.tab.modpack"),
         DOWNLOADS("dlc_manager.config.tab.download");
 
         private final String labelKey;

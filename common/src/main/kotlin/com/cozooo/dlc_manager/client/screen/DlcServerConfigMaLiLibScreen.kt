@@ -84,6 +84,8 @@ class DlcServerConfigMaLiLibScreen private constructor(
         x += gap
         x = addTabButton(Tab.PATHS, x, y, height)
         x += gap
+        x = addTabButton(Tab.MODPACK, x, y, height)
+        x += gap
         addTabButton(Tab.DOWNLOADS, x, y, height)
 
         val buttonWidth = 80
@@ -272,6 +274,7 @@ class DlcServerConfigMaLiLibScreen private constructor(
         SERVER("dlc_manager.config.tab.server"),
         UI("dlc_manager.config.tab.ui"),
         PATHS("dlc_manager.config.tab.paths"),
+        MODPACK("dlc_manager.config.tab.modpack"),
         DOWNLOADS("dlc_manager.config.tab.download"),
     }
 
@@ -429,6 +432,7 @@ class DlcServerConfigMaLiLibScreen private constructor(
                 Tab.SERVER -> DlcServerConfigClient.getServerConfigs()
                 Tab.UI -> DlcServerConfigClient.getUiConfigs()
                 Tab.PATHS -> DlcServerConfigClient.getPathConfigs()
+                Tab.MODPACK -> DlcServerConfigClient.getModpackConfigs()
                 Tab.DOWNLOADS -> DlcServerConfigClient.getDownloadConfigs()
             }
         }
