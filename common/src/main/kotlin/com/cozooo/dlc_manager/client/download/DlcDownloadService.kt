@@ -352,6 +352,9 @@ object DlcDownloadService {
                     return false
                 }
                 selectedMirror?.let { return it }
+                if (mirrorComparisons >= maxCount) {
+                    return null
+                }
                 mirrorComparisons++
             }
             val result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null)

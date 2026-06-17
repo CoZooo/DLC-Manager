@@ -369,6 +369,9 @@ public final class DlcDownloadService {
                 if (selectedMirror != null) {
                     return selectedMirror;
                 }
+                if (mirrorComparisons >= maxCount) {
+                    return null;
+                }
                 mirrorComparisons++;
             }
             ProbePairResult result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null);
