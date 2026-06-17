@@ -28,7 +28,7 @@ object DlcConfig {
     const val DEFAULT_P_BUTTON_SHOWN: Boolean = true
     const val DEFAULT_SHOW_ON_FIRST_RUN: Boolean = false
     const val DEFAULT_ALARM_WAITING_TIME: Int = 0
-    const val DEFAULT_SERVER_SUPPORT: Boolean = false
+    const val DEFAULT_SERVER_SUPPORT: Boolean = true
     const val DEFAULT_SERVER_PORT: Int = 29690
     const val DEFAULT_SERVER_PASSWORD: String = ""
     const val DEFAULT_API_ENABLED: Boolean = false
