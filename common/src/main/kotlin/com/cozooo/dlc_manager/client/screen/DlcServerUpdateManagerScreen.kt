@@ -84,11 +84,11 @@ class DlcServerUpdateManagerScreen(
             }
             if (state != null &&
                 shouldCheckPackUpdate &&
-                !state.updateGithubRepo.isNullOrBlank()
+                !state.updateGitRepo.isNullOrBlank()
             ) {
                 packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
                     state.modpackUrl,
-                    state.updateGithubRepo,
+                    state.updateGitRepo,
                     state.baseVersion,
                     state.dlcVersion,
                     DlcPackReleaseUpdateService.Side.SERVER,
@@ -107,7 +107,7 @@ class DlcServerUpdateManagerScreen(
                 loadFailed = false
                 baseVersion = finalState.baseVersion ?: ""
                 currentVersion = finalState.dlcVersion ?: ""
-                packUpdateRepoUrl = finalState.updateGithubRepo?.trim() ?: ""
+                packUpdateRepoUrl = finalState.updateGitRepo?.trim() ?: ""
                 packModpackUrl = finalState.modpackUrl?.trim() ?: ""
                 rollbackFrom = finalState.rollbackFrom
                 rolledBackMode = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, baseVersion, currentVersion)

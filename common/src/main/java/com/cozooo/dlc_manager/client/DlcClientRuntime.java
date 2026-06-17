@@ -753,7 +753,7 @@ public final class DlcClientRuntime {
                     }
                 }
             }
-            String repoUrl = DlcConfig.getUpdateGithubRepoUrl();
+            String repoUrl = DlcConfig.getUpdateGitRepoUrl();
             if (repoUrl != null && !repoUrl.isBlank()) {
                 long packAt = System.currentTimeMillis();
                 packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(

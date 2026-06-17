@@ -666,7 +666,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void checkPackUpdate() {
-        String repoUrl = DlcConfig.getUpdateGithubRepoUrl();
+        String repoUrl = DlcConfig.getUpdateGitRepoUrl();
         if (repoUrl == null || repoUrl.isBlank()) {
             return;
         }
@@ -709,7 +709,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private boolean hasPackUpdateRepoConfigured() {
-        String repoUrl = DlcConfig.getUpdateGithubRepoUrl();
+        String repoUrl = DlcConfig.getUpdateGitRepoUrl();
         return repoUrl != null && !repoUrl.isBlank();
     }
 

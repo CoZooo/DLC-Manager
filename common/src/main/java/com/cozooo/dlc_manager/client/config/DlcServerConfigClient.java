@@ -17,6 +17,12 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort");
     private static final ConfigString SERVER_PASSWORD = new DlcConfigString("serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword");
+    private static final ConfigString RCON_HOST = new DlcConfigString("rconHost", DlcConfig.DEFAULT_RCON_HOST,
+        "dlc_manager.config.comment.ui.rconHost", "dlc_manager.config.ui.rconHost");
+    private static final ConfigInteger RCON_PORT = new DlcConfigInteger("rconPort", DlcConfig.DEFAULT_RCON_PORT, 1, 65535,
+        "dlc_manager.config.comment.ui.rconPort", "dlc_manager.config.ui.rconPort");
+    private static final ConfigString RCON_PASSWORD = new DlcConfigString("rconPassword", DlcConfig.DEFAULT_RCON_PASSWORD,
+        "dlc_manager.config.comment.ui.rconPassword", "dlc_manager.config.ui.rconPassword");
     private static final ConfigBoolean API_ENABLED = new DlcConfigBoolean("apiEnabled", DlcConfig.DEFAULT_API_ENABLED,
         "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled");
     private static final ConfigInteger API_PORT = new DlcConfigInteger("apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535,
@@ -37,7 +43,7 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack");
     private static final ConfigString MODPACK_URL = new DlcConfigString("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL,
         "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl");
-    private static final ConfigString UPDATE_GIT_REPO = new DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GITHUB_REPO_URL,
+    private static final ConfigString UPDATE_GIT_REPO = new DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL,
         "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo");
 
     private static final ConfigString DLC_ROOT = new DlcConfigString("dlcRoot", DlcConfig.DEFAULT_DLC_ROOT,
@@ -72,6 +78,9 @@ public final class DlcServerConfigClient {
         SERVER_SUPPORT,
         SERVER_PORT,
         SERVER_PASSWORD,
+        RCON_HOST,
+        RCON_PORT,
+        RCON_PASSWORD,
         API_ENABLED,
         API_PORT,
         API_TOKEN
@@ -141,8 +150,9 @@ public final class DlcServerConfigClient {
         SERVER_SUPPORT.setBooleanValue(getBoolean(server, "serverSupport", SERVER_SUPPORT.getBooleanValue()));
         SERVER_PORT.setIntegerValue(getInt(server, "serverPort", SERVER_PORT.getIntegerValue()));
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.getStringValue()));
-        MODPACK_URL.setValueFromString(getString(server, "modpackUrl", MODPACK_URL.getStringValue()));
-        UPDATE_GIT_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GIT_REPO.getStringValue()));
+        RCON_HOST.setValueFromString(getString(server, "rconHost", RCON_HOST.getStringValue()));
+        RCON_PORT.setIntegerValue(getInt(server, "rconPort", RCON_PORT.getIntegerValue()));
+        RCON_PASSWORD.setValueFromString(getString(server, "rconPassword", RCON_PASSWORD.getStringValue()));
 
         JsonObject api = asObject(root, "api");
         API_ENABLED.setBooleanValue(getBoolean(api, "apiEnabled", API_ENABLED.getBooleanValue()));
@@ -185,6 +195,9 @@ public final class DlcServerConfigClient {
         server.addProperty("serverSupport", SERVER_SUPPORT.getBooleanValue());
         server.addProperty("serverPort", SERVER_PORT.getIntegerValue());
         server.addProperty("serverPassword", SERVER_PASSWORD.getStringValue());
+        server.addProperty("rconHost", RCON_HOST.getStringValue());
+        server.addProperty("rconPort", RCON_PORT.getIntegerValue());
+        server.addProperty("rconPassword", RCON_PASSWORD.getStringValue());
         root.add("server", server);
 
         JsonObject api = new JsonObject();

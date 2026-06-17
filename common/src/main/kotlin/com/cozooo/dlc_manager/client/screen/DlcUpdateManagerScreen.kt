@@ -700,7 +700,7 @@ class DlcUpdateManagerScreen(
     }
 
     private fun checkPackUpdate() {
-        val repoUrl = DlcConfig.getUpdateGithubRepoUrl()
+        val repoUrl = DlcConfig.getUpdateGitRepoUrl()
         if (repoUrl.isNullOrBlank()) {
             return
         }
@@ -741,7 +741,7 @@ class DlcUpdateManagerScreen(
     }
 
     private fun hasPackUpdateRepoConfigured(): Boolean {
-        val repoUrl = DlcConfig.getUpdateGithubRepoUrl()
+        val repoUrl = DlcConfig.getUpdateGitRepoUrl()
         return !repoUrl.isNullOrBlank()
     }
 

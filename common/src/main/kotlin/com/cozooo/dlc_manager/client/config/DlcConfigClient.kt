@@ -44,7 +44,7 @@ object DlcConfigClient {
     private val TITLE_UPDATE_OFFSET_Y = DlcConfigInteger("titleUpdateOffsetY", DlcConfig.DEFAULT_TITLE_UPDATE_OFFSET_Y, -10000, 10000, "dlc_manager.config.comment.ui.titleUpdateOffsetY", "dlc_manager.config.ui.titleUpdateOffsetY")
     private val MODPACK = DlcConfigString("modpack", DlcConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
     private val MODPACK_URL = DlcConfigString("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
-    private val UPDATE_GIT_REPO = DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
+    private val UPDATE_GIT_REPO = DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
 
     private val MAX_CONCURRENT_DOWNLOADS = DlcConfigInteger("maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64, "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads")
     private val MAX_SEGMENTS_PER_FILE = DlcConfigInteger("maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64, "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile")

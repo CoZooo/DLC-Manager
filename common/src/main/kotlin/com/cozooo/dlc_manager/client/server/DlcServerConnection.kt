@@ -68,7 +68,7 @@ object DlcServerConnection {
             info.requiredMissing = getInt(response, "requiredMissing")
             info.hasRequired = response.has("hasRequired") && response["hasRequired"].asBoolean
             info.modpackUrl = getString(response, "modpackUrl")
-            info.updateGithubRepo = getString(response, "updateGithubRepo")
+            info.updateGitRepo = getString(response, "updateGitRepo") ?: getString(response, "updateGithubRepo")
             if (!info.hasRequired && info.requiredMissing > 0) {
                 info.hasRequired = true
             }
@@ -486,7 +486,7 @@ object DlcServerConnection {
             state.dlcVersion = getString(response, "dlc")
             state.rollbackFrom = getString(response, "rollbackFrom")
             state.modpackUrl = getString(response, "modpackUrl")
-            state.updateGithubRepo = getString(response, "updateGithubRepo")
+            state.updateGitRepo = getString(response, "updateGitRepo") ?: getString(response, "updateGithubRepo")
             val history = ArrayList<DlcUpdateMeta?>()
             if (response.has("history") && response["history"].isJsonArray) {
                 response.getAsJsonArray("history").forEach { element ->

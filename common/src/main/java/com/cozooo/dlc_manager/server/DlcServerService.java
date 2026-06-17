@@ -371,7 +371,7 @@ public class DlcServerService {
         response.addProperty("requiredMissing", requiredMissing);
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot));
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
-        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl());
+        response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl());
         response.add("items", GSON.toJsonTree(items));
         writeLine(writer, response);
     }
@@ -597,7 +597,7 @@ public class DlcServerService {
         response.addProperty("base", base == null ? "" : base);
         response.addProperty("dlc", dlc == null ? "" : dlc);
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
-        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl());
+        response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl());
         if (rollbackFrom != null && !rollbackFrom.isBlank()) {
             response.addProperty("rollbackFrom", rollbackFrom);
         }
@@ -1122,7 +1122,9 @@ public class DlcServerService {
         boolean ok = false;
         if (request.has("config") && request.get("config").isJsonObject()) {
             JsonObject config = request.getAsJsonObject("config");
+            DlcConfig.applySharedConfigJson(config);
             DlcConfig.applyServerConfigJson(config);
+            DlcConfig.saveShared();
             DlcConfig.saveServer();
             ok = true;
         }

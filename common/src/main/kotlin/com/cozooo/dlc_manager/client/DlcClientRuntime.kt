@@ -678,7 +678,7 @@ object DlcClientRuntime {
             if (!version.getDlc().isNullOrBlank()) {
                 currentDlcVersion = version.getDlc()!!
             }
-            val repoUrl = DlcConfig.getUpdateGithubRepoUrl()
+            val repoUrl = DlcConfig.getUpdateGitRepoUrl()
             if (!repoUrl.isNullOrBlank()) {
                 val packAt = System.currentTimeMillis()
                 packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(

@@ -8,7 +8,7 @@ public class DlcServerUpdateState {
     public String dlcVersion;
     public String rollbackFrom;
     public String modpackUrl;
-    public String updateGithubRepo;
+    public String updateGitRepo;
     public List<DlcUpdateMeta> history;
     public List<DlcServerUpdateInfo> updates;
 }

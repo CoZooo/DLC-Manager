@@ -86,6 +86,7 @@ class DlcConfigTest {
 
         var json = DlcConfig.buildServerConfigJson();
         DlcConfig.loadClient();
+        DlcConfig.applySharedConfigJson(json);
         DlcConfig.applyServerConfigJson(json);
 
         assertTrue(DlcConfig.isServerSupportOnServer());

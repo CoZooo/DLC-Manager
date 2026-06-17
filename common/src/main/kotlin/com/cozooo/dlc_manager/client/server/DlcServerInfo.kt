@@ -8,5 +8,5 @@ class DlcServerInfo {
     @JvmField var requiredMissing: Int = 0
     @JvmField var hasRequired: Boolean = false
     @JvmField var modpackUrl: String? = null
-    @JvmField var updateGithubRepo: String? = null
+    @JvmField var updateGitRepo: String? = null
 }

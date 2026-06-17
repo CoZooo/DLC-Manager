@@ -92,10 +92,10 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
                 shouldCheckPackUpdate = PACK_RELEASE_CHECKED_ONCE.compareAndSet(false, true);
             }
             if (state != null && shouldCheckPackUpdate
-                && state.updateGithubRepo != null && !state.updateGithubRepo.isBlank()) {
+                && state.updateGitRepo != null && !state.updateGitRepo.isBlank()) {
                 packUpdateResult = DlcPackReleaseUpdateService.checkForUpdates(
                     state.modpackUrl,
-                    state.updateGithubRepo,
+                    state.updateGitRepo,
                     state.baseVersion,
                     state.dlcVersion,
                     DlcPackReleaseUpdateService.Side.SERVER
@@ -114,7 +114,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
                 loadFailed = false;
                 baseVersion = finalState.baseVersion == null ? "" : finalState.baseVersion;
                 currentVersion = finalState.dlcVersion == null ? "" : finalState.dlcVersion;
-                packUpdateRepoUrl = finalState.updateGithubRepo == null ? "" : finalState.updateGithubRepo.trim();
+                packUpdateRepoUrl = finalState.updateGitRepo == null ? "" : finalState.updateGitRepo.trim();
                 packModpackUrl = finalState.modpackUrl == null ? "" : finalState.modpackUrl.trim();
                 rollbackFrom = finalState.rollbackFrom;
                 rolledBackMode = DlcUpdateService.isRollbackMarkerActive(rollbackFrom, baseVersion, currentVersion);
