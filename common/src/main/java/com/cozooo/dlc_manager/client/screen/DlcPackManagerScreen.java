@@ -1091,6 +1091,16 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         return DlcPaths.dlcRoot().resolve("pack").resolve("order.dc");
     }
 
+    private String archiveOrderPath(Path archive) {
+        Path packRoot = DlcPaths.dlcRoot().resolve("pack").toAbsolutePath().normalize();
+        Path normalized = archive.toAbsolutePath().normalize();
+        try {
+            return packRoot.relativize(normalized).toString().replace('\\', '/');
+        } catch (IllegalArgumentException ex) {
+            return archive.getFileName().toString();
+        }
+    }
+
     private List<String> collectArchiveKeys(List<PackArchiveEntry> entries) {
         List<String> keys = new ArrayList<>();
         for (PackArchiveEntry entry : entries) {
@@ -1156,7 +1166,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 : pack.metadata.authors;
             Component author = DlcTextFormatter.parse(String.join(", ", authors));
             IconTexture icon = loadIconTexture(pack.iconFile);
-            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, description, author, authors, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
+            return new PackArchiveEntry(archive.toAbsolutePath().normalize(), archiveOrderPath(archive), pack.metadata, displayName, description, author, authors, icon == null ? null : icon.location, icon == null ? 0 : icon.width, icon == null ? 0 : icon.height);
         } catch (Exception ignored) {
             return null;
         } finally {
@@ -1512,7 +1522,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         private final int iconHeight;
         private final String key;
 
-        private PackArchiveEntry(Path archivePath, DlcPackMetadata metadata, Component displayName, Component description, Component author, List<String> authorNames, ResourceLocation iconTexture, int iconWidth, int iconHeight) {
+        private PackArchiveEntry(Path archivePath, String archiveOrderPath, DlcPackMetadata metadata, Component displayName, Component description, Component author, List<String> authorNames, ResourceLocation iconTexture, int iconWidth, int iconHeight) {
             this.archivePath = archivePath;
             this.metadata = metadata;
             this.displayName = displayName == null ? Component.literal(metadata.identifier) : displayName;
@@ -1524,7 +1534,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             this.iconTexture = iconTexture;
             this.iconWidth = iconWidth;
             this.iconHeight = iconHeight;
-            this.key = archivePath.toString() + "#" + metadata.identifier + "@" + metadata.version;
+            this.key = archiveOrderPath + "#" + metadata.identifier + "@" + metadata.version;
         }
     }
 

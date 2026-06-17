@@ -1,11 +1,10 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.core.DcConfigIO;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -18,23 +17,16 @@ public final class DlcPackOrder {
         if (path == null || !Files.exists(path)) {
             return List.of();
         }
-        JsonObject obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC);
-        if (obj == null) {
-            return List.of();
-        }
-        JsonArray array = DcConfigIO.getArrayIgnoreCase(obj, "archives");
-        if (array == null) {
-            return List.of();
-        }
         List<String> out = new ArrayList<>();
-        array.forEach(element -> {
-            if (element != null && element.isJsonPrimitive()) {
-                String value = normalize(element.getAsString());
+        try {
+            for (String line : Files.readAllLines(path)) {
+                String value = normalize(line);
                 if (value != null && !out.contains(value)) {
                     out.add(value);
                 }
             }
-        });
+        } catch (IOException ignored) {
+        }
         return out;
     }
 
@@ -42,18 +34,16 @@ public final class DlcPackOrder {
         if (path == null) {
             return false;
         }
-        JsonObject obj = new JsonObject();
-        JsonArray array = new JsonArray();
+        List<String> lines = new ArrayList<>();
         if (order != null) {
             for (String key : order) {
                 String value = normalize(key);
                 if (value != null) {
-                    array.add(value);
+                    lines.add(value);
                 }
             }
         }
-        obj.add("archives", array);
-        return DlcPackDcFiles.writeAtomic(path, obj);
+        return writeAtomicLines(path, lines);
     }
 
     public static List<String> normalizeOrder(Collection<String> savedOrder, Collection<String> currentKeys) {
@@ -78,6 +68,52 @@ public final class DlcPackOrder {
     }
 
     private static String normalize(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = value.trim().replace('\\', '/');
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        if (normalized.isBlank() || normalized.startsWith("../") || normalized.equals("..") || normalized.contains("/../")) {
+            return null;
+        }
+        return normalized;
+    }
+
+    private static boolean writeAtomicLines(Path path, List<String> lines) {
+        try {
+            Path target = DcConfigIO.toDcPath(path);
+            if (target == null) {
+                return false;
+            }
+            Path parent = target.getParent();
+            Path temp;
+            if (parent != null) {
+                Files.createDirectories(parent);
+                temp = Files.createTempFile(parent, target.getFileName().toString() + ".", ".tmp");
+            } else {
+                temp = Files.createTempFile(target.getFileName().toString() + ".", ".tmp");
+            }
+            try {
+                Files.write(temp, lines);
+                try {
+                    Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (IOException ex) {
+                    Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+                if (!target.equals(path)) {
+                    Files.deleteIfExists(path);
+                }
+                return true;
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 }

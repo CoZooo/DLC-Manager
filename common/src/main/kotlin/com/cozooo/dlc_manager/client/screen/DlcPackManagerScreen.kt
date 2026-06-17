@@ -1018,6 +1018,16 @@ class DlcPackManagerScreen(
         return DlcPaths.dlcRoot().resolve("pack").resolve("order.dc")
     }
 
+    private fun archiveOrderPath(archive: Path): String {
+        val packRoot = DlcPaths.dlcRoot().resolve("pack").toAbsolutePath().normalize()
+        val normalized = archive.toAbsolutePath().normalize()
+        return try {
+            packRoot.relativize(normalized).toString().replace('\\', '/')
+        } catch (_: IllegalArgumentException) {
+            archive.fileName.toString()
+        }
+    }
+
     private fun collectArchiveKeys(entries: List<PackArchiveEntry>): List<String> {
         return entries.map { it.key }
     }
@@ -1068,7 +1078,7 @@ class DlcPackManagerScreen(
             val authors = pack.metadata.authors.ifEmpty { listOf(Component.translatable("dlc_manager.pack.unknown_author").string) }
             val author = DlcTextFormatter.parse(authors.joinToString(", "))
             val icon = loadIconTexture(pack.iconFile)
-            PackArchiveEntry(archive.toAbsolutePath().normalize(), pack.metadata, displayName, description, author, authors, icon?.location, icon?.width ?: 0, icon?.height ?: 0)
+            PackArchiveEntry(archive.toAbsolutePath().normalize(), archiveOrderPath(archive), pack.metadata, displayName, description, author, authors, icon?.location, icon?.width ?: 0, icon?.height ?: 0)
         } catch (_: Exception) {
             null
         } finally {
@@ -1353,6 +1363,7 @@ class DlcPackManagerScreen(
 
     private class PackArchiveEntry(
         val archivePath: Path,
+        val archiveOrderPath: String,
         val metadata: DlcPackMetadata,
         val displayName: Component,
         val description: Component,
@@ -1363,7 +1374,7 @@ class DlcPackManagerScreen(
         val iconHeight: Int,
     ) {
         val displayNameText: String = displayName.string.ifBlank { metadata.identifier }
-        val key: String = archivePath.toString() + "#" + metadata.identifier + "@" + metadata.version
+        val key: String = archiveOrderPath + "#" + metadata.identifier + "@" + metadata.version
     }
 
     private enum class OperationDisplayMode {

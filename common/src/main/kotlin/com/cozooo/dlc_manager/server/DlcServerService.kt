@@ -783,7 +783,7 @@ object DlcServerService {
                             val exists = Files.exists(target)
                             if (exists && "diff".equals(mode, ignoreCase = true)) {
                                 drainEntry(zip)
-                                op.log("SKIP $target")
+                                op.log("SKIP ${op.displayPath(target)}")
                                 zip.closeEntry()
                                 entry = zip.nextEntry
                                 continue
@@ -794,7 +794,7 @@ object DlcServerService {
                             try {
                                 Files.createDirectories(target.parent)
                                 writeEntry(zip, target)
-                                op.log("WRITE $target")
+                                op.log("WRITE ${op.displayPath(target)}")
                             } catch (_: IOException) {
                             }
                             zip.closeEntry()
@@ -935,7 +935,7 @@ object DlcServerService {
                     }
                     Files.createDirectories(target.parent)
                     Files.move(state.tempFile, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-                    op.log("UPLOAD $target")
+                    op.log("UPLOAD ${op.displayPath(target)}")
                     ok = true
                 }
             } catch (_: IOException) {
@@ -992,7 +992,7 @@ object DlcServerService {
             return
         }
         DlcServerOps.begin(dlcRoot, root, "download").use { op ->
-            op.log("DOWNLOAD $target")
+            op.log("DOWNLOAD ${op.displayPath(target)}")
         }
         val init = JsonObject()
         init.addProperty("type", "file_download_init")

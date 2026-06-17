@@ -830,7 +830,7 @@ public class DlcServerService {
                     boolean exists = Files.exists(target);
                     if (exists && "diff".equalsIgnoreCase(mode)) {
                         drainEntry(zip);
-                        op.log("SKIP " + target);
+                        op.log("SKIP " + op.displayPath(target));
                         zip.closeEntry();
                         continue;
                     }
@@ -840,7 +840,7 @@ public class DlcServerService {
                     try {
                         Files.createDirectories(target.getParent());
                         writeEntry(zip, target);
-                        op.log("WRITE " + target);
+                        op.log("WRITE " + op.displayPath(target));
                     } catch (IOException ignored) {
                     }
                     zip.closeEntry();
@@ -967,7 +967,7 @@ public class DlcServerService {
                     }
                     Files.createDirectories(target.getParent());
                     Files.move(state.tempFile, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                    op.log("UPLOAD " + target);
+                    op.log("UPLOAD " + op.displayPath(target));
                     ok = true;
                 }
             } catch (IOException ignored) {
@@ -1020,7 +1020,7 @@ public class DlcServerService {
             return;
         }
         try (DlcServerOps.ServerOpContext op = DlcServerOps.begin(dlcRoot, root, "download")) {
-            op.log("DOWNLOAD " + target);
+            op.log("DOWNLOAD " + op.displayPath(target));
         }
         JsonObject init = new JsonObject();
         init.addProperty("type", "file_download_init");

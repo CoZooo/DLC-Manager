@@ -1,10 +1,10 @@
 package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.core.DcConfigIO
-import com.google.gson.JsonArray
-import com.google.gson.JsonObject
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 
 object DlcPackOrder {
     @JvmStatic
@@ -12,17 +12,16 @@ object DlcPackOrder {
         if (path == null || !Files.exists(path)) {
             return emptyList()
         }
-        val obj = DcConfigIO.read(path, DcConfigIO.Layout.GENERIC) ?: return emptyList()
-        val array = DcConfigIO.getArrayIgnoreCase(obj, "archives") ?: return emptyList()
         val out = ArrayList<String>()
-        array.forEach { element ->
-            if (element != null && element.isJsonPrimitive) {
-                normalize(element.asString)?.let { value ->
+        try {
+            Files.readAllLines(path).forEach { line ->
+                normalize(line)?.let { value ->
                     if (!out.contains(value)) {
                         out.add(value)
                     }
                 }
             }
+        } catch (_: IOException) {
         }
         return out
     }
@@ -32,13 +31,11 @@ object DlcPackOrder {
         if (path == null) {
             return false
         }
-        val obj = JsonObject()
-        val array = JsonArray()
+        val lines = ArrayList<String>()
         order?.forEach { key ->
-            normalize(key)?.let { array.add(it) }
+            normalize(key)?.let { lines.add(it) }
         }
-        obj.add("archives", array)
-        return DlcPackDcFiles.writeAtomic(path, obj)
+        return writeAtomicLines(path, lines)
     }
 
     @JvmStatic
@@ -64,6 +61,42 @@ object DlcPackOrder {
     }
 
     private fun normalize(value: String?): String? {
-        return if (value.isNullOrBlank()) null else value.trim()
+        if (value.isNullOrBlank()) {
+            return null
+        }
+        val normalized = value.trim().replace('\\', '/').trim('/')
+        if (normalized.isBlank() || normalized.startsWith("../") || normalized == ".." || normalized.contains("/../")) {
+            return null
+        }
+        return normalized
+    }
+
+    private fun writeAtomicLines(path: Path, lines: List<String>): Boolean {
+        return try {
+            val target = DcConfigIO.toDcPath(path) ?: return false
+            val parent = target.parent
+            val temp = if (parent != null) {
+                Files.createDirectories(parent)
+                Files.createTempFile(parent, target.fileName.toString() + ".", ".tmp")
+            } else {
+                Files.createTempFile(target.fileName.toString() + ".", ".tmp")
+            }
+            try {
+                Files.write(temp, lines)
+                try {
+                    Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+                } catch (_: IOException) {
+                    Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
+                }
+                if (target != path) {
+                    Files.deleteIfExists(path)
+                }
+                true
+            } finally {
+                Files.deleteIfExists(temp)
+            }
+        } catch (_: IOException) {
+            false
+        }
     }
 }

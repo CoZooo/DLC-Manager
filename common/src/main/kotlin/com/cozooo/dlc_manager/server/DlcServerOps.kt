@@ -70,7 +70,7 @@ object DlcServerOps {
                     Files.createDirectories(backupPath.parent)
                     Files.copy(target, backupPath, StandardCopyOption.REPLACE_EXISTING)
                 }
-                log("BACKUP $target")
+                log("BACKUP ${displayPath(target)}")
             } catch (_: IOException) {
             }
         }
@@ -93,7 +93,7 @@ object DlcServerOps {
                         return FileVisitResult.CONTINUE
                     }
                 })
-                log("DELETE $target")
+                log("DELETE ${displayPath(target)}")
             } catch (_: IOException) {
             }
         }
@@ -111,6 +111,20 @@ object DlcServerOps {
                 }
             }
             return backupRoot.resolve(normalizedTarget.fileName)
+        }
+
+        fun displayPath(target: Path?): String {
+            if (target == null) {
+                return ""
+            }
+            val normalizedTarget = target.normalize()
+            if (gameDir != null) {
+                val normalizedRoot = gameDir.normalize()
+                if (normalizedTarget.startsWith(normalizedRoot)) {
+                    return normalizedRoot.relativize(normalizedTarget).toString().replace('\\', '/')
+                }
+            }
+            return target.toString()
         }
 
         override fun close() {

@@ -212,8 +212,8 @@ public final class DlcSelfUpdateService {
         if (obj == null || !obj.has("pendingFile") || !obj.has("targetFile")) {
             return false;
         }
-        Path pending = Path.of(obj.get("pendingFile").getAsString());
-        Path target = Path.of(obj.get("targetFile").getAsString());
+        Path pending = resolveStoredPath(obj.get("pendingFile").getAsString());
+        Path target = resolveStoredPath(obj.get("targetFile").getAsString());
         if (!Files.exists(pending) || target == null) {
             return false;
         }
@@ -420,8 +420,8 @@ public final class DlcSelfUpdateService {
         try {
             Files.createDirectories(marker.getParent());
             JsonObject obj = new JsonObject();
-            obj.addProperty("pendingFile", pendingFile.toAbsolutePath().toString());
-            obj.addProperty("targetFile", targetFile.toAbsolutePath().toString());
+            obj.addProperty("pendingFile", toStoredPath(pendingFile));
+            obj.addProperty("targetFile", toStoredPath(targetFile));
             obj.addProperty("currentVersion", result.currentVersion == null ? "" : result.currentVersion);
             obj.addProperty("latestVersion", result.latestVersion == null ? "" : result.latestVersion);
             obj.addProperty("updatedAt", Instant.now().toString());
@@ -429,6 +429,25 @@ public final class DlcSelfUpdateService {
             return SaveResult.success();
         } catch (IOException ignored) {
             return SaveResult.failed();
+        }
+    }
+
+    private static Path resolveStoredPath(String value) {
+        String raw = value == null ? "" : value.trim();
+        Path path = Path.of(raw);
+        if (path.isAbsolute()) {
+            return path;
+        }
+        return CrossPlatformRuntime.gameDir().resolve(path).normalize();
+    }
+
+    private static String toStoredPath(Path path) {
+        Path gameDir = CrossPlatformRuntime.gameDir().toAbsolutePath().normalize();
+        Path normalized = path.toAbsolutePath().normalize();
+        try {
+            return gameDir.relativize(normalized).toString().replace('\\', '/');
+        } catch (IllegalArgumentException ex) {
+            return normalized.getFileName().toString();
         }
     }
 

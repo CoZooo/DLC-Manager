@@ -81,7 +81,7 @@ public final class DlcServerOps {
                     Files.createDirectories(backupPath.getParent());
                     Files.copy(target, backupPath, StandardCopyOption.REPLACE_EXISTING);
                 }
-                log("BACKUP " + target);
+                log("BACKUP " + displayPath(target));
             } catch (IOException ignored) {
             }
         }
@@ -104,7 +104,7 @@ public final class DlcServerOps {
                         return FileVisitResult.CONTINUE;
                     }
                 });
-                log("DELETE " + target);
+                log("DELETE " + displayPath(target));
             } catch (IOException ignored) {
             }
         }
@@ -122,6 +122,20 @@ public final class DlcServerOps {
                 }
             }
             return backupRoot.resolve(normalizedTarget.getFileName());
+        }
+
+        public String displayPath(Path target) {
+            if (target == null) {
+                return "";
+            }
+            Path normalizedTarget = target.normalize();
+            if (gameDir != null) {
+                Path normalizedRoot = gameDir.normalize();
+                if (normalizedTarget.startsWith(normalizedRoot)) {
+                    return normalizedRoot.relativize(normalizedTarget).toString().replace('\\', '/');
+                }
+            }
+            return target.toString();
         }
 
         @Override

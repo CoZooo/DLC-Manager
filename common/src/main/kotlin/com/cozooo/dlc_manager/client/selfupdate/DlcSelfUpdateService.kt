@@ -215,8 +215,8 @@ object DlcSelfUpdateService {
         if (obj == null || !obj.has("pendingFile") || !obj.has("targetFile")) {
             return false
         }
-        val pending = Path.of(obj.get("pendingFile").asString)
-        val target = Path.of(obj.get("targetFile").asString)
+        val pending = resolveStoredPath(obj.get("pendingFile").asString)
+        val target = resolveStoredPath(obj.get("targetFile").asString)
         if (!Files.exists(pending)) {
             return false
         }
@@ -399,8 +399,8 @@ object DlcSelfUpdateService {
         return try {
             Files.createDirectories(marker.parent)
             val obj = JsonObject()
-            obj.addProperty("pendingFile", pendingFile.toAbsolutePath().toString())
-            obj.addProperty("targetFile", targetFile.toAbsolutePath().toString())
+            obj.addProperty("pendingFile", toStoredPath(pendingFile))
+            obj.addProperty("targetFile", toStoredPath(targetFile))
             obj.addProperty("currentVersion", result.currentVersion ?: "")
             obj.addProperty("latestVersion", result.latestVersion ?: "")
             obj.addProperty("updatedAt", Instant.now().toString())
@@ -408,6 +408,26 @@ object DlcSelfUpdateService {
             SaveResult.success()
         } catch (_: IOException) {
             SaveResult.failed()
+        }
+    }
+
+    private fun resolveStoredPath(value: String?): Path {
+        val raw = value?.trim().orEmpty()
+        val path = Path.of(raw)
+        return if (path.isAbsolute) {
+            path
+        } else {
+            CrossPlatformRuntime.gameDir().resolve(path).normalize()
+        }
+    }
+
+    private fun toStoredPath(path: Path): String {
+        val gameDir = CrossPlatformRuntime.gameDir().toAbsolutePath().normalize()
+        val normalized = path.toAbsolutePath().normalize()
+        return try {
+            gameDir.relativize(normalized).toString().replace('\\', '/')
+        } catch (_: IllegalArgumentException) {
+            normalized.fileName.toString()
         }
     }
 
