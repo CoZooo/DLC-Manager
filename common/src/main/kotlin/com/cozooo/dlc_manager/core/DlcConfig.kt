@@ -74,7 +74,7 @@ object DlcConfig {
     const val DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY: String = DOWNLOAD_MIRROR_PROBE_SINGLE
     const val DEFAULT_MODPACK: String = ""
     const val DEFAULT_MODPACK_URL: String = ""
-    const val DEFAULT_UPDATE_GITHUB_REPO_URL: String = ""
+    const val DEFAULT_UPDATE_GIT_REPO_URL: String = ""
 
     private var dlcRoot = DEFAULT_DLC_ROOT
     private var taczRoot = DEFAULT_TACZ_DLC_ROOT
@@ -117,9 +117,7 @@ object DlcConfig {
     private var noticePanelHeight = DEFAULT_NOTICE_PANEL_HEIGHT
     private var modpack = DEFAULT_MODPACK
     private var modpackUrlClient = DEFAULT_MODPACK_URL
-    private var updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL
-    private var modpackUrlServer = DEFAULT_MODPACK_URL
-    private var updateGithubRepoServer = DEFAULT_UPDATE_GITHUB_REPO_URL
+    private var updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL
     private var maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS
     private var maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE
     private var minSegmentMb = DEFAULT_MIN_SEGMENT_MB
@@ -144,28 +142,37 @@ object DlcConfig {
     @JvmStatic fun save() = saveClient()
     @JvmStatic fun saveClient() = saveClientToDisk()
     @JvmStatic fun saveServer() = saveServerToDisk()
+    @JvmStatic fun saveShared() = saveClientToDisk()
 
     @JvmStatic
     fun buildServerConfigJson(): JsonObject {
         val root = JsonObject()
-        writeApi(root)
+        writeShared(root)
         writeServer(root)
-        writeServerUi(root)
-        writePaths(root)
-        writeDownloads(root)
-        writeServerModpack(root)
+        return root
+    }
+
+    @JvmStatic
+    fun buildSharedConfigJson(): JsonObject {
+        val root = JsonObject()
+        writeShared(root)
         return root
     }
 
     @JvmStatic
     fun applyServerConfigJson(root: JsonObject?) {
         if (root == null) return
-        readSection(root, "api", buildApiReaders())
         readSection(root, "server", buildServerReaders())
-        readSection(root, "ui", buildServerUiReaders())
+    }
+
+    @JvmStatic
+    fun applySharedConfigJson(root: JsonObject?) {
+        if (root == null) return
+        readSection(root, "api", buildApiReaders())
         readSection(root, "paths", buildPathReaders())
+        readSection(root, "ui", buildUiReaders())
         readSection(root, "downloads", buildDownloadReaders())
-        readSection(root, "modpack", buildServerModpackReaders())
+        readSection(root, "modpack", buildModpackReaders())
     }
 
     @JvmStatic fun getDlcRoot(): Path = getDlcRoots()[0]
@@ -220,11 +227,9 @@ object DlcConfig {
     @JvmStatic fun getNoticePanelHeight(): Int = maxOf(0, noticePanelHeight)
     @JvmStatic fun getModpack(): String = modpack
     @JvmStatic fun getModpackUrl(): String = modpackUrlClient
-    @JvmStatic fun getUpdateGithubRepoUrl(): String = updateGithubRepoClient
-    @JvmStatic fun getUpdateGitRepoUrl(): String = getUpdateGithubRepoUrl()
-    @JvmStatic fun getServerModpackUrl(): String = modpackUrlServer
-    @JvmStatic fun getServerUpdateGithubRepoUrl(): String = updateGithubRepoServer
-    @JvmStatic fun getServerUpdateGitRepoUrl(): String = getServerUpdateGithubRepoUrl()
+    @JvmStatic fun getUpdateGitRepoUrl(): String = updateGitRepoClient
+    @JvmStatic fun getServerModpackUrl(): String = getModpackUrl()
+    @JvmStatic fun getServerUpdateGitRepoUrl(): String = getUpdateGitRepoUrl()
 
     @JvmStatic
     fun computeTitleButtonPosition(screenWidth: Int, screenHeight: Int, buttonWidth: Int, buttonHeight: Int, defaultX: Int, defaultY: Int): IntArray {
@@ -323,11 +328,9 @@ object DlcConfig {
     @JvmStatic fun setNoticePanelHeight(value: Int) { noticePanelHeight = value.coerceIn(0, MAX_NOTICE_PANEL_SIZE) }
     @JvmStatic fun setModpack(value: String?) { modpack = value ?: DEFAULT_MODPACK }
     @JvmStatic fun setModpackUrl(value: String?) { modpackUrlClient = value ?: DEFAULT_MODPACK_URL }
-    @JvmStatic fun setUpdateGithubRepoUrl(value: String?) { updateGithubRepoClient = value ?: DEFAULT_UPDATE_GITHUB_REPO_URL }
-    @JvmStatic fun setUpdateGitRepoUrl(value: String?) = setUpdateGithubRepoUrl(value)
-    @JvmStatic fun setServerModpackUrl(value: String?) { modpackUrlServer = value ?: DEFAULT_MODPACK_URL }
-    @JvmStatic fun setServerUpdateGithubRepoUrl(value: String?) { updateGithubRepoServer = value ?: DEFAULT_UPDATE_GITHUB_REPO_URL }
-    @JvmStatic fun setServerUpdateGitRepoUrl(value: String?) = setServerUpdateGithubRepoUrl(value)
+    @JvmStatic fun setUpdateGitRepoUrl(value: String?) { updateGitRepoClient = value ?: DEFAULT_UPDATE_GIT_REPO_URL }
+    @JvmStatic fun setServerModpackUrl(value: String?) = setModpackUrl(value)
+    @JvmStatic fun setServerUpdateGitRepoUrl(value: String?) = setUpdateGitRepoUrl(value)
     @JvmStatic fun setMaxConcurrentDownloads(value: Int) { maxConcurrentDownloads = maxOf(1, value) }
     @JvmStatic fun setMaxSegmentsPerFile(value: Int) { maxSegmentsPerFile = maxOf(1, value) }
     @JvmStatic fun setMinSegmentBytes(value: Long) {
@@ -383,9 +386,7 @@ object DlcConfig {
         noticePanelHeight = DEFAULT_NOTICE_PANEL_HEIGHT
         modpack = DEFAULT_MODPACK
         modpackUrlClient = DEFAULT_MODPACK_URL
-        updateGithubRepoClient = DEFAULT_UPDATE_GITHUB_REPO_URL
-        modpackUrlServer = DEFAULT_MODPACK_URL
-        updateGithubRepoServer = DEFAULT_UPDATE_GITHUB_REPO_URL
+        updateGitRepoClient = DEFAULT_UPDATE_GIT_REPO_URL
         maxConcurrentDownloads = DEFAULT_MAX_CONCURRENT_DOWNLOADS
         maxSegmentsPerFile = DEFAULT_MAX_SEGMENTS_PER_FILE
         minSegmentMb = DEFAULT_MIN_SEGMENT_MB
@@ -398,18 +399,12 @@ object DlcConfig {
     }
 
     private fun resetServerDefaults() {
-        modpack = DEFAULT_MODPACK
         serverSupportServer = DEFAULT_SERVER_SUPPORT
         serverPort = DEFAULT_SERVER_PORT
         serverPassword = DEFAULT_SERVER_PASSWORD
-        apiEnabled = DEFAULT_API_ENABLED
-        apiPort = DEFAULT_API_PORT
-        apiToken = DEFAULT_API_TOKEN
         serverRconHost = DEFAULT_RCON_HOST
         serverRconPort = DEFAULT_RCON_PORT
         serverRconPassword = DEFAULT_RCON_PASSWORD
-        modpackUrlServer = DEFAULT_MODPACK_URL
-        updateGithubRepoServer = DEFAULT_UPDATE_GITHUB_REPO_URL
     }
 
     private fun loadClientFromDisk() {
@@ -422,8 +417,12 @@ object DlcConfig {
     }
 
     private fun loadServerFromDisk() {
-        resetServerDefaults()
         val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        resetDefaults()
+        val clientPath = resolveManagerConfigPath(configDir, CONFIG_NAME)
+        if (clientPath != null && Files.exists(clientPath)) {
+            loadFromJson(clientPath)
+        }
         val path = resolveManagerConfigPath(configDir, CONFIG_SERVER_NAME)
         if (path != null && Files.exists(path)) {
             loadFromServerJson(path)
@@ -440,13 +439,9 @@ object DlcConfig {
     }
 
     private fun loadFromServerJson(path: Path) {
+        resetServerDefaults()
         val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return
-        readSection(root, "api", buildApiReaders())
         readSection(root, "server", buildServerReaders())
-        readSection(root, "ui", buildServerUiReaders())
-        readSection(root, "paths", buildPathReaders())
-        readSection(root, "downloads", buildDownloadReaders())
-        readSection(root, "modpack", buildServerModpackReaders())
     }
 
     private fun ensureClientConfigFile() {
@@ -476,11 +471,7 @@ object DlcConfig {
             return
         }
         val root = JsonObject()
-        writeApi(root)
-        writePaths(root)
-        writeUi(root)
-        writeDownloads(root)
-        writeModpack(root)
+        writeShared(root)
         writeJson(root, path)
     }
 
@@ -493,17 +484,20 @@ object DlcConfig {
             return
         }
         val root = JsonObject()
-        writeApi(root)
         writeServer(root)
-        writeServerUi(root)
-        writePaths(root)
-        writeDownloads(root)
-        writeServerModpack(root)
         writeJson(root, path)
     }
 
     private fun writeJson(root: JsonObject, path: Path) {
         DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC)
+    }
+
+    private fun writeShared(root: JsonObject) {
+        writeApi(root)
+        writePaths(root)
+        writeUi(root)
+        writeDownloads(root)
+        writeModpack(root)
     }
 
     private fun resolveManagerConfigPath(configDir: Path?, baseName: String?): Path? {
@@ -569,16 +563,6 @@ object DlcConfig {
         root.add("ui", obj)
     }
 
-    private fun writeServerUi(root: JsonObject) {
-        val obj = JsonObject()
-        obj.addProperty("isEnableAllButtonShown", enableAllButtonShown)
-        obj.addProperty("isUpdateManagerOn", updateManagerOn)
-        obj.addProperty("isSelfUpdateAutoCheckOn", selfUpdateAutoCheckOn)
-        obj.addProperty("isPresetFuncOn", presetFuncOn)
-        obj.addProperty("WaitingTime", alarmWaitingTime)
-        root.add("ui", obj)
-    }
-
     private fun writeDownloads(root: JsonObject) {
         val obj = JsonObject()
         obj.addProperty("maxConcurrentDownloads", maxConcurrentDownloads)
@@ -610,15 +594,7 @@ object DlcConfig {
         val obj = JsonObject()
         obj.addProperty("modpack", modpack)
         obj.addProperty("modpackUrl", modpackUrlClient)
-        obj.addProperty("updateGitRepo", updateGithubRepoClient)
-        root.add("modpack", obj)
-    }
-
-    private fun writeServerModpack(root: JsonObject) {
-        val obj = JsonObject()
-        obj.addProperty("modpack", modpack)
-        obj.addProperty("modpackUrl", modpackUrlServer)
-        obj.addProperty("updateGitRepo", updateGithubRepoServer)
+        obj.addProperty("updateGitRepo", updateGitRepoClient)
         root.add("modpack", obj)
     }
 
@@ -676,15 +652,13 @@ object DlcConfig {
         "noticePanelWidth" to { value -> noticePanelWidth = asInt(value, DEFAULT_NOTICE_PANEL_WIDTH).coerceIn(0, MAX_NOTICE_PANEL_SIZE) },
         "noticePanelHeight" to { value -> noticePanelHeight = asInt(value, DEFAULT_NOTICE_PANEL_HEIGHT).coerceIn(0, MAX_NOTICE_PANEL_SIZE) },
         "modpackUrl" to { value -> modpackUrlClient = asString(value, DEFAULT_MODPACK_URL) },
-        "updateGithubRepo" to { value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
+        "updateGithubRepo" to { value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL) },
     )
 
     private fun buildServerReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
         "serverSupport" to { value -> serverSupportServer = asBoolean(value, DEFAULT_SERVER_SUPPORT) },
         "serverPort" to { value -> serverPort = clampInt(asInt(value, DEFAULT_SERVER_PORT), 1, 65535, DEFAULT_SERVER_PORT) },
         "serverPassword" to { value -> serverPassword = asString(value, DEFAULT_SERVER_PASSWORD) },
-        "modpackUrl" to { value -> modpackUrlServer = asString(value, DEFAULT_MODPACK_URL) },
-        "updateGithubRepo" to { value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
         "rconHost" to { value -> serverRconHost = asString(value, DEFAULT_RCON_HOST) },
         "rconPort" to { value -> serverRconPort = clampInt(asInt(value, DEFAULT_RCON_PORT), 1, 65535, DEFAULT_RCON_PORT) },
         "rconPassword" to { value -> serverRconPassword = asString(value, DEFAULT_RCON_PASSWORD) },
@@ -693,23 +667,8 @@ object DlcConfig {
     private fun buildModpackReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
         "modpack" to { value -> modpack = asString(value, DEFAULT_MODPACK) },
         "modpackUrl" to { value -> modpackUrlClient = asString(value, DEFAULT_MODPACK_URL) },
-        "updateGithubRepo" to { value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
-        "updateGitRepo" to { value -> updateGithubRepoClient = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
-    )
-
-    private fun buildServerModpackReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
-        "modpack" to { value -> modpack = asString(value, DEFAULT_MODPACK) },
-        "modpackUrl" to { value -> modpackUrlServer = asString(value, DEFAULT_MODPACK_URL) },
-        "updateGithubRepo" to { value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
-        "updateGitRepo" to { value -> updateGithubRepoServer = asString(value, DEFAULT_UPDATE_GITHUB_REPO_URL) },
-    )
-
-    private fun buildServerUiReaders(): Map<String, (JsonElement) -> Unit> = mapOf(
-        "isEnableAllButtonShown" to { value -> enableAllButtonShown = asBoolean(value, DEFAULT_ENABLE_ALL_SHOWN) },
-        "isUpdateManagerOn" to { value -> updateManagerOn = asBoolean(value, DEFAULT_UPDATE_MANAGER_ON) },
-        "isSelfUpdateAutoCheckOn" to { value -> selfUpdateAutoCheckOn = asBoolean(value, DEFAULT_SELF_UPDATE_AUTO_CHECK_ON) },
-        "isPresetFuncOn" to { value -> presetFuncOn = asBoolean(value, DEFAULT_PRESET_FUNC_ON) },
-        "WaitingTime" to { value -> alarmWaitingTime = clampInt(asInt(value, DEFAULT_ALARM_WAITING_TIME), 0, 10, DEFAULT_ALARM_WAITING_TIME) },
+        "updateGithubRepo" to { value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL) },
+        "updateGitRepo" to { value -> updateGitRepoClient = asString(value, DEFAULT_UPDATE_GIT_REPO_URL) },
     )
 
     private fun buildDownloadReaders(): Map<String, (JsonElement) -> Unit> = mapOf(

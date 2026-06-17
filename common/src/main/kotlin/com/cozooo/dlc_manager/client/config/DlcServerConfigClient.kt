@@ -23,6 +23,18 @@ object DlcServerConfigClient {
         "serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword"
     )
+    private val RCON_HOST = DlcConfigString(
+        "rconHost", DlcConfig.DEFAULT_RCON_HOST,
+        "dlc_manager.config.comment.ui.rconHost", "dlc_manager.config.ui.rconHost"
+    )
+    private val RCON_PORT = DlcConfigInteger(
+        "rconPort", DlcConfig.DEFAULT_RCON_PORT, 1, 65535,
+        "dlc_manager.config.comment.ui.rconPort", "dlc_manager.config.ui.rconPort"
+    )
+    private val RCON_PASSWORD = DlcConfigString(
+        "rconPassword", DlcConfig.DEFAULT_RCON_PASSWORD,
+        "dlc_manager.config.comment.ui.rconPassword", "dlc_manager.config.ui.rconPassword"
+    )
     private val API_ENABLED = DlcConfigBoolean(
         "apiEnabled", DlcConfig.DEFAULT_API_ENABLED,
         "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled"
@@ -57,7 +69,7 @@ object DlcServerConfigClient {
     )
     private val MODPACK = DlcConfigString("modpack", DlcConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
     private val MODPACK_URL = DlcConfigString("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
-    private val UPDATE_GIT_REPO = DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GITHUB_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
+    private val UPDATE_GIT_REPO = DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
 
     private val DLC_ROOT = DlcConfigString(
         "dlcRoot", DlcConfig.DEFAULT_DLC_ROOT,
@@ -117,6 +129,9 @@ object DlcServerConfigClient {
         SERVER_SUPPORT,
         SERVER_PORT,
         SERVER_PASSWORD,
+        RCON_HOST,
+        RCON_PORT,
+        RCON_PASSWORD,
         API_ENABLED,
         API_PORT,
         API_TOKEN
@@ -179,8 +194,9 @@ object DlcServerConfigClient {
         SERVER_SUPPORT.booleanValue = getBoolean(server, "serverSupport", SERVER_SUPPORT.booleanValue)
         SERVER_PORT.integerValue = getInt(server, "serverPort", SERVER_PORT.integerValue)
         SERVER_PASSWORD.setValueFromString(getString(server, "serverPassword", SERVER_PASSWORD.stringValue))
-        MODPACK_URL.setValueFromString(getString(server, "modpackUrl", MODPACK_URL.stringValue))
-        UPDATE_GIT_REPO.setValueFromString(getString(server, "updateGithubRepo", UPDATE_GIT_REPO.stringValue))
+        RCON_HOST.setValueFromString(getString(server, "rconHost", RCON_HOST.stringValue))
+        RCON_PORT.integerValue = getInt(server, "rconPort", RCON_PORT.integerValue)
+        RCON_PASSWORD.setValueFromString(getString(server, "rconPassword", RCON_PASSWORD.stringValue))
 
         val api = asObject(root, "api")
         API_ENABLED.booleanValue = getBoolean(api, "apiEnabled", API_ENABLED.booleanValue)
@@ -224,6 +240,9 @@ object DlcServerConfigClient {
         server.addProperty("serverSupport", SERVER_SUPPORT.booleanValue)
         server.addProperty("serverPort", SERVER_PORT.integerValue)
         server.addProperty("serverPassword", SERVER_PASSWORD.stringValue)
+        server.addProperty("rconHost", RCON_HOST.stringValue)
+        server.addProperty("rconPort", RCON_PORT.integerValue)
+        server.addProperty("rconPassword", RCON_PASSWORD.stringValue)
         root.add("server", server)
 
         val api = JsonObject()

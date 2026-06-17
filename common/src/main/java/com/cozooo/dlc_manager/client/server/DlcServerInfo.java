@@ -10,5 +10,5 @@ public class DlcServerInfo {
     public int requiredMissing;
     public boolean hasRequired;
     public String modpackUrl;
-    public String updateGithubRepo;
+    public String updateGitRepo;
 }

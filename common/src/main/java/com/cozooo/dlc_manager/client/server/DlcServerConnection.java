@@ -73,7 +73,10 @@ public class DlcServerConnection {
             info.requiredMissing = getInt(response, "requiredMissing");
             info.hasRequired = response.has("hasRequired") && response.get("hasRequired").getAsBoolean();
             info.modpackUrl = getString(response, "modpackUrl");
-            info.updateGithubRepo = getString(response, "updateGithubRepo");
+            info.updateGitRepo = getString(response, "updateGitRepo");
+            if (info.updateGitRepo == null) {
+                info.updateGitRepo = getString(response, "updateGithubRepo");
+            }
             if (!info.hasRequired && info.requiredMissing > 0) {
                 info.hasRequired = true;
             }
@@ -587,7 +590,10 @@ public class DlcServerConnection {
             state.dlcVersion = getString(response, "dlc");
             state.rollbackFrom = getString(response, "rollbackFrom");
             state.modpackUrl = getString(response, "modpackUrl");
-            state.updateGithubRepo = getString(response, "updateGithubRepo");
+            state.updateGitRepo = getString(response, "updateGitRepo");
+            if (state.updateGitRepo == null) {
+                state.updateGitRepo = getString(response, "updateGithubRepo");
+            }
             List<DlcUpdateMeta> history = new ArrayList<>();
             if (response.has("history") && response.get("history").isJsonArray()) {
                 response.getAsJsonArray("history").forEach(element -> {

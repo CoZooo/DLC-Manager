@@ -330,7 +330,7 @@ object DlcServerService {
         response.addProperty("requiredMissing", requiredMissing)
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot))
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl())
-        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl())
+        response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl())
         response.add("items", GSON.toJsonTree(items))
         writeLine(writer, response)
     }
@@ -551,7 +551,7 @@ object DlcServerService {
         response.addProperty("base", base ?: "")
         response.addProperty("dlc", dlc ?: "")
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl())
-        response.addProperty("updateGithubRepo", DlcConfig.getServerUpdateGithubRepoUrl())
+        response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl())
         if (!rollbackFrom.isNullOrBlank()) {
             response.addProperty("rollbackFrom", rollbackFrom)
         }
@@ -1107,7 +1107,9 @@ object DlcServerService {
         var ok = false
         if (request.has("config") && request.get("config").isJsonObject) {
             val config = request.getAsJsonObject("config")
+            DlcConfig.applySharedConfigJson(config)
             DlcConfig.applyServerConfigJson(config)
+            DlcConfig.saveShared()
             DlcConfig.saveServer()
             ok = true
         }
