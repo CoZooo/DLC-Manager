@@ -35,7 +35,7 @@ public class DlcConfig {
     public static final boolean DEFAULT_P_BUTTON_SHOWN = true;
     public static final boolean DEFAULT_SHOW_ON_FIRST_RUN = false;
     public static final int DEFAULT_ALARM_WAITING_TIME = 0;
-    public static final boolean DEFAULT_SERVER_SUPPORT = false;
+    public static final boolean DEFAULT_SERVER_SUPPORT = true;
     public static final int DEFAULT_SERVER_PORT = 29690;
     public static final String DEFAULT_SERVER_PASSWORD = "";
     public static final boolean DEFAULT_API_ENABLED = false;
