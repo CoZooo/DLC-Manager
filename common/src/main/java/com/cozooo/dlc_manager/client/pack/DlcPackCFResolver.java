@@ -169,13 +169,7 @@ public final class DlcPackCFResolver {
                     download.outputDir,
                     download.target.fileName,
                     candidate.expectedSize,
-                    (done, fileTotal) -> {
-                        if (progressListener != null) {
-                            float fileProgress = fileTotal > 0 ? done / (float) fileTotal : 0f;
-                            perFileProgress.set(fileIndex, Math.max(0f, Math.min(1f, fileProgress)));
-                            progressListener.onProgress("Downloading " + download.target.fileName, aggregateProgress(perFileProgress, total));
-                        }
-                    },
+                    manifestProgressListener(download.target.fileName, fileIndex, perFileProgress, total, progressListener),
                     cancelChecker
                 );
                 verifyDownloaded(downloaded, candidate);
@@ -187,6 +181,32 @@ public final class DlcPackCFResolver {
             }
         }
         throw lastError == null ? new IOException("download failed") : lastError;
+    }
+
+    private static DlcDownloadService.ProgressListener manifestProgressListener(
+        String fileName,
+        int fileIndex,
+        AtomicReferenceArray<Float> perFileProgress,
+        int total,
+        DlcPackInstaller.ProgressListener progressListener
+    ) {
+        return new DlcDownloadService.StatusProgressListener() {
+            @Override
+            public void onProgress(long done, long fileTotal) {
+                if (progressListener != null) {
+                    float fileProgress = fileTotal > 0 ? done / (float) fileTotal : 0f;
+                    perFileProgress.set(fileIndex, Math.max(0f, Math.min(1f, fileProgress)));
+                    progressListener.onProgress("Downloading " + fileName, aggregateProgress(perFileProgress, total));
+                }
+            }
+
+            @Override
+            public void onStatusKey(String statusKey) {
+                if (progressListener != null && "selecting_source".equals(statusKey)) {
+                    progressListener.onProgress("Selecting download source", aggregateProgress(perFileProgress, total));
+                }
+            }
+        };
     }
 
     private static float aggregateProgress(AtomicReferenceArray<Float> perFileProgress, int total) {

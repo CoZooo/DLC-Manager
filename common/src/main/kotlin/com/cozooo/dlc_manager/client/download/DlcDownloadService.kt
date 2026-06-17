@@ -44,6 +44,10 @@ object DlcDownloadService {
         fun onProgress(downloadedBytes: Long, totalBytes: Long)
     }
 
+    interface StatusProgressListener : ProgressListener {
+        fun onStatusKey(statusKey: String)
+    }
+
     fun interface CancelChecker {
         fun isCanceled(): Boolean
     }
@@ -152,7 +156,9 @@ object DlcDownloadService {
         val total = if (expectedSize > 0) expectedSize else -1L
         val mode = DownloadMirrorMode.fromConfig(DlcPathConfig.getDownloadMirrorMode())
         val mirrorPlan = mirrorPlan(url, fileName, total)
+        notifyStatus(listener, "selecting_source", mode, mirrorPlan)
         val downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode)
+        notifyStatus(listener, "downloading", mode, mirrorPlan)
         val switchPlan = sourceSwitchPlan(url, mirrorPlan, mode, downloadUrl)
         listener?.onProgress(0L, total)
         val rangeProbe = if (total > 0
@@ -271,6 +277,12 @@ object DlcDownloadService {
             } else null
             DownloadMirrorMode.OFFICIAL_ONLY,
             DownloadMirrorMode.MIRROR_ONLY -> null
+        }
+    }
+
+    private fun notifyStatus(listener: ProgressListener?, statusKey: String, mode: DownloadMirrorMode, mirrorPlan: MirrorPlan?) {
+        if (listener is StatusProgressListener && mode == DownloadMirrorMode.SMART_PRECHECK && mirrorPlan != null && mirrorPlan.canSpeedCompare) {
+            listener.onStatusKey(statusKey)
         }
     }
 

@@ -245,6 +245,7 @@ public class DlcUpdateUrlScreen extends Screen {
         totalBytes = 0L;
         downloadedBytes = 0L;
         return DlcDownloadService.download(url, updateDir, fileName, (done, total) -> {
+            statusText = Component.translatable("dlc_manager.update.url_downloading").getString();
             downloadedBytes = done;
             totalBytes = total;
             progress = total > 0 ? (done / (float) total) : 0f;

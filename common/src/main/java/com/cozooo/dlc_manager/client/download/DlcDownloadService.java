@@ -50,6 +50,10 @@ public final class DlcDownloadService {
         void onProgress(long downloadedBytes, long totalBytes);
     }
 
+    public interface StatusProgressListener extends ProgressListener {
+        void onStatusKey(String statusKey);
+    }
+
     @FunctionalInterface
     public interface CancelChecker {
         boolean isCanceled();
@@ -143,7 +147,9 @@ public final class DlcDownloadService {
         long total = expectedSize > 0 ? expectedSize : -1L;
         DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcPathConfig.getDownloadMirrorMode());
         MirrorPlan mirrorPlan = mirrorPlan(url, fileName, total);
+        notifyStatus(listener, "selecting_source", mode, mirrorPlan);
         String downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode);
+        notifyStatus(listener, "downloading", mode, mirrorPlan);
         SourceSwitchPlan switchPlan = sourceSwitchPlan(url, mirrorPlan, mode, downloadUrl);
         if (listener != null) {
             listener.onProgress(0L, total);
@@ -276,6 +282,15 @@ public final class DlcDownloadService {
                 : null;
             case OFFICIAL_ONLY, MIRROR_ONLY -> null;
         };
+    }
+
+    private static void notifyStatus(ProgressListener listener, String statusKey, DownloadMirrorMode mode, MirrorPlan mirrorPlan) {
+        if (listener instanceof StatusProgressListener statusListener
+            && mode == DownloadMirrorMode.SMART_PRECHECK
+            && mirrorPlan != null
+            && mirrorPlan.canSpeedCompare) {
+            statusListener.onStatusKey(statusKey);
+        }
     }
 
     private static SourceProbe startSourceProbe(double primarySpeed, SourceSwitchPlan switchPlan, CancelChecker cancelChecker) {

@@ -156,11 +156,7 @@ object DlcPackCFResolver {
                     download.outputDir,
                     download.target.fileName,
                     candidate.expectedSize,
-                    DlcDownloadService.ProgressListener { done, fileTotal ->
-                        val fileProgress = if (fileTotal > 0) done / fileTotal.toFloat() else 0f
-                        perFileProgress.set(index, fileProgress.coerceIn(0f, 1f))
-                        progressListener?.onProgress("Downloading ${download.target.fileName}", aggregateProgress(perFileProgress, total))
-                    },
+                    manifestProgressListener(download.target.fileName, index, perFileProgress, total, progressListener),
                     cancelChecker,
                 )
                 verifyDownloaded(downloaded, candidate)
@@ -172,6 +168,28 @@ object DlcPackCFResolver {
             }
         }
         throw lastError ?: IOException("download failed")
+    }
+
+    private fun manifestProgressListener(
+        fileName: String,
+        index: Int,
+        perFileProgress: AtomicReferenceArray<Float>,
+        total: Int,
+        progressListener: DlcPackInstaller.ProgressListener?,
+    ): DlcDownloadService.ProgressListener {
+        return object : DlcDownloadService.StatusProgressListener {
+            override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
+                val fileProgress = if (totalBytes > 0) downloadedBytes / totalBytes.toFloat() else 0f
+                perFileProgress.set(index, fileProgress.coerceIn(0f, 1f))
+                progressListener?.onProgress("Downloading $fileName", aggregateProgress(perFileProgress, total))
+            }
+
+            override fun onStatusKey(statusKey: String) {
+                if (statusKey == "selecting_source") {
+                    progressListener?.onProgress("Selecting download source", aggregateProgress(perFileProgress, total))
+                }
+            }
+        }
     }
 
     private fun aggregateProgress(perFileProgress: AtomicReferenceArray<Float>, total: Int): Float {
