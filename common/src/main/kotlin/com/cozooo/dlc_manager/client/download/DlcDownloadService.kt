@@ -30,7 +30,12 @@ object DlcDownloadService {
     private const val SPEED_WINDOW_MS = 1000L
     private const val BYTES_PER_MIB = 1024L * 1024L
     private const val MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB
+    private const val CURSEFORGE_PROBE_PROJECT_ID = "678295"
+    private const val CURSEFORGE_PROBE_FILE_ID = "8110246"
+    private const val MODRINTH_PROBE_PROJECT_ID = "X661i40C"
+    private const val MODRINTH_PROBE_FILE_ID = "lAV6EKSR"
     private val mirrorLock = Any()
+    private val precheckProbeLock = Any()
     private var mirrorComparisons = 0
     private var officialWins = 0
     private var officialFastWins = 0
@@ -191,7 +196,7 @@ object DlcDownloadService {
                 Files.deleteIfExists(temp)
                 throw ex
             }
-        } else if (switchPlan != null && !Files.exists(temp)) {
+        } else if (switchPlan != null && (!Files.exists(temp) || switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK)) {
             downloadSingleSwitchAware(downloadUrl, switchPlan, temp, total, listener, cancelChecker)
         } else {
             val existing = if (Files.exists(temp)) Files.size(temp) else 0L
@@ -250,7 +255,10 @@ object DlcDownloadService {
                 }
                 var selected = selectedSourceFromCache()
                 if (selected == null && mirrorPlan.canSpeedCompare) {
-                    selected = precheckDownloadSource(url, mirrorPlan.mirrorUrl)
+                    val probePair = dedicatedProbePair(url)
+                    if (probePair != null) {
+                        selected = precheckDownloadSource(probePair.officialUrl, probePair.mirrorUrl)
+                    }
                 }
                 if (selected == true) mirrorPlan.mirrorUrl else url
             }
@@ -268,7 +276,15 @@ object DlcDownloadService {
             DownloadMirrorMode.SMART_MIRROR -> if (primaryUrl == mirrorPlan.mirrorUrl && mirrorPlan.canSpeedCompare) {
                 SourceSwitchPlan(officialUrl, primaryIsMirror = true, alternateIsMirror = false, mode = SourceSwitchMode.SPEED_COMPARE, mirrorPlan = mirrorPlan)
             } else null
-            DownloadMirrorMode.SMART_PRECHECK -> null
+            DownloadMirrorMode.SMART_PRECHECK -> when (primaryUrl) {
+                mirrorPlan.mirrorUrl -> SourceSwitchPlan(officialUrl, primaryIsMirror = true, alternateIsMirror = false, mode = SourceSwitchMode.RETRY_FALLBACK, mirrorPlan = mirrorPlan)
+                officialUrl -> if (isMirrorFallbackAllowed()) {
+                    SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.RETRY_FALLBACK, mirrorPlan = mirrorPlan)
+                } else {
+                    null
+                }
+                else -> null
+            }
             DownloadMirrorMode.OFFICIAL_FIRST -> if (primaryUrl == officialUrl) {
                 SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan = mirrorPlan)
             } else null
@@ -345,26 +361,66 @@ object DlcDownloadService {
     }
 
     private fun precheckDownloadSource(officialUrl: String, mirrorUrl: String): Boolean? {
-        val maxCount = maxMirrorProbeCount()
-        repeat(maxCount) {
-            synchronized(mirrorLock) {
-                if (mirrorDisabled) {
-                    return false
+        synchronized(precheckProbeLock) {
+            val maxCount = maxMirrorProbeCount()
+            repeat(maxCount) {
+                synchronized(mirrorLock) {
+                    if (mirrorDisabled) {
+                        return false
+                    }
+                    selectedMirror?.let { return it }
+                    if (mirrorComparisons >= maxCount) {
+                        return null
+                    }
+                    mirrorComparisons++
                 }
-                selectedMirror?.let { return it }
-                if (mirrorComparisons >= maxCount) {
-                    return null
+                val result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null)
+                synchronized(mirrorLock) {
+                    recordSourceProbeResult(result.mirrorSpeed, result.officialSpeed, alternateIsMirror = true, primaryIsMirror = false)
+                    selectedMirror?.let { return it }
                 }
-                mirrorComparisons++
             }
-            val result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null)
             synchronized(mirrorLock) {
-                recordSourceProbeResult(result.mirrorSpeed, result.officialSpeed, alternateIsMirror = true, primaryIsMirror = false)
-                selectedMirror?.let { return it }
+                return selectedMirror
             }
         }
+    }
+
+    private fun dedicatedProbePair(targetUrl: String): ProbeUrlPair? {
+        val officialUrl = when {
+            isCurseForgeCdnUrl(targetUrl) -> resolveCurseForgeProbeUrl()
+            isModrinthCdnUrl(targetUrl) -> resolveModrinthProbeUrl()
+            else -> null
+        } ?: return null
+        val mirrorUrl = mirrorDownloadUrl(officialUrl) ?: return null
+        return ProbeUrlPair(officialUrl, mirrorUrl)
+    }
+
+    private fun resolveCurseForgeProbeUrl(): String? {
+        if (CURSEFORGE_PROBE_PROJECT_ID.isBlank() || CURSEFORGE_PROBE_FILE_ID.isBlank()) {
+            return null
+        }
+        return try {
+            CurseForgeClient.fetchFile(CURSEFORGE_PROBE_PROJECT_ID, CURSEFORGE_PROBE_FILE_ID)?.url
+        } catch (_: Exception) {
+            null
+        }?.takeIf { isCurseForgeCdnUrl(it) }
+    }
+
+    private fun resolveModrinthProbeUrl(): String? {
+        if (MODRINTH_PROBE_PROJECT_ID.isBlank() || MODRINTH_PROBE_FILE_ID.isBlank()) {
+            return null
+        }
+        return try {
+            ModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROBE_PROJECT_ID, MODRINTH_PROBE_FILE_ID, null, null)?.url
+        } catch (_: Exception) {
+            null
+        }?.takeIf { isModrinthCdnUrl(it) }
+    }
+
+    private fun isMirrorFallbackAllowed(): Boolean {
         synchronized(mirrorLock) {
-            return selectedMirror
+            return !mirrorDisabled
         }
     }
 
@@ -527,6 +583,15 @@ object DlcDownloadService {
         }
     }
 
+    private fun isModrinthCdnUrl(url: String?): Boolean {
+        return try {
+            val uri = URI.create(url)
+            uri.host.equals(MODRINTH_CDN_HOST, ignoreCase = true) && isModrinthDownloadPath(uri)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun isMirrorUrl(url: String?): Boolean {
         return try {
             URI.create(url).host.equals(MIRROR_HOST, ignoreCase = true)
@@ -564,6 +629,10 @@ object DlcDownloadService {
         listener: ProgressListener?,
         cancelChecker: CancelChecker?,
     ) {
+        if (switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK) {
+            downloadSingleWithRetryFallback(url, switchPlan.alternateUrl, temp, knownTotal, listener, cancelChecker)
+            return
+        }
         var info: DownloadInfo? = null
         try {
             info = openDownload(url, 0L)
@@ -588,6 +657,25 @@ object DlcDownloadService {
             downloadSingleWithRetry(url, temp, knownTotal, existing, listener, cancelChecker)
         } finally {
             closeQuietly(info?.connection)
+        }
+    }
+
+    private fun downloadSingleWithRetryFallback(
+        primaryUrl: String,
+        fallbackUrl: String,
+        temp: Path,
+        knownTotal: Long,
+        listener: ProgressListener?,
+        cancelChecker: CancelChecker?,
+    ) {
+        try {
+            val existing = if (Files.exists(temp)) Files.size(temp) else 0L
+            downloadSingleWithRetry(primaryUrl, temp, knownTotal, existing, listener, cancelChecker)
+        } catch (ex: DownloadCanceledException) {
+            throw ex
+        } catch (_: IOException) {
+            Files.deleteIfExists(temp)
+            downloadSingleWithRetry(fallbackUrl, temp, knownTotal, 0L, listener, cancelChecker)
         }
     }
 
@@ -704,6 +792,10 @@ object DlcDownloadService {
         listener: ProgressListener?,
         cancelChecker: CancelChecker?,
     ) {
+        if (switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK) {
+            downloadSegmentedWithRetryFallback(url, switchPlan.alternateUrl, tempFile, totalBytes, listener, cancelChecker)
+            return
+        }
         val initial = try {
             downloadInitialRangeForSourceSwitch(url, switchPlan, tempFile, totalBytes, listener, cancelChecker)
         } catch (ex: IOException) {
@@ -723,6 +815,34 @@ object DlcDownloadService {
             return
         }
         downloadSegmented(url, tempFile, totalBytes, listener, cancelChecker, initial.downloadedBytes)
+    }
+
+    private fun downloadSegmentedWithRetryFallback(
+        primaryUrl: String,
+        fallbackUrl: String,
+        tempFile: Path,
+        totalBytes: Long,
+        listener: ProgressListener?,
+        cancelChecker: CancelChecker?,
+    ) {
+        try {
+            downloadSegmented(primaryUrl, tempFile, totalBytes, listener, cancelChecker)
+        } catch (ex: DownloadCanceledException) {
+            throw ex
+        } catch (_: IOException) {
+            Files.deleteIfExists(tempFile)
+            try {
+                downloadSegmented(fallbackUrl, tempFile, totalBytes, listener, cancelChecker)
+            } catch (ex: DownloadCanceledException) {
+                throw ex
+            } catch (_: SegmentDownloadException) {
+                Files.deleteIfExists(tempFile)
+                downloadSingleWithRetry(fallbackUrl, tempFile, totalBytes, 0L, listener, cancelChecker)
+            } catch (_: IOException) {
+                Files.deleteIfExists(tempFile)
+                downloadSingleWithRetry(fallbackUrl, tempFile, totalBytes, 0L, listener, cancelChecker)
+            }
+        }
     }
 
     @Throws(IOException::class)
@@ -1204,6 +1324,8 @@ object DlcDownloadService {
         val canSpeedCompare: Boolean,
     )
 
+    private data class ProbeUrlPair(val officialUrl: String, val mirrorUrl: String)
+
     private data class SourceSwitchPlan(
         val alternateUrl: String,
         val primaryIsMirror: Boolean,
@@ -1215,6 +1337,7 @@ object DlcDownloadService {
     private enum class SourceSwitchMode {
         SPEED_COMPARE,
         EARLY_TIMEOUT,
+        RETRY_FALLBACK,
     }
 
     private data class SourceProbe(

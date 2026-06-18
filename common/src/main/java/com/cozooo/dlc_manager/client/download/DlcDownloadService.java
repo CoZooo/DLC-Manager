@@ -32,7 +32,12 @@ public final class DlcDownloadService {
     private static final long SPEED_WINDOW_MS = 1000L;
     private static final long BYTES_PER_MIB = 1024L * 1024L;
     private static final long MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB;
+    private static final String CURSEFORGE_PROBE_PROJECT_ID = "";
+    private static final String CURSEFORGE_PROBE_FILE_ID = "";
+    private static final String MODRINTH_PROBE_PROJECT_ID = "";
+    private static final String MODRINTH_PROBE_FILE_ID = "";
     private static final Object MIRROR_LOCK = new Object();
+    private static final Object PRECHECK_PROBE_LOCK = new Object();
     private static int mirrorComparisons;
     private static int officialWins;
     private static int officialFastWins;
@@ -181,7 +186,7 @@ public final class DlcDownloadService {
                 Files.deleteIfExists(temp);
                 throw ex;
             }
-        } else if (switchPlan != null && !Files.exists(temp)) {
+        } else if (switchPlan != null && (!Files.exists(temp) || switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK)) {
             downloadSingleSwitchAware(downloadUrl, switchPlan, temp, total, listener, cancelChecker);
         } else {
             long existing = Files.exists(temp) ? Files.size(temp) : 0L;
@@ -255,7 +260,10 @@ public final class DlcDownloadService {
                 }
                 Boolean selected = selectedSourceFromCache();
                 if (selected == null && mirrorPlan.canSpeedCompare) {
-                    selected = precheckDownloadSource(url, mirrorPlan.mirrorUrl);
+                    ProbeUrlPair probePair = dedicatedProbePair(url);
+                    if (probePair != null) {
+                        selected = precheckDownloadSource(probePair.officialUrl, probePair.mirrorUrl);
+                    }
                 }
                 yield selected != null && selected ? mirrorPlan.mirrorUrl : url;
             }
@@ -273,7 +281,15 @@ public final class DlcDownloadService {
             case SMART_MIRROR -> primaryUrl.equals(mirrorPlan.mirrorUrl) && mirrorPlan.canSpeedCompare
                 ? new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.SPEED_COMPARE, mirrorPlan)
                 : null;
-            case SMART_PRECHECK -> null;
+            case SMART_PRECHECK -> {
+                if (primaryUrl.equals(mirrorPlan.mirrorUrl)) {
+                    yield new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
+                }
+                if (primaryUrl.equals(officialUrl) && isMirrorFallbackAllowed()) {
+                    yield new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
+                }
+                yield null;
+            }
             case OFFICIAL_FIRST -> primaryUrl.equals(officialUrl)
                 ? new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan)
                 : null;
@@ -360,30 +376,81 @@ public final class DlcDownloadService {
     }
 
     private static Boolean precheckDownloadSource(String officialUrl, String mirrorUrl) {
-        int maxCount = maxMirrorProbeCount();
-        for (int i = 0; i < maxCount; i++) {
-            synchronized (MIRROR_LOCK) {
-                if (mirrorDisabled) {
-                    return false;
+        synchronized (PRECHECK_PROBE_LOCK) {
+            int maxCount = maxMirrorProbeCount();
+            for (int i = 0; i < maxCount; i++) {
+                synchronized (MIRROR_LOCK) {
+                    if (mirrorDisabled) {
+                        return false;
+                    }
+                    if (selectedMirror != null) {
+                        return selectedMirror;
+                    }
+                    if (mirrorComparisons >= maxCount) {
+                        return null;
+                    }
+                    mirrorComparisons++;
                 }
-                if (selectedMirror != null) {
-                    return selectedMirror;
+                ProbePairResult result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null);
+                synchronized (MIRROR_LOCK) {
+                    recordSourceProbeResult(result.mirrorSpeed, result.officialSpeed, true, false);
+                    if (selectedMirror != null) {
+                        return selectedMirror;
+                    }
                 }
-                if (mirrorComparisons >= maxCount) {
-                    return null;
-                }
-                mirrorComparisons++;
             }
-            ProbePairResult result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null);
             synchronized (MIRROR_LOCK) {
-                recordSourceProbeResult(result.mirrorSpeed, result.officialSpeed, true, false);
-                if (selectedMirror != null) {
-                    return selectedMirror;
-                }
+                return selectedMirror;
             }
         }
+    }
+
+    private static ProbeUrlPair dedicatedProbePair(String targetUrl) {
+        String officialUrl;
+        if (isCurseForgeCdnUrl(targetUrl)) {
+            officialUrl = resolveCurseForgeProbeUrl();
+        } else if (isModrinthCdnUrl(targetUrl)) {
+            officialUrl = resolveModrinthProbeUrl();
+        } else {
+            officialUrl = null;
+        }
+        if (officialUrl == null || officialUrl.isBlank()) {
+            return null;
+        }
+        String mirrorUrl = mirrorDownloadUrl(officialUrl);
+        if (mirrorUrl == null || mirrorUrl.isBlank()) {
+            return null;
+        }
+        return new ProbeUrlPair(officialUrl, mirrorUrl);
+    }
+
+    private static String resolveCurseForgeProbeUrl() {
+        if (CURSEFORGE_PROBE_PROJECT_ID.isBlank() || CURSEFORGE_PROBE_FILE_ID.isBlank()) {
+            return null;
+        }
+        try {
+            CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFile(CURSEFORGE_PROBE_PROJECT_ID, CURSEFORGE_PROBE_FILE_ID);
+            return file != null && isCurseForgeCdnUrl(file.url) ? file.url : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String resolveModrinthProbeUrl() {
+        if (MODRINTH_PROBE_PROJECT_ID.isBlank() || MODRINTH_PROBE_FILE_ID.isBlank()) {
+            return null;
+        }
+        try {
+            ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROBE_PROJECT_ID, MODRINTH_PROBE_FILE_ID, null, null);
+            return version != null && isModrinthCdnUrl(version.url) ? version.url : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isMirrorFallbackAllowed() {
         synchronized (MIRROR_LOCK) {
-            return selectedMirror;
+            return !mirrorDisabled;
         }
     }
 
@@ -551,6 +618,15 @@ public final class DlcDownloadService {
         }
     }
 
+    private static boolean isModrinthCdnUrl(String url) {
+        try {
+            URI uri = URI.create(url);
+            return MODRINTH_CDN_HOST.equalsIgnoreCase(uri.getHost()) && isModrinthDownloadPath(uri);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     private static boolean isMirrorUrl(String url) {
         try {
             return MIRROR_HOST.equalsIgnoreCase(URI.create(url).getHost());
@@ -588,6 +664,10 @@ public final class DlcDownloadService {
 
     private static void downloadSingleSwitchAware(String url, SourceSwitchPlan switchPlan, Path temp, long knownTotal,
                                                   ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        if (switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK) {
+            downloadSingleWithRetryFallback(url, switchPlan.alternateUrl, temp, knownTotal, listener, cancelChecker);
+            return;
+        }
         DownloadInfo info = null;
         try {
             info = openDownload(url, 0L);
@@ -618,6 +698,19 @@ public final class DlcDownloadService {
             if (info != null) {
                 closeQuietly(info.connection);
             }
+        }
+    }
+
+    private static void downloadSingleWithRetryFallback(String primaryUrl, String fallbackUrl, Path temp, long knownTotal,
+                                                        ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        try {
+            long existing = Files.exists(temp) ? Files.size(temp) : 0L;
+            downloadSingleWithRetry(primaryUrl, temp, knownTotal, existing, listener, cancelChecker);
+        } catch (DownloadCanceledException ex) {
+            throw ex;
+        } catch (IOException ex) {
+            Files.deleteIfExists(temp);
+            downloadSingleWithRetry(fallbackUrl, temp, knownTotal, 0L, listener, cancelChecker);
         }
     }
 
@@ -712,6 +805,10 @@ public final class DlcDownloadService {
 
     private static void downloadSegmentedSwitchAware(String url, SourceSwitchPlan switchPlan, Path tempFile, long totalBytes,
                                                      ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        if (switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK) {
+            downloadSegmentedWithRetryFallback(url, switchPlan.alternateUrl, tempFile, totalBytes, listener, cancelChecker);
+            return;
+        }
         InitialRangeResult initial;
         try {
             initial = downloadInitialRangeForSourceSwitch(url, switchPlan, tempFile, totalBytes, listener, cancelChecker);
@@ -732,6 +829,28 @@ public final class DlcDownloadService {
             return;
         }
         downloadSegmented(url, tempFile, totalBytes, listener, cancelChecker, initial.downloadedBytes);
+    }
+
+    private static void downloadSegmentedWithRetryFallback(String primaryUrl, String fallbackUrl, Path tempFile, long totalBytes,
+                                                           ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        try {
+            downloadSegmented(primaryUrl, tempFile, totalBytes, listener, cancelChecker);
+        } catch (DownloadCanceledException ex) {
+            throw ex;
+        } catch (IOException ex) {
+            Files.deleteIfExists(tempFile);
+            try {
+                downloadSegmented(fallbackUrl, tempFile, totalBytes, listener, cancelChecker);
+            } catch (DownloadCanceledException canceled) {
+                throw canceled;
+            } catch (SegmentDownloadException segmentEx) {
+                Files.deleteIfExists(tempFile);
+                downloadSingleWithRetry(fallbackUrl, tempFile, totalBytes, 0L, listener, cancelChecker);
+            } catch (IOException fallbackEx) {
+                Files.deleteIfExists(tempFile);
+                downloadSingleWithRetry(fallbackUrl, tempFile, totalBytes, 0L, listener, cancelChecker);
+            }
+        }
     }
 
     private static InitialRangeResult downloadInitialRangeForSourceSwitch(String url, SourceSwitchPlan switchPlan, Path tempFile,
@@ -1163,13 +1282,17 @@ public final class DlcDownloadService {
                               boolean canSpeedCompare) {
     }
 
+    private record ProbeUrlPair(String officialUrl, String mirrorUrl) {
+    }
+
     private record SourceSwitchPlan(String alternateUrl, boolean primaryIsMirror, boolean alternateIsMirror,
                                     SourceSwitchMode mode, MirrorPlan mirrorPlan) {
     }
 
     private enum SourceSwitchMode {
         SPEED_COMPARE,
-        EARLY_TIMEOUT
+        EARLY_TIMEOUT,
+        RETRY_FALLBACK
     }
 
     private record SourceProbe(String alternateUrl, boolean primaryIsMirror, boolean alternateIsMirror,
