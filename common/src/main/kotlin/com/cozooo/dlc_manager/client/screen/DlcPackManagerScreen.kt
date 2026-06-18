@@ -55,6 +55,7 @@ class DlcPackManagerScreen(
     private var installedByIdentifier: Map<String, DlcPackMeta> = emptyMap()
     private val selectedVersionByIdentifier = LinkedHashMap<String, String>()
     private var selectedIndex = -1
+    private var versionDropdownIdentifier: String? = null
     private var scrollOffset = 0
     private var draggingScrollbar = false
     private var scrollbarDragOffset = 0.0
@@ -229,6 +230,7 @@ class DlcPackManagerScreen(
         }
         guiGraphics.disableScissor()
         drawScrollBar(guiGraphics)
+        renderVersionDropdown(guiGraphics, mouseX, mouseY)
     }
 
     private fun renderEntry(guiGraphics: GuiGraphics, group: PackArchiveGroup, index: Int, left: Int, right: Int, y: Int, rowHeight: Int, mouseX: Int, mouseY: Int) {
@@ -361,13 +363,18 @@ class DlcPackManagerScreen(
         if (busy || archiveGroups.isEmpty() || mouseY < listTop || mouseY > listBottom) return false
         val maxScrollValue = maxScroll
         if (maxScrollValue <= 0) return false
+        versionDropdownIdentifier = null
         scrollOffset = max(0, min(maxScrollValue, scrollOffset + if (deltaY > 0) -SCROLL_STEP else SCROLL_STEP))
         return true
     }
 
     override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
         if (!busy && button == 0) {
+            if (handleVersionDropdownClick(mouseX, mouseY)) {
+                return true
+            }
             if (isInsideScrollbar(mouseX, mouseY)) {
+                versionDropdownIdentifier = null
                 draggingScrollbar = true
                 scrollbarDragOffset = scrollbarDragOffset(mouseY)
                 updateScrollFromMouse(mouseY)
@@ -410,7 +417,7 @@ class DlcPackManagerScreen(
         }
         val versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY)
         if (versionAction) {
-            Minecraft.getInstance().setScreen(DlcPackVersionSelectScreen(this, group.identifier, group.displayEntry.displayName, group.versions.map { it.key }, group.selectedVersionKey, installedByIdentifier[group.identifier]?.version))
+            versionDropdownIdentifier = if (versionDropdownIdentifier == group.identifier) null else group.identifier
             return true
         }
         val rowAction = actionButtonAt(group, right - BUTTON_WIDTH - 6, rowTop, rowHeight, mouseX, mouseY)
@@ -623,9 +630,91 @@ class DlcPackManagerScreen(
         return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + BUTTON_HEIGHT
     }
 
+    private fun renderVersionDropdown(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
+        val group = dropdownGroup() ?: return
+        val bounds = versionDropdownBounds(group) ?: return
+        guiGraphics.fill(bounds.x - 1, bounds.y - 1, bounds.x + bounds.width + 1, bounds.y + bounds.height + 1, 0xFF202020.toInt())
+        guiGraphics.fill(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, 0xFF303030.toInt())
+        for ((index, entry) in group.versions.withIndex()) {
+            val itemY = bounds.y + 1 + index * VERSION_DROPDOWN_ITEM_HEIGHT
+            val hover = mouseX >= bounds.x && mouseX < bounds.x + bounds.width && mouseY >= itemY && mouseY < itemY + VERSION_DROPDOWN_ITEM_HEIGHT
+            val selected = entry.key == group.selectedVersionKey
+            if (hover || selected) {
+                guiGraphics.fill(
+                    bounds.x + 1,
+                    itemY,
+                    bounds.x + bounds.width - 1,
+                    itemY + VERSION_DROPDOWN_ITEM_HEIGHT,
+                    if (hover) 0xFF5A5A5A.toInt() else 0xFF454545.toInt(),
+                )
+            }
+            guiGraphics.drawString(font, versionOptionLabel(entry), bounds.x + VERSION_BUTTON_HORIZONTAL_PADDING, itemY + 5, VERSION_BUTTON_TEXT_COLOR, false)
+        }
+    }
+
+    private fun handleVersionDropdownClick(mouseX: Double, mouseY: Double): Boolean {
+        val group = dropdownGroup() ?: return false
+        val bounds = versionDropdownBounds(group)
+        if (bounds != null && mouseX >= bounds.x && mouseX < bounds.x + bounds.width && mouseY >= bounds.y && mouseY < bounds.y + bounds.height) {
+            val index = ((mouseY - bounds.y - 1) / VERSION_DROPDOWN_ITEM_HEIGHT).toInt()
+            if (index in group.versions.indices) {
+                val entry = group.versions[index]
+                versionDropdownIdentifier = null
+                selectPackVersion(group.identifier, entry.key)
+                return true
+            }
+        }
+        if (!activeVersionButtonAt(group, mouseX, mouseY)) {
+            versionDropdownIdentifier = null
+        }
+        return false
+    }
+
+    private fun activeVersionButtonAt(group: PackArchiveGroup, mouseX: Double, mouseY: Double): Boolean {
+        val index = archiveGroups.indexOfFirst { it.identifier == group.identifier }
+        if (index < 0) return false
+        val right = listRight - SCROLLBAR_WIDTH - 4
+        val rowTop = rowTop(index, right) ?: return false
+        return versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY)
+    }
+
+    private fun dropdownGroup(): PackArchiveGroup? {
+        val identifier = versionDropdownIdentifier ?: return null
+        return findGroup(identifier)?.takeIf { it.versions.size > 1 }
+    }
+
+    private fun versionDropdownBounds(group: PackArchiveGroup): VersionDropdownBounds? {
+        val index = archiveGroups.indexOfFirst { it.identifier == group.identifier }
+        if (index < 0) return null
+        val right = listRight - SCROLLBAR_WIDTH - 4
+        val rowTop = rowTop(index, right) ?: return null
+        val buttonX = versionButtonX()
+        val buttonY = versionLineY(group, rowTop, right)
+        val maxLabelWidth = group.versions.maxOfOrNull { font.width(versionOptionLabel(it)) } ?: return null
+        val dropdownWidth = max(versionButtonWidth(group), maxLabelWidth + VERSION_BUTTON_HORIZONTAL_PADDING * 2)
+        val dropdownHeight = group.versions.size * VERSION_DROPDOWN_ITEM_HEIGHT + 2
+        val x = max(listLeft, min(buttonX, right - dropdownWidth))
+        val belowY = buttonY + BUTTON_HEIGHT + 2
+        val y = if (belowY + dropdownHeight <= listBottom) {
+            belowY
+        } else {
+            max(listTop, buttonY - dropdownHeight - 2)
+        }
+        return VersionDropdownBounds(x, y, dropdownWidth, dropdownHeight)
+    }
+
     private fun versionButtonLabel(group: PackArchiveGroup): Component {
         val version = Component.literal(group.displayEntry.metadata.version)
         return if (isInstalledVersion(group.displayEntry)) {
+            Component.translatable("dlc_manager.pack.version_current_short", version)
+        } else {
+            version
+        }
+    }
+
+    private fun versionOptionLabel(entry: PackArchiveEntry): Component {
+        val version = Component.literal(entry.metadata.version)
+        return if (isInstalledVersion(entry)) {
             Component.translatable("dlc_manager.pack.version_current_short", version)
         } else {
             version
@@ -1207,6 +1296,7 @@ class DlcPackManagerScreen(
     fun selectPackVersion(identifier: String, versionKey: String) {
         val group = findGroup(identifier) ?: return
         val selected = group.versions.firstOrNull { it.key == versionKey } ?: return
+        versionDropdownIdentifier = null
         selectedVersionByIdentifier[identifier] = selected.key
         pendingInstalls.remove(identifier)
         pendingUninstalls.remove(identifier)
@@ -1752,6 +1842,7 @@ class DlcPackManagerScreen(
         private const val VERSION_VALUE_GAP = 6
         private const val VERSION_BUTTON_HORIZONTAL_PADDING = 6
         private const val VERSION_BUTTON_TEXT_COLOR = 0xAFC8FF
+        private const val VERSION_DROPDOWN_ITEM_HEIGHT = 18
         private const val ORDER_BUTTON_WIDTH = 18
         private const val ORDER_BUTTON_SLOTS = 2
         private const val HOMEPAGE_PROMPT_GAP = 12
@@ -1759,4 +1850,6 @@ class DlcPackManagerScreen(
         private const val SCROLLBAR_WIDTH = 6
         private const val SCROLL_STEP = 24
     }
+
+    private data class VersionDropdownBounds(val x: Int, val y: Int, val width: Int, val height: Int)
 }

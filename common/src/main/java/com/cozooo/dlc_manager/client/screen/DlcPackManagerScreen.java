@@ -58,6 +58,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final int VERSION_VALUE_GAP = 6;
     private static final int VERSION_BUTTON_HORIZONTAL_PADDING = 6;
     private static final int VERSION_BUTTON_TEXT_COLOR = 0xAFC8FF;
+    private static final int VERSION_DROPDOWN_ITEM_HEIGHT = 18;
     private static final int ORDER_BUTTON_WIDTH = 18;
     private static final int ORDER_BUTTON_SLOTS = 2;
     private static final int HOMEPAGE_PROMPT_GAP = 12;
@@ -81,6 +82,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private Map<String, DlcPackMeta> installedByIdentifier = Map.of();
     private final Map<String, String> selectedVersionByIdentifier = new LinkedHashMap<>();
     private int selectedIndex = -1;
+    private String versionDropdownIdentifier;
     private int scrollOffset;
     private boolean draggingScrollbar;
     private double scrollbarDragOffset;
@@ -254,6 +256,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         }
         guiGraphics.disableScissor();
         drawScrollBar(guiGraphics);
+        renderVersionDropdown(guiGraphics, mouseX, mouseY);
     }
 
     private void renderEntry(GuiGraphics guiGraphics, PackArchiveGroup group, int index, int left, int right, int y, int rowHeight, int mouseX, int mouseY) {
@@ -404,6 +407,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (maxScroll <= 0) {
             return false;
         }
+        versionDropdownIdentifier = null;
         scrollOffset = Math.max(0, Math.min(maxScroll, scrollOffset + (deltaY > 0 ? -SCROLL_STEP : SCROLL_STEP)));
         return true;
     }
@@ -411,7 +415,11 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!busy && button == 0) {
+            if (handleVersionDropdownClick(mouseX, mouseY)) {
+                return true;
+            }
             if (isInsideScrollbar(mouseX, mouseY)) {
+                versionDropdownIdentifier = null;
                 draggingScrollbar = true;
                 scrollbarDragOffset = scrollbarDragOffset(mouseY);
                 updateScrollFromMouse(mouseY);
@@ -460,7 +468,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
         boolean versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY);
         if (versionAction) {
-            Minecraft.getInstance().setScreen(new DlcPackVersionSelectScreen(this, group.identifier, group.displayEntry().displayName, group.versions.stream().map(item -> item.key).toList(), group.selectedVersionKey, installedByIdentifier.get(group.identifier) == null ? null : installedByIdentifier.get(group.identifier).version));
+            versionDropdownIdentifier = group.identifier.equals(versionDropdownIdentifier) ? null : group.identifier;
             return true;
         }
 
@@ -679,8 +687,122 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + BUTTON_HEIGHT;
     }
 
+    private void renderVersionDropdown(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+        PackArchiveGroup group = dropdownGroup();
+        if (group == null) {
+            return;
+        }
+        VersionDropdownBounds bounds = versionDropdownBounds(group);
+        if (bounds == null) {
+            return;
+        }
+        guiGraphics.fill(bounds.x - 1, bounds.y - 1, bounds.x + bounds.width + 1, bounds.y + bounds.height + 1, 0xFF202020);
+        guiGraphics.fill(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, 0xFF303030);
+        for (int i = 0; i < group.versions.size(); i++) {
+            PackArchiveEntry entry = group.versions.get(i);
+            int itemY = bounds.y + 1 + i * VERSION_DROPDOWN_ITEM_HEIGHT;
+            boolean hover = mouseX >= bounds.x && mouseX < bounds.x + bounds.width && mouseY >= itemY && mouseY < itemY + VERSION_DROPDOWN_ITEM_HEIGHT;
+            boolean selected = entry.key.equals(group.selectedVersionKey);
+            if (hover || selected) {
+                guiGraphics.fill(
+                    bounds.x + 1,
+                    itemY,
+                    bounds.x + bounds.width - 1,
+                    itemY + VERSION_DROPDOWN_ITEM_HEIGHT,
+                    hover ? 0xFF5A5A5A : 0xFF454545
+                );
+            }
+            guiGraphics.drawString(this.font, versionOptionLabel(entry), bounds.x + VERSION_BUTTON_HORIZONTAL_PADDING, itemY + 5, VERSION_BUTTON_TEXT_COLOR, false);
+        }
+    }
+
+    private boolean handleVersionDropdownClick(double mouseX, double mouseY) {
+        PackArchiveGroup group = dropdownGroup();
+        if (group == null) {
+            return false;
+        }
+        VersionDropdownBounds bounds = versionDropdownBounds(group);
+        if (bounds != null && mouseX >= bounds.x && mouseX < bounds.x + bounds.width && mouseY >= bounds.y && mouseY < bounds.y + bounds.height) {
+            int index = (int) ((mouseY - bounds.y - 1) / VERSION_DROPDOWN_ITEM_HEIGHT);
+            if (index >= 0 && index < group.versions.size()) {
+                PackArchiveEntry entry = group.versions.get(index);
+                versionDropdownIdentifier = null;
+                selectPackVersion(group.identifier, entry.key);
+                return true;
+            }
+        }
+        if (!activeVersionButtonAt(group, mouseX, mouseY)) {
+            versionDropdownIdentifier = null;
+        }
+        return false;
+    }
+
+    private boolean activeVersionButtonAt(PackArchiveGroup group, double mouseX, double mouseY) {
+        int index = -1;
+        for (int i = 0; i < archiveGroups.size(); i++) {
+            if (archiveGroups.get(i).identifier.equals(group.identifier)) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) {
+            return false;
+        }
+        int right = getListRight() - SCROLLBAR_WIDTH - 4;
+        Integer rowTop = rowTop(index, right);
+        if (rowTop == null) {
+            return false;
+        }
+        return versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY);
+    }
+
+    private PackArchiveGroup dropdownGroup() {
+        if (versionDropdownIdentifier == null) {
+            return null;
+        }
+        PackArchiveGroup group = findGroup(versionDropdownIdentifier);
+        return group != null && group.versions.size() > 1 ? group : null;
+    }
+
+    private VersionDropdownBounds versionDropdownBounds(PackArchiveGroup group) {
+        int index = -1;
+        for (int i = 0; i < archiveGroups.size(); i++) {
+            if (archiveGroups.get(i).identifier.equals(group.identifier)) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) {
+            return null;
+        }
+        int right = getListRight() - SCROLLBAR_WIDTH - 4;
+        Integer rowTop = rowTop(index, right);
+        if (rowTop == null) {
+            return null;
+        }
+        int buttonX = versionButtonX();
+        int buttonY = versionLineY(group, rowTop, right);
+        int maxLabelWidth = 0;
+        for (PackArchiveEntry entry : group.versions) {
+            maxLabelWidth = Math.max(maxLabelWidth, this.font.width(versionOptionLabel(entry)));
+        }
+        int dropdownWidth = Math.max(versionButtonWidth(group), maxLabelWidth + VERSION_BUTTON_HORIZONTAL_PADDING * 2);
+        int dropdownHeight = group.versions.size() * VERSION_DROPDOWN_ITEM_HEIGHT + 2;
+        int x = Math.max(getListLeft(), Math.min(buttonX, right - dropdownWidth));
+        int belowY = buttonY + BUTTON_HEIGHT + 2;
+        int y = belowY + dropdownHeight <= getListBottom() ? belowY : Math.max(getListTop(), buttonY - dropdownHeight - 2);
+        return new VersionDropdownBounds(x, y, dropdownWidth, dropdownHeight);
+    }
+
     private Component versionButtonLabel(PackArchiveGroup group) {
         PackArchiveEntry entry = group.displayEntry();
+        Component version = Component.literal(entry.metadata.version);
+        return isInstalledVersion(entry)
+            ? Component.translatable("dlc_manager.pack.version_current_short", version)
+            : version;
+    }
+
+    private Component versionOptionLabel(PackArchiveEntry entry) {
         Component version = Component.literal(entry.metadata.version);
         return isInstalledVersion(entry)
             ? Component.translatable("dlc_manager.pack.version_current_short", version)
@@ -1329,6 +1451,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (selected == null) {
             return;
         }
+        versionDropdownIdentifier = null;
         selectedVersionByIdentifier.put(identifier, selected.key);
         pendingInstalls.remove(identifier);
         pendingUninstalls.remove(identifier);
@@ -1986,6 +2109,20 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
         private PackArchiveGroup withSelectedVersionKey(String selectedVersionKey) {
             return new PackArchiveGroup(identifier, versions, orderKey, selectedVersionKey);
+        }
+    }
+
+    private static final class VersionDropdownBounds {
+        private final int x;
+        private final int y;
+        private final int width;
+        private final int height;
+
+        private VersionDropdownBounds(int x, int y, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
         }
     }
 
