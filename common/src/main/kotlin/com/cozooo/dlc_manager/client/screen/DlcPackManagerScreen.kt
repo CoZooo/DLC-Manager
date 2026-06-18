@@ -417,7 +417,12 @@ class DlcPackManagerScreen(
         }
         val versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY)
         if (versionAction) {
-            versionDropdownIdentifier = if (versionDropdownIdentifier == group.identifier) null else group.identifier
+            if (canShowVersionDropdown(group, rowTop, right)) {
+                versionDropdownIdentifier = if (versionDropdownIdentifier == group.identifier) null else group.identifier
+            } else {
+                versionDropdownIdentifier = null
+                Minecraft.getInstance().setScreen(DlcPackVersionSelectScreen(this, group.identifier, group.displayEntry.displayName, group.versions.map { it.key }, group.selectedVersionKey, installedByIdentifier[group.identifier]?.version))
+            }
             return true
         }
         val rowAction = actionButtonAt(group, right - BUTTON_WIDTH - 6, rowTop, rowHeight, mouseX, mouseY)
@@ -688,6 +693,7 @@ class DlcPackManagerScreen(
         if (index < 0) return null
         val right = listRight - SCROLLBAR_WIDTH - 4
         val rowTop = rowTop(index, right) ?: return null
+        if (!canShowVersionDropdown(group, rowTop, right)) return null
         val buttonX = versionButtonX()
         val buttonY = versionLineY(group, rowTop, right)
         val maxLabelWidth = group.versions.maxOfOrNull { font.width(versionOptionLabel(it)) } ?: return null
@@ -701,6 +707,14 @@ class DlcPackManagerScreen(
             max(listTop, buttonY - dropdownHeight - 2)
         }
         return VersionDropdownBounds(x, y, dropdownWidth, dropdownHeight)
+    }
+
+    private fun canShowVersionDropdown(group: PackArchiveGroup, rowTop: Int, right: Int): Boolean {
+        val buttonY = versionLineY(group, rowTop, right)
+        val dropdownHeight = group.versions.size * VERSION_DROPDOWN_ITEM_HEIGHT + 2
+        val below = listBottom - (buttonY + BUTTON_HEIGHT + 2)
+        val above = buttonY - 2 - listTop
+        return dropdownHeight <= below || dropdownHeight <= above
     }
 
     private fun versionButtonLabel(group: PackArchiveGroup): Component {

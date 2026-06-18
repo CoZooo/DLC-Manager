@@ -468,7 +468,12 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
 
         boolean versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY);
         if (versionAction) {
-            versionDropdownIdentifier = group.identifier.equals(versionDropdownIdentifier) ? null : group.identifier;
+            if (canShowVersionDropdown(group, rowTop, right)) {
+                versionDropdownIdentifier = group.identifier.equals(versionDropdownIdentifier) ? null : group.identifier;
+            } else {
+                versionDropdownIdentifier = null;
+                Minecraft.getInstance().setScreen(new DlcPackVersionSelectScreen(this, group.identifier, group.displayEntry().displayName, group.versions.stream().map(item -> item.key).toList(), group.selectedVersionKey, installedByIdentifier.get(group.identifier) == null ? null : installedByIdentifier.get(group.identifier).version));
+            }
             return true;
         }
 
@@ -780,6 +785,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         if (rowTop == null) {
             return null;
         }
+        if (!canShowVersionDropdown(group, rowTop, right)) {
+            return null;
+        }
         int buttonX = versionButtonX();
         int buttonY = versionLineY(group, rowTop, right);
         int maxLabelWidth = 0;
@@ -792,6 +800,14 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         int belowY = buttonY + BUTTON_HEIGHT + 2;
         int y = belowY + dropdownHeight <= getListBottom() ? belowY : Math.max(getListTop(), buttonY - dropdownHeight - 2);
         return new VersionDropdownBounds(x, y, dropdownWidth, dropdownHeight);
+    }
+
+    private boolean canShowVersionDropdown(PackArchiveGroup group, int rowTop, int right) {
+        int buttonY = versionLineY(group, rowTop, right);
+        int dropdownHeight = group.versions.size() * VERSION_DROPDOWN_ITEM_HEIGHT + 2;
+        int below = getListBottom() - (buttonY + BUTTON_HEIGHT + 2);
+        int above = buttonY - 2 - getListTop();
+        return dropdownHeight <= below || dropdownHeight <= above;
     }
 
     private Component versionButtonLabel(PackArchiveGroup group) {
