@@ -12,6 +12,15 @@ import java.util.stream.Stream;
 
 public class DlcPackInstallPlan {
     private static final Set<String> METADATA_DIR_NAMES = Set.of("metadata", "dlcpack_metadata");
+    private static final List<String> IGNORED_JAR_PREFIXES = List.of(
+        "DLC-Manager-",
+        "architectury-",
+        "mafglib-",
+        "malilib-",
+        "kotlinforforge-",
+        "fabric-language-kotlin-",
+        "fabric-api-"
+    );
 
     public final List<FileEntry> files;
     public final List<String> forbiddenPaths;
@@ -167,7 +176,15 @@ public class DlcPackInstallPlan {
             return false;
         }
         String normalized = fileName.trim();
-        return normalized.startsWith("DLC-Manager-") && normalized.toLowerCase(Locale.ROOT).endsWith(".jar");
+        if (!normalized.toLowerCase(Locale.ROOT).endsWith(".jar")) {
+            return false;
+        }
+        for (String prefix : IGNORED_JAR_PREFIXES) {
+            if (normalized.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static class FileEntry {

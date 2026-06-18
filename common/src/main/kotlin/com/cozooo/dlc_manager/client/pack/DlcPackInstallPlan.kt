@@ -20,6 +20,15 @@ class DlcPackInstallPlan private constructor(
 
     companion object {
         private val METADATA_DIR_NAMES = setOf("metadata", "dlcpack_metadata")
+        private val IGNORED_JAR_PREFIXES = listOf(
+            "DLC-Manager-",
+            "architectury-",
+            "mafglib-",
+            "malilib-",
+            "kotlinforforge-",
+            "fabric-language-kotlin-",
+            "fabric-api-",
+        )
 
         @JvmStatic
         fun build(pack: DlcPackPackage?): DlcPackInstallPlan {
@@ -148,7 +157,8 @@ class DlcPackInstallPlan private constructor(
         @JvmStatic
         fun isIgnoredModpackJarFileName(fileName: String?): Boolean {
             val normalized = fileName?.trim() ?: return false
-            return normalized.startsWith("DLC-Manager-") && normalized.endsWith(".jar", ignoreCase = true)
+            return normalized.endsWith(".jar", ignoreCase = true) &&
+                IGNORED_JAR_PREFIXES.any { normalized.startsWith(it) }
         }
     }
 }
