@@ -32,11 +32,11 @@ public final class DlcDownloadCandidate {
         return new DlcDownloadCandidate(url, true, null, null, null, -1L);
     }
 
-    public static DlcDownloadCandidate curseForge(CurseForgeClient.CurseForgeFile file) {
+    public static DlcDownloadCandidate curseForge(DlcCurseForgeClient.CurseForgeFile file) {
         return curseForgeCandidate(file == null ? null : file.url, file);
     }
 
-    public static List<DlcDownloadCandidate> curseForgeCandidates(CurseForgeClient.CurseForgeFile file) {
+    public static List<DlcDownloadCandidate> curseForgeCandidates(DlcCurseForgeClient.CurseForgeFile file) {
         if (file == null) {
             return List.of();
         }
@@ -58,7 +58,7 @@ public final class DlcDownloadCandidate {
         return candidates;
     }
 
-    private static DlcDownloadCandidate curseForgeCandidate(String url, CurseForgeClient.CurseForgeFile file) {
+    private static DlcDownloadCandidate curseForgeCandidate(String url, DlcCurseForgeClient.CurseForgeFile file) {
         String hashType = null;
         String hashValue = null;
         if (file != null) {
@@ -80,7 +80,7 @@ public final class DlcDownloadCandidate {
             && url.endsWith("/download");
     }
 
-    public static DlcDownloadCandidate modrinth(ModrinthClient.ModrinthVersion version) {
+    public static DlcDownloadCandidate modrinth(DlcModrinthClient.ModrinthVersion version) {
         String hashType = null;
         String hashValue = null;
         if (version != null) {
@@ -284,7 +284,7 @@ public final class DlcDownloadCandidate {
         if (fileId == null || fileId.isBlank()) {
             return;
         }
-        CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
+        DlcCurseForgeClient.CurseForgeFile file = DlcCurseForgeClient.fetchFileByIdOrVersion(
             projectId,
             fileId,
             CrossPlatformRuntime.mcVersion(),
@@ -300,7 +300,7 @@ public final class DlcDownloadCandidate {
         if (versionId == null || versionId.isBlank()) {
             return;
         }
-        ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(
+        DlcModrinthClient.ModrinthVersion version = DlcModrinthClient.fetchVersionByIdOrVersion(
             projectId,
             versionId,
             CrossPlatformRuntime.mcVersion(),

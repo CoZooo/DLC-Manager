@@ -15,7 +15,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-object CurseForgeClient {
+object DlcCurseForgeClient {
     private val GSON = Gson()
     private const val API_KEY_SHIFT = 7
     private const val API_KEY_MASK: Byte = 0x5A

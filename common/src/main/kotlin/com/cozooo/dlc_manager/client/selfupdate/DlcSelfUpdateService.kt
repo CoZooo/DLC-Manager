@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.selfupdate
 
-import com.cozooo.dlc_manager.client.download.CurseForgeClient
+import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore
@@ -55,9 +55,9 @@ object DlcSelfUpdateService {
         }
         return try {
             val file = if (requestedVersion == null) {
-                CurseForgeClient.fetchLatestFile(PROJECT_ID, mcVersion, loader)
+                DlcCurseForgeClient.fetchLatestFile(PROJECT_ID, mcVersion, loader)
             } else {
-                CurseForgeClient.fetchFileByIdOrVersion(PROJECT_ID, requestedVersion, mcVersion, loader)
+                DlcCurseForgeClient.fetchFileByIdOrVersion(PROJECT_ID, requestedVersion, mcVersion, loader)
             }
             if (requestedVersion != null && file == null) {
                 val result = SelfUpdateResult.none(currentVersion)
@@ -476,7 +476,7 @@ object DlcSelfUpdateService {
         }
     }
 
-    private fun isUpdateAvailable(currentVersion: String?, latestVersion: String?, file: CurseForgeClient.CurseForgeFile): Boolean {
+    private fun isUpdateAvailable(currentVersion: String?, latestVersion: String?, file: DlcCurseForgeClient.CurseForgeFile): Boolean {
         if (currentVersion.isNullOrBlank()) {
             return true
         }

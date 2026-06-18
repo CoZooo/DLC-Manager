@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.client.download.CurseForgeClient;
+import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class DlcPackCFResolverTest {
     @Test
     void resolvesResourcePackTargetFromFileClassSlug() {
-        CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
+        DlcCurseForgeClient.CurseForgeFile file = new DlcCurseForgeClient.CurseForgeFile();
         file.classSlug = "resource-packs";
 
         assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.zip"));
@@ -16,7 +16,7 @@ class DlcPackCFResolverTest {
 
     @Test
     void resolvesDataPackTargetFromModCategorySlug() {
-        CurseForgeClient.CurseForgeMod mod = new CurseForgeClient.CurseForgeMod();
+        DlcCurseForgeClient.CurseForgeMod mod = new DlcCurseForgeClient.CurseForgeMod();
         mod.categorySlugs.add("data-packs");
 
         assertEquals("datapacks", DlcPackCFResolver.resolveTargetDirectoryName(null, mod, "example.zip"));
@@ -24,7 +24,7 @@ class DlcPackCFResolverTest {
 
     @Test
     void resolvesJarFilesToMods() {
-        CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
+        DlcCurseForgeClient.CurseForgeFile file = new DlcCurseForgeClient.CurseForgeFile();
         file.classSlug = "data-packs";
 
         assertEquals("mods", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.jar"));
@@ -32,7 +32,7 @@ class DlcPackCFResolverTest {
 
     @Test
     void doesNotResolveNonJarFilesToMods() {
-        CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
+        DlcCurseForgeClient.CurseForgeFile file = new DlcCurseForgeClient.CurseForgeFile();
         file.classSlug = "mc-mods";
 
         assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.zip"));
@@ -40,7 +40,7 @@ class DlcPackCFResolverTest {
 
     @Test
     void doesNotMisclassifyWorldRelatedSlugsAsDatapacks() {
-        CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
+        DlcCurseForgeClient.CurseForgeFile file = new DlcCurseForgeClient.CurseForgeFile();
         file.classSlug = "world-generation";
 
         assertEquals("resourcepacks", DlcPackCFResolver.resolveTargetDirectoryName(file, null, "example.zip"));

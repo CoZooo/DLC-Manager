@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.client.download.CurseForgeClient
+import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
@@ -206,9 +206,9 @@ object DlcPackCFResolver {
     }
 
     private fun resolveManifestTarget(pack: DlcPackPackage, ref: DlcPackManifest.FileRef): ManifestTarget? {
-        val file = CurseForgeClient.fetchFile(ref.projectId, ref.fileId)
+        val file = DlcCurseForgeClient.fetchFile(ref.projectId, ref.fileId)
             ?: throw IOException("Failed to resolve CurseForge file: ${ref.projectId}/${ref.fileId}")
-        val mod = CurseForgeClient.fetchMod(ref.projectId)
+        val mod = DlcCurseForgeClient.fetchMod(ref.projectId)
         if (file.url.isNullOrBlank()) {
             throw IOException("Failed to resolve CurseForge file: ${ref.projectId}/${ref.fileId}")
         }
@@ -230,17 +230,17 @@ object DlcPackCFResolver {
         return ManifestTarget(file, targetDirectory, fileName, relative)
     }
 
-    private fun targetDirectory(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?, fileName: String?): Path {
+    private fun targetDirectory(file: DlcCurseForgeClient.CurseForgeFile?, mod: DlcCurseForgeClient.CurseForgeMod?, fileName: String?): Path {
         return Path.of(resolveTargetDirectoryName(file, mod, fileName))
     }
 
     @JvmStatic
-    fun resolveTargetDirectoryName(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?): String {
+    fun resolveTargetDirectoryName(file: DlcCurseForgeClient.CurseForgeFile?, mod: DlcCurseForgeClient.CurseForgeMod?): String {
         return resolveTargetDirectoryName(file, mod, null)
     }
 
     @JvmStatic
-    fun resolveTargetDirectoryName(file: CurseForgeClient.CurseForgeFile?, mod: CurseForgeClient.CurseForgeMod?, fileName: String?): String {
+    fun resolveTargetDirectoryName(file: DlcCurseForgeClient.CurseForgeFile?, mod: DlcCurseForgeClient.CurseForgeMod?, fileName: String?): String {
         if (isJarFileName(fileName)) {
             return "mods"
         }
@@ -353,7 +353,7 @@ object DlcPackCFResolver {
     }
 
     private class ManifestTarget(
-        val file: CurseForgeClient.CurseForgeFile,
+        val file: DlcCurseForgeClient.CurseForgeFile,
         val targetDirectory: Path,
         val fileName: String,
         val relativePath: String,

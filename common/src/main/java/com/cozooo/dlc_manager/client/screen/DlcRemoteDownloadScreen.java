@@ -7,11 +7,10 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
-import com.cozooo.dlc_manager.client.download.ModrinthClient;
+import com.cozooo.dlc_manager.client.download.DlcModrinthClient;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -505,11 +504,11 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
             return result;
         }
         try {
-            ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
+            DlcModrinthClient.ModrinthVersion version = DlcModrinthClient.fetchVersion(versionId);
             if (version == null) {
                 return result;
             }
-            for (ModrinthClient.ModrinthDependency dep : version.requiredDependencies) {
+            for (DlcModrinthClient.ModrinthDependency dep : version.requiredDependencies) {
                 if (dep == null || dep.versionId == null || dep.versionId.isBlank()) {
                     continue;
                 }
@@ -521,7 +520,7 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
                 depEntry.setHidden(false);
                 depEntry.setAllowEnableByAll(true);
                 try {
-                    ModrinthClient.ModrinthVersion depVersion = ModrinthClient.fetchVersion(dep.versionId);
+                    DlcModrinthClient.ModrinthVersion depVersion = DlcModrinthClient.fetchVersion(dep.versionId);
                     if (depVersion != null && depVersion.fileName != null && !depVersion.fileName.isBlank()) {
                         depEntry.setFileNameHint(depVersion.fileName);
                         if (depEntry.getDlcIdentifier() == null || depEntry.getDlcIdentifier().isBlank()) {

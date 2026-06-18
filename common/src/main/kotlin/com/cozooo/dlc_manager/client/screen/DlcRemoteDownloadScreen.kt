@@ -4,7 +4,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
-import com.cozooo.dlc_manager.client.download.ModrinthClient
+import com.cozooo.dlc_manager.client.download.DlcModrinthClient
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
@@ -481,7 +481,7 @@ class DlcRemoteDownloadScreen(
             return result
         }
         try {
-            val version = ModrinthClient.fetchVersion(versionId) ?: return result
+            val version = DlcModrinthClient.fetchVersion(versionId) ?: return result
             for (dep in version.requiredDependencies) {
                 if (dep.versionId.isNullOrBlank()) {
                     continue
@@ -494,7 +494,7 @@ class DlcRemoteDownloadScreen(
                 depEntry.setHidden(false)
                 depEntry.setAllowEnableByAll(true)
                 try {
-                    val depVersion = ModrinthClient.fetchVersion(dep.versionId)
+                    val depVersion = DlcModrinthClient.fetchVersion(dep.versionId)
                     if (depVersion != null && !depVersion.fileName.isNullOrBlank()) {
                         depEntry.setFileNameHint(depVersion.fileName)
                         if (depEntry.getDlcIdentifier().isNullOrBlank()) {

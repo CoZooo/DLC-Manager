@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.required;
 
-import com.cozooo.dlc_manager.client.download.ModrinthClient;
-import com.cozooo.dlc_manager.client.download.CurseForgeClient;
+import com.cozooo.dlc_manager.client.download.DlcModrinthClient;
+import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
@@ -474,7 +474,7 @@ public final class DlcRequiredRuntime {
                 String versionId = entry.getModrinthVersionId();
                 if (versionId != null && !versionId.isBlank()) {
                     try {
-                        ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersion(versionId);
+                        DlcModrinthClient.ModrinthVersion version = DlcModrinthClient.fetchVersion(versionId);
                         if (version != null && version.fileName != null && !version.fileName.isBlank()) {
                             return version.fileName;
                         }
@@ -492,7 +492,7 @@ public final class DlcRequiredRuntime {
             return null;
         }
         try {
-            CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFileByIdOrVersion(
+            DlcCurseForgeClient.CurseForgeFile file = DlcCurseForgeClient.fetchFileByIdOrVersion(
                 entry.getCurseforgeProjectId(),
                 fileId,
                 com.cozooo.dlc_manager.platform.CrossPlatformRuntime.mcVersion(),

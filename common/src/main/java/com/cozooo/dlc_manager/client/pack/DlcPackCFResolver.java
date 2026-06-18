@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.pack;
 
-import com.cozooo.dlc_manager.client.download.CurseForgeClient;
+import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
@@ -224,11 +224,11 @@ public final class DlcPackCFResolver {
     }
 
     private static ManifestTarget resolveManifestTarget(DlcPackPackage pack, DlcPackManifest.FileRef ref) throws IOException, InterruptedException {
-        CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFile(ref.projectId, ref.fileId);
+        DlcCurseForgeClient.CurseForgeFile file = DlcCurseForgeClient.fetchFile(ref.projectId, ref.fileId);
         if (file == null || file.url == null || file.url.isBlank()) {
             throw new IOException("Failed to resolve CurseForge file: " + ref.projectId + "/" + ref.fileId);
         }
-        CurseForgeClient.CurseForgeMod mod = CurseForgeClient.fetchMod(ref.projectId);
+        DlcCurseForgeClient.CurseForgeMod mod = DlcCurseForgeClient.fetchMod(ref.projectId);
         String fileName = DlcDownloadUtil.sanitizeFileName(file.fileName);
         if (fileName == null || fileName.isBlank()) {
             fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(file.url));
@@ -247,15 +247,15 @@ public final class DlcPackCFResolver {
         return new ManifestTarget(file, targetDirectory, fileName, relative);
     }
 
-    private static Path targetDirectory(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod, String fileName) {
+    private static Path targetDirectory(DlcCurseForgeClient.CurseForgeFile file, DlcCurseForgeClient.CurseForgeMod mod, String fileName) {
         return Path.of(resolveTargetDirectoryName(file, mod, fileName));
     }
 
-    public static String resolveTargetDirectoryName(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod) {
+    public static String resolveTargetDirectoryName(DlcCurseForgeClient.CurseForgeFile file, DlcCurseForgeClient.CurseForgeMod mod) {
         return resolveTargetDirectoryName(file, mod, null);
     }
 
-    public static String resolveTargetDirectoryName(CurseForgeClient.CurseForgeFile file, CurseForgeClient.CurseForgeMod mod, String fileName) {
+    public static String resolveTargetDirectoryName(DlcCurseForgeClient.CurseForgeFile file, DlcCurseForgeClient.CurseForgeMod mod, String fileName) {
         if (isJarFileName(fileName)) {
             return "mods";
         }
@@ -380,12 +380,12 @@ public final class DlcPackCFResolver {
     }
 
     private static final class ManifestTarget {
-        private final CurseForgeClient.CurseForgeFile file;
+        private final DlcCurseForgeClient.CurseForgeFile file;
         private final Path targetDirectory;
         private final String fileName;
         private final String relativePath;
 
-        private ManifestTarget(CurseForgeClient.CurseForgeFile file, Path targetDirectory, String fileName, String relativePath) {
+        private ManifestTarget(DlcCurseForgeClient.CurseForgeFile file, Path targetDirectory, String fileName, String relativePath) {
             this.file = file;
             this.targetDirectory = targetDirectory;
             this.fileName = fileName;

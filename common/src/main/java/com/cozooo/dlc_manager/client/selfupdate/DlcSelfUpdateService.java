@@ -1,14 +1,13 @@
 package com.cozooo.dlc_manager.client.selfupdate;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
-import com.cozooo.dlc_manager.client.download.CurseForgeClient;
+import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -57,9 +56,9 @@ public final class DlcSelfUpdateService {
             return result;
         }
         try {
-            CurseForgeClient.CurseForgeFile file = requestedVersion == null
-                ? CurseForgeClient.fetchLatestFile(PROJECT_ID, mcVersion, loader)
-                : CurseForgeClient.fetchFileByIdOrVersion(PROJECT_ID, requestedVersion, mcVersion, loader);
+            DlcCurseForgeClient.CurseForgeFile file = requestedVersion == null
+                ? DlcCurseForgeClient.fetchLatestFile(PROJECT_ID, mcVersion, loader)
+                : DlcCurseForgeClient.fetchFileByIdOrVersion(PROJECT_ID, requestedVersion, mcVersion, loader);
             if (requestedVersion != null && file == null) {
                 SelfUpdateResult result = SelfUpdateResult.none(currentVersion);
                 result.requestedVersion = requestedVersion;
@@ -499,7 +498,7 @@ public final class DlcSelfUpdateService {
         }
     }
 
-    private static boolean isUpdateAvailable(String currentVersion, String latestVersion, CurseForgeClient.CurseForgeFile file) {
+    private static boolean isUpdateAvailable(String currentVersion, String latestVersion, DlcCurseForgeClient.CurseForgeFile file) {
         if (currentVersion == null || currentVersion.isBlank()) {
             return true;
         }

@@ -401,7 +401,7 @@ object DlcDownloadService {
             return null
         }
         return try {
-            CurseForgeClient.fetchFile(CURSEFORGE_PROBE_PROJECT_ID, CURSEFORGE_PROBE_FILE_ID)?.url
+            DlcCurseForgeClient.fetchFile(CURSEFORGE_PROBE_PROJECT_ID, CURSEFORGE_PROBE_FILE_ID)?.url
         } catch (_: Exception) {
             null
         }?.takeIf { isCurseForgeCdnUrl(it) }
@@ -412,7 +412,7 @@ object DlcDownloadService {
             return null
         }
         return try {
-            ModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROBE_PROJECT_ID, MODRINTH_PROBE_FILE_ID, null, null)?.url
+            DlcModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROBE_PROJECT_ID, MODRINTH_PROBE_FILE_ID, null, null)?.url
         } catch (_: Exception) {
             null
         }?.takeIf { isModrinthCdnUrl(it) }

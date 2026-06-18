@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class CurseForgeClient {
+public final class DlcCurseForgeClient {
     private static final Gson GSON = new Gson();
     private static final int API_KEY_SHIFT = 7;
     private static final byte API_KEY_MASK = (byte) 0x5A;
@@ -47,7 +47,7 @@ public final class CurseForgeClient {
     };
     private static final int API_MAX_ATTEMPTS = 2;
 
-    private CurseForgeClient() {
+    private DlcCurseForgeClient() {
     }
 
     public static CurseForgeFile fetchFile(String projectId, String fileId) throws IOException, InterruptedException {

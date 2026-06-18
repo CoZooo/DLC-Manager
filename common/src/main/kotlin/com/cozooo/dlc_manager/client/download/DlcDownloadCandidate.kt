@@ -84,12 +84,12 @@ class DlcDownloadCandidate private constructor(
         fun direct(url: String): DlcDownloadCandidate = DlcDownloadCandidate(url, true, null, null, null, -1L)
 
         @JvmStatic
-        fun curseForge(file: CurseForgeClient.CurseForgeFile): DlcDownloadCandidate {
+        fun curseForge(file: DlcCurseForgeClient.CurseForgeFile): DlcDownloadCandidate {
             return curseForgeCandidate(file.url, file)
         }
 
         @JvmStatic
-        fun curseForgeCandidates(file: CurseForgeClient.CurseForgeFile): List<DlcDownloadCandidate> {
+        fun curseForgeCandidates(file: DlcCurseForgeClient.CurseForgeFile): List<DlcDownloadCandidate> {
             val candidates = ArrayList<DlcDownloadCandidate>()
             val primaryUrl = file.url
             val primaryIsWebsiteFallback = isCurseForgeWebsiteDownloadUrl(primaryUrl)
@@ -107,7 +107,7 @@ class DlcDownloadCandidate private constructor(
             return candidates
         }
 
-        private fun curseForgeCandidate(url: String?, file: CurseForgeClient.CurseForgeFile): DlcDownloadCandidate {
+        private fun curseForgeCandidate(url: String?, file: DlcCurseForgeClient.CurseForgeFile): DlcDownloadCandidate {
             var hashType: String? = null
             var hashValue: String? = null
             if (!file.sha1.isNullOrBlank()) {
@@ -127,7 +127,7 @@ class DlcDownloadCandidate private constructor(
         }
 
         @JvmStatic
-        fun modrinth(version: ModrinthClient.ModrinthVersion): DlcDownloadCandidate {
+        fun modrinth(version: DlcModrinthClient.ModrinthVersion): DlcDownloadCandidate {
             var hashType: String? = null
             var hashValue: String? = null
             if (!version.sha1.isNullOrBlank()) {
@@ -279,7 +279,7 @@ class DlcDownloadCandidate private constructor(
             if (fileId.isNullOrBlank()) {
                 return
             }
-            val file = CurseForgeClient.fetchFileByIdOrVersion(
+            val file = DlcCurseForgeClient.fetchFileByIdOrVersion(
                 projectId,
                 fileId,
                 CrossPlatformRuntime.mcVersion(),
@@ -295,7 +295,7 @@ class DlcDownloadCandidate private constructor(
             if (versionId.isNullOrBlank()) {
                 return
             }
-            val version = ModrinthClient.fetchVersionByIdOrVersion(
+            val version = DlcModrinthClient.fetchVersionByIdOrVersion(
                 projectId,
                 versionId,
                 CrossPlatformRuntime.mcVersion(),

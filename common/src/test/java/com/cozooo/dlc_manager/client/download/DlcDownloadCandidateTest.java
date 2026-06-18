@@ -63,7 +63,7 @@ class DlcDownloadCandidateTest {
 
     @Test
     void curseForgeCandidatePrefersSha1ThenFallsBackToMd5() {
-        CurseForgeClient.CurseForgeFile file = new CurseForgeClient.CurseForgeFile();
+        DlcCurseForgeClient.CurseForgeFile file = new DlcCurseForgeClient.CurseForgeFile();
         file.url = "https://example.com/cf.jar";
         file.fileName = "cf.jar";
         file.sha1 = "sha1-value";
@@ -86,7 +86,7 @@ class DlcDownloadCandidateTest {
 
     @Test
     void modrinthCandidatePrefersSha1ThenFallsBackToSha512() {
-        ModrinthClient.ModrinthVersion version = new ModrinthClient.ModrinthVersion();
+        DlcModrinthClient.ModrinthVersion version = new DlcModrinthClient.ModrinthVersion();
         version.url = "https://example.com/mr.jar";
         version.fileName = "mr.jar";
         version.sha1 = "sha1-value";

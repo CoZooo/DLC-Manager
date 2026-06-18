@@ -429,7 +429,7 @@ public final class DlcDownloadService {
             return null;
         }
         try {
-            CurseForgeClient.CurseForgeFile file = CurseForgeClient.fetchFile(CURSEFORGE_PROBE_PROJECT_ID, CURSEFORGE_PROBE_FILE_ID);
+            DlcCurseForgeClient.CurseForgeFile file = DlcCurseForgeClient.fetchFile(CURSEFORGE_PROBE_PROJECT_ID, CURSEFORGE_PROBE_FILE_ID);
             return file != null && isCurseForgeCdnUrl(file.url) ? file.url : null;
         } catch (Exception ignored) {
             return null;
@@ -441,7 +441,7 @@ public final class DlcDownloadService {
             return null;
         }
         try {
-            ModrinthClient.ModrinthVersion version = ModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROBE_PROJECT_ID, MODRINTH_PROBE_FILE_ID, null, null);
+            DlcModrinthClient.ModrinthVersion version = DlcModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROBE_PROJECT_ID, MODRINTH_PROBE_FILE_ID, null, null);
             return version != null && isModrinthCdnUrl(version.url) ? version.url : null;
         } catch (Exception ignored) {
             return null;

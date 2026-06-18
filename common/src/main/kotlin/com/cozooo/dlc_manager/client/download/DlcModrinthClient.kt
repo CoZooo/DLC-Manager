@@ -15,7 +15,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-object ModrinthClient {
+object DlcModrinthClient {
     private val GSON = Gson()
     private val CLIENT: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs().toLong()))

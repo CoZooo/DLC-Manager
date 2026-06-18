@@ -19,14 +19,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class ModrinthClient {
+public final class DlcModrinthClient {
     private static final Gson GSON = new Gson();
     private static final HttpClient CLIENT = HttpClient.newBuilder()
         .connectTimeout(Duration.ofMillis(DlcConfig.getConnectTimeoutMs()))
         .build();
     private static final Map<String, ModrinthVersion> CACHE = new ConcurrentHashMap<>();
 
-    private ModrinthClient() {
+    private DlcModrinthClient() {
     }
 
     public static ModrinthVersion fetchVersion(String versionId) throws IOException, InterruptedException {
