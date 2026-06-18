@@ -10,6 +10,7 @@ def kotlinMainDirs = [
     '../../../neoforge/1.21.1/src/main/kotlin'
 ]
 def moduleProject = project
+def kotlinForForgeVersion = rootProject.kotlin_for_forge_version
 
 architectury {
     platformSetupLoomIde()
@@ -75,6 +76,21 @@ if (kotlinEnabled) {
     }
 }
 
+def kotlinForForgeDiscoveryJar = layout.buildDirectory.file("kotlinForForgeModDiscovery/kotlinforforge-neoforge.jar")
+def prepareKotlinForForgeModDiscovery = tasks.register('prepareKotlinForForgeModDiscovery', Copy) {
+    from(configurations.kotlinForForgeModDiscovery)
+    into(kotlinForForgeDiscoveryJar.map { it.asFile.parentFile })
+    rename { 'kotlinforforge-neoforge.jar' }
+}
+
+if (kotlinEnabled) {
+    tasks.matching {
+        it.name == 'generateDLIConfig' || it.name == 'runClient' || it.name == 'runServer'
+    }.configureEach {
+        dependsOn prepareKotlinForForgeModDiscovery
+    }
+}
+
 loom {
     mods {
         dlc_manager {
@@ -82,7 +98,7 @@ loom {
         }
         if (kotlinEnabled) {
             kotlinforforge {
-                configuration configurations.kotlinForForgeModDiscovery
+                getModFiles().from(files(kotlinForForgeDiscoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
             }
         }
     }
@@ -92,13 +108,13 @@ dependencies {
     neoForge "net.neoforged:neoforge:${rootProject.neoforge_version}"
     modImplementation "dev.architectury:architectury-neoforge:${rootProject.architectury_api_version}"
     if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
-        kotlinForForgeModDiscovery("thedarkcolour:kotlinforforge-neoforge:${rootProject.kotlin_for_forge_version}") {
+        kotlinForForgeModDiscovery("thedarkcolour:kotlinforforge-neoforge:${kotlinForForgeVersion}") {
             transitive = false
         }
-        modImplementation("thedarkcolour:kfflang-neoforge:${rootProject.kotlin_for_forge_version}") {
+        modImplementation("thedarkcolour:kfflang-neoforge:${kotlinForForgeVersion}") {
             transitive = false
         }
-        modImplementation("thedarkcolour:kffmod-neoforge:${rootProject.kotlin_for_forge_version}") {
+        modImplementation("thedarkcolour:kffmod-neoforge:${kotlinForForgeVersion}") {
             transitive = false
         }
     }

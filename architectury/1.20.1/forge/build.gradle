@@ -10,6 +10,7 @@ def kotlinMainDirs = [
     '../../../forge/1.20.1/src/main/kotlin'
 ]
 def moduleProject = project
+def kotlinForForgeVersion = rootProject.kotlin_for_forge_version
 
 architectury {
     platformSetupLoomIde()
@@ -75,6 +76,21 @@ configurations {
     developmentForge.extendsFrom common
 }
 
+def kotlinForForgeDiscoveryJar = layout.buildDirectory.file("kotlinForForgeModDiscovery/kotlinforforge-all.jar")
+def prepareKotlinForForgeModDiscovery = tasks.register('prepareKotlinForForgeModDiscovery', Copy) {
+    from(configurations.kotlinForForgeModDiscovery)
+    into(kotlinForForgeDiscoveryJar.map { it.asFile.parentFile })
+    rename { 'kotlinforforge-all.jar' }
+}
+
+if (kotlinEnabled) {
+    tasks.matching {
+        it.name == 'generateDLIConfig' || it.name == 'runClient' || it.name == 'runServer'
+    }.configureEach {
+        dependsOn prepareKotlinForForgeModDiscovery
+    }
+}
+
 loom {
     mods {
         dlc_manager {
@@ -82,7 +98,7 @@ loom {
         }
         if (kotlinEnabled) {
             kotlinforforge {
-                configuration configurations.kotlinForForgeModDiscovery
+                getModFiles().from(files(kotlinForForgeDiscoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
             }
         }
     }
