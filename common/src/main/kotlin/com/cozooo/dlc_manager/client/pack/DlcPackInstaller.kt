@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcPathUtil
 import com.cozooo.dlc_manager.core.DlcRuntimeState
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -393,8 +394,16 @@ class DlcPackInstaller(
         val currentModpack = version?.getModpack()
         val currentBase = version?.getBase()
         val currentDlc = version?.getDlc()
+        val currentGameVersion = CrossPlatformRuntime.mcVersion()
+        val currentModLoader = CrossPlatformRuntime.loaderName()
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack, metadata.modpackAnyWildcard)) {
             result.incompatible.add("modpack ${safeText(currentModpack)} not in ${metadata.modpacks.joinToString(", ")}")
+        }
+        if (!DlcPackMetadata.stringRuleMatches(metadata.gameVersion, currentGameVersion)) {
+            result.incompatible.add("gameVersion ${safeText(currentGameVersion)} not in ${metadata.gameVersion}")
+        }
+        if (!DlcPackMetadata.stringRuleMatches(metadata.modLoader, currentModLoader)) {
+            result.incompatible.add("modLoader ${safeText(currentModLoader)} not in ${metadata.modLoader}")
         }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, currentBase)) {
             result.incompatible.add("base ${safeVersion(currentBase)} not in ${metadata.baseVersions.joinToString(", ")}")

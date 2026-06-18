@@ -206,6 +206,18 @@ const packBasicSection: SectionSchema = {
       help: "static.help.packVersion"
     },
     {
+      key: "gameVersion",
+      label: "gameVersion",
+      kind: "text",
+      help: "static.help.packGameVersion"
+    },
+    {
+      key: "modLoader",
+      label: "modLoader",
+      kind: "text",
+      help: "static.help.packModLoader"
+    },
+    {
       key: "author",
       label: "author",
       kind: "list",

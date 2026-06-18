@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Locale
@@ -42,8 +43,16 @@ object DlcPackUpdateGuard {
         val metadata = parsed.metadata
         val reasons = ArrayList<String>()
         val targetModpack = DlcUpdateVersion.load(dlcRoot).getModpack()
+        val currentGameVersion = CrossPlatformRuntime.mcVersion()
+        val currentModLoader = CrossPlatformRuntime.loaderName()
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack, metadata.modpackAnyWildcard)) {
             reasons.add("modpack ${safeText(targetModpack)} not in ${metadata.modpacks.joinToString(", ")}")
+        }
+        if (!DlcPackMetadata.stringRuleMatches(metadata.gameVersion, currentGameVersion)) {
+            reasons.add("gameVersion ${safeText(currentGameVersion)} not in ${metadata.gameVersion}")
+        }
+        if (!DlcPackMetadata.stringRuleMatches(metadata.modLoader, currentModLoader)) {
+            reasons.add("modLoader ${safeText(currentModLoader)} not in ${metadata.modLoader}")
         }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, targetBase)) {
             reasons.add("base ${safe(targetBase)} not in ${metadata.baseVersions.joinToString(", ")}")

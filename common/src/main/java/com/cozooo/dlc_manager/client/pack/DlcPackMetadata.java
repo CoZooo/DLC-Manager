@@ -25,6 +25,8 @@ public class DlcPackMetadata {
 
     public final String identifier;
     public final String version;
+    public final String gameVersion;
+    public final String modLoader;
     public final List<String> authors;
     public final List<String> modpacks;
     public final boolean modpackAnyWildcard;
@@ -39,6 +41,8 @@ public class DlcPackMetadata {
     public DlcPackMetadata(
         String identifier,
         String version,
+        String gameVersion,
+        String modLoader,
         List<String> authors,
         List<String> modpacks,
         boolean modpackAnyWildcard,
@@ -52,6 +56,8 @@ public class DlcPackMetadata {
     ) {
         this.identifier = identifier;
         this.version = version;
+        this.gameVersion = gameVersion == null ? "" : gameVersion;
+        this.modLoader = modLoader == null ? "" : modLoader;
         this.authors = authors == null ? List.of() : List.copyOf(authors);
         this.modpacks = modpacks == null ? List.of() : List.copyOf(modpacks);
         this.modpackAnyWildcard = modpackAnyWildcard;
@@ -129,6 +135,8 @@ public class DlcPackMetadata {
         return Result.valid(new DlcPackMetadata(
             identifier,
             version,
+            stringOrEmpty(DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")),
+            stringOrEmpty(DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")),
             authors,
             modpacks,
             resolveModpackAnyWildcard(modpacks, sourceText),
@@ -228,6 +236,15 @@ public class DlcPackMetadata {
             }
         }
         return false;
+    }
+
+    public static boolean stringRuleMatches(String rule, String current) {
+        String normalized = trim(rule);
+        if (normalized == null || normalized.isEmpty() || "any".equalsIgnoreCase(normalized)) {
+            return true;
+        }
+        String currentValue = trim(current);
+        return currentValue != null && !currentValue.isEmpty() && currentValue.equalsIgnoreCase(normalized);
     }
 
     public static int compareVersionStrings(String left, String right) {
@@ -491,6 +508,11 @@ public class DlcPackMetadata {
 
     private static String trim(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private static String stringOrEmpty(String value) {
+        String trimmed = trim(value);
+        return trimmed == null ? "" : trimmed;
     }
 
     private static String trimEnd(String value) {

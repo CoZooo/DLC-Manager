@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -414,8 +415,16 @@ public class DlcPackInstaller {
         String currentModpack = version == null ? null : version.getModpack();
         String currentBase = version == null ? null : version.getBase();
         String currentDlc = version == null ? null : version.getDlc();
+        String currentGameVersion = CrossPlatformRuntime.mcVersion();
+        String currentModLoader = CrossPlatformRuntime.loaderName();
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack, metadata.modpackAnyWildcard)) {
             result.incompatible.add("modpack " + safeText(currentModpack) + " not in " + String.join(", ", metadata.modpacks));
+        }
+        if (!DlcPackMetadata.stringRuleMatches(metadata.gameVersion, currentGameVersion)) {
+            result.incompatible.add("gameVersion " + safeText(currentGameVersion) + " not in " + metadata.gameVersion);
+        }
+        if (!DlcPackMetadata.stringRuleMatches(metadata.modLoader, currentModLoader)) {
+            result.incompatible.add("modLoader " + safeText(currentModLoader) + " not in " + metadata.modLoader);
         }
         if (!DlcPackMetadata.anyVersionMatches(metadata.baseVersions, currentBase)) {
             result.incompatible.add("base " + safeVersion(currentBase) + " not in " + String.join(", ", metadata.baseVersions));

@@ -15,6 +15,8 @@ import java.util.Locale
 class DlcPackMetadata(
     @JvmField val identifier: String,
     @JvmField val version: String,
+    @JvmField val gameVersion: String,
+    @JvmField val modLoader: String,
     @JvmField val authors: List<String>,
     @JvmField val modpacks: List<String>,
     @JvmField val modpackAnyWildcard: Boolean,
@@ -84,6 +86,8 @@ class DlcPackMetadata(
             val metadata = DlcPackMetadata(
                 identifier!!,
                 version!!,
+                DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")?.trim().orEmpty(),
+                DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")?.trim().orEmpty(),
                 readStringList(DlcDcConfigIO.getIgnoreCase(basic, "author")).ifEmpty { listOf("Unknown Author") },
                 modpackValues.ifEmpty { listOf("any") },
                 resolveModpackAnyWildcard(modpackValues, sourceText),
@@ -182,6 +186,16 @@ class DlcPackMetadata(
                     (allowAnyWildcard && normalized.equals("any", ignoreCase = true)) ||
                     currentValue.equals(normalized, ignoreCase = true)
             }
+        }
+
+        @JvmStatic
+        fun stringRuleMatches(rule: String?, current: String?): Boolean {
+            val normalized = rule?.trim().orEmpty()
+            if (normalized.isEmpty() || normalized.equals("any", ignoreCase = true)) {
+                return true
+            }
+            val currentValue = current?.trim().orEmpty()
+            return currentValue.isNotEmpty() && currentValue.equals(normalized, ignoreCase = true)
         }
 
         @JvmStatic
