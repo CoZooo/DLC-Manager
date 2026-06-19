@@ -722,12 +722,29 @@ function shouldUsePackModpackFormat(value: StructuredValue, context?: SerializeF
     && context.fieldKey === "modpack";
 }
 
+function shouldUsePackSingleOrListFormat(value: StructuredValue, context?: SerializeFieldContext): value is string[] {
+  return Array.isArray(value)
+    && context?.schemaType === "pack"
+    && (
+      (context.sectionKey === "basic" && context.fieldKey === "author") ||
+      (context.sectionKey === "modpack" && (context.fieldKey === "base" || context.fieldKey === "dlc"))
+    );
+}
+
 function serializePackModpackValue(value: string[]): string {
   const normalized = value.map((item) => item.trim()).filter(Boolean);
   if (normalized.length === 1) {
     return serializePackModpackItem(normalized[0]);
   }
   return `[${normalized.map((item) => serializePackModpackItem(item)).join(", ")}]`;
+}
+
+function serializePackSingleOrListValue(value: string[]): string {
+  const normalized = value.map((item) => item.trim()).filter(Boolean);
+  if (normalized.length === 1) {
+    return serializePackVersionRuleItem(normalized[0]);
+  }
+  return `[${normalized.map((item) => serializePackVersionRuleItem(item)).join(", ")}]`;
 }
 
 function serializePackModpackItem(value: string): string {
@@ -739,6 +756,11 @@ function serializePackModpackItem(value: string): string {
     return formatString(parseQuoted(trimmed));
   }
   return formatString(trimmed);
+}
+
+function serializePackVersionRuleItem(value: string): string {
+  const trimmed = value.trim();
+  return trimmed === "any" ? "any" : formatString(trimmed);
 }
 
 function serializeExpandedStringList(value: string[]): string {
@@ -763,6 +785,9 @@ function serializeValue(value: StructuredValue, context?: SerializeFieldContext)
     const listValue = value as string[];
     if (shouldUsePackModpackFormat(listValue, context)) {
       return serializePackModpackValue(listValue);
+    }
+    if (shouldUsePackSingleOrListFormat(listValue, context)) {
+      return serializePackSingleOrListValue(listValue);
     }
     if (shouldUseExpandedListFormat(listValue, context)) {
       return serializeExpandedStringList(listValue);
