@@ -91,6 +91,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private Component status;
     private volatile boolean busy;
     private volatile boolean cancelRequested;
+    private volatile boolean cancelApplyRequested;
     private volatile boolean paused;
     private volatile BusyOperation busyOperation = BusyOperation.NONE;
     private volatile float operationProgress = -1f;
@@ -118,16 +119,21 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             int gap = 8;
             int startX = this.width / 2 - buttonWidth - gap / 2;
             boolean canResume = paused && busyOperation == BusyOperation.APPLY;
-            Component cancelLabel = canResume
+            boolean applying = busyOperation == BusyOperation.APPLY;
+            Component pauseLabel = canResume
                 ? Component.translatable("dlc_manager.pack.continue_install")
-                : cancelRequested && busyOperation == BusyOperation.APPLY
+                : applying && cancelRequested && !cancelApplyRequested
                     ? Component.translatable("dlc_manager.pack.pausing")
-                    : cancelRequested
-                        ? Component.translatable("dlc_manager.pack.canceling")
-                        : Component.translatable("dlc_manager.pack.cancel");
-            backButton = Button.builder(cancelLabel, btn -> {
+                    : applying
+                        ? Component.translatable("dlc_manager.pack.pause_install")
+                        : cancelRequested
+                            ? Component.translatable("dlc_manager.pack.canceling")
+                            : Component.translatable("dlc_manager.pack.cancel");
+            backButton = Button.builder(pauseLabel, btn -> {
                     if (canResume) {
                         resumePausedApply();
+                    } else if (applying) {
+                        requestPauseApplyOperation();
                     } else {
                         onBackOrCancel();
                     }
@@ -135,10 +141,16 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 .bounds(startX, y, buttonWidth, buttonHeight)
                 .build();
             backButton.active = canResume || (!cancelRequested && busyOperation != BusyOperation.DELETE);
-            Button returnButton = Button.builder(Component.translatable("dlc_manager.pack.back"), btn -> returnToParent())
+            Button returnButton = Button.builder(applying ? Component.translatable("dlc_manager.pack.cancel_install") : Component.translatable("dlc_manager.pack.back"), btn -> {
+                    if (applying) {
+                        requestCancelApplyOperation();
+                    } else {
+                        returnToParent();
+                    }
+                })
                 .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
                 .build();
-            returnButton.active = canResume;
+            returnButton.active = applying || canResume;
             addRenderableWidget(backButton);
             addRenderableWidget(returnButton);
             return;
@@ -974,7 +986,11 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 activeReinstallIdentifiers = Set.of();
                 finishBusy(Component.translatable("dlc_manager.pack.apply_success"), true);
             } catch (DlcDownloadService.DownloadCanceledException ex) {
-                pauseApplyOperation();
+                if (cancelApplyRequested) {
+                    finishBusy(Component.translatable("dlc_manager.pack.canceled"));
+                } else {
+                    pauseApplyOperation();
+                }
             } catch (Exception ex) {
                 finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)));
             }
@@ -1336,6 +1352,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private void setBusy(boolean busy, Component message, BusyOperation operation) {
         if (busy) {
             cancelRequested = false;
+            cancelApplyRequested = false;
             paused = false;
             busyOperation = operation;
             operationProgress = -1f;
@@ -1357,6 +1374,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         Minecraft.getInstance().execute(() -> {
             busy = false;
             cancelRequested = false;
+            cancelApplyRequested = false;
             paused = false;
             busyOperation = BusyOperation.NONE;
             operationProgress = -1f;
@@ -1375,6 +1393,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         Minecraft.getInstance().execute(() -> {
             busy = true;
             cancelRequested = false;
+            cancelApplyRequested = false;
             paused = true;
             busyOperation = BusyOperation.APPLY;
             operationProgress = -1f;
@@ -1395,8 +1414,35 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         busy = false;
         paused = false;
         cancelRequested = false;
+        cancelApplyRequested = false;
         busyOperation = BusyOperation.NONE;
         startApplyPendingChanges(allowRuntimeChanges);
+    }
+
+    private void requestPauseApplyOperation() {
+        if (busyOperation != BusyOperation.APPLY || cancelRequested) {
+            return;
+        }
+        cancelApplyRequested = false;
+        cancelRequested = true;
+        status = Component.translatable("dlc_manager.pack.pausing");
+        operationStatus = status;
+        rebuildPackWidgets();
+    }
+
+    private void requestCancelApplyOperation() {
+        if (busyOperation != BusyOperation.APPLY) {
+            return;
+        }
+        cancelApplyRequested = true;
+        if (paused) {
+            finishBusy(Component.translatable("dlc_manager.pack.canceled"));
+            return;
+        }
+        cancelRequested = true;
+        status = Component.translatable("dlc_manager.pack.canceling");
+        operationStatus = status;
+        rebuildPackWidgets();
     }
 
     private void showRestartPrompt() {
@@ -1415,7 +1461,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private void onBackOrCancel() {
         if (busy) {
             if (paused && busyOperation == BusyOperation.APPLY) {
-                returnToParent();
+                requestCancelApplyOperation();
                 return;
             }
             if (busyOperation == BusyOperation.DELETE) {
@@ -1446,6 +1492,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         busy = false;
         paused = false;
         cancelRequested = false;
+        cancelApplyRequested = false;
         busyOperation = BusyOperation.NONE;
         activeReinstallIdentifiers = Set.of();
         releaseIconTextures();

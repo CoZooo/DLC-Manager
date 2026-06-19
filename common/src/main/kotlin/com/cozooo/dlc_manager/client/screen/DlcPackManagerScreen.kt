@@ -64,6 +64,7 @@ class DlcPackManagerScreen(
     private var status: Component? = null
     @Volatile private var busy = false
     @Volatile private var cancelRequested = false
+    @Volatile private var cancelApplyRequested = false
     @Volatile private var paused = false
     @Volatile private var busyOperation = BusyOperation.NONE
     @Volatile private var operationProgress = -1f
@@ -85,23 +86,31 @@ class DlcPackManagerScreen(
             val gap = 8
             val startX = width / 2 - buttonWidth - gap / 2
             val canResume = paused && busyOperation == BusyOperation.APPLY
+            val applying = busyOperation == BusyOperation.APPLY
             val cancel = Button.builder(
                 when {
                     canResume -> Component.translatable("dlc_manager.pack.continue_install")
-                    cancelRequested && busyOperation == BusyOperation.APPLY -> Component.translatable("dlc_manager.pack.pausing")
+                    applying && cancelRequested && !cancelApplyRequested -> Component.translatable("dlc_manager.pack.pausing")
+                    applying -> Component.translatable("dlc_manager.pack.pause_install")
                     cancelRequested -> Component.translatable("dlc_manager.pack.canceling")
                     else -> Component.translatable("dlc_manager.pack.cancel")
                 }
             ) {
-                if (canResume) resumePausedApply() else onBackOrCancel()
+                when {
+                    canResume -> resumePausedApply()
+                    applying -> requestPauseApplyOperation()
+                    else -> onBackOrCancel()
+                }
             }
                 .bounds(startX, y, buttonWidth, buttonHeight)
                 .build()
             cancel.active = canResume || (!cancelRequested && busyOperation != BusyOperation.DELETE)
-            val back = Button.builder(Component.translatable("dlc_manager.pack.back")) { returnToParent() }
+            val back = Button.builder(if (applying) Component.translatable("dlc_manager.pack.cancel_install") else Component.translatable("dlc_manager.pack.back")) {
+                if (applying) requestCancelApplyOperation() else returnToParent()
+            }
                 .bounds(startX + buttonWidth + gap, y, buttonWidth, buttonHeight)
                 .build()
-            back.active = canResume
+            back.active = applying || canResume
             backButton = cancel
             addRenderableWidget(cancel)
             addRenderableWidget(back)
@@ -890,7 +899,11 @@ class DlcPackManagerScreen(
                 activeReinstallIdentifiers = emptySet()
                 finishBusy(Component.translatable("dlc_manager.pack.apply_success"), true)
             } catch (_: DlcDownloadService.DownloadCanceledException) {
-                pauseApplyOperation()
+                if (cancelApplyRequested) {
+                    finishBusy(Component.translatable("dlc_manager.pack.canceled"))
+                } else {
+                    pauseApplyOperation()
+                }
             } catch (ex: Exception) {
                 finishBusy(Component.translatable("dlc_manager.pack.apply_failed", describeFailure(ex)))
             }
@@ -1193,6 +1206,7 @@ class DlcPackManagerScreen(
     private fun setBusy(value: Boolean, message: Component, operation: BusyOperation = BusyOperation.NONE) {
         if (value) {
             cancelRequested = false
+            cancelApplyRequested = false
             paused = false
             busyOperation = operation
             operationProgress = -1f
@@ -1210,6 +1224,7 @@ class DlcPackManagerScreen(
         Minecraft.getInstance().execute {
             busy = false
             cancelRequested = false
+            cancelApplyRequested = false
             paused = false
             busyOperation = BusyOperation.NONE
             operationProgress = -1f
@@ -1228,6 +1243,7 @@ class DlcPackManagerScreen(
         Minecraft.getInstance().execute {
             busy = true
             cancelRequested = false
+            cancelApplyRequested = false
             paused = true
             busyOperation = BusyOperation.APPLY
             operationProgress = -1f
@@ -1248,8 +1264,35 @@ class DlcPackManagerScreen(
         busy = false
         paused = false
         cancelRequested = false
+        cancelApplyRequested = false
         busyOperation = BusyOperation.NONE
         startApplyPendingChanges(allowRuntimeChanges)
+    }
+
+    private fun requestPauseApplyOperation() {
+        if (busyOperation != BusyOperation.APPLY || cancelRequested) {
+            return
+        }
+        cancelApplyRequested = false
+        cancelRequested = true
+        status = Component.translatable("dlc_manager.pack.pausing")
+        operationStatus = status
+        rebuildPackWidgets()
+    }
+
+    private fun requestCancelApplyOperation() {
+        if (busyOperation != BusyOperation.APPLY) {
+            return
+        }
+        cancelApplyRequested = true
+        if (paused) {
+            finishBusy(Component.translatable("dlc_manager.pack.canceled"))
+            return
+        }
+        cancelRequested = true
+        status = Component.translatable("dlc_manager.pack.canceling")
+        operationStatus = status
+        rebuildPackWidgets()
     }
 
     private fun showRestartPrompt() {
@@ -1268,7 +1311,7 @@ class DlcPackManagerScreen(
     private fun onBackOrCancel() {
         if (busy) {
             if (paused && busyOperation == BusyOperation.APPLY) {
-                returnToParent()
+                requestCancelApplyOperation()
                 return
             }
             if (busyOperation == BusyOperation.DELETE) {
@@ -1301,6 +1344,7 @@ class DlcPackManagerScreen(
         busy = false
         paused = false
         cancelRequested = false
+        cancelApplyRequested = false
         busyOperation = BusyOperation.NONE
         activeReinstallIdentifiers = emptySet()
         releaseIconTextures()
