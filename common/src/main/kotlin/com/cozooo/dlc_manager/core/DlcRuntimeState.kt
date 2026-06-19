@@ -388,8 +388,6 @@ object DlcRuntimeState {
                     if (conflictEnabled) {
                         addConflictLine(lines, seen, identifier, conflictItem.getIdentifier())
                     }
-                } else if (isRelationPathPresent(conflictName)) {
-                    addConflictLine(lines, seen, identifier, conflictName)
                 }
             }
         }

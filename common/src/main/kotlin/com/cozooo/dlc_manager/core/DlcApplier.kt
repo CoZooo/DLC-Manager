@@ -23,6 +23,13 @@ object DlcApplier {
         CURRENT_APPLY_CONTEXT.set(context)
 
         try {
+            val conflictPathResult = applyDlcConflictPaths(items)
+            if (conflictPathResult.messages.isNotEmpty()) {
+                messages.addAll(conflictPathResult.messages)
+            }
+            if (conflictPathResult.changed) {
+                requiresRestart = true
+            }
             for (item in items) {
                 val previous = DlcStateConfig.getState(item.getId())
                 val wasEnabled = previous != null && previous.enabled
@@ -75,6 +82,198 @@ object DlcApplier {
         DlcStateConfig.save()
 
         return ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled)
+    }
+
+    private fun applyDlcConflictPaths(items: Collection<DlcItem>?): DlcConflictPathResult {
+        val messages = ArrayList<String>()
+        val desiredPatterns = collectEnabledDlcConflictPathPatterns(items)
+        val desiredPaths = resolveExistingConflictTargets(desiredPatterns)
+        val currentPaths = LinkedHashSet(collectConflictBackupRelativePaths())
+        var changed = false
+
+        val toDisable = LinkedHashSet(desiredPaths)
+        toDisable.removeAll(currentPaths)
+        for (relative in toDisable) {
+            if (disableDlcConflictPath(relative, messages)) {
+                changed = true
+                currentPaths.add(relative)
+            }
+        }
+
+        val toRestore = LinkedHashSet(currentPaths)
+        for (relative in toRestore) {
+            if (matchesAnyConflictPattern(desiredPatterns, relative)) {
+                continue
+            }
+            if (restoreDlcConflictPath(relative, messages)) {
+                changed = true
+            }
+        }
+        return DlcConflictPathResult(messages, changed)
+    }
+
+    private fun collectEnabledDlcConflictPathPatterns(items: Collection<DlcItem>?): Set<String> {
+        val result = LinkedHashSet<String>()
+        if (items.isNullOrEmpty()) {
+            return result
+        }
+        for (item in items) {
+            if (!item.isEnabled()) {
+                continue
+            }
+            val conflicts = item.getConflicts()
+            if (conflicts.isNullOrEmpty()) {
+                continue
+            }
+            for (conflict in conflicts) {
+                if (conflict.isNullOrBlank() || DlcRuntimeState.getItemByIdentifier(conflict) != null) {
+                    continue
+                }
+                val relative = DlcPathUtil.normalizeRelativePath(conflict)
+                if (relative != null) {
+                    result.add(relative)
+                }
+            }
+        }
+        return result
+    }
+
+    private fun resolveExistingConflictTargets(patterns: Set<String>?): Set<String> {
+        val result = LinkedHashSet<String>()
+        if (patterns.isNullOrEmpty()) {
+            return result
+        }
+        val gameDir = DlcPaths.gameDir()
+        val normalizedGameDir = gameDir.toAbsolutePath().normalize()
+        for (pattern in patterns) {
+            for (target in DlcPathUtil.findMatches(normalizedGameDir, pattern)) {
+                val relative = DlcPathUtil.normalizeRelativePath(
+                    normalizedGameDir.relativize(target.toAbsolutePath().normalize()).toString()
+                )
+                if (relative != null) {
+                    result.add(relative)
+                }
+            }
+        }
+        return result
+    }
+
+    private fun collectConflictBackupRelativePaths(): Set<String> {
+        val result = LinkedHashSet<String>()
+        val root = resolveDlcConflictBackupRoot()
+        if (root == null || !Files.exists(root)) {
+            return result
+        }
+        val normalizedRoot = root.toAbsolutePath().normalize()
+        try {
+            Files.walk(normalizedRoot).use { stream ->
+                stream.filter(Files::isRegularFile).forEach { path ->
+                    val relative = DlcPathUtil.normalizeRelativePath(
+                        normalizedRoot.relativize(path.toAbsolutePath().normalize()).toString()
+                    )
+                    if (relative != null) {
+                        result.add(relative)
+                    }
+                }
+            }
+        } catch (ignored: IOException) {
+            recordApplyFailure(ignored)
+        }
+        return result
+    }
+
+    private fun matchesAnyConflictPattern(patterns: Set<String>?, relative: String?): Boolean {
+        if (patterns.isNullOrEmpty() || relative.isNullOrBlank()) {
+            return false
+        }
+        for (pattern in patterns) {
+            if (DlcPathUtil.matches(pattern, relative)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun disableDlcConflictPath(relative: String?, messages: MutableList<String>): Boolean {
+        val target = resolveDlcConflictTarget(relative)
+        val backup = resolveDlcConflictBackup(relative)
+        if (target == null || backup == null) {
+            return false
+        }
+        if (!Files.exists(target)) {
+            return Files.exists(backup) || DlcFileOpsHelperClient.cancelPendingOperation(target, "move") && Files.exists(backup)
+        }
+        return try {
+            deleteRecursiveIfExists(backup)
+            if (backup.parent != null) {
+                Files.createDirectories(backup.parent)
+            }
+            moveWithHelperFallback(target, backup, true)
+            cleanupEmptyParents(target.parent, DlcPaths.gameDir())
+            cleanupEmptyParents(backup.parent, resolveDlcConflictBackupRoot())
+            true
+        } catch (exception: IOException) {
+            addPathConflictMessage(messages, exception, "Failed to disable DLC conflict path: $relative")
+            recordApplyFailure(exception)
+            false
+        }
+    }
+
+    private fun restoreDlcConflictPath(relative: String?, messages: MutableList<String>): Boolean {
+        val target = resolveDlcConflictTarget(relative)
+        val backup = resolveDlcConflictBackup(relative)
+        if (target == null || backup == null) {
+            return false
+        }
+        if (!Files.exists(backup)) {
+            return Files.exists(target) || DlcFileOpsHelperClient.cancelPendingOperation(backup, "move") && Files.exists(target)
+        }
+        return try {
+            deleteRecursiveIfExists(target)
+            if (target.parent != null) {
+                Files.createDirectories(target.parent)
+            }
+            moveWithHelperFallback(backup, target, true)
+            cleanupEmptyParents(backup.parent, resolveDlcConflictBackupRoot())
+            true
+        } catch (exception: IOException) {
+            addPathConflictMessage(messages, exception, "Failed to restore DLC conflict path: $relative")
+            recordApplyFailure(exception)
+            false
+        }
+    }
+
+    private fun addPathConflictMessage(messages: MutableList<String>, exception: IOException, fallback: String) {
+        val message = exception.message
+        if (!message.isNullOrBlank()) {
+            messages.add(message)
+        } else {
+            messages.add(fallback)
+        }
+    }
+
+    private fun resolveDlcConflictTarget(relative: String?): Path? {
+        if (relative.isNullOrBlank()) {
+            return null
+        }
+        val gameDir = DlcPaths.gameDir()
+        val resolved = DlcPaths.resolveAgainstGameDir(relative) ?: return null
+        val normalizedGameDir = gameDir.toAbsolutePath().normalize()
+        return if (resolved.startsWith(normalizedGameDir)) resolved else null
+    }
+
+    private fun resolveDlcConflictBackup(relative: String?): Path? {
+        val root = resolveDlcConflictBackupRoot()
+        if (root == null || relative.isNullOrBlank()) {
+            return null
+        }
+        val normalized = DlcPathUtil.normalizeRelativePath(relative)
+        return if (normalized == null) null else root.resolve(normalized).normalize()
+    }
+
+    private fun resolveDlcConflictBackupRoot(): Path? {
+        val dlcRoot = DlcPaths.dlcRoot()
+        return DlcTmpPaths.resolve(dlcRoot, "conflicts")
     }
 
     private fun applyPresetConflictPaths(): PresetConflictPathResult {
@@ -711,6 +910,8 @@ object DlcApplier {
     }
 
     private class PresetConflictPathResult(val messages: List<String>, val changed: Boolean)
+
+    private class DlcConflictPathResult(val messages: List<String>, val changed: Boolean)
 
     class ApplyResult(
         val messages: List<String>,

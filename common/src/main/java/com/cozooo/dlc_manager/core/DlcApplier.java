@@ -12,6 +12,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,6 +29,13 @@ public class DlcApplier {
         CURRENT_APPLY_CONTEXT.set(context);
 
         try {
+            DlcConflictPathResult conflictPathResult = applyDlcConflictPaths(items);
+            if (!conflictPathResult.messages().isEmpty()) {
+                messages.addAll(conflictPathResult.messages());
+            }
+            if (conflictPathResult.changed()) {
+                requiresRestart = true;
+            }
             for (DlcItem item : items) {
                 DlcStateConfig.DlcState previous = DlcStateConfig.getState(item.getId());
                 boolean wasEnabled = previous != null && previous.enabled;
@@ -82,6 +90,202 @@ public class DlcApplier {
         DlcStateConfig.save();
 
         return new ApplyResult(messages, requiresRestart, attemptedHotReload, context.helperScheduled);
+    }
+
+    private static DlcConflictPathResult applyDlcConflictPaths(Collection<DlcItem> items) {
+        List<String> messages = new ArrayList<>();
+        Set<String> desiredPatterns = collectEnabledDlcConflictPathPatterns(items);
+        Set<String> desiredPaths = resolveExistingConflictTargets(desiredPatterns);
+        Set<String> currentPaths = collectConflictBackupRelativePaths();
+        boolean changed = false;
+
+        Set<String> toDisable = new LinkedHashSet<>(desiredPaths);
+        toDisable.removeAll(currentPaths);
+        for (String relative : toDisable) {
+            if (disableDlcConflictPath(relative, messages)) {
+                changed = true;
+                currentPaths.add(relative);
+            }
+        }
+
+        Set<String> toRestore = new LinkedHashSet<>(currentPaths);
+        for (String relative : toRestore) {
+            if (matchesAnyConflictPattern(desiredPatterns, relative)) {
+                continue;
+            }
+            if (restoreDlcConflictPath(relative, messages)) {
+                changed = true;
+            }
+        }
+        return new DlcConflictPathResult(messages, changed);
+    }
+
+    private static Set<String> collectEnabledDlcConflictPathPatterns(Collection<DlcItem> items) {
+        Set<String> result = new LinkedHashSet<>();
+        if (items == null || items.isEmpty()) {
+            return result;
+        }
+        for (DlcItem item : items) {
+            if (item == null || !item.isEnabled()) {
+                continue;
+            }
+            List<String> conflicts = item.getConflicts();
+            if (conflicts == null || conflicts.isEmpty()) {
+                continue;
+            }
+            for (String conflict : conflicts) {
+                if (conflict == null || conflict.isBlank() || getItemByIdentifier(conflict) != null) {
+                    continue;
+                }
+                String relative = DlcPathUtil.normalizeRelativePath(conflict);
+                if (relative != null) {
+                    result.add(relative);
+                }
+            }
+        }
+        return result;
+    }
+
+    private static DlcItem getItemByIdentifier(String identifier) {
+        return DlcRuntimeState.getItemByIdentifier(identifier);
+    }
+
+    private static Set<String> resolveExistingConflictTargets(Set<String> patterns) {
+        Set<String> result = new LinkedHashSet<>();
+        Path gameDir = DlcPaths.gameDir();
+        if (gameDir == null || patterns == null || patterns.isEmpty()) {
+            return result;
+        }
+        Path normalizedGameDir = gameDir.toAbsolutePath().normalize();
+        for (String pattern : patterns) {
+            for (Path target : DlcPathUtil.findMatches(normalizedGameDir, pattern)) {
+                String relative = DlcPathUtil.normalizeRelativePath(normalizedGameDir.relativize(target.toAbsolutePath().normalize()).toString());
+                if (relative != null) {
+                    result.add(relative);
+                }
+            }
+        }
+        return result;
+    }
+
+    private static Set<String> collectConflictBackupRelativePaths() {
+        Set<String> result = new LinkedHashSet<>();
+        Path root = resolveDlcConflictBackupRoot();
+        if (root == null || !Files.exists(root)) {
+            return result;
+        }
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        try (var stream = Files.walk(normalizedRoot)) {
+            stream.filter(Files::isRegularFile).forEach(path -> {
+                String relative = DlcPathUtil.normalizeRelativePath(normalizedRoot.relativize(path.toAbsolutePath().normalize()).toString());
+                if (relative != null) {
+                    result.add(relative);
+                }
+            });
+        } catch (IOException ignored) {
+            recordApplyFailure(ignored);
+        }
+        return result;
+    }
+
+    private static boolean matchesAnyConflictPattern(Set<String> patterns, String relative) {
+        if (patterns == null || patterns.isEmpty() || relative == null || relative.isBlank()) {
+            return false;
+        }
+        for (String pattern : patterns) {
+            if (DlcPathUtil.matches(pattern, relative)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean disableDlcConflictPath(String relative, List<String> messages) {
+        Path target = resolveDlcConflictTarget(relative);
+        Path backup = resolveDlcConflictBackup(relative);
+        if (target == null || backup == null) {
+            return false;
+        }
+        if (!Files.exists(target)) {
+            return Files.exists(backup) || DlcFileOpsHelperClient.cancelPendingOperation(target, "move") && Files.exists(backup);
+        }
+        try {
+            deleteRecursiveIfExists(backup);
+            if (backup.getParent() != null) {
+                Files.createDirectories(backup.getParent());
+            }
+            moveWithHelperFallback(target, backup, true);
+            cleanupEmptyParents(target.getParent(), DlcPaths.gameDir());
+            cleanupEmptyParents(backup.getParent(), resolveDlcConflictBackupRoot());
+            return true;
+        } catch (IOException exception) {
+            addPathConflictMessage(messages, exception, "Failed to disable DLC conflict path: " + relative);
+            recordApplyFailure(exception);
+            return false;
+        }
+    }
+
+    private static boolean restoreDlcConflictPath(String relative, List<String> messages) {
+        Path target = resolveDlcConflictTarget(relative);
+        Path backup = resolveDlcConflictBackup(relative);
+        if (target == null || backup == null) {
+            return false;
+        }
+        if (!Files.exists(backup)) {
+            return Files.exists(target) || DlcFileOpsHelperClient.cancelPendingOperation(backup, "move") && Files.exists(target);
+        }
+        try {
+            deleteRecursiveIfExists(target);
+            if (target.getParent() != null) {
+                Files.createDirectories(target.getParent());
+            }
+            moveWithHelperFallback(backup, target, true);
+            cleanupEmptyParents(backup.getParent(), resolveDlcConflictBackupRoot());
+            return true;
+        } catch (IOException exception) {
+            addPathConflictMessage(messages, exception, "Failed to restore DLC conflict path: " + relative);
+            recordApplyFailure(exception);
+            return false;
+        }
+    }
+
+    private static void addPathConflictMessage(List<String> messages, IOException exception, String fallback) {
+        String message = exception.getMessage();
+        if (message != null && !message.isBlank()) {
+            messages.add(message);
+        } else {
+            messages.add(fallback);
+        }
+    }
+
+    private static Path resolveDlcConflictTarget(String relative) {
+        if (relative == null || relative.isBlank()) {
+            return null;
+        }
+        Path gameDir = DlcPaths.gameDir();
+        if (gameDir == null) {
+            return null;
+        }
+        Path resolved = DlcPaths.resolveAgainstGameDir(relative);
+        if (resolved == null) {
+            return null;
+        }
+        Path normalizedGameDir = gameDir.toAbsolutePath().normalize();
+        return resolved.startsWith(normalizedGameDir) ? resolved : null;
+    }
+
+    private static Path resolveDlcConflictBackup(String relative) {
+        Path root = resolveDlcConflictBackupRoot();
+        if (root == null || relative == null || relative.isBlank()) {
+            return null;
+        }
+        String normalized = DlcPathUtil.normalizeRelativePath(relative);
+        return normalized == null ? null : root.resolve(normalized).normalize();
+    }
+
+    private static Path resolveDlcConflictBackupRoot() {
+        Path dlcRoot = DlcPaths.dlcRoot();
+        return dlcRoot == null ? null : DlcTmpPaths.resolve(dlcRoot, "conflicts");
     }
 
     private static PresetConflictPathResult applyPresetConflictPaths() {
@@ -736,6 +940,8 @@ public class DlcApplier {
     }
 
     private record PresetConflictPathResult(List<String> messages, boolean changed) {}
+
+    private record DlcConflictPathResult(List<String> messages, boolean changed) {}
 
     public record ApplyResult(List<String> messages, boolean requiresRestart, boolean hotReloaded, boolean helperScheduled) {}
 }

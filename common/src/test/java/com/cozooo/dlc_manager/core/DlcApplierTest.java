@@ -154,7 +154,51 @@ class DlcApplierTest {
             + " files=" + listFiles(backupRoot));
     }
 
+    @Test
+    void dlcConflictPathsMoveAndRestoreOnlyWhenNoEnabledDlcStillDeclaresThem() throws Exception {
+        Files.createDirectories(gameDir.resolve("mods"));
+        Files.writeString(gameDir.resolve("mods/a.jar"), "a");
+        Files.writeString(gameDir.resolve("mods/b.jar"), "b");
+        DlcItem itemA = item("A", DlcType.UNKNOWN, dlcRoot.resolve("a-source.txt"), null, false, List.of("mods/a.jar", "mods/b.jar"));
+        DlcItem itemB = item("B", DlcType.UNKNOWN, dlcRoot.resolve("b-source.txt"), null, false, List.of("mods/b.jar"));
+        DlcRuntimeState.updateItemIndex(List.of(itemA, itemB));
+
+        itemA.setEnabled(true);
+        itemB.setEnabled(false);
+        DlcApplier.apply(List.of(itemA, itemB), DlcApplyMode.RESTART_ONLY);
+
+        assertFalse(Files.exists(gameDir.resolve("mods/a.jar")));
+        assertFalse(Files.exists(gameDir.resolve("mods/b.jar")));
+        assertEquals("a", Files.readString(dlcRoot.resolve("tmp/conflicts/mods/a.jar")));
+        assertEquals("b", Files.readString(dlcRoot.resolve("tmp/conflicts/mods/b.jar")));
+
+        itemB.setEnabled(true);
+        assertTrue(DlcRuntimeState.collectConflicts(List.of(itemB)).getLines().isEmpty());
+        DlcApplier.apply(List.of(itemA, itemB), DlcApplyMode.RESTART_ONLY);
+
+        assertFalse(Files.exists(gameDir.resolve("mods/a.jar")));
+        assertFalse(Files.exists(gameDir.resolve("mods/b.jar")));
+
+        itemA.setEnabled(false);
+        DlcApplier.apply(List.of(itemA, itemB), DlcApplyMode.RESTART_ONLY);
+
+        assertEquals("a", Files.readString(gameDir.resolve("mods/a.jar")));
+        assertFalse(Files.exists(gameDir.resolve("mods/b.jar")));
+        assertFalse(Files.exists(dlcRoot.resolve("tmp/conflicts/mods/a.jar")));
+        assertEquals("b", Files.readString(dlcRoot.resolve("tmp/conflicts/mods/b.jar")));
+
+        itemB.setEnabled(false);
+        DlcApplier.apply(List.of(itemA, itemB), DlcApplyMode.RESTART_ONLY);
+
+        assertEquals("b", Files.readString(gameDir.resolve("mods/b.jar")));
+        assertFalse(Files.exists(dlcRoot.resolve("tmp/conflicts/mods/b.jar")));
+    }
+
     private static DlcItem item(String identifier, DlcType type, Path source, String target, boolean configType) {
+        return item(identifier, type, source, target, configType, List.of());
+    }
+
+    private static DlcItem item(String identifier, DlcType type, Path source, String target, boolean configType, List<String> conflicts) {
         return new DlcItem(
             type.name().toLowerCase() + ":" + identifier,
             identifier,
@@ -166,7 +210,7 @@ class DlcApplierTest {
             null,
             null,
             List.of(),
-            List.of(),
+            conflicts,
             true,
             false,
             configType

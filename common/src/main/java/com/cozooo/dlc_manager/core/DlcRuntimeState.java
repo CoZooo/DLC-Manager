@@ -401,8 +401,6 @@ public final class DlcRuntimeState {
                     if (conflictEnabled) {
                         addConflictLine(lines, seen, item.getIdentifier(), conflictItem.getIdentifier());
                     }
-                } else if (isRelationPathPresent(conflictName)) {
-                    addConflictLine(lines, seen, item.getIdentifier(), conflictName);
                 }
             }
         }
