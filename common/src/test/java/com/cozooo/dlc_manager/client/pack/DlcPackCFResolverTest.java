@@ -56,7 +56,6 @@ class DlcPackCFResolverTest {
         assertEquals(true, DlcPackInstallPlan.isIgnoredModpackJarFileName("malilib-fabric-1.20.1-0.16.1.jar"));
         assertEquals(true, DlcPackInstallPlan.isIgnoredModpackJarFileName("kotlinforforge-4.12.0-all.jar"));
         assertEquals(true, DlcPackInstallPlan.isIgnoredModpackJarFileName("fabric-language-kotlin-1.13.6+kotlin.2.2.20.jar"));
-        assertEquals(true, DlcPackInstallPlan.isIgnoredModpackJarFileName("fabric-api-0.92.6+1.20.1.jar"));
         assertEquals(false, DlcPackInstallPlan.isIgnoredModpackJarFileName("example.jar"));
         assertEquals(false, DlcPackInstallPlan.isIgnoredModpackJarFileName("architectury-9.2.14-forge.zip"));
     }

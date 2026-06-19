@@ -18,8 +18,7 @@ public class DlcPackInstallPlan {
         "mafglib-",
         "malilib-",
         "kotlinforforge-",
-        "fabric-language-kotlin-",
-        "fabric-api-"
+        "fabric-language-kotlin-"
     );
 
     public final List<FileEntry> files;
