@@ -201,52 +201,11 @@ public class DlcApplier {
     }
 
     private static boolean disableDlcConflictPath(String relative, List<String> messages) {
-        Path target = resolveDlcConflictTarget(relative);
-        Path backup = resolveDlcConflictBackup(relative);
-        if (target == null || backup == null) {
-            return false;
-        }
-        if (!Files.exists(target)) {
-            return Files.exists(backup) || DlcFileOpsHelperClient.cancelPendingOperation(target, "move") && Files.exists(backup);
-        }
-        try {
-            deleteRecursiveIfExists(backup);
-            if (backup.getParent() != null) {
-                Files.createDirectories(backup.getParent());
-            }
-            moveWithHelperFallback(target, backup, true);
-            cleanupEmptyParents(target.getParent(), DlcPaths.gameDir());
-            cleanupEmptyParents(backup.getParent(), resolveDlcConflictBackupRoot());
-            return true;
-        } catch (IOException exception) {
-            addPathConflictMessage(messages, exception, "Failed to disable DLC conflict path: " + relative);
-            recordApplyFailure(exception);
-            return false;
-        }
+        return disableConflictPath(relative, resolveDlcConflictBackupRoot(), messages, "Failed to disable DLC conflict path: " + relative);
     }
 
     private static boolean restoreDlcConflictPath(String relative, List<String> messages) {
-        Path target = resolveDlcConflictTarget(relative);
-        Path backup = resolveDlcConflictBackup(relative);
-        if (target == null || backup == null) {
-            return false;
-        }
-        if (!Files.exists(backup)) {
-            return Files.exists(target) || DlcFileOpsHelperClient.cancelPendingOperation(backup, "move") && Files.exists(target);
-        }
-        try {
-            deleteRecursiveIfExists(target);
-            if (target.getParent() != null) {
-                Files.createDirectories(target.getParent());
-            }
-            moveWithHelperFallback(backup, target, true);
-            cleanupEmptyParents(backup.getParent(), resolveDlcConflictBackupRoot());
-            return true;
-        } catch (IOException exception) {
-            addPathConflictMessage(messages, exception, "Failed to restore DLC conflict path: " + relative);
-            recordApplyFailure(exception);
-            return false;
-        }
+        return restoreConflictPath(relative, resolveDlcConflictBackupRoot(), messages, "Failed to restore DLC conflict path: " + relative);
     }
 
     private static void addPathConflictMessage(List<String> messages, IOException exception, String fallback) {
@@ -258,7 +217,7 @@ public class DlcApplier {
         }
     }
 
-    private static Path resolveDlcConflictTarget(String relative) {
+    private static Path resolveConflictTarget(String relative) {
         if (relative == null || relative.isBlank()) {
             return null;
         }
@@ -274,8 +233,7 @@ public class DlcApplier {
         return resolved.startsWith(normalizedGameDir) ? resolved : null;
     }
 
-    private static Path resolveDlcConflictBackup(String relative) {
-        Path root = resolveDlcConflictBackupRoot();
+    private static Path resolveConflictBackup(Path root, String relative) {
         if (root == null || relative == null || relative.isBlank()) {
             return null;
         }
@@ -327,8 +285,12 @@ public class DlcApplier {
     }
 
     private static boolean disablePresetConflictPath(String relative, List<String> messages) {
-        Path target = resolvePresetConflictTarget(relative);
-        Path backup = resolvePresetConflictBackup(relative);
+        return disableConflictPath(relative, resolvePresetConflictBackupRoot(), messages, "Failed to disable preset conflict path: " + relative);
+    }
+
+    private static boolean disableConflictPath(String relative, Path backupRoot, List<String> messages, String fallbackMessage) {
+        Path target = resolveConflictTarget(relative);
+        Path backup = resolveConflictBackup(backupRoot, relative);
         if (target == null || backup == null) {
             return false;
         }
@@ -348,23 +310,22 @@ public class DlcApplier {
             }
             moveWithHelperFallback(target, backup, true);
             cleanupEmptyParents(target.getParent(), DlcPaths.gameDir());
-            cleanupEmptyParents(backup.getParent(), DlcTmpPaths.resolve(DlcPaths.dlcRoot(), "disabled"));
+            cleanupEmptyParents(backup.getParent(), backupRoot);
             return true;
-        } catch (IOException ignored) {
-            String message = ignored.getMessage();
-            if (message != null && !message.isBlank()) {
-                messages.add(message);
-            } else {
-                messages.add("Failed to disable preset conflict path: " + relative);
-            }
-            recordApplyFailure(ignored);
+        } catch (IOException exception) {
+            addPathConflictMessage(messages, exception, fallbackMessage);
+            recordApplyFailure(exception);
             return false;
         }
     }
 
     private static boolean restorePresetConflictPath(String relative, List<String> messages) {
-        Path target = resolvePresetConflictTarget(relative);
-        Path backup = resolvePresetConflictBackup(relative);
+        return restoreConflictPath(relative, resolvePresetConflictBackupRoot(), messages, "Failed to restore preset conflict path: " + relative);
+    }
+
+    private static boolean restoreConflictPath(String relative, Path backupRoot, List<String> messages, String fallbackMessage) {
+        Path target = resolveConflictTarget(relative);
+        Path backup = resolveConflictBackup(backupRoot, relative);
         if (target == null || backup == null) {
             return false;
         }
@@ -383,52 +344,18 @@ public class DlcApplier {
                 Files.createDirectories(target.getParent());
             }
             moveWithHelperFallback(backup, target, true);
-            cleanupEmptyParents(backup.getParent(), DlcTmpPaths.resolve(DlcPaths.dlcRoot(), "disabled"));
+            cleanupEmptyParents(backup.getParent(), backupRoot);
             return true;
-        } catch (IOException ignored) {
-            String message = ignored.getMessage();
-            if (message != null && !message.isBlank()) {
-                messages.add(message);
-            } else {
-                messages.add("Failed to restore preset conflict path: " + relative);
-            }
-            recordApplyFailure(ignored);
+        } catch (IOException exception) {
+            addPathConflictMessage(messages, exception, fallbackMessage);
+            recordApplyFailure(exception);
             return false;
         }
     }
 
-    private static Path resolvePresetConflictTarget(String relative) {
-        if (relative == null || relative.isBlank()) {
-            return null;
-        }
-        Path gameDir = DlcPaths.gameDir();
-        if (gameDir == null) {
-            return null;
-        }
-        Path resolved = DlcPaths.resolveAgainstGameDir(relative);
-        if (resolved == null) {
-            return null;
-        }
-        Path normalizedGameDir = gameDir.toAbsolutePath().normalize();
-        if (!resolved.startsWith(normalizedGameDir)) {
-            return null;
-        }
-        return resolved;
-    }
-
-    private static Path resolvePresetConflictBackup(String relative) {
-        if (relative == null || relative.isBlank()) {
-            return null;
-        }
+    private static Path resolvePresetConflictBackupRoot() {
         Path dlcRoot = DlcPaths.dlcRoot();
-        if (dlcRoot == null) {
-            return null;
-        }
-        Path disabledRoot = DlcTmpPaths.resolve(dlcRoot, "disabled");
-        if (disabledRoot == null) {
-            return null;
-        }
-        return disabledRoot.resolve(relative).normalize();
+        return dlcRoot == null ? null : DlcTmpPaths.resolve(dlcRoot, "disabled");
     }
 
     private static Set<String> unionRelativePaths(java.util.Map<String, java.util.Set<String>> byPreset) {

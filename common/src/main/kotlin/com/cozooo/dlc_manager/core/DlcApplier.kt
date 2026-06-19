@@ -195,52 +195,11 @@ object DlcApplier {
     }
 
     private fun disableDlcConflictPath(relative: String?, messages: MutableList<String>): Boolean {
-        val target = resolveDlcConflictTarget(relative)
-        val backup = resolveDlcConflictBackup(relative)
-        if (target == null || backup == null) {
-            return false
-        }
-        if (!Files.exists(target)) {
-            return Files.exists(backup) || DlcFileOpsHelperClient.cancelPendingOperation(target, "move") && Files.exists(backup)
-        }
-        return try {
-            deleteRecursiveIfExists(backup)
-            if (backup.parent != null) {
-                Files.createDirectories(backup.parent)
-            }
-            moveWithHelperFallback(target, backup, true)
-            cleanupEmptyParents(target.parent, DlcPaths.gameDir())
-            cleanupEmptyParents(backup.parent, resolveDlcConflictBackupRoot())
-            true
-        } catch (exception: IOException) {
-            addPathConflictMessage(messages, exception, "Failed to disable DLC conflict path: $relative")
-            recordApplyFailure(exception)
-            false
-        }
+        return disableConflictPath(relative, resolveDlcConflictBackupRoot(), messages, "Failed to disable DLC conflict path: $relative")
     }
 
     private fun restoreDlcConflictPath(relative: String?, messages: MutableList<String>): Boolean {
-        val target = resolveDlcConflictTarget(relative)
-        val backup = resolveDlcConflictBackup(relative)
-        if (target == null || backup == null) {
-            return false
-        }
-        if (!Files.exists(backup)) {
-            return Files.exists(target) || DlcFileOpsHelperClient.cancelPendingOperation(backup, "move") && Files.exists(target)
-        }
-        return try {
-            deleteRecursiveIfExists(target)
-            if (target.parent != null) {
-                Files.createDirectories(target.parent)
-            }
-            moveWithHelperFallback(backup, target, true)
-            cleanupEmptyParents(backup.parent, resolveDlcConflictBackupRoot())
-            true
-        } catch (exception: IOException) {
-            addPathConflictMessage(messages, exception, "Failed to restore DLC conflict path: $relative")
-            recordApplyFailure(exception)
-            false
-        }
+        return restoreConflictPath(relative, resolveDlcConflictBackupRoot(), messages, "Failed to restore DLC conflict path: $relative")
     }
 
     private fun addPathConflictMessage(messages: MutableList<String>, exception: IOException, fallback: String) {
@@ -252,7 +211,7 @@ object DlcApplier {
         }
     }
 
-    private fun resolveDlcConflictTarget(relative: String?): Path? {
+    private fun resolveConflictTarget(relative: String?): Path? {
         if (relative.isNullOrBlank()) {
             return null
         }
@@ -262,8 +221,7 @@ object DlcApplier {
         return if (resolved.startsWith(normalizedGameDir)) resolved else null
     }
 
-    private fun resolveDlcConflictBackup(relative: String?): Path? {
-        val root = resolveDlcConflictBackupRoot()
+    private fun resolveConflictBackup(root: Path?, relative: String?): Path? {
         if (root == null || relative.isNullOrBlank()) {
             return null
         }
@@ -318,8 +276,12 @@ object DlcApplier {
     }
 
     private fun disablePresetConflictPath(relative: String?, messages: MutableList<String>): Boolean {
-        val target = resolvePresetConflictTarget(relative)
-        val backup = resolvePresetConflictBackup(relative)
+        return disableConflictPath(relative, resolvePresetConflictBackupRoot(), messages, "Failed to disable preset conflict path: $relative")
+    }
+
+    private fun disableConflictPath(relative: String?, backupRoot: Path?, messages: MutableList<String>, fallbackMessage: String): Boolean {
+        val target = resolveConflictTarget(relative)
+        val backup = resolveConflictBackup(backupRoot, relative)
         if (target == null || backup == null) {
             return false
         }
@@ -339,23 +301,22 @@ object DlcApplier {
             }
             moveWithHelperFallback(target, backup, true)
             cleanupEmptyParents(target.parent, DlcPaths.gameDir())
-            cleanupEmptyParents(backup.parent, DlcTmpPaths.resolve(DlcPaths.dlcRoot(), "disabled"))
+            cleanupEmptyParents(backup.parent, backupRoot)
             true
-        } catch (ignored: IOException) {
-            val message = ignored.message
-            if (!message.isNullOrBlank()) {
-                messages.add(message)
-            } else {
-                messages.add("Failed to disable preset conflict path: $relative")
-            }
-            recordApplyFailure(ignored)
+        } catch (exception: IOException) {
+            addPathConflictMessage(messages, exception, fallbackMessage)
+            recordApplyFailure(exception)
             false
         }
     }
 
     private fun restorePresetConflictPath(relative: String?, messages: MutableList<String>): Boolean {
-        val target = resolvePresetConflictTarget(relative)
-        val backup = resolvePresetConflictBackup(relative)
+        return restoreConflictPath(relative, resolvePresetConflictBackupRoot(), messages, "Failed to restore preset conflict path: $relative")
+    }
+
+    private fun restoreConflictPath(relative: String?, backupRoot: Path?, messages: MutableList<String>, fallbackMessage: String): Boolean {
+        val target = resolveConflictTarget(relative)
+        val backup = resolveConflictBackup(backupRoot, relative)
         if (target == null || backup == null) {
             return false
         }
@@ -374,40 +335,18 @@ object DlcApplier {
                 Files.createDirectories(target.parent)
             }
             moveWithHelperFallback(backup, target, true)
-            cleanupEmptyParents(backup.parent, DlcTmpPaths.resolve(DlcPaths.dlcRoot(), "disabled"))
+            cleanupEmptyParents(backup.parent, backupRoot)
             true
-        } catch (ignored: IOException) {
-            val message = ignored.message
-            if (!message.isNullOrBlank()) {
-                messages.add(message)
-            } else {
-                messages.add("Failed to restore preset conflict path: $relative")
-            }
-            recordApplyFailure(ignored)
+        } catch (exception: IOException) {
+            addPathConflictMessage(messages, exception, fallbackMessage)
+            recordApplyFailure(exception)
             false
         }
     }
 
-    private fun resolvePresetConflictTarget(relative: String?): Path? {
-        if (relative.isNullOrBlank()) {
-            return null
-        }
-        val gameDir = DlcPaths.gameDir()
-        val resolved = DlcPaths.resolveAgainstGameDir(relative) ?: return null
-        val normalizedGameDir = gameDir.toAbsolutePath().normalize()
-        if (!resolved.startsWith(normalizedGameDir)) {
-            return null
-        }
-        return resolved
-    }
-
-    private fun resolvePresetConflictBackup(relative: String?): Path? {
-        if (relative.isNullOrBlank()) {
-            return null
-        }
+    private fun resolvePresetConflictBackupRoot(): Path? {
         val dlcRoot = DlcPaths.dlcRoot()
-        val disabledRoot = DlcTmpPaths.resolve(dlcRoot, "disabled") ?: return null
-        return disabledRoot.resolve(relative).normalize()
+        return DlcTmpPaths.resolve(dlcRoot, "disabled")
     }
 
     private fun unionRelativePaths(byPreset: Map<String, Set<String>>?): Set<String> {
