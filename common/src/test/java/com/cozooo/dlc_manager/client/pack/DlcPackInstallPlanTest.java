@@ -14,6 +14,20 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DlcPackInstallPlanTest {
+    private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
+        "config/dlc_manager/config.dc"
+    );
+    private static final List<String> DLC_ROOT_FORBIDDEN_PATHS = List.of(
+        "tmp/pack/a",
+        "info/version.dc",
+        "info/notice.dc",
+        "required/notice.dc",
+        "required/SKIP",
+        "update/file.zip",
+        "ShownOnFirstRun",
+        "SKIP"
+    );
+
     @TempDir
     Path tempDir;
 
@@ -38,14 +52,14 @@ class DlcPackInstallPlanTest {
 
     @Test
     void forbiddenPathMatcherCoversConfiguredInternalPaths() {
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("config/dlc_manager/config.dc"));
         Path instanceRoot = Path.of("/instance");
         Path dlcRoot = instanceRoot.resolve("DLC");
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/tmp/pack/a", instanceRoot, dlcRoot));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/info/version.dc", instanceRoot, dlcRoot));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/required/SKIP", instanceRoot, dlcRoot));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/update/file.zip", instanceRoot, dlcRoot));
-        assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/ShownOnFirstRun", instanceRoot, dlcRoot));
+        for (String relative : GAME_ROOT_FORBIDDEN_PATHS) {
+            assertTrue(DlcPackInstallPlan.isForbiddenPath(relative), relative);
+        }
+        for (String relative : DLC_ROOT_FORBIDDEN_PATHS) {
+            assertTrue(DlcPackInstallPlan.isForbiddenPath("DLC/" + relative, instanceRoot, dlcRoot), relative);
+        }
         assertFalse(DlcPackInstallPlan.isForbiddenPath("mods/a.jar"));
     }
 

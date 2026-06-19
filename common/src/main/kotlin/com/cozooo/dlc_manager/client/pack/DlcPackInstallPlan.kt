@@ -28,6 +28,19 @@ class DlcPackInstallPlan private constructor(
             "kotlinforforge-",
             "fabric-language-kotlin-"
         )
+        private val GAME_ROOT_FORBIDDEN_PATHS = listOf(
+            "config/dlc_manager/",
+        )
+        private val DLC_ROOT_FORBIDDEN_PATHS = listOf(
+            "tmp/",
+            "info/version.dc",
+            "info/notice.dc",
+            "required/notice.dc",
+            "required/skip",
+            "update/",
+            "shownonfirstrun",
+            "skip"
+        )
 
         @JvmStatic
         fun build(pack: DlcPackPackage?): DlcPackInstallPlan {
@@ -100,28 +113,40 @@ class DlcPackInstallPlan private constructor(
         @JvmStatic
         fun isForbiddenPath(relativePath: String?, instanceRoot: Path?, dlcRoot: Path?): Boolean {
             val normalized = DlcPackMeta.normalizeRelativePath(relativePath)?.lowercase(Locale.ROOT) ?: return true
-            return isDefaultForbiddenPath(normalized) || isConfiguredDlcForbiddenPath(normalized, instanceRoot, dlcRoot)
+            if (matchesForbiddenPathList(normalized, GAME_ROOT_FORBIDDEN_PATHS, null)) {
+                return true
+            }
+            return matchesForbiddenPathList(normalized, DLC_ROOT_FORBIDDEN_PATHS, relativeDlcRoot(instanceRoot, dlcRoot))
         }
 
-        private fun isDefaultForbiddenPath(normalized: String): Boolean {
-            return normalized == "config/dlc_manager" ||
-                normalized.startsWith("config/dlc_manager/")
-        }
-
-        private fun isConfiguredDlcForbiddenPath(normalized: String, instanceRoot: Path?, dlcRoot: Path?): Boolean {
-            val dlcRelative = relativeDlcRoot(instanceRoot, dlcRoot)
-            if (dlcRelative.isNullOrBlank()) {
+        private fun matchesForbiddenPathList(normalized: String, paths: List<String>?, prefix: String?): Boolean {
+            if (paths.isNullOrEmpty()) {
                 return false
             }
-            return normalized == "$dlcRelative/tmp" ||
-                normalized.startsWith("$dlcRelative/tmp/") ||
-                normalized == "$dlcRelative/info/version.dc" ||
-                normalized == "$dlcRelative/info/notice.dc" ||
-                normalized == "$dlcRelative/required/notice.dc" ||
-                normalized == "$dlcRelative/required/skip" ||
-                normalized == "$dlcRelative/update" ||
-                normalized.startsWith("$dlcRelative/update/") ||
-                normalized == "$dlcRelative/shownonfirstrun"
+            val normalizedPrefix = normalizeForbiddenPath(prefix)
+            for (path in paths) {
+                var resolved = normalizeForbiddenPath(path) ?: continue
+                if (!normalizedPrefix.isNullOrBlank()) {
+                    resolved = "$normalizedPrefix/$resolved"
+                }
+                val includeChildren = resolved.endsWith("/")
+                if (includeChildren) {
+                    resolved = resolved.dropLast(1)
+                }
+                if (normalized == resolved || includeChildren && normalized.startsWith("$resolved/")) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        private fun normalizeForbiddenPath(path: String?): String? {
+            if (path.isNullOrBlank()) {
+                return null
+            }
+            val includeChildren = path.replace('\\', '/').trim().endsWith("/")
+            val normalized = DlcPackMeta.normalizeRelativePath(path)?.lowercase(Locale.ROOT) ?: return null
+            return if (includeChildren) "$normalized/" else normalized
         }
 
         private fun relativeDlcRoot(instanceRoot: Path?, dlcRoot: Path?): String? {
@@ -159,5 +184,6 @@ class DlcPackInstallPlan private constructor(
             return normalized.endsWith(".jar", ignoreCase = true) &&
                 IGNORED_JAR_PREFIXES.any { normalized.startsWith(it) }
         }
+
     }
 }

@@ -20,6 +20,19 @@ public class DlcPackInstallPlan {
         "kotlinforforge-",
         "fabric-language-kotlin-"
     );
+    private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
+        "config/dlc_manager/"
+    );
+    private static final List<String> DLC_ROOT_FORBIDDEN_PATHS = List.of(
+        "tmp/",
+        "info/version.dc",
+        "info/notice.dc",
+        "required/notice.dc",
+        "required/skip",
+        "update/",
+        "shownonfirstrun",
+        "skip"
+    );
 
     public final List<FileEntry> files;
     public final List<String> forbiddenPaths;
@@ -114,28 +127,47 @@ public class DlcPackInstallPlan {
             return true;
         }
         normalized = normalized.toLowerCase(Locale.ROOT);
-        return isDefaultForbiddenPath(normalized) || isConfiguredDlcForbiddenPath(normalized, instanceRoot, dlcRoot);
+        if (matchesForbiddenPathList(normalized, GAME_ROOT_FORBIDDEN_PATHS, null)) {
+            return true;
+        }
+        return matchesForbiddenPathList(normalized, DLC_ROOT_FORBIDDEN_PATHS, relativeDlcRoot(instanceRoot, dlcRoot));
     }
 
-    private static boolean isDefaultForbiddenPath(String normalized) {
-        return normalized.equals("config/dlc_manager")
-            || normalized.startsWith("config/dlc_manager/");
-    }
-
-    private static boolean isConfiguredDlcForbiddenPath(String normalized, Path instanceRoot, Path dlcRoot) {
-        String dlcRelative = relativeDlcRoot(instanceRoot, dlcRoot);
-        if (dlcRelative == null || dlcRelative.isBlank()) {
+    private static boolean matchesForbiddenPathList(String normalized, List<String> paths, String prefix) {
+        if (paths == null || paths.isEmpty()) {
             return false;
         }
-        return normalized.equals(dlcRelative + "/tmp")
-            || normalized.startsWith(dlcRelative + "/tmp/")
-            || normalized.equals(dlcRelative + "/info/version.dc")
-            || normalized.equals(dlcRelative + "/info/notice.dc")
-            || normalized.equals(dlcRelative + "/required/notice.dc")
-            || normalized.equals(dlcRelative + "/required/skip")
-            || normalized.equals(dlcRelative + "/update")
-            || normalized.startsWith(dlcRelative + "/update/")
-            || normalized.equals(dlcRelative + "/shownonfirstrun");
+        String normalizedPrefix = normalizeForbiddenPath(prefix);
+        for (String path : paths) {
+            String resolved = normalizeForbiddenPath(path);
+            if (resolved == null) {
+                continue;
+            }
+            if (normalizedPrefix != null && !normalizedPrefix.isBlank()) {
+                resolved = normalizedPrefix + "/" + resolved;
+            }
+            boolean includeChildren = resolved.endsWith("/");
+            if (includeChildren) {
+                resolved = resolved.substring(0, resolved.length() - 1);
+            }
+            if (normalized.equals(resolved) || includeChildren && normalized.startsWith(resolved + "/")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String normalizeForbiddenPath(String path) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+        boolean includeChildren = path.replace('\\', '/').trim().endsWith("/");
+        String normalized = DlcPackMeta.normalizeRelativePath(path);
+        if (normalized == null) {
+            return null;
+        }
+        normalized = normalized.toLowerCase(Locale.ROOT);
+        return includeChildren ? normalized + "/" : normalized;
     }
 
     private static String relativeDlcRoot(Path instanceRoot, Path dlcRoot) {
@@ -195,4 +227,5 @@ public class DlcPackInstallPlan {
             this.relativePath = relativePath;
         }
     }
+
 }
