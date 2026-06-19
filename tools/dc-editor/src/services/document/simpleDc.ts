@@ -445,6 +445,9 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
       if (field.key === "__multiFileEnabled") {
         continue;
       }
+      if (field.kind === "localized-link-group") {
+        continue;
+      }
       if (schema.type === "info" && section.key === "basic" && field.key === "fileNames") {
         const enabled = Boolean(values.__multiFileEnabled);
         if (!enabled) {
@@ -495,6 +498,15 @@ export function serializeStructuredDocument(model: StructuredModel, schema: Docu
       }
       for (const [locale, rawValue] of dynamicLocaleState?.localeEntries || []) {
         out.push(`${locale} = ${serializeValue(rawValue)}`);
+      }
+    }
+    if (schema.type === "pack" && sectionKey === "links") {
+      const localizedLinks = serializeLocalizedLinkSections(model);
+      if (localizedLinks) {
+        if (out.length > 0 && out[out.length - 1] !== "") {
+          out.push("");
+        }
+        out.push(localizedLinks);
       }
     }
     if (sectionKey === ROOT_SECTION_KEY && hasValues && index < schema.sections.length - 1) {
@@ -766,6 +778,36 @@ function serializeValue(value: StructuredValue, context?: SerializeFieldContext)
 function readPreservedRelationBlocks(model: StructuredModel): string {
   const value = model[PRESERVED_RELATION_BLOCKS_SECTION]?.[PRESERVED_RELATION_BLOCKS_FIELD];
   return typeof value === "string" ? value.trim() : "";
+}
+
+function serializeLocalizedLinkSections(model: StructuredModel): string {
+  const out: string[] = [];
+  for (const [sectionKey, values] of Object.entries(model)) {
+    if (!sectionKey.startsWith("links.")) {
+      continue;
+    }
+    const locale = sectionKey.slice("links.".length).trim();
+    if (!locale || locale.startsWith("__draft_locale__:") || !values || typeof values !== "object" || Array.isArray(values)) {
+      continue;
+    }
+    const sectionValues = values as Record<string, StructuredValue>;
+    const lines: string[] = [];
+    for (const key of ["homepage", "issue", "sponsor"]) {
+      const value = sectionValues[key];
+      if (typeof value === "string" && value.trim()) {
+        lines.push(`${key} = ${serializeValue(value)}`);
+      }
+    }
+    if (lines.length === 0) {
+      continue;
+    }
+    if (out.length > 0) {
+      out.push("");
+    }
+    out.push(`[links.${locale}]`);
+    out.push(...lines);
+  }
+  return out.join("\n");
 }
 
 function serializeUpdateDLCMValue(value: StructuredValue): string | null {
@@ -1242,8 +1284,58 @@ export function validateStructuredModel(model: StructuredModel | null, schema: D
       }
     }
   }
+  if (schema.type === "pack") {
+    validateLocalizedLinkSections(model, issues);
+  }
   addDocumentSpecificIssues(model, schema, issues);
   return issues;
+}
+
+function validateLocalizedLinkSections(model: StructuredModel, issues: ValidationIssue[]) {
+  for (const [sectionKey, values] of Object.entries(model)) {
+    if (!sectionKey.startsWith("links.")) {
+      continue;
+    }
+    const locale = sectionKey.slice("links.".length).trim();
+    if (!locale || locale.startsWith("__draft_locale__:")) {
+      if (isEmptyLocalizedLinkSection(values)) {
+        continue;
+      }
+      issues.push({
+        severity: "error",
+        message: "[links] 存在未填写语言代码的链接条目。",
+        source: "schema"
+      });
+      continue;
+    }
+    if (!isValidLocaleCode(locale)) {
+      issues.push({
+        severity: "error",
+        message: `[links.${locale}] 不是合法的语言代码，应使用类似 en_us / zh_cn / pt_br 的格式。`,
+        source: "schema"
+      });
+    }
+    if (!values || typeof values !== "object" || Array.isArray(values)) {
+      issues.push({
+        severity: "warning",
+        message: `[links.${locale}] 应为链接表。`,
+        source: "schema"
+      });
+    }
+  }
+}
+
+function isEmptyLocalizedLinkSection(values: Record<string, StructuredValue>): boolean {
+  if (!values || typeof values !== "object" || Array.isArray(values)) {
+    return false;
+  }
+  for (const key of ["homepage", "issue", "sponsor"]) {
+    const value = values[key];
+    if (typeof value === "string" && value.trim()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchema, issues: ValidationIssue[]) {

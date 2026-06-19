@@ -210,6 +210,13 @@ export function StructuredEditor(props: StructuredEditorProps) {
                         onChange={(nextValue) => props.onChange(withValue(model, section.key, field.key, nextValue))}
                       />
                     )}
+                    {field.kind === "localized-link-group" && (
+                      <LocalizedLinksEditor
+                        locale={props.locale}
+                        model={model}
+                        onChange={props.onChange}
+                      />
+                    )}
                     {field.kind === "update-file-del" && (
                       <UpdateDeleteEditor
                         locale={props.locale}
@@ -520,6 +527,152 @@ function DynamicLocaleSection(props: DynamicLocaleSectionProps) {
       </button>
     </div>
   );
+}
+
+interface LocalizedLinkRow {
+  id: string;
+  locale: string;
+  homepage: string;
+  issue: string;
+  sponsor: string;
+}
+
+interface LocalizedLinksEditorProps {
+  locale: EditorLocale;
+  model: StructuredModel;
+  help?: string;
+  onChange(next: StructuredModel): void;
+}
+
+const LINK_SECTION_PREFIX = "links.";
+
+function LocalizedLinksEditor(props: LocalizedLinksEditorProps) {
+  const rowIdsRef = useRef<string[]>([]);
+  const rows = extractLocalizedLinkRows(props.model, rowIdsRef.current);
+  rowIdsRef.current = rows.map((row) => row.id);
+
+  const commitRows = (nextRows: LocalizedLinkRow[]) => {
+    const nextModel: StructuredModel = {};
+    for (const [key, value] of Object.entries(props.model)) {
+      if (!key.startsWith(LINK_SECTION_PREFIX)) {
+        nextModel[key] = value;
+      }
+    }
+    nextRows.forEach((row, index) => {
+      const section = localizedLinkSection(row, index);
+      if (!section) {
+        return;
+      }
+      nextModel[section.key] = section.values;
+    });
+    props.onChange(nextModel);
+  };
+
+  const updateRow = (index: number, nextRow: LocalizedLinkRow) => {
+    const nextRows = rows.map((row, rowIndex) => rowIndex === index ? nextRow : row);
+    commitRows(nextRows);
+  };
+
+  const addRow = () => {
+    commitRows([...rows, { id: createLocalizedLinkRowId(), locale: "", homepage: "", issue: "", sponsor: "" }]);
+  };
+
+  const removeRow = (index: number) => {
+    commitRows(rows.filter((_, rowIndex) => rowIndex !== index));
+  };
+
+  return (
+    <div className="localized-links-editor">
+      {rows.map((row, index) => (
+        <div key={row.id} className="locale-row localized-link-row">
+          <button type="button" className="localized-link-delete-button" onClick={() => removeRow(index)}>
+            {t(props.locale, "delete")}
+          </button>
+          <div className="localized-link-row-main">
+            <div className="localized-link-field">
+              <label className="field-label">{t(props.locale, "localeCode")}</label>
+              <div className="localized-link-locale-row">
+                <UndoableInput
+                  type="text"
+                  value={row.locale}
+                  className={!row.locale.trim() ? "locale-code-input locale-code-input-implicit" : "locale-code-input"}
+                  placeholder={t(props.locale, "localePlaceholder")}
+                  onChangeValue={(nextValue) => updateRow(index, { ...row, locale: nextValue })}
+                />
+              </div>
+            </div>
+            <LocalizedLinkInput label="homepage" value={row.homepage} onChange={(homepage) => updateRow(index, { ...row, homepage })} />
+            <LocalizedLinkInput label="issue" value={row.issue} onChange={(issue) => updateRow(index, { ...row, issue })} />
+            <LocalizedLinkInput label="sponsor" value={row.sponsor} onChange={(sponsor) => updateRow(index, { ...row, sponsor })} />
+          </div>
+        </div>
+      ))}
+      <button type="button" className="secondary-action" onClick={addRow}>
+        {t(props.locale, "addLocalizedLinks")}
+      </button>
+    </div>
+  );
+}
+
+function LocalizedLinkInput(props: { label: string; value: string; onChange(nextValue: string): void }) {
+  return (
+    <div className="localized-link-field">
+      <label className="field-label">{props.label}</label>
+      <UndoableInput
+        type="text"
+        value={props.value}
+        onChangeValue={props.onChange}
+      />
+    </div>
+  );
+}
+
+function extractLocalizedLinkRows(model: StructuredModel, stableIds: string[]): LocalizedLinkRow[] {
+  return Object.entries(model)
+    .filter(([key, value]) => key.startsWith(LINK_SECTION_PREFIX) && value && typeof value === "object" && !Array.isArray(value))
+    .map(([key, value], index) => {
+      const section = value as Record<string, string>;
+      const rawLocale = key.substring(LINK_SECTION_PREFIX.length);
+      const locale = rawLocale.startsWith("__draft_locale__:") ? "" : rawLocale;
+      return {
+        id: stableIds[index] || stableLocalizedLinkRowId(key, index),
+        locale,
+        homepage: typeof section.homepage === "string" ? section.homepage : "",
+        issue: typeof section.issue === "string" ? section.issue : "",
+        sponsor: typeof section.sponsor === "string" ? section.sponsor : ""
+      };
+    });
+}
+
+function stableLocalizedLinkRowId(sectionKey: string, index: number): string {
+  const rawLocale = sectionKey.substring(LINK_SECTION_PREFIX.length);
+  if (rawLocale.startsWith("__draft_locale__:")) {
+    return rawLocale;
+  }
+  return `${sectionKey}:${index}`;
+}
+
+function createLocalizedLinkRowId(): string {
+  return `__draft_locale__:${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function localizedLinkSection(row: LocalizedLinkRow, index: number): { key: string; values: Record<string, string> } | null {
+  const values: Record<string, string> = {};
+  if (row.homepage.trim()) {
+    values.homepage = row.homepage;
+  }
+  if (row.issue.trim()) {
+    values.issue = row.issue;
+  }
+  if (row.sponsor.trim()) {
+    values.sponsor = row.sponsor;
+  }
+  const locale = row.locale.trim();
+  const draftKey = row.id.startsWith("__draft_locale__:") ? row.id : `__draft_locale__:${index}`;
+  return {
+    key: `${LINK_SECTION_PREFIX}${locale || draftKey}`,
+    values
+  };
 }
 
 type MutableInputRef = { current: HTMLInputElement | null };

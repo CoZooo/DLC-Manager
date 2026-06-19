@@ -647,6 +647,55 @@ button:disabled {
   align-items: flex-end;
 }
 
+.localized-links-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.localized-link-row {
+  position: relative;
+}
+
+.localized-link-delete-button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.localized-link-row-main > .localized-link-field:first-child {
+  padding-right: 96px;
+}
+
+.localized-link-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.localized-link-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.localized-link-locale-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.localized-link-locale-row input[type="text"].locale-code-input {
+  flex: 0 0 160px;
+  width: 160px;
+  min-width: 160px;
+  max-width: 160px;
+}
+
+.localized-link-field > input {
+  width: 100%;
+}
+
 .field-label-ghost {
   opacity: 0;
   user-select: none;
@@ -663,6 +712,18 @@ button:disabled {
   }
 
   .locale-code-field input {
+    width: 100%;
+  }
+
+  .localized-link-locale-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .localized-link-locale-row input[type="text"].locale-code-input {
+    flex-basis: auto;
+    max-width: none;
+    min-width: 0;
     width: 100%;
   }
 

@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.pack;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -144,7 +145,7 @@ public class DlcPackMetadata {
             dlcVersions,
             readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
             readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "description")),
-            readLinks(DlcDcConfigIO.getObjectIgnoreCase(obj, "links")),
+            readLinks(obj),
             readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "dependencies")),
             readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"))
         ));
@@ -291,18 +292,30 @@ public class DlcPackMetadata {
         return out;
     }
 
-    private static Map<String, String> readLinks(JsonObject obj) {
-        if (obj == null) {
+    private static Map<String, String> readLinks(JsonObject root) {
+        if (root == null) {
             return Map.of();
         }
         Map<String, String> out = new LinkedHashMap<>();
+        readLinksInto(out, DlcDcConfigIO.getObjectIgnoreCase(root, "links"));
+        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        if (lang != null && !lang.isBlank()) {
+            JsonObject links = DlcDcConfigIO.getObjectIgnoreCase(root, "links");
+            readLinksInto(out, DlcDcConfigIO.getObjectIgnoreCase(links, lang));
+        }
+        return out;
+    }
+
+    private static void readLinksInto(Map<String, String> out, JsonObject obj) {
+        if (out == null || obj == null) {
+            return;
+        }
         for (String key : LINK_KEYS) {
             String value = trim(DlcDcConfigIO.getStringIgnoreCase(obj, key));
             if (value != null && !value.isEmpty()) {
                 out.put(key, value);
             }
         }
-        return out;
     }
 
     private static List<String> readStringList(JsonElement element) {

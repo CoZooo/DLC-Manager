@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.pack
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -95,7 +96,7 @@ class DlcPackMetadata(
                 readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "dlc")).ifEmpty { listOf("any") },
                 readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
                 readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "description")),
-                readLinks(DlcDcConfigIO.getObjectIgnoreCase(obj, "links")),
+                readLinks(obj),
                 readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "dependencies")),
                 readStringSection(DlcDcConfigIO.getIgnoreCase(obj, "conflicts")),
             )
@@ -234,18 +235,30 @@ class DlcPackMetadata(
             return out
         }
 
-        private fun readLinks(obj: JsonObject?): Map<String, String> {
-            if (obj == null) {
+        private fun readLinks(root: JsonObject?): Map<String, String> {
+            if (root == null) {
                 return emptyMap()
             }
             val out = LinkedHashMap<String, String>()
+            val links = DlcDcConfigIO.getObjectIgnoreCase(root, "links")
+            readLinksInto(out, links)
+            val lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
+            if (!lang.isNullOrBlank()) {
+                readLinksInto(out, DlcDcConfigIO.getObjectIgnoreCase(links, lang))
+            }
+            return out
+        }
+
+        private fun readLinksInto(out: MutableMap<String, String>?, obj: JsonObject?) {
+            if (out == null || obj == null) {
+                return
+            }
             for (key in LINK_KEYS) {
                 val value = DlcDcConfigIO.getStringIgnoreCase(obj, key)?.trim()
                 if (!value.isNullOrEmpty()) {
                     out[key] = value
                 }
             }
-            return out
         }
 
         private fun readStringList(element: JsonElement?): List<String> {

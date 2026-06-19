@@ -272,6 +272,12 @@ const packLinksSection: SectionSchema = {
       label: "sponsor",
       kind: "text",
       help: "static.help.packSponsor"
+    },
+    {
+      key: "__localizedLinks",
+      label: "localized links",
+      kind: "localized-link-group",
+      help: "static.help.packLocalizedLinks"
     }
   ]
 };

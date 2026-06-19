@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.client.pack;
 
+import com.cozooo.dlc_manager.platform.PlatformServices;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -15,6 +17,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DlcPackMetadataTest {
     @TempDir
     Path tempDir;
+
+    @AfterEach
+    void tearDown() {
+        PlatformServices.setProvider(null);
+    }
 
     @Test
     void rejectsBlankTrailingSpaceAndPathLikeIdentifiers() {
@@ -79,6 +86,99 @@ class DlcPackMetadataTest {
         assertFalse(result.metadata.links.containsKey("unknown"));
         assertEquals(List.of("mods/a.jar", "identifier_dep", "mod1"), result.metadata.dependencies);
         assertEquals(List.of("mods/b.jar"), result.metadata.conflicts);
+    }
+
+    @Test
+    void readsLanguageSpecificLinksOverGlobalLinks() throws Exception {
+        Path pack = tempDir.resolve("pack.dc");
+        Files.writeString(pack, """
+            [basic]
+            identifier = "example_pack"
+            version = "1.0.0"
+
+            [links]
+            homepage = "https://example.com/global"
+            sponsor = "https://example.com/sponsor"
+
+            [links.zh_cn]
+            homepage = "https://example.com/zh"
+            issue = "https://example.com/zh-issue"
+            """);
+
+        PlatformServices.setProvider(provider("zh_cn"));
+        DlcPackMetadata.Result zhResult = DlcPackMetadata.read(pack);
+
+        assertTrue(zhResult.valid);
+        assertEquals("https://example.com/zh", zhResult.metadata.links.get("homepage"));
+        assertEquals("https://example.com/zh-issue", zhResult.metadata.links.get("issue"));
+        assertEquals("https://example.com/sponsor", zhResult.metadata.links.get("sponsor"));
+
+        PlatformServices.setProvider(provider("fr_fr"));
+        DlcPackMetadata.Result frResult = DlcPackMetadata.read(pack);
+
+        assertTrue(frResult.valid);
+        assertEquals("https://example.com/global", frResult.metadata.links.get("homepage"));
+        assertFalse(frResult.metadata.links.containsKey("issue"));
+        assertEquals("https://example.com/sponsor", frResult.metadata.links.get("sponsor"));
+    }
+
+    private PlatformServices.Provider provider(String languageCode) {
+        return new PlatformServices.Provider() {
+            @Override
+            public Path gameDir() {
+                return tempDir.resolve("game");
+            }
+
+            @Override
+            public Path configDir() {
+                return tempDir.resolve("config");
+            }
+
+            @Override
+            public boolean isModLoaded(String modId) {
+                return false;
+            }
+
+            @Override
+            public boolean isDedicatedServer() {
+                return false;
+            }
+
+            @Override
+            public String languageCode() {
+                return languageCode;
+            }
+
+            @Override
+            public String loaderName() {
+                return "fabric";
+            }
+
+            @Override
+            public String mcVersion() {
+                return "1.20.1";
+            }
+
+            @Override
+            public String modVersion(String modId) {
+                return "";
+            }
+
+            @Override
+            public Path modFilePath(String modId) {
+                return null;
+            }
+
+            @Override
+            public String playerName() {
+                return "Player";
+            }
+
+            @Override
+            public String playerUuid() {
+                return "00000000-0000-0000-0000-000000000000";
+            }
+        };
     }
 
     @Test

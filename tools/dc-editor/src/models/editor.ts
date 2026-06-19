@@ -18,6 +18,7 @@ export type FieldKind =
   | "select"
   | "number"
   | "list"
+  | "localized-link-group"
   | "ordered-select-list"
   | "language-visibility"
   | "update-file-del"
@@ -76,7 +77,8 @@ export interface DocumentSchema {
   sections: SectionSchema[];
 }
 
-export type StructuredValue = string | boolean | number | string[] | Record<string, string>;
+export type StructuredRecordValue = Record<string, string>;
+export type StructuredValue = string | boolean | number | string[] | StructuredRecordValue;
 export type StructuredModel = Record<string, Record<string, StructuredValue>>;
 export const ROOT_SECTION_KEY = "__root__";
 
