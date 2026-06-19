@@ -26,7 +26,8 @@ class DlcPackInstallPlan private constructor(
             "mafglib-",
             "malilib-",
             "kotlinforforge-",
-            "fabric-language-kotlin-"
+            "fabric-language-kotlin-",
+            "MaFgLib-"
         )
         private val GAME_ROOT_FORBIDDEN_PATHS = listOf(
             "config/dlc_manager/",

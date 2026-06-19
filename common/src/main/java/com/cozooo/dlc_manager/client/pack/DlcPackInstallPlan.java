@@ -18,7 +18,8 @@ public class DlcPackInstallPlan {
         "mafglib-",
         "malilib-",
         "kotlinforforge-",
-        "fabric-language-kotlin-"
+        "fabric-language-kotlin-",
+        "MaFgLib-"
     );
     private static final List<String> GAME_ROOT_FORBIDDEN_PATHS = List.of(
         "config/dlc_manager/"
