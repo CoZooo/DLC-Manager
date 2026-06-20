@@ -30,20 +30,13 @@ object DlcDownloadService {
     private const val SPEED_WINDOW_MS = 1000L
     private const val BYTES_PER_MIB = 1024L * 1024L
     private const val MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB
+    private const val SEGMENT_SPEED_DROP_RETRY_RATIO = 0.25
     private const val CURSEFORGE_PROBE_PROJECT_ID = "678295"
     private const val CURSEFORGE_PROBE_FILE_ID = "8110246"
     private const val MODRINTH_PROBE_PROJECT_ID = "X661i40C"
     private const val MODRINTH_PROBE_FILE_ID = "lAV6EKSR"
-    private val mirrorLock = Any()
-    private val precheckProbeLock = Any()
-    private var mirrorComparisons = 0
-    private var officialWins = 0
-    private var officialFastWins = 0
-    private var mirrorFastWins = 0
-    private var mirrorWins = 0
-    private var mirrorFailures = 0
-    private var selectedMirror: Boolean? = null
-    private var mirrorDisabled = false
+    private val curseForgeProbeState = PlatformProbeState()
+    private val modrinthProbeState = PlatformProbeState()
 
     fun interface ProgressListener {
         fun onProgress(downloadedBytes: Long, totalBytes: Long)
@@ -215,8 +208,9 @@ object DlcDownloadService {
             return null
         }
         val mirrorUrl = mirrorDownloadUrl(url) ?: return null
+        val platform = downloadPlatform(url) ?: return null
         val speedRule = mirrorSpeedRule(totalBytes)
-        return MirrorPlan(mirrorUrl, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed, totalBytes > MIN_MIRROR_SPEED_CHECK_BYTES)
+        return MirrorPlan(mirrorUrl, platform, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed, totalBytes > MIN_MIRROR_SPEED_CHECK_BYTES)
     }
 
     private fun primaryDownloadUrl(url: String, mirrorPlan: MirrorPlan?, mode: DownloadMirrorMode): String {
@@ -229,11 +223,12 @@ object DlcDownloadService {
                 if (mirrorPlan == null) {
                     return url
                 }
-                synchronized(mirrorLock) {
-                    if (mirrorDisabled) {
+                val state = mirrorPlan.probeState()
+                synchronized(state.lock) {
+                    if (state.mirrorDisabled) {
                         return url
                     }
-                    selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
+                    state.selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
                 }
                 url
             }
@@ -241,11 +236,12 @@ object DlcDownloadService {
                 if (mirrorPlan == null) {
                     return url
                 }
-                synchronized(mirrorLock) {
-                    if (mirrorDisabled) {
+                val state = mirrorPlan.probeState()
+                synchronized(state.lock) {
+                    if (state.mirrorDisabled) {
                         return url
                     }
-                    selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
+                    state.selectedMirror?.let { return if (it) mirrorPlan.mirrorUrl else url }
                 }
                 mirrorPlan.mirrorUrl
             }
@@ -253,11 +249,11 @@ object DlcDownloadService {
                 if (mirrorPlan == null) {
                     return url
                 }
-                var selected = selectedSourceFromCache()
+                var selected = selectedSourceFromCache(mirrorPlan)
                 if (selected == null && mirrorPlan.canSpeedCompare) {
                     val probePair = dedicatedProbePair(url)
                     if (probePair != null) {
-                        selected = precheckDownloadSource(probePair.officialUrl, probePair.mirrorUrl)
+                        selected = precheckDownloadSource(mirrorPlan, probePair.officialUrl, probePair.mirrorUrl)
                     }
                 }
                 if (selected == true) mirrorPlan.mirrorUrl else url
@@ -278,7 +274,7 @@ object DlcDownloadService {
             } else null
             DownloadMirrorMode.SMART_PRECHECK -> when (primaryUrl) {
                 mirrorPlan.mirrorUrl -> SourceSwitchPlan(officialUrl, primaryIsMirror = true, alternateIsMirror = false, mode = SourceSwitchMode.RETRY_FALLBACK, mirrorPlan = mirrorPlan)
-                officialUrl -> if (isMirrorFallbackAllowed()) {
+                officialUrl -> if (isMirrorFallbackAllowed(mirrorPlan)) {
                     SourceSwitchPlan(mirrorPlan.mirrorUrl, primaryIsMirror = false, alternateIsMirror = true, mode = SourceSwitchMode.RETRY_FALLBACK, mirrorPlan = mirrorPlan)
                 } else {
                     null
@@ -310,15 +306,16 @@ object DlcDownloadService {
             recordPrimaryFastIfStable(primarySpeed, switchPlan)
             return null
         }
-        synchronized(mirrorLock) {
-            if (mirrorDisabled && switchPlan.alternateIsMirror) {
+        val state = switchPlan.mirrorPlan.probeState()
+        synchronized(state.lock) {
+            if (state.mirrorDisabled && switchPlan.alternateIsMirror) {
                 return null
             }
-            selectedMirror?.let { return if (it == switchPlan.primaryIsMirror) null else SourceProbe.selected(switchPlan) }
-            if (mirrorComparisons >= maxMirrorProbeCount()) {
+            state.selectedMirror?.let { return if (it == switchPlan.primaryIsMirror) null else SourceProbe.selected(switchPlan) }
+            if (state.mirrorComparisons >= maxMirrorProbeCount()) {
                 return null
             }
-            mirrorComparisons++
+            state.mirrorComparisons++
         }
         val executor = Executors.newSingleThreadExecutor()
         val primarySpeedRef = AtomicReference(primarySpeed)
@@ -326,9 +323,10 @@ object DlcDownloadService {
             switchPlan.alternateUrl,
             switchPlan.primaryIsMirror,
             switchPlan.alternateIsMirror,
-            executor.submit<Double> { probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef) },
+            executor.submit<ProbeSpeedResult> { probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef) },
             executor,
             primarySpeedRef,
+            state = switchPlan.mirrorPlan.probeState(),
         )
     }
 
@@ -337,51 +335,53 @@ object DlcDownloadService {
             return true
         }
         val primaryBaseline = probe.primarySpeedRef?.get() ?: primarySpeed
-        val alternateSpeed = try {
-            probe.future?.get() ?: 0.0
+        val alternateResult = try {
+            probe.future?.get() ?: ProbeSpeedResult.failed()
         } catch (_: Exception) {
-            0.0
+            ProbeSpeedResult.failed()
         } finally {
             probe.executor?.shutdownNow()
         }
-        synchronized(mirrorLock) {
-            recordSourceProbeResult(alternateSpeed, primaryBaseline, probe.alternateIsMirror, probe.primaryIsMirror)
-            selectedMirror?.let { return it == probe.alternateIsMirror }
+        synchronized(probe.state.lock) {
+            recordSourceProbeResult(probe.state, alternateResult.speed, primaryBaseline, probe.alternateIsMirror, probe.primaryIsMirror)
+            probe.state.selectedMirror?.let { return it == probe.alternateIsMirror }
         }
-        return alternateSpeed > 0.0 && alternateSpeed > primaryBaseline
+        return alternateResult.completed || alternateResult.speed > 0.0 && alternateResult.speed > primaryBaseline
     }
 
-    private fun selectedSourceFromCache(): Boolean? {
-        synchronized(mirrorLock) {
-            if (mirrorDisabled) {
+    private fun selectedSourceFromCache(mirrorPlan: MirrorPlan): Boolean? {
+        val state = mirrorPlan.probeState()
+        synchronized(state.lock) {
+            if (state.mirrorDisabled) {
                 return false
             }
-            return selectedMirror
+            return state.selectedMirror
         }
     }
 
-    private fun precheckDownloadSource(officialUrl: String, mirrorUrl: String): Boolean? {
-        synchronized(precheckProbeLock) {
+    private fun precheckDownloadSource(mirrorPlan: MirrorPlan, officialUrl: String, mirrorUrl: String): Boolean? {
+        val state = mirrorPlan.probeState()
+        synchronized(state.precheckLock) {
             val maxCount = maxMirrorProbeCount()
             repeat(maxCount) {
-                synchronized(mirrorLock) {
-                    if (mirrorDisabled) {
+                synchronized(state.lock) {
+                    if (state.mirrorDisabled) {
                         return false
                     }
-                    selectedMirror?.let { return it }
-                    if (mirrorComparisons >= maxCount) {
+                    state.selectedMirror?.let { return it }
+                    if (state.mirrorComparisons >= maxCount) {
                         return null
                     }
-                    mirrorComparisons++
+                    state.mirrorComparisons++
                 }
                 val result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null)
-                synchronized(mirrorLock) {
-                    recordSourceProbeResult(result.mirrorSpeed, result.officialSpeed, alternateIsMirror = true, primaryIsMirror = false)
-                    selectedMirror?.let { return it }
+                synchronized(state.lock) {
+                    recordSourceProbeResult(state, result.mirrorSpeed, result.officialSpeed, alternateIsMirror = true, primaryIsMirror = false)
+                    state.selectedMirror?.let { return it }
                 }
             }
-            synchronized(mirrorLock) {
-                return selectedMirror
+            synchronized(state.lock) {
+                return state.selectedMirror
             }
         }
     }
@@ -418,36 +418,37 @@ object DlcDownloadService {
         }?.takeIf { isModrinthCdnUrl(it) }
     }
 
-    private fun isMirrorFallbackAllowed(): Boolean {
-        synchronized(mirrorLock) {
-            return !mirrorDisabled
+    private fun isMirrorFallbackAllowed(mirrorPlan: MirrorPlan): Boolean {
+        val state = mirrorPlan.probeState()
+        synchronized(state.lock) {
+            return !state.mirrorDisabled
         }
     }
 
-    private fun recordSourceProbeResult(alternateSpeed: Double, primarySpeed: Double, alternateIsMirror: Boolean, primaryIsMirror: Boolean) {
+    private fun recordSourceProbeResult(state: PlatformProbeState, alternateSpeed: Double, primarySpeed: Double, alternateIsMirror: Boolean, primaryIsMirror: Boolean) {
         if (alternateSpeed <= 0.0) {
             if (alternateIsMirror) {
-                mirrorFailures++
-                if (mirrorFailures >= MIRROR_DISABLE_FAILURES) {
-                    mirrorDisabled = true
+                state.mirrorFailures++
+                if (state.mirrorFailures >= MIRROR_DISABLE_FAILURES) {
+                    state.mirrorDisabled = true
                 }
             }
         } else if (alternateSpeed > primarySpeed) {
             if (alternateIsMirror) {
-                mirrorWins++
+                state.mirrorWins++
             } else {
-                officialWins++
+                state.officialWins++
             }
         } else if (primaryIsMirror) {
-            mirrorWins++
+            state.mirrorWins++
         } else {
-            officialWins++
+            state.officialWins++
         }
         val requiredWins = requiredMirrorProbeWins()
-        if (mirrorWins >= requiredWins) {
-            selectedMirror = true
-        } else if (officialWins >= requiredWins) {
-            selectedMirror = false
+        if (state.mirrorWins >= requiredWins) {
+            state.selectedMirror = true
+        } else if (state.officialWins >= requiredWins) {
+            state.selectedMirror = false
         }
     }
 
@@ -466,19 +467,20 @@ object DlcDownloadService {
         if (mirrorPlan.totalBytes <= 10L * BYTES_PER_MIB || mirrorPlan.bucketSpeed <= mirrorPlan.timeoutSpeed || primarySpeed < mirrorPlan.bucketSpeed) {
             return
         }
-        synchronized(mirrorLock) {
-            if (selectedMirror != null || mirrorDisabled) {
+        val state = switchPlan.mirrorPlan.probeState()
+        synchronized(state.lock) {
+            if (state.selectedMirror != null || state.mirrorDisabled) {
                 return
             }
             if (switchPlan.primaryIsMirror) {
-                mirrorFastWins++
-                if (mirrorFastWins >= 2) {
-                    selectedMirror = true
+                state.mirrorFastWins++
+                if (state.mirrorFastWins >= 2) {
+                    state.selectedMirror = true
                 }
             } else {
-                officialFastWins++
-                if (officialFastWins >= 2) {
-                    selectedMirror = false
+                state.officialFastWins++
+                if (state.officialFastWins >= 2) {
+                    state.selectedMirror = false
                 }
             }
         }
@@ -500,7 +502,7 @@ object DlcDownloadService {
         windowMs: Long,
         cancelChecker: CancelChecker?,
         primarySpeedRef: AtomicReference<Double>,
-    ): Double {
+    ): ProbeSpeedResult {
         var connection: HttpURLConnection? = null
         return try {
             connection = URI.create(url).toURL().openConnection() as HttpURLConnection
@@ -511,7 +513,7 @@ object DlcDownloadService {
             connection.setRequestProperty("Range", "bytes=0-")
             connection.connect()
             if (connection.responseCode >= 400) {
-                return 0.0
+                return ProbeSpeedResult.failed()
             }
             val start = System.nanoTime()
             val deadline = start + TimeUnit.MILLISECONDS.toNanos(windowMs)
@@ -527,7 +529,9 @@ object DlcDownloadService {
                     }
                     val read = input.read(buffer)
                     if (read < 0) {
-                        break
+                        val elapsed = maxOf(1L, System.nanoTime() - start)
+                        maxSpeed = maxOf(maxSpeed, bytes * 1_000_000_000.0 / elapsed)
+                        return ProbeSpeedResult(maxSpeed, completed = true)
                     }
                     bytes += read.toLong()
                     windowBytes += read.toLong()
@@ -535,7 +539,7 @@ object DlcDownloadService {
                     if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                         maxSpeed = maxOf(maxSpeed, windowBytes * 1_000_000_000.0 / maxOf(1L, now - windowStart))
                         if (maxSpeed > primarySpeedRef.get()) {
-                            return maxSpeed
+                            return ProbeSpeedResult(maxSpeed, completed = false)
                         }
                         windowStart = now
                         windowBytes = 0L
@@ -543,11 +547,11 @@ object DlcDownloadService {
                 }
             }
             val elapsed = maxOf(1L, System.nanoTime() - start)
-            maxOf(maxSpeed, bytes * 1_000_000_000.0 / elapsed)
+            ProbeSpeedResult(maxOf(maxSpeed, bytes * 1_000_000_000.0 / elapsed), completed = false)
         } catch (ex: DownloadCanceledException) {
             throw ex
         } catch (_: Exception) {
-            0.0
+            ProbeSpeedResult.failed()
         } finally {
             closeQuietly(connection)
         }
@@ -558,19 +562,53 @@ object DlcDownloadService {
         return try {
             val officialRef = AtomicReference(Double.MAX_VALUE)
             val mirrorRef = AtomicReference(Double.MAX_VALUE)
-            val officialFuture = executor.submit<Double> { probeDownloadSpeed(officialUrl, windowMs, cancelChecker, mirrorRef) }
-            val mirrorFuture = executor.submit<Double> { probeDownloadSpeed(mirrorUrl, windowMs, cancelChecker, officialRef) }
-            ProbePairResult(getProbeSpeed(officialFuture), getProbeSpeed(mirrorFuture))
+            val officialFuture = executor.submit<ProbeSpeedResult> { probeDownloadSpeed(officialUrl, windowMs, cancelChecker, mirrorRef) }
+            val mirrorFuture = executor.submit<ProbeSpeedResult> { probeDownloadSpeed(mirrorUrl, windowMs, cancelChecker, officialRef) }
+            val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(windowMs)
+            while (System.nanoTime() < deadline) {
+                val officialEarly = completedProbeResult(officialFuture)
+                if (officialEarly.completed) {
+                    mirrorFuture.cancel(true)
+                    return ProbePairResult(officialEarly.speed, 0.0)
+                }
+                val mirrorEarly = completedProbeResult(mirrorFuture)
+                if (mirrorEarly.completed) {
+                    officialFuture.cancel(true)
+                    return ProbePairResult(0.0, mirrorEarly.speed)
+                }
+                if (officialFuture.isDone && mirrorFuture.isDone) {
+                    break
+                }
+                sleepQuietly(50L)
+            }
+            val officialSpeed = getProbeSpeed(officialFuture)
+            val mirrorSpeed = getProbeSpeed(mirrorFuture)
+            ProbePairResult(officialSpeed.speed, mirrorSpeed.speed)
         } finally {
             executor.shutdownNow()
         }
     }
 
-    private fun getProbeSpeed(future: Future<Double>): Double {
+    private fun completedProbeResult(future: Future<ProbeSpeedResult>?): ProbeSpeedResult {
+        if (future == null || !future.isDone) {
+            return ProbeSpeedResult.failed()
+        }
+        return getProbeSpeed(future)
+    }
+
+    private fun getProbeSpeed(future: Future<ProbeSpeedResult>): ProbeSpeedResult {
         return try {
             future.get()
         } catch (_: Exception) {
-            0.0
+            ProbeSpeedResult.failed()
+        }
+    }
+
+    private fun sleepQuietly(millis: Long) {
+        try {
+            Thread.sleep(millis)
+        } catch (ex: InterruptedException) {
+            Thread.currentThread().interrupt()
         }
     }
 
@@ -590,6 +628,16 @@ object DlcDownloadService {
         } catch (_: Exception) {
             false
         }
+    }
+
+    private fun downloadPlatform(url: String): DownloadPlatform? {
+        if (isCurseForgeCdnUrl(url)) {
+            return DownloadPlatform.CURSEFORGE
+        }
+        if (isModrinthCdnUrl(url)) {
+            return DownloadPlatform.MODRINTH
+        }
+        return null
     }
 
     private fun isMirrorUrl(url: String?): Boolean {
@@ -1255,7 +1303,7 @@ object DlcDownloadService {
                         connection = URI.create(url).toURL().openConnection() as HttpURLConnection
                         connection.instanceFollowRedirects = true
                         connection.connectTimeout = DlcConfig.getConnectTimeoutMs()
-                        connection.readTimeout = DlcConfig.getTaskTimeoutMs()
+                        connection.readTimeout = SPEED_WINDOW_MS.toInt()
                         connection.setRequestProperty("User-Agent", "DLC-Manager")
                         val rangeStart = start + segmentRead
                         connection.setRequestProperty("Range", "bytes=$rangeStart-$end")
@@ -1268,6 +1316,7 @@ object DlcDownloadService {
                             RandomAccessFile(tempFile.toFile(), "rw").use { raf ->
                                 raf.seek(rangeStart)
                                 val buffer = ByteArray(8192)
+                                val speedTracker = SegmentSpeedTracker()
                                 while (true) {
                                     val len = input.read(buffer)
                                     if (len < 0) {
@@ -1278,7 +1327,11 @@ object DlcDownloadService {
                                     }
                                     raf.write(buffer, 0, len)
                                     segmentRead += len.toLong()
+                                    speedTracker.record(len)
                                     listener?.onProgress(totalRead.addAndGet(len.toLong()), totalBytes)
+                                    if (speedTracker.shouldRetry()) {
+                                        throw IOException("segment speed dropped")
+                                    }
                                 }
                             }
                         }
@@ -1317,12 +1370,17 @@ object DlcDownloadService {
 
     private data class MirrorPlan(
         val mirrorUrl: String,
+        val platform: DownloadPlatform,
         val totalBytes: Long,
         val timeoutSpeed: Double,
         val bucketSpeed: Double,
         val requiredSpeed: Double,
         val canSpeedCompare: Boolean,
-    )
+    ) {
+        fun probeState(): PlatformProbeState {
+            return if (platform == DownloadPlatform.CURSEFORGE) curseForgeProbeState else modrinthProbeState
+        }
+    }
 
     private data class ProbeUrlPair(val officialUrl: String, val mirrorUrl: String)
 
@@ -1344,10 +1402,11 @@ object DlcDownloadService {
         val alternateUrl: String,
         val primaryIsMirror: Boolean,
         val alternateIsMirror: Boolean,
-        val future: Future<Double>?,
+        val future: Future<ProbeSpeedResult>?,
         val executor: ExecutorService?,
         val primarySpeedRef: AtomicReference<Double>? = null,
         val preselected: Boolean = false,
+        val state: PlatformProbeState,
     ) {
         companion object {
             fun selected(switchPlan: SourceSwitchPlan): SourceProbe = SourceProbe(
@@ -1358,7 +1417,52 @@ object DlcDownloadService {
                 null,
                 null,
                 true,
+                switchPlan.mirrorPlan.probeState(),
             )
+        }
+    }
+
+    private enum class DownloadPlatform {
+        CURSEFORGE,
+        MODRINTH,
+    }
+
+    private class PlatformProbeState {
+        val lock = Any()
+        val precheckLock = Any()
+        var mirrorComparisons = 0
+        var officialWins = 0
+        var officialFastWins = 0
+        var mirrorFastWins = 0
+        var mirrorWins = 0
+        var mirrorFailures = 0
+        var selectedMirror: Boolean? = null
+        var mirrorDisabled = false
+    }
+
+    private class SegmentSpeedTracker {
+        private var windowStart = System.nanoTime()
+        private var windowBytes = 0L
+        private var bestSpeed = 0.0
+
+        fun record(bytes: Int) {
+            windowBytes += bytes.toLong()
+        }
+
+        fun shouldRetry(): Boolean {
+            val now = System.nanoTime()
+            val elapsed = now - windowStart
+            if (elapsed < TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                return false
+            }
+            val currentSpeed = if (windowBytes <= 0L) 0.0 else windowBytes * 1_000_000_000.0 / maxOf(1L, elapsed)
+            val retry = bestSpeed > 0.0 && currentSpeed <= bestSpeed * SEGMENT_SPEED_DROP_RETRY_RATIO
+            if (currentSpeed > bestSpeed) {
+                bestSpeed = currentSpeed
+            }
+            windowStart = now
+            windowBytes = 0L
+            return retry
         }
     }
 
@@ -1396,6 +1500,15 @@ object DlcDownloadService {
         val officialSpeed: Double,
         val mirrorSpeed: Double,
     )
+
+    private data class ProbeSpeedResult(
+        val speed: Double,
+        val completed: Boolean,
+    ) {
+        companion object {
+            fun failed(): ProbeSpeedResult = ProbeSpeedResult(0.0, completed = false)
+        }
+    }
 
     private data class InitialRangeResult(
         val downloadedBytes: Long,

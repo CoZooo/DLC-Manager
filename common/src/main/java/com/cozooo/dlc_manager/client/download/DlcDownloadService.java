@@ -32,20 +32,13 @@ public final class DlcDownloadService {
     private static final long SPEED_WINDOW_MS = 1000L;
     private static final long BYTES_PER_MIB = 1024L * 1024L;
     private static final long MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB;
-    private static final String CURSEFORGE_PROBE_PROJECT_ID = "";
-    private static final String CURSEFORGE_PROBE_FILE_ID = "";
-    private static final String MODRINTH_PROBE_PROJECT_ID = "";
-    private static final String MODRINTH_PROBE_FILE_ID = "";
-    private static final Object MIRROR_LOCK = new Object();
-    private static final Object PRECHECK_PROBE_LOCK = new Object();
-    private static int mirrorComparisons;
-    private static int officialWins;
-    private static int officialFastWins;
-    private static int mirrorFastWins;
-    private static int mirrorWins;
-    private static int mirrorFailures;
-    private static Boolean selectedMirror;
-    private static boolean mirrorDisabled;
+    private static final double SEGMENT_SPEED_DROP_RETRY_RATIO = 0.25;
+    private static final String CURSEFORGE_PROBE_PROJECT_ID = "678295";
+    private static final String CURSEFORGE_PROBE_FILE_ID = "8110246";
+    private static final String MODRINTH_PROBE_PROJECT_ID = "X661i40C";
+    private static final String MODRINTH_PROBE_FILE_ID = "lAV6EKSR";
+    private static final PlatformProbeState CURSEFORGE_PROBE_STATE = new PlatformProbeState();
+    private static final PlatformProbeState MODRINTH_PROBE_STATE = new PlatformProbeState();
 
     private DlcDownloadService() {
     }
@@ -208,8 +201,12 @@ public final class DlcDownloadService {
         if (mirrorUrl == null || mirrorUrl.isBlank()) {
             return null;
         }
+        DownloadPlatform platform = downloadPlatform(url);
+        if (platform == null) {
+            return null;
+        }
         SpeedRule speedRule = mirrorSpeedRule(totalBytes);
-        return new MirrorPlan(mirrorUrl, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed,
+        return new MirrorPlan(mirrorUrl, platform, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed,
             totalBytes > MIN_MIRROR_SPEED_CHECK_BYTES);
     }
 
@@ -230,12 +227,13 @@ public final class DlcDownloadService {
                 if (mirrorPlan == null) {
                     yield url;
                 }
-                synchronized (MIRROR_LOCK) {
-                    if (mirrorDisabled) {
+                PlatformProbeState state = mirrorPlan.probeState();
+                synchronized (state.lock) {
+                    if (state.mirrorDisabled) {
                         yield url;
                     }
-                    if (selectedMirror != null) {
-                        yield selectedMirror ? mirrorPlan.mirrorUrl : url;
+                    if (state.selectedMirror != null) {
+                        yield state.selectedMirror ? mirrorPlan.mirrorUrl : url;
                     }
                 }
                 yield url;
@@ -244,12 +242,13 @@ public final class DlcDownloadService {
                 if (mirrorPlan == null) {
                     yield url;
                 }
-                synchronized (MIRROR_LOCK) {
-                    if (mirrorDisabled) {
+                PlatformProbeState state = mirrorPlan.probeState();
+                synchronized (state.lock) {
+                    if (state.mirrorDisabled) {
                         yield url;
                     }
-                    if (selectedMirror != null) {
-                        yield selectedMirror ? mirrorPlan.mirrorUrl : url;
+                    if (state.selectedMirror != null) {
+                        yield state.selectedMirror ? mirrorPlan.mirrorUrl : url;
                     }
                 }
                 yield mirrorPlan.mirrorUrl;
@@ -258,11 +257,11 @@ public final class DlcDownloadService {
                 if (mirrorPlan == null) {
                     yield url;
                 }
-                Boolean selected = selectedSourceFromCache();
+                Boolean selected = selectedSourceFromCache(mirrorPlan);
                 if (selected == null && mirrorPlan.canSpeedCompare) {
                     ProbeUrlPair probePair = dedicatedProbePair(url);
                     if (probePair != null) {
-                        selected = precheckDownloadSource(probePair.officialUrl, probePair.mirrorUrl);
+                        selected = precheckDownloadSource(mirrorPlan, probePair.officialUrl, probePair.mirrorUrl);
                     }
                 }
                 yield selected != null && selected ? mirrorPlan.mirrorUrl : url;
@@ -285,7 +284,7 @@ public final class DlcDownloadService {
                 if (primaryUrl.equals(mirrorPlan.mirrorUrl)) {
                     yield new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
                 }
-                if (primaryUrl.equals(officialUrl) && isMirrorFallbackAllowed()) {
+                if (primaryUrl.equals(officialUrl) && isMirrorFallbackAllowed(mirrorPlan)) {
                     yield new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
                 }
                 yield null;
@@ -317,17 +316,18 @@ public final class DlcDownloadService {
             recordPrimaryFastIfStable(primarySpeed, switchPlan);
             return null;
         }
-        synchronized (MIRROR_LOCK) {
-            if (mirrorDisabled && switchPlan.alternateIsMirror) {
+        PlatformProbeState state = switchPlan.mirrorPlan.probeState();
+        synchronized (state.lock) {
+            if (state.mirrorDisabled && switchPlan.alternateIsMirror) {
                 return null;
             }
-            if (selectedMirror != null) {
-                return selectedMirror == switchPlan.primaryIsMirror ? null : SourceProbe.selected(switchPlan);
+            if (state.selectedMirror != null) {
+                return state.selectedMirror == switchPlan.primaryIsMirror ? null : SourceProbe.selected(switchPlan);
             }
-            if (mirrorComparisons >= maxMirrorProbeCount()) {
+            if (state.mirrorComparisons >= maxMirrorProbeCount()) {
                 return null;
             }
-            mirrorComparisons++;
+            state.mirrorComparisons++;
         }
         ExecutorService executor = Executors.newSingleThreadExecutor();
         AtomicReference<Double> primarySpeedRef = new AtomicReference<>(primarySpeed);
@@ -338,7 +338,8 @@ public final class DlcDownloadService {
             executor.submit(() -> probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef)),
             executor,
             primarySpeedRef,
-            false
+            false,
+            switchPlan.mirrorPlan.probeState()
         );
     }
 
@@ -347,60 +348,63 @@ public final class DlcDownloadService {
             return true;
         }
         double primaryBaseline = probe.primarySpeedRef == null ? primarySpeed : probe.primarySpeedRef.get();
-        double alternateSpeed;
+        ProbeSpeedResult alternateResult;
         try {
-            alternateSpeed = probe.future == null ? 0.0 : probe.future.get();
+            alternateResult = probe.future == null ? ProbeSpeedResult.failed() : probe.future.get();
         } catch (Exception ignored) {
-            alternateSpeed = 0.0;
+            alternateResult = ProbeSpeedResult.failed();
         } finally {
             if (probe.executor != null) {
                 probe.executor.shutdownNow();
             }
         }
-        synchronized (MIRROR_LOCK) {
-            recordSourceProbeResult(alternateSpeed, primaryBaseline, probe.alternateIsMirror, probe.primaryIsMirror);
-            if (selectedMirror != null) {
-                return selectedMirror == probe.alternateIsMirror;
+        PlatformProbeState state = probe.state;
+        synchronized (state.lock) {
+            recordSourceProbeResult(state, alternateResult.speed, primaryBaseline, probe.alternateIsMirror, probe.primaryIsMirror);
+            if (state.selectedMirror != null) {
+                return state.selectedMirror == probe.alternateIsMirror;
             }
         }
-        return alternateSpeed > 0.0 && alternateSpeed > primaryBaseline;
+        return alternateResult.completed || alternateResult.speed > 0.0 && alternateResult.speed > primaryBaseline;
     }
 
-    private static Boolean selectedSourceFromCache() {
-        synchronized (MIRROR_LOCK) {
-            if (mirrorDisabled) {
+    private static Boolean selectedSourceFromCache(MirrorPlan mirrorPlan) {
+        PlatformProbeState state = mirrorPlan.probeState();
+        synchronized (state.lock) {
+            if (state.mirrorDisabled) {
                 return false;
             }
-            return selectedMirror;
+            return state.selectedMirror;
         }
     }
 
-    private static Boolean precheckDownloadSource(String officialUrl, String mirrorUrl) {
-        synchronized (PRECHECK_PROBE_LOCK) {
+    private static Boolean precheckDownloadSource(MirrorPlan mirrorPlan, String officialUrl, String mirrorUrl) {
+        PlatformProbeState state = mirrorPlan.probeState();
+        synchronized (state.precheckLock) {
             int maxCount = maxMirrorProbeCount();
             for (int i = 0; i < maxCount; i++) {
-                synchronized (MIRROR_LOCK) {
-                    if (mirrorDisabled) {
+                synchronized (state.lock) {
+                    if (state.mirrorDisabled) {
                         return false;
                     }
-                    if (selectedMirror != null) {
-                        return selectedMirror;
+                    if (state.selectedMirror != null) {
+                        return state.selectedMirror;
                     }
-                    if (mirrorComparisons >= maxCount) {
+                    if (state.mirrorComparisons >= maxCount) {
                         return null;
                     }
-                    mirrorComparisons++;
+                    state.mirrorComparisons++;
                 }
                 ProbePairResult result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null);
-                synchronized (MIRROR_LOCK) {
-                    recordSourceProbeResult(result.mirrorSpeed, result.officialSpeed, true, false);
-                    if (selectedMirror != null) {
-                        return selectedMirror;
+                synchronized (state.lock) {
+                    recordSourceProbeResult(state, result.mirrorSpeed, result.officialSpeed, true, false);
+                    if (state.selectedMirror != null) {
+                        return state.selectedMirror;
                     }
                 }
             }
-            synchronized (MIRROR_LOCK) {
-                return selectedMirror;
+            synchronized (state.lock) {
+                return state.selectedMirror;
             }
         }
     }
@@ -448,36 +452,38 @@ public final class DlcDownloadService {
         }
     }
 
-    private static boolean isMirrorFallbackAllowed() {
-        synchronized (MIRROR_LOCK) {
-            return !mirrorDisabled;
+    private static boolean isMirrorFallbackAllowed(MirrorPlan mirrorPlan) {
+        PlatformProbeState state = mirrorPlan.probeState();
+        synchronized (state.lock) {
+            return !state.mirrorDisabled;
         }
     }
 
-    private static void recordSourceProbeResult(double alternateSpeed, double primarySpeed, boolean alternateIsMirror, boolean primaryIsMirror) {
+    private static void recordSourceProbeResult(PlatformProbeState state, double alternateSpeed, double primarySpeed,
+                                                boolean alternateIsMirror, boolean primaryIsMirror) {
         if (alternateSpeed <= 0.0) {
             if (alternateIsMirror) {
-                mirrorFailures++;
-                if (mirrorFailures >= MIRROR_DISABLE_FAILURES) {
-                    mirrorDisabled = true;
+                state.mirrorFailures++;
+                if (state.mirrorFailures >= MIRROR_DISABLE_FAILURES) {
+                    state.mirrorDisabled = true;
                 }
             }
         } else if (alternateSpeed > primarySpeed) {
             if (alternateIsMirror) {
-                mirrorWins++;
+                state.mirrorWins++;
             } else {
-                officialWins++;
+                state.officialWins++;
             }
         } else if (primaryIsMirror) {
-            mirrorWins++;
+            state.mirrorWins++;
         } else {
-            officialWins++;
+            state.officialWins++;
         }
         int requiredWins = requiredMirrorProbeWins();
-        if (mirrorWins >= requiredWins) {
-            selectedMirror = true;
-        } else if (officialWins >= requiredWins) {
-            selectedMirror = false;
+        if (state.mirrorWins >= requiredWins) {
+            state.selectedMirror = true;
+        } else if (state.officialWins >= requiredWins) {
+            state.selectedMirror = false;
         }
     }
 
@@ -499,19 +505,20 @@ public final class DlcDownloadService {
             || primarySpeed < mirrorPlan.bucketSpeed) {
             return;
         }
-        synchronized (MIRROR_LOCK) {
-            if (selectedMirror != null || mirrorDisabled) {
+        PlatformProbeState state = switchPlan.mirrorPlan.probeState();
+        synchronized (state.lock) {
+            if (state.selectedMirror != null || state.mirrorDisabled) {
                 return;
             }
             if (switchPlan.primaryIsMirror) {
-                mirrorFastWins++;
-                if (mirrorFastWins >= 2) {
-                    selectedMirror = true;
+                state.mirrorFastWins++;
+                if (state.mirrorFastWins >= 2) {
+                    state.selectedMirror = true;
                 }
             } else {
-                officialFastWins++;
-                if (officialFastWins >= 2) {
-                    selectedMirror = false;
+                state.officialFastWins++;
+                if (state.officialFastWins >= 2) {
+                    state.selectedMirror = false;
                 }
             }
         }
@@ -531,8 +538,8 @@ public final class DlcDownloadService {
         return new SpeedRule(timeoutSpeed, bucketSpeed, Math.max(timeoutSpeed, bucketSpeed));
     }
 
-    private static double probeDownloadSpeed(String url, long windowMs, CancelChecker cancelChecker,
-                                             AtomicReference<Double> primarySpeedRef) throws IOException {
+    private static ProbeSpeedResult probeDownloadSpeed(String url, long windowMs, CancelChecker cancelChecker,
+                                                       AtomicReference<Double> primarySpeedRef) throws IOException {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
@@ -543,7 +550,7 @@ public final class DlcDownloadService {
             connection.setRequestProperty("Range", "bytes=0-");
             connection.connect();
             if (connection.getResponseCode() >= 400) {
-                return 0.0;
+                return ProbeSpeedResult.failed();
             }
             long start = System.nanoTime();
             long deadline = start + TimeUnit.MILLISECONDS.toNanos(windowMs);
@@ -559,7 +566,9 @@ public final class DlcDownloadService {
                     }
                     int read = in.read(buffer);
                     if (read < 0) {
-                        break;
+                        long elapsed = Math.max(1L, System.nanoTime() - start);
+                        maxSpeed = Math.max(maxSpeed, bytes * 1_000_000_000.0 / elapsed);
+                        return new ProbeSpeedResult(maxSpeed, true);
                     }
                     bytes += read;
                     windowBytes += read;
@@ -567,7 +576,7 @@ public final class DlcDownloadService {
                     if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
                         maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
                         if (maxSpeed > primarySpeedRef.get()) {
-                            return maxSpeed;
+                            return new ProbeSpeedResult(maxSpeed, false);
                         }
                         windowStart = now;
                         windowBytes = 0L;
@@ -576,11 +585,11 @@ public final class DlcDownloadService {
             }
             long elapsed = Math.max(1L, System.nanoTime() - start);
             maxSpeed = Math.max(maxSpeed, bytes * 1_000_000_000.0 / elapsed);
-            return maxSpeed;
+            return new ProbeSpeedResult(maxSpeed, false);
         } catch (DownloadCanceledException ex) {
             throw ex;
         } catch (Exception ignored) {
-            return 0.0;
+            return ProbeSpeedResult.failed();
         } finally {
             closeQuietly(connection);
         }
@@ -591,21 +600,53 @@ public final class DlcDownloadService {
         try {
             AtomicReference<Double> officialRef = new AtomicReference<>(Double.MAX_VALUE);
             AtomicReference<Double> mirrorRef = new AtomicReference<>(Double.MAX_VALUE);
-            Future<Double> officialFuture = executor.submit(() -> probeDownloadSpeed(officialUrl, windowMs, cancelChecker, mirrorRef));
-            Future<Double> mirrorFuture = executor.submit(() -> probeDownloadSpeed(mirrorUrl, windowMs, cancelChecker, officialRef));
-            double officialSpeed = getProbeSpeed(officialFuture);
-            double mirrorSpeed = getProbeSpeed(mirrorFuture);
-            return new ProbePairResult(officialSpeed, mirrorSpeed);
+            Future<ProbeSpeedResult> officialFuture = executor.submit(() -> probeDownloadSpeed(officialUrl, windowMs, cancelChecker, mirrorRef));
+            Future<ProbeSpeedResult> mirrorFuture = executor.submit(() -> probeDownloadSpeed(mirrorUrl, windowMs, cancelChecker, officialRef));
+            long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(windowMs);
+            while (System.nanoTime() < deadline) {
+                ProbeSpeedResult officialEarly = completedProbeResult(officialFuture);
+                if (officialEarly.completed) {
+                    mirrorFuture.cancel(true);
+                    return new ProbePairResult(officialEarly.speed, 0.0);
+                }
+                ProbeSpeedResult mirrorEarly = completedProbeResult(mirrorFuture);
+                if (mirrorEarly.completed) {
+                    officialFuture.cancel(true);
+                    return new ProbePairResult(0.0, mirrorEarly.speed);
+                }
+                if (officialFuture.isDone() && mirrorFuture.isDone()) {
+                    break;
+                }
+                sleepQuietly(50L);
+            }
+            ProbeSpeedResult officialSpeed = getProbeSpeed(officialFuture);
+            ProbeSpeedResult mirrorSpeed = getProbeSpeed(mirrorFuture);
+            return new ProbePairResult(officialSpeed.speed, mirrorSpeed.speed);
         } finally {
             executor.shutdownNow();
         }
     }
 
-    private static double getProbeSpeed(Future<Double> future) {
+    private static ProbeSpeedResult completedProbeResult(Future<ProbeSpeedResult> future) {
+        if (future == null || !future.isDone()) {
+            return ProbeSpeedResult.failed();
+        }
+        return getProbeSpeed(future);
+    }
+
+    private static ProbeSpeedResult getProbeSpeed(Future<ProbeSpeedResult> future) {
         try {
             return future.get();
         } catch (Exception ignored) {
-            return 0.0;
+            return ProbeSpeedResult.failed();
+        }
+    }
+
+    private static void sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -625,6 +666,16 @@ public final class DlcDownloadService {
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static DownloadPlatform downloadPlatform(String url) {
+        if (isCurseForgeCdnUrl(url)) {
+            return DownloadPlatform.CURSEFORGE;
+        }
+        if (isModrinthCdnUrl(url)) {
+            return DownloadPlatform.MODRINTH;
+        }
+        return null;
     }
 
     private static boolean isMirrorUrl(String url) {
@@ -1216,7 +1267,7 @@ public final class DlcDownloadService {
                         connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
                         connection.setInstanceFollowRedirects(true);
                         connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
-                        connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
+                        connection.setReadTimeout((int) SPEED_WINDOW_MS);
                         connection.setRequestProperty("User-Agent", "DLC-Manager");
                         long rangeStart = start + segmentRead;
                         connection.setRequestProperty("Range", "bytes=" + rangeStart + "-" + end);
@@ -1229,6 +1280,7 @@ public final class DlcDownloadService {
                              RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
                             raf.seek(rangeStart);
                             byte[] buffer = new byte[8192];
+                            SegmentSpeedTracker speedTracker = new SegmentSpeedTracker();
                             int len;
                             while ((len = in.read(buffer)) >= 0) {
                                 if (cancelChecker != null && cancelChecker.isCanceled()) {
@@ -1236,9 +1288,13 @@ public final class DlcDownloadService {
                                 }
                                 raf.write(buffer, 0, len);
                                 segmentRead += len;
+                                speedTracker.record(len);
                                 if (listener != null) {
                                     long allRead = totalRead.addAndGet(len);
                                     listener.onProgress(allRead, totalBytes);
+                                }
+                                if (speedTracker.shouldRetry()) {
+                                    throw new IOException("segment speed dropped");
                                 }
                             }
                         }
@@ -1278,8 +1334,11 @@ public final class DlcDownloadService {
         }
     }
 
-    private record MirrorPlan(String mirrorUrl, long totalBytes, double timeoutSpeed, double bucketSpeed, double requiredSpeed,
+    private record MirrorPlan(String mirrorUrl, DownloadPlatform platform, long totalBytes, double timeoutSpeed, double bucketSpeed, double requiredSpeed,
                               boolean canSpeedCompare) {
+        private PlatformProbeState probeState() {
+            return platform == DownloadPlatform.CURSEFORGE ? CURSEFORGE_PROBE_STATE : MODRINTH_PROBE_STATE;
+        }
     }
 
     private record ProbeUrlPair(String officialUrl, String mirrorUrl) {
@@ -1296,8 +1355,8 @@ public final class DlcDownloadService {
     }
 
     private record SourceProbe(String alternateUrl, boolean primaryIsMirror, boolean alternateIsMirror,
-                               Future<Double> future, ExecutorService executor, AtomicReference<Double> primarySpeedRef,
-                               boolean preselected) {
+                               Future<ProbeSpeedResult> future, ExecutorService executor, AtomicReference<Double> primarySpeedRef,
+                               boolean preselected, PlatformProbeState state) {
         private static SourceProbe selected(SourceSwitchPlan switchPlan) {
             return new SourceProbe(
                 switchPlan.alternateUrl,
@@ -1306,8 +1365,53 @@ public final class DlcDownloadService {
                 null,
                 null,
                 null,
-                true
+                true,
+                switchPlan.mirrorPlan.probeState()
             );
+        }
+    }
+
+    private enum DownloadPlatform {
+        CURSEFORGE,
+        MODRINTH
+    }
+
+    private static final class PlatformProbeState {
+        private final Object lock = new Object();
+        private final Object precheckLock = new Object();
+        private int mirrorComparisons;
+        private int officialWins;
+        private int officialFastWins;
+        private int mirrorFastWins;
+        private int mirrorWins;
+        private int mirrorFailures;
+        private Boolean selectedMirror;
+        private boolean mirrorDisabled;
+    }
+
+    private static final class SegmentSpeedTracker {
+        private long windowStart = System.nanoTime();
+        private long windowBytes;
+        private double bestSpeed;
+
+        private void record(int bytes) {
+            windowBytes += bytes;
+        }
+
+        private boolean shouldRetry() {
+            long now = System.nanoTime();
+            long elapsed = now - windowStart;
+            if (elapsed < TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                return false;
+            }
+            double currentSpeed = windowBytes <= 0 ? 0.0 : windowBytes * 1_000_000_000.0 / Math.max(1L, elapsed);
+            boolean retry = bestSpeed > 0.0 && currentSpeed <= bestSpeed * SEGMENT_SPEED_DROP_RETRY_RATIO;
+            if (currentSpeed > bestSpeed) {
+                bestSpeed = currentSpeed;
+            }
+            windowStart = now;
+            windowBytes = 0L;
+            return retry;
         }
     }
 
@@ -1337,6 +1441,12 @@ public final class DlcDownloadService {
     }
 
     private record ProbePairResult(double officialSpeed, double mirrorSpeed) {
+    }
+
+    private record ProbeSpeedResult(double speed, boolean completed) {
+        private static ProbeSpeedResult failed() {
+            return new ProbeSpeedResult(0.0, false);
+        }
     }
 
     private record InitialRangeResult(long downloadedBytes, boolean completed, boolean switchSource) {
