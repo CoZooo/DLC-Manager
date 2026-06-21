@@ -2,10 +2,15 @@ package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
+import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion
+import com.cozooo.dlc_manager.core.DlcApplier
+import com.cozooo.dlc_manager.core.DlcApplyMode
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcPathUtil
 import com.cozooo.dlc_manager.core.DlcRuntimeState
+import com.cozooo.dlc_manager.core.DlcScanner
+import com.cozooo.dlc_manager.core.DlcType
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import java.io.IOException
 import java.nio.file.Files
@@ -285,6 +290,7 @@ class DlcPackInstaller(
         }
         val packDir = packDir(identifier)
         val meta = DlcPackMeta.load(packDir.resolve("meta.dc")) ?: throw IOException("DLC Pack is not installed: $identifier")
+        uninstallInstalledDlcItems(meta, progressListener)
         var deleted = 0
         val deleteTotal = meta.installedPaths.size.coerceAtLeast(1)
         for ((index, relative) in meta.installedPaths.asReversed().withIndex()) {
@@ -318,6 +324,128 @@ class DlcPackInstaller(
         deletePackInstallState(packDir)
         progressListener?.onProgress("Uninstalled $identifier", 1f)
         return UninstallReport(identifier, deleted, restored)
+    }
+
+    private fun uninstallInstalledDlcItems(meta: DlcPackMeta, progressListener: ProgressListener?) {
+        val installedPaths = LinkedHashSet<String>()
+        for (path in meta.installedPaths) {
+            val relative = DlcPathUtil.normalizeRelativePath(path) ?: continue
+            installedPaths.add(relative)
+        }
+        if (installedPaths.isEmpty()) {
+            return
+        }
+        val remoteTargetPaths = collectRemoteTargetPaths(installedPaths)
+        val allItems = collectCurrentDlcItems(true)
+        if (allItems.isEmpty()) {
+            deleteRemoteTargets(remoteTargetPaths)
+            return
+        }
+        var changed = false
+        for (item in allItems) {
+            if (!item.isEnabled()) {
+                continue
+            }
+            if (isPackInstalledDlcItem(item, installedPaths, remoteTargetPaths)) {
+                item.setEnabled(false)
+                DlcRuntimeState.setOverride(item.getId(), false)
+                changed = true
+            }
+        }
+        if (changed) {
+            progressListener?.onProgress("Uninstalling installed DLC items", -1f)
+            val result = DlcApplier.apply(allItems, DlcApplyMode.RESTART_ONLY)
+            val failures = collectApplyFailures(result)
+            if (failures.isNotEmpty()) {
+                throw IOException("Failed to uninstall DLC Pack DLC items: " + failures.joinToString(", "))
+            }
+        }
+        deleteRemoteTargets(remoteTargetPaths)
+    }
+
+    private fun collectApplyFailures(result: DlcApplier.ApplyResult?): List<String> {
+        val messages = result?.messages() ?: return emptyList()
+        return messages.filter { it.startsWith("Failed to ") }
+    }
+
+    private fun collectRemoteTargetPaths(installedPaths: Set<String>): Set<String> {
+        val targets = LinkedHashSet<String>()
+        for (entry in DlcRemoteLoader.load(dlcRoot)) {
+            val configPath = entry.getConfigPath()
+            if (configPath == null || entry.getType() == DlcType.DLC_PACK) {
+                continue
+            }
+            val configRelative = toInstanceRelativePath(configPath)
+            if (configRelative == null || !installedPaths.contains(configRelative)) {
+                continue
+            }
+            val targetRelative = toInstanceRelativePath(entry.getTargetPath())
+            if (targetRelative != null) {
+                targets.add(targetRelative)
+            }
+        }
+        return targets
+    }
+
+    private fun collectCurrentDlcItems(detectInstalledState: Boolean): List<DlcItem> {
+        val items = ArrayList<DlcItem>()
+        val grouped = DlcScanner().scan(detectInstalledState)
+        for (list in grouped.values) {
+            if (list == null) {
+                continue
+            }
+            for (item in list) {
+                if (item != null) {
+                    items.add(item)
+                }
+            }
+        }
+        DlcRuntimeState.updateItemIndex(items)
+        return items
+    }
+
+    private fun isPackInstalledDlcItem(item: DlcItem, installedPaths: Set<String>, remoteTargetPaths: Set<String>): Boolean {
+        for (source in item.getSourcePaths()) {
+            val relative = toInstanceRelativePath(source)
+            if (relative != null && installedPaths.contains(relative)) {
+                return true
+            }
+        }
+        val sourceRelative = toInstanceRelativePath(item.getSourcePath())
+        if (sourceRelative != null && (installedPaths.contains(sourceRelative) || remoteTargetPaths.contains(sourceRelative))) {
+            return true
+        }
+        for (source in item.getSourcePaths()) {
+            val relative = toInstanceRelativePath(source)
+            if (relative != null && remoteTargetPaths.contains(relative)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun deleteRemoteTargets(remoteTargetPaths: Set<String>?) {
+        if (remoteTargetPaths.isNullOrEmpty()) {
+            return
+        }
+        for (relative in remoteTargetPaths) {
+            val target = DlcPathUtil.resolveInside(instanceRoot, relative)
+            if (Files.deleteIfExists(target)) {
+                pruneEmptyParents(target.parent, instanceRoot)
+            }
+        }
+    }
+
+    private fun toInstanceRelativePath(path: Path?): String? {
+        if (path == null) {
+            return null
+        }
+        val normalizedInstance = instanceRoot.toAbsolutePath().normalize()
+        val normalizedPath = path.toAbsolutePath().normalize()
+        if (!normalizedPath.startsWith(normalizedInstance)) {
+            return null
+        }
+        return DlcPathUtil.normalizeRelativePath(normalizedInstance.relativize(normalizedPath).toString())
     }
 
     fun packDir(identifier: String): Path {

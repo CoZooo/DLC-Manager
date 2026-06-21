@@ -2,10 +2,16 @@ package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
+import com.cozooo.dlc_manager.core.DlcApplier;
+import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.core.DlcScanner;
+import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -289,6 +295,7 @@ public class DlcPackInstaller {
         if (meta == null) {
             throw new IOException("DLC Pack is not installed: " + identifier);
         }
+        uninstallInstalledDlcItems(meta, progressListener);
         int deleted = 0;
         java.util.List<String> paths = new java.util.ArrayList<>(meta.installedPaths);
         java.util.Collections.reverse(paths);
@@ -330,6 +337,137 @@ public class DlcPackInstaller {
             progressListener.onProgress("Uninstalled " + identifier, 1f);
         }
         return new UninstallReport(identifier, deleted, restored);
+    }
+
+    private void uninstallInstalledDlcItems(DlcPackMeta meta, ProgressListener progressListener) throws IOException {
+        Set<String> installedPaths = new LinkedHashSet<>();
+        if (meta != null && meta.installedPaths != null) {
+            for (String path : meta.installedPaths) {
+                String relative = DlcPathUtil.normalizeRelativePath(path);
+                if (relative != null) {
+                    installedPaths.add(relative);
+                }
+            }
+        }
+        if (installedPaths.isEmpty()) {
+            return;
+        }
+        Set<String> remoteTargetPaths = collectRemoteTargetPaths(installedPaths);
+        java.util.List<DlcItem> allItems = collectCurrentDlcItems(true);
+        if (allItems.isEmpty()) {
+            deleteRemoteTargets(remoteTargetPaths);
+            return;
+        }
+        boolean changed = false;
+        for (DlcItem item : allItems) {
+            if (item == null || !item.isEnabled()) {
+                continue;
+            }
+            if (isPackInstalledDlcItem(item, installedPaths, remoteTargetPaths)) {
+                item.setEnabled(false);
+                DlcRuntimeState.setOverride(item.getId(), false);
+                changed = true;
+            }
+        }
+        if (changed) {
+            if (progressListener != null) {
+                progressListener.onProgress("Uninstalling installed DLC items", -1f);
+            }
+            DlcApplier.ApplyResult result = DlcApplier.apply(allItems, DlcApplyMode.RESTART_ONLY);
+            java.util.List<String> failures = collectApplyFailures(result);
+            if (!failures.isEmpty()) {
+                throw new IOException("Failed to uninstall DLC Pack DLC items: " + String.join(", ", failures));
+            }
+        }
+        deleteRemoteTargets(remoteTargetPaths);
+    }
+
+    private java.util.List<String> collectApplyFailures(DlcApplier.ApplyResult result) {
+        if (result == null || result.messages() == null || result.messages().isEmpty()) {
+            return java.util.List.of();
+        }
+        java.util.List<String> failures = new java.util.ArrayList<>();
+        for (String message : result.messages()) {
+            if (message != null && message.startsWith("Failed to ")) {
+                failures.add(message);
+            }
+        }
+        return failures;
+    }
+
+    private Set<String> collectRemoteTargetPaths(Set<String> installedPaths) {
+        Set<String> targets = new LinkedHashSet<>();
+        for (DlcRemoteEntry entry : DlcRemoteLoader.load(dlcRoot)) {
+            if (entry == null || entry.getConfigPath() == null || entry.getType() == DlcType.DLC_PACK) {
+                continue;
+            }
+            String configRelative = toInstanceRelativePath(entry.getConfigPath());
+            if (configRelative == null || !installedPaths.contains(configRelative)) {
+                continue;
+            }
+            Path target = entry.getTargetPath();
+            String targetRelative = toInstanceRelativePath(target);
+            if (targetRelative != null) {
+                targets.add(targetRelative);
+            }
+        }
+        return targets;
+    }
+
+    private java.util.List<DlcItem> collectCurrentDlcItems(boolean detectInstalledState) {
+        java.util.List<DlcItem> items = new java.util.ArrayList<>();
+        java.util.Map<DlcType, java.util.List<DlcItem>> grouped = new DlcScanner().scan(detectInstalledState);
+        for (java.util.List<DlcItem> list : grouped.values()) {
+            if (list != null) {
+                items.addAll(list);
+            }
+        }
+        DlcRuntimeState.updateItemIndex(items);
+        return items;
+    }
+
+    private boolean isPackInstalledDlcItem(DlcItem item, Set<String> installedPaths, Set<String> remoteTargetPaths) {
+        for (Path source : item.getSourcePaths()) {
+            String relative = toInstanceRelativePath(source);
+            if (relative != null && installedPaths.contains(relative)) {
+                return true;
+            }
+        }
+        String sourceRelative = toInstanceRelativePath(item.getSourcePath());
+        if (sourceRelative != null && (installedPaths.contains(sourceRelative) || remoteTargetPaths.contains(sourceRelative))) {
+            return true;
+        }
+        for (Path source : item.getSourcePaths()) {
+            String relative = toInstanceRelativePath(source);
+            if (relative != null && remoteTargetPaths.contains(relative)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void deleteRemoteTargets(Set<String> remoteTargetPaths) throws IOException {
+        if (remoteTargetPaths == null || remoteTargetPaths.isEmpty()) {
+            return;
+        }
+        for (String relative : remoteTargetPaths) {
+            Path target = DlcPathUtil.resolveInside(instanceRoot, relative);
+            if (Files.deleteIfExists(target)) {
+                pruneEmptyParents(target.getParent(), instanceRoot);
+            }
+        }
+    }
+
+    private String toInstanceRelativePath(Path path) {
+        if (path == null) {
+            return null;
+        }
+        Path normalizedInstance = instanceRoot.toAbsolutePath().normalize();
+        Path normalizedPath = path.toAbsolutePath().normalize();
+        if (!normalizedPath.startsWith(normalizedInstance)) {
+            return null;
+        }
+        return DlcPathUtil.normalizeRelativePath(normalizedInstance.relativize(normalizedPath).toString());
     }
 
     public Path packDir(String identifier) {
