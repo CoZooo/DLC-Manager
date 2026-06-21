@@ -60,6 +60,7 @@ if (kotlinEnabled) {
 
 rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs)
 rootProject.configureLocalDevMods(moduleProject)
+rootProject.configureServerRunClientOnlyModExcludes(moduleProject)
 
 loom {
     forge {

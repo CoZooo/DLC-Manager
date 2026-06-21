@@ -64,6 +64,14 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
 
         loom {
             silentMojangMappingsLicense()
+            runs {
+                client {
+                    runDir('run/client')
+                }
+                server {
+                    runDir('run/server')
+                }
+            }
         }
 
         dependencies {
@@ -216,19 +224,73 @@ ext.configureReplacementClassSync = { Project targetProject, boolean kotlinEnabl
 }
 
 ext.configureLocalDevMods = { Project targetProject ->
-    def devModsDir = targetProject.file('run/devmods')
-    def devModJars = targetProject.fileTree(devModsDir) {
+    def sharedDevModJars = targetProject.fileTree(targetProject.file('run/devmods')) {
         include '**/*.jar'
+    }
+    def clientDevModJars = targetProject.fileTree(targetProject.file('run/client/devmods')) {
+        include '**/*.jar'
+    }
+    def serverDevModJars = targetProject.fileTree(targetProject.file('run/server/devmods')) {
+        include '**/*.jar'
+    }
+    def devModJars = targetProject.files(sharedDevModJars, clientDevModJars, serverDevModJars)
+    def isDevModArtifact = { File file, devModFiles ->
+        devModFiles.files.any { devModFile ->
+            def fileName = devModFile.name
+            def baseName = fileName.endsWith('.jar') ? fileName.substring(0, fileName.length() - 4) : fileName
+            file.absolutePath == devModFile.absolutePath || file.name == fileName || file.name.contains(baseName)
+        }
+    }
+    def excludeDevModsFromTask = { task, devModFiles ->
+        task.classpath = task.classpath.filter { File file ->
+            !isDevModArtifact(file, devModFiles)
+        }
+        if (task.hasProperty('internalClasspath')) {
+            task.internalClasspath.setFrom(task.internalClasspath.filter { File file ->
+                !isDevModArtifact(file, devModFiles)
+            })
+        }
     }
 
     def localRuntimeConfig = targetProject.configurations.findByName('modLocalRuntime')
     if (localRuntimeConfig != null) {
         targetProject.dependencies.add(localRuntimeConfig.name, devModJars)
-        return
+    } else {
+        def runtimeConfig = targetProject.configurations.findByName('modRuntimeOnly')
+        if (runtimeConfig != null) {
+            targetProject.dependencies.add(runtimeConfig.name, devModJars)
+        }
     }
 
-    def runtimeConfig = targetProject.configurations.findByName('modRuntimeOnly')
-    if (runtimeConfig != null) {
-        targetProject.dependencies.add(runtimeConfig.name, devModJars)
+    targetProject.tasks.matching { it.name == 'runClient' }.configureEach { task ->
+        excludeDevModsFromTask(task, serverDevModJars)
+    }
+    targetProject.tasks.matching { it.name == 'runServer' }.configureEach { task ->
+        excludeDevModsFromTask(task, clientDevModJars)
+    }
+}
+
+ext.configureServerRunClientOnlyModExcludes = { Project targetProject ->
+    def serverRunCommonJar = targetProject.tasks.register('prepareServerRunCommonJar', Jar) {
+        dependsOn(targetProject.project(':common').tasks.named('jar'))
+        archiveBaseName.set('common')
+        archiveClassifier.set('server-run')
+        destinationDirectory.set(targetProject.layout.buildDirectory.dir('serverRun'))
+        from({
+            targetProject.zipTree(targetProject.project(':common').tasks.named('jar').get().archiveFile.get().asFile)
+        }) {
+            exclude 'com/cozooo/dlc_manager/client/screen/**'
+        }
+    }
+
+    targetProject.tasks.matching { it.name == 'runServer' }.configureEach { task ->
+        dependsOn(serverRunCommonJar)
+        def serverOnlyCommonFiles = targetProject.files(serverRunCommonJar.flatMap { it.archiveFile })
+        task.classpath = task.classpath.filter { File file ->
+            def name = file.name.toLowerCase(Locale.ROOT)
+            !name.contains('mafglib')
+                && !name.contains('malilib')
+                && !(name.startsWith('common-') && name.endsWith('-dev.jar') && file.parentFile?.name == 'devlibs')
+        } + serverOnlyCommonFiles
     }
 }
