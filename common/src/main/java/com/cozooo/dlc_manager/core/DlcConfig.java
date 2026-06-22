@@ -566,7 +566,7 @@ public class DlcConfig {
     }
 
     public static int getDownloadMirrorProbeCount() {
-        return Math.max(1, downloadMirrorProbeCount);
+        return Math.max(1, Math.min(10, downloadMirrorProbeCount));
     }
 
     public static String getDownloadMirrorProbeStrategy() {
@@ -790,7 +790,7 @@ public class DlcConfig {
     }
 
     public static void setDownloadMirrorProbeCount(int value) {
-        downloadMirrorProbeCount = Math.max(1, value);
+        downloadMirrorProbeCount = Math.max(1, Math.min(10, value));
     }
 
     public static void setDownloadMirrorProbeStrategy(String value) {
@@ -1156,7 +1156,7 @@ public class DlcConfig {
         map.put("connectTimeoutSeconds", value -> connectTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_CONNECT_TIMEOUT_SECONDS)));
         map.put("taskTimeoutSeconds", value -> taskTimeoutSeconds = Math.max(1, asInt(value, DEFAULT_TASK_TIMEOUT_SECONDS)));
         map.put("downloadMirrorMode", value -> downloadMirrorMode = normalizeDownloadMirrorMode(asString(value, DEFAULT_DOWNLOAD_MIRROR_MODE)));
-        map.put("downloadMirrorProbeCount", value -> downloadMirrorProbeCount = Math.max(1, asInt(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT)));
+        map.put("downloadMirrorProbeCount", value -> downloadMirrorProbeCount = Math.max(1, Math.min(10, asInt(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT))));
         map.put("downloadMirrorProbeStrategy", value -> downloadMirrorProbeStrategy = normalizeDownloadMirrorProbeStrategy(asString(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY)));
         return map;
     }

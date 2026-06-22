@@ -52,6 +52,7 @@ object DlcServerDownloadService {
 
     private fun interface ProgressListener {
         fun onProgress(downloadedBytes: Long, totalBytes: Long)
+        fun onStatusKey(statusKey: String) {}
     }
 
     private val REMOTE_LOCK = Any()
@@ -104,6 +105,7 @@ object DlcServerDownloadService {
         private val totalBytes = AtomicLong(0L)
         private val downloadedBytes = AtomicLong(0L)
         private val itemByKey: MutableMap<String, RemoteItemState> = ConcurrentHashMap()
+        @Volatile private var statusKey: String? = null
         @Volatile private var error: String? = null
 
         init {
@@ -144,9 +146,16 @@ object DlcServerDownloadService {
                 return
             }
             try {
-                val fileName = downloadRemoteEntryWithProgress(item.entry, item) { downloaded, total ->
-                    updateProgress(item, downloaded, total)
-                }
+                val fileName = downloadRemoteEntryWithProgress(item.entry, item, object : ProgressListener {
+                    override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
+                        this@RemoteDownloadSession.statusKey = null
+                        updateProgress(item, downloadedBytes, totalBytes)
+                    }
+
+                    override fun onStatusKey(statusKey: String) {
+                        this@RemoteDownloadSession.statusKey = statusKey
+                    }
+                })
                 if (fileName != null) {
                     updateRemoteFileNameKey(item.entry, fileName)
                 }
@@ -193,6 +202,7 @@ object DlcServerDownloadService {
             status.completedCount = completed.get()
             status.totalBytes = totalBytes.get()
             status.downloadedBytes = downloadedBytes.get()
+            status.statusKey = statusKey
             status.error = error
             for (item in items) {
                 val view = DlcServerRemoteItem()
@@ -1268,14 +1278,11 @@ object DlcServerDownloadService {
                         if (Files.exists(target)) {
                             return fileName
                         }
+                        val downloadListener = progressListener(listener)
                         val downloaded = if (candidate.direct) {
-                            DlcDownloadService.download(candidate.url, target.parent, fileName, { downloadedBytes, totalBytes ->
-                                listener?.onProgress(downloadedBytes, totalBytes)
-                            }, null)
+                            DlcDownloadService.download(candidate.url, target.parent, fileName, downloadListener, null)
                         } else {
-                            DlcDownloadService.downloadKnown(candidate.url, target.parent, fileName, candidate.expectedSize, { downloadedBytes, totalBytes ->
-                                listener?.onProgress(downloadedBytes, totalBytes)
-                            }, null)
+                            DlcDownloadService.downloadKnown(candidate.url, target.parent, fileName, candidate.expectedSize, downloadListener, null)
                         }
                         verifyDownloadedFile(downloaded, candidate)
                         val actualName = downloaded.fileName?.toString() ?: fileName
@@ -1297,6 +1304,19 @@ object DlcServerDownloadService {
             throw lastError
         }
         throw IOException("missing download url")
+    }
+
+    private fun progressListener(listener: ProgressListener?): DlcDownloadService.ProgressListener? {
+        if (listener == null) return null
+        return object : DlcDownloadService.StatusProgressListener {
+            override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
+                listener.onProgress(downloadedBytes, totalBytes)
+            }
+
+            override fun onStatusKey(statusKey: String) {
+                listener.onStatusKey(statusKey)
+            }
+        }
     }
 
     @Throws(DownloadCanceledException::class)

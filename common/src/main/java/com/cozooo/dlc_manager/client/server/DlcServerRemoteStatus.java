@@ -11,6 +11,7 @@ public class DlcServerRemoteStatus {
     public int completedCount;
     public long totalBytes;
     public long downloadedBytes;
+    public String statusKey;
     public List<DlcServerRemoteItem> items = new ArrayList<>();
     public String error;
 }

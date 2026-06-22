@@ -66,6 +66,9 @@ public final class DlcServerDownloadService {
 
     private interface ProgressListener {
         void onProgress(long downloadedBytes, long totalBytes);
+
+        default void onStatusKey(String statusKey) {
+        }
     }
 
     private static final Object REMOTE_LOCK = new Object();
@@ -127,6 +130,7 @@ public final class DlcServerDownloadService {
         private final AtomicLong totalBytes = new AtomicLong(0L);
         private final AtomicLong downloadedBytes = new AtomicLong(0L);
         private final Map<String, RemoteItemState> itemByKey = new ConcurrentHashMap<>();
+        private volatile String statusKey;
         private volatile String error;
 
         private RemoteDownloadSession(List<RemoteItemState> items) {
@@ -170,8 +174,18 @@ public final class DlcServerDownloadService {
                 return;
             }
             try {
-                String fileName = downloadRemoteEntryWithProgress(item.entry, item,
-                    (downloaded, total) -> updateProgress(item, downloaded, total));
+                String fileName = downloadRemoteEntryWithProgress(item.entry, item, new ProgressListener() {
+                    @Override
+                    public void onProgress(long downloadedBytes, long totalBytes) {
+                        RemoteDownloadSession.this.statusKey = null;
+                        updateProgress(item, downloadedBytes, totalBytes);
+                    }
+
+                    @Override
+                    public void onStatusKey(String statusKey) {
+                        RemoteDownloadSession.this.statusKey = statusKey;
+                    }
+                });
                 if (fileName != null) {
                     updateRemoteFileNameKey(item.entry, fileName);
                 }
@@ -222,6 +236,7 @@ public final class DlcServerDownloadService {
             status.completedCount = completed.get();
             status.totalBytes = totalBytes.get();
             status.downloadedBytes = downloadedBytes.get();
+            status.statusKey = statusKey;
             status.error = error;
             for (RemoteItemState item : items) {
                 DlcServerRemoteItem view = new DlcServerRemoteItem();
@@ -1450,30 +1465,10 @@ public final class DlcServerDownloadService {
                         if (Files.exists(target)) {
                             return fileName;
                         }
+                        DlcDownloadService.ProgressListener downloadListener = progressListener(listener);
                         Path downloaded = candidate.direct
-                            ? DlcDownloadService.download(
-                                candidate.url,
-                                target.getParent(),
-                                fileName,
-                                (downloadedBytes, totalBytes) -> {
-                                    if (listener != null) {
-                                        listener.onProgress(downloadedBytes, totalBytes);
-                                    }
-                                },
-                                null
-                            )
-                            : DlcDownloadService.downloadKnown(
-                                candidate.url,
-                                target.getParent(),
-                                fileName,
-                                candidate.expectedSize,
-                                (downloadedBytes, totalBytes) -> {
-                                    if (listener != null) {
-                                        listener.onProgress(downloadedBytes, totalBytes);
-                                    }
-                                },
-                                null
-                            );
+                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName, downloadListener, null)
+                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize, downloadListener, null);
                         verifyDownloadedFile(downloaded, candidate);
                         String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
                         entry.setFileNameHint(actualName);
@@ -1494,6 +1489,23 @@ public final class DlcServerDownloadService {
             throw lastError;
         }
         throw new IOException("missing download url");
+    }
+
+    private static DlcDownloadService.ProgressListener progressListener(ProgressListener listener) {
+        if (listener == null) {
+            return null;
+        }
+        return new DlcDownloadService.StatusProgressListener() {
+            @Override
+            public void onProgress(long downloadedBytes, long totalBytes) {
+                listener.onProgress(downloadedBytes, totalBytes);
+            }
+
+            @Override
+            public void onStatusKey(String statusKey) {
+                listener.onStatusKey(statusKey);
+            }
+        };
     }
 
     private static void checkRequiredCanceled() throws DownloadCanceledException {

@@ -117,7 +117,7 @@ object DlcServerConfigClient {
         "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode"
     )
     private val DOWNLOAD_MIRROR_PROBE_COUNT = DlcConfigInteger(
-        "downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 100,
+        "downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 10,
         "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount"
     )
     private val DOWNLOAD_MIRROR_PROBE_STRATEGY = DlcConfigString(
@@ -280,7 +280,7 @@ object DlcServerConfigClient {
         downloads.addProperty("connectTimeoutSeconds", CONNECT_TIMEOUT.integerValue)
         downloads.addProperty("taskTimeoutSeconds", TASK_TIMEOUT.integerValue)
         downloads.addProperty("downloadMirrorMode", DlcConfig.normalizeDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.stringValue))
-        downloads.addProperty("downloadMirrorProbeCount", maxOf(1, DOWNLOAD_MIRROR_PROBE_COUNT.integerValue))
+        downloads.addProperty("downloadMirrorProbeCount", DOWNLOAD_MIRROR_PROBE_COUNT.integerValue.coerceIn(1, 10))
         downloads.addProperty("downloadMirrorProbeStrategy", DlcConfig.normalizeDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.stringValue))
         root.add("downloads", downloads)
 

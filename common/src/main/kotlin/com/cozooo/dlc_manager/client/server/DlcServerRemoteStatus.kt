@@ -23,6 +23,9 @@ class DlcServerRemoteStatus {
     var downloadedBytes: Long = 0
 
     @JvmField
+    var statusKey: String? = null
+
+    @JvmField
     var items: MutableList<DlcServerRemoteItem> = ArrayList()
 
     @JvmField

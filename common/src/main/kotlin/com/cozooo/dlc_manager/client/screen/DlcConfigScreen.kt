@@ -323,6 +323,20 @@ class DlcConfigScreen private constructor(
                 addButton(resetButton, ConfirmResetListenerGeneric(NoticeDisplayModeResetListener(config, modeButton, resetButton)))
                 return
             }
+            if (isDownloadMirrorModeConfig(config)) {
+                val modeButton = ButtonGeneric(x, y, width, height, downloadMirrorModeLabel(config.stringValue))
+                val resetButton = createResetButtonLocal(resetButtonX, y, config)
+                addButton(modeButton, DownloadMirrorModeCycleListener(config, modeButton, resetButton))
+                addButton(resetButton, ConfirmResetListenerGeneric(DownloadMirrorModeResetListener(config, modeButton, resetButton)))
+                return
+            }
+            if (isDownloadMirrorProbeStrategyConfig(config)) {
+                val strategyButton = ButtonGeneric(x, y, width, height, downloadMirrorProbeStrategyLabel(config.stringValue))
+                val resetButton = createResetButtonLocal(resetButtonX, y, config)
+                addButton(strategyButton, DownloadMirrorProbeStrategyCycleListener(config, strategyButton, resetButton))
+                addButton(resetButton, ConfirmResetListenerGeneric(DownloadMirrorProbeStrategyResetListener(config, strategyButton, resetButton)))
+                return
+            }
             if (isAnchorConfig(config)) {
                 val anchorButton = ButtonGeneric(x, y, width, height, anchorDisplay(config.name, config.stringValue))
                 val resetButton = createResetButtonLocal(resetButtonX, y, config)
@@ -411,6 +425,56 @@ class DlcConfigScreen private constructor(
         }
     }
 
+    private class DownloadMirrorModeCycleListener(
+        private val config: IConfigValue,
+        private val modeButton: ButtonGeneric,
+        private val resetButton: ButtonGeneric,
+    ) : IButtonActionListener {
+        override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
+            val nextValue = nextDownloadMirrorMode(config.stringValue)
+            config.setValueFromString(nextValue)
+            modeButton.setDisplayString(downloadMirrorModeLabel(nextValue))
+            resetButton.setEnabled(config.isModified)
+        }
+    }
+
+    private class DownloadMirrorModeResetListener(
+        private val config: IConfigValue,
+        private val modeButton: ButtonGeneric,
+        private val resetButton: ButtonGeneric,
+    ) : IButtonActionListener {
+        override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
+            config.resetToDefault()
+            modeButton.setDisplayString(downloadMirrorModeLabel(config.stringValue))
+            resetButton.setEnabled(config.isModified)
+        }
+    }
+
+    private class DownloadMirrorProbeStrategyCycleListener(
+        private val config: IConfigValue,
+        private val strategyButton: ButtonGeneric,
+        private val resetButton: ButtonGeneric,
+    ) : IButtonActionListener {
+        override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
+            val nextValue = nextDownloadMirrorProbeStrategy(config.stringValue)
+            config.setValueFromString(nextValue)
+            strategyButton.setDisplayString(downloadMirrorProbeStrategyLabel(nextValue))
+            resetButton.setEnabled(config.isModified)
+        }
+    }
+
+    private class DownloadMirrorProbeStrategyResetListener(
+        private val config: IConfigValue,
+        private val strategyButton: ButtonGeneric,
+        private val resetButton: ButtonGeneric,
+    ) : IButtonActionListener {
+        override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
+            config.resetToDefault()
+            strategyButton.setDisplayString(downloadMirrorProbeStrategyLabel(config.stringValue))
+            resetButton.setEnabled(config.isModified)
+        }
+    }
+
     private class AnchorCycleListener(
         private val config: IConfigValue,
         private val anchorButton: ButtonGeneric,
@@ -465,6 +529,19 @@ class DlcConfigScreen private constructor(
             "main_menu_button",
             "main_menu_panel",
         )
+        private val DOWNLOAD_MIRROR_MODE_VALUES = arrayOf(
+            DlcConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
+            DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR,
+            DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK,
+            DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY,
+            DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY,
+            DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST,
+            DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST,
+        )
+        private val DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES = arrayOf(
+            DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE,
+            DlcConfig.DOWNLOAD_MIRROR_PROBE_MAJORITY,
+        )
 
         @JvmStatic
         private fun resolveTab(tab: Tab?): Tab {
@@ -512,6 +589,14 @@ class DlcConfigScreen private constructor(
             return config != null && config.name == "noticeDisplayMode"
         }
 
+        private fun isDownloadMirrorModeConfig(config: IConfigBase?): Boolean {
+            return config != null && config.name == "downloadMirrorMode"
+        }
+
+        private fun isDownloadMirrorProbeStrategyConfig(config: IConfigBase?): Boolean {
+            return config != null && config.name == "downloadMirrorProbeStrategy"
+        }
+
         private fun normalizeNoticeDisplayMode(value: String?): String {
             if (value.isNullOrBlank()) {
                 return NOTICE_DISPLAY_MODE_VALUES[0]
@@ -538,6 +623,40 @@ class DlcConfigScreen private constructor(
         private fun noticeDisplayModeLabel(value: String?): String {
             val normalized = normalizeNoticeDisplayMode(value)
             val key = "dlc_manager.config.ui.noticeDisplayMode.$normalized"
+            val label = StringUtils.translate(key)
+            return if (label == key) normalized else label
+        }
+
+        private fun nextDownloadMirrorMode(value: String?): String {
+            val normalized = DlcConfig.normalizeDownloadMirrorMode(value)
+            for (i in DOWNLOAD_MIRROR_MODE_VALUES.indices) {
+                if (DOWNLOAD_MIRROR_MODE_VALUES[i] == normalized) {
+                    return DOWNLOAD_MIRROR_MODE_VALUES[(i + 1) % DOWNLOAD_MIRROR_MODE_VALUES.size]
+                }
+            }
+            return DOWNLOAD_MIRROR_MODE_VALUES[0]
+        }
+
+        private fun downloadMirrorModeLabel(value: String?): String {
+            val normalized = DlcConfig.normalizeDownloadMirrorMode(value)
+            val key = "dlc_manager.config.download.downloadMirrorMode.$normalized"
+            val label = StringUtils.translate(key)
+            return if (label == key) normalized else label
+        }
+
+        private fun nextDownloadMirrorProbeStrategy(value: String?): String {
+            val normalized = DlcConfig.normalizeDownloadMirrorProbeStrategy(value)
+            for (i in DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES.indices) {
+                if (DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[i] == normalized) {
+                    return DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[(i + 1) % DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES.size]
+                }
+            }
+            return DOWNLOAD_MIRROR_PROBE_STRATEGY_VALUES[0]
+        }
+
+        private fun downloadMirrorProbeStrategyLabel(value: String?): String {
+            val normalized = DlcConfig.normalizeDownloadMirrorProbeStrategy(value)
+            val key = "dlc_manager.config.download.downloadMirrorProbeStrategy.$normalized"
             val label = StringUtils.translate(key)
             return if (label == key) normalized else label
         }

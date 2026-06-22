@@ -263,7 +263,12 @@ class DlcServerRemoteDownloadScreen(
         if (downloading && currentStatus != null) {
             y = height - 70
             val totalProgress = resolveTotalProgress(currentStatus)
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.remote.downloading_multi"), centerX, y, 0xE6E6E6)
+            val statusText = if (currentStatus.statusKey == "selecting_source") {
+                Component.translatable("dlc_manager.remote.selecting_source")
+            } else {
+                Component.translatable("dlc_manager.remote.downloading_multi")
+            }
+            guiGraphics.drawCenteredString(font, statusText, centerX, y, 0xE6E6E6)
             y += 12
             drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, totalProgress)
             val percent = (totalProgress * 100f).roundToInt()

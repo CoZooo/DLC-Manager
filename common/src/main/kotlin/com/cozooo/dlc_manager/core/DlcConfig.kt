@@ -284,7 +284,7 @@ object DlcConfig {
     @JvmStatic fun getConnectTimeoutMs(): Int = (if (connectTimeoutSeconds < 1) DEFAULT_CONNECT_TIMEOUT_SECONDS else connectTimeoutSeconds) * 1000
     @JvmStatic fun getTaskTimeoutMs(): Int = (if (taskTimeoutSeconds < 1) DEFAULT_TASK_TIMEOUT_SECONDS else taskTimeoutSeconds) * 1000
     @JvmStatic fun getDownloadMirrorMode(): String = normalizeDownloadMirrorMode(downloadMirrorMode)
-    @JvmStatic fun getDownloadMirrorProbeCount(): Int = maxOf(1, downloadMirrorProbeCount)
+    @JvmStatic fun getDownloadMirrorProbeCount(): Int = downloadMirrorProbeCount.coerceIn(1, 10)
     @JvmStatic fun getDownloadMirrorProbeStrategy(): String = normalizeDownloadMirrorProbeStrategy(downloadMirrorProbeStrategy)
 
     @JvmStatic fun setDlcRoot(value: String?) { if (value != null) dlcRoot = value }
@@ -341,7 +341,7 @@ object DlcConfig {
     @JvmStatic fun setConnectTimeoutMs(value: Int) { connectTimeoutSeconds = maxOf(1, kotlin.math.ceil(value / 1000.0).toInt()) }
     @JvmStatic fun setTaskTimeoutMs(value: Int) { taskTimeoutSeconds = maxOf(1, kotlin.math.ceil(value / 1000.0).toInt()) }
     @JvmStatic fun setDownloadMirrorMode(value: String?) { downloadMirrorMode = normalizeDownloadMirrorMode(value) }
-    @JvmStatic fun setDownloadMirrorProbeCount(value: Int) { downloadMirrorProbeCount = maxOf(1, value) }
+    @JvmStatic fun setDownloadMirrorProbeCount(value: Int) { downloadMirrorProbeCount = value.coerceIn(1, 10) }
     @JvmStatic fun setDownloadMirrorProbeStrategy(value: String?) { downloadMirrorProbeStrategy = normalizeDownloadMirrorProbeStrategy(value) }
 
     private fun resetDefaults() {
@@ -679,7 +679,7 @@ object DlcConfig {
         "connectTimeoutSeconds" to { value -> connectTimeoutSeconds = maxOf(1, asInt(value, DEFAULT_CONNECT_TIMEOUT_SECONDS)) },
         "taskTimeoutSeconds" to { value -> taskTimeoutSeconds = maxOf(1, asInt(value, DEFAULT_TASK_TIMEOUT_SECONDS)) },
         "downloadMirrorMode" to { value -> downloadMirrorMode = normalizeDownloadMirrorMode(asString(value, DEFAULT_DOWNLOAD_MIRROR_MODE)) },
-        "downloadMirrorProbeCount" to { value -> downloadMirrorProbeCount = maxOf(1, asInt(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT)) },
+        "downloadMirrorProbeCount" to { value -> downloadMirrorProbeCount = asInt(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT).coerceIn(1, 10) },
         "downloadMirrorProbeStrategy" to { value -> downloadMirrorProbeStrategy = normalizeDownloadMirrorProbeStrategy(asString(value, DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY)) },
     )
 

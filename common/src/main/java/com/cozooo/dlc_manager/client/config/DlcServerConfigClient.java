@@ -69,7 +69,7 @@ public final class DlcServerConfigClient {
         "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds");
     private static final ConfigString DOWNLOAD_MIRROR_MODE = new DlcConfigString("downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
         "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode");
-    private static final ConfigInteger DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigInteger("downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 100,
+    private static final ConfigInteger DOWNLOAD_MIRROR_PROBE_COUNT = new DlcConfigInteger("downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 10,
         "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount");
     private static final ConfigString DOWNLOAD_MIRROR_PROBE_STRATEGY = new DlcConfigString("downloadMirrorProbeStrategy", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
         "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy");
@@ -235,7 +235,7 @@ public final class DlcServerConfigClient {
         downloads.addProperty("connectTimeoutSeconds", CONNECT_TIMEOUT.getIntegerValue());
         downloads.addProperty("taskTimeoutSeconds", TASK_TIMEOUT.getIntegerValue());
         downloads.addProperty("downloadMirrorMode", DlcConfig.normalizeDownloadMirrorMode(DOWNLOAD_MIRROR_MODE.getStringValue()));
-        downloads.addProperty("downloadMirrorProbeCount", Math.max(1, DOWNLOAD_MIRROR_PROBE_COUNT.getIntegerValue()));
+        downloads.addProperty("downloadMirrorProbeCount", Math.max(1, Math.min(10, DOWNLOAD_MIRROR_PROBE_COUNT.getIntegerValue())));
         downloads.addProperty("downloadMirrorProbeStrategy", DlcConfig.normalizeDownloadMirrorProbeStrategy(DOWNLOAD_MIRROR_PROBE_STRATEGY.getStringValue()));
         root.add("downloads", downloads);
 

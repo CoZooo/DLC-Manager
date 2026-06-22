@@ -258,8 +258,10 @@ public class DlcServerRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         if (downloading && status != null) {
             y = this.height - 70;
             float totalProgress = resolveTotalProgress(status);
-            guiGraphics.drawCenteredString(this.font,
-                Component.translatable("dlc_manager.remote.downloading_multi"), centerX, y, 0xE6E6E6);
+            Component statusText = "selecting_source".equals(status.statusKey)
+                ? Component.translatable("dlc_manager.remote.selecting_source")
+                : Component.translatable("dlc_manager.remote.downloading_multi");
+            guiGraphics.drawCenteredString(this.font, statusText, centerX, y, 0xE6E6E6);
             y += 12;
             drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, totalProgress);
             int percent = Math.round(totalProgress * 100f);
