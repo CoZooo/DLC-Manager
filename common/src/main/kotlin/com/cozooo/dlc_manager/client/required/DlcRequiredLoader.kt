@@ -153,7 +153,7 @@ object DlcRequiredLoader {
         if (priority.isNotBlank()) {
             entry.setDownloadPriority(priority)
         }
-        val inList = getBoolean(obj, "isInList")
+        val inList = getBoolean(obj, "isEnabled") ?: getBoolean(obj, "isInList")
         if (inList != null) {
             entry.setInList(inList)
         }
@@ -368,7 +368,7 @@ object DlcRequiredLoader {
         if (!redirectUrl.isNullOrBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl)
         }
-        ordered.addProperty("isInList", entry.isInList())
+        ordered.addProperty("isEnabled", entry.isInList())
         ordered.addProperty("isHidden", entry.isHidden())
         if (entry.isUserRemoved()) {
             ordered.addProperty("UserRemoved", true)
@@ -383,6 +383,9 @@ object DlcRequiredLoader {
             }
             if ("displayName".equals(key, ignoreCase = true) || "DisplayName".equals(key, ignoreCase = true)
                 || "tip".equals(key, ignoreCase = true)
+                || "isEnabled".equals(key, ignoreCase = true)
+                || "isInList".equals(key, ignoreCase = true)
+                || "isShownInList".equals(key, ignoreCase = true)
                 || "userRemoved".equals(key, ignoreCase = true)
             ) {
                 continue

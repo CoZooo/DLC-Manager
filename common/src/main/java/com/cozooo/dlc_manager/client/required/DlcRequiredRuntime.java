@@ -662,7 +662,7 @@ public final class DlcRequiredRuntime {
         String applied = getString(obj, "appliedTarget");
         ordered.addProperty("appliedTarget", applied == null ? "" : applied);
 
-        ordered.addProperty("isInList", getBoolean(obj, "isInList", true));
+        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         boolean userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false);
         if (userRemoved) {

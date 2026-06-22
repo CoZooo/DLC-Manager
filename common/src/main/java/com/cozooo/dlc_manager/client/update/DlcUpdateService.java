@@ -1731,6 +1731,7 @@ public final class DlcUpdateService {
         "type",
         "appliedTarget",
         "RedirectUrl",
+        "isEnabled",
         "isInList",
         "isHidden",
         "AllowEnableByAll",

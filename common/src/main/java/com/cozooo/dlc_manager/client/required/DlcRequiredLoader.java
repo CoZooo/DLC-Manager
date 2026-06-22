@@ -166,7 +166,10 @@ public final class DlcRequiredLoader {
         if (priority != null && !priority.isBlank()) {
             entry.setDownloadPriority(priority);
         }
-        Boolean inList = getBoolean(obj, "isInList");
+        Boolean inList = getBoolean(obj, "isEnabled");
+        if (inList == null) {
+            inList = getBoolean(obj, "isInList");
+        }
         if (inList != null) {
             entry.setInList(inList);
         }
@@ -388,7 +391,7 @@ public final class DlcRequiredLoader {
         if (redirectUrl != null && !redirectUrl.isBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl);
         }
-        ordered.addProperty("isInList", entry.isInList());
+        ordered.addProperty("isEnabled", entry.isInList());
         ordered.addProperty("isHidden", entry.isHidden());
         if (entry.isUserRemoved()) {
             ordered.addProperty("UserRemoved", true);
@@ -404,6 +407,9 @@ public final class DlcRequiredLoader {
             }
             if ("displayName".equalsIgnoreCase(key) || "DisplayName".equalsIgnoreCase(key)
                 || "tip".equalsIgnoreCase(key)
+                || "isEnabled".equalsIgnoreCase(key)
+                || "isInList".equalsIgnoreCase(key)
+                || "isShownInList".equalsIgnoreCase(key)
                 || "userRemoved".equalsIgnoreCase(key)) {
                 continue;
             }

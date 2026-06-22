@@ -117,6 +117,7 @@ public class DlcTooltipLoader {
             return;
         }
         boolean legacyShown = getBoolean(obj, "isShownInList", true);
+        boolean legacyInList = getBoolean(obj, "isInList", legacyShown);
         DlcDcConfigIO.removeIgnoreCase(obj, "isShownInList");
         JsonObject displayName = localizedObjectFromAny(obj, "DisplayName");
         if (displayName.entrySet().isEmpty()) {
@@ -131,7 +132,7 @@ public class DlcTooltipLoader {
         if (typeValue == null) {
             typeValue = toTypeString(type);
         }
-        boolean inList = getBoolean(obj, "isInList", legacyShown);
+        boolean inList = getBoolean(obj, "isEnabled", legacyInList);
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         JsonElement dependencies = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"));
@@ -168,7 +169,8 @@ public class DlcTooltipLoader {
         }
         entry.hasTypeField = DlcDcConfigIO.hasIgnoreCase(obj, "type");
         boolean legacyShown = getBoolean(obj, "isShownInList", true);
-        entry.inList = getBoolean(obj, "isInList", legacyShown);
+        boolean legacyInList = getBoolean(obj, "isInList", legacyShown);
+        entry.inList = getBoolean(obj, "isEnabled", legacyInList);
         entry.hidden = getBoolean(obj, "isHidden", false);
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"));
@@ -227,6 +229,7 @@ public class DlcTooltipLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "RedirectUrl")
             || DlcDcConfigIO.hasIgnoreCase(obj, "dependencies")
             || DlcDcConfigIO.hasIgnoreCase(obj, "conflicts")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "isEnabled")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isInList")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isShownInList")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
@@ -406,7 +409,7 @@ public class DlcTooltipLoader {
         if (redirectUrl != null && !redirectUrl.isBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl);
         }
-        ordered.addProperty("isInList", inList);
+        ordered.addProperty("isEnabled", inList);
         ordered.addProperty("isHidden", hidden);
         ordered.addProperty("AllowEnableByAll", allowEnableByAll);
         ordered.add("dependencies", dependencies == null ? new com.google.gson.JsonPrimitive("") : dependencies);
@@ -420,6 +423,11 @@ public class DlcTooltipLoader {
                     continue;
                 }
                 if ("dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)) {
+                    continue;
+                }
+                if ("isEnabled".equalsIgnoreCase(key)
+                    || "isInList".equalsIgnoreCase(key)
+                    || "isShownInList".equalsIgnoreCase(key)) {
                     continue;
                 }
                 if ("modrinth_projectid".equalsIgnoreCase(key)

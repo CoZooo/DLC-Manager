@@ -927,7 +927,10 @@ object DlcConfig {
         val out = JsonObject()
         if (input != null) {
             for ((key, value) in input.entrySet()) {
-                if (key.isNullOrBlank() || key.equals("isShownInList", ignoreCase = true)) {
+                if (key.isNullOrBlank()
+                    || key.equals("isShownInList", ignoreCase = true)
+                    || key.equals("isInList", ignoreCase = true)
+                ) {
                     continue
                 }
                 out.add(key, value)
@@ -946,7 +949,14 @@ object DlcConfig {
             out.addProperty("identifier", identifier ?: "")
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) out.addProperty("type", "others")
-        if (!DlcDcConfigIO.hasIgnoreCase(out, "isInList")) out.addProperty("isInList", DlcDcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true))
+        if (!DlcDcConfigIO.hasIgnoreCase(out, "isEnabled")) {
+            val legacyEnabled = if (DlcDcConfigIO.hasIgnoreCase(input, "isInList")) {
+                DlcDcConfigIO.getBooleanIgnoreCase(input, "isInList", true)
+            } else {
+                DlcDcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true)
+            }
+            out.addProperty("isEnabled", legacyEnabled)
+        }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) out.addProperty("isHidden", false)
         if (!DlcDcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) out.addProperty("AllowEnableByAll", true)
         if (!DlcDcConfigIO.hasIgnoreCase(out, "dependencies")) out.addProperty("dependencies", "")

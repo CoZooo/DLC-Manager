@@ -593,8 +593,13 @@ object DlcDcFormatUtil {
     }
 
     private fun writeBasic(out: StringBuilder, node: JsonObject, indent: Int) {
-        val keys = arrayOf("identifier", "type", "file_name", "appliedTarget", "isInList", "isHidden", "AllowEnableByAll", "alarm")
+        val keys = arrayOf("identifier", "type", "file_name", "appliedTarget", "isEnabled", "isHidden", "AllowEnableByAll", "alarm")
         for (key in keys) {
+            if (key == "isEnabled" && !node.has(key) && node.has("isInList")) {
+                indentLine(out, indent)
+                out.append(formatKeyValue(key, node.get("isInList"))).append('\n')
+                continue
+            }
             if (!node.has(key)) {
                 continue
             }
@@ -615,7 +620,7 @@ object DlcDcFormatUtil {
 
     private fun isKnownBasicKey(key: String): Boolean {
         return key == "identifier" || key == "type" || key == "file_name" || key == "appliedTarget" ||
-            key == "isInList" || key == "isHidden" || key == "AllowEnableByAll" || key == "alarm"
+            key == "isEnabled" || key == "isInList" || key == "isHidden" || key == "AllowEnableByAll" || key == "alarm"
     }
 
     private fun isDownloadKey(key: String): Boolean {

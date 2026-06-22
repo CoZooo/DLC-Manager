@@ -656,12 +656,17 @@ public final class DlcDcFormatUtil {
             "type",
             "file_name",
             "appliedTarget",
-            "isInList",
+            "isEnabled",
             "isHidden",
             "AllowEnableByAll",
             "alarm"
         };
         for (String key : keys) {
+            if ("isEnabled".equals(key) && !node.has(key) && node.has("isInList")) {
+                indentLine(out, indent);
+                out.append(formatKeyValue(key, node.get("isInList"))).append('\n');
+                continue;
+            }
             if (!node.has(key)) {
                 continue;
             }
@@ -693,6 +698,7 @@ public final class DlcDcFormatUtil {
             || "type".equals(key)
             || "file_name".equals(key)
             || "appliedTarget".equals(key)
+            || "isEnabled".equals(key)
             || "isInList".equals(key)
             || "isHidden".equals(key)
             || "AllowEnableByAll".equals(key)

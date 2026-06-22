@@ -140,7 +140,7 @@ object DlcRemoteRuntime {
             ordered.addProperty("file_name", fileName)
         }
 
-        ordered.addProperty("isInList", getBoolean(obj, "isInList", true))
+        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
 

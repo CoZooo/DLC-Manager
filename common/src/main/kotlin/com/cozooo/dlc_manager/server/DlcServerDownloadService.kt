@@ -1470,7 +1470,7 @@ object DlcServerDownloadService {
         ordered.addProperty("type", getString(obj, "type"))
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
         ordered.addProperty("file_name", fileName ?: "")
-        ordered.addProperty("isInList", getBoolean(obj, "isInList", true))
+        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
         val deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
@@ -1560,7 +1560,7 @@ object DlcServerDownloadService {
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
         ordered.addProperty("file_name", fileName ?: "")
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"))
-        ordered.addProperty("isInList", getBoolean(obj, "isInList", true))
+        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         val userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false)
         if (userRemoved) {

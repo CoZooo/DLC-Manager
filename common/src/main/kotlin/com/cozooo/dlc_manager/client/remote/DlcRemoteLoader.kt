@@ -324,7 +324,8 @@ object DlcRemoteLoader {
             type = DlcType.MOD
         }
         val legacyShown = getBoolean(obj, "isShownInList", true)
-        var inList = getBoolean(obj, "isInList", legacyShown)
+        val legacyInList = getBoolean(obj, "isInList", legacyShown)
+        var inList = getBoolean(obj, "isEnabled", legacyInList)
         var hidden = getBoolean(obj, "isHidden", false)
         val allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
         val alarm = getBoolean(obj, "alarm", false)
@@ -365,7 +366,7 @@ object DlcRemoteLoader {
         if (!fileName.isNullOrBlank()) {
             ordered.addProperty("file_name", fileName)
         }
-        ordered.addProperty("isInList", inList)
+        ordered.addProperty("isEnabled", inList)
         ordered.addProperty("isHidden", hidden)
         ordered.addProperty("AllowEnableByAll", allowEnableByAll)
         ordered.add("dependencies", deps.element)
@@ -381,7 +382,9 @@ object DlcRemoteLoader {
             if ("platform".equals(key, ignoreCase = true) || "projectid".equals(key, ignoreCase = true) || "version".equals(key, ignoreCase = true)
                 || "modid".equals(key, ignoreCase = true) || "dlc_name".equals(key, ignoreCase = true) || "dlc_identifier".equals(key, ignoreCase = true)
                 || "identifier".equals(key, ignoreCase = true)
+                || "isEnabled".equals(key, ignoreCase = true)
                 || "isShownInList".equals(key, ignoreCase = true)
+                || "isInList".equals(key, ignoreCase = true)
             ) {
                 continue
             }
@@ -733,6 +736,7 @@ object DlcRemoteLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
             || DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName")
             || DlcDcConfigIO.hasIgnoreCase(obj, "tip")
+            || DlcDcConfigIO.hasIgnoreCase(obj, "isEnabled")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isInList")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
             || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")

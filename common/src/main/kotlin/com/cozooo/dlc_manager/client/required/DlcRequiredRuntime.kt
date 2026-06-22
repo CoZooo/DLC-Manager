@@ -631,7 +631,7 @@ object DlcRequiredRuntime {
         val applied = getString(obj, "appliedTarget")
         ordered.addProperty("appliedTarget", if (applied.isEmpty()) "" else applied)
 
-        ordered.addProperty("isInList", getBoolean(obj, "isInList", true))
+        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         val userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false)
         if (userRemoved) {
