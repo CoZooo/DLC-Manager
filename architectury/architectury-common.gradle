@@ -54,6 +54,10 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
             options.release = javaVersion
         }
 
+        tasks.withType(Jar).configureEach {
+            exclude('rebel.xml')
+        }
+
         if (kotlinEnabled) {
             apply plugin: 'org.jetbrains.kotlin.jvm'
 

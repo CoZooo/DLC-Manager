@@ -5,9 +5,13 @@ const typeOptions = [
   { value: "resourcepack", label: "resourcepack" },
   { value: "datapack", label: "datapack" },
   { value: "gunpack", label: "gunpack" },
-  { value: "dlcpack", label: "dlcpack" },
   { value: "config", label: "config" },
   { value: "others", label: "others" }
+];
+
+const remoteTypeOptions = [
+  ...typeOptions,
+  { value: "dlcpack", label: "dlcpack" }
 ];
 
 const priorityOptions = [
@@ -31,7 +35,7 @@ const downloadMirrorProbeStrategyOptions = [
   { value: "best_of_three", label: "best_of_three" }
 ];
 
-const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: boolean; appliedTargetOnlyFor?: string[] }): SectionSchema => ({
+const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boolean; includeAppliedTarget?: boolean; appliedTargetOnlyFor?: string[] }): SectionSchema => ({
   key: "basic",
   label: "[basic]",
   fields: [
@@ -64,7 +68,7 @@ const basicFields = (options?: { includeType?: boolean; includeAppliedTarget?: b
           key: "type",
           label: "type",
           kind: "select" as const,
-          options: typeOptions,
+          options: options?.includeDlcPackType ? remoteTypeOptions : typeOptions,
           help: "static.help.dlcType"
         }]
       : []),
@@ -471,7 +475,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
           }
         ]
       },
-      basicFields({ includeAppliedTarget: true, appliedTargetOnlyFor: ["others"] }),
+      basicFields({ includeDlcPackType: true, includeAppliedTarget: true, appliedTargetOnlyFor: ["others"] }),
       dependenciesSection,
       conflictsSection,
       displayNameSection,

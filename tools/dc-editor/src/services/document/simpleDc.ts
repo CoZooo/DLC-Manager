@@ -1368,6 +1368,13 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
     const basic = model.basic || {};
     requireNonEmptyString(issues, basic.file_name, "[basic].file_name 为空。", "warning");
     const typeValue = readString(basic.type);
+    if (typeValue === "dlcpack") {
+      issues.push({
+        severity: "error",
+        message: "[basic].type 为 dlcpack 只能用于 Remote 配置。",
+        source: "schema"
+      });
+    }
     if ((typeValue === "others" || typeValue === "config") && !readString(basic.appliedTarget)) {
       issues.push({
         severity: "warning",
