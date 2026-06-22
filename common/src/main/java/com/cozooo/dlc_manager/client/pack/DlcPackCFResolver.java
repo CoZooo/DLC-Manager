@@ -58,6 +58,9 @@ public final class DlcPackCFResolver {
         List<DlcPackInstallPlan.FileEntry> entries = new ArrayList<>();
         List<ManifestDownload> downloads = new ArrayList<>();
         Set<String> seenRelative = new LinkedHashSet<>();
+        if (progressListener != null) {
+            progressListener.onProgress(SELECTING_SOURCE_STATUS, -1f);
+        }
         for (DlcPackManifest.FileRef ref : pack.manifestFiles) {
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw new DlcDownloadService.DownloadCanceledException("canceled");
@@ -109,9 +112,6 @@ public final class DlcPackCFResolver {
                 futures.add(executor.submit(() -> {
                     if (cancelChecker != null && cancelChecker.isCanceled()) {
                         throw new DlcDownloadService.DownloadCanceledException("canceled");
-                    }
-                    if (progressListener != null) {
-                        progressListener.onProgress("Downloading " + download.target.fileName, aggregateProgress(perFileProgress, total));
                     }
                     Path downloaded = downloadManifestFile(download, fileIndex, perFileProgress, total, cancelChecker, progressListener);
                     Files.createDirectories(download.cached.getParent());
@@ -204,8 +204,8 @@ public final class DlcPackCFResolver {
 
             @Override
             public void onStatusKey(String statusKey) {
-                if (progressListener != null && "selecting_source".equals(statusKey)) {
-                    progressListener.onProgress(SELECTING_SOURCE_STATUS, aggregateProgress(perFileProgress, total));
+                if (progressListener != null && "selecting_source".equals(statusKey) && aggregateProgress(perFileProgress, total) <= 0f) {
+                    progressListener.onProgress(SELECTING_SOURCE_STATUS, -1f);
                 }
             }
         };

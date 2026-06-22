@@ -61,6 +61,7 @@ object DlcPackCFResolver {
         val entries = ArrayList<DlcPackInstallPlan.FileEntry>()
         val downloads = ArrayList<ManifestDownload>()
         val seenRelative = LinkedHashSet<String>()
+        progressListener?.onProgress(SELECTING_SOURCE_STATUS, -1f)
         for (ref in pack.manifestFiles) {
             if (cancelChecker != null && cancelChecker.isCanceled()) {
                 throw DlcDownloadService.DownloadCanceledException("canceled")
@@ -106,7 +107,6 @@ object DlcPackCFResolver {
                     if (cancelChecker != null && cancelChecker.isCanceled()) {
                         throw DlcDownloadService.DownloadCanceledException("canceled")
                     }
-                    progressListener?.onProgress("Downloading ${download.target.fileName}", aggregateProgress(perFileProgress, total))
                     val downloaded = downloadManifestFile(download, index, perFileProgress, total, cancelChecker, progressListener)
                     Files.createDirectories(download.cached.parent)
                     Files.move(downloaded, download.cached, StandardCopyOption.REPLACE_EXISTING)
@@ -187,8 +187,8 @@ object DlcPackCFResolver {
             }
 
             override fun onStatusKey(statusKey: String) {
-                if (statusKey == "selecting_source") {
-                    progressListener?.onProgress(SELECTING_SOURCE_STATUS, aggregateProgress(perFileProgress, total))
+                if (statusKey == "selecting_source" && aggregateProgress(perFileProgress, total) <= 0f) {
+                    progressListener?.onProgress(SELECTING_SOURCE_STATUS, -1f)
                 }
             }
         }
