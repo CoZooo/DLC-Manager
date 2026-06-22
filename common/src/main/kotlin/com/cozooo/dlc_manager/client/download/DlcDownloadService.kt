@@ -339,7 +339,7 @@ object DlcDownloadService {
                 return null
             }
             state.selectedMirror?.let { return if (it == switchPlan.primaryIsMirror) null else SourceProbe.selected(switchPlan) }
-            if (state.mirrorComparisons >= maxMirrorProbeCount()) {
+            if (state.mirrorComparisons >= maxMirrorProbeAttempts()) {
                 return null
             }
             state.mirrorComparisons++
@@ -389,7 +389,7 @@ object DlcDownloadService {
     private fun precheckDownloadSource(mirrorPlan: MirrorPlan, officialUrl: String, mirrorUrl: String): Boolean? {
         val state = mirrorPlan.probeState()
         synchronized(state.precheckLock) {
-            val maxCount = maxMirrorProbeCount()
+            val maxCount = maxMirrorProbeAttempts()
             repeat(maxCount) {
                 synchronized(state.lock) {
                     if (state.mirrorDisabled) {
@@ -480,6 +480,14 @@ object DlcDownloadService {
     }
 
     private fun maxMirrorProbeCount(): Int = maxOf(1, DlcConfig.getDownloadMirrorProbeCount())
+
+    private fun maxMirrorProbeAttempts(): Int {
+        return if (DlcConfig.getDownloadMirrorProbeStrategy() == DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE) {
+            1
+        } else {
+            maxMirrorProbeCount()
+        }
+    }
 
     private fun requiredMirrorProbeWins(): Int {
         return if (DlcConfig.getDownloadMirrorProbeStrategy() == DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE) {

@@ -352,7 +352,7 @@ public final class DlcDownloadService {
             if (state.selectedMirror != null) {
                 return state.selectedMirror == switchPlan.primaryIsMirror ? null : SourceProbe.selected(switchPlan);
             }
-            if (state.mirrorComparisons >= maxMirrorProbeCount()) {
+            if (state.mirrorComparisons >= maxMirrorProbeAttempts()) {
                 return null;
             }
             state.mirrorComparisons++;
@@ -409,7 +409,7 @@ public final class DlcDownloadService {
     private static Boolean precheckDownloadSource(MirrorPlan mirrorPlan, String officialUrl, String mirrorUrl) {
         PlatformProbeState state = mirrorPlan.probeState();
         synchronized (state.precheckLock) {
-            int maxCount = maxMirrorProbeCount();
+            int maxCount = maxMirrorProbeAttempts();
             for (int i = 0; i < maxCount; i++) {
                 synchronized (state.lock) {
                     if (state.mirrorDisabled) {
@@ -517,6 +517,13 @@ public final class DlcDownloadService {
 
     private static int maxMirrorProbeCount() {
         return Math.max(1, DlcConfig.getDownloadMirrorProbeCount());
+    }
+
+    private static int maxMirrorProbeAttempts() {
+        if (DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE.equals(DlcConfig.getDownloadMirrorProbeStrategy())) {
+            return 1;
+        }
+        return maxMirrorProbeCount();
     }
 
     private static int requiredMirrorProbeWins() {
