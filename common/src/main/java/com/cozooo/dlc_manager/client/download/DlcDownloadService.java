@@ -193,6 +193,35 @@ public final class DlcDownloadService {
         return target;
     }
 
+    public static void precheckDownloadSources(List<DlcDownloadCandidate> candidates, ProgressListener listener) {
+        if (candidates == null || candidates.isEmpty()) {
+            return;
+        }
+        DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode());
+        if (mode != DownloadMirrorMode.SMART_PRECHECK) {
+            return;
+        }
+        for (DlcDownloadCandidate candidate : candidates) {
+            if (candidate == null || candidate.url == null || candidate.url.isBlank()) {
+                continue;
+            }
+            String fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
+            long total = candidate.expectedSize > 0 ? candidate.expectedSize : -1L;
+            MirrorPlan mirrorPlan = mirrorPlan(candidate.url, fileName, total);
+            if (mirrorPlan == null) {
+                continue;
+            }
+            notifyStatus(listener, "selecting_source", mode, mirrorPlan);
+            try {
+                primaryDownloadUrl(candidate.url, mirrorPlan, mode);
+            } catch (IOException ignored) {
+            } finally {
+                notifyStatus(listener, "downloading", mode, mirrorPlan);
+            }
+            return;
+        }
+    }
+
     private static MirrorPlan mirrorPlan(String url, String fileName, long totalBytes) {
         if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
             return null;
@@ -258,7 +287,7 @@ public final class DlcDownloadService {
                     yield url;
                 }
                 Boolean selected = selectedSourceFromCache(mirrorPlan);
-                if (selected == null && mirrorPlan.canSpeedCompare) {
+                if (selected == null) {
                     ProbeUrlPair probePair = dedicatedProbePair(url);
                     if (probePair != null) {
                         selected = precheckDownloadSource(mirrorPlan, probePair.officialUrl, probePair.mirrorUrl);
@@ -302,8 +331,7 @@ public final class DlcDownloadService {
     private static void notifyStatus(ProgressListener listener, String statusKey, DownloadMirrorMode mode, MirrorPlan mirrorPlan) {
         if (listener instanceof StatusProgressListener statusListener
             && mode == DownloadMirrorMode.SMART_PRECHECK
-            && mirrorPlan != null
-            && mirrorPlan.canSpeedCompare) {
+            && mirrorPlan != null) {
             statusListener.onStatusKey(statusKey);
         }
     }

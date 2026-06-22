@@ -1169,6 +1169,7 @@ object DlcServerDownloadService {
         if (entry == null) return null
         checkRequiredCanceled()
         val resolver = DlcDownloadCandidate.resolver(entry)
+        precheckDownloadSources(entry, listener)
         var lastError: IOException? = null
         while (true) {
             val candidates = resolver.next()
@@ -1245,6 +1246,7 @@ object DlcServerDownloadService {
     ): String? {
         if (entry == null) return null
         val resolver = DlcDownloadCandidate.resolver(entry)
+        precheckDownloadSources(entry, listener)
         var lastError: IOException? = null
         while (true) {
             val candidates = resolver.next()
@@ -1304,6 +1306,44 @@ object DlcServerDownloadService {
             throw lastError
         }
         throw IOException("missing download url")
+    }
+
+    private fun precheckDownloadSources(entry: DlcRemoteEntry, listener: ProgressListener?) {
+        try {
+            val candidates = DlcDownloadCandidate.resolve(entry)
+            if (!hasMissingHostedDownloadCandidate(entry, candidates)) return
+            DlcDownloadService.precheckDownloadSources(candidates, progressListener(listener))
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun precheckDownloadSources(entry: DlcRequiredEntry, listener: ProgressListener?) {
+        try {
+            val candidates = DlcDownloadCandidate.resolve(entry)
+            if (!hasMissingHostedDownloadCandidate(entry, candidates)) return
+            DlcDownloadService.precheckDownloadSources(candidates, progressListener(listener))
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun hasMissingHostedDownloadCandidate(entry: DlcRemoteEntry, candidates: List<DlcDownloadCandidate>): Boolean {
+        for (candidate in candidates) {
+            if (candidate.direct) continue
+            val fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url)
+            val target = entry.resolveTargetPath(fileName) ?: continue
+            if (!Files.exists(target)) return true
+        }
+        return false
+    }
+
+    private fun hasMissingHostedDownloadCandidate(entry: DlcRequiredEntry, candidates: List<DlcDownloadCandidate>): Boolean {
+        for (candidate in candidates) {
+            if (candidate.direct) continue
+            val fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url)
+            val target = entry.resolveRequiredPath(fileName) ?: continue
+            if (!Files.exists(target)) return true
+        }
+        return false
     }
 
     private fun progressListener(listener: ProgressListener?): DlcDownloadService.ProgressListener? {

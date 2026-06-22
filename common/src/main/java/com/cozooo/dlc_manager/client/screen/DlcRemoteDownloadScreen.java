@@ -554,6 +554,7 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         }
         try {
             DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
+            precheckDownloadSources(entry, progressKey);
             IOException lastError = null;
             int attemptId = 0;
             boolean canceled = false;
@@ -680,6 +681,31 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
                 activeDownloadEntry = null;
             }
         }
+    }
+
+    private void precheckDownloadSources(DlcRemoteEntry entry, String progressKey) {
+        try {
+            List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
+            if (!hasMissingHostedDownloadCandidate(entry, candidates)) {
+                return;
+            }
+            DlcDownloadService.precheckDownloadSources(candidates, progressListener(progressKey, 0, entry));
+        } catch (Exception ignored) {
+        }
+    }
+
+    private boolean hasMissingHostedDownloadCandidate(DlcRemoteEntry entry, List<DlcDownloadCandidate> candidates) {
+        for (DlcDownloadCandidate candidate : candidates) {
+            if (candidate == null || candidate.direct) {
+                continue;
+            }
+            String fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url);
+            Path target = entry.resolveTargetPath(fileName);
+            if (target != null && !Files.exists(target)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private DlcDownloadService.ProgressListener progressListener(String progressKey, int attemptId, DlcRemoteEntry entry) {

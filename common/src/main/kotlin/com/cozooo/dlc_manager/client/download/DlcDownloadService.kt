@@ -203,6 +203,33 @@ object DlcDownloadService {
         return target
     }
 
+    @JvmStatic
+    fun precheckDownloadSources(candidates: List<DlcDownloadCandidate>?, listener: ProgressListener?) {
+        if (candidates.isNullOrEmpty()) {
+            return
+        }
+        val mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode())
+        if (mode != DownloadMirrorMode.SMART_PRECHECK) {
+            return
+        }
+        for (candidate in candidates) {
+            if (candidate.url.isBlank()) {
+                continue
+            }
+            val fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride)
+            val total = if (candidate.expectedSize > 0) candidate.expectedSize else -1L
+            val mirrorPlan = mirrorPlan(candidate.url, fileName, total) ?: continue
+            notifyStatus(listener, "selecting_source", mode, mirrorPlan)
+            try {
+                primaryDownloadUrl(candidate.url, mirrorPlan, mode)
+            } catch (_: IOException) {
+            } finally {
+                notifyStatus(listener, "downloading", mode, mirrorPlan)
+            }
+            return
+        }
+    }
+
     private fun mirrorPlan(url: String, fileName: String?, totalBytes: Long): MirrorPlan? {
         if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
             return null
@@ -250,7 +277,7 @@ object DlcDownloadService {
                     return url
                 }
                 var selected = selectedSourceFromCache(mirrorPlan)
-                if (selected == null && mirrorPlan.canSpeedCompare) {
+                if (selected == null) {
                     val probePair = dedicatedProbePair(url)
                     if (probePair != null) {
                         selected = precheckDownloadSource(mirrorPlan, probePair.officialUrl, probePair.mirrorUrl)
@@ -293,7 +320,7 @@ object DlcDownloadService {
     }
 
     private fun notifyStatus(listener: ProgressListener?, statusKey: String, mode: DownloadMirrorMode, mirrorPlan: MirrorPlan?) {
-        if (listener is StatusProgressListener && mode == DownloadMirrorMode.SMART_PRECHECK && mirrorPlan != null && mirrorPlan.canSpeedCompare) {
+        if (listener is StatusProgressListener && mode == DownloadMirrorMode.SMART_PRECHECK && mirrorPlan != null) {
             listener.onStatusKey(statusKey)
         }
     }

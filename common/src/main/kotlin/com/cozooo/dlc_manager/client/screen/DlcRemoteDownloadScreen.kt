@@ -527,6 +527,7 @@ class DlcRemoteDownloadScreen(
         }
         try {
             val resolver = DlcDownloadCandidate.resolver(entry)
+            precheckDownloadSources(entry, progressKey)
             var lastError: IOException? = null
             var attemptId = 0
             var canceled = false
@@ -663,6 +664,31 @@ class DlcRemoteDownloadScreen(
                 activeDownloadEntry = null
             }
         }
+    }
+
+    private fun precheckDownloadSources(entry: DlcRemoteEntry, progressKey: String) {
+        try {
+            val candidates = DlcDownloadCandidate.resolve(entry)
+            if (!hasMissingHostedDownloadCandidate(entry, candidates)) {
+                return
+            }
+            DlcDownloadService.precheckDownloadSources(candidates, progressListener(progressKey, 0, entry))
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun hasMissingHostedDownloadCandidate(entry: DlcRemoteEntry, candidates: List<DlcDownloadCandidate>): Boolean {
+        for (candidate in candidates) {
+            if (candidate.direct) {
+                continue
+            }
+            val fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url)
+            val target = entry.resolveTargetPath(fileName) ?: continue
+            if (!Files.exists(target)) {
+                return true
+            }
+        }
+        return false
     }
 
     private fun progressListener(progressKey: String, attemptId: Int, entry: DlcRemoteEntry?): DlcDownloadService.ProgressListener {

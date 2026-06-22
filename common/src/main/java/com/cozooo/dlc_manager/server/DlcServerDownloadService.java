@@ -1341,6 +1341,7 @@ public final class DlcServerDownloadService {
         }
         checkRequiredCanceled();
         DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
+        precheckDownloadSources(entry, listener);
         IOException lastError = null;
         List<DlcDownloadCandidate> candidates;
         while (!(candidates = resolver.next()).isEmpty()) {
@@ -1429,6 +1430,7 @@ public final class DlcServerDownloadService {
             return null;
         }
         DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
+        precheckDownloadSources(entry, listener);
         IOException lastError = null;
         List<DlcDownloadCandidate> candidates;
         while (!(candidates = resolver.next()).isEmpty()) {
@@ -1489,6 +1491,56 @@ public final class DlcServerDownloadService {
             throw lastError;
         }
         throw new IOException("missing download url");
+    }
+
+    private static void precheckDownloadSources(DlcRemoteEntry entry, ProgressListener listener) {
+        try {
+            List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
+            if (!hasMissingHostedDownloadCandidate(entry, candidates)) {
+                return;
+            }
+            DlcDownloadService.precheckDownloadSources(candidates, progressListener(listener));
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static void precheckDownloadSources(DlcRequiredEntry entry, ProgressListener listener) {
+        try {
+            List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
+            if (!hasMissingHostedDownloadCandidate(entry, candidates)) {
+                return;
+            }
+            DlcDownloadService.precheckDownloadSources(candidates, progressListener(listener));
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static boolean hasMissingHostedDownloadCandidate(DlcRemoteEntry entry, List<DlcDownloadCandidate> candidates) {
+        for (DlcDownloadCandidate candidate : candidates) {
+            if (candidate == null || candidate.direct) {
+                continue;
+            }
+            String fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url);
+            Path target = entry.resolveTargetPath(fileName);
+            if (target != null && !Files.exists(target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasMissingHostedDownloadCandidate(DlcRequiredEntry entry, List<DlcDownloadCandidate> candidates) {
+        for (DlcDownloadCandidate candidate : candidates) {
+            if (candidate == null || candidate.direct) {
+                continue;
+            }
+            String fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url);
+            Path target = entry.resolveRequiredPath(fileName);
+            if (target != null && !Files.exists(target)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static DlcDownloadService.ProgressListener progressListener(ProgressListener listener) {
