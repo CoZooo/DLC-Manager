@@ -553,10 +553,14 @@ public class DlcPackInstaller {
         String currentModpack = version == null ? null : version.getModpack();
         String currentBase = version == null ? null : version.getBase();
         String currentDlc = version == null ? null : version.getDlc();
+        String currentPlatform = DlcPackMetadata.currentPlatform();
         String currentGameVersion = CrossPlatformRuntime.mcVersion();
         String currentModLoader = CrossPlatformRuntime.loaderName();
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack, metadata.modpackAnyWildcard)) {
             result.incompatible.add("modpack " + safeText(currentModpack) + " not in " + String.join(", ", metadata.modpacks));
+        }
+        if (!DlcPackMetadata.platformMatches(metadata.platform, currentPlatform)) {
+            result.incompatible.add("platform " + safeText(currentPlatform) + " not in " + metadata.platform);
         }
         if (!DlcPackMetadata.stringRuleMatches(metadata.gameVersion, currentGameVersion)) {
             result.incompatible.add("gameVersion " + safeText(currentGameVersion) + " not in " + metadata.gameVersion);

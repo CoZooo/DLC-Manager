@@ -206,6 +206,17 @@ const packBasicSection: SectionSchema = {
       help: "static.help.packVersion"
     },
     {
+      key: "platform",
+      label: "platform",
+      kind: "select",
+      options: [
+        { value: "universal", label: "universal" },
+        { value: "client", label: "client" },
+        { value: "server", label: "server" }
+      ],
+      help: "static.help.packPlatform"
+    },
+    {
       key: "gameVersion",
       label: "gameVersion",
       kind: "text",

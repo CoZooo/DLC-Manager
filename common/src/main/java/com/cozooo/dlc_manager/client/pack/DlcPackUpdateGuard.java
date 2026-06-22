@@ -49,10 +49,14 @@ public final class DlcPackUpdateGuard {
         List<String> reasons = new ArrayList<>();
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         String targetModpack = version == null ? null : version.getModpack();
+        String currentPlatform = DlcPackMetadata.currentPlatform();
         String currentGameVersion = CrossPlatformRuntime.mcVersion();
         String currentModLoader = CrossPlatformRuntime.loaderName();
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack, metadata.modpackAnyWildcard)) {
             reasons.add("modpack " + safeText(targetModpack) + " not in " + String.join(", ", metadata.modpacks));
+        }
+        if (!DlcPackMetadata.platformMatches(metadata.platform, currentPlatform)) {
+            reasons.add("platform " + safeText(currentPlatform) + " not in " + metadata.platform);
         }
         if (!DlcPackMetadata.stringRuleMatches(metadata.gameVersion, currentGameVersion)) {
             reasons.add("gameVersion " + safeText(currentGameVersion) + " not in " + metadata.gameVersion);

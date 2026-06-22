@@ -1471,6 +1471,14 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
         source: "schema"
       });
     }
+    const platform = readString(basic.platform).toLowerCase();
+    if (platform && !["client", "server", "universal"].includes(platform)) {
+      issues.push({
+        severity: "error",
+        message: "[basic].platform 只能是 client、server 或 universal。",
+        source: "schema"
+      });
+    }
     return;
   }
 

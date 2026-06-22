@@ -43,10 +43,14 @@ object DlcPackUpdateGuard {
         val metadata = parsed.metadata
         val reasons = ArrayList<String>()
         val targetModpack = DlcUpdateVersion.load(dlcRoot).getModpack()
+        val currentPlatform = DlcPackMetadata.currentPlatform()
         val currentGameVersion = CrossPlatformRuntime.mcVersion()
         val currentModLoader = CrossPlatformRuntime.loaderName()
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack, metadata.modpackAnyWildcard)) {
             reasons.add("modpack ${safeText(targetModpack)} not in ${metadata.modpacks.joinToString(", ")}")
+        }
+        if (!DlcPackMetadata.platformMatches(metadata.platform, currentPlatform)) {
+            reasons.add("platform ${safeText(currentPlatform)} not in ${metadata.platform}")
         }
         if (!DlcPackMetadata.stringRuleMatches(metadata.gameVersion, currentGameVersion)) {
             reasons.add("gameVersion ${safeText(currentGameVersion)} not in ${metadata.gameVersion}")

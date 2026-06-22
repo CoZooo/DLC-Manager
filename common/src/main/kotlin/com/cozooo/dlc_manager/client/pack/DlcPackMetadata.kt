@@ -16,6 +16,7 @@ import java.util.Locale
 class DlcPackMetadata(
     @JvmField val identifier: String,
     @JvmField val version: String,
+    @JvmField val platform: String,
     @JvmField val gameVersion: String,
     @JvmField val modLoader: String,
     @JvmField val authors: List<String>,
@@ -87,6 +88,7 @@ class DlcPackMetadata(
             val metadata = DlcPackMetadata(
                 identifier!!,
                 version!!,
+                normalizePlatform(DlcDcConfigIO.getStringIgnoreCase(basic, "platform")),
                 DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")?.trim().orEmpty(),
                 DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")?.trim().orEmpty(),
                 readStringList(DlcDcConfigIO.getIgnoreCase(basic, "author")).ifEmpty { listOf("Unknown Author") },
@@ -124,6 +126,26 @@ class DlcPackMetadata(
         @JvmStatic
         fun isValidVersion(value: String?): Boolean {
             return !value.isNullOrBlank() && VERSION_PATTERN.matches(value.trim())
+        }
+
+        @JvmStatic
+        fun normalizePlatform(value: String?): String {
+            val trimmed = value?.trim().orEmpty()
+            return if (trimmed.isEmpty()) "universal" else trimmed.lowercase(Locale.ROOT)
+        }
+
+        @JvmStatic
+        fun currentPlatform(): String {
+            return if (CrossPlatformRuntime.isDedicatedServer()) "server" else "client"
+        }
+
+        @JvmStatic
+        fun platformMatches(rule: String?, current: String?): Boolean {
+            val normalized = normalizePlatform(rule)
+            if (normalized == "universal") {
+                return true
+            }
+            return normalized == current?.trim()?.lowercase(Locale.ROOT)
         }
 
         @JvmStatic

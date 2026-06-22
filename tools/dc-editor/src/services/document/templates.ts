@@ -207,6 +207,7 @@ export function createEmptyTemplate(type: DocumentType): string {
         "[basic]",
         'identifier = ""',
         'version = "1.0.0"',
+        'platform = "universal"',
         'gameVersion = ""',
         'modLoader = ""',
         'author = ""',

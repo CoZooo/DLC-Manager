@@ -522,10 +522,14 @@ class DlcPackInstaller(
         val currentModpack = version?.getModpack()
         val currentBase = version?.getBase()
         val currentDlc = version?.getDlc()
+        val currentPlatform = DlcPackMetadata.currentPlatform()
         val currentGameVersion = CrossPlatformRuntime.mcVersion()
         val currentModLoader = CrossPlatformRuntime.loaderName()
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack, metadata.modpackAnyWildcard)) {
             result.incompatible.add("modpack ${safeText(currentModpack)} not in ${metadata.modpacks.joinToString(", ")}")
+        }
+        if (!DlcPackMetadata.platformMatches(metadata.platform, currentPlatform)) {
+            result.incompatible.add("platform ${safeText(currentPlatform)} not in ${metadata.platform}")
         }
         if (!DlcPackMetadata.stringRuleMatches(metadata.gameVersion, currentGameVersion)) {
             result.incompatible.add("gameVersion ${safeText(currentGameVersion)} not in ${metadata.gameVersion}")

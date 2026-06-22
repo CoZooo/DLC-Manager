@@ -26,6 +26,7 @@ public class DlcPackMetadata {
 
     public final String identifier;
     public final String version;
+    public final String platform;
     public final String gameVersion;
     public final String modLoader;
     public final List<String> authors;
@@ -42,6 +43,7 @@ public class DlcPackMetadata {
     public DlcPackMetadata(
         String identifier,
         String version,
+        String platform,
         String gameVersion,
         String modLoader,
         List<String> authors,
@@ -57,6 +59,7 @@ public class DlcPackMetadata {
     ) {
         this.identifier = identifier;
         this.version = version;
+        this.platform = normalizePlatform(platform);
         this.gameVersion = gameVersion == null ? "" : gameVersion;
         this.modLoader = modLoader == null ? "" : modLoader;
         this.authors = authors == null ? List.of() : List.copyOf(authors);
@@ -136,6 +139,7 @@ public class DlcPackMetadata {
         return Result.valid(new DlcPackMetadata(
             identifier,
             version,
+            normalizePlatform(DlcDcConfigIO.getStringIgnoreCase(basic, "platform")),
             stringOrEmpty(DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")),
             stringOrEmpty(DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")),
             authors,
@@ -171,6 +175,23 @@ public class DlcPackMetadata {
 
     public static boolean isValidVersion(String value) {
         return value != null && !value.isBlank() && value.trim().matches(VERSION_PATTERN);
+    }
+
+    public static String normalizePlatform(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        return trimmed.isEmpty() ? "universal" : trimmed.toLowerCase(Locale.ROOT);
+    }
+
+    public static String currentPlatform() {
+        return CrossPlatformRuntime.isDedicatedServer() ? "server" : "client";
+    }
+
+    public static boolean platformMatches(String rule, String current) {
+        String normalized = normalizePlatform(rule);
+        if ("universal".equals(normalized)) {
+            return true;
+        }
+        return current != null && normalized.equals(current.trim().toLowerCase(Locale.ROOT));
     }
 
     public static boolean versionMatches(String rule, String current) {
