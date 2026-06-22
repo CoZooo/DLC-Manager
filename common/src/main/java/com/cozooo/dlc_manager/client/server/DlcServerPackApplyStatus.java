@@ -10,5 +10,6 @@ public class DlcServerPackApplyStatus {
     public int completedCount;
     public float progress = -1.0F;
     public String message;
+    public String detail;
     public String error;
 }

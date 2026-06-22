@@ -25,6 +25,7 @@ public class DlcServerPackApplyScreen extends Screen {
     private final List<String> installArchives;
     private volatile DlcServerPackApplyStatus status;
     private volatile Component statusText = Component.translatable("dlc_manager.pack.applying");
+    private volatile Component statusDetail;
     private volatile boolean running;
     private volatile boolean finished;
     private volatile boolean canceling;
@@ -117,6 +118,7 @@ public class DlcServerPackApplyScreen extends Screen {
         }
         String message = next.message;
         statusText = formatRemoteStatus(message);
+        statusDetail = operationDetailFor(next.detail);
         Minecraft.getInstance().execute(this::updateButtonState);
     }
 
@@ -225,6 +227,9 @@ public class DlcServerPackApplyScreen extends Screen {
         y += 24;
         drawProgress(guiGraphics, centerX - 120, y, 240, 8, progress);
         guiGraphics.drawCenteredString(this.font, Component.literal(progressText), centerX, y + 14, 0xC8C8C8);
+        if (statusDetail != null) {
+            guiGraphics.drawCenteredString(this.font, statusDetail, centerX, y + 28, 0x9A9A9A);
+        }
     }
 
     private void drawProgress(GuiGraphics guiGraphics, int x, int y, int width, int height, float value) {
@@ -241,6 +246,53 @@ public class DlcServerPackApplyScreen extends Screen {
     private Component formatOperationTitle(Component message, float progress, String progressText) {
         String text = message.getString().replaceAll("[.。…]+$", "");
         return progress >= 0.0F ? Component.literal(text + "：" + progressText) : Component.literal(text + "...");
+    }
+
+    private Component operationDetailFor(String raw) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty() || "dlc_manager.pack.selecting_source".equals(value)) {
+            return null;
+        }
+        if (value.startsWith("Downloading ")) {
+            return Component.translatable("dlc_manager.pack.downloading_file", value.substring("Downloading ".length()));
+        }
+        if (value.startsWith("Resolved ")) {
+            return Component.translatable("dlc_manager.pack.resolved_file", value.substring("Resolved ".length()));
+        }
+        if (value.startsWith("Installing ")) {
+            return Component.translatable("dlc_manager.pack.installing", value.substring("Installing ".length()));
+        }
+        if (value.startsWith("Uninstalling installed DLC items")) {
+            return Component.translatable("dlc_manager.pack.operation_uninstalling");
+        }
+        if (value.startsWith("Uninstalling ")) {
+            return Component.translatable("dlc_manager.pack.uninstalling", value.substring("Uninstalling ".length()));
+        }
+        if (value.startsWith("Restoring ")) {
+            return Component.translatable("dlc_manager.pack.restoring_file", value.substring("Restoring ".length()));
+        }
+        if (value.startsWith("Preparing ")) {
+            return Component.translatable("dlc_manager.pack.preparing_pack", value.substring("Preparing ".length()));
+        }
+        if (value.startsWith("Backing up ")) {
+            return Component.translatable("dlc_manager.pack.backing_up_pack", value.substring("Backing up ".length()));
+        }
+        if ("Applying runtime changes".equals(value)) {
+            return Component.translatable("dlc_manager.pack.applying_runtime");
+        }
+        if ("Writing metadata".equals(value)) {
+            return Component.translatable("dlc_manager.pack.writing_metadata");
+        }
+        if (value.startsWith("Installed ")) {
+            return Component.translatable("dlc_manager.pack.installed_pack", value.substring("Installed ".length()));
+        }
+        if (value.startsWith("Uninstalled ")) {
+            return Component.translatable("dlc_manager.pack.uninstalled_pack", value.substring("Uninstalled ".length()));
+        }
+        if (value.startsWith("dlc_manager.")) {
+            return Component.translatable(value);
+        }
+        return DlcTextFormatter.parse(value);
     }
 
     @Override

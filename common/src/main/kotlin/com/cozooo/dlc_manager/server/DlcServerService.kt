@@ -1687,6 +1687,7 @@ object DlcServerService {
         @Volatile private var completedCount = 0
         @Volatile private var progress = 0f
         @Volatile private var message: String? = "dlc_manager.pack.operation_applying"
+        @Volatile private var detail: String? = null
         @Volatile private var error: String? = null
 
         fun isRunning(): Boolean = running
@@ -1694,6 +1695,7 @@ object DlcServerService {
         fun cancel() {
             cancelRequested.set(true)
             message = "dlc_manager.pack.canceling"
+            detail = null
             synchronized(pauseLock) {
                 pauseLock.notifyAll()
             }
@@ -1704,6 +1706,7 @@ object DlcServerService {
             pauseRequested.set(true)
             paused = true
             message = "dlc_manager.pack.paused"
+            detail = null
         }
 
         fun resume() {
@@ -1718,6 +1721,7 @@ object DlcServerService {
             try {
                 checkCanceled()
                 message = "dlc_manager.pack.operation_applying"
+                detail = null
                 progress = 0f
                 if (!DlcPackOrder.save(packOrderPath(), order)) {
                     throw IOException("save order failed")
@@ -1735,6 +1739,7 @@ object DlcServerService {
                     runStep("dlc_manager.pack.operation_uninstalling", offset, uninstallSpan) { stepProgress ->
                         val result = uninstallServerPack(identifier) { status, value ->
                             waitIfPaused()
+                            detail = status
                             stepProgress(normalizeProgressStatus(status, "dlc_manager.pack.operation_uninstalling"), value)
                         }
                         if (!result.ok) {
@@ -1751,6 +1756,7 @@ object DlcServerService {
                             archive,
                             { status, value ->
                                 waitIfPaused()
+                                detail = status
                                 stepProgress(normalizeProgressStatus(status, "dlc_manager.pack.operation_installing"), value)
                             },
                             {
@@ -1767,10 +1773,12 @@ object DlcServerService {
                 success = true
                 progress = 1f
                 message = "dlc_manager.pack.apply_success"
+                detail = null
             } catch (_: DlcDownloadService.DownloadCanceledException) {
                 canceled = true
                 error = "canceled"
                 message = "dlc_manager.pack.canceled"
+                detail = null
             } catch (error: Exception) {
                 this.error = error.message ?: error.javaClass.simpleName
                 message = this.error
@@ -1783,6 +1791,7 @@ object DlcServerService {
         private fun runStep(label: String, offset: Float, span: Float, action: ((String, Float) -> Unit) -> Unit) {
             waitIfPaused()
             message = label
+            detail = null
             updateProgress(offset, span, -1f)
             action { status, value ->
                 waitIfPaused()
@@ -1812,6 +1821,7 @@ object DlcServerService {
             while (pauseRequested.get() && !cancelRequested.get()) {
                 paused = true
                 message = "dlc_manager.pack.paused"
+                detail = null
                 synchronized(pauseLock) {
                     try {
                         pauseLock.wait(200L)
@@ -1854,6 +1864,7 @@ object DlcServerService {
             status.completedCount = completedCount
             status.progress = progress
             status.message = message
+            status.detail = detail
             status.error = error
             return status
         }

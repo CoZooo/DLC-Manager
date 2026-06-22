@@ -69,6 +69,7 @@ class DlcPackManagerScreen(
     @Volatile private var busyOperation = BusyOperation.NONE
     @Volatile private var operationProgress = -1f
     @Volatile private var operationStatus: Component? = null
+    @Volatile private var operationDetail: Component? = null
     private var pausedAllowRuntimeChanges = false
     private val pausedReinstallIdentifiers = LinkedHashSet<String>()
     @Volatile private var activeReinstallIdentifiers: Set<String> = emptySet()
@@ -211,6 +212,9 @@ class DlcPackManagerScreen(
         y += 24
         drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, operationProgress)
         guiGraphics.drawCenteredString(font, progressText, centerX, y + 14, 0xC8C8C8)
+        operationDetail?.let {
+            guiGraphics.drawCenteredString(font, it, centerX, y + 28, 0x9A9A9A)
+        }
     }
 
     private fun renderPackList(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
@@ -930,7 +934,7 @@ class DlcPackManagerScreen(
                 checkCanceled()
                 updateOperationProgress(operationStatusFor(displayMode, entry), -1f)
                 installer.uninstall(identifier) { message, progress ->
-                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0f, 0.35f, progress))
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0f, 0.35f, progress), operationDetailFor(message))
                 }
                 uninstalled.add(identifier)
             }
@@ -1160,7 +1164,7 @@ class DlcPackManagerScreen(
             })
                 .withCancelChecker { cancelRequested }
                 .withProgressListener { message, progress ->
-                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(installOffset, installSpan, progress))
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(installOffset, installSpan, progress), operationDetailFor(message))
                 }
             installer.install(pack, replace, options)
         } finally {
@@ -1211,9 +1215,11 @@ class DlcPackManagerScreen(
             busyOperation = operation
             operationProgress = -1f
             operationStatus = message
+            operationDetail = null
         } else {
             paused = false
             busyOperation = BusyOperation.NONE
+            operationDetail = null
         }
         busy = value
         status = message
@@ -1229,6 +1235,7 @@ class DlcPackManagerScreen(
             busyOperation = BusyOperation.NONE
             operationProgress = -1f
             operationStatus = null
+            operationDetail = null
             pausedAllowRuntimeChanges = false
             status = message
             refreshEntries()
@@ -1248,6 +1255,7 @@ class DlcPackManagerScreen(
             busyOperation = BusyOperation.APPLY
             operationProgress = -1f
             operationStatus = Component.translatable("dlc_manager.pack.paused")
+            operationDetail = null
             status = operationStatus
             pausedReinstallIdentifiers.clear()
             pausedReinstallIdentifiers.addAll(activeReinstallIdentifiers)
@@ -1324,6 +1332,7 @@ class DlcPackManagerScreen(
                 Component.translatable("dlc_manager.pack.canceling")
             }
             operationStatus = status
+            operationDetail = null
             rebuildPackWidgets()
             return
         }
@@ -1707,8 +1716,34 @@ class DlcPackManagerScreen(
     }
 
     private fun updateOperationProgress(message: Component, progress: Float) {
+        updateOperationProgress(message, progress, null)
+    }
+
+    private fun updateOperationProgress(message: Component, progress: Float, detail: Component?) {
         operationStatus = message
         operationProgress = progress
+        operationDetail = detail
+    }
+
+    private fun operationDetailFor(raw: String?): Component? {
+        val value = raw?.trim().orEmpty()
+        if (value.isEmpty() || value == "dlc_manager.pack.selecting_source") return null
+        return when {
+            value.startsWith("Downloading ") -> Component.translatable("dlc_manager.pack.downloading_file", value.removePrefix("Downloading "))
+            value.startsWith("Resolved ") -> Component.translatable("dlc_manager.pack.resolved_file", value.removePrefix("Resolved "))
+            value.startsWith("Installing ") -> Component.translatable("dlc_manager.pack.installing", value.removePrefix("Installing "))
+            value.startsWith("Uninstalling installed DLC items") -> Component.translatable("dlc_manager.pack.operation_uninstalling")
+            value.startsWith("Uninstalling ") -> Component.translatable("dlc_manager.pack.uninstalling", value.removePrefix("Uninstalling "))
+            value.startsWith("Restoring ") -> Component.translatable("dlc_manager.pack.restoring_file", value.removePrefix("Restoring "))
+            value.startsWith("Preparing ") -> Component.translatable("dlc_manager.pack.preparing_pack", value.removePrefix("Preparing "))
+            value.startsWith("Backing up ") -> Component.translatable("dlc_manager.pack.backing_up_pack", value.removePrefix("Backing up "))
+            value == "Applying runtime changes" -> Component.translatable("dlc_manager.pack.applying_runtime")
+            value == "Writing metadata" -> Component.translatable("dlc_manager.pack.writing_metadata")
+            value.startsWith("Installed ") -> Component.translatable("dlc_manager.pack.installed_pack", value.removePrefix("Installed "))
+            value.startsWith("Uninstalled ") -> Component.translatable("dlc_manager.pack.uninstalled_pack", value.removePrefix("Uninstalled "))
+            value.startsWith("dlc_manager.") -> Component.translatable(value)
+            else -> DlcTextFormatter.parse(value)
+        }
     }
 
     private fun trimToWidth(text: Component, width: Int): FormattedCharSequence {

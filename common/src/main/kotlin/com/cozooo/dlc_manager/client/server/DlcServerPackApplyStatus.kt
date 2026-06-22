@@ -10,5 +10,6 @@ class DlcServerPackApplyStatus {
     @JvmField var completedCount: Int = 0
     @JvmField var progress: Float = -1f
     @JvmField var message: String? = null
+    @JvmField var detail: String? = null
     @JvmField var error: String? = null
 }

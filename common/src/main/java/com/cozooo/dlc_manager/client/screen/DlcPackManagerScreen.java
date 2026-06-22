@@ -96,6 +96,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     private volatile BusyOperation busyOperation = BusyOperation.NONE;
     private volatile float operationProgress = -1f;
     private volatile Component operationStatus;
+    private volatile Component operationDetail;
     private boolean pausedAllowRuntimeChanges;
     private final Set<String> pausedReinstallIdentifiers = new LinkedHashSet<>();
     private volatile Set<String> activeReinstallIdentifiers = Set.of();
@@ -238,6 +239,9 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
         y += 24;
         drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, operationProgress);
         guiGraphics.drawCenteredString(this.font, progressText, centerX, y + 14, 0xC8C8C8);
+        if (operationDetail != null) {
+            guiGraphics.drawCenteredString(this.font, operationDetail, centerX, y + 28, 0x9A9A9A);
+        }
     }
 
     private void renderPackList(GuiGraphics guiGraphics, int mouseX, int mouseY) {
@@ -1025,7 +1029,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 checkCanceled();
                 updateOperationProgress(operationStatusFor(displayMode, entry, null), -1f);
                 installer.uninstall(identifier, (message, progress) ->
-                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0f, 0.35f, progress))
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(0f, 0.35f, progress), operationDetailFor(message))
                 );
                 uninstalled.add(identifier);
             }
@@ -1297,7 +1301,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             options = options
                 .withCancelChecker(() -> cancelRequested)
                 .withProgressListener((message, progress) ->
-                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(installOffset, installSpan, progress))
+                    updateOperationProgress(operationStatusFor(displayMode, entry, message), normalizePhaseProgress(installOffset, installSpan, progress), operationDetailFor(message))
                 );
             installer.install(result.pack, replace, options);
         } finally {
@@ -1357,9 +1361,11 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             busyOperation = operation;
             operationProgress = -1f;
             operationStatus = message;
+            operationDetail = null;
         } else {
             paused = false;
             busyOperation = BusyOperation.NONE;
+            operationDetail = null;
         }
         this.busy = busy;
         this.status = message;
@@ -1379,6 +1385,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             busyOperation = BusyOperation.NONE;
             operationProgress = -1f;
             operationStatus = null;
+            operationDetail = null;
             pausedAllowRuntimeChanges = false;
             status = message;
             refreshEntries();
@@ -1398,6 +1405,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             busyOperation = BusyOperation.APPLY;
             operationProgress = -1f;
             operationStatus = Component.translatable("dlc_manager.pack.paused");
+            operationDetail = null;
             status = operationStatus;
             pausedReinstallIdentifiers.clear();
             pausedReinstallIdentifiers.addAll(activeReinstallIdentifiers);
@@ -1472,6 +1480,7 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
                 ? Component.translatable("dlc_manager.pack.pausing")
                 : Component.translatable("dlc_manager.pack.canceling");
             operationStatus = status;
+            operationDetail = null;
             rebuildPackWidgets();
             return;
         }
@@ -1969,8 +1978,60 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void updateOperationProgress(Component message, float progress) {
+        updateOperationProgress(message, progress, null);
+    }
+
+    private void updateOperationProgress(Component message, float progress, Component detail) {
         operationStatus = message;
         operationProgress = progress;
+        operationDetail = detail;
+    }
+
+    private Component operationDetailFor(String raw) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty() || "dlc_manager.pack.selecting_source".equals(value)) {
+            return null;
+        }
+        if (value.startsWith("Downloading ")) {
+            return Component.translatable("dlc_manager.pack.downloading_file", value.substring("Downloading ".length()));
+        }
+        if (value.startsWith("Resolved ")) {
+            return Component.translatable("dlc_manager.pack.resolved_file", value.substring("Resolved ".length()));
+        }
+        if (value.startsWith("Installing ")) {
+            return Component.translatable("dlc_manager.pack.installing", value.substring("Installing ".length()));
+        }
+        if (value.startsWith("Uninstalling installed DLC items")) {
+            return Component.translatable("dlc_manager.pack.operation_uninstalling");
+        }
+        if (value.startsWith("Uninstalling ")) {
+            return Component.translatable("dlc_manager.pack.uninstalling", value.substring("Uninstalling ".length()));
+        }
+        if (value.startsWith("Restoring ")) {
+            return Component.translatable("dlc_manager.pack.restoring_file", value.substring("Restoring ".length()));
+        }
+        if (value.startsWith("Preparing ")) {
+            return Component.translatable("dlc_manager.pack.preparing_pack", value.substring("Preparing ".length()));
+        }
+        if (value.startsWith("Backing up ")) {
+            return Component.translatable("dlc_manager.pack.backing_up_pack", value.substring("Backing up ".length()));
+        }
+        if ("Applying runtime changes".equals(value)) {
+            return Component.translatable("dlc_manager.pack.applying_runtime");
+        }
+        if ("Writing metadata".equals(value)) {
+            return Component.translatable("dlc_manager.pack.writing_metadata");
+        }
+        if (value.startsWith("Installed ")) {
+            return Component.translatable("dlc_manager.pack.installed_pack", value.substring("Installed ".length()));
+        }
+        if (value.startsWith("Uninstalled ")) {
+            return Component.translatable("dlc_manager.pack.uninstalled_pack", value.substring("Uninstalled ".length()));
+        }
+        if (value.startsWith("dlc_manager.")) {
+            return Component.translatable(value);
+        }
+        return DlcTextFormatter.parse(value);
     }
 
     private FormattedCharSequence trimToWidth(Component text, int width) {

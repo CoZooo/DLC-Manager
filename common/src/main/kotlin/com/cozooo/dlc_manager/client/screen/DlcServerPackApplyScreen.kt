@@ -22,6 +22,7 @@ class DlcServerPackApplyScreen(
 ) : Screen(Component.translatable("dlc_manager.server.pack.manager_title")) {
     @Volatile private var status: DlcServerPackApplyStatus? = null
     @Volatile private var statusText: Component = Component.translatable("dlc_manager.pack.applying")
+    @Volatile private var statusDetail: Component? = null
     @Volatile private var running = false
     @Volatile private var finished = false
     @Volatile private var canceling = false
@@ -98,6 +99,7 @@ class DlcServerPackApplyScreen(
         }
         val message = next.message
         statusText = formatRemoteStatus(message)
+        statusDetail = operationDetailFor(next.detail)
         Minecraft.getInstance().execute { updateButtonState() }
     }
 
@@ -197,6 +199,9 @@ class DlcServerPackApplyScreen(
         y += 24
         drawProgress(guiGraphics, centerX - 120, y, 240, 8, progress)
         guiGraphics.drawCenteredString(font, Component.literal(progressText), centerX, y + 14, 0xC8C8C8)
+        statusDetail?.let {
+            guiGraphics.drawCenteredString(font, it, centerX, y + 28, 0x9A9A9A)
+        }
     }
 
     private fun drawProgress(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, value: Float) {
@@ -216,6 +221,27 @@ class DlcServerPackApplyScreen(
             Component.literal("$text：$progressText")
         } else {
             Component.literal("$text...")
+        }
+    }
+
+    private fun operationDetailFor(raw: String?): Component? {
+        val value = raw?.trim().orEmpty()
+        if (value.isEmpty() || value == "dlc_manager.pack.selecting_source") return null
+        return when {
+            value.startsWith("Downloading ") -> Component.translatable("dlc_manager.pack.downloading_file", value.removePrefix("Downloading "))
+            value.startsWith("Resolved ") -> Component.translatable("dlc_manager.pack.resolved_file", value.removePrefix("Resolved "))
+            value.startsWith("Installing ") -> Component.translatable("dlc_manager.pack.installing", value.removePrefix("Installing "))
+            value.startsWith("Uninstalling installed DLC items") -> Component.translatable("dlc_manager.pack.operation_uninstalling")
+            value.startsWith("Uninstalling ") -> Component.translatable("dlc_manager.pack.uninstalling", value.removePrefix("Uninstalling "))
+            value.startsWith("Restoring ") -> Component.translatable("dlc_manager.pack.restoring_file", value.removePrefix("Restoring "))
+            value.startsWith("Preparing ") -> Component.translatable("dlc_manager.pack.preparing_pack", value.removePrefix("Preparing "))
+            value.startsWith("Backing up ") -> Component.translatable("dlc_manager.pack.backing_up_pack", value.removePrefix("Backing up "))
+            value == "Applying runtime changes" -> Component.translatable("dlc_manager.pack.applying_runtime")
+            value == "Writing metadata" -> Component.translatable("dlc_manager.pack.writing_metadata")
+            value.startsWith("Installed ") -> Component.translatable("dlc_manager.pack.installed_pack", value.removePrefix("Installed "))
+            value.startsWith("Uninstalled ") -> Component.translatable("dlc_manager.pack.uninstalled_pack", value.removePrefix("Uninstalled "))
+            value.startsWith("dlc_manager.") -> Component.translatable(value)
+            else -> DlcTextFormatter.parse(value)
         }
     }
 

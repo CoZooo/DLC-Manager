@@ -1729,6 +1729,7 @@ public class DlcServerService {
         private volatile int completedCount;
         private volatile float progress;
         private volatile String message = "dlc_manager.pack.operation_applying";
+        private volatile String detail;
         private volatile String error;
 
         private PackApplyJob(List<String> order, List<String> uninstallIdentifiers, List<String> installArchives) {
@@ -1745,6 +1746,7 @@ public class DlcServerService {
         private void cancel() {
             cancelRequested.set(true);
             message = "dlc_manager.pack.canceling";
+            detail = null;
             synchronized (pauseLock) {
                 pauseLock.notifyAll();
             }
@@ -1757,6 +1759,7 @@ public class DlcServerService {
             pauseRequested.set(true);
             paused = true;
             message = "dlc_manager.pack.paused";
+            detail = null;
         }
 
         private void resume() {
@@ -1771,6 +1774,7 @@ public class DlcServerService {
             try {
                 checkCanceled();
                 message = "dlc_manager.pack.operation_applying";
+                detail = null;
                 progress = 0.0F;
                 if (!DlcPackOrder.save(packOrderPath(), order)) {
                     throw new IOException("save order failed");
@@ -1788,6 +1792,7 @@ public class DlcServerService {
                     runStep("dlc_manager.pack.operation_uninstalling", offset, uninstallSpan, progressUpdater -> {
                         UpdatePackActionResult result = uninstallServerPack(identifier, (status, value) -> {
                             waitIfPaused();
+                            detail = status;
                             progressUpdater.update(normalizeProgressStatus(status, "dlc_manager.pack.operation_uninstalling"), value);
                         });
                         if (!result.ok) {
@@ -1804,6 +1809,7 @@ public class DlcServerService {
                             archive,
                             (status, value) -> {
                                 waitIfPaused();
+                                detail = status;
                                 progressUpdater.update(normalizeProgressStatus(status, "dlc_manager.pack.operation_installing"), value);
                             },
                             () -> {
@@ -1820,10 +1826,12 @@ public class DlcServerService {
                 success = true;
                 progress = 1.0F;
                 message = "dlc_manager.pack.apply_success";
+                detail = null;
             } catch (DlcDownloadService.DownloadCanceledException ex) {
                 canceled = true;
                 error = "canceled";
                 message = "dlc_manager.pack.canceled";
+                detail = null;
             } catch (Exception ex) {
                 error = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
                 message = error;
@@ -1836,6 +1844,7 @@ public class DlcServerService {
         private void runStep(String label, float offset, float span, ThrowingStep action) throws Exception {
             waitIfPaused();
             message = label;
+            detail = null;
             updateProgress(offset, span, -1.0F);
             action.run((status, value) -> {
                 waitIfPaused();
@@ -1865,6 +1874,7 @@ public class DlcServerService {
             while (pauseRequested.get() && !cancelRequested.get()) {
                 paused = true;
                 message = "dlc_manager.pack.paused";
+                detail = null;
                 synchronized (pauseLock) {
                     try {
                         pauseLock.wait(200L);
@@ -1914,6 +1924,7 @@ public class DlcServerService {
             status.completedCount = completedCount;
             status.progress = progress;
             status.message = message;
+            status.detail = detail;
             status.error = error;
             return status;
         }
