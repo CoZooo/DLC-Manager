@@ -9,6 +9,7 @@ public class DlcServerInfo {
     public int remoteMissing;
     public int requiredMissing;
     public boolean hasRequired;
+    public boolean hasTaczMod;
     public String modpackUrl;
     public String updateGitRepo;
 }

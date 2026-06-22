@@ -88,6 +88,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
     private Button rconButton;
     private Button filesButton;
     private Button updateManagerButton;
+    private Button packManagerButton;
     private Button returnToGameButton;
     private volatile boolean connecting;
 
@@ -104,6 +105,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
     private int remoteMissingCount;
     private int requiredMissingCount;
     private boolean promptedRemoteDownload;
+    private boolean hasServerTaczMod;
     private String serverBaseVersion = "";
     private String serverDlcVersion = "";
 
@@ -141,6 +143,10 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         serverDlcVersion = dlc == null ? "" : dlc;
         remoteMissingCount = info == null ? 0 : info.remoteMissing;
         requiredMissingCount = info == null ? 0 : info.requiredMissing;
+        hasServerTaczMod = info != null && info.hasTaczMod;
+        if (!hasServerTaczMod && activeFilter == DlcType.TACZ_PACK) {
+            activeFilter = null;
+        }
         boolean baseBlank = base == null || base.isBlank();
         boolean dlcBlank = dlc == null || dlc.isBlank();
         if (!baseBlank || !dlcBlank) {
@@ -240,6 +246,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         info.items = new ArrayList<>(items);
         info.remoteMissing = remoteMissingCount;
         info.requiredMissing = requiredMissingCount;
+        info.hasTaczMod = hasServerTaczMod;
         info.baseVersion = serverBaseVersion;
         info.dlcVersion = serverDlcVersion;
         return info;
@@ -260,7 +267,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void openPackManager() {
-        Minecraft.getInstance().setScreen(new DlcPackManagerScreen(this));
+        Minecraft.getInstance().setScreen(new DlcServerPackManagerScreen(this, entry));
     }
 
     private void initDlcTab() {
@@ -312,24 +319,32 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         int buttonWidth = 120;
         int buttonHeight = 20;
         int centerX = this.width / 2;
-        int startY = this.height / 2 - buttonHeight - 8;
+        int buttonGap = 8;
+        int buttonCount = 5;
+        int totalHeight = buttonCount * buttonHeight + (buttonCount - 1) * buttonGap;
+        int startY = Math.max(panelTop() + 12, (panelTop() + panelBottom() - totalHeight) / 2 - 6);
         pushButton = Button.builder(Component.translatable("dlc_manager.server.push"), btn -> openPush())
             .bounds(centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight)
             .build();
         rconButton = Button.builder(Component.translatable("dlc_manager.server.rcon"), btn -> openRcon())
-            .bounds(centerX - buttonWidth / 2, startY + buttonHeight + 8, buttonWidth, buttonHeight)
+            .bounds(centerX - buttonWidth / 2, startY + buttonHeight + buttonGap, buttonWidth, buttonHeight)
             .build();
         filesButton = Button.builder(Component.translatable("dlc_manager.server.files"), btn -> openFiles())
-            .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + 8) * 2, buttonWidth, buttonHeight)
+            .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 2, buttonWidth, buttonHeight)
             .build();
         updateManagerButton = Button.builder(Component.translatable("dlc_manager.update.manager"),
                 btn -> Minecraft.getInstance().setScreen(new DlcServerUpdateManagerScreen(this, entry)))
-            .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + 8) * 3, buttonWidth, buttonHeight)
+            .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 3, buttonWidth, buttonHeight)
+            .build();
+        packManagerButton = Button.builder(Component.translatable("dlc_manager.pack.manager"),
+                btn -> openPackManager())
+            .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 4, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(pushButton);
         addRenderableWidget(rconButton);
         addRenderableWidget(filesButton);
         addRenderableWidget(updateManagerButton);
+        addRenderableWidget(packManagerButton);
         if (openedFromIngame) {
             returnToGameButton = Button.builder(Component.translatable("menu.returnToGame"), btn -> Minecraft.getInstance().setScreen(null))
                 .bounds(centerX - buttonWidth / 2, this.height - 22, buttonWidth, buttonHeight)
@@ -437,10 +452,17 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
             grouped.put(type, new ArrayList<>());
         }
         for (DlcServerItem item : items) {
-            grouped.get(mapType(item.type)).add(item);
+            DlcType type = mapType(item.type);
+            if (!isServerTypeVisible(type)) {
+                continue;
+            }
+            grouped.get(type).add(item);
         }
         if (activeFilter == null) {
             for (DlcType type : DlcType.values()) {
+                if (!isServerTypeVisible(type)) {
+                    continue;
+                }
                 List<DlcServerItem> group = grouped.get(type);
                 if (group == null || group.isEmpty()) {
                     continue;
@@ -485,7 +507,8 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         int panelLeft = panelLeft();
         int panelRight = panelRight();
         int available = panelRight - panelLeft - 20;
-        int count = DlcType.values().length + 1;
+        List<DlcType> visibleTypes = visibleFilterTypes();
+        int count = visibleTypes.size() + 1;
         int gap = Math.max(4, Math.min(FILTER_TAB_GAP, 8));
         int tabWidth = (available - gap * (count - 1)) / count;
         if (tabWidth < 48) {
@@ -506,7 +529,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
             .build();
         addRenderableWidget(filterAllButton);
         int index = 1;
-        for (DlcType type : DlcType.values()) {
+        for (DlcType type : visibleTypes) {
             Button button = Button.builder(Component.translatable(type.getDisplayKey()), btn -> setFilter(type))
                 .bounds(startX + index * (tabWidth + gap), y, tabWidth, FILTER_TAB_HEIGHT)
                 .build();
@@ -518,6 +541,9 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void setFilter(DlcType type) {
+        if (type != null && !isServerTypeVisible(type)) {
+            type = null;
+        }
         if (activeFilter == type) {
             return;
         }
@@ -644,6 +670,20 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
             return true;
         }
         return mapType(item.type) == activeFilter;
+    }
+
+    private List<DlcType> visibleFilterTypes() {
+        List<DlcType> types = new ArrayList<>();
+        for (DlcType type : DlcType.values()) {
+            if (isServerTypeVisible(type)) {
+                types.add(type);
+            }
+        }
+        return types;
+    }
+
+    private boolean isServerTypeVisible(DlcType type) {
+        return type != DlcType.TACZ_PACK || hasServerTaczMod;
     }
 
     private void applyPresetOverrides() {

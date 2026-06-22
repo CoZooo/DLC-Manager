@@ -1,7 +1,14 @@
 package com.cozooo.dlc_manager.server
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
+import com.cozooo.dlc_manager.client.pack.DlcPackArchive
+import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
+import com.cozooo.dlc_manager.client.pack.DlcPackMeta
+import com.cozooo.dlc_manager.client.pack.DlcPackOrder
+import com.cozooo.dlc_manager.client.pack.DlcPackPackage
 import com.cozooo.dlc_manager.client.server.DlcServerItem
+import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus
+import com.cozooo.dlc_manager.client.server.DlcServerPackInfo
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus
@@ -42,7 +49,10 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.Arrays
 import java.util.Base64
+import java.util.Comparator
+import java.util.Locale
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -55,6 +65,10 @@ object DlcServerService {
     private val GSON: Gson = GsonBuilder().create()
     private const val FILE_CHUNK_SIZE = 64 * 1024
     private val RUNNING = AtomicBoolean(false)
+    private val LOGGED_CONNECTION_KEYS = ConcurrentHashMap.newKeySet<String>()
+    private val PACK_APPLY_LOCK = Any()
+    @Volatile
+    private var packApplyJob: PackApplyJob? = null
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
     private var clientPool: ExecutorService? = null
@@ -90,6 +104,7 @@ object DlcServerService {
     @JvmStatic
     fun stop() {
         RUNNING.set(false)
+        LOGGED_CONNECTION_KEYS.clear()
         acceptThread?.interrupt()
         acceptThread = null
         serverSocket?.let {
@@ -191,7 +206,7 @@ object DlcServerService {
                                 clientLang = request.get("lang").asString
                             }
                             if (type == "hello") {
-                                authed = handleHello(request, writer)
+                                authed = handleHello(request, writer, client.inetAddress?.hostAddress ?: "")
                                 if (!authed) {
                                     break
                                 }
@@ -219,6 +234,18 @@ object DlcServerService {
                                 "update_rollback" -> handleUpdateRollback(request, writer)
                                 "update_import" -> handleUpdateImport(request, writer)
                                 "update_import_url" -> handleUpdateImportUrl(request, writer)
+                                "pack_list" -> handlePackList(writer, clientLang)
+                                "pack_install" -> handlePackInstall(request, writer)
+                                "pack_uninstall" -> handlePackUninstall(request, writer)
+                                "pack_delete" -> handlePackDelete(request, writer)
+                                "pack_import" -> handlePackImport(request, writer)
+                                "pack_import_url" -> handlePackImportUrl(request, writer)
+                                "pack_order" -> handlePackOrder(request, writer)
+                                "pack_apply_start" -> handlePackApplyStart(request, writer)
+                                "pack_apply_status" -> handlePackApplyStatus(writer)
+                                "pack_apply_pause" -> handlePackApplyPause(writer)
+                                "pack_apply_resume" -> handlePackApplyResume(writer)
+                                "pack_apply_cancel" -> handlePackApplyCancel(writer)
                                 "set" -> handleSet(request, overrides, writer)
                                 "apply" -> {
                                     handleApply(overrides, writer)
@@ -257,7 +284,7 @@ object DlcServerService {
     }
 
     @Throws(IOException::class)
-    private fun handleHello(request: JsonObject, writer: BufferedWriter): Boolean {
+    private fun handleHello(request: JsonObject, writer: BufferedWriter, remoteAddress: String): Boolean {
         val expected = DlcConfig.getServerPassword()
         val provided = if (request.has("password")) request.get("password").asString else ""
         val player = if (request.has("player")) request.get("player").asString else ""
@@ -272,10 +299,30 @@ object DlcServerService {
             response.addProperty("reason", reason)
             LOGGER.info("[dlc-manager] server manager auth failed: reason={} player={} uuid={}", reason, player, uuid)
         } else {
-            LOGGER.info("[dlc-manager] server manager connected: player={} uuid={}", player, uuid)
+            logConnectedOnce(player, uuid, remoteAddress)
         }
         writeLine(writer, response)
         return ok
+    }
+
+    private fun logConnectedOnce(player: String, uuid: String, remoteAddress: String) {
+        val key = connectionLogKey(player, uuid, remoteAddress)
+        if (LOGGED_CONNECTION_KEYS.add(key)) {
+            LOGGER.info("[dlc-manager] server manager connected: player={} uuid={}", player, uuid)
+        }
+    }
+
+    private fun connectionLogKey(player: String, uuid: String, remoteAddress: String): String {
+        val normalizedUuid = uuid.trim()
+        if (normalizedUuid.isNotEmpty()) {
+            return "uuid:$normalizedUuid"
+        }
+        val normalizedPlayer = player.trim()
+        if (normalizedPlayer.isNotEmpty()) {
+            return "player:$normalizedPlayer"
+        }
+        val normalizedRemote = remoteAddress.trim()
+        return if (normalizedRemote.isNotEmpty()) "remote:$normalizedRemote" else "unknown"
     }
 
     private fun isPlayerOp(name: String?, uuid: String?): Boolean {
@@ -329,6 +376,7 @@ object DlcServerService {
         response.addProperty("remoteMissing", remoteMissing)
         response.addProperty("requiredMissing", requiredMissing)
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot))
+        response.addProperty("hasTaczMod", CrossPlatformRuntime.isModLoaded("tacz"))
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl())
         response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl())
         response.add("items", GSON.toJsonTree(items))
@@ -670,6 +718,403 @@ object DlcServerService {
         response.addProperty("ok", ok)
         response.addProperty("message", message)
         writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackList(writer: BufferedWriter, lang: String?) {
+        val response = JsonObject()
+        response.addProperty("type", "pack_list")
+        response.addProperty("ok", true)
+        response.add("packs", GSON.toJsonTree(scanServerPackArchives(lang)))
+        response.add("order", GSON.toJsonTree(DlcPackOrder.load(packOrderPath())))
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackOrder(request: JsonObject, writer: BufferedWriter) {
+        val order = ArrayList<String>()
+        if (request.has("order") && request.get("order").isJsonArray) {
+            for (element in request.getAsJsonArray("order")) {
+                if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                    order.add(element.asString)
+                }
+            }
+        }
+        val ok = DlcPackOrder.save(packOrderPath(), order)
+        val response = JsonObject()
+        response.addProperty("type", "pack_order")
+        response.addProperty("ok", ok)
+        response.addProperty("message", if (ok) "saved" else "save_failed")
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackInstall(request: JsonObject, writer: BufferedWriter) {
+        val archivePath = if (request.has("archivePath")) request.get("archivePath").asString else ""
+        val result = installServerPack(archivePath)
+        val response = JsonObject()
+        response.addProperty("type", "pack_install")
+        response.addProperty("ok", result.ok)
+        response.addProperty("message", result.message)
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackUninstall(request: JsonObject, writer: BufferedWriter) {
+        val identifier = if (request.has("identifier")) request.get("identifier").asString else ""
+        val result = uninstallServerPack(identifier)
+        val response = JsonObject()
+        response.addProperty("type", "pack_uninstall")
+        response.addProperty("ok", result.ok)
+        response.addProperty("message", result.message)
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackDelete(request: JsonObject, writer: BufferedWriter) {
+        val archivePath = if (request.has("archivePath")) request.get("archivePath").asString else ""
+        val result = deleteServerPack(archivePath)
+        val response = JsonObject()
+        response.addProperty("type", "pack_delete")
+        response.addProperty("ok", result.ok)
+        response.addProperty("message", result.message)
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackImport(request: JsonObject, writer: BufferedWriter) {
+        val root = CrossPlatformRuntime.gameDir()
+        val raw = if (request.has("path")) request.get("path").asString else ""
+        val target = safeResolve(root, raw)
+        val ok = target != null && Files.isRegularFile(target) && target.startsWith(packArchiveRoot())
+        val response = JsonObject()
+        response.addProperty("type", "pack_import")
+        response.addProperty("ok", ok)
+        response.addProperty("message", if (ok) "" else "invalid pack archive")
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackImportUrl(request: JsonObject, writer: BufferedWriter) {
+        val url = if (request.has("url")) request.get("url").asString else ""
+        val fileName = if (request.has("fileName")) request.get("fileName").asString else ""
+        var ok = false
+        var message = ""
+        if (url.isBlank()) {
+            message = "missing_url"
+        } else {
+            try {
+                val packRoot = packArchiveRoot()
+                Files.createDirectories(packRoot)
+                val downloaded = DlcDownloadService.download(
+                    url,
+                    packRoot,
+                    fileName,
+                    null as DlcDownloadService.ProgressListener?,
+                    null as DlcDownloadService.CancelChecker?,
+                )
+                ok = Files.isRegularFile(downloaded)
+                if (!ok) {
+                    message = "download_failed"
+                }
+            } catch (_: DlcDownloadService.DownloadCanceledException) {
+                message = "canceled"
+            } catch (error: Exception) {
+                message = error.message ?: "download_failed"
+            }
+        }
+        val response = JsonObject()
+        response.addProperty("type", "pack_import_url")
+        response.addProperty("ok", ok)
+        response.addProperty("message", message)
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackApplyStart(request: JsonObject, writer: BufferedWriter) {
+        val order = readStringArray(request, "order")
+        val uninstallIdentifiers = readStringArray(request, "uninstallIdentifiers")
+        val installArchives = readStringArray(request, "installArchives")
+        val status = startPackApplyJob(order, uninstallIdentifiers, installArchives)
+        val response = JsonObject()
+        response.addProperty("type", "pack_apply_start")
+        response.addProperty("ok", true)
+        response.add("status", GSON.toJsonTree(status))
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackApplyStatus(writer: BufferedWriter) {
+        val response = JsonObject()
+        response.addProperty("type", "pack_apply_status")
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()))
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackApplyPause(writer: BufferedWriter) {
+        packApplyJob?.pause()
+        val response = JsonObject()
+        response.addProperty("type", "pack_apply_pause")
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()))
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackApplyResume(writer: BufferedWriter) {
+        packApplyJob?.resume()
+        val response = JsonObject()
+        response.addProperty("type", "pack_apply_resume")
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()))
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handlePackApplyCancel(writer: BufferedWriter) {
+        packApplyJob?.cancel()
+        val response = JsonObject()
+        response.addProperty("type", "pack_apply_cancel")
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()))
+        writeLine(writer, response)
+    }
+
+    private fun startPackApplyJob(order: List<String>, uninstallIdentifiers: List<String>, installArchives: List<String>): DlcServerPackApplyStatus {
+        synchronized(PACK_APPLY_LOCK) {
+            val existing = packApplyJob
+            if (existing != null && existing.isRunning()) {
+                return existing.toStatus()
+            }
+            val job = PackApplyJob(order, uninstallIdentifiers, installArchives)
+            packApplyJob = job
+            Thread({ job.run() }, "dlc-server-pack-apply").apply {
+                isDaemon = true
+                start()
+            }
+            return job.toStatus()
+        }
+    }
+
+    private fun currentPackApplyStatus(): DlcServerPackApplyStatus {
+        return packApplyJob?.toStatus() ?: DlcServerPackApplyStatus().apply {
+            finished = true
+            success = true
+            totalCount = 0
+            completedCount = 0
+            progress = 1f
+        }
+    }
+
+    private fun scanServerPackArchives(lang: String?): List<DlcServerPackInfo> {
+        val packRoot = packArchiveRoot()
+        try {
+            Files.createDirectories(packRoot)
+        } catch (_: IOException) {
+        }
+        if (!Files.isDirectory(packRoot)) {
+            return emptyList()
+        }
+        val installed = loadInstalledPacks()
+        val out = ArrayList<DlcServerPackInfo>()
+        try {
+            Files.list(packRoot).use { stream ->
+                stream.filter(Files::isRegularFile)
+                    .filter { it.fileName.toString().lowercase(Locale.ROOT).endsWith(".zip") }
+                    .sorted(Comparator.comparing { it.fileName.toString().lowercase(Locale.ROOT) })
+                    .forEach { path ->
+                        inspectServerPackArchive(path, packRoot, installed, lang)?.let(out::add)
+                    }
+            }
+        } catch (_: Exception) {
+        }
+        return out
+    }
+
+    private fun inspectServerPackArchive(archive: Path, packRoot: Path, installed: Map<String, DlcPackMeta>, lang: String?): DlcServerPackInfo? {
+        var staging: Path? = null
+        return try {
+            staging = DlcPackArchive.extractToStaging(archive, DlcConfig.getDlcRoot()).stagingDir
+            val result = DlcPackPackage.inspect(staging)
+            if (!result.valid || result.pack == null) {
+                return null
+            }
+            val pack = result.pack
+            val relative = packRoot.relativize(archive.toAbsolutePath().normalize()).toString().replace('\\', '/')
+            val info = DlcServerPackInfo()
+            info.archivePath = relative
+            info.orderKey = relative + "#" + pack.metadata.identifier + "@" + pack.metadata.version
+            info.fileName = archive.fileName.toString()
+            info.identifier = pack.metadata.identifier
+            info.version = pack.metadata.version
+            info.displayName = pack.metadata.resolveDisplayName(lang)
+            info.description = pack.metadata.resolveDescription(lang)
+            info.authors = ArrayList(pack.metadata.authors)
+            info.links = LinkedHashMap(pack.metadata.links)
+            info.iconBase64 = readPackIconBase64(pack.iconFile)
+            info.format = pack.format.name
+            val meta = installed[info.identifier]
+            info.installed = meta != null && info.version == meta.version
+            info.installedVersion = meta?.version ?: ""
+            info
+        } catch (_: Exception) {
+            null
+        } finally {
+            DlcPackArchive.deleteRecursive(staging)
+        }
+    }
+
+    private fun installServerPack(
+        archivePath: String?,
+        progressListener: DlcPackInstaller.ProgressListener? = null,
+        cancelChecker: DlcDownloadService.CancelChecker? = null,
+    ): UpdatePackActionResult {
+        val archive = resolvePackArchive(archivePath)
+        if (archive == null || !Files.isRegularFile(archive)) {
+            return UpdatePackActionResult.fail("invalid pack archive")
+        }
+        var staging: Path? = null
+        return try {
+            staging = DlcPackArchive.extractToStaging(archive, DlcConfig.getDlcRoot()).stagingDir
+            val result = DlcPackPackage.inspect(staging)
+            if (!result.valid || result.pack == null) {
+                return UpdatePackActionResult.fail(result.error ?: "invalid DLC Pack")
+            }
+            val installer = DlcPackInstaller(DlcPaths.gameDir(), DlcConfig.getDlcRoot())
+            val precheck = installer.precheck(result.pack)
+            if (precheck.hasBlockingIssues()) {
+                return UpdatePackActionResult.fail(describePackPrecheck(precheck))
+            }
+            val replace = loadInstalledPacks().containsKey(result.pack.metadata.identifier)
+            val options = if (precheck.requiresRuntimeConfirmation()) {
+                DlcPackInstaller.InstallOptions.applyConfirmedRuntimeChanges()
+            } else {
+                DlcPackInstaller.InstallOptions.strict()
+            }.withProgressListener(progressListener).withCancelChecker(cancelChecker)
+            installer.install(result.pack, replace, options)
+            UpdatePackActionResult.ok("installed")
+        } catch (error: Exception) {
+            UpdatePackActionResult.fail(error.message ?: error.javaClass.simpleName)
+        } finally {
+            DlcPackArchive.deleteRecursive(staging)
+        }
+    }
+
+    private fun uninstallServerPack(identifier: String?, progressListener: DlcPackInstaller.ProgressListener? = null): UpdatePackActionResult {
+        if (identifier.isNullOrBlank()) {
+            return UpdatePackActionResult.fail("missing identifier")
+        }
+        return try {
+            DlcPackInstaller(DlcPaths.gameDir(), DlcConfig.getDlcRoot()).uninstall(identifier, progressListener)
+            UpdatePackActionResult.ok("uninstalled")
+        } catch (error: Exception) {
+            UpdatePackActionResult.fail(error.message ?: error.javaClass.simpleName)
+        }
+    }
+
+    private fun deleteServerPack(archivePath: String?): UpdatePackActionResult {
+        val archive = resolvePackArchive(archivePath)
+        if (archive == null || !Files.isRegularFile(archive)) {
+            return UpdatePackActionResult.fail("invalid pack archive")
+        }
+        var identifier: String? = null
+        var staging: Path? = null
+        try {
+            staging = DlcPackArchive.extractToStaging(archive, DlcConfig.getDlcRoot()).stagingDir
+            val result = DlcPackPackage.inspect(staging)
+            if (result.valid && result.pack != null) {
+                identifier = result.pack.metadata.identifier
+            }
+        } catch (_: Exception) {
+        } finally {
+            DlcPackArchive.deleteRecursive(staging)
+        }
+        return try {
+            if (!identifier.isNullOrBlank()) {
+                val installed = DlcPackMeta.load(DlcConfig.getDlcRoot().resolve("tmp").resolve("pack").resolve(identifier).resolve("meta.dc"))
+                if (installed != null) {
+                    DlcPackInstaller(DlcPaths.gameDir(), DlcConfig.getDlcRoot()).uninstall(identifier)
+                }
+            }
+            Files.deleteIfExists(archive)
+            UpdatePackActionResult.ok("deleted")
+        } catch (error: Exception) {
+            UpdatePackActionResult.fail(error.message ?: error.javaClass.simpleName)
+        }
+    }
+
+    private fun loadInstalledPacks(): Map<String, DlcPackMeta> {
+        val root = DlcConfig.getDlcRoot().resolve("tmp").resolve("pack")
+        val out = HashMap<String, DlcPackMeta>()
+        if (!Files.isDirectory(root)) {
+            return out
+        }
+        try {
+            Files.list(root).use { stream ->
+                stream.filter(Files::isDirectory).forEach { dir ->
+                    val meta = DlcPackMeta.load(dir.resolve("meta.dc"))
+                    if (meta != null && !meta.identifier.isNullOrBlank()) {
+                        out[meta.identifier] = meta
+                    }
+                }
+            }
+        } catch (_: IOException) {
+        }
+        return out
+    }
+
+    private fun packArchiveRoot(): Path {
+        return DlcConfig.getDlcRoot().resolve("pack").toAbsolutePath().normalize()
+    }
+
+    private fun packOrderPath(): Path {
+        return DlcPaths.gameDir().resolve("config").resolve("dlc_manager").resolve("order.dc")
+    }
+
+    private fun readPackIconBase64(iconFile: Path?): String? {
+        if (iconFile == null || !Files.isRegularFile(iconFile)) {
+            return null
+        }
+        return try {
+            val size = Files.size(iconFile)
+            if (size <= 0L || size > 1024L * 1024L) {
+                null
+            } else {
+                Base64.getEncoder().encodeToString(Files.readAllBytes(iconFile))
+            }
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    private fun resolvePackArchive(archivePath: String?): Path? {
+        if (archivePath.isNullOrBlank()) {
+            return null
+        }
+        val root = packArchiveRoot()
+        val target = safeResolve(root, archivePath)?.toAbsolutePath()?.normalize() ?: return null
+        return if (target.startsWith(root)) target else null
+    }
+
+    private fun describePackPrecheck(precheck: DlcPackInstaller.PrecheckResult): String {
+        val lines = ArrayList<String>()
+        if (precheck.incompatibleVersions.isNotEmpty()) {
+            lines.add("incompatible: " + precheck.incompatibleVersions.joinToString(", "))
+        }
+        if (precheck.missingDependencies.isNotEmpty()) {
+            lines.add("missing dependencies: " + precheck.missingDependencies.joinToString(", "))
+        }
+        if (precheck.dlcToEnable.isNotEmpty()) {
+            lines.add("enable DLC: " + precheck.dlcToEnable.joinToString(", "))
+        }
+        if (precheck.presetsToEnable.isNotEmpty()) {
+            lines.add("enable presets: " + precheck.presetsToEnable.joinToString(", "))
+        }
+        if (precheck.dlcToDisable.isNotEmpty()) {
+            lines.add("disable DLC: " + precheck.dlcToDisable.joinToString(", "))
+        }
+        if (precheck.presetsToDisable.isNotEmpty()) {
+            lines.add("disable presets: " + precheck.presetsToDisable.joinToString(", "))
+        }
+        return if (lines.isEmpty()) "precheck failed" else lines.joinToString("; ")
     }
 
     @Throws(IOException::class)
@@ -1224,4 +1669,203 @@ object DlcServerService {
         val tempFile: Path,
         val targetPath: Path,
     )
+
+    private class PackApplyJob(
+        private val order: List<String>,
+        private val uninstallIdentifiers: List<String>,
+        private val installArchives: List<String>,
+    ) {
+        private val cancelRequested = AtomicBoolean(false)
+        private val pauseRequested = AtomicBoolean(false)
+        private val pauseLock = Object()
+        @Volatile private var running = true
+        @Volatile private var finished = false
+        @Volatile private var success = false
+        @Volatile private var canceled = false
+        @Volatile private var paused = false
+        @Volatile private var totalCount = (uninstallIdentifiers.size + installArchives.size).coerceAtLeast(1)
+        @Volatile private var completedCount = 0
+        @Volatile private var progress = 0f
+        @Volatile private var message: String? = "dlc_manager.pack.operation_applying"
+        @Volatile private var error: String? = null
+
+        fun isRunning(): Boolean = running
+
+        fun cancel() {
+            cancelRequested.set(true)
+            message = "dlc_manager.pack.canceling"
+            synchronized(pauseLock) {
+                pauseLock.notifyAll()
+            }
+        }
+
+        fun pause() {
+            if (!running || finished) return
+            pauseRequested.set(true)
+            paused = true
+            message = "dlc_manager.pack.paused"
+        }
+
+        fun resume() {
+            pauseRequested.set(false)
+            paused = false
+            synchronized(pauseLock) {
+                pauseLock.notifyAll()
+            }
+        }
+
+        fun run() {
+            try {
+                checkCanceled()
+                message = "dlc_manager.pack.operation_applying"
+                progress = 0f
+                if (!DlcPackOrder.save(packOrderPath(), order)) {
+                    throw IOException("save order failed")
+                }
+                val hasUninstallPhase = uninstallIdentifiers.isNotEmpty()
+                val hasInstallPhase = installArchives.isNotEmpty()
+                val uninstallTotalSpan = if (hasUninstallPhase && hasInstallPhase) 0.35f else if (hasUninstallPhase) 1f else 0f
+                val installTotalSpan = if (hasUninstallPhase && hasInstallPhase) 0.65f else if (hasInstallPhase) 1f else 0f
+                val uninstallSpan = if (uninstallIdentifiers.isNotEmpty()) uninstallTotalSpan / uninstallIdentifiers.size.toFloat() else 0f
+                val installSpan = if (installArchives.isNotEmpty()) installTotalSpan / installArchives.size.toFloat() else 0f
+                var phaseOffset = 0f
+                for (identifier in uninstallIdentifiers) {
+                    checkCanceled()
+                    val offset = phaseOffset
+                    runStep("dlc_manager.pack.operation_uninstalling", offset, uninstallSpan) { stepProgress ->
+                        val result = uninstallServerPack(identifier) { status, value ->
+                            waitIfPaused()
+                            stepProgress(normalizeProgressStatus(status, "dlc_manager.pack.operation_uninstalling"), value)
+                        }
+                        if (!result.ok) {
+                            throw IOException(result.message)
+                        }
+                    }
+                    phaseOffset += uninstallSpan
+                }
+                for (archive in installArchives) {
+                    checkCanceled()
+                    val offset = phaseOffset
+                    runStep("dlc_manager.pack.operation_installing", offset, installSpan) { stepProgress ->
+                        val result = installServerPack(
+                            archive,
+                            { status, value ->
+                                waitIfPaused()
+                                stepProgress(normalizeProgressStatus(status, "dlc_manager.pack.operation_installing"), value)
+                            },
+                            {
+                                waitIfPaused()
+                                cancelRequested.get()
+                            },
+                        )
+                        if (!result.ok) {
+                            throw IOException(result.message)
+                        }
+                    }
+                    phaseOffset += installSpan
+                }
+                success = true
+                progress = 1f
+                message = "dlc_manager.pack.apply_success"
+            } catch (_: DlcDownloadService.DownloadCanceledException) {
+                canceled = true
+                error = "canceled"
+                message = "dlc_manager.pack.canceled"
+            } catch (error: Exception) {
+                this.error = error.message ?: error.javaClass.simpleName
+                message = this.error
+            } finally {
+                running = false
+                finished = true
+            }
+        }
+
+        private fun runStep(label: String, offset: Float, span: Float, action: ((String, Float) -> Unit) -> Unit) {
+            waitIfPaused()
+            message = label
+            updateProgress(offset, span, -1f)
+            action { status, value ->
+                waitIfPaused()
+                message = status
+                updateProgress(offset, span, value)
+            }
+            completedCount++
+            updateProgress(offset, span, 1f)
+        }
+
+        private fun updateProgress(offset: Float, span: Float, stepProgress: Float) {
+            if (stepProgress < 0f) {
+                progress = -1f
+                return
+            }
+            progress = (offset + stepProgress.coerceIn(0f, 1f) * span).coerceIn(0f, 1f)
+        }
+
+        private fun checkCanceled() {
+            waitIfPaused()
+            if (cancelRequested.get()) {
+                throw DlcDownloadService.DownloadCanceledException("canceled")
+            }
+        }
+
+        private fun waitIfPaused() {
+            while (pauseRequested.get() && !cancelRequested.get()) {
+                paused = true
+                message = "dlc_manager.pack.paused"
+                synchronized(pauseLock) {
+                    try {
+                        pauseLock.wait(200L)
+                    } catch (_: InterruptedException) {
+                    }
+                }
+            }
+            paused = false
+        }
+
+        private fun normalizeProgressStatus(status: String?, fallback: String): String {
+            val raw = status?.trim()
+            if (raw.isNullOrEmpty()) return fallback
+            if (raw.startsWith("dlc_manager.")) return raw
+            return when {
+                raw.startsWith("Uninstalling") || raw.startsWith("Restoring") || raw.startsWith("Uninstalled") ->
+                    "dlc_manager.pack.operation_uninstalling"
+                raw.startsWith("Downloading") || raw.startsWith("Resolved") || raw.startsWith("Preparing") ||
+                    raw.startsWith("Backing up") || raw.startsWith("Installing") || raw.startsWith("Writing metadata") ||
+                    raw.startsWith("Installed") ->
+                    "dlc_manager.pack.operation_installing"
+                raw.startsWith("Applying") || raw.startsWith("Saving") || raw.startsWith("Applied") ->
+                    "dlc_manager.pack.operation_applying"
+                raw.startsWith("Canceling") || raw.startsWith("Canceled") ->
+                    "dlc_manager.pack.canceling"
+                raw.startsWith("Paused") ->
+                    "dlc_manager.pack.paused"
+                else -> fallback
+            }
+        }
+
+        fun toStatus(): DlcServerPackApplyStatus {
+            val status = DlcServerPackApplyStatus()
+            status.running = running
+            status.finished = finished
+            status.success = success
+            status.canceled = canceled
+            status.paused = paused
+            status.totalCount = totalCount
+            status.completedCount = completedCount
+            status.progress = progress
+            status.message = message
+            status.error = error
+            return status
+        }
+    }
+
+    private class UpdatePackActionResult private constructor(
+        val ok: Boolean,
+        val message: String,
+    ) {
+        companion object {
+            fun ok(message: String?): UpdatePackActionResult = UpdatePackActionResult(true, message ?: "")
+            fun fail(message: String?): UpdatePackActionResult = UpdatePackActionResult(false, message ?: "")
+        }
+    }
 }

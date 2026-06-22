@@ -534,6 +534,8 @@
   "dlc_manager.preset.desc": "",
   "dlc_manager.preset.conflict": "与预设%s冲突",
   "dlc_manager.pack.manager": "拓展包",
+  "dlc_manager.server.pack.manager_title": "服务端拓展包管理器",
+  "dlc_manager.server.pack.load_failed": "拓展包列表加载失败。",
   "dlc_manager.pack.quick_icon": "P",
   "dlc_manager.pack.manager_title": "拓展包管理器",
   "dlc_manager.pack.import": "导入拓展包",

@@ -79,6 +79,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     private int requiredMissingCount;
     private boolean hasRequiredEntries;
     private boolean promptedRemoteDownload;
+    private boolean hasServerTaczMod;
 
     public DlcServerMaLiLibScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info) {
         this(parent, entry, info, parent instanceof PauseScreen);
@@ -146,6 +147,10 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         remoteMissingCount = info != null ? info.remoteMissing : 0;
         requiredMissingCount = info != null ? info.requiredMissing : 0;
         hasRequiredEntries = info != null && info.hasRequired;
+        hasServerTaczMod = info != null && info.hasTaczMod;
+        if (!hasServerTaczMod && activeFilter == DlcType.TACZ_PACK) {
+            activeFilter = null;
+        }
         serverBaseVersion = info != null && info.baseVersion != null ? info.baseVersion : "";
         serverDlcVersion = info != null && info.dlcVersion != null ? info.dlcVersion : "";
         if (info != null && info.items != null) {
@@ -177,10 +182,16 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
             if (type == null) {
                 type = DlcType.UNKNOWN;
             }
+            if (!isServerTypeVisible(type)) {
+                continue;
+            }
             grouped.computeIfAbsent(type, key -> new ArrayList<>()).add(item);
         }
         if (activeFilter == null) {
             for (DlcType type : DlcType.values()) {
+                if (!isServerTypeVisible(type)) {
+                    continue;
+                }
                 List<DlcServerItem> group = grouped.get(type);
                 if (group == null || group.isEmpty()) {
                     continue;
@@ -270,12 +281,19 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
     }
 
     private void addFilterButtons() {
+        filterButtons.clear();
+        modsFilterButton = null;
+        taczFilterButton = null;
+        resourceFilterButton = null;
+        dataFilterButton = null;
+        otherFilterButton = null;
         int panelLeft = 20;
         int panelRight = this.width - 20;
         int y = 19;
         int h = 18;
         int gap = this.width < 420 ? 4 : 6;
-        int count = 6;
+        List<DlcType> visibleTypes = visibleFilterTypes();
+        int count = visibleTypes.size() + 1;
         int available = panelRight - panelLeft;
         int totalGap = gap * (count - 1);
         int w = Math.max(40, (available - totalGap) / count);
@@ -289,26 +307,23 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         allFilterButton = new ButtonGeneric(x, y, w, h, getFilterLabel(null));
         addButton(allFilterButton, new FilterButtonListener(null));
         x += w + gap;
-        modsFilterButton = new ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.MOD));
-        addButton(modsFilterButton, new FilterButtonListener(DlcType.MOD));
-        x += w + gap;
-        taczFilterButton = new ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.TACZ_PACK));
-        addButton(taczFilterButton, new FilterButtonListener(DlcType.TACZ_PACK));
-        x += w + gap;
-        resourceFilterButton = new ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.RESOURCE_PACK));
-        addButton(resourceFilterButton, new FilterButtonListener(DlcType.RESOURCE_PACK));
-        x += w + gap;
-        dataFilterButton = new ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.DATA_PACK));
-        addButton(dataFilterButton, new FilterButtonListener(DlcType.DATA_PACK));
-        x += w + gap;
-        otherFilterButton = new ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.UNKNOWN));
-        addButton(otherFilterButton, new FilterButtonListener(DlcType.UNKNOWN));
-
-        filterButtons.put(DlcType.MOD, modsFilterButton);
-        filterButtons.put(DlcType.TACZ_PACK, taczFilterButton);
-        filterButtons.put(DlcType.RESOURCE_PACK, resourceFilterButton);
-        filterButtons.put(DlcType.DATA_PACK, dataFilterButton);
-        filterButtons.put(DlcType.UNKNOWN, otherFilterButton);
+        for (DlcType type : visibleTypes) {
+            ButtonGeneric button = new ButtonGeneric(x, y, w, h, getFilterLabel(type));
+            addButton(button, new FilterButtonListener(type));
+            filterButtons.put(type, button);
+            if (type == DlcType.MOD) {
+                modsFilterButton = button;
+            } else if (type == DlcType.TACZ_PACK) {
+                taczFilterButton = button;
+            } else if (type == DlcType.RESOURCE_PACK) {
+                resourceFilterButton = button;
+            } else if (type == DlcType.DATA_PACK) {
+                dataFilterButton = button;
+            } else if (type == DlcType.UNKNOWN) {
+                otherFilterButton = button;
+            }
+            x += w + gap;
+        }
         updateFilterButtons();
     }
 
@@ -411,6 +426,8 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         info.items = new ArrayList<>(items);
         info.remoteMissing = remoteMissingCount;
         info.requiredMissing = requiredMissingCount;
+        info.hasRequired = hasRequiredEntries;
+        info.hasTaczMod = hasServerTaczMod;
         info.baseVersion = serverBaseVersion;
         info.dlcVersion = serverDlcVersion;
         return info;
@@ -1430,6 +1447,23 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
         };
     }
 
+    private List<DlcType> visibleFilterTypes() {
+        List<DlcType> types = new ArrayList<>();
+        for (DlcType type : DlcType.values()) {
+            if (type == DlcType.DLC_PACK) {
+                continue;
+            }
+            if (isServerTypeVisible(type)) {
+                types.add(type);
+            }
+        }
+        return types;
+    }
+
+    private boolean isServerTypeVisible(DlcType type) {
+        return type != DlcType.TACZ_PACK || hasServerTaczMod;
+    }
+
     private int maxTextWidth(String a, String b) {
         return Math.max(StringUtils.getStringWidth(a), StringUtils.getStringWidth(b));
     }
@@ -1566,7 +1600,7 @@ public class DlcServerMaLiLibScreen extends GuiListBase<DlcServerListRow, DlcSer
 
         @Override
         public void actionPerformedWithButton(fi.dy.masa.malilib.gui.button.ButtonBase button, int mouseButton) {
-            activeFilter = filter;
+            activeFilter = filter != null && !isServerTypeVisible(filter) ? null : filter;
             rebuildRows();
             reCreateListWidget();
             updateFilterButtons();

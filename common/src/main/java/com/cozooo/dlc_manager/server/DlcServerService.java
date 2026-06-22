@@ -1,11 +1,18 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
+import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
+import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
+import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
+import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
+import com.cozooo.dlc_manager.client.pack.DlcPackMeta;
+import com.cozooo.dlc_manager.client.pack.DlcPackOrder;
+import com.cozooo.dlc_manager.client.pack.DlcPackPackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
@@ -46,9 +53,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,6 +71,9 @@ public class DlcServerService {
     private static final Gson GSON = new GsonBuilder().create();
     private static final int FILE_CHUNK_SIZE = 64 * 1024;
     private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
+    private static final Set<String> LOGGED_CONNECTION_KEYS = ConcurrentHashMap.newKeySet();
+    private static final Object PACK_APPLY_LOCK = new Object();
+    private static volatile PackApplyJob packApplyJob;
     private static ServerSocket serverSocket;
     private static Thread acceptThread;
     private static ExecutorService clientPool;
@@ -94,6 +107,7 @@ public class DlcServerService {
 
     public static void stop() {
         RUNNING.set(false);
+        LOGGED_CONNECTION_KEYS.clear();
         if (acceptThread != null) {
             acceptThread.interrupt();
             acceptThread = null;
@@ -198,7 +212,8 @@ public class DlcServerService {
                     clientLang = request.get("lang").getAsString();
                 }
                 if ("hello".equals(type)) {
-                    authed = handleHello(request, writer);
+                    String remoteAddress = client.getInetAddress() != null ? client.getInetAddress().getHostAddress() : "";
+                    authed = handleHello(request, writer, remoteAddress);
                     if (!authed) {
                         break;
                     }
@@ -242,6 +257,30 @@ public class DlcServerService {
                     handleUpdateImport(request, writer);
                 } else if ("update_import_url".equals(type)) {
                     handleUpdateImportUrl(request, writer);
+                } else if ("pack_list".equals(type)) {
+                    handlePackList(writer, clientLang);
+                } else if ("pack_install".equals(type)) {
+                    handlePackInstall(request, writer);
+                } else if ("pack_uninstall".equals(type)) {
+                    handlePackUninstall(request, writer);
+                } else if ("pack_delete".equals(type)) {
+                    handlePackDelete(request, writer);
+                } else if ("pack_import".equals(type)) {
+                    handlePackImport(request, writer);
+                } else if ("pack_import_url".equals(type)) {
+                    handlePackImportUrl(request, writer);
+                } else if ("pack_order".equals(type)) {
+                    handlePackOrder(request, writer);
+                } else if ("pack_apply_start".equals(type)) {
+                    handlePackApplyStart(request, writer);
+                } else if ("pack_apply_status".equals(type)) {
+                    handlePackApplyStatus(writer);
+                } else if ("pack_apply_pause".equals(type)) {
+                    handlePackApplyPause(writer);
+                } else if ("pack_apply_resume".equals(type)) {
+                    handlePackApplyResume(writer);
+                } else if ("pack_apply_cancel".equals(type)) {
+                    handlePackApplyCancel(writer);
                 } else if ("set".equals(type)) {
                     handleSet(request, overrides, writer);
                 } else if ("apply".equals(type)) {
@@ -289,7 +328,7 @@ public class DlcServerService {
         }
     }
 
-    private static boolean handleHello(JsonObject request, BufferedWriter writer) throws IOException {
+    private static boolean handleHello(JsonObject request, BufferedWriter writer, String remoteAddress) throws IOException {
         String expected = DlcConfig.getServerPassword();
         String provided = request.has("password") ? request.get("password").getAsString() : "";
         String player = request.has("player") ? request.get("player").getAsString() : "";
@@ -305,10 +344,30 @@ public class DlcServerService {
             response.addProperty("reason", reason);
             LOGGER.info("[dlc-manager] server manager auth failed: reason={} player={} uuid={}", reason, player, uuid);
         } else {
-            LOGGER.info("[dlc-manager] server manager connected: player={} uuid={}", player, uuid);
+            logConnectedOnce(player, uuid, remoteAddress);
         }
         writeLine(writer, response);
         return ok;
+    }
+
+    private static void logConnectedOnce(String player, String uuid, String remoteAddress) {
+        String key = connectionLogKey(player, uuid, remoteAddress);
+        if (LOGGED_CONNECTION_KEYS.add(key)) {
+            LOGGER.info("[dlc-manager] server manager connected: player={} uuid={}", player, uuid);
+        }
+    }
+
+    private static String connectionLogKey(String player, String uuid, String remoteAddress) {
+        String normalizedUuid = uuid == null ? "" : uuid.trim();
+        if (!normalizedUuid.isEmpty()) {
+            return "uuid:" + normalizedUuid;
+        }
+        String normalizedPlayer = player == null ? "" : player.trim();
+        if (!normalizedPlayer.isEmpty()) {
+            return "player:" + normalizedPlayer;
+        }
+        String normalizedRemote = remoteAddress == null ? "" : remoteAddress.trim();
+        return normalizedRemote.isEmpty() ? "unknown" : "remote:" + normalizedRemote;
     }
 
     private static boolean isPlayerOp(String name, String uuid) {
@@ -370,6 +429,7 @@ public class DlcServerService {
         response.addProperty("remoteMissing", remoteMissing);
         response.addProperty("requiredMissing", requiredMissing);
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot));
+        response.addProperty("hasTaczMod", CrossPlatformRuntime.isModLoaded("tacz"));
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
         response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl());
         response.add("items", GSON.toJsonTree(items));
@@ -417,6 +477,18 @@ public class DlcServerService {
         } catch (Exception ignored) {
             return "__root__";
         }
+    }
+
+    private static List<String> readStringList(JsonObject request, String key) {
+        List<String> values = new ArrayList<>();
+        if (request.has(key) && request.get(key).isJsonArray()) {
+            request.getAsJsonArray(key).forEach(element -> {
+                if (element.isJsonPrimitive()) {
+                    values.add(element.getAsString());
+                }
+            });
+        }
+        return values;
     }
 
     private static void handleRemoteDownloadStart(JsonObject request, BufferedWriter writer, String lang) throws IOException {
@@ -713,6 +785,403 @@ public class DlcServerService {
         response.addProperty("ok", ok);
         response.addProperty("message", message);
         writeLine(writer, response);
+    }
+
+    private static void handlePackList(BufferedWriter writer, String lang) throws IOException {
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_list");
+        response.addProperty("ok", true);
+        response.add("packs", GSON.toJsonTree(scanServerPackArchives(lang)));
+        response.add("order", GSON.toJsonTree(DlcPackOrder.load(packOrderPath())));
+        writeLine(writer, response);
+    }
+
+    private static void handlePackOrder(JsonObject request, BufferedWriter writer) throws IOException {
+        List<String> order = new ArrayList<>();
+        if (request.has("order") && request.get("order").isJsonArray()) {
+            request.getAsJsonArray("order").forEach(element -> {
+                if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
+                    order.add(element.getAsString());
+                }
+            });
+        }
+        boolean ok = DlcPackOrder.save(packOrderPath(), order);
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_order");
+        response.addProperty("ok", ok);
+        response.addProperty("message", ok ? "saved" : "save_failed");
+        writeLine(writer, response);
+    }
+
+    private static void handlePackInstall(JsonObject request, BufferedWriter writer) throws IOException {
+        String archivePath = request.has("archivePath") ? request.get("archivePath").getAsString() : "";
+        UpdatePackActionResult result = installServerPack(archivePath);
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_install");
+        response.addProperty("ok", result.ok);
+        response.addProperty("message", result.message);
+        writeLine(writer, response);
+    }
+
+    private static void handlePackUninstall(JsonObject request, BufferedWriter writer) throws IOException {
+        String identifier = request.has("identifier") ? request.get("identifier").getAsString() : "";
+        UpdatePackActionResult result = uninstallServerPack(identifier);
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_uninstall");
+        response.addProperty("ok", result.ok);
+        response.addProperty("message", result.message);
+        writeLine(writer, response);
+    }
+
+    private static void handlePackDelete(JsonObject request, BufferedWriter writer) throws IOException {
+        String archivePath = request.has("archivePath") ? request.get("archivePath").getAsString() : "";
+        UpdatePackActionResult result = deleteServerPack(archivePath);
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_delete");
+        response.addProperty("ok", result.ok);
+        response.addProperty("message", result.message);
+        writeLine(writer, response);
+    }
+
+    private static void handlePackImport(JsonObject request, BufferedWriter writer) throws IOException {
+        Path root = CrossPlatformRuntime.gameDir();
+        String raw = request.has("path") ? request.get("path").getAsString() : "";
+        Path target = safeResolve(root, raw);
+        boolean ok = target != null && Files.isRegularFile(target) && target.startsWith(packArchiveRoot().toAbsolutePath().normalize());
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_import");
+        response.addProperty("ok", ok);
+        response.addProperty("message", ok ? "" : "invalid pack archive");
+        writeLine(writer, response);
+    }
+
+    private static void handlePackImportUrl(JsonObject request, BufferedWriter writer) throws IOException {
+        String url = request.has("url") ? request.get("url").getAsString() : "";
+        String fileName = request.has("fileName") ? request.get("fileName").getAsString() : "";
+        boolean ok = false;
+        String message = "";
+        if (url == null || url.isBlank()) {
+            message = "missing_url";
+        } else {
+            try {
+                Path packRoot = packArchiveRoot();
+                Files.createDirectories(packRoot);
+                Path downloaded = DlcDownloadService.download(url, packRoot, fileName, null, null);
+                ok = downloaded != null && Files.isRegularFile(downloaded);
+                if (!ok) {
+                    message = "download_failed";
+                }
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                message = "canceled";
+            } catch (Exception ex) {
+                message = ex.getMessage() == null ? "download_failed" : ex.getMessage();
+            }
+        }
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_import_url");
+        response.addProperty("ok", ok);
+        response.addProperty("message", message);
+        writeLine(writer, response);
+    }
+
+    private static void handlePackApplyStart(JsonObject request, BufferedWriter writer) throws IOException {
+        List<String> order = readStringList(request, "order");
+        List<String> uninstallIdentifiers = readStringList(request, "uninstallIdentifiers");
+        List<String> installArchives = readStringList(request, "installArchives");
+        DlcServerPackApplyStatus status = startPackApplyJob(order, uninstallIdentifiers, installArchives);
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_apply_start");
+        response.addProperty("ok", true);
+        response.add("status", GSON.toJsonTree(status));
+        writeLine(writer, response);
+    }
+
+    private static void handlePackApplyStatus(BufferedWriter writer) throws IOException {
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_apply_status");
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()));
+        writeLine(writer, response);
+    }
+
+    private static void handlePackApplyPause(BufferedWriter writer) throws IOException {
+        PackApplyJob job = packApplyJob;
+        if (job != null) {
+            job.pause();
+        }
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_apply_pause");
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()));
+        writeLine(writer, response);
+    }
+
+    private static void handlePackApplyResume(BufferedWriter writer) throws IOException {
+        PackApplyJob job = packApplyJob;
+        if (job != null) {
+            job.resume();
+        }
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_apply_resume");
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()));
+        writeLine(writer, response);
+    }
+
+    private static void handlePackApplyCancel(BufferedWriter writer) throws IOException {
+        PackApplyJob job = packApplyJob;
+        if (job != null) {
+            job.cancel();
+        }
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "pack_apply_cancel");
+        response.add("status", GSON.toJsonTree(currentPackApplyStatus()));
+        writeLine(writer, response);
+    }
+
+    private static DlcServerPackApplyStatus startPackApplyJob(List<String> order, List<String> uninstallIdentifiers, List<String> installArchives) {
+        synchronized (PACK_APPLY_LOCK) {
+            PackApplyJob existing = packApplyJob;
+            if (existing != null && existing.isRunning()) {
+                return existing.toStatus();
+            }
+            PackApplyJob job = new PackApplyJob(order, uninstallIdentifiers, installArchives);
+            packApplyJob = job;
+            Thread thread = new Thread(job::run, "dlc-server-pack-apply");
+            thread.setDaemon(true);
+            thread.start();
+            return job.toStatus();
+        }
+    }
+
+    private static DlcServerPackApplyStatus currentPackApplyStatus() {
+        PackApplyJob job = packApplyJob;
+        if (job != null) {
+            return job.toStatus();
+        }
+        DlcServerPackApplyStatus status = new DlcServerPackApplyStatus();
+        status.finished = true;
+        status.success = true;
+        status.totalCount = 0;
+        status.completedCount = 0;
+        status.progress = 1.0F;
+        return status;
+    }
+
+    private static List<DlcServerPackInfo> scanServerPackArchives(String lang) {
+        Path packRoot = packArchiveRoot();
+        try {
+            Files.createDirectories(packRoot);
+        } catch (IOException ignored) {
+        }
+        if (!Files.isDirectory(packRoot)) {
+            return List.of();
+        }
+        Map<String, DlcPackMeta> installed = loadInstalledPacks();
+        List<DlcServerPackInfo> out = new ArrayList<>();
+        try (var stream = Files.list(packRoot)) {
+            stream.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))
+                .sorted(java.util.Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
+                .forEach(path -> {
+                    DlcServerPackInfo info = inspectServerPackArchive(path, packRoot, installed, lang);
+                    if (info != null) {
+                        out.add(info);
+                    }
+                });
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    private static DlcServerPackInfo inspectServerPackArchive(Path archive, Path packRoot, Map<String, DlcPackMeta> installed, String lang) {
+        Path staging = null;
+        try {
+            staging = DlcPackArchive.extractToStaging(archive, DlcConfig.getDlcRoot()).stagingDir;
+            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+            if (!result.valid || result.pack == null) {
+                return null;
+            }
+            DlcServerPackInfo info = new DlcServerPackInfo();
+            String relative = packRoot.toAbsolutePath().normalize().relativize(archive.toAbsolutePath().normalize()).toString().replace('\\', '/');
+            info.archivePath = relative;
+            info.orderKey = relative + "#" + result.pack.metadata.identifier + "@" + result.pack.metadata.version;
+            info.fileName = archive.getFileName().toString();
+            info.identifier = result.pack.metadata.identifier;
+            info.version = result.pack.metadata.version;
+            info.displayName = result.pack.metadata.resolveDisplayName(lang);
+            info.description = result.pack.metadata.resolveDescription(lang);
+            info.authors = result.pack.metadata.authors;
+            info.links = new LinkedHashMap<>(result.pack.metadata.links);
+            info.iconBase64 = readPackIconBase64(result.pack.iconFile);
+            info.format = result.pack.format.name();
+            DlcPackMeta meta = installed.get(info.identifier);
+            info.installed = meta != null && info.version != null && info.version.equals(meta.version);
+            info.installedVersion = meta == null ? "" : meta.version;
+            return info;
+        } catch (Exception ignored) {
+            return null;
+        } finally {
+            DlcPackArchive.deleteRecursive(staging);
+        }
+    }
+
+    private static UpdatePackActionResult installServerPack(String archivePath) {
+        return installServerPack(archivePath, null, null);
+    }
+
+    private static UpdatePackActionResult installServerPack(String archivePath, DlcPackInstaller.ProgressListener progressListener,
+                                                            DlcDownloadService.CancelChecker cancelChecker) {
+        Path archive = resolvePackArchive(archivePath);
+        if (archive == null || !Files.isRegularFile(archive)) {
+            return UpdatePackActionResult.fail("invalid pack archive");
+        }
+        Path staging = null;
+        try {
+            staging = DlcPackArchive.extractToStaging(archive, DlcConfig.getDlcRoot()).stagingDir;
+            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+            if (!result.valid || result.pack == null) {
+                return UpdatePackActionResult.fail(result.error == null ? "invalid DLC Pack" : result.error);
+            }
+            DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcConfig.getDlcRoot());
+            DlcPackInstaller.PrecheckResult precheck = installer.precheck(result.pack);
+            if (precheck.hasBlockingIssues()) {
+                return UpdatePackActionResult.fail(describePackPrecheck(precheck));
+            }
+            boolean replace = loadInstalledPacks().containsKey(result.pack.metadata.identifier);
+            DlcPackInstaller.InstallOptions options = precheck.requiresRuntimeConfirmation()
+                ? DlcPackInstaller.InstallOptions.applyConfirmedRuntimeChanges()
+                : DlcPackInstaller.InstallOptions.strict();
+            options = options.withProgressListener(progressListener).withCancelChecker(cancelChecker);
+            installer.install(result.pack, replace, options);
+            return UpdatePackActionResult.ok("installed");
+        } catch (Exception ex) {
+            return UpdatePackActionResult.fail(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+        } finally {
+            DlcPackArchive.deleteRecursive(staging);
+        }
+    }
+
+    private static UpdatePackActionResult uninstallServerPack(String identifier) {
+        return uninstallServerPack(identifier, null);
+    }
+
+    private static UpdatePackActionResult uninstallServerPack(String identifier, DlcPackInstaller.ProgressListener progressListener) {
+        if (identifier == null || identifier.isBlank()) {
+            return UpdatePackActionResult.fail("missing identifier");
+        }
+        try {
+            DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcConfig.getDlcRoot());
+            installer.uninstall(identifier, progressListener);
+            return UpdatePackActionResult.ok("uninstalled");
+        } catch (Exception ex) {
+            return UpdatePackActionResult.fail(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+        }
+    }
+
+    private static UpdatePackActionResult deleteServerPack(String archivePath) {
+        Path archive = resolvePackArchive(archivePath);
+        if (archive == null || !Files.isRegularFile(archive)) {
+            return UpdatePackActionResult.fail("invalid pack archive");
+        }
+        String identifier = null;
+        Path staging = null;
+        try {
+            staging = DlcPackArchive.extractToStaging(archive, DlcConfig.getDlcRoot()).stagingDir;
+            DlcPackPackage.Result result = DlcPackPackage.inspect(staging);
+            if (result.valid && result.pack != null) {
+                identifier = result.pack.metadata.identifier;
+            }
+        } catch (Exception ignored) {
+        } finally {
+            DlcPackArchive.deleteRecursive(staging);
+        }
+        try {
+            if (identifier != null) {
+                DlcPackMeta installed = DlcPackMeta.load(DlcConfig.getDlcRoot().resolve("tmp").resolve("pack").resolve(identifier).resolve("meta.dc"));
+                if (installed != null) {
+                    DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcConfig.getDlcRoot());
+                    installer.uninstall(identifier);
+                }
+            }
+            Files.deleteIfExists(archive);
+            return UpdatePackActionResult.ok("deleted");
+        } catch (Exception ex) {
+            return UpdatePackActionResult.fail(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+        }
+    }
+
+    private static Map<String, DlcPackMeta> loadInstalledPacks() {
+        Path root = DlcConfig.getDlcRoot().resolve("tmp").resolve("pack");
+        Map<String, DlcPackMeta> out = new HashMap<>();
+        if (!Files.isDirectory(root)) {
+            return out;
+        }
+        try (var stream = Files.list(root)) {
+            stream.filter(Files::isDirectory).forEach(dir -> {
+                DlcPackMeta meta = DlcPackMeta.load(dir.resolve("meta.dc"));
+                if (meta != null && meta.identifier != null && !meta.identifier.isBlank()) {
+                    out.put(meta.identifier, meta);
+                }
+            });
+        } catch (IOException ignored) {
+        }
+        return out;
+    }
+
+    private static Path packArchiveRoot() {
+        return DlcConfig.getDlcRoot().resolve("pack").toAbsolutePath().normalize();
+    }
+
+    private static Path packOrderPath() {
+        return DlcPaths.gameDir().resolve("config").resolve("dlc_manager").resolve("order.dc");
+    }
+
+    private static String readPackIconBase64(Path iconFile) {
+        if (iconFile == null || !Files.isRegularFile(iconFile)) {
+            return null;
+        }
+        try {
+            long size = Files.size(iconFile);
+            if (size <= 0L || size > 1024L * 1024L) {
+                return null;
+            }
+            return Base64.getEncoder().encodeToString(Files.readAllBytes(iconFile));
+        } catch (IOException ignored) {
+            return null;
+        }
+    }
+
+    private static Path resolvePackArchive(String archivePath) {
+        if (archivePath == null || archivePath.isBlank()) {
+            return null;
+        }
+        Path root = packArchiveRoot();
+        Path target = safeResolve(root, archivePath);
+        if (target == null) {
+            return null;
+        }
+        return target.toAbsolutePath().normalize().startsWith(root) ? target : null;
+    }
+
+    private static String describePackPrecheck(DlcPackInstaller.PrecheckResult precheck) {
+        List<String> lines = new ArrayList<>();
+        if (!precheck.getIncompatibleVersions().isEmpty()) {
+            lines.add("incompatible: " + String.join(", ", precheck.getIncompatibleVersions()));
+        }
+        if (!precheck.getMissingDependencies().isEmpty()) {
+            lines.add("missing dependencies: " + String.join(", ", precheck.getMissingDependencies()));
+        }
+        if (!precheck.getDlcToEnable().isEmpty()) {
+            lines.add("enable DLC: " + String.join(", ", precheck.getDlcToEnable()));
+        }
+        if (!precheck.getPresetsToEnable().isEmpty()) {
+            lines.add("enable presets: " + String.join(", ", precheck.getPresetsToEnable()));
+        }
+        if (!precheck.getDlcToDisable().isEmpty()) {
+            lines.add("disable DLC: " + String.join(", ", precheck.getDlcToDisable()));
+        }
+        if (!precheck.getPresetsToDisable().isEmpty()) {
+            lines.add("disable presets: " + String.join(", ", precheck.getPresetsToDisable()));
+        }
+        return lines.isEmpty() ? "precheck failed" : String.join("; ", lines);
     }
 
     private static PushState handlePushInit(JsonObject request, BufferedWriter writer) throws IOException {
@@ -1241,6 +1710,238 @@ public class DlcServerService {
             this.id = id;
             this.tempFile = tempFile;
             this.targetPath = targetPath;
+        }
+    }
+
+    private static class PackApplyJob {
+        private final List<String> order;
+        private final List<String> uninstallIdentifiers;
+        private final List<String> installArchives;
+        private final AtomicBoolean cancelRequested = new AtomicBoolean(false);
+        private final AtomicBoolean pauseRequested = new AtomicBoolean(false);
+        private final Object pauseLock = new Object();
+        private volatile boolean running = true;
+        private volatile boolean finished;
+        private volatile boolean success;
+        private volatile boolean canceled;
+        private volatile boolean paused;
+        private volatile int totalCount;
+        private volatile int completedCount;
+        private volatile float progress;
+        private volatile String message = "dlc_manager.pack.operation_applying";
+        private volatile String error;
+
+        private PackApplyJob(List<String> order, List<String> uninstallIdentifiers, List<String> installArchives) {
+            this.order = order == null ? List.of() : order;
+            this.uninstallIdentifiers = uninstallIdentifiers == null ? List.of() : uninstallIdentifiers;
+            this.installArchives = installArchives == null ? List.of() : installArchives;
+            this.totalCount = Math.max(1, this.uninstallIdentifiers.size() + this.installArchives.size());
+        }
+
+        private boolean isRunning() {
+            return running;
+        }
+
+        private void cancel() {
+            cancelRequested.set(true);
+            message = "dlc_manager.pack.canceling";
+            synchronized (pauseLock) {
+                pauseLock.notifyAll();
+            }
+        }
+
+        private void pause() {
+            if (!running || finished) {
+                return;
+            }
+            pauseRequested.set(true);
+            paused = true;
+            message = "dlc_manager.pack.paused";
+        }
+
+        private void resume() {
+            pauseRequested.set(false);
+            paused = false;
+            synchronized (pauseLock) {
+                pauseLock.notifyAll();
+            }
+        }
+
+        private void run() {
+            try {
+                checkCanceled();
+                message = "dlc_manager.pack.operation_applying";
+                progress = 0.0F;
+                if (!DlcPackOrder.save(packOrderPath(), order)) {
+                    throw new IOException("save order failed");
+                }
+                boolean hasUninstallPhase = !uninstallIdentifiers.isEmpty();
+                boolean hasInstallPhase = !installArchives.isEmpty();
+                float uninstallTotalSpan = hasUninstallPhase && hasInstallPhase ? 0.35F : hasUninstallPhase ? 1.0F : 0.0F;
+                float installTotalSpan = hasUninstallPhase && hasInstallPhase ? 0.65F : hasInstallPhase ? 1.0F : 0.0F;
+                float uninstallSpan = uninstallIdentifiers.isEmpty() ? 0.0F : uninstallTotalSpan / (float) uninstallIdentifiers.size();
+                float installSpan = installArchives.isEmpty() ? 0.0F : installTotalSpan / (float) installArchives.size();
+                float phaseOffset = 0.0F;
+                for (String identifier : uninstallIdentifiers) {
+                    checkCanceled();
+                    float offset = phaseOffset;
+                    runStep("dlc_manager.pack.operation_uninstalling", offset, uninstallSpan, progressUpdater -> {
+                        UpdatePackActionResult result = uninstallServerPack(identifier, (status, value) -> {
+                            waitIfPaused();
+                            progressUpdater.update(normalizeProgressStatus(status, "dlc_manager.pack.operation_uninstalling"), value);
+                        });
+                        if (!result.ok) {
+                            throw new IOException(result.message);
+                        }
+                    });
+                    phaseOffset += uninstallSpan;
+                }
+                for (String archive : installArchives) {
+                    checkCanceled();
+                    float offset = phaseOffset;
+                    runStep("dlc_manager.pack.operation_installing", offset, installSpan, progressUpdater -> {
+                        UpdatePackActionResult result = installServerPack(
+                            archive,
+                            (status, value) -> {
+                                waitIfPaused();
+                                progressUpdater.update(normalizeProgressStatus(status, "dlc_manager.pack.operation_installing"), value);
+                            },
+                            () -> {
+                                waitIfPaused();
+                                return cancelRequested.get();
+                            }
+                        );
+                        if (!result.ok) {
+                            throw new IOException(result.message);
+                        }
+                    });
+                    phaseOffset += installSpan;
+                }
+                success = true;
+                progress = 1.0F;
+                message = "dlc_manager.pack.apply_success";
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                canceled = true;
+                error = "canceled";
+                message = "dlc_manager.pack.canceled";
+            } catch (Exception ex) {
+                error = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+                message = error;
+            } finally {
+                running = false;
+                finished = true;
+            }
+        }
+
+        private void runStep(String label, float offset, float span, ThrowingStep action) throws Exception {
+            waitIfPaused();
+            message = label;
+            updateProgress(offset, span, -1.0F);
+            action.run((status, value) -> {
+                waitIfPaused();
+                message = status;
+                updateProgress(offset, span, value);
+            });
+            completedCount++;
+            updateProgress(offset, span, 1.0F);
+        }
+
+        private void updateProgress(float offset, float span, float stepProgress) {
+            if (stepProgress < 0.0F) {
+                progress = -1.0F;
+                return;
+            }
+            progress = Math.max(0.0F, Math.min(1.0F, offset + Math.max(0.0F, Math.min(1.0F, stepProgress)) * span));
+        }
+
+        private void checkCanceled() throws DlcDownloadService.DownloadCanceledException {
+            waitIfPaused();
+            if (cancelRequested.get()) {
+                throw new DlcDownloadService.DownloadCanceledException("canceled");
+            }
+        }
+
+        private void waitIfPaused() {
+            while (pauseRequested.get() && !cancelRequested.get()) {
+                paused = true;
+                message = "dlc_manager.pack.paused";
+                synchronized (pauseLock) {
+                    try {
+                        pauseLock.wait(200L);
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+            }
+            paused = false;
+        }
+
+        private String normalizeProgressStatus(String status, String fallback) {
+            String raw = status == null ? "" : status.trim();
+            if (raw.isEmpty()) {
+                return fallback;
+            }
+            if (raw.startsWith("dlc_manager.")) {
+                return raw;
+            }
+            if (raw.startsWith("Uninstalling") || raw.startsWith("Restoring") || raw.startsWith("Uninstalled")) {
+                return "dlc_manager.pack.operation_uninstalling";
+            }
+            if (raw.startsWith("Downloading") || raw.startsWith("Resolved") || raw.startsWith("Preparing")
+                || raw.startsWith("Backing up") || raw.startsWith("Installing") || raw.startsWith("Writing metadata")
+                || raw.startsWith("Installed")) {
+                return "dlc_manager.pack.operation_installing";
+            }
+            if (raw.startsWith("Applying") || raw.startsWith("Saving") || raw.startsWith("Applied")) {
+                return "dlc_manager.pack.operation_applying";
+            }
+            if (raw.startsWith("Canceling") || raw.startsWith("Canceled")) {
+                return "dlc_manager.pack.canceling";
+            }
+            if (raw.startsWith("Paused")) {
+                return "dlc_manager.pack.paused";
+            }
+            return fallback;
+        }
+
+        private DlcServerPackApplyStatus toStatus() {
+            DlcServerPackApplyStatus status = new DlcServerPackApplyStatus();
+            status.running = running;
+            status.finished = finished;
+            status.success = success;
+            status.canceled = canceled;
+            status.paused = paused;
+            status.totalCount = totalCount;
+            status.completedCount = completedCount;
+            status.progress = progress;
+            status.message = message;
+            status.error = error;
+            return status;
+        }
+    }
+
+    private interface ProgressUpdater {
+        void update(String status, float progress);
+    }
+
+    private interface ThrowingStep {
+        void run(ProgressUpdater progressUpdater) throws Exception;
+    }
+
+    private static class UpdatePackActionResult {
+        private final boolean ok;
+        private final String message;
+
+        private UpdatePackActionResult(boolean ok, String message) {
+            this.ok = ok;
+            this.message = message == null ? "" : message;
+        }
+
+        private static UpdatePackActionResult ok(String message) {
+            return new UpdatePackActionResult(true, message);
+        }
+
+        private static UpdatePackActionResult fail(String message) {
+            return new UpdatePackActionResult(false, message);
         }
     }
 }

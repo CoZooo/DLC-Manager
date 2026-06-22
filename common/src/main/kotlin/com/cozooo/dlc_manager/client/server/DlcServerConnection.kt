@@ -43,6 +43,11 @@ object DlcServerConnection {
         @JvmField var missingPaths: List<String> = listOf()
     }
 
+    class PackListResponse {
+        @JvmField var packs: List<DlcServerPackInfo> = listOf()
+        @JvmField var order: List<String> = listOf()
+    }
+
     @JvmStatic
     @Throws(IOException::class)
     fun fetchServerInfo(entry: DlcServerEntry?, timeoutMs: Int): DlcServerInfo? {
@@ -67,6 +72,7 @@ object DlcServerConnection {
             info.remoteMissing = getInt(response, "remoteMissing")
             info.requiredMissing = getInt(response, "requiredMissing")
             info.hasRequired = response.has("hasRequired") && response["hasRequired"].asBoolean
+            info.hasTaczMod = response.has("hasTaczMod") && response["hasTaczMod"].asBoolean
             info.modpackUrl = getString(response, "modpackUrl")
             info.updateGitRepo = getString(response, "updateGitRepo") ?: getString(response, "updateGithubRepo")
             if (!info.hasRequired && info.requiredMissing > 0) {
@@ -619,6 +625,313 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun importUpdatePackage(entry: DlcServerEntry?, timeoutMs: Int, source: Path?): Boolean {
         return importUpdatePackage(entry, timeoutMs, source, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun fetchPacks(entry: DlcServerEntry?, timeoutMs: Int): List<DlcServerPackInfo>? {
+        return fetchPackList(entry, timeoutMs)?.packs
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun fetchPacks(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): List<DlcServerPackInfo>? {
+        return fetchPackList(entry, timeoutMs, playerName, playerUuid)?.packs
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun fetchPackList(entry: DlcServerEntry?, timeoutMs: Int): PackListResponse? {
+        return fetchPackList(entry, timeoutMs, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun fetchPackList(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): PackListResponse? {
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
+            val req = JsonObject()
+            req.addProperty("type", "pack_list")
+            writeLine(writer, req)
+            val response = readObject(reader)
+            if (response == null || !response.has("type") || response["type"].asString != "pack_list") return null
+            val packs = ArrayList<DlcServerPackInfo>()
+            if (response.has("packs") && response["packs"].isJsonArray) {
+                response.getAsJsonArray("packs").forEach { element ->
+                    if (element.isJsonObject) {
+                        GSON.fromJson(element, DlcServerPackInfo::class.java)?.let(packs::add)
+                    }
+                }
+            }
+            val order = ArrayList<String>()
+            if (response.has("order") && response["order"].isJsonArray) {
+                response.getAsJsonArray("order").forEach { element ->
+                    if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                        order.add(element.asString)
+                    }
+                }
+            }
+            val result = PackListResponse()
+            result.packs = packs
+            result.order = order
+            return result
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun savePackOrder(entry: DlcServerEntry?, timeoutMs: Int, order: List<String>?): UpdateResponse? {
+        return savePackOrder(entry, timeoutMs, order, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun savePackOrder(entry: DlcServerEntry?, timeoutMs: Int, order: List<String>?, playerName: String?, playerUuid: String?): UpdateResponse? {
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
+            val req = JsonObject()
+            req.addProperty("type", "pack_order")
+            val array = JsonArray()
+            order?.forEach { array.add(it) }
+            req.add("order", array)
+            writeLine(writer, req)
+            val response = readObject(reader) ?: return null
+            val result = UpdateResponse()
+            result.ok = response.has("ok") && response["ok"].asBoolean
+            result.message = getString(response, "message")
+            return result
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun installPack(entry: DlcServerEntry?, timeoutMs: Int, archivePath: String?): UpdateResponse? {
+        return packAction(entry, timeoutMs, "pack_install", archivePath, null, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun startPackApply(entry: DlcServerEntry?, timeoutMs: Int, order: List<String>?, uninstallIdentifiers: List<String>?, installArchives: List<String>?): DlcServerPackApplyStatus? {
+        return startPackApply(entry, timeoutMs, order, uninstallIdentifiers, installArchives, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun startPackApply(
+        entry: DlcServerEntry?,
+        timeoutMs: Int,
+        order: List<String>?,
+        uninstallIdentifiers: List<String>?,
+        installArchives: List<String>?,
+        playerName: String?,
+        playerUuid: String?,
+    ): DlcServerPackApplyStatus? {
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
+            val req = JsonObject()
+            req.addProperty("type", "pack_apply_start")
+            req.add("order", GSON.toJsonTree(order ?: emptyList<String>()))
+            req.add("uninstallIdentifiers", GSON.toJsonTree(uninstallIdentifiers ?: emptyList<String>()))
+            req.add("installArchives", GSON.toJsonTree(installArchives ?: emptyList<String>()))
+            writeLine(writer, req)
+            val response = readObject(reader) ?: return null
+            return readPackApplyStatus(response)
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun fetchPackApplyStatus(entry: DlcServerEntry?, timeoutMs: Int): DlcServerPackApplyStatus? {
+        return fetchPackApplyStatus(entry, timeoutMs, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun fetchPackApplyStatus(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerPackApplyStatus? {
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
+            val req = JsonObject()
+            req.addProperty("type", "pack_apply_status")
+            writeLine(writer, req)
+            val response = readObject(reader) ?: return null
+            return readPackApplyStatus(response)
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun pausePackApply(entry: DlcServerEntry?, timeoutMs: Int): DlcServerPackApplyStatus? {
+        return controlPackApply(entry, timeoutMs, "pack_apply_pause", currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun pausePackApply(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerPackApplyStatus? {
+        return controlPackApply(entry, timeoutMs, "pack_apply_pause", playerName, playerUuid)
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun resumePackApply(entry: DlcServerEntry?, timeoutMs: Int): DlcServerPackApplyStatus? {
+        return controlPackApply(entry, timeoutMs, "pack_apply_resume", currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun resumePackApply(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerPackApplyStatus? {
+        return controlPackApply(entry, timeoutMs, "pack_apply_resume", playerName, playerUuid)
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun cancelPackApply(entry: DlcServerEntry?, timeoutMs: Int): DlcServerPackApplyStatus? {
+        return controlPackApply(entry, timeoutMs, "pack_apply_cancel", currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun cancelPackApply(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerPackApplyStatus? {
+        return controlPackApply(entry, timeoutMs, "pack_apply_cancel", playerName, playerUuid)
+    }
+
+    @Throws(IOException::class)
+    private fun controlPackApply(entry: DlcServerEntry?, timeoutMs: Int, type: String, playerName: String?, playerUuid: String?): DlcServerPackApplyStatus? {
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
+            val req = JsonObject()
+            req.addProperty("type", type)
+            writeLine(writer, req)
+            val response = readObject(reader) ?: return null
+            return readPackApplyStatus(response)
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun uninstallPack(entry: DlcServerEntry?, timeoutMs: Int, identifier: String?): UpdateResponse? {
+        return packAction(entry, timeoutMs, "pack_uninstall", null, identifier, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun deletePack(entry: DlcServerEntry?, timeoutMs: Int, archivePath: String?): UpdateResponse? {
+        return packAction(entry, timeoutMs, "pack_delete", archivePath, null, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @Throws(IOException::class)
+    private fun packAction(
+        entry: DlcServerEntry?,
+        timeoutMs: Int,
+        type: String,
+        archivePath: String?,
+        identifier: String?,
+        playerName: String?,
+        playerUuid: String?,
+    ): UpdateResponse? {
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
+            val req = JsonObject()
+            req.addProperty("type", type)
+            if (!archivePath.isNullOrBlank()) req.addProperty("archivePath", archivePath)
+            if (!identifier.isNullOrBlank()) req.addProperty("identifier", identifier)
+            writeLine(writer, req)
+            val response = readObject(reader) ?: return null
+            val result = UpdateResponse()
+            result.ok = response.has("ok") && response["ok"].asBoolean
+            result.message = getString(response, "message")
+            return result
+        }
+    }
+
+    private fun readPackApplyStatus(response: JsonObject): DlcServerPackApplyStatus? {
+        if (response.has("status") && response["status"].isJsonObject) {
+            return GSON.fromJson(response["status"], DlcServerPackApplyStatus::class.java)
+        }
+        if (response.has("type") && response["type"].asString == "pack_apply_status") {
+            return GSON.fromJson(response, DlcServerPackApplyStatus::class.java)
+        }
+        return null
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun importPackPackage(entry: DlcServerEntry?, timeoutMs: Int, source: Path?, playerName: String?, playerUuid: String?): Boolean {
+        if (source == null || !Files.exists(source)) return false
+        val config = fetchServerConfig(entry, timeoutMs, playerName, playerUuid)
+        var dlcRoot = getDlcRootFromConfig(config)
+        if (dlcRoot.isNullOrBlank()) {
+            dlcRoot = "DLC"
+        }
+        var normalizedRoot = dlcRoot.replace("\\", "/")
+        if (!normalizedRoot.endsWith("/")) {
+            normalizedRoot += "/"
+        }
+        var name = source.fileName?.toString() ?: "pack.zip"
+        if (!name.lowercase(java.util.Locale.ROOT).endsWith(".zip")) {
+            name += ".zip"
+        }
+        val targetPath = normalizedRoot + "pack/" + name
+        if (!uploadFile(entry, timeoutMs, targetPath, source, playerName, playerUuid)) return false
+        return importPackPackagePath(entry, timeoutMs, targetPath, playerName, playerUuid)
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun importPackPackage(entry: DlcServerEntry?, timeoutMs: Int, source: Path?): Boolean {
+        return importPackPackage(entry, timeoutMs, source, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @Throws(IOException::class)
+    private fun importPackPackagePath(entry: DlcServerEntry?, timeoutMs: Int, targetPath: String, playerName: String?, playerUuid: String?): Boolean {
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
+            val req = JsonObject()
+            req.addProperty("type", "pack_import")
+            req.addProperty("path", targetPath)
+            writeLine(writer, req)
+            val resp = readObject(reader)
+            return resp != null && resp.has("ok") && resp["ok"].asBoolean
+        }
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun importPackPackageFromUrl(entry: DlcServerEntry?, timeoutMs: Int, url: String?, fileName: String?): Boolean {
+        return importPackPackageFromUrl(entry, timeoutMs, url, fileName, currentPlayerName(), currentPlayerUuid())
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun importPackPackageFromUrl(entry: DlcServerEntry?, timeoutMs: Int, url: String?, fileName: String?, playerName: String?, playerUuid: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        openSocket(entry, timeoutMs).use { socket ->
+            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
+            val req = JsonObject()
+            req.addProperty("type", "pack_import_url")
+            req.addProperty("url", url)
+            if (!fileName.isNullOrBlank()) {
+                req.addProperty("fileName", fileName)
+            }
+            writeLine(writer, req)
+            val resp = readObject(reader)
+            return resp != null && resp.has("ok") && resp["ok"].asBoolean
+        }
     }
 
     @JvmStatic

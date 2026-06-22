@@ -83,6 +83,7 @@ class DlcServerMaLiLibScreen(
     private var requiredMissingCount = 0
     private var hasRequiredEntries = false
     private var promptedRemoteDownload = false
+    private var hasServerTaczMod = false
 
     init {
         setTitle("")
@@ -148,6 +149,10 @@ class DlcServerMaLiLibScreen(
         remoteMissingCount = info?.remoteMissing ?: 0
         requiredMissingCount = info?.requiredMissing ?: 0
         hasRequiredEntries = info?.hasRequired == true
+        hasServerTaczMod = info?.hasTaczMod == true
+        if (!hasServerTaczMod && activeFilter == DlcType.TACZ_PACK) {
+            activeFilter = null
+        }
         serverBaseVersion = info?.baseVersion ?: ""
         serverDlcVersion = info?.dlcVersion ?: ""
         for (item in info?.items ?: emptyList()) {
@@ -169,10 +174,16 @@ class DlcServerMaLiLibScreen(
         val grouped: MutableMap<DlcType, MutableList<DlcServerItem>> = EnumMap(DlcType::class.java)
         for (item in items) {
             val type = mapType(item.type) ?: DlcType.UNKNOWN
+            if (!isServerTypeVisible(type)) {
+                continue
+            }
             grouped.computeIfAbsent(type) { ArrayList() }.add(item)
         }
         if (activeFilter == null) {
             for (type in DlcType.values()) {
+                if (!isServerTypeVisible(type)) {
+                    continue
+                }
                 val group = grouped[type]
                 if (group.isNullOrEmpty()) {
                     continue
@@ -253,12 +264,19 @@ class DlcServerMaLiLibScreen(
     }
 
     private fun addFilterButtons() {
+        filterButtons.clear()
+        modsFilterButton = null
+        taczFilterButton = null
+        resourceFilterButton = null
+        dataFilterButton = null
+        otherFilterButton = null
         val panelLeft = 20
         val panelRight = width - 20
         val y = 19
         val h = 18
         var gap = if (width < 420) 4 else 6
-        val count = 6
+        val visibleTypes = visibleFilterTypes()
+        val count = visibleTypes.size + 1
         val available = panelRight - panelLeft
         var totalGap = gap * (count - 1)
         var w = max(40, (available - totalGap) / count)
@@ -271,26 +289,20 @@ class DlcServerMaLiLibScreen(
         allFilterButton = ButtonGeneric(x, y, w, h, getFilterLabel(null))
         addButton(allFilterButton, FilterButtonListener(null))
         x += w + gap
-        modsFilterButton = ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.MOD))
-        addButton(modsFilterButton, FilterButtonListener(DlcType.MOD))
-        x += w + gap
-        taczFilterButton = ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.TACZ_PACK))
-        addButton(taczFilterButton, FilterButtonListener(DlcType.TACZ_PACK))
-        x += w + gap
-        resourceFilterButton = ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.RESOURCE_PACK))
-        addButton(resourceFilterButton, FilterButtonListener(DlcType.RESOURCE_PACK))
-        x += w + gap
-        dataFilterButton = ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.DATA_PACK))
-        addButton(dataFilterButton, FilterButtonListener(DlcType.DATA_PACK))
-        x += w + gap
-        otherFilterButton = ButtonGeneric(x, y, w, h, getFilterLabel(DlcType.UNKNOWN))
-        addButton(otherFilterButton, FilterButtonListener(DlcType.UNKNOWN))
-
-        filterButtons[DlcType.MOD] = modsFilterButton!!
-        filterButtons[DlcType.TACZ_PACK] = taczFilterButton!!
-        filterButtons[DlcType.RESOURCE_PACK] = resourceFilterButton!!
-        filterButtons[DlcType.DATA_PACK] = dataFilterButton!!
-        filterButtons[DlcType.UNKNOWN] = otherFilterButton!!
+        for (type in visibleTypes) {
+            val button = ButtonGeneric(x, y, w, h, getFilterLabel(type))
+            addButton(button, FilterButtonListener(type))
+            filterButtons[type] = button
+            when (type) {
+                DlcType.MOD -> modsFilterButton = button
+                DlcType.TACZ_PACK -> taczFilterButton = button
+                DlcType.RESOURCE_PACK -> resourceFilterButton = button
+                DlcType.DATA_PACK -> dataFilterButton = button
+                DlcType.UNKNOWN -> otherFilterButton = button
+                DlcType.DLC_PACK -> {}
+            }
+            x += w + gap
+        }
         updateFilterButtons()
     }
 
@@ -327,6 +339,14 @@ class DlcServerMaLiLibScreen(
         for ((type, button) in filterButtons) {
             button.setEnabled(activeFilter != type)
         }
+    }
+
+    private fun visibleFilterTypes(): List<DlcType> {
+        return DlcType.values().filter { it != DlcType.DLC_PACK && isServerTypeVisible(it) }
+    }
+
+    private fun isServerTypeVisible(type: DlcType): Boolean {
+        return type != DlcType.TACZ_PACK || hasServerTaczMod
     }
 
     private fun openConfig() {
@@ -376,6 +396,7 @@ class DlcServerMaLiLibScreen(
         info.remoteMissing = remoteMissingCount
         info.requiredMissing = requiredMissingCount
         info.hasRequired = hasRequiredEntries
+        info.hasTaczMod = hasServerTaczMod
         info.baseVersion = serverBaseVersion
         info.dlcVersion = serverDlcVersion
         return info
@@ -1403,7 +1424,7 @@ class DlcServerMaLiLibScreen(
 
     private inner class FilterButtonListener(private val filter: DlcType?) : IButtonActionListener {
         override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
-            activeFilter = filter
+            activeFilter = if (filter != null && !isServerTypeVisible(filter)) null else filter
             rebuildRows()
             reCreateListWidget()
             updateFilterButtons()

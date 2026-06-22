@@ -45,6 +45,11 @@ public class DlcServerConnection {
         public List<String> missingPaths = List.of();
     }
 
+    public static final class PackListResponse {
+        public List<DlcServerPackInfo> packs = List.of();
+        public List<String> order = List.of();
+    }
+
     public static DlcServerInfo fetchServerInfo(DlcServerEntry entry, int timeoutMs) throws IOException {
         return fetchServerInfo(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
     }
@@ -72,6 +77,7 @@ public class DlcServerConnection {
             info.remoteMissing = getInt(response, "remoteMissing");
             info.requiredMissing = getInt(response, "requiredMissing");
             info.hasRequired = response.has("hasRequired") && response.get("hasRequired").getAsBoolean();
+            info.hasTaczMod = response.has("hasTaczMod") && response.get("hasTaczMod").getAsBoolean();
             info.modpackUrl = getString(response, "modpackUrl");
             info.updateGitRepo = getString(response, "updateGitRepo");
             if (info.updateGitRepo == null) {
@@ -737,6 +743,296 @@ public class DlcServerConnection {
 
     public static boolean importUpdatePackage(DlcServerEntry entry, int timeoutMs, Path source) throws IOException {
         return importUpdatePackage(entry, timeoutMs, source, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static List<DlcServerPackInfo> fetchPacks(DlcServerEntry entry, int timeoutMs) throws IOException {
+        PackListResponse response = fetchPackList(entry, timeoutMs);
+        return response == null ? null : response.packs;
+    }
+
+    public static List<DlcServerPackInfo> fetchPacks(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
+        PackListResponse response = fetchPackList(entry, timeoutMs, playerName, playerUuid);
+        return response == null ? null : response.packs;
+    }
+
+    public static PackListResponse fetchPackList(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchPackList(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static PackListResponse fetchPackList(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return null;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", "pack_list");
+            writeLine(writer, req);
+            JsonObject response = readObject(reader);
+            if (response == null || !response.has("type") || !"pack_list".equals(response.get("type").getAsString())) {
+                return null;
+            }
+            List<DlcServerPackInfo> packs = new ArrayList<>();
+            if (response.has("packs") && response.get("packs").isJsonArray()) {
+                response.getAsJsonArray("packs").forEach(element -> {
+                    if (element.isJsonObject()) {
+                        DlcServerPackInfo info = GSON.fromJson(element, DlcServerPackInfo.class);
+                        if (info != null) {
+                            packs.add(info);
+                        }
+                    }
+                });
+            }
+            List<String> order = new ArrayList<>();
+            if (response.has("order") && response.get("order").isJsonArray()) {
+                response.getAsJsonArray("order").forEach(element -> {
+                    if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
+                        order.add(element.getAsString());
+                    }
+                });
+            }
+            PackListResponse result = new PackListResponse();
+            result.packs = packs;
+            result.order = order;
+            return result;
+        }
+    }
+
+    public static UpdateResponse savePackOrder(DlcServerEntry entry, int timeoutMs, List<String> order) throws IOException {
+        return savePackOrder(entry, timeoutMs, order, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static UpdateResponse savePackOrder(DlcServerEntry entry, int timeoutMs, List<String> order, String playerName, String playerUuid) throws IOException {
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return null;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", "pack_order");
+            JsonArray array = new JsonArray();
+            if (order != null) {
+                for (String key : order) {
+                    array.add(key);
+                }
+            }
+            req.add("order", array);
+            writeLine(writer, req);
+            JsonObject response = readObject(reader);
+            if (response == null) {
+                return null;
+            }
+            UpdateResponse result = new UpdateResponse();
+            result.ok = response.has("ok") && response.get("ok").getAsBoolean();
+            result.message = getString(response, "message");
+            return result;
+        }
+    }
+
+    public static UpdateResponse installPack(DlcServerEntry entry, int timeoutMs, String archivePath) throws IOException {
+        return packAction(entry, timeoutMs, "pack_install", archivePath, null, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static DlcServerPackApplyStatus startPackApply(DlcServerEntry entry, int timeoutMs, List<String> order,
+                                                          List<String> uninstallIdentifiers, List<String> installArchives) throws IOException {
+        return startPackApply(entry, timeoutMs, order, uninstallIdentifiers, installArchives, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static DlcServerPackApplyStatus startPackApply(DlcServerEntry entry, int timeoutMs, List<String> order,
+                                                          List<String> uninstallIdentifiers, List<String> installArchives,
+                                                          String playerName, String playerUuid) throws IOException {
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return null;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", "pack_apply_start");
+            req.add("order", GSON.toJsonTree(order == null ? List.of() : order));
+            req.add("uninstallIdentifiers", GSON.toJsonTree(uninstallIdentifiers == null ? List.of() : uninstallIdentifiers));
+            req.add("installArchives", GSON.toJsonTree(installArchives == null ? List.of() : installArchives));
+            writeLine(writer, req);
+            JsonObject response = readObject(reader);
+            return response == null ? null : readPackApplyStatus(response);
+        }
+    }
+
+    public static DlcServerPackApplyStatus fetchPackApplyStatus(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return fetchPackApplyStatus(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static DlcServerPackApplyStatus fetchPackApplyStatus(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return null;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", "pack_apply_status");
+            writeLine(writer, req);
+            JsonObject response = readObject(reader);
+            return response == null ? null : readPackApplyStatus(response);
+        }
+    }
+
+    public static DlcServerPackApplyStatus pausePackApply(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return controlPackApply(entry, timeoutMs, "pack_apply_pause", currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static DlcServerPackApplyStatus pausePackApply(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
+        return controlPackApply(entry, timeoutMs, "pack_apply_pause", playerName, playerUuid);
+    }
+
+    public static DlcServerPackApplyStatus resumePackApply(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return controlPackApply(entry, timeoutMs, "pack_apply_resume", currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static DlcServerPackApplyStatus resumePackApply(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
+        return controlPackApply(entry, timeoutMs, "pack_apply_resume", playerName, playerUuid);
+    }
+
+    public static DlcServerPackApplyStatus cancelPackApply(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return controlPackApply(entry, timeoutMs, "pack_apply_cancel", currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static DlcServerPackApplyStatus cancelPackApply(DlcServerEntry entry, int timeoutMs, String playerName, String playerUuid) throws IOException {
+        return controlPackApply(entry, timeoutMs, "pack_apply_cancel", playerName, playerUuid);
+    }
+
+    private static DlcServerPackApplyStatus controlPackApply(DlcServerEntry entry, int timeoutMs, String type, String playerName, String playerUuid) throws IOException {
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return null;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", type);
+            writeLine(writer, req);
+            JsonObject response = readObject(reader);
+            return response == null ? null : readPackApplyStatus(response);
+        }
+    }
+
+    public static UpdateResponse uninstallPack(DlcServerEntry entry, int timeoutMs, String identifier) throws IOException {
+        return packAction(entry, timeoutMs, "pack_uninstall", null, identifier, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static UpdateResponse deletePack(DlcServerEntry entry, int timeoutMs, String archivePath) throws IOException {
+        return packAction(entry, timeoutMs, "pack_delete", archivePath, null, currentPlayerName(), currentPlayerUuid());
+    }
+
+    private static UpdateResponse packAction(DlcServerEntry entry, int timeoutMs, String type, String archivePath, String identifier,
+        String playerName, String playerUuid) throws IOException {
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return null;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", type);
+            if (archivePath != null && !archivePath.isBlank()) {
+                req.addProperty("archivePath", archivePath);
+            }
+            if (identifier != null && !identifier.isBlank()) {
+                req.addProperty("identifier", identifier);
+            }
+            writeLine(writer, req);
+            JsonObject response = readObject(reader);
+            if (response == null) {
+                return null;
+            }
+            UpdateResponse result = new UpdateResponse();
+            result.ok = response.has("ok") && response.get("ok").getAsBoolean();
+            result.message = getString(response, "message");
+            return result;
+        }
+    }
+
+    private static DlcServerPackApplyStatus readPackApplyStatus(JsonObject response) {
+        if (response.has("status") && response.get("status").isJsonObject()) {
+            return GSON.fromJson(response.get("status"), DlcServerPackApplyStatus.class);
+        }
+        if (response.has("type") && "pack_apply_status".equals(response.get("type").getAsString())) {
+            return GSON.fromJson(response, DlcServerPackApplyStatus.class);
+        }
+        return null;
+    }
+
+    public static boolean importPackPackage(DlcServerEntry entry, int timeoutMs, Path source, String playerName, String playerUuid) throws IOException {
+        if (source == null || !Files.exists(source)) {
+            return false;
+        }
+        JsonObject config = fetchServerConfig(entry, timeoutMs, playerName, playerUuid);
+        String dlcRoot = getDlcRootFromConfig(config);
+        if (dlcRoot == null || dlcRoot.isBlank()) {
+            dlcRoot = "DLC";
+        }
+        String normalizedRoot = dlcRoot.replace("\\", "/");
+        if (!normalizedRoot.endsWith("/")) {
+            normalizedRoot = normalizedRoot + "/";
+        }
+        String name = source.getFileName() == null ? "pack.zip" : source.getFileName().toString();
+        if (!name.toLowerCase(java.util.Locale.ROOT).endsWith(".zip")) {
+            name = name + ".zip";
+        }
+        String targetPath = normalizedRoot + "pack/" + name;
+        if (!uploadFile(entry, timeoutMs, targetPath, source, playerName, playerUuid)) {
+            return false;
+        }
+        return importPackPackagePath(entry, timeoutMs, targetPath, playerName, playerUuid);
+    }
+
+    public static boolean importPackPackage(DlcServerEntry entry, int timeoutMs, Path source) throws IOException {
+        return importPackPackage(entry, timeoutMs, source, currentPlayerName(), currentPlayerUuid());
+    }
+
+    private static boolean importPackPackagePath(DlcServerEntry entry, int timeoutMs, String targetPath, String playerName, String playerUuid) throws IOException {
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return false;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", "pack_import");
+            req.addProperty("path", targetPath);
+            writeLine(writer, req);
+            JsonObject resp = readObject(reader);
+            return resp != null && resp.has("ok") && resp.get("ok").getAsBoolean();
+        }
+    }
+
+    public static boolean importPackPackageFromUrl(DlcServerEntry entry, int timeoutMs, String url, String fileName) throws IOException {
+        return importPackPackageFromUrl(entry, timeoutMs, url, fileName, currentPlayerName(), currentPlayerUuid());
+    }
+
+    public static boolean importPackPackageFromUrl(DlcServerEntry entry, int timeoutMs, String url, String fileName,
+        String playerName, String playerUuid) throws IOException {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        try (Socket socket = openSocket(entry, timeoutMs)) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+            if (!sendHello(entry, reader, writer, playerName, playerUuid)) {
+                return false;
+            }
+            JsonObject req = new JsonObject();
+            req.addProperty("type", "pack_import_url");
+            req.addProperty("url", url);
+            if (fileName != null && !fileName.isBlank()) {
+                req.addProperty("fileName", fileName);
+            }
+            writeLine(writer, req);
+            JsonObject resp = readObject(reader);
+            return resp != null && resp.has("ok") && resp.get("ok").getAsBoolean();
+        }
     }
 
     public static boolean importUpdatePackageFromUrl(DlcServerEntry entry, int timeoutMs, String url, String fileName,

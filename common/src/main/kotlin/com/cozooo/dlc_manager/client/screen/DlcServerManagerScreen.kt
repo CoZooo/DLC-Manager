@@ -71,6 +71,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     private var rconButton: Button? = null
     private var filesButton: Button? = null
     private var updateManagerButton: Button? = null
+    private var packManagerButton: Button? = null
     private var returnToGameButton: Button? = null
     @Volatile
     private var connecting = false
@@ -88,6 +89,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     private var remoteMissingCount = 0
     private var requiredMissingCount = 0
     private var promptedRemoteDownload = false
+    private var hasServerTaczMod = false
     private var serverBaseVersion = ""
     private var serverDlcVersion = ""
 
@@ -108,6 +110,10 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         serverDlcVersion = dlc ?: ""
         remoteMissingCount = info?.remoteMissing ?: 0
         requiredMissingCount = info?.requiredMissing ?: 0
+        hasServerTaczMod = info?.hasTaczMod == true
+        if (!hasServerTaczMod && activeFilter == DlcType.TACZ_PACK) {
+            activeFilter = null
+        }
         val baseBlank = base.isNullOrBlank()
         val dlcBlank = dlc.isNullOrBlank()
         headerLine = if (!baseBlank || !dlcBlank) {
@@ -213,6 +219,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         info.items = ArrayList(items)
         info.remoteMissing = remoteMissingCount
         info.requiredMissing = requiredMissingCount
+        info.hasTaczMod = hasServerTaczMod
         info.baseVersion = serverBaseVersion
         info.dlcVersion = serverDlcVersion
         return info
@@ -233,7 +240,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     }
 
     private fun openPackManager() {
-        Minecraft.getInstance().setScreen(DlcPackManagerScreen(this))
+        entry?.let { Minecraft.getInstance().setScreen(DlcServerPackManagerScreen(this, it)) }
     }
 
     private fun initDlcTab() {
@@ -291,27 +298,35 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         val buttonWidth = 120
         val buttonHeight = 20
         val centerX = width / 2
-        val startY = height / 2 - buttonHeight - 8
+        val buttonGap = 8
+        val buttonCount = 5
+        val totalHeight = buttonCount * buttonHeight + (buttonCount - 1) * buttonGap
+        val startY = max(panelTop() + 12, (panelTop() + panelBottom() - totalHeight) / 2 - 6)
         val push = Button.builder(Component.translatable("dlc_manager.server.push")) { openPush() }
             .bounds(centerX - buttonWidth / 2, startY, buttonWidth, buttonHeight)
             .build()
         val rcon = Button.builder(Component.translatable("dlc_manager.server.rcon")) { openRcon() }
-            .bounds(centerX - buttonWidth / 2, startY + buttonHeight + 8, buttonWidth, buttonHeight)
+            .bounds(centerX - buttonWidth / 2, startY + buttonHeight + buttonGap, buttonWidth, buttonHeight)
             .build()
         val files = Button.builder(Component.translatable("dlc_manager.server.files")) { openFiles() }
-            .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + 8) * 2, buttonWidth, buttonHeight)
+            .bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 2, buttonWidth, buttonHeight)
             .build()
         val updateManager = Button.builder(Component.translatable("dlc_manager.update.manager")) {
             Minecraft.getInstance().setScreen(DlcServerUpdateManagerScreen(this, entry))
-        }.bounds(centerX - buttonWidth / 2, startY + (buttonHeight + 8) * 3, buttonWidth, buttonHeight).build()
+        }.bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 3, buttonWidth, buttonHeight).build()
+        val packManager = Button.builder(Component.translatable("dlc_manager.pack.manager")) {
+            openPackManager()
+        }.bounds(centerX - buttonWidth / 2, startY + (buttonHeight + buttonGap) * 4, buttonWidth, buttonHeight).build()
         pushButton = push
         rconButton = rcon
         filesButton = files
         updateManagerButton = updateManager
+        packManagerButton = packManager
         addRenderableWidget(push)
         addRenderableWidget(rcon)
         addRenderableWidget(files)
         addRenderableWidget(updateManager)
+        addRenderableWidget(packManager)
         if (openedFromIngame) {
             val returnToGame = Button.builder(Component.translatable("menu.returnToGame")) { Minecraft.getInstance().setScreen(null) }
                 .bounds(centerX - buttonWidth / 2, height - 22, buttonWidth, buttonHeight)
@@ -414,10 +429,17 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
             grouped[type] = ArrayList()
         }
         for (item in items) {
-            grouped[mapType(item.type)]!!.add(item)
+            val type = mapType(item.type)
+            if (!isServerTypeVisible(type)) {
+                continue
+            }
+            grouped[type]!!.add(item)
         }
         if (activeFilter == null) {
             for (type in DlcType.values()) {
+                if (!isServerTypeVisible(type)) {
+                    continue
+                }
                 val group = grouped[type]
                 if (group.isNullOrEmpty()) {
                     continue
@@ -462,7 +484,8 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         val panelLeft = panelLeft()
         val panelRight = panelRight()
         val available = panelRight - panelLeft - 20
-        val count = DlcType.values().size + 1
+        val visibleTypes = visibleFilterTypes()
+        val count = visibleTypes.size + 1
         val gap = max(4, min(FILTER_TAB_GAP, 8))
         var tabWidth = (available - gap * (count - 1)) / count
         if (tabWidth < 48) {
@@ -484,7 +507,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         filterAllButton = filterAll
         addRenderableWidget(filterAll)
         var index = 1
-        for (type in DlcType.values()) {
+        for (type in visibleTypes) {
             val button = Button.builder(Component.translatable(type.getDisplayKey())) { setFilter(type) }
                 .bounds(startX + index * (tabWidth + gap), y, tabWidth, FILTER_TAB_HEIGHT)
                 .build()
@@ -496,10 +519,11 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     }
 
     private fun setFilter(type: DlcType?) {
-        if (activeFilter == type) {
+        val nextType = if (type != null && !isServerTypeVisible(type)) null else type
+        if (activeFilter == nextType) {
             return
         }
-        activeFilter = type
+        activeFilter = nextType
         scrollIndex = 0
         rebuildDisplayEntries()
         updateFilterButtons()
@@ -600,6 +624,14 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
             return true
         }
         return mapType(item.type) == activeFilter
+    }
+
+    private fun visibleFilterTypes(): List<DlcType> {
+        return DlcType.values().filter { isServerTypeVisible(it) }
+    }
+
+    private fun isServerTypeVisible(type: DlcType): Boolean {
+        return type != DlcType.TACZ_PACK || hasServerTaczMod
     }
 
     private fun applyPresetOverrides() {
