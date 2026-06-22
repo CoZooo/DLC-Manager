@@ -146,8 +146,12 @@ public final class DlcDownloadService {
         DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode());
         MirrorPlan mirrorPlan = mirrorPlan(url, fileName, total);
         notifyStatus(listener, "selecting_source", mode, mirrorPlan);
-        String downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode);
-        notifyStatus(listener, "downloading", mode, mirrorPlan);
+        String downloadUrl;
+        try {
+            downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode);
+        } finally {
+            notifyStatus(listener, "downloading", mode, mirrorPlan);
+        }
         SourceSwitchPlan switchPlan = sourceSwitchPlan(url, mirrorPlan, mode, downloadUrl);
         if (listener != null) {
             listener.onProgress(0L, total);

@@ -155,8 +155,11 @@ object DlcDownloadService {
         val mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode())
         val mirrorPlan = mirrorPlan(url, fileName, total)
         notifyStatus(listener, "selecting_source", mode, mirrorPlan)
-        val downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode)
-        notifyStatus(listener, "downloading", mode, mirrorPlan)
+        val downloadUrl = try {
+            primaryDownloadUrl(url, mirrorPlan, mode)
+        } finally {
+            notifyStatus(listener, "downloading", mode, mirrorPlan)
+        }
         val switchPlan = sourceSwitchPlan(url, mirrorPlan, mode, downloadUrl)
         listener?.onProgress(0L, total)
         val rangeProbe = if (total > 0

@@ -206,6 +206,8 @@ public final class DlcPackCFResolver {
             public void onStatusKey(String statusKey) {
                 if (progressListener != null && "selecting_source".equals(statusKey) && aggregateProgress(perFileProgress, total) <= 0f) {
                     progressListener.onProgress(SELECTING_SOURCE_STATUS, -1f);
+                } else if (progressListener != null && "downloading".equals(statusKey) && aggregateProgress(perFileProgress, total) <= 0f) {
+                    progressListener.onProgress("Downloading " + fileName, 0f);
                 }
             }
         };

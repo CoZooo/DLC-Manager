@@ -189,6 +189,8 @@ object DlcPackCFResolver {
             override fun onStatusKey(statusKey: String) {
                 if (statusKey == "selecting_source" && aggregateProgress(perFileProgress, total) <= 0f) {
                     progressListener?.onProgress(SELECTING_SOURCE_STATUS, -1f)
+                } else if (statusKey == "downloading" && aggregateProgress(perFileProgress, total) <= 0f) {
+                    progressListener?.onProgress("Downloading $fileName", 0f)
                 }
             }
         }
