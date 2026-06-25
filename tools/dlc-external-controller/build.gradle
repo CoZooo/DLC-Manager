@@ -1,0 +1,77 @@
+plugins {
+    id 'application'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.11.0'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+}
+
+application {
+    mainClass = 'com.cozooo.dlc_manager.tools.externalsync.ExternalSyncCli'
+}
+
+distributions {
+    main {
+        contents {
+            from('README.md') {
+                into ''
+            }
+        }
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+def jpackageBin() {
+    def home = System.getenv('JAVA_HOME') ?: System.getProperty('java.home')
+    def cmd = file("${home}/bin/jpackage")
+    if (!cmd.exists()) {
+        cmd = file("${home}/bin/jpackage.exe")
+    }
+    return cmd
+}
+
+tasks.register('jpackageImage') {
+    group = 'distribution'
+    description = 'Build a native application image with bundled JRE.'
+    dependsOn 'installDist'
+    def outputDir = file("${buildDir}/native-image")
+    outputs.dir outputDir
+    doLast {
+        outputDir.deleteDir()
+        def cmd = jpackageBin()
+        if (!cmd.exists()) {
+            throw new GradleException("jpackage not found. Set JAVA_HOME to JDK 17+.")
+        }
+        def appDir = file("${buildDir}/install/${project.name}")
+        exec {
+            executable cmd.absolutePath
+            args '--name', project.name
+            args '--input', "${appDir}/lib".toString()
+            args '--main-jar', "${project.name}.jar".toString()
+            args '--main-class', application.mainClass.get()
+            args '--type', 'app-image'
+            args '--dest', outputDir.absolutePath
+            args '--java-options', '-Dfile.encoding=UTF-8'
+            args '--verbose'
+        }
+    }
+}
+
+tasks.register('jpackageZip', Zip) {
+    group = 'distribution'
+    description = 'Zip the native application image.'
+    dependsOn 'jpackageImage'
+    archiveBaseName = "${project.name}-native"
+    from "${buildDir}/native-image"
+    destinationDirectory = file("${buildDir}/native-distributions")
+}
