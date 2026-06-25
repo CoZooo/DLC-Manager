@@ -119,66 +119,6 @@ function parseStringArray(valueText: string): string[] | null {
   return result;
 }
 
-function parsePackModpackValue(valueText: string): string[] {
-  const normalized = valueText.trim();
-  if (!normalized.startsWith("[") || !normalized.endsWith("]")) {
-    return [parsePackModpackToken(normalized)].filter(Boolean);
-  }
-  const inner = normalized.slice(1, -1).trim();
-  if (!inner) {
-    return [];
-  }
-  const result: string[] = [];
-  let token = "";
-  let inQuote = false;
-  let escaped = false;
-
-  for (let index = 0; index < inner.length; index++) {
-    const ch = inner[index];
-    if (escaped) {
-      token += ch;
-      escaped = false;
-      continue;
-    }
-    if (ch === "\\") {
-      token += ch;
-      escaped = true;
-      continue;
-    }
-    if (ch === "\"") {
-      token += ch;
-      inQuote = !inQuote;
-      continue;
-    }
-    if (ch === "," && !inQuote) {
-      const parsed = parsePackModpackToken(token.trim());
-      if (parsed) {
-        result.push(parsed);
-      }
-      token = "";
-      continue;
-    }
-    token += ch;
-  }
-
-  const parsed = parsePackModpackToken(token.trim());
-  if (parsed) {
-    result.push(parsed);
-  }
-  return result;
-}
-
-function parsePackModpackToken(token: string): string {
-  if (!token) {
-    return "";
-  }
-  if (token.length >= 2 && token.startsWith("\"") && token.endsWith("\"")) {
-    const parsed = parseQuoted(token);
-    return parsed === "any" ? formatString(parsed) : parsed;
-  }
-  return parseQuoted(token);
-}
-
 function parseValueByKind(valueText: string, kind: FieldKind): StructuredValue {
   if (kind === "boolean") {
     return valueText === "true";
@@ -393,11 +333,6 @@ export function parseStructuredDocument(text: string, schema: DocumentSchema): {
       model[currentSection][key] = parseUpdateDLCMValue(valueText);
       continue;
     }
-    if (schema.type === "pack" && currentSection === "modpack" && key === "modpack") {
-      model[currentSection][key] = parsePackModpackValue(valueText);
-      continue;
-    }
-
     model[currentSection][key] = parseValueByKind(valueText, kind);
   }
 
@@ -715,52 +650,24 @@ function shouldUseExpandedListFormat(value: StructuredValue, context?: Serialize
     && (context.fieldKey === "enable" || context.fieldKey === "conflicts");
 }
 
-function shouldUsePackModpackFormat(value: StructuredValue, context?: SerializeFieldContext): value is string[] {
-  return Array.isArray(value)
-    && context?.schemaType === "pack"
-    && context.sectionKey === "modpack"
-    && context.fieldKey === "modpack";
-}
-
 function shouldUsePackSingleOrListFormat(value: StructuredValue, context?: SerializeFieldContext): value is string[] {
   return Array.isArray(value)
     && context?.schemaType === "pack"
     && (
       (context.sectionKey === "basic" && context.fieldKey === "author") ||
-      (context.sectionKey === "modpack" && (context.fieldKey === "base" || context.fieldKey === "dlc"))
+      (context.sectionKey === "modpack" && (context.fieldKey === "modpack" || context.fieldKey === "base" || context.fieldKey === "dlc"))
     );
-}
-
-function serializePackModpackValue(value: string[]): string {
-  const normalized = value.map((item) => item.trim()).filter(Boolean);
-  if (normalized.length === 1) {
-    return serializePackModpackItem(normalized[0]);
-  }
-  return `[${normalized.map((item) => serializePackModpackItem(item)).join(", ")}]`;
 }
 
 function serializePackSingleOrListValue(value: string[]): string {
   const normalized = value.map((item) => item.trim()).filter(Boolean);
+  if (normalized.length === 0) {
+    return formatString("");
+  }
   if (normalized.length === 1) {
-    return serializePackVersionRuleItem(normalized[0]);
+    return formatString(normalized[0]);
   }
-  return `[${normalized.map((item) => serializePackVersionRuleItem(item)).join(", ")}]`;
-}
-
-function serializePackModpackItem(value: string): string {
-  const trimmed = value.trim();
-  if (trimmed === "any") {
-    return "any";
-  }
-  if (trimmed.length >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
-    return formatString(parseQuoted(trimmed));
-  }
-  return formatString(trimmed);
-}
-
-function serializePackVersionRuleItem(value: string): string {
-  const trimmed = value.trim();
-  return trimmed === "any" ? "any" : formatString(trimmed);
+  return `[${normalized.map((item) => formatString(item)).join(", ")}]`;
 }
 
 function serializeExpandedStringList(value: string[]): string {
@@ -783,9 +690,6 @@ function serializeValue(value: StructuredValue, context?: SerializeFieldContext)
   }
   if (Array.isArray(value)) {
     const listValue = value as string[];
-    if (shouldUsePackModpackFormat(listValue, context)) {
-      return serializePackModpackValue(listValue);
-    }
     if (shouldUsePackSingleOrListFormat(listValue, context)) {
       return serializePackSingleOrListValue(listValue);
     }

@@ -27,7 +27,7 @@ class DlcPackUpdateGuardTest {
     void classifiesInstalledPacksAgainstTargetBaseAndDlcVersions() throws Exception {
         Path dlcRoot = tempDir.resolve("DLC");
         writeInstalledPack(dlcRoot, "Compatible", "1.0.x", "1.0.0~1.0.5");
-        writeInstalledPack(dlcRoot, "Blocked", "2.0.x", "any");
+        writeInstalledPack(dlcRoot, "Blocked", "2.0.x", "");
 
         DlcPackUpdateGuard.CheckResult result = DlcPackUpdateGuard.check(dlcRoot, "1.0.3", "1.0.4");
 
@@ -43,8 +43,8 @@ class DlcPackUpdateGuardTest {
     void classifiesInstalledPacksAgainstCurrentModpackIdentifier() throws Exception {
         Path dlcRoot = tempDir.resolve("DLC");
         writeVersion(dlcRoot, "MainPack", "1.0.0", "1.0.0");
-        writeInstalledPack(dlcRoot, "Compatible", "MainPack", "any", "any");
-        writeInstalledPack(dlcRoot, "Blocked", "OtherPack", "any", "any");
+        writeInstalledPack(dlcRoot, "Compatible", "MainPack", "", "");
+        writeInstalledPack(dlcRoot, "Blocked", "OtherPack", "", "");
 
         DlcPackUpdateGuard.CheckResult result = DlcPackUpdateGuard.check(dlcRoot, "1.0.0", "1.0.0");
 
@@ -54,15 +54,15 @@ class DlcPackUpdateGuardTest {
     }
 
     @Test
-    void quotedAnyModpackIsTreatedAsLiteralName() throws Exception {
+    void bareModpackRuleIsIgnoredLikeBlankRule() throws Exception {
         Path dlcRoot = tempDir.resolve("DLC");
         writeVersion(dlcRoot, "MainPack", "1.0.0", "1.0.0");
-        writeInstalledPack(dlcRoot, "Blocked", "\"any\"", "any", "any");
+        writeInstalledPack(dlcRoot, "Compatible", "bare:any", "", "");
 
         DlcPackUpdateGuard.CheckResult result = DlcPackUpdateGuard.check(dlcRoot, "1.0.0", "1.0.0");
 
-        assertEquals(List.of("Blocked"), result.incompatiblePacks.stream().map(DlcPackUpdateGuard.PackStatus::identifier).toList());
-        assertTrue(result.incompatiblePacks.get(0).reasons.get(0).contains("modpack MainPack"));
+        assertEquals(List.of("Compatible"), result.compatiblePacks.stream().map(DlcPackUpdateGuard.PackStatus::identifier).toList());
+        assertEquals(List.of(), result.incompatiblePacks.stream().map(DlcPackUpdateGuard.PackStatus::identifier).toList());
     }
 
     @Test
@@ -92,7 +92,7 @@ class DlcPackUpdateGuardTest {
     }
 
     private static void writeInstalledPack(Path dlcRoot, String identifier, String baseRule, String dlcRule) throws Exception {
-        writeInstalledPack(dlcRoot, identifier, "any", baseRule, dlcRule);
+        writeInstalledPack(dlcRoot, identifier, "", baseRule, dlcRule);
     }
 
     private static void writeInstalledPack(Path dlcRoot, String identifier, String modpackRule, String baseRule, String dlcRule) throws Exception {
@@ -124,6 +124,12 @@ class DlcPackUpdateGuardTest {
     }
 
     private static String dcValue(String value) {
-        return "any".equals(value) ? "any" : value;
+        if (value != null && value.startsWith("bare:")) {
+            return value.substring("bare:".length());
+        }
+        if (value != null && value.startsWith("\"") && value.endsWith("\"")) {
+            return value;
+        }
+        return "\"" + (value == null ? "" : value) + "\"";
     }
 }

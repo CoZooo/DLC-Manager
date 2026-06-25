@@ -22,7 +22,7 @@ class DlcPackUpdateCoordinatorTest {
         Files.createDirectories(instance.resolve("config"));
         Files.writeString(instance.resolve("config").resolve("old.toml"), "before pack");
         DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
-        installer.install(pack("Compatible", "1.0.x", "any", """
+        installer.install(pack("Compatible", "1.0.x", "", """
             [conflicts]
             path = "shaderpacks/old"
             """));
@@ -52,7 +52,7 @@ class DlcPackUpdateCoordinatorTest {
         Path instance = tempDir.resolve("instance");
         Path dlcRoot = instance.resolve("DLC");
         DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
-        installer.install(pack("Blocked", "1.0.x", "any"));
+        installer.install(pack("Blocked", "1.0.x", ""));
         DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(instance, dlcRoot);
 
         assertThrows(Exception.class, () -> coordinator.prepareForUpdate("2.0.0", "1.0.0", false));
@@ -70,7 +70,7 @@ class DlcPackUpdateCoordinatorTest {
         Path instance = tempDir.resolve("instance");
         Path dlcRoot = instance.resolve("DLC");
         DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
-        installer.install(pack("Blocked", "1.0.x", "any"));
+        installer.install(pack("Blocked", "1.0.x", ""));
         DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(instance, dlcRoot);
         DlcPackUpdateCoordinator.UpdateSession session = coordinator.prepareForUpdate("2.0.0", "1.0.0", true);
 
@@ -86,7 +86,7 @@ class DlcPackUpdateCoordinatorTest {
         Path instance = tempDir.resolve("instance");
         Path dlcRoot = instance.resolve("DLC");
         DlcPackInstaller installer = new DlcPackInstaller(instance, dlcRoot);
-        installer.install(pack("Compatible", "1.0.x", "any"));
+        installer.install(pack("Compatible", "1.0.x", ""));
         DlcPackUpdateCoordinator coordinator = new DlcPackUpdateCoordinator(instance, dlcRoot);
 
         coordinator.prepareForUpdate("1.0.5", "1.0.0", false);

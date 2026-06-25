@@ -84,18 +84,18 @@ class DlcPackMetadata(
                 return Result.invalid("invalid version")
             }
             val modpack = DlcDcConfigIO.getObjectIgnoreCase(obj, "modpack")
-            val modpackValues = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "modpack"))
+            val sourceRules = readSourceRules(sourceText)
             val metadata = DlcPackMetadata(
                 identifier!!,
                 version!!,
                 normalizePlatform(DlcDcConfigIO.getStringIgnoreCase(basic, "platform")),
-                DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")?.trim().orEmpty(),
-                DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")?.trim().orEmpty(),
+                sourceRules?.basicGameVersion ?: readRuleString(DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")),
+                sourceRules?.basicModLoader ?: readRuleString(DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")),
                 readStringList(DlcDcConfigIO.getIgnoreCase(basic, "author")).ifEmpty { listOf("Unknown Author") },
-                modpackValues.ifEmpty { listOf("any") },
-                resolveModpackAnyWildcard(modpackValues, sourceText),
-                readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "base")).ifEmpty { listOf("any") },
-                readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "dlc")).ifEmpty { listOf("any") },
+                sourceRules?.modpack ?: readRuleList(DlcDcConfigIO.getIgnoreCase(modpack, "modpack")),
+                false,
+                sourceRules?.base ?: readRuleList(DlcDcConfigIO.getIgnoreCase(modpack, "base")),
+                sourceRules?.dlc ?: readRuleList(DlcDcConfigIO.getIgnoreCase(modpack, "dlc")),
                 readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
                 readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "description")),
                 readLinks(obj),
@@ -151,7 +151,7 @@ class DlcPackMetadata(
         @JvmStatic
         fun versionMatches(rule: String?, current: String?): Boolean {
             val normalized = rule?.trim()
-            if (normalized.isNullOrEmpty() || normalized.equals("any", ignoreCase = true)) {
+            if (normalized.isNullOrEmpty()) {
                 return true
             }
             val currentValue = current?.trim()
@@ -201,12 +201,11 @@ class DlcPackMetadata(
             }
             val currentValue = current?.trim().orEmpty()
             if (currentValue.isEmpty()) {
-                return allowAnyWildcard && rules.any { it.trim().equals("any", ignoreCase = true) }
+                return false
             }
             return rules.any {
                 val normalized = it.trim()
                 normalized.isEmpty() ||
-                    (allowAnyWildcard && normalized.equals("any", ignoreCase = true)) ||
                     currentValue.equals(normalized, ignoreCase = true)
             }
         }
@@ -214,7 +213,7 @@ class DlcPackMetadata(
         @JvmStatic
         fun stringRuleMatches(rule: String?, current: String?): Boolean {
             val normalized = rule?.trim().orEmpty()
-            if (normalized.isEmpty() || normalized.equals("any", ignoreCase = true)) {
+            if (normalized.isEmpty()) {
                 return true
             }
             val currentValue = current?.trim().orEmpty()
@@ -283,6 +282,10 @@ class DlcPackMetadata(
             }
         }
 
+        private fun readRuleString(value: String?): String = value?.trim().orEmpty()
+
+        private fun readRuleList(element: JsonElement?): List<String> = readStringList(element)
+
         private fun readStringList(element: JsonElement?): List<String> {
             if (element == null || element.isJsonNull) {
                 return emptyList()
@@ -333,63 +336,71 @@ class DlcPackMetadata(
             return out
         }
 
-        private fun resolveModpackAnyWildcard(values: List<String>, sourceText: String?): Boolean {
-            if (values.isEmpty()) {
-                return true
-            }
-            if (values.none { it.trim().equals("any", ignoreCase = true) }) {
-                return false
-            }
-            val rawValues = readRawModpackValues(sourceText)
-            if (rawValues.isEmpty()) {
-                return true
-            }
-            return rawValues.any { isBareAnyToken(it) }
-        }
-
-        private fun readRawModpackValues(sourceText: String?): List<String> {
+        private fun readSourceRules(sourceText: String?): SourceRules? {
             if (sourceText.isNullOrBlank()) {
-                return emptyList()
+                return null
             }
-            val out = ArrayList<String>()
-            var inModpack = false
-            val lines = sourceText.lines()
-            var index = 0
-            while (index < lines.size) {
-                val stripped = stripComment(lines[index]).trim()
-                if (stripped.startsWith("[") && stripped.endsWith("]")) {
-                    val section = stripped.substring(1, stripped.length - 1).trim().trim('"', '\'')
-                    inModpack = section.equals("modpack", ignoreCase = true)
-                    index++
+            val rules = SourceRules()
+            var section = ""
+            for (line in sourceText.lines()) {
+                val stripped = stripComment(line).trim()
+                if (stripped.isEmpty()) {
                     continue
                 }
-                if (inModpack) {
-                    val eq = stripped.indexOf('=')
-                    if (eq > 0 && stripped.substring(0, eq).trim().equals("modpack", ignoreCase = true)) {
-                        val valueText = StringBuilder(stripped.substring(eq + 1).trim())
-                        while (valueText.toString().trimStart().startsWith("[") && !valueText.toString().trimEnd().endsWith("]") && index + 1 < lines.size) {
-                            index++
-                            valueText.append('\n').append(stripComment(lines[index]).trim())
-                        }
-                        out.addAll(splitRawValues(valueText.toString()))
+                if (stripped.startsWith("[") && stripped.endsWith("]")) {
+                    section = stripped.substring(1, stripped.length - 1).trim().trim('"', '\'')
+                    continue
+                }
+                val eq = stripped.indexOf('=')
+                if (eq <= 0) {
+                    continue
+                }
+                val key = stripped.substring(0, eq).trim()
+                val value = stripped.substring(eq + 1).trim()
+                if (section.equals("basic", ignoreCase = true)) {
+                    if (key.equals("gameVersion", ignoreCase = true)) {
+                        rules.basicGameVersion = parseQuotedRule(value)
+                    } else if (key.equals("modLoader", ignoreCase = true)) {
+                        rules.basicModLoader = parseQuotedRule(value)
+                    }
+                } else if (section.equals("modpack", ignoreCase = true)) {
+                    if (key.equals("modpack", ignoreCase = true)) {
+                        rules.modpack = parseQuotedRuleList(value)
+                    } else if (key.equals("base", ignoreCase = true)) {
+                        rules.base = parseQuotedRuleList(value)
+                    } else if (key.equals("dlc", ignoreCase = true)) {
+                        rules.dlc = parseQuotedRuleList(value)
                     }
                 }
-                index++
             }
-            return out
+            return rules
         }
 
-        private fun splitRawValues(raw: String): List<String> {
+        private fun parseQuotedRule(raw: String): String {
             val value = raw.trim()
-            if (!value.startsWith("[") || !value.endsWith("]")) {
-                return listOf(value)
+            return if (isQuoted(value)) unquote(value).trim() else ""
+        }
+
+        private fun parseQuotedRuleList(raw: String): List<String> {
+            val value = raw.trim()
+            if (value.isEmpty()) {
+                return emptyList()
             }
-            val inner = value.substring(1, value.length - 1)
+            if (!value.startsWith("[") || !value.endsWith("]")) {
+                val item = parseQuotedRule(value)
+                return if (item.isEmpty()) emptyList() else listOf(item)
+            }
+            return splitArrayTokens(value.substring(1, value.length - 1))
+                .map { parseQuotedRule(it) }
+                .filter { it.isNotEmpty() }
+        }
+
+        private fun splitArrayTokens(text: String): List<String> {
             val out = ArrayList<String>()
             val current = StringBuilder()
             var quote = '\u0000'
             var escaped = false
-            for (ch in inner) {
+            for (ch in text) {
                 if (escaped) {
                     current.append(ch)
                     escaped = false
@@ -410,20 +421,49 @@ class DlcPackMetadata(
                     continue
                 }
                 if (ch == ',') {
-                    val token = current.toString().trim()
-                    if (token.isNotEmpty()) {
-                        out.add(token)
-                    }
+                    out.add(current.toString().trim())
                     current.setLength(0)
                     continue
                 }
                 current.append(ch)
             }
-            val token = current.toString().trim()
-            if (token.isNotEmpty()) {
-                out.add(token)
-            }
+            out.add(current.toString().trim())
             return out
+        }
+
+        private fun isQuoted(value: String): Boolean {
+            return value.length >= 2 &&
+                ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")))
+        }
+
+        private fun unquote(value: String): String {
+            val inner = value.substring(1, value.length - 1)
+            if (!value.startsWith("\"")) {
+                return inner
+            }
+            val out = StringBuilder()
+            var escaped = false
+            for (ch in inner) {
+                if (escaped) {
+                    out.append(
+                        when (ch) {
+                            'n' -> '\n'
+                            'r' -> '\r'
+                            't' -> '\t'
+                            else -> ch
+                        }
+                    )
+                    escaped = false
+                } else if (ch == '\\') {
+                    escaped = true
+                } else {
+                    out.append(ch)
+                }
+            }
+            if (escaped) {
+                out.append('\\')
+            }
+            return out.toString()
         }
 
         private fun stripComment(line: String): String {
@@ -452,10 +492,6 @@ class DlcPackMetadata(
                 }
             }
             return line
-        }
-
-        private fun isBareAnyToken(raw: String): Boolean {
-            return raw.trim().equals("any", ignoreCase = true)
         }
 
         private fun primitiveString(element: JsonElement?): String? {
@@ -502,6 +538,14 @@ class DlcPackMetadata(
 
             @JvmStatic
             fun invalid(error: String): Result = Result(false, null, error)
+            }
+        }
+
+        private class SourceRules {
+            var basicGameVersion: String? = null
+            var basicModLoader: String? = null
+            var modpack: List<String>? = null
+            var base: List<String>? = null
+            var dlc: List<String>? = null
         }
     }
-}

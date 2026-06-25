@@ -124,27 +124,29 @@ public class DlcPackMetadata {
         if (authors.isEmpty()) {
             authors = List.of("Unknown Author");
         }
-        List<String> modpacks = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "modpack"));
-        if (modpacks.isEmpty()) {
-            modpacks = List.of("any");
-        }
-        List<String> baseVersions = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "base"));
-        if (baseVersions.isEmpty()) {
-            baseVersions = List.of("any");
-        }
-        List<String> dlcVersions = readStringList(DlcDcConfigIO.getIgnoreCase(modpack, "dlc"));
-        if (dlcVersions.isEmpty()) {
-            dlcVersions = List.of("any");
-        }
+        SourceRules sourceRules = readSourceRules(sourceText);
+        List<String> modpacks = sourceRules != null && sourceRules.modpack != null
+            ? sourceRules.modpack
+            : readRuleList(DlcDcConfigIO.getIgnoreCase(modpack, "modpack"));
+        List<String> baseVersions = sourceRules != null && sourceRules.base != null
+            ? sourceRules.base
+            : readRuleList(DlcDcConfigIO.getIgnoreCase(modpack, "base"));
+        List<String> dlcVersions = sourceRules != null && sourceRules.dlc != null
+            ? sourceRules.dlc
+            : readRuleList(DlcDcConfigIO.getIgnoreCase(modpack, "dlc"));
         return Result.valid(new DlcPackMetadata(
             identifier,
             version,
             normalizePlatform(DlcDcConfigIO.getStringIgnoreCase(basic, "platform")),
-            stringOrEmpty(DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")),
-            stringOrEmpty(DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")),
+            sourceRules != null && sourceRules.basicGameVersion != null
+                ? sourceRules.basicGameVersion
+                : readRuleString(DlcDcConfigIO.getStringIgnoreCase(basic, "gameVersion")),
+            sourceRules != null && sourceRules.basicModLoader != null
+                ? sourceRules.basicModLoader
+                : readRuleString(DlcDcConfigIO.getStringIgnoreCase(basic, "modLoader")),
             authors,
             modpacks,
-            resolveModpackAnyWildcard(modpacks, sourceText),
+            false,
             baseVersions,
             dlcVersions,
             readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")),
@@ -196,7 +198,7 @@ public class DlcPackMetadata {
 
     public static boolean versionMatches(String rule, String current) {
         String normalized = trim(rule);
-        if (normalized == null || normalized.isEmpty() || "any".equalsIgnoreCase(normalized)) {
+        if (normalized == null || normalized.isEmpty()) {
             return true;
         }
         String currentValue = trim(current);
@@ -240,17 +242,11 @@ public class DlcPackMetadata {
         }
         String currentValue = trim(current);
         if (currentValue == null || currentValue.isEmpty()) {
-            for (String rule : rules) {
-                String normalized = trim(rule);
-                if (allowAnyWildcard && normalized != null && "any".equalsIgnoreCase(normalized)) {
-                    return true;
-                }
-            }
             return false;
         }
         for (String rule : rules) {
             String normalized = trim(rule);
-            if (normalized == null || normalized.isEmpty() || (allowAnyWildcard && "any".equalsIgnoreCase(normalized))) {
+            if (normalized == null || normalized.isEmpty()) {
                 return true;
             }
             if (currentValue.equalsIgnoreCase(normalized)) {
@@ -262,7 +258,7 @@ public class DlcPackMetadata {
 
     public static boolean stringRuleMatches(String rule, String current) {
         String normalized = trim(rule);
-        if (normalized == null || normalized.isEmpty() || "any".equalsIgnoreCase(normalized)) {
+        if (normalized == null || normalized.isEmpty()) {
             return true;
         }
         String currentValue = trim(current);
@@ -339,6 +335,14 @@ public class DlcPackMetadata {
         }
     }
 
+    private static String readRuleString(String value) {
+        return stringOrEmpty(value);
+    }
+
+    private static List<String> readRuleList(JsonElement element) {
+        return readStringList(element);
+    }
+
     private static List<String> readStringList(JsonElement element) {
         if (element == null || element.isJsonNull()) {
             return List.of();
@@ -387,91 +391,81 @@ public class DlcPackMetadata {
         return out;
     }
 
-    private static String primitiveString(JsonElement element) {
-        if (element == null || !element.isJsonPrimitive()) {
-            return null;
-        }
-        try {
-            return element.getAsString();
-        } catch (Exception ex) {
-            return null;
-        }
-    }
-
-    private static boolean resolveModpackAnyWildcard(List<String> values, String sourceText) {
-        if (values == null || values.isEmpty()) {
-            return true;
-        }
-        boolean containsAny = false;
-        for (String value : values) {
-            String normalized = trim(value);
-            if (normalized != null && "any".equalsIgnoreCase(normalized)) {
-                containsAny = true;
-                break;
-            }
-        }
-        if (!containsAny) {
-            return false;
-        }
-        List<String> rawValues = readRawModpackValues(sourceText);
-        if (rawValues.isEmpty()) {
-            return true;
-        }
-        for (String raw : rawValues) {
-            if (isBareAnyToken(raw)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static List<String> readRawModpackValues(String sourceText) {
+    private static SourceRules readSourceRules(String sourceText) {
         if (sourceText == null || sourceText.isBlank()) {
-            return List.of();
+            return null;
         }
-        List<String> out = new ArrayList<>();
-        boolean inModpack = false;
+        SourceRules rules = new SourceRules();
+        String section = "";
         String[] lines = sourceText.split("\\R", -1);
-        int index = 0;
-        while (index < lines.length) {
-            String stripped = stripComment(lines[index]).trim();
-            if (stripped.startsWith("[") && stripped.endsWith("]")) {
-                String section = stripped.substring(1, stripped.length() - 1).trim();
-                if ((section.startsWith("\"") && section.endsWith("\"")) || (section.startsWith("'") && section.endsWith("'"))) {
-                    section = section.substring(1, section.length() - 1);
-                }
-                inModpack = "modpack".equalsIgnoreCase(section);
-                index++;
+        for (String line : lines) {
+            String stripped = stripComment(line).trim();
+            if (stripped.isEmpty()) {
                 continue;
             }
-            if (inModpack) {
-                int eq = stripped.indexOf('=');
-                if (eq > 0 && "modpack".equalsIgnoreCase(stripped.substring(0, eq).trim())) {
-                    StringBuilder valueText = new StringBuilder(stripped.substring(eq + 1).trim());
-                    while (valueText.toString().stripLeading().startsWith("[") && !valueText.toString().stripTrailing().endsWith("]") && index + 1 < lines.length) {
-                        index++;
-                        valueText.append('\n').append(stripComment(lines[index]).trim());
-                    }
-                    out.addAll(splitRawValues(valueText.toString()));
+            if (stripped.startsWith("[") && stripped.endsWith("]")) {
+                section = stripped.substring(1, stripped.length() - 1).trim();
+                if (isQuoted(section)) {
+                    section = unquote(section);
+                }
+                continue;
+            }
+            int eq = stripped.indexOf('=');
+            if (eq <= 0) {
+                continue;
+            }
+            String key = stripped.substring(0, eq).trim();
+            String value = stripped.substring(eq + 1).trim();
+            if ("basic".equalsIgnoreCase(section)) {
+                if ("gameVersion".equalsIgnoreCase(key)) {
+                    rules.basicGameVersion = parseQuotedRule(value);
+                } else if ("modLoader".equalsIgnoreCase(key)) {
+                    rules.basicModLoader = parseQuotedRule(value);
+                }
+            } else if ("modpack".equalsIgnoreCase(section)) {
+                if ("modpack".equalsIgnoreCase(key)) {
+                    rules.modpack = parseQuotedRuleList(value);
+                } else if ("base".equalsIgnoreCase(key)) {
+                    rules.base = parseQuotedRuleList(value);
+                } else if ("dlc".equalsIgnoreCase(key)) {
+                    rules.dlc = parseQuotedRuleList(value);
                 }
             }
-            index++;
+        }
+        return rules;
+    }
+
+    private static String parseQuotedRule(String raw) {
+        String value = raw == null ? "" : raw.trim();
+        return isQuoted(value) ? unquote(value).trim() : "";
+    }
+
+    private static List<String> parseQuotedRuleList(String raw) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty()) {
+            return List.of();
+        }
+        if (!value.startsWith("[") || !value.endsWith("]")) {
+            String item = parseQuotedRule(value);
+            return item.isEmpty() ? List.of() : List.of(item);
+        }
+        List<String> out = new ArrayList<>();
+        for (String token : splitArrayTokens(value.substring(1, value.length() - 1))) {
+            String item = parseQuotedRule(token);
+            if (!item.isEmpty()) {
+                out.add(item);
+            }
         }
         return out;
     }
 
-    private static List<String> splitRawValues(String raw) {
-        String value = raw == null ? "" : raw.trim();
-        if (!value.startsWith("[") || !value.endsWith("]")) {
-            return value.isEmpty() ? List.of() : List.of(value);
-        }
-        String inner = value.substring(1, value.length() - 1);
+    private static List<String> splitArrayTokens(String text) {
         List<String> out = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         char quote = 0;
         boolean escaped = false;
-        for (int i = 0; i < inner.length(); i++) {
-            char ch = inner.charAt(i);
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
             if (escaped) {
                 current.append(ch);
                 escaped = false;
@@ -492,20 +486,48 @@ public class DlcPackMetadata {
                 continue;
             }
             if (ch == ',') {
-                String token = current.toString().trim();
-                if (!token.isEmpty()) {
-                    out.add(token);
-                }
+                out.add(current.toString().trim());
                 current.setLength(0);
                 continue;
             }
             current.append(ch);
         }
-        String token = current.toString().trim();
-        if (!token.isEmpty()) {
-            out.add(token);
-        }
+        out.add(current.toString().trim());
         return out;
+    }
+
+    private static boolean isQuoted(String value) {
+        return value != null && value.length() >= 2
+            && ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")));
+    }
+
+    private static String unquote(String value) {
+        String inner = value.substring(1, value.length() - 1);
+        if (!value.startsWith("\"")) {
+            return inner;
+        }
+        StringBuilder out = new StringBuilder();
+        boolean escaped = false;
+        for (int i = 0; i < inner.length(); i++) {
+            char ch = inner.charAt(i);
+            if (escaped) {
+                switch (ch) {
+                    case 'n' -> out.append('\n');
+                    case 'r' -> out.append('\r');
+                    case 't' -> out.append('\t');
+                    default -> out.append(ch);
+                }
+                escaped = false;
+            } else if (ch == '\\') {
+                escaped = true;
+            } else {
+                out.append(ch);
+            }
+        }
+        if (escaped) {
+            out.append('\\');
+        }
+        return out.toString();
     }
 
     private static String stripComment(String line) {
@@ -536,8 +558,15 @@ public class DlcPackMetadata {
         return line;
     }
 
-    private static boolean isBareAnyToken(String raw) {
-        return raw != null && "any".equalsIgnoreCase(raw.trim());
+    private static String primitiveString(JsonElement element) {
+        if (element == null || !element.isJsonPrimitive()) {
+            return null;
+        }
+        try {
+            return element.getAsString();
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     private static String trim(String value) {
@@ -580,6 +609,14 @@ public class DlcPackMetadata {
         } catch (NumberFormatException ex) {
             return null;
         }
+    }
+
+    private static class SourceRules {
+        String basicGameVersion;
+        String basicModLoader;
+        List<String> modpack;
+        List<String> base;
+        List<String> dlc;
     }
 
     public static class Result {

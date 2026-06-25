@@ -44,7 +44,7 @@ class DlcPackMetadataTest {
 
             [modpack]
             base = ["1.0.x", "1.2.0~1.3.0"]
-            dlc = "any"
+            dlc = ""
 
             [DisplayName]
             zh_cn = "中文名"
@@ -75,10 +75,10 @@ class DlcPackMetadataTest {
         assertNotNull(result.metadata);
         assertEquals("example_pack", result.metadata.identifier);
         assertEquals(List.of("Steve", "Alex"), result.metadata.authors);
-        assertEquals(List.of("any"), result.metadata.modpacks);
-        assertTrue(result.metadata.modpackAnyWildcard);
+        assertEquals(List.of(), result.metadata.modpacks);
+        assertFalse(result.metadata.modpackAnyWildcard);
         assertEquals(List.of("1.0.x", "1.2.0~1.3.0"), result.metadata.baseVersions);
-        assertEquals(List.of("any"), result.metadata.dlcVersions);
+        assertEquals(List.of(), result.metadata.dlcVersions);
         assertEquals("中文名", result.metadata.resolveDisplayName("zh_cn"));
         assertEquals("English Name", result.metadata.resolveDisplayName("fr_fr"));
         assertEquals("English Description", result.metadata.resolveDescription("zh_cn"));
@@ -198,34 +198,31 @@ class DlcPackMetadataTest {
     }
 
     @Test
-    void quotedAnyModpackIsLiteralAndBareAnyIsWildcard() throws Exception {
-        Path bare = tempDir.resolve("bare.dc");
-        Files.writeString(bare, """
+    void barePackRuleTokensAreIgnoredLikeBlankRules() throws Exception {
+        Path pack = tempDir.resolve("bare.dc");
+        Files.writeString(pack, """
             [basic]
-            identifier = "bare"
+            identifier = "example"
             version = "1.0.0"
+            gameVersion = any
+            modLoader = fabric
 
             [modpack]
             modpack = any
-            """);
-        Path quoted = tempDir.resolve("quoted.dc");
-        Files.writeString(quoted, """
-            [basic]
-            identifier = "quoted"
-            version = "1.0.0"
-
-            [modpack]
-            modpack = "any"
+            base = 1.0.x
+            dlc = [any, 1.0.x]
             """);
 
-        DlcPackMetadata.Result bareResult = DlcPackMetadata.read(bare);
-        DlcPackMetadata.Result quotedResult = DlcPackMetadata.read(quoted);
+        DlcPackMetadata.Result result = DlcPackMetadata.read(pack);
 
-        assertTrue(bareResult.metadata.modpackAnyWildcard);
-        assertFalse(quotedResult.metadata.modpackAnyWildcard);
-        assertTrue(DlcPackMetadata.anyStringMatches(bareResult.metadata.modpacks, "MainPack", bareResult.metadata.modpackAnyWildcard));
-        assertFalse(DlcPackMetadata.anyStringMatches(quotedResult.metadata.modpacks, "MainPack", quotedResult.metadata.modpackAnyWildcard));
-        assertTrue(DlcPackMetadata.anyStringMatches(quotedResult.metadata.modpacks, "any", quotedResult.metadata.modpackAnyWildcard));
+        assertTrue(result.valid);
+        assertEquals("", result.metadata.gameVersion);
+        assertEquals("", result.metadata.modLoader);
+        assertEquals(List.of(), result.metadata.modpacks);
+        assertEquals(List.of(), result.metadata.baseVersions);
+        assertEquals(List.of(), result.metadata.dlcVersions);
+        assertTrue(DlcPackMetadata.anyStringMatches(result.metadata.modpacks, "MainPack", result.metadata.modpackAnyWildcard));
+        assertTrue(DlcPackMetadata.anyVersionMatches(result.metadata.baseVersions, "1.0.0"));
     }
 
     @Test
