@@ -1,0 +1,1530 @@
+package com.cozooo.dlc_manager.client.download;
+
+import com.cozooo.dlc_manager.core.DlcConfig;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.SocketTimeoutException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
+
+public final class DlcDownloadService {
+    private static final String MEDIAFILEZ_HOST = "mediafilez.forgecdn.net";
+    private static final String EDGE_FORGECDN_HOST = "edge.forgecdn.net";
+    private static final String MODRINTH_CDN_HOST = "cdn.modrinth.com";
+    private static final String MIRROR_HOST = "mod.mcimirror.top";
+    private static final long MIRROR_COMPARE_WINDOW_MS = 3000L;
+    private static final int MIRROR_DISABLE_FAILURES = 2;
+    private static final long SPEED_WINDOW_MS = 1000L;
+    private static final long BYTES_PER_MIB = 1024L * 1024L;
+    private static final long MIN_MIRROR_SPEED_CHECK_BYTES = BYTES_PER_MIB;
+    private static final double SEGMENT_SPEED_DROP_RETRY_RATIO = 0.25;
+    private static final String CURSEFORGE_PROBE_PROJECT_ID = "678295";
+    private static final String CURSEFORGE_PROBE_FILE_ID = "8110246";
+    private static final String MODRINTH_PROBE_PROJECT_ID = "X661i40C";
+    private static final String MODRINTH_PROBE_FILE_ID = "lAV6EKSR";
+    private static final PlatformProbeState CURSEFORGE_PROBE_STATE = new PlatformProbeState();
+    private static final PlatformProbeState MODRINTH_PROBE_STATE = new PlatformProbeState();
+
+    private DlcDownloadService() {
+    }
+
+    @FunctionalInterface
+    public interface ProgressListener {
+        void onProgress(long downloadedBytes, long totalBytes);
+    }
+
+    public interface StatusProgressListener extends ProgressListener {
+        void onStatusKey(String statusKey);
+    }
+
+    @FunctionalInterface
+    public interface CancelChecker {
+        boolean isCanceled();
+    }
+
+    public static String suggestFileName(String url) throws IOException {
+        if (url == null || url.isBlank()) {
+            throw new IOException("empty url");
+        }
+        DownloadProbe probe = probeDownload(url);
+        String fileName = probe.fileNameHint;
+        if (fileName == null || fileName.isBlank()) {
+            fileName = DlcDownloadUtil.extractFileNameFromUrl(url);
+        }
+        return DlcDownloadUtil.sanitizeFileName(fileName);
+    }
+
+    public static Path download(String url, Path outputDir, String desiredFileName, ProgressListener listener, CancelChecker cancelChecker)
+        throws IOException {
+        if (url == null || url.isBlank()) {
+            throw new IOException("empty url");
+        }
+        if (outputDir == null) {
+            throw new IOException("missing output dir");
+        }
+        Files.createDirectories(outputDir);
+        DownloadProbe probe = probeDownload(url);
+        String fileName = desiredFileName;
+        if (fileName == null || fileName.isBlank()) {
+            fileName = probe.fileNameHint;
+        }
+        if (fileName == null || fileName.isBlank()) {
+            fileName = DlcDownloadUtil.extractFileNameFromUrl(url);
+        }
+        fileName = DlcDownloadUtil.sanitizeFileName(fileName);
+        if (fileName == null || fileName.isBlank()) {
+            fileName = "download.bin";
+        }
+        Path target = outputDir.resolve(fileName);
+        Path temp = outputDir.resolve(fileName + ".part");
+
+        if (listener != null) {
+            listener.onProgress(0L, probe.totalBytes);
+        }
+        if (probe.supportsRanges
+            && probe.totalBytes > 0
+            && probe.totalBytes >= DlcConfig.getMinSegmentBytes()
+            && DlcConfig.getMaxSegmentsPerFile() > 1) {
+            Files.deleteIfExists(temp);
+            try {
+                downloadSegmented(url, temp, probe.totalBytes, listener, cancelChecker);
+            } catch (SegmentDownloadException ex) {
+                Files.deleteIfExists(temp);
+                downloadSingleWithRetry(url, temp, probe.totalBytes, 0L, listener, cancelChecker);
+            } catch (IOException ex) {
+                Files.deleteIfExists(temp);
+                throw ex;
+            }
+        } else {
+            long existing = Files.exists(temp) ? Files.size(temp) : 0L;
+            downloadSingleWithRetry(url, temp, probe.totalBytes, existing, listener, cancelChecker);
+        }
+
+        if (cancelChecker != null && cancelChecker.isCanceled()) {
+            Files.deleteIfExists(temp);
+            throw new DownloadCanceledException("canceled");
+        }
+        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        return target;
+    }
+
+    public static Path downloadKnown(String url, Path outputDir, String desiredFileName, long expectedSize,
+                                     ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        if (url == null || url.isBlank()) {
+            throw new IOException("empty url");
+        }
+        if (outputDir == null) {
+            throw new IOException("missing output dir");
+        }
+        Files.createDirectories(outputDir);
+        String fileName = desiredFileName;
+        if (fileName == null || fileName.isBlank()) {
+            fileName = DlcDownloadUtil.extractFileNameFromUrl(url);
+        }
+        fileName = DlcDownloadUtil.sanitizeFileName(fileName);
+        if (fileName == null || fileName.isBlank()) {
+            fileName = "download.bin";
+        }
+        Path target = outputDir.resolve(fileName);
+        Path temp = outputDir.resolve(fileName + ".part");
+        long total = expectedSize > 0 ? expectedSize : -1L;
+        DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode());
+        MirrorPlan mirrorPlan = mirrorPlan(url, fileName, total);
+        notifyStatus(listener, "selecting_source", mode, mirrorPlan);
+        String downloadUrl;
+        try {
+            downloadUrl = primaryDownloadUrl(url, mirrorPlan, mode);
+        } finally {
+            notifyStatus(listener, "downloading", mode, mirrorPlan);
+        }
+        SourceSwitchPlan switchPlan = sourceSwitchPlan(url, mirrorPlan, mode, downloadUrl);
+        if (listener != null) {
+            listener.onProgress(0L, total);
+        }
+        RangeProbe rangeProbe = total > 0
+            && total >= DlcConfig.getMinSegmentBytes()
+            && DlcConfig.getMaxSegmentsPerFile() > 1
+            ? probeRangeSupport(downloadUrl)
+            : RangeProbe.unsupported(downloadUrl);
+        if (switchPlan != null && rangeProbe.supportsRanges) {
+            Files.deleteIfExists(temp);
+            try {
+                downloadSegmentedSwitchAware(rangeProbe.url, switchPlan, temp, total, listener, cancelChecker);
+            } catch (SegmentDownloadException ex) {
+                Files.deleteIfExists(temp);
+                downloadSingleSwitchAware(rangeProbe.url, switchPlan, temp, total, listener, cancelChecker);
+            } catch (IOException ex) {
+                Files.deleteIfExists(temp);
+                throw ex;
+            }
+        } else if (rangeProbe.supportsRanges) {
+            Files.deleteIfExists(temp);
+            try {
+                downloadSegmented(rangeProbe.url, temp, total, listener, cancelChecker);
+            } catch (SegmentDownloadException ex) {
+                Files.deleteIfExists(temp);
+                downloadSingleWithRetry(rangeProbe.url, temp, total, 0L, listener, cancelChecker);
+            } catch (IOException ex) {
+                Files.deleteIfExists(temp);
+                throw ex;
+            }
+        } else if (switchPlan != null && (!Files.exists(temp) || switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK)) {
+            downloadSingleSwitchAware(downloadUrl, switchPlan, temp, total, listener, cancelChecker);
+        } else {
+            long existing = Files.exists(temp) ? Files.size(temp) : 0L;
+            downloadSingleWithRetry(downloadUrl, temp, total, existing, listener, cancelChecker);
+        }
+        if (cancelChecker != null && cancelChecker.isCanceled()) {
+            Files.deleteIfExists(temp);
+            throw new DownloadCanceledException("canceled");
+        }
+        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        return target;
+    }
+
+    public static void precheckDownloadSources(List<DlcDownloadCandidate> candidates, ProgressListener listener) {
+        if (candidates == null || candidates.isEmpty()) {
+            return;
+        }
+        DownloadMirrorMode mode = DownloadMirrorMode.fromConfig(DlcConfig.getDownloadMirrorMode());
+        if (mode != DownloadMirrorMode.SMART_PRECHECK) {
+            return;
+        }
+        for (DlcDownloadCandidate candidate : candidates) {
+            if (candidate == null || candidate.url == null || candidate.url.isBlank()) {
+                continue;
+            }
+            String fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
+            long total = candidate.expectedSize > 0 ? candidate.expectedSize : -1L;
+            MirrorPlan mirrorPlan = mirrorPlan(candidate.url, fileName, total);
+            if (mirrorPlan == null) {
+                continue;
+            }
+            notifyStatus(listener, "selecting_source", mode, mirrorPlan);
+            try {
+                primaryDownloadUrl(candidate.url, mirrorPlan, mode);
+            } catch (IOException ignored) {
+            } finally {
+                notifyStatus(listener, "downloading", mode, mirrorPlan);
+            }
+            return;
+        }
+    }
+
+    private static MirrorPlan mirrorPlan(String url, String fileName, long totalBytes) {
+        if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
+            return null;
+        }
+        String mirrorUrl = mirrorDownloadUrl(url);
+        if (mirrorUrl == null || mirrorUrl.isBlank()) {
+            return null;
+        }
+        DownloadPlatform platform = downloadPlatform(url);
+        if (platform == null) {
+            return null;
+        }
+        SpeedRule speedRule = mirrorSpeedRule(totalBytes);
+        return new MirrorPlan(mirrorUrl, platform, totalBytes, speedRule.timeoutSpeed, speedRule.bucketSpeed, speedRule.requiredSpeed,
+            totalBytes > MIN_MIRROR_SPEED_CHECK_BYTES);
+    }
+
+    private static String primaryDownloadUrl(String url, MirrorPlan mirrorPlan, DownloadMirrorMode mode) throws IOException {
+        return switch (mode) {
+            case OFFICIAL_ONLY, OFFICIAL_FIRST -> url;
+            case MIRROR_ONLY -> {
+                if (mirrorPlan != null) {
+                    yield mirrorPlan.mirrorUrl;
+                }
+                if (isMirrorUrl(url)) {
+                    yield url;
+                }
+                throw new IOException("mirror download source unavailable");
+            }
+            case MIRROR_FIRST -> mirrorPlan != null ? mirrorPlan.mirrorUrl : isMirrorUrl(url) ? url : url;
+            case SMART_OFFICIAL -> {
+                if (mirrorPlan == null) {
+                    yield url;
+                }
+                PlatformProbeState state = mirrorPlan.probeState();
+                synchronized (state.lock) {
+                    if (state.mirrorDisabled) {
+                        yield url;
+                    }
+                    if (state.selectedMirror != null) {
+                        yield state.selectedMirror ? mirrorPlan.mirrorUrl : url;
+                    }
+                }
+                yield url;
+            }
+            case SMART_MIRROR -> {
+                if (mirrorPlan == null) {
+                    yield url;
+                }
+                PlatformProbeState state = mirrorPlan.probeState();
+                synchronized (state.lock) {
+                    if (state.mirrorDisabled) {
+                        yield url;
+                    }
+                    if (state.selectedMirror != null) {
+                        yield state.selectedMirror ? mirrorPlan.mirrorUrl : url;
+                    }
+                }
+                yield mirrorPlan.mirrorUrl;
+            }
+            case SMART_PRECHECK -> {
+                if (mirrorPlan == null) {
+                    yield url;
+                }
+                Boolean selected = selectedSourceFromCache(mirrorPlan);
+                if (selected == null) {
+                    ProbeUrlPair probePair = dedicatedProbePair(url);
+                    if (probePair != null) {
+                        selected = precheckDownloadSource(mirrorPlan, probePair.officialUrl, probePair.mirrorUrl);
+                    }
+                }
+                yield selected != null && selected ? mirrorPlan.mirrorUrl : url;
+            }
+        };
+    }
+
+    private static SourceSwitchPlan sourceSwitchPlan(String officialUrl, MirrorPlan mirrorPlan, DownloadMirrorMode mode, String primaryUrl) {
+        if (mirrorPlan == null) {
+            return null;
+        }
+        return switch (mode) {
+            case SMART_OFFICIAL -> primaryUrl.equals(officialUrl) && mirrorPlan.canSpeedCompare
+                ? new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.SPEED_COMPARE, mirrorPlan)
+                : null;
+            case SMART_MIRROR -> primaryUrl.equals(mirrorPlan.mirrorUrl) && mirrorPlan.canSpeedCompare
+                ? new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.SPEED_COMPARE, mirrorPlan)
+                : null;
+            case SMART_PRECHECK -> {
+                if (primaryUrl.equals(mirrorPlan.mirrorUrl)) {
+                    yield new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
+                }
+                if (primaryUrl.equals(officialUrl) && isMirrorFallbackAllowed(mirrorPlan)) {
+                    yield new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.RETRY_FALLBACK, mirrorPlan);
+                }
+                yield null;
+            }
+            case OFFICIAL_FIRST -> primaryUrl.equals(officialUrl)
+                ? new SourceSwitchPlan(mirrorPlan.mirrorUrl, false, true, SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan)
+                : null;
+            case MIRROR_FIRST -> primaryUrl.equals(mirrorPlan.mirrorUrl)
+                ? new SourceSwitchPlan(officialUrl, true, false, SourceSwitchMode.EARLY_TIMEOUT, mirrorPlan)
+                : null;
+            case OFFICIAL_ONLY, MIRROR_ONLY -> null;
+        };
+    }
+
+    private static void notifyStatus(ProgressListener listener, String statusKey, DownloadMirrorMode mode, MirrorPlan mirrorPlan) {
+        if (listener instanceof StatusProgressListener statusListener
+            && mode == DownloadMirrorMode.SMART_PRECHECK
+            && mirrorPlan != null) {
+            statusListener.onStatusKey(statusKey);
+        }
+    }
+
+    private static SourceProbe startSourceProbe(double primarySpeed, SourceSwitchPlan switchPlan, CancelChecker cancelChecker) {
+        if (switchPlan.mode == SourceSwitchMode.EARLY_TIMEOUT) {
+            return primarySpeed >= switchPlan.mirrorPlan.timeoutSpeed ? null : SourceProbe.selected(switchPlan);
+        }
+        if (primarySpeed >= switchPlan.mirrorPlan.requiredSpeed) {
+            recordPrimaryFastIfStable(primarySpeed, switchPlan);
+            return null;
+        }
+        PlatformProbeState state = switchPlan.mirrorPlan.probeState();
+        synchronized (state.lock) {
+            if (state.mirrorDisabled && switchPlan.alternateIsMirror) {
+                return null;
+            }
+            if (state.selectedMirror != null) {
+                return state.selectedMirror == switchPlan.primaryIsMirror ? null : SourceProbe.selected(switchPlan);
+            }
+            if (state.mirrorComparisons >= maxMirrorProbeAttempts()) {
+                return null;
+            }
+            state.mirrorComparisons++;
+        }
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        AtomicReference<Double> primarySpeedRef = new AtomicReference<>(primarySpeed);
+        return new SourceProbe(
+            switchPlan.alternateUrl,
+            switchPlan.primaryIsMirror,
+            switchPlan.alternateIsMirror,
+            executor.submit(() -> probeDownloadSpeed(switchPlan.alternateUrl, MIRROR_COMPARE_WINDOW_MS, cancelChecker, primarySpeedRef)),
+            executor,
+            primarySpeedRef,
+            false,
+            switchPlan.mirrorPlan.probeState()
+        );
+    }
+
+    private static boolean finishSourceProbe(double primarySpeed, SourceProbe probe) {
+        if (probe.preselected) {
+            return true;
+        }
+        double primaryBaseline = probe.primarySpeedRef == null ? primarySpeed : probe.primarySpeedRef.get();
+        ProbeSpeedResult alternateResult;
+        try {
+            alternateResult = probe.future == null ? ProbeSpeedResult.failed() : probe.future.get();
+        } catch (Exception ignored) {
+            alternateResult = ProbeSpeedResult.failed();
+        } finally {
+            if (probe.executor != null) {
+                probe.executor.shutdownNow();
+            }
+        }
+        PlatformProbeState state = probe.state;
+        synchronized (state.lock) {
+            recordSourceProbeResult(state, alternateResult.speed, primaryBaseline, probe.alternateIsMirror, probe.primaryIsMirror);
+            if (state.selectedMirror != null) {
+                return state.selectedMirror == probe.alternateIsMirror;
+            }
+        }
+        return alternateResult.completed || alternateResult.speed > 0.0 && alternateResult.speed > primaryBaseline;
+    }
+
+    private static Boolean selectedSourceFromCache(MirrorPlan mirrorPlan) {
+        PlatformProbeState state = mirrorPlan.probeState();
+        synchronized (state.lock) {
+            if (state.mirrorDisabled) {
+                return false;
+            }
+            return state.selectedMirror;
+        }
+    }
+
+    private static Boolean precheckDownloadSource(MirrorPlan mirrorPlan, String officialUrl, String mirrorUrl) {
+        PlatformProbeState state = mirrorPlan.probeState();
+        synchronized (state.precheckLock) {
+            int maxCount = maxMirrorProbeAttempts();
+            for (int i = 0; i < maxCount; i++) {
+                synchronized (state.lock) {
+                    if (state.mirrorDisabled) {
+                        return false;
+                    }
+                    if (state.selectedMirror != null) {
+                        return state.selectedMirror;
+                    }
+                    if (state.mirrorComparisons >= maxCount) {
+                        return null;
+                    }
+                    state.mirrorComparisons++;
+                }
+                ProbePairResult result = probeDownloadSpeedPair(officialUrl, mirrorUrl, MIRROR_COMPARE_WINDOW_MS, null);
+                synchronized (state.lock) {
+                    recordSourceProbeResult(state, result.mirrorSpeed, result.officialSpeed, true, false);
+                    if (state.selectedMirror != null) {
+                        return state.selectedMirror;
+                    }
+                }
+            }
+            synchronized (state.lock) {
+                return state.selectedMirror;
+            }
+        }
+    }
+
+    private static ProbeUrlPair dedicatedProbePair(String targetUrl) {
+        String officialUrl;
+        if (isCurseForgeCdnUrl(targetUrl)) {
+            officialUrl = resolveCurseForgeProbeUrl();
+        } else if (isModrinthCdnUrl(targetUrl)) {
+            officialUrl = resolveModrinthProbeUrl();
+        } else {
+            officialUrl = null;
+        }
+        if (officialUrl == null || officialUrl.isBlank()) {
+            return null;
+        }
+        String mirrorUrl = mirrorDownloadUrl(officialUrl);
+        if (mirrorUrl == null || mirrorUrl.isBlank()) {
+            return null;
+        }
+        return new ProbeUrlPair(officialUrl, mirrorUrl);
+    }
+
+    private static String resolveCurseForgeProbeUrl() {
+        if (CURSEFORGE_PROBE_PROJECT_ID.isBlank() || CURSEFORGE_PROBE_FILE_ID.isBlank()) {
+            return null;
+        }
+        try {
+            DlcCurseForgeClient.CurseForgeFile file = DlcCurseForgeClient.fetchFile(CURSEFORGE_PROBE_PROJECT_ID, CURSEFORGE_PROBE_FILE_ID);
+            return file != null && isCurseForgeCdnUrl(file.url) ? file.url : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String resolveModrinthProbeUrl() {
+        if (MODRINTH_PROBE_PROJECT_ID.isBlank() || MODRINTH_PROBE_FILE_ID.isBlank()) {
+            return null;
+        }
+        try {
+            DlcModrinthClient.ModrinthVersion version = DlcModrinthClient.fetchVersionByIdOrVersion(MODRINTH_PROBE_PROJECT_ID, MODRINTH_PROBE_FILE_ID, null, null);
+            return version != null && isModrinthCdnUrl(version.url) ? version.url : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isMirrorFallbackAllowed(MirrorPlan mirrorPlan) {
+        PlatformProbeState state = mirrorPlan.probeState();
+        synchronized (state.lock) {
+            return !state.mirrorDisabled;
+        }
+    }
+
+    private static void recordSourceProbeResult(PlatformProbeState state, double alternateSpeed, double primarySpeed,
+                                                boolean alternateIsMirror, boolean primaryIsMirror) {
+        if (alternateSpeed <= 0.0) {
+            if (alternateIsMirror) {
+                state.mirrorFailures++;
+                if (state.mirrorFailures >= MIRROR_DISABLE_FAILURES) {
+                    state.mirrorDisabled = true;
+                }
+            }
+        } else if (alternateSpeed > primarySpeed) {
+            if (alternateIsMirror) {
+                state.mirrorWins++;
+            } else {
+                state.officialWins++;
+            }
+        } else if (primaryIsMirror) {
+            state.mirrorWins++;
+        } else {
+            state.officialWins++;
+        }
+        int requiredWins = requiredMirrorProbeWins();
+        if (state.mirrorWins >= requiredWins) {
+            state.selectedMirror = true;
+        } else if (state.officialWins >= requiredWins) {
+            state.selectedMirror = false;
+        }
+    }
+
+    private static int maxMirrorProbeCount() {
+        return Math.max(1, DlcConfig.getDownloadMirrorProbeCount());
+    }
+
+    private static int maxMirrorProbeAttempts() {
+        if (DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE.equals(DlcConfig.getDownloadMirrorProbeStrategy())) {
+            return 1;
+        }
+        return maxMirrorProbeCount();
+    }
+
+    private static int requiredMirrorProbeWins() {
+        if (DlcConfig.DOWNLOAD_MIRROR_PROBE_SINGLE.equals(DlcConfig.getDownloadMirrorProbeStrategy())) {
+            return 1;
+        }
+        return maxMirrorProbeCount() / 2 + 1;
+    }
+
+    private static void recordPrimaryFastIfStable(double primarySpeed, SourceSwitchPlan switchPlan) {
+        MirrorPlan mirrorPlan = switchPlan.mirrorPlan;
+        if (mirrorPlan.totalBytes <= 10L * BYTES_PER_MIB
+            || mirrorPlan.bucketSpeed <= mirrorPlan.timeoutSpeed
+            || primarySpeed < mirrorPlan.bucketSpeed) {
+            return;
+        }
+        PlatformProbeState state = switchPlan.mirrorPlan.probeState();
+        synchronized (state.lock) {
+            if (state.selectedMirror != null || state.mirrorDisabled) {
+                return;
+            }
+            if (switchPlan.primaryIsMirror) {
+                state.mirrorFastWins++;
+                if (state.mirrorFastWins >= 2) {
+                    state.selectedMirror = true;
+                }
+            } else {
+                state.officialFastWins++;
+                if (state.officialFastWins >= 2) {
+                    state.selectedMirror = false;
+                }
+            }
+        }
+    }
+
+    private static SpeedRule mirrorSpeedRule(long totalBytes) {
+        double taskTimeoutSeconds = Math.max(1.0, DlcConfig.getTaskTimeoutMs() / 1000.0);
+        double timeoutSpeed = totalBytes / taskTimeoutSeconds;
+        double bucketSpeed;
+        if (totalBytes < 10L * BYTES_PER_MIB) {
+            bucketSpeed = totalBytes / 10.0;
+        } else if (totalBytes <= 20L * BYTES_PER_MIB) {
+            bucketSpeed = 1.0 * BYTES_PER_MIB;
+        } else {
+            bucketSpeed = 2.0 * BYTES_PER_MIB;
+        }
+        return new SpeedRule(timeoutSpeed, bucketSpeed, Math.max(timeoutSpeed, bucketSpeed));
+    }
+
+    private static ProbeSpeedResult probeDownloadSpeed(String url, long windowMs, CancelChecker cancelChecker,
+                                                       AtomicReference<Double> primarySpeedRef) throws IOException {
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            connection.setReadTimeout((int) windowMs);
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.setRequestProperty("Range", "bytes=0-");
+            connection.connect();
+            if (connection.getResponseCode() >= 400) {
+                return ProbeSpeedResult.failed();
+            }
+            long start = System.nanoTime();
+            long deadline = start + TimeUnit.MILLISECONDS.toNanos(windowMs);
+            long bytes = 0L;
+            long windowStart = start;
+            long windowBytes = 0L;
+            double maxSpeed = 0.0;
+            byte[] buffer = new byte[8192];
+            try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream())) {
+                while (System.nanoTime() < deadline) {
+                    if (cancelChecker != null && cancelChecker.isCanceled()) {
+                        throw new DownloadCanceledException("canceled");
+                    }
+                    int read = in.read(buffer);
+                    if (read < 0) {
+                        long elapsed = Math.max(1L, System.nanoTime() - start);
+                        maxSpeed = Math.max(maxSpeed, bytes * 1_000_000_000.0 / elapsed);
+                        return new ProbeSpeedResult(maxSpeed, true);
+                    }
+                    bytes += read;
+                    windowBytes += read;
+                    long now = System.nanoTime();
+                    if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                        maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                        if (maxSpeed > primarySpeedRef.get()) {
+                            return new ProbeSpeedResult(maxSpeed, false);
+                        }
+                        windowStart = now;
+                        windowBytes = 0L;
+                    }
+                }
+            }
+            long elapsed = Math.max(1L, System.nanoTime() - start);
+            maxSpeed = Math.max(maxSpeed, bytes * 1_000_000_000.0 / elapsed);
+            return new ProbeSpeedResult(maxSpeed, false);
+        } catch (DownloadCanceledException ex) {
+            throw ex;
+        } catch (Exception ignored) {
+            return ProbeSpeedResult.failed();
+        } finally {
+            closeQuietly(connection);
+        }
+    }
+
+    private static ProbePairResult probeDownloadSpeedPair(String officialUrl, String mirrorUrl, long windowMs, CancelChecker cancelChecker) {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            AtomicReference<Double> officialRef = new AtomicReference<>(Double.MAX_VALUE);
+            AtomicReference<Double> mirrorRef = new AtomicReference<>(Double.MAX_VALUE);
+            Future<ProbeSpeedResult> officialFuture = executor.submit(() -> probeDownloadSpeed(officialUrl, windowMs, cancelChecker, mirrorRef));
+            Future<ProbeSpeedResult> mirrorFuture = executor.submit(() -> probeDownloadSpeed(mirrorUrl, windowMs, cancelChecker, officialRef));
+            long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(windowMs);
+            while (System.nanoTime() < deadline) {
+                ProbeSpeedResult officialEarly = completedProbeResult(officialFuture);
+                if (officialEarly.completed) {
+                    mirrorFuture.cancel(true);
+                    return new ProbePairResult(officialEarly.speed, 0.0);
+                }
+                ProbeSpeedResult mirrorEarly = completedProbeResult(mirrorFuture);
+                if (mirrorEarly.completed) {
+                    officialFuture.cancel(true);
+                    return new ProbePairResult(0.0, mirrorEarly.speed);
+                }
+                if (officialFuture.isDone() && mirrorFuture.isDone()) {
+                    break;
+                }
+                sleepQuietly(50L);
+            }
+            ProbeSpeedResult officialSpeed = getProbeSpeed(officialFuture);
+            ProbeSpeedResult mirrorSpeed = getProbeSpeed(mirrorFuture);
+            return new ProbePairResult(officialSpeed.speed, mirrorSpeed.speed);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static ProbeSpeedResult completedProbeResult(Future<ProbeSpeedResult> future) {
+        if (future == null || !future.isDone()) {
+            return ProbeSpeedResult.failed();
+        }
+        return getProbeSpeed(future);
+    }
+
+    private static ProbeSpeedResult getProbeSpeed(Future<ProbeSpeedResult> future) {
+        try {
+            return future.get();
+        } catch (Exception ignored) {
+            return ProbeSpeedResult.failed();
+        }
+    }
+
+    private static void sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static boolean isCurseForgeCdnUrl(String url) {
+        try {
+            String host = URI.create(url).getHost();
+            return MEDIAFILEZ_HOST.equalsIgnoreCase(host) || EDGE_FORGECDN_HOST.equalsIgnoreCase(host);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isModrinthCdnUrl(String url) {
+        try {
+            URI uri = URI.create(url);
+            return MODRINTH_CDN_HOST.equalsIgnoreCase(uri.getHost()) && isModrinthDownloadPath(uri);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static DownloadPlatform downloadPlatform(String url) {
+        if (isCurseForgeCdnUrl(url)) {
+            return DownloadPlatform.CURSEFORGE;
+        }
+        if (isModrinthCdnUrl(url)) {
+            return DownloadPlatform.MODRINTH;
+        }
+        return null;
+    }
+
+    private static boolean isMirrorUrl(String url) {
+        try {
+            return MIRROR_HOST.equalsIgnoreCase(URI.create(url).getHost());
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static String mirrorDownloadUrl(String url) {
+        try {
+            URI uri = URI.create(url);
+            boolean curseForge = MEDIAFILEZ_HOST.equalsIgnoreCase(uri.getHost()) || EDGE_FORGECDN_HOST.equalsIgnoreCase(uri.getHost());
+            boolean modrinth = MODRINTH_CDN_HOST.equalsIgnoreCase(uri.getHost()) && isModrinthDownloadPath(uri);
+            if (!curseForge && !modrinth) {
+                return null;
+            }
+            return new URI(
+                uri.getScheme() == null ? "https" : uri.getScheme(),
+                uri.getUserInfo(),
+                MIRROR_HOST,
+                uri.getPort(),
+                uri.getPath(),
+                uri.getQuery(),
+                uri.getFragment()
+            ).toString();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isModrinthDownloadPath(URI uri) {
+        String path = uri == null ? null : uri.getPath();
+        return path != null && path.matches("/data/[^/]+/versions/[^/]+/[^/]+");
+    }
+
+    private static void downloadSingleSwitchAware(String url, SourceSwitchPlan switchPlan, Path temp, long knownTotal,
+                                                  ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        if (switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK) {
+            downloadSingleWithRetryFallback(url, switchPlan.alternateUrl, temp, knownTotal, listener, cancelChecker);
+            return;
+        }
+        DownloadInfo info = null;
+        try {
+            info = openDownload(url, 0L);
+            if (info.responseCode >= 400) {
+                throw new IOException("http " + info.responseCode);
+            }
+            downloadToFileSwitchAware(info.connection, temp, knownTotal, listener, cancelChecker, switchPlan);
+        } catch (SwitchDownloadSourceException ex) {
+            if (info != null) {
+                closeQuietly(info.connection);
+            }
+            Files.deleteIfExists(temp);
+            downloadSingleWithRetry(ex.targetUrl, temp, knownTotal, 0L, listener, cancelChecker);
+        } catch (DownloadCanceledException ex) {
+            throw ex;
+        } catch (IOException ex) {
+            if (shouldFallbackAfterTimeout(ex, switchPlan)) {
+                if (info != null) {
+                    closeQuietly(info.connection);
+                }
+                Files.deleteIfExists(temp);
+                downloadSingleWithRetry(switchPlan.alternateUrl, temp, knownTotal, 0L, listener, cancelChecker);
+                return;
+            }
+            long existing = Files.exists(temp) ? Files.size(temp) : 0L;
+            downloadSingleWithRetry(url, temp, knownTotal, existing, listener, cancelChecker);
+        } finally {
+            if (info != null) {
+                closeQuietly(info.connection);
+            }
+        }
+    }
+
+    private static void downloadSingleWithRetryFallback(String primaryUrl, String fallbackUrl, Path temp, long knownTotal,
+                                                        ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        try {
+            long existing = Files.exists(temp) ? Files.size(temp) : 0L;
+            downloadSingleWithRetry(primaryUrl, temp, knownTotal, existing, listener, cancelChecker);
+        } catch (DownloadCanceledException ex) {
+            throw ex;
+        } catch (IOException ex) {
+            Files.deleteIfExists(temp);
+            downloadSingleWithRetry(fallbackUrl, temp, knownTotal, 0L, listener, cancelChecker);
+        }
+    }
+
+    private static void downloadToFileSwitchAware(HttpURLConnection connection, Path target, long totalBytes,
+                                                  ProgressListener listener, CancelChecker cancelChecker, SourceSwitchPlan switchPlan)
+        throws IOException {
+        if (connection == null) {
+            throw new IOException("missing connection");
+        }
+        long total = totalBytes > 0 ? totalBytes : connection.getContentLengthLong();
+        long read = 0L;
+        if (listener != null) {
+            listener.onProgress(read, total);
+        }
+        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+             OutputStream out = Files.newOutputStream(target,
+                 StandardOpenOption.CREATE,
+                 StandardOpenOption.WRITE,
+                 StandardOpenOption.TRUNCATE_EXISTING)) {
+            read = copyToFileWithSourceSwitch(in, out, total, read, listener, cancelChecker, switchPlan);
+        } finally {
+            connection.disconnect();
+        }
+        if (total > 0 && read < total) {
+            throw new IOException("download incomplete");
+        }
+    }
+
+    private static boolean shouldFallbackAfterTimeout(IOException ex, SourceSwitchPlan switchPlan) {
+        return switchPlan.mode == SourceSwitchMode.EARLY_TIMEOUT && ex instanceof SocketTimeoutException;
+    }
+
+    private static long copyToFileWithSourceSwitch(BufferedInputStream input, OutputStream output, long total, long initialRead,
+                                                  ProgressListener listener, CancelChecker cancelChecker, SourceSwitchPlan switchPlan)
+        throws IOException {
+        byte[] buffer = new byte[8192];
+        long read = initialRead;
+        long start = System.nanoTime();
+        long windowStart = start;
+        long windowBytes = 0L;
+        double maxSpeed = 0.0;
+        boolean checked = false;
+        SourceProbe sourceProbe = null;
+        long compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS);
+        try {
+            while (true) {
+                int len = input.read(buffer);
+                if (len < 0) {
+                    return read;
+                }
+                if (cancelChecker != null && cancelChecker.isCanceled()) {
+                    throw new DownloadCanceledException("canceled");
+                }
+                output.write(buffer, 0, len);
+                read += len;
+                windowBytes += len;
+                if (listener != null) {
+                    listener.onProgress(read, total);
+                }
+                long now = System.nanoTime();
+                if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                    maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                    windowStart = now;
+                    windowBytes = 0L;
+                }
+                if (!checked && now >= compareDeadline) {
+                    checked = true;
+                    if (windowBytes > 0) {
+                        maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                    }
+                    sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker);
+                    if (sourceProbe != null && sourceProbe.preselected) {
+                        throw new SwitchDownloadSourceException(switchPlan.alternateUrl);
+                    }
+                }
+                if (sourceProbe != null && sourceProbe.future != null && sourceProbe.future.isDone()) {
+                    if (windowBytes > 0) {
+                        maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                    }
+                    if (finishSourceProbe(maxSpeed, sourceProbe)) {
+                        throw new SwitchDownloadSourceException(sourceProbe.alternateUrl);
+                    }
+                    sourceProbe = null;
+                }
+            }
+        } finally {
+            if (sourceProbe != null && sourceProbe.executor != null) {
+                sourceProbe.executor.shutdownNow();
+            }
+        }
+    }
+
+    private static void downloadSegmentedSwitchAware(String url, SourceSwitchPlan switchPlan, Path tempFile, long totalBytes,
+                                                     ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        if (switchPlan.mode == SourceSwitchMode.RETRY_FALLBACK) {
+            downloadSegmentedWithRetryFallback(url, switchPlan.alternateUrl, tempFile, totalBytes, listener, cancelChecker);
+            return;
+        }
+        InitialRangeResult initial;
+        try {
+            initial = downloadInitialRangeForSourceSwitch(url, switchPlan, tempFile, totalBytes, listener, cancelChecker);
+        } catch (IOException ex) {
+            if (shouldFallbackAfterTimeout(ex, switchPlan)) {
+                Files.deleteIfExists(tempFile);
+                downloadSegmented(switchPlan.alternateUrl, tempFile, totalBytes, listener, cancelChecker);
+                return;
+            }
+            throw ex;
+        }
+        if (initial.completed) {
+            return;
+        }
+        if (initial.switchSource) {
+            Files.deleteIfExists(tempFile);
+            downloadSegmented(switchPlan.alternateUrl, tempFile, totalBytes, listener, cancelChecker);
+            return;
+        }
+        downloadSegmented(url, tempFile, totalBytes, listener, cancelChecker, initial.downloadedBytes);
+    }
+
+    private static void downloadSegmentedWithRetryFallback(String primaryUrl, String fallbackUrl, Path tempFile, long totalBytes,
+                                                           ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        try {
+            downloadSegmented(primaryUrl, tempFile, totalBytes, listener, cancelChecker);
+        } catch (DownloadCanceledException ex) {
+            throw ex;
+        } catch (IOException ex) {
+            Files.deleteIfExists(tempFile);
+            try {
+                downloadSegmented(fallbackUrl, tempFile, totalBytes, listener, cancelChecker);
+            } catch (DownloadCanceledException canceled) {
+                throw canceled;
+            } catch (SegmentDownloadException segmentEx) {
+                Files.deleteIfExists(tempFile);
+                downloadSingleWithRetry(fallbackUrl, tempFile, totalBytes, 0L, listener, cancelChecker);
+            } catch (IOException fallbackEx) {
+                Files.deleteIfExists(tempFile);
+                downloadSingleWithRetry(fallbackUrl, tempFile, totalBytes, 0L, listener, cancelChecker);
+            }
+        }
+    }
+
+    private static InitialRangeResult downloadInitialRangeForSourceSwitch(String url, SourceSwitchPlan switchPlan, Path tempFile,
+                                                                         long totalBytes, ProgressListener listener,
+                                                                         CancelChecker cancelChecker) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
+            raf.setLength(totalBytes);
+        }
+        HttpURLConnection connection = null;
+        long read = 0L;
+        double maxSpeed = 0.0;
+        try {
+            connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            connection.setInstanceFollowRedirects(true);
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.setRequestProperty("Range", "bytes=0-");
+            connection.connect();
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_PARTIAL) {
+                throw new IOException("range not supported");
+            }
+            long start = System.nanoTime();
+            long windowStart = start;
+            long windowBytes = 0L;
+            boolean checked = false;
+            SourceProbe sourceProbe = null;
+            long compareDeadline = start + TimeUnit.MILLISECONDS.toNanos(MIRROR_COMPARE_WINDOW_MS);
+            byte[] buffer = new byte[8192];
+            try {
+                try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+                     RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
+                    raf.seek(0L);
+                    while (true) {
+                        long nowBeforeRead = System.nanoTime();
+                        if (checked && sourceProbe == null && nowBeforeRead >= compareDeadline) {
+                            return new InitialRangeResult(read, false, false);
+                        }
+                        if (cancelChecker != null && cancelChecker.isCanceled()) {
+                            throw new DownloadCanceledException("canceled");
+                        }
+                        int len = in.read(buffer);
+                        if (len < 0) {
+                            return new InitialRangeResult(read, true, false);
+                        }
+                        raf.write(buffer, 0, len);
+                        read += len;
+                        windowBytes += len;
+                        if (listener != null) {
+                            listener.onProgress(read, totalBytes);
+                        }
+                        if (read >= totalBytes) {
+                            return new InitialRangeResult(read, true, false);
+                        }
+                        long now = System.nanoTime();
+                        if (now - windowStart >= TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                            maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                            windowStart = now;
+                            windowBytes = 0L;
+                        }
+                        if (!checked && now >= compareDeadline) {
+                            checked = true;
+                            if (windowBytes > 0) {
+                                maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                            }
+                            sourceProbe = startSourceProbe(maxSpeed, switchPlan, cancelChecker);
+                            if (sourceProbe != null && sourceProbe.preselected) {
+                                return new InitialRangeResult(read, false, true);
+                            }
+                            if (sourceProbe == null) {
+                                return new InitialRangeResult(read, false, false);
+                            }
+                        }
+                        if (sourceProbe != null && sourceProbe.future != null && sourceProbe.future.isDone()) {
+                            if (windowBytes > 0) {
+                                maxSpeed = Math.max(maxSpeed, windowBytes * 1_000_000_000.0 / Math.max(1L, now - windowStart));
+                            }
+                            return new InitialRangeResult(read, false, finishSourceProbe(maxSpeed, sourceProbe));
+                        }
+                    }
+                }
+            } finally {
+                if (sourceProbe != null && sourceProbe.executor != null) {
+                    sourceProbe.executor.shutdownNow();
+                }
+            }
+        } finally {
+            closeQuietly(connection);
+        }
+    }
+
+    private static void downloadSingleWithRetry(String url, Path temp, long knownTotal, long existing, ProgressListener listener,
+                                                CancelChecker cancelChecker) throws IOException {
+        int maxRetry = Math.max(1, DlcConfig.getMaxRetryCount());
+        IOException lastError = null;
+        long offset = Math.max(0L, existing);
+        for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            if (cancelChecker != null && cancelChecker.isCanceled()) {
+                throw new DownloadCanceledException("canceled");
+            }
+            DownloadInfo info = null;
+            try {
+                info = openDownload(url, offset);
+                if (info.responseCode >= 400) {
+                    throw new IOException("http " + info.responseCode);
+                }
+                long total = knownTotal > 0 ? knownTotal : info.totalBytes;
+                if (offset > 0 && info.responseCode != HttpURLConnection.HTTP_PARTIAL) {
+                    offset = 0L;
+                    Files.deleteIfExists(temp);
+                    closeQuietly(info.connection);
+                    info = openDownload(url, 0L);
+                    if (info.responseCode >= 400) {
+                        throw new IOException("http " + info.responseCode);
+                    }
+                    total = knownTotal > 0 ? knownTotal : info.totalBytes;
+                }
+                downloadToFile(info.connection, temp, offset, total, listener, cancelChecker);
+                return;
+            } catch (DownloadCanceledException ex) {
+                throw ex;
+            } catch (IOException ex) {
+                lastError = ex;
+                offset = Files.exists(temp) ? Files.size(temp) : 0L;
+            } finally {
+                if (info != null) {
+                    closeQuietly(info.connection);
+                }
+            }
+        }
+        throw lastError == null ? new IOException("download failed") : lastError;
+    }
+
+    private static DownloadInfo openDownload(String url, long offset) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
+        connection.setInstanceFollowRedirects(true);
+        connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+        connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
+        connection.setRequestProperty("User-Agent", "DLC-Manager");
+        if (offset > 0) {
+            connection.setRequestProperty("Range", "bytes=" + offset + "-");
+        }
+        connection.connect();
+        int code = connection.getResponseCode();
+        long contentLength = connection.getContentLengthLong();
+        long total = contentLength > 0 ? contentLength + Math.max(0L, offset) : -1L;
+        String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
+        if (fileName == null || fileName.isBlank()) {
+            fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.getURL().toString());
+        }
+        return new DownloadInfo(connection, fileName, code, total);
+    }
+
+    private static void downloadToFile(HttpURLConnection connection, Path target, long offset, long totalBytes,
+                                       ProgressListener listener, CancelChecker cancelChecker) throws IOException {
+        if (connection == null) {
+            throw new IOException("missing connection");
+        }
+        long total = totalBytes > 0 ? totalBytes : connection.getContentLengthLong();
+        long read = offset;
+        if (listener != null) {
+            listener.onProgress(read, total);
+        }
+        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+             OutputStream out = Files.newOutputStream(target,
+                 StandardOpenOption.CREATE,
+                 StandardOpenOption.WRITE,
+                 offset > 0 ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING)) {
+            byte[] buffer = new byte[8192];
+            int len;
+            while ((len = in.read(buffer)) >= 0) {
+                if (cancelChecker != null && cancelChecker.isCanceled()) {
+                    throw new DownloadCanceledException("canceled");
+                }
+                out.write(buffer, 0, len);
+                read += len;
+                if (listener != null) {
+                    listener.onProgress(read, total);
+                }
+            }
+        } finally {
+            connection.disconnect();
+        }
+        if (total > 0 && read < total) {
+            throw new IOException("download incomplete");
+        }
+    }
+
+    private static DownloadProbe probeDownload(String url) throws IOException {
+        long total = -1L;
+        boolean supportsRange = false;
+        String fileName = null;
+        HttpURLConnection head = null;
+        try {
+            head = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            head.setInstanceFollowRedirects(true);
+            head.setRequestMethod("HEAD");
+            head.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            head.setReadTimeout(DlcConfig.getTaskTimeoutMs());
+            head.setRequestProperty("User-Agent", "DLC-Manager");
+            head.connect();
+            fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(head);
+            if (fileName == null || fileName.isBlank()) {
+                fileName = DlcDownloadUtil.extractFileNameFromUrl(head.getURL().toString());
+            }
+            long len = head.getContentLengthLong();
+            if (len > 0) {
+                total = len;
+            }
+            String acceptRanges = head.getHeaderField("Accept-Ranges");
+            supportsRange = acceptRanges != null && acceptRanges.toLowerCase(Locale.ROOT).contains("bytes");
+        } catch (Exception ignored) {
+        } finally {
+            closeQuietly(head);
+        }
+        if (supportsRange && total > 0) {
+            return new DownloadProbe(total, true, fileName);
+        }
+        HttpURLConnection range = null;
+        try {
+            range = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            range.setInstanceFollowRedirects(true);
+            range.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            range.setReadTimeout(DlcConfig.getTaskTimeoutMs());
+            range.setRequestProperty("User-Agent", "DLC-Manager");
+            range.setRequestProperty("Range", "bytes=0-0");
+            range.connect();
+            int code = range.getResponseCode();
+            if (code == HttpURLConnection.HTTP_PARTIAL) {
+                supportsRange = true;
+                String contentRange = range.getHeaderField("Content-Range");
+                if (contentRange != null && contentRange.contains("/")) {
+                    String[] parts = contentRange.split("/");
+                    String last = parts[parts.length - 1];
+                    try {
+                        long parsed = Long.parseLong(last);
+                        if (parsed > 0) {
+                            total = parsed;
+                        }
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        } finally {
+            closeQuietly(range);
+        }
+        return new DownloadProbe(total, supportsRange, fileName);
+    }
+
+    private static RangeProbe probeRangeSupport(String url) {
+        String resolved = resolveRedirectTarget(url, 0);
+        return probeFinalRangeSupport(resolved);
+    }
+
+    private static String resolveRedirectTarget(String url, int redirects) {
+        if (redirects > 8 || url == null || url.isBlank()) {
+            return url;
+        }
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            connection.setInstanceFollowRedirects(false);
+            connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            connection.setReadTimeout(DlcConfig.getTaskTimeoutMs());
+            connection.setRequestProperty("User-Agent", "DLC-Manager");
+            connection.connect();
+            int code = connection.getResponseCode();
+            if (!isRedirect(code)) {
+                return url;
+            }
+            String location = connection.getHeaderField("Location");
+            String redirected = resolveRedirectUrl(url, location);
+            closeQuietly(connection);
+            connection = null;
+            return resolveRedirectTarget(redirected, redirects + 1);
+        } catch (Exception ignored) {
+            return url;
+        } finally {
+            closeQuietly(connection);
+        }
+    }
+
+    private static RangeProbe probeFinalRangeSupport(String url) {
+        if (url == null || url.isBlank()) {
+            return RangeProbe.unsupported(url);
+        }
+        HttpURLConnection range = null;
+        try {
+            range = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            range.setInstanceFollowRedirects(false);
+            range.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+            range.setReadTimeout(DlcConfig.getTaskTimeoutMs());
+            range.setRequestProperty("User-Agent", "DLC-Manager");
+            range.setRequestProperty("Range", "bytes=0-0");
+            range.connect();
+            int code = range.getResponseCode();
+            return code == HttpURLConnection.HTTP_PARTIAL
+                ? RangeProbe.supported(url)
+                : RangeProbe.unsupported(url);
+        } catch (Exception ignored) {
+            return RangeProbe.unsupported(url);
+        } finally {
+            closeQuietly(range);
+        }
+    }
+
+    private static boolean isRedirect(int code) {
+        return code == HttpURLConnection.HTTP_MOVED_PERM
+            || code == HttpURLConnection.HTTP_MOVED_TEMP
+            || code == HttpURLConnection.HTTP_SEE_OTHER
+            || code == 307
+            || code == 308;
+    }
+
+    private static String resolveRedirectUrl(String baseUrl, String location) {
+        if (location == null || location.isBlank()) {
+            return baseUrl;
+        }
+        try {
+            return URI.create(baseUrl).resolve(location).toString();
+        } catch (IllegalArgumentException ignored) {
+            return location;
+        }
+    }
+
+    private static void downloadSegmented(String url, Path tempFile, long totalBytes, ProgressListener listener, CancelChecker cancelChecker)
+        throws IOException {
+        downloadSegmented(url, tempFile, totalBytes, listener, cancelChecker, 0L);
+    }
+
+    private static void downloadSegmented(String url, Path tempFile, long totalBytes, ProgressListener listener, CancelChecker cancelChecker,
+                                          long initialDownloadedBytes) throws IOException {
+        int maxSegments = Math.max(1, DlcConfig.getMaxSegmentsPerFile());
+        int segments = (int) Math.max(1L, Math.min((long) maxSegments, Math.max(1L, totalBytes / Math.max(1L, DlcConfig.getMinSegmentBytes()))));
+        long segmentSize = Math.max(1L, totalBytes / segments);
+        try (RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
+            raf.setLength(totalBytes);
+        }
+        ExecutorService executor = Executors.newFixedThreadPool(segments);
+        List<Future<?>> futures = new ArrayList<>();
+        long initialRead = Math.max(0L, Math.min(initialDownloadedBytes, totalBytes));
+        AtomicLong totalRead = new AtomicLong(initialRead);
+        int maxRetries = Math.max(1, DlcConfig.getMaxRetryCount());
+        for (int i = 0; i < segments; i++) {
+            long start = i * segmentSize;
+            long end = (i == segments - 1) ? totalBytes - 1 : (start + segmentSize - 1);
+            long segmentTotal = end - start + 1;
+            futures.add(executor.submit(() -> {
+                long segmentRead = Math.max(0L, Math.min(segmentTotal, initialRead - start));
+                int attempts = 0;
+                IOException lastError = null;
+                while (segmentRead < segmentTotal) {
+                    attempts++;
+                    if (attempts > maxRetries) {
+                        throw new SegmentDownloadException("segment retry exceeded", lastError);
+                    }
+                    if (cancelChecker != null && cancelChecker.isCanceled()) {
+                        throw new DownloadCanceledException("canceled");
+                    }
+                    HttpURLConnection connection = null;
+                    try {
+                        connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
+                        connection.setInstanceFollowRedirects(true);
+                        connection.setConnectTimeout(DlcConfig.getConnectTimeoutMs());
+                        connection.setReadTimeout((int) SPEED_WINDOW_MS);
+                        connection.setRequestProperty("User-Agent", "DLC-Manager");
+                        long rangeStart = start + segmentRead;
+                        connection.setRequestProperty("Range", "bytes=" + rangeStart + "-" + end);
+                        connection.connect();
+                        int code = connection.getResponseCode();
+                        if (code != HttpURLConnection.HTTP_PARTIAL) {
+                            throw new IOException("range not supported");
+                        }
+                        try (BufferedInputStream in = new BufferedInputStream(connection.getInputStream());
+                             RandomAccessFile raf = new RandomAccessFile(tempFile.toFile(), "rw")) {
+                            raf.seek(rangeStart);
+                            byte[] buffer = new byte[8192];
+                            SegmentSpeedTracker speedTracker = new SegmentSpeedTracker();
+                            int len;
+                            while ((len = in.read(buffer)) >= 0) {
+                                if (cancelChecker != null && cancelChecker.isCanceled()) {
+                                    throw new DownloadCanceledException("canceled");
+                                }
+                                raf.write(buffer, 0, len);
+                                segmentRead += len;
+                                speedTracker.record(len);
+                                if (listener != null) {
+                                    long allRead = totalRead.addAndGet(len);
+                                    listener.onProgress(allRead, totalBytes);
+                                }
+                                if (speedTracker.shouldRetry()) {
+                                    throw new IOException("segment speed dropped");
+                                }
+                            }
+                        }
+                    } catch (IOException ex) {
+                        lastError = ex;
+                        continue;
+                    } finally {
+                        closeQuietly(connection);
+                    }
+                }
+                return null;
+            }));
+        }
+        executor.shutdown();
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (Exception ex) {
+                for (Future<?> pending : futures) {
+                    pending.cancel(true);
+                }
+                Throwable cause = ex.getCause();
+                if (cause instanceof DownloadCanceledException canceled) {
+                    throw canceled;
+                }
+                if (cause instanceof SegmentDownloadException segment) {
+                    throw segment;
+                }
+                throw new SegmentDownloadException("segment failed", ex);
+            }
+        }
+    }
+
+    private static void closeQuietly(HttpURLConnection connection) {
+        if (connection != null) {
+            connection.disconnect();
+        }
+    }
+
+    private record MirrorPlan(String mirrorUrl, DownloadPlatform platform, long totalBytes, double timeoutSpeed, double bucketSpeed, double requiredSpeed,
+                              boolean canSpeedCompare) {
+        private PlatformProbeState probeState() {
+            return platform == DownloadPlatform.CURSEFORGE ? CURSEFORGE_PROBE_STATE : MODRINTH_PROBE_STATE;
+        }
+    }
+
+    private record ProbeUrlPair(String officialUrl, String mirrorUrl) {
+    }
+
+    private record SourceSwitchPlan(String alternateUrl, boolean primaryIsMirror, boolean alternateIsMirror,
+                                    SourceSwitchMode mode, MirrorPlan mirrorPlan) {
+    }
+
+    private enum SourceSwitchMode {
+        SPEED_COMPARE,
+        EARLY_TIMEOUT,
+        RETRY_FALLBACK
+    }
+
+    private record SourceProbe(String alternateUrl, boolean primaryIsMirror, boolean alternateIsMirror,
+                               Future<ProbeSpeedResult> future, ExecutorService executor, AtomicReference<Double> primarySpeedRef,
+                               boolean preselected, PlatformProbeState state) {
+        private static SourceProbe selected(SourceSwitchPlan switchPlan) {
+            return new SourceProbe(
+                switchPlan.alternateUrl,
+                switchPlan.primaryIsMirror,
+                switchPlan.alternateIsMirror,
+                null,
+                null,
+                null,
+                true,
+                switchPlan.mirrorPlan.probeState()
+            );
+        }
+    }
+
+    private enum DownloadPlatform {
+        CURSEFORGE,
+        MODRINTH
+    }
+
+    private static final class PlatformProbeState {
+        private final Object lock = new Object();
+        private final Object precheckLock = new Object();
+        private int mirrorComparisons;
+        private int officialWins;
+        private int officialFastWins;
+        private int mirrorFastWins;
+        private int mirrorWins;
+        private int mirrorFailures;
+        private Boolean selectedMirror;
+        private boolean mirrorDisabled;
+    }
+
+    private static final class SegmentSpeedTracker {
+        private long windowStart = System.nanoTime();
+        private long windowBytes;
+        private double bestSpeed;
+
+        private void record(int bytes) {
+            windowBytes += bytes;
+        }
+
+        private boolean shouldRetry() {
+            long now = System.nanoTime();
+            long elapsed = now - windowStart;
+            if (elapsed < TimeUnit.MILLISECONDS.toNanos(SPEED_WINDOW_MS)) {
+                return false;
+            }
+            double currentSpeed = windowBytes <= 0 ? 0.0 : windowBytes * 1_000_000_000.0 / Math.max(1L, elapsed);
+            boolean retry = bestSpeed > 0.0 && currentSpeed <= bestSpeed * SEGMENT_SPEED_DROP_RETRY_RATIO;
+            if (currentSpeed > bestSpeed) {
+                bestSpeed = currentSpeed;
+            }
+            windowStart = now;
+            windowBytes = 0L;
+            return retry;
+        }
+    }
+
+    private enum DownloadMirrorMode {
+        SMART_OFFICIAL,
+        SMART_MIRROR,
+        SMART_PRECHECK,
+        OFFICIAL_ONLY,
+        MIRROR_ONLY,
+        OFFICIAL_FIRST,
+        MIRROR_FIRST;
+
+        private static DownloadMirrorMode fromConfig(String value) {
+            return switch (DlcConfig.normalizeDownloadMirrorMode(value)) {
+                case DlcConfig.DOWNLOAD_MIRROR_SMART_MIRROR -> SMART_MIRROR;
+                case DlcConfig.DOWNLOAD_MIRROR_SMART_PRECHECK -> SMART_PRECHECK;
+                case DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_ONLY -> OFFICIAL_ONLY;
+                case DlcConfig.DOWNLOAD_MIRROR_MIRROR_ONLY -> MIRROR_ONLY;
+                case DlcConfig.DOWNLOAD_MIRROR_OFFICIAL_FIRST -> OFFICIAL_FIRST;
+                case DlcConfig.DOWNLOAD_MIRROR_MIRROR_FIRST -> MIRROR_FIRST;
+                default -> SMART_OFFICIAL;
+            };
+        }
+    }
+
+    private record SpeedRule(double timeoutSpeed, double bucketSpeed, double requiredSpeed) {
+    }
+
+    private record ProbePairResult(double officialSpeed, double mirrorSpeed) {
+    }
+
+    private record ProbeSpeedResult(double speed, boolean completed) {
+        private static ProbeSpeedResult failed() {
+            return new ProbeSpeedResult(0.0, false);
+        }
+    }
+
+    private record InitialRangeResult(long downloadedBytes, boolean completed, boolean switchSource) {
+    }
+
+    private record DownloadInfo(HttpURLConnection connection, String fileNameHint, int responseCode, long totalBytes) {
+    }
+
+    private record DownloadProbe(long totalBytes, boolean supportsRanges, String fileNameHint) {
+    }
+
+    private record RangeProbe(boolean supportsRanges, String url) {
+        private static RangeProbe supported(String url) {
+            return new RangeProbe(true, url);
+        }
+
+        private static RangeProbe unsupported(String url) {
+            return new RangeProbe(false, url);
+        }
+    }
+
+    public static class DownloadCanceledException extends IOException {
+        public DownloadCanceledException(String message) {
+            super(message);
+        }
+    }
+
+    public static class SegmentDownloadException extends IOException {
+        public SegmentDownloadException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    private static class SwitchDownloadSourceException extends IOException {
+        private final String targetUrl;
+
+        private SwitchDownloadSourceException(String targetUrl) {
+            super("switch download source");
+            this.targetUrl = targetUrl;
+        }
+    }
+}

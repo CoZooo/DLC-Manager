@@ -629,6 +629,16 @@ public class DlcServerService {
         response.addProperty("type", "apply");
         response.addProperty("ok", true);
         response.addProperty("requiresRestart", result.requiresRestart());
+        // Surface the applier's per-item message lines so remote clients can
+        // report what changed (enabled/disabled/conflicts).  Older clients that
+        // only read requiresRestart ignore the extra field.
+        JsonArray messages = new JsonArray();
+        for (String msg : result.messages()) {
+            if (msg != null && !msg.isBlank()) {
+                messages.add(msg);
+            }
+        }
+        response.add("messages", messages);
         writeLine(writer, response);
     }
 

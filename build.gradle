@@ -134,6 +134,36 @@ tasks.register('helperPublish', GradleBuild) {
     tasks = ['publish']
 }
 
+tasks.register('externalControllerBuild') {
+    group = 'build'
+    description = 'Build the Java DLC external controller.'
+    dependsOn(gradle.includedBuild('dlcExternalController').task(':build'))
+}
+
+tasks.register('externalControllerTest') {
+    group = 'verification'
+    description = 'Run Java DLC external controller tests.'
+    dependsOn(gradle.includedBuild('dlcExternalController').task(':test'))
+}
+
+tasks.register('javafxManagerBuild') {
+    group = 'build'
+    description = 'Build the JavaFX DLC Manager desktop application.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':build'))
+}
+
+tasks.register('javafxManagerTest') {
+    group = 'verification'
+    description = 'Run JavaFX DLC Manager tests.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':test'))
+}
+
+tasks.register('javafxManagerRun') {
+    group = 'application'
+    description = 'Run the JavaFX DLC Manager desktop application.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':run'))
+}
+
 tasks.register('obfuscateForge1201Yguard') {
     group = 'build'
     description = 'Obfuscate Forge 1.20.1 output jar with yGuard.'

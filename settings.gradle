@@ -18,3 +18,11 @@ includeBuild('architectury/1.20.1') {
 includeBuild('architectury/1.21.1') {
     name = 'arch1211'
 }
+
+includeBuild('tools/dlc-external-controller') {
+    name = 'dlcExternalController'
+}
+
+includeBuild('tools/dlc-javafx-manager') {
+    name = 'dlcJavafxManager'
+}
