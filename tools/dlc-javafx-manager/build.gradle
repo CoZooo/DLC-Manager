@@ -8,6 +8,70 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
 }
 
+def reusedCommonJavaFiles = [
+    'com/cozooo/dlc_manager/client/core/DlcZipUtil.java',
+    'com/cozooo/dlc_manager/client/download/DlcCurseForgeClient.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadCandidate.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadHeaderUtil.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadService.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadUtil.java',
+    'com/cozooo/dlc_manager/client/download/DlcModrinthClient.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetEntry.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetLoader.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetStateStore.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetStatus.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRedirectLoader.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteEntry.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteLoader.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteMarker.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredDependency.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredEntry.java',
+    'com/cozooo/dlc_manager/client/selfupdate/DlcSelfUpdateService.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerCache.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerConnection.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerEntry.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerFileEntry.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerList.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerPackApplyStatus.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerPackInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRconConfig.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRconInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRemoteItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRemoteStatus.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRequiredItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRequiredProgressItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRequiredStatus.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerUpdateInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerUpdateState.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerVersionUtil.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateDcParser.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateManifest.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateMeta.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdatePackage.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateRowPlanner.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateRuntime.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateSkipStore.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateVersion.java',
+    'com/cozooo/dlc_manager/core/DlcApplier.java',
+    'com/cozooo/dlc_manager/core/DlcApplyMode.java',
+    'com/cozooo/dlc_manager/core/DlcConfig.java',
+    'com/cozooo/dlc_manager/core/DlcConfigTypeSupport.java',
+    'com/cozooo/dlc_manager/core/DlcDcConfigIO.java',
+    'com/cozooo/dlc_manager/core/DlcDcFormatUtil.java',
+    'com/cozooo/dlc_manager/core/DlcItem.java',
+    'com/cozooo/dlc_manager/core/DlcPathUtil.java',
+    'com/cozooo/dlc_manager/core/DlcPaths.java',
+    'com/cozooo/dlc_manager/core/DlcRuntimeState.java',
+    'com/cozooo/dlc_manager/core/DlcStateConfig.java',
+    'com/cozooo/dlc_manager/core/DlcTmpPaths.java',
+    'com/cozooo/dlc_manager/core/DlcTooltipLoader.java',
+    'com/cozooo/dlc_manager/core/DlcType.java',
+    'com/cozooo/dlc_manager/platform/CrossPlatformRuntime.java',
+    'com/cozooo/dlc_manager/platform/PlatformServices.java'
+]
+
 // Reuse the pure-Java externalsync engine sources (CurseForgeClient, ModrinthClient,
 // Downloader, DownloadResolver, HashUtil, DcRemoteLoader, DlcTcpClient, SyncModels, etc.)
 // without copying them.  Same package name com.cozooo.dlc_manager.tools.externalsync.
@@ -15,6 +79,9 @@ sourceSets {
     main {
         java {
             srcDirs += ['../dlc-external-controller/src/main/java']
+            // Keep JavaFX-specific forks local, but compile byte-identical
+            // copied classes from common so fixes land in both surfaces.
+            exclude reusedCommonJavaFiles
         }
     }
     test {
@@ -53,6 +120,12 @@ distributions {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.named('compileJava', JavaCompile) {
+    source += fileTree('../../common/src/main/java') {
+        include reusedCommonJavaFiles
+    }
 }
 
 tasks.named('run') {
