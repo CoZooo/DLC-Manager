@@ -34,7 +34,6 @@ class DlcTooltipLoader {
                                 entry.typeValid,
                                 entry.hasTypeField,
                                 entry.configType,
-                                entry.inList,
                                 entry.hidden,
                                 entry.allowEnableByAll,
                                 entry.dependencies,
@@ -89,7 +88,6 @@ class DlcTooltipLoader {
             toTypeString(type),
             null,
             null,
-            true,
             false,
             true,
             JsonPrimitive(""),
@@ -122,9 +120,6 @@ class DlcTooltipLoader {
 
     private fun updateTooltipFile(path: Path, dlcName: String, type: DlcType?, updateExistingType: Boolean) {
         var obj = readTooltipObject(path) ?: return
-        val legacyShown = getBoolean(obj, "isShownInList", true)
-        val legacyInList = getBoolean(obj, "isInList", legacyShown)
-        DlcDcConfigIO.removeIgnoreCase(obj, "isShownInList")
         var displayName = localizedObjectFromAny(obj, "DisplayName")
         if (displayName.entrySet().isEmpty()) {
             displayName = buildDefaultDisplayName(dlcName)
@@ -138,7 +133,6 @@ class DlcTooltipLoader {
         if (typeValue == null) {
             typeValue = toTypeString(type)
         }
-        val inList = getBoolean(obj, "isEnabled", legacyInList)
         val hidden = getBoolean(obj, "isHidden", false)
         val allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
         val dependencies = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"))
@@ -155,7 +149,6 @@ class DlcTooltipLoader {
             typeValue,
             appliedTarget,
             redirectUrl,
-            inList,
             hidden,
             allowEnableByAll,
             dependencies,
@@ -184,9 +177,6 @@ class DlcTooltipLoader {
             entry.dlcIdentifier = entry.dlcName
         }
         entry.hasTypeField = DlcDcConfigIO.hasIgnoreCase(obj, "type")
-        val legacyShown = getBoolean(obj, "isShownInList", true)
-        val legacyInList = getBoolean(obj, "isInList", legacyShown)
-        entry.inList = getBoolean(obj, "isEnabled", legacyInList)
         entry.hidden = getBoolean(obj, "isHidden", false)
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true)
         entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"))
@@ -245,9 +235,6 @@ class DlcTooltipLoader {
             DlcDcConfigIO.hasIgnoreCase(obj, "RedirectUrl") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "dependencies") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "conflicts") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "isEnabled") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "isInList") ||
-            DlcDcConfigIO.hasIgnoreCase(obj, "isShownInList") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "isHidden") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll") ||
             DlcDcConfigIO.hasIgnoreCase(obj, "alarm")
@@ -411,7 +398,6 @@ class DlcTooltipLoader {
         type: String?,
         appliedTarget: String?,
         redirectUrl: String?,
-        inList: Boolean,
         hidden: Boolean,
         allowEnableByAll: Boolean,
         dependencies: JsonElement?,
@@ -434,7 +420,6 @@ class DlcTooltipLoader {
         if (!redirectUrl.isNullOrBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl)
         }
-        ordered.addProperty("isEnabled", inList)
         ordered.addProperty("isHidden", hidden)
         ordered.addProperty("AllowEnableByAll", allowEnableByAll)
         ordered.add("dependencies", dependencies ?: JsonPrimitive(""))
@@ -447,12 +432,6 @@ class DlcTooltipLoader {
                     continue
                 }
                 if ("dlc_name".equals(key, ignoreCase = true) || "dlc_identifier".equals(key, ignoreCase = true)) {
-                    continue
-                }
-                if ("isEnabled".equals(key, ignoreCase = true) ||
-                    "isInList".equals(key, ignoreCase = true) ||
-                    "isShownInList".equals(key, ignoreCase = true)
-                ) {
                     continue
                 }
                 if ("modrinth_projectid".equals(key, ignoreCase = true) ||
@@ -611,7 +590,6 @@ class DlcTooltipLoader {
         var typeValid = false
         var hasTypeField = false
         var configType = false
-        var inList = true
         var hidden = false
         var allowEnableByAll = true
         var appliedTargetRaw: String? = null
@@ -628,7 +606,6 @@ class DlcTooltipLoader {
         private val typeValid: Boolean,
         private val hasTypeField: Boolean,
         private val configType: Boolean,
-        private val inList: Boolean,
         private val hidden: Boolean,
         private val allowEnableByAll: Boolean,
         dependencies: List<String>?,
@@ -651,7 +628,6 @@ class DlcTooltipLoader {
         fun isTypeValid(): Boolean = typeValid
         fun hasTypeField(): Boolean = hasTypeField
         fun isConfigType(): Boolean = configType
-        fun isInList(): Boolean = inList
         fun isHidden(): Boolean = hidden
         fun AllowEnableByAll(): Boolean = allowEnableByAll
         fun getDependencies(): List<String> = dependencies

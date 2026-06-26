@@ -339,17 +339,10 @@ public final class DlcRemoteLoader {
         if (type == null) {
             type = DlcType.MOD;
         }
-        boolean legacyShown = getBoolean(obj, "isShownInList", true);
-        boolean legacyInList = getBoolean(obj, "isInList", legacyShown);
-        boolean inList = getBoolean(obj, "isEnabled", legacyInList);
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         boolean alarm = getBoolean(obj, "alarm", false);
-        if (type == DlcType.UNKNOWN && (appliedTarget == null || appliedTarget.isBlank())) {
-            inList = false;
-        }
         if (type == DlcType.DLC_PACK) {
-            inList = false;
             hidden = true;
         }
 
@@ -382,7 +375,6 @@ public final class DlcRemoteLoader {
         if (fileName != null && !fileName.isBlank()) {
             ordered.addProperty("file_name", fileName);
         }
-        ordered.addProperty("isEnabled", inList);
         ordered.addProperty("isHidden", hidden);
         ordered.addProperty("AllowEnableByAll", allowEnableByAll);
         ordered.add("dependencies", deps.element);
@@ -398,10 +390,7 @@ public final class DlcRemoteLoader {
             }
             if ("platform".equalsIgnoreCase(key) || "projectid".equalsIgnoreCase(key) || "version".equalsIgnoreCase(key)
                 || "modid".equalsIgnoreCase(key) || "dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)
-                || "identifier".equalsIgnoreCase(key)
-                || "isEnabled".equalsIgnoreCase(key)
-                || "isShownInList".equalsIgnoreCase(key)
-                || "isInList".equalsIgnoreCase(key)) {
+                || "identifier".equalsIgnoreCase(key)) {
                 continue;
             }
             ordered.add(key, entry.getValue());
@@ -438,7 +427,6 @@ public final class DlcRemoteLoader {
         entry.setConfigType("config".equalsIgnoreCase(typeRaw == null ? null : typeRaw.trim()));
         entry.setAppliedTargetRaw(appliedTarget);
         entry.setRedirectUrl(redirectUrl);
-        entry.setInList(inList);
         entry.setHidden(hidden);
         entry.setAllowEnableByAll(allowEnableByAll);
         entry.setDependencyNames(deps.names);
@@ -759,8 +747,6 @@ public final class DlcRemoteLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "appliedTarget")
             || DlcDcConfigIO.hasIgnoreCase(obj, "DisplayName")
             || DlcDcConfigIO.hasIgnoreCase(obj, "tip")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "isEnabled")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "isInList")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
             || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
             || DlcDcConfigIO.hasIgnoreCase(obj, "dependencies")

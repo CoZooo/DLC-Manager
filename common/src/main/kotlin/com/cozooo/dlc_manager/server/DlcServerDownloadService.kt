@@ -439,7 +439,7 @@ object DlcServerDownloadService {
         val items = ArrayList<DlcServerRequiredItem>()
         val entries = loadAllRequiredEntries(dlcRoot)
         for (entry in entries) {
-            if (!entry.isInList() || entry.isHidden()) continue
+            if (entry.isHidden()) continue
             if (entry.isUserRemoved()) continue
             val fileName = resolveExistingFileName(entry)
             entry.setResolvedFileName(fileName)
@@ -460,7 +460,6 @@ object DlcServerDownloadService {
                     item.dependencies.add(identifier)
                 }
             }
-            item.inList = entry.isInList()
             item.hidden = entry.isHidden()
             item.userRemoved = entry.isUserRemoved()
             item.hasFile = hasFile
@@ -528,7 +527,7 @@ object DlcServerDownloadService {
             val targets = if (!ids.isNullOrEmpty()) collectRequiredDependencies(ids, index) else entries
             val items = ArrayList<RequiredItemState>()
             for (entry in targets) {
-                if (!entry.isInList() || entry.isHidden()) continue
+                if (entry.isHidden()) continue
                 if (entry.isUserRemoved()) continue
                 val id = safeId(entry)
                 val name = resolveRequiredDisplayName(entry, lang)
@@ -625,7 +624,6 @@ object DlcServerDownloadService {
 
     private fun isRemoteMissing(entry: DlcRemoteEntry?, forceInclude: Boolean): Boolean {
         if (entry == null) return false
-        if (!forceInclude && !entry.isInList() && !entry.isHidden()) return false
         val target = entry.getTargetPath()
         return target == null || !Files.exists(target)
     }
@@ -705,7 +703,7 @@ object DlcServerDownloadService {
         }
         val entries = loadRequiredEntries(dlcRoot)
         for (entry in entries) {
-            if (!entry.isInList() || entry.isUserRemoved()) continue
+            if (entry.isUserRemoved()) continue
             val fileName = resolveExistingFileName(entry)
             entry.setResolvedFileName(fileName)
             val hasFile = fileName != null &&
@@ -770,7 +768,7 @@ object DlcServerDownloadService {
             return result
         }
         for (entry in entries) {
-            if (!entry.isInList() || entry.isUserRemoved()) continue
+            if (entry.isUserRemoved()) continue
             var fileName = resolveExistingFileName(entry)
             if (fileName.isNullOrBlank() || isTempFileName(fileName)) {
                 try {
@@ -947,7 +945,7 @@ object DlcServerDownloadService {
                 if (id.isNullOrBlank()) continue
                 if (index.containsKey(id)) continue
                 val depEntry = dep.getEntry()
-                if (depEntry != null && depEntry.isInList()) {
+                if (depEntry != null) {
                     depEntry.setIdentifier(id)
                     index[id] = depEntry
                     entries.add(depEntry)
@@ -1470,7 +1468,6 @@ object DlcServerDownloadService {
         ordered.addProperty("type", getString(obj, "type"))
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
         ordered.addProperty("file_name", fileName ?: "")
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
         val deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
@@ -1560,7 +1557,6 @@ object DlcServerDownloadService {
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
         ordered.addProperty("file_name", fileName ?: "")
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"))
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         val userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false)
         if (userRemoved) {

@@ -135,7 +135,7 @@ class DlcServerRequiredManagerScreen(
                 continue
             }
             index[id] = item
-            if (item.inList && !item.hidden) {
+            if (!item.hidden) {
                 visibleItems.add(item)
             }
         }

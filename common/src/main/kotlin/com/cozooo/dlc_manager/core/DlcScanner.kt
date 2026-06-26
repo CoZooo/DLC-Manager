@@ -245,14 +245,10 @@ class DlcScanner {
             isEnabledInState(id)
         }
         val tips = tooltipData?.getTips()
-        val inList = tooltipData == null || tooltipData.isInList()
         val hidden = tooltipData != null && tooltipData.isHidden()
         var displayNames = tooltipData?.getDisplayName()
         if (displayNames.isNullOrEmpty()) {
             displayNames = mapOf("en_us" to name)
-        }
-        if (!inList && !hidden) {
-            return
         }
         val dependencies = tooltipData?.getDependencies() ?: emptyList()
         val conflicts = tooltipData?.getConflicts() ?: emptyList()
@@ -623,7 +619,6 @@ class DlcScanner {
                 true,
                 true,
                 entry.isConfigType(),
-                entry.isInList(),
                 entry.isHidden(),
                 entry.isAllowEnableByAll(),
                 entry.getResolvedDependencyNames(),

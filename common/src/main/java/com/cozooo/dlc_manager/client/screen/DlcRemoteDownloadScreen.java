@@ -516,7 +516,6 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
                 depEntry.setModrinthProjectId(dep.projectId == null ? "" : dep.projectId);
                 depEntry.setModrinthVersionId(dep.versionId);
                 depEntry.setType(entry.getType());
-                depEntry.setInList(true);
                 depEntry.setHidden(false);
                 depEntry.setAllowEnableByAll(true);
                 try {

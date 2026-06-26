@@ -37,7 +37,7 @@ public class DlcTooltipLoader {
                     TooltipEntry entry = readEntry(path);
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
-                            entry.inList, entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.alarm);
+                            entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.alarm);
                         result.put(entry.dlcName, data);
                     }
                 });
@@ -82,7 +82,6 @@ public class DlcTooltipLoader {
             toTypeString(type),
             null,
             null,
-            true,
             false,
             true,
             new com.google.gson.JsonPrimitive(""),
@@ -116,9 +115,6 @@ public class DlcTooltipLoader {
         if (obj == null) {
             return;
         }
-        boolean legacyShown = getBoolean(obj, "isShownInList", true);
-        boolean legacyInList = getBoolean(obj, "isInList", legacyShown);
-        DlcDcConfigIO.removeIgnoreCase(obj, "isShownInList");
         JsonObject displayName = localizedObjectFromAny(obj, "DisplayName");
         if (displayName.entrySet().isEmpty()) {
             displayName = buildDefaultDisplayName(dlcName);
@@ -132,7 +128,6 @@ public class DlcTooltipLoader {
         if (typeValue == null) {
             typeValue = toTypeString(type);
         }
-        boolean inList = getBoolean(obj, "isEnabled", legacyInList);
         boolean hidden = getBoolean(obj, "isHidden", false);
         boolean allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         JsonElement dependencies = normalizeRelationElement(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"));
@@ -143,7 +138,7 @@ public class DlcTooltipLoader {
 
         String redirectUrl = getString(obj, "RedirectUrl");
         obj = buildOrderedTooltipObject(obj, dlcName, identifier, displayName, typeValue, appliedTarget, redirectUrl,
-            inList, hidden, allowEnableByAll, dependencies, conflicts, alarm, tip);
+            hidden, allowEnableByAll, dependencies, conflicts, alarm, tip);
         writeTooltipObject(path, obj);
     }
 
@@ -168,9 +163,6 @@ public class DlcTooltipLoader {
             entry.dlcIdentifier = entry.dlcName;
         }
         entry.hasTypeField = DlcDcConfigIO.hasIgnoreCase(obj, "type");
-        boolean legacyShown = getBoolean(obj, "isShownInList", true);
-        boolean legacyInList = getBoolean(obj, "isInList", legacyShown);
-        entry.inList = getBoolean(obj, "isEnabled", legacyInList);
         entry.hidden = getBoolean(obj, "isHidden", false);
         entry.allowEnableByAll = getBoolean(obj, "AllowEnableByAll", true);
         entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"));
@@ -229,9 +221,6 @@ public class DlcTooltipLoader {
             || DlcDcConfigIO.hasIgnoreCase(obj, "RedirectUrl")
             || DlcDcConfigIO.hasIgnoreCase(obj, "dependencies")
             || DlcDcConfigIO.hasIgnoreCase(obj, "conflicts")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "isEnabled")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "isInList")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "isShownInList")
             || DlcDcConfigIO.hasIgnoreCase(obj, "isHidden")
             || DlcDcConfigIO.hasIgnoreCase(obj, "AllowEnableByAll")
             || DlcDcConfigIO.hasIgnoreCase(obj, "alarm");
@@ -393,7 +382,7 @@ public class DlcTooltipLoader {
 
     private JsonObject buildOrderedTooltipObject(JsonObject source, String dlcName, String dlcIdentifier, JsonObject displayName, String type,
         String appliedTarget, String redirectUrl,
-        boolean inList, boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, boolean alarm, JsonObject tip) {
+        boolean hidden, boolean allowEnableByAll, JsonElement dependencies, JsonElement conflicts, boolean alarm, JsonObject tip) {
         JsonObject ordered = new JsonObject();
         ordered.addProperty("file_name", dlcName);
         ordered.addProperty("identifier", dlcIdentifier == null ? dlcName : dlcIdentifier);
@@ -409,7 +398,6 @@ public class DlcTooltipLoader {
         if (redirectUrl != null && !redirectUrl.isBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl);
         }
-        ordered.addProperty("isEnabled", inList);
         ordered.addProperty("isHidden", hidden);
         ordered.addProperty("AllowEnableByAll", allowEnableByAll);
         ordered.add("dependencies", dependencies == null ? new com.google.gson.JsonPrimitive("") : dependencies);
@@ -423,11 +411,6 @@ public class DlcTooltipLoader {
                     continue;
                 }
                 if ("dlc_name".equalsIgnoreCase(key) || "dlc_identifier".equalsIgnoreCase(key)) {
-                    continue;
-                }
-                if ("isEnabled".equalsIgnoreCase(key)
-                    || "isInList".equalsIgnoreCase(key)
-                    || "isShownInList".equalsIgnoreCase(key)) {
                     continue;
                 }
                 if ("modrinth_projectid".equalsIgnoreCase(key)
@@ -586,7 +569,6 @@ public class DlcTooltipLoader {
         boolean typeValid;
         boolean hasTypeField;
         boolean configType;
-        boolean inList = true;
         boolean hidden = false;
         boolean allowEnableByAll = true;
         String appliedTargetRaw;
@@ -603,7 +585,6 @@ public class DlcTooltipLoader {
         private final boolean typeValid;
         private final boolean hasTypeField;
         private final boolean configType;
-        private final boolean inList;
         private final boolean hidden;
         private final boolean allowEnableByAll;
         private final java.util.List<String> dependencies;
@@ -614,7 +595,7 @@ public class DlcTooltipLoader {
         private final boolean alarm;
 
         public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField, boolean configType,
-            boolean inList, boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
+            boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,
             String appliedTargetRaw, String redirectUrl, java.util.List<String> fileNames, boolean alarm) {
             this.identifier = identifier;
             this.tips = tips == null ? Map.of() : tips;
@@ -623,7 +604,6 @@ public class DlcTooltipLoader {
             this.typeValid = typeValid;
             this.hasTypeField = hasTypeField;
             this.configType = configType;
-            this.inList = inList;
             this.hidden = hidden;
             this.allowEnableByAll = allowEnableByAll;
             this.dependencies = dependencies == null ? java.util.List.of() : dependencies;
@@ -660,10 +640,6 @@ public class DlcTooltipLoader {
 
         public boolean isConfigType() {
             return configType;
-        }
-
-        public boolean isInList() {
-            return inList;
         }
 
         public boolean isHidden() {

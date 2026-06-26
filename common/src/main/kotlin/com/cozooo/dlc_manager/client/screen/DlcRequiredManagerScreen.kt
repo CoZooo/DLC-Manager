@@ -195,7 +195,7 @@ class DlcRequiredManagerScreen(
         dependents = DlcRequiredManager.buildDependents(allEntries)
         visibleEntries.clear()
         for (entry in allEntries) {
-            if (entry.isHidden() || !entry.isInList()) {
+            if (entry.isHidden()) {
                 continue
             }
             visibleEntries.add(entry)
@@ -205,7 +205,7 @@ class DlcRequiredManagerScreen(
 
     private fun autoCleanupHidden() {
         for (entry in allEntries) {
-            if (!entry.isHidden() || !entry.isInList()) {
+            if (!entry.isHidden()) {
                 continue
             }
             val id = entry.getIdentifier()
@@ -717,9 +717,6 @@ class DlcRequiredManagerScreen(
         val unique: MutableList<DlcRequiredEntry> = ArrayList()
         val seen: MutableSet<String> = HashSet()
         for (entry in entries) {
-            if (!entry.isInList()) {
-                continue
-            }
             val id = entry.getIdentifier()
             if (id.isNullOrBlank() || !seen.add(id)) {
                 continue

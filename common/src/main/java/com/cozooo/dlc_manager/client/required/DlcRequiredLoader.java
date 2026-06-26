@@ -40,7 +40,7 @@ public final class DlcRequiredLoader {
                     continue;
                 }
                 DlcRequiredEntry entry = readEntry(path, requiredDir);
-                if (entry != null && entry.isInList()) {
+                if (entry != null) {
                     entries.add(entry);
                 }
             }
@@ -75,11 +75,6 @@ public final class DlcRequiredLoader {
         NormalizedRequired normalized = normalizeRequiredObject(obj, requiredDir, path, null);
         if (normalized == null) {
             return null;
-        }
-        if (path.getFileName() != null && DlcDcFormatUtil.isDcName(path.getFileName().toString())) {
-            if (needsKeyMigration(obj) || needsDcLayoutMigration(path)) {
-                DlcDcFormatUtil.write(path, normalized.ordered);
-            }
         }
         return normalized.entry;
     }
@@ -165,13 +160,6 @@ public final class DlcRequiredLoader {
         String priority = DlcDownloadCandidate.readPriority(obj);
         if (priority != null && !priority.isBlank()) {
             entry.setDownloadPriority(priority);
-        }
-        Boolean inList = getBoolean(obj, "isEnabled");
-        if (inList == null) {
-            inList = getBoolean(obj, "isInList");
-        }
-        if (inList != null) {
-            entry.setInList(inList);
         }
         Boolean hidden = getBoolean(obj, "isHidden");
         if (hidden != null) {
@@ -304,9 +292,6 @@ public final class DlcRequiredLoader {
             identifier = resolved;
         }
         DlcRequiredEntry depEntry = fromJsonObject(obj, requiredDir, null, identifier);
-        if (depEntry != null && !depEntry.isInList()) {
-            depEntry = null;
-        }
         String depId = depEntry == null ? null : depEntry.getIdentifier();
         if (depId == null || depId.isBlank()) {
             depId = identifier;
@@ -391,7 +376,6 @@ public final class DlcRequiredLoader {
         if (redirectUrl != null && !redirectUrl.isBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl);
         }
-        ordered.addProperty("isEnabled", entry.isInList());
         ordered.addProperty("isHidden", entry.isHidden());
         if (entry.isUserRemoved()) {
             ordered.addProperty("UserRemoved", true);
@@ -407,9 +391,6 @@ public final class DlcRequiredLoader {
             }
             if ("displayName".equalsIgnoreCase(key) || "DisplayName".equalsIgnoreCase(key)
                 || "tip".equalsIgnoreCase(key)
-                || "isEnabled".equalsIgnoreCase(key)
-                || "isInList".equalsIgnoreCase(key)
-                || "isShownInList".equalsIgnoreCase(key)
                 || "userRemoved".equalsIgnoreCase(key)) {
                 continue;
             }
@@ -605,29 +586,6 @@ public final class DlcRequiredLoader {
             }
         }
         return false;
-    }
-
-    private static boolean needsKeyMigration(JsonObject obj) {
-        if (obj == null) {
-            return false;
-        }
-        return DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier");
-    }
-
-    private static boolean needsDcLayoutMigration(Path path) {
-        if (path == null || path.getFileName() == null || !DlcDcFormatUtil.isDcName(path.getFileName().toString())) {
-            return false;
-        }
-        try {
-            String text = Files.readString(path);
-            if (text == null || text.isBlank()) {
-                return false;
-            }
-            return !text.contains("[basic]");
-        } catch (IOException ignored) {
-            return false;
-        }
     }
 
     private static boolean isIdentifierOnlyObject(JsonObject obj) {

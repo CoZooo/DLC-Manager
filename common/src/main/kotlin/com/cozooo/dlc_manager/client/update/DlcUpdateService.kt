@@ -1876,8 +1876,6 @@ object DlcUpdateService {
         "type",
         "appliedTarget",
         "RedirectUrl",
-        "isEnabled",
-        "isInList",
         "isHidden",
         "AllowEnableByAll",
         "dependencies",

@@ -112,7 +112,7 @@ object DlcRequiredRuntime {
                     continue
                 }
                 val depEntry = dep.getEntry()
-                if (depEntry != null && depEntry.isInList()) {
+                if (depEntry != null) {
                     depEntry.setIdentifier(id)
                     index[id] = depEntry
                     entries.add(depEntry)
@@ -212,7 +212,7 @@ object DlcRequiredRuntime {
     @JvmStatic
     fun hasMissingDownloads(): Boolean {
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -241,7 +241,7 @@ object DlcRequiredRuntime {
     @JvmStatic
     fun hasMissingDownloadsForPrompt(): Boolean {
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -270,7 +270,7 @@ object DlcRequiredRuntime {
     @JvmStatic
     fun hasMissingOrApply(): Boolean {
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -297,7 +297,7 @@ object DlcRequiredRuntime {
     fun collectMissingDownloads(): List<DlcRequiredEntry> {
         val missing = ArrayList<DlcRequiredEntry>()
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -329,7 +329,7 @@ object DlcRequiredRuntime {
     fun collectMissingDownloadsForPrompt(): List<DlcRequiredEntry> {
         val missing = ArrayList<DlcRequiredEntry>()
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -361,7 +361,7 @@ object DlcRequiredRuntime {
     fun collectMissingOrApply(): List<DlcRequiredEntry> {
         val list = ArrayList<DlcRequiredEntry>()
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -398,7 +398,7 @@ object DlcRequiredRuntime {
 
     @JvmStatic
     fun entryNeedsApply(entry: DlcRequiredEntry?): Boolean {
-        if (entry == null || !entry.isInList()) {
+        if (entry == null) {
             return false
         }
         var fileName = normalizeFileName(entry.getResolvedFileName())
@@ -631,7 +631,6 @@ object DlcRequiredRuntime {
         val applied = getString(obj, "appliedTarget")
         ordered.addProperty("appliedTarget", if (applied.isEmpty()) "" else applied)
 
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         val userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false)
         if (userRemoved) {

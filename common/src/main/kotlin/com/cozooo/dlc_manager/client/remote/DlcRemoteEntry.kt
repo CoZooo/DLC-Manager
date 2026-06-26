@@ -24,7 +24,6 @@ class DlcRemoteEntry(
     private var type: DlcType? = null
     private var configType = false
     private var appliedTargetRaw: String? = null
-    private var inList = false
     private var hidden = false
     private var allowEnableByAll = false
     private var dependencyNames: List<String> = emptyList()
@@ -156,12 +155,6 @@ class DlcRemoteEntry(
 
     fun setAppliedTargetRaw(appliedTargetRaw: String?) {
         this.appliedTargetRaw = appliedTargetRaw
-    }
-
-    fun isInList(): Boolean = inList
-
-    fun setInList(inList: Boolean) {
-        this.inList = inList
     }
 
     fun isHidden(): Boolean = hidden

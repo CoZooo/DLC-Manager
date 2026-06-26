@@ -482,7 +482,7 @@ public final class DlcServerDownloadService {
         List<DlcServerRequiredItem> items = new ArrayList<>();
         List<DlcRequiredEntry> entries = loadAllRequiredEntries(dlcRoot);
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isHidden()) {
+            if (entry == null || entry.isHidden()) {
                 continue;
             }
             if (entry.isUserRemoved()) {
@@ -504,7 +504,6 @@ public final class DlcServerDownloadService {
                     item.dependencies.add(dep.getIdentifier());
                 }
             }
-            item.inList = entry.isInList();
             item.hidden = entry.isHidden();
             item.userRemoved = entry.isUserRemoved();
             item.hasFile = hasFile;
@@ -580,7 +579,7 @@ public final class DlcServerDownloadService {
             }
             List<RequiredItemState> items = new ArrayList<>();
             for (DlcRequiredEntry entry : targets) {
-                if (entry == null || !entry.isInList() || entry.isHidden()) {
+                if (entry == null || entry.isHidden()) {
                     continue;
                 }
                 if (entry.isUserRemoved()) {
@@ -681,9 +680,6 @@ public final class DlcServerDownloadService {
         if (entry == null) {
             return false;
         }
-        if (!forceInclude && !entry.isInList() && !entry.isHidden()) {
-            return false;
-        }
         Path target = entry.getTargetPath();
         return target == null || !Files.exists(target);
     }
@@ -771,7 +767,7 @@ public final class DlcServerDownloadService {
         }
         List<DlcRequiredEntry> entries = loadRequiredEntries(dlcRoot);
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue;
             }
             String fileName = resolveExistingFileName(entry);
@@ -833,7 +829,7 @@ public final class DlcServerDownloadService {
             return result;
         }
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue;
             }
             String fileName = resolveExistingFileName(entry);
@@ -1056,7 +1052,7 @@ public final class DlcServerDownloadService {
                     continue;
                 }
                 DlcRequiredEntry depEntry = dep.getEntry();
-                if (depEntry != null && depEntry.isInList()) {
+                if (depEntry != null) {
                     depEntry.setIdentifier(id);
                     index.put(id, depEntry);
                     entries.add(depEntry);
@@ -1699,7 +1695,6 @@ public final class DlcServerDownloadService {
         } else {
             ordered.addProperty("file_name", "");
         }
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
         JsonElement deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
@@ -1812,7 +1807,6 @@ public final class DlcServerDownloadService {
             ordered.addProperty("file_name", "");
         }
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"));
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         boolean userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false);
         if (userRemoved) {

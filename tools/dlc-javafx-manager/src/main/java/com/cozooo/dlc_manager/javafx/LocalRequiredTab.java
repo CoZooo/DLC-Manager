@@ -327,7 +327,7 @@ final class LocalRequiredTab {
         if (targets.isEmpty()) {
             // Fall back to re-installing every downloaded entry on explicit request.
             for (DlcRequiredEntry e : entries) {
-                if (e != null && e.isInList() && DlcRequiredLoader.isDownloaded(e)) {
+                if (e != null && DlcRequiredLoader.isDownloaded(e)) {
                     targets.add(e);
                 }
             }

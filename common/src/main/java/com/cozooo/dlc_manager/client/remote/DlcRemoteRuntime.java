@@ -67,9 +67,6 @@ public final class DlcRemoteRuntime {
         }
         List<DlcRemoteEntry> entries = DlcRemoteLoader.load(dlcRoot);
         for (DlcRemoteEntry entry : entries) {
-            if (!entry.isInList() && !entry.isHidden()) {
-                continue;
-            }
             boolean isPack = entry.getType() == DlcType.DLC_PACK;
             if (dlcPackOnly != isPack) {
                 continue;
@@ -150,7 +147,6 @@ public final class DlcRemoteRuntime {
             ordered.addProperty("file_name", fileName);
         }
 
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
 

@@ -1433,9 +1433,6 @@ public class DlcConfig {
                 if (key == null || key.isBlank()) {
                     continue;
                 }
-                if ("isShownInList".equalsIgnoreCase(key) || "isInList".equalsIgnoreCase(key)) {
-                    continue;
-                }
                 out.add(key, entry.getValue());
             }
         }
@@ -1456,12 +1453,6 @@ public class DlcConfig {
 
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) {
             out.addProperty("type", "others");
-        }
-        if (!DlcDcConfigIO.hasIgnoreCase(out, "isEnabled")) {
-            boolean legacyEnabled = DlcDcConfigIO.hasIgnoreCase(input, "isInList")
-                ? DlcDcConfigIO.getBooleanIgnoreCase(input, "isInList", true)
-                : DlcDcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true);
-            out.addProperty("isEnabled", legacyEnabled);
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) {
             out.addProperty("isHidden", false);

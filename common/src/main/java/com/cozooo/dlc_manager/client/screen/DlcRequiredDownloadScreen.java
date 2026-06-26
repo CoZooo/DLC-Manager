@@ -285,7 +285,7 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         List<DlcRequiredEntry> download = new ArrayList<>();
         List<DlcRequiredEntry> applyCandidates = new ArrayList<>();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             applyCandidates.add(entry);

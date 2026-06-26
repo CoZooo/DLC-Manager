@@ -63,7 +63,7 @@ public final class DlcRequiredLoader {
                     continue;
                 }
                 DlcRequiredEntry entry = readEntry(path, requiredDir);
-                if (entry != null && entry.isInList()) {
+                if (entry != null) {
                     entries.add(entry);
                 }
             }
@@ -236,13 +236,6 @@ public final class DlcRequiredLoader {
         if (priority != null && !priority.isBlank()) {
             entry.setDownloadPriority(priority);
         }
-        Boolean inList = getBoolean(obj, "isEnabled");
-        if (inList == null) {
-            inList = getBoolean(obj, "isInList");
-        }
-        if (inList != null) {
-            entry.setInList(inList);
-        }
         Boolean hidden = getBoolean(obj, "isHidden");
         if (hidden != null) {
             entry.setHidden(hidden);
@@ -374,9 +367,6 @@ public final class DlcRequiredLoader {
             identifier = resolved;
         }
         DlcRequiredEntry depEntry = fromJsonObject(obj, requiredDir, null, identifier);
-        if (depEntry != null && !depEntry.isInList()) {
-            depEntry = null;
-        }
         String depId = depEntry != null ? depEntry.getIdentifier() : null;
         if (depId == null || depId.isBlank()) {
             depId = identifier;
@@ -471,7 +461,7 @@ public final class DlcRequiredLoader {
      * applied-target directories.  Mirrors {@code DlcRequiredRuntime.entryNeedsApply}.
      */
     public static boolean needsApply(DlcRequiredEntry entry) {
-        if (entry == null || !entry.isInList()) {
+        if (entry == null) {
             return false;
         }
         String fileName = normalizeFileName(entry.getResolvedFileName());
@@ -499,7 +489,7 @@ public final class DlcRequiredLoader {
             return missing;
         }
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             if (!isDownloaded(entry)) {
@@ -515,7 +505,7 @@ public final class DlcRequiredLoader {
             return needs;
         }
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             if (isDownloaded(entry) && needsApply(entry)) {

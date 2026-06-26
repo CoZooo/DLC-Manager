@@ -26,7 +26,6 @@ public class DlcRequiredEntry {
     private String modrinthVersionId;
     private String curseforgeProjectId;
     private String curseforgeFileId;
-    private boolean inList = true;
     private boolean hidden;
     private boolean userRemoved;
     private String appliedTargetRaw;
@@ -239,14 +238,6 @@ public class DlcRequiredEntry {
             case "directurl", "direct" -> "directurl";
             default -> null;
         };
-    }
-
-    public boolean isInList() {
-        return inList;
-    }
-
-    public void setInList(boolean inList) {
-        this.inList = inList;
     }
 
     public boolean isHidden() {

@@ -265,9 +265,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         val download: MutableList<DlcRequiredEntry> = ArrayList()
         val applyCandidates: MutableList<DlcRequiredEntry> = ArrayList()
         for (entry in entries) {
-            if (!entry.isInList()) {
-                continue
-            }
             applyCandidates.add(entry)
             var fileName = entry.getRequiredFileName()
             if (isConfigFileName(fileName)) {

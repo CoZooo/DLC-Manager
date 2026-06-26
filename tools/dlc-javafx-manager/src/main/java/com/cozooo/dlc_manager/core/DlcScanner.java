@@ -371,14 +371,10 @@ public class DlcScanner {
             ? isEnabledInTargets(id, name, fileNames, effectiveType, appliedTargetRaw, source, configType)
             : isEnabledInState(id);
         Map<String, String> tips = tooltipData != null ? tooltipData.getTips() : null;
-        boolean inList = tooltipData == null || tooltipData.isInList();
         boolean hidden = tooltipData != null && tooltipData.isHidden();
         Map<String, String> displayNames = tooltipData != null ? tooltipData.getDisplayName() : null;
         if (displayNames == null || displayNames.isEmpty()) {
             displayNames = java.util.Map.of("en_us", name);
-        }
-        if (!inList && !hidden) {
-            return;
         }
         java.util.List<String> dependencies = tooltipData != null ? tooltipData.getDependencies() : java.util.List.of();
         java.util.List<String> conflicts = tooltipData != null ? tooltipData.getConflicts() : java.util.List.of();
@@ -785,7 +781,6 @@ public class DlcScanner {
                 true,
                 true,
                 entry.isConfigType(),
-                entry.isInList(),
                 entry.isHidden(),
                 entry.isAllowEnableByAll(),
                 entry.getResolvedDependencyNames(),

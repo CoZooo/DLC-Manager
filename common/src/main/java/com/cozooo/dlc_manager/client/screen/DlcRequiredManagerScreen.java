@@ -212,7 +212,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
         dependents = DlcRequiredManager.buildDependents(allEntries);
         visibleEntries.clear();
         for (DlcRequiredEntry entry : allEntries) {
-            if (entry == null || entry.isHidden() || !entry.isInList()) {
+            if (entry == null || entry.isHidden()) {
                 continue;
             }
             visibleEntries.add(entry);
@@ -222,7 +222,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
 
     private void autoCleanupHidden() {
         for (DlcRequiredEntry entry : allEntries) {
-            if (entry == null || !entry.isHidden() || !entry.isInList()) {
+            if (entry == null || !entry.isHidden()) {
                 continue;
             }
             String id = entry.getIdentifier();
@@ -734,7 +734,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
         List<DlcRequiredEntry> unique = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             String id = entry.getIdentifier();

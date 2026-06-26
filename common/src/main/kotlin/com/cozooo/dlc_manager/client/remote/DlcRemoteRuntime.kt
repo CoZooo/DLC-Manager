@@ -62,9 +62,6 @@ object DlcRemoteRuntime {
         val dlcRoot = DlcConfig.getDlcRoots().firstOrNull() ?: return missing
         val entries = DlcRemoteLoader.load(dlcRoot)
         for (entry in entries) {
-            if (!entry.isInList() && !entry.isHidden()) {
-                continue
-            }
             val isPack = entry.getType() == DlcType.DLC_PACK
             if (dlcPackOnly != isPack) {
                 continue
@@ -140,7 +137,6 @@ object DlcRemoteRuntime {
             ordered.addProperty("file_name", fileName)
         }
 
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
 
