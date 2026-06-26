@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
+import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -48,8 +49,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * encrypted CurseForge / Modrinth / direct-URL resolver via
  * {@link DlcDownloadCandidate#resolve(DlcRequiredEntry)}.
  * <p>
- * Parity with the in-game "Required 必装资源" screen; detection reuses
- * {@link DlcRequiredLoader} (ported from {@code DlcRequiredRuntime}).
+ * Parity with the in-game "Required 必装资源" screen; loading and dependency
+ * expansion reuse the shared common implementation, while this tab only keeps
+ * JavaFX-specific view helpers locally.
  */
 final class LocalRequiredTab {
 
@@ -108,7 +110,7 @@ final class LocalRequiredTab {
             }
             java.util.List<DlcRequiredEntry> missingSelected = new java.util.ArrayList<>();
             for (DlcRequiredEntry entry : selected) {
-                if (entry != null && !DlcRequiredLoader.isDownloaded(entry)) {
+                if (entry != null && !isDownloaded(entry)) {
                     missingSelected.add(entry);
                 }
             }
@@ -116,8 +118,8 @@ final class LocalRequiredTab {
                 statusLabel.setText("所选条目均已下载");
                 return;
             }
-            java.util.List<DlcRequiredEntry> toDownload = DlcRequiredLoader.collectMissingDownloads(
-                    DlcRequiredLoader.collectDependencies(missingSelected, entries));
+            java.util.List<DlcRequiredEntry> toDownload = collectMissingDownloads(
+                DlcRequiredRuntime.collectDependencies(missingSelected));
             downloadAll(toDownload);
         });
 
@@ -155,9 +157,9 @@ final class LocalRequiredTab {
                 int missing = 0;
                 int needsApply = 0;
                 for (DlcRequiredEntry e : loaded) {
-                    if (!DlcRequiredLoader.isDownloaded(e)) {
+                    if (!isDownloaded(e)) {
                         missing++;
-                    } else if (DlcRequiredLoader.needsApply(e)) {
+                    } else if (needsApply(e)) {
                         needsApply++;
                     }
                 }
@@ -189,7 +191,7 @@ final class LocalRequiredTab {
     // ───────────────────────────────────────────────────────────────
 
     private void downloadMissingAsync() {
-        List<DlcRequiredEntry> missing = DlcRequiredLoader.collectMissingDownloads(entries);
+        List<DlcRequiredEntry> missing = collectMissingDownloads(entries);
         if (missing.isEmpty()) {
             statusLabel.setText("无缺失项需要下载");
             return;
@@ -198,8 +200,8 @@ final class LocalRequiredTab {
         // block (mirrors DlcRequiredRuntime.collectDependencies), then keep only
         // those still missing — so downloading a required pack pulls in its
         // declared deps that are also absent.
-        List<DlcRequiredEntry> expanded = DlcRequiredLoader.collectDependencies(missing, entries);
-        List<DlcRequiredEntry> toDownload = DlcRequiredLoader.collectMissingDownloads(expanded);
+        List<DlcRequiredEntry> expanded = DlcRequiredRuntime.collectDependencies(missing);
+        List<DlcRequiredEntry> toDownload = collectMissingDownloads(expanded);
         downloadAll(toDownload);
     }
 
@@ -240,7 +242,7 @@ final class LocalRequiredTab {
     }
 
     private void downloadOne(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        String effectiveName = DlcRequiredLoader.resolveEffectiveFileName(entry);
+        String effectiveName = resolveEffectiveFileName(entry);
         Path requiredDir = entry.getRequiredDir();
         if (requiredDir == null) {
             throw new IOException("无法定位 required 目录: " + safeName(entry));
@@ -323,11 +325,11 @@ final class LocalRequiredTab {
     // ───────────────────────────────────────────────────────────────
 
     private void installAsync() {
-        List<DlcRequiredEntry> targets = DlcRequiredLoader.collectNeedsApply(entries);
+        List<DlcRequiredEntry> targets = collectNeedsApply(entries);
         if (targets.isEmpty()) {
             // Fall back to re-installing every downloaded entry on explicit request.
             for (DlcRequiredEntry e : entries) {
-                if (e != null && DlcRequiredLoader.isDownloaded(e)) {
+                if (e != null && isDownloaded(e)) {
                     targets.add(e);
                 }
             }
@@ -381,7 +383,7 @@ final class LocalRequiredTab {
     }
 
     private void installOne(DlcRequiredEntry entry) throws IOException {
-        String fileName = DlcRequiredLoader.resolveEffectiveFileName(entry);
+        String fileName = resolveEffectiveFileName(entry);
         if (fileName == null || fileName.isBlank()) {
             throw new IOException("无法确定文件名");
         }
@@ -438,8 +440,8 @@ final class LocalRequiredTab {
                 setText(null);
             } else {
                 nameLabel.setText(safeName(item));
-                boolean downloaded = DlcRequiredLoader.isDownloaded(item);
-                boolean needsApply = downloaded && DlcRequiredLoader.needsApply(item);
+                boolean downloaded = isDownloaded(item);
+                boolean needsApply = downloaded && needsApply(item);
                 if (!downloaded) {
                     statusTag.setText(" 缺失下载 ");
                     statusTag.setStyle("-fx-text-fill: white; -fx-background-color: #c0392b; -fx-background-radius: 3; -fx-padding: 0 4;");
@@ -504,5 +506,149 @@ final class LocalRequiredTab {
     private static String safeMessage(Throwable t) {
         String msg = t.getMessage();
         return msg == null ? t.getClass().getSimpleName() : msg;
+    }
+
+    private static String resolveEffectiveFileName(DlcRequiredEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        String fileName = normalizeFileName(entry.getRequiredFileName());
+        if (fileName == null) {
+            fileName = normalizeFileName(guessFileName(entry));
+        }
+        if (fileName == null) {
+            fileName = normalizeFileName(resolveExistingRequiredFile(entry));
+        }
+        if (isTempFileName(fileName)) {
+            fileName = null;
+        }
+        entry.setResolvedFileName(fileName);
+        return fileName;
+    }
+
+    private static boolean isDownloaded(DlcRequiredEntry entry) {
+        String fileName = resolveEffectiveFileName(entry);
+        if (fileName == null) {
+            return false;
+        }
+        Path required = entry.resolveRequiredPath(fileName);
+        return required != null && Files.exists(required);
+    }
+
+    private static boolean needsApply(DlcRequiredEntry entry) {
+        if (entry == null) {
+            return false;
+        }
+        String fileName = normalizeFileName(entry.getResolvedFileName());
+        if (fileName == null || fileName.isBlank()) {
+            fileName = normalizeFileName(resolveEffectiveFileName(entry));
+        }
+        if (isTempFileName(fileName)) {
+            return true;
+        }
+        if (fileName == null) {
+            return true;
+        }
+        for (Path target : entry.resolveAppliedTargets()) {
+            Path targetFile = resolveTarget(target, fileName);
+            if (targetFile == null || !Files.exists(targetFile)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static List<DlcRequiredEntry> collectMissingDownloads(List<DlcRequiredEntry> entries) {
+        List<DlcRequiredEntry> missing = new ArrayList<>();
+        if (entries == null) {
+            return missing;
+        }
+        for (DlcRequiredEntry entry : entries) {
+            if (entry != null && !isDownloaded(entry)) {
+                missing.add(entry);
+            }
+        }
+        return missing;
+    }
+
+    private static List<DlcRequiredEntry> collectNeedsApply(List<DlcRequiredEntry> entries) {
+        List<DlcRequiredEntry> needs = new ArrayList<>();
+        if (entries == null) {
+            return needs;
+        }
+        for (DlcRequiredEntry entry : entries) {
+            if (entry != null && isDownloaded(entry) && needsApply(entry)) {
+                needs.add(entry);
+            }
+        }
+        return needs;
+    }
+
+    private static String resolveExistingRequiredFile(DlcRequiredEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        String base = entry.getBaseName();
+        Path requiredDir = entry.getRequiredDir();
+        if (requiredDir == null || base == null || base.isBlank()) {
+            return null;
+        }
+        try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(requiredDir, base + "*")) {
+            for (Path path : stream) {
+                String name = path.getFileName() == null ? "" : path.getFileName().toString();
+                if (!com.cozooo.dlc_manager.core.DlcDcFormatUtil.isDcName(name) && !name.endsWith(".part")) {
+                    return name;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private static String guessFileName(DlcRequiredEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        String directUrl = entry.getDirectUrl();
+        if (directUrl != null && !directUrl.isBlank()) {
+            String name = DlcDownloadUtil.extractFileNameFromUrl(directUrl);
+            if (DlcDownloadUtil.isLikelyFileName(name)) {
+                return name;
+            }
+        }
+        return null;
+    }
+
+    private static Path resolveTarget(Path targetDir, String fileName) {
+        if (targetDir == null || fileName == null || fileName.isBlank()) {
+            return null;
+        }
+        String name = targetDir.getFileName() == null ? "" : targetDir.getFileName().toString();
+        if (name.endsWith(".jar") || name.endsWith(".zip")) {
+            return targetDir;
+        }
+        return targetDir.resolve(fileName);
+    }
+
+    private static String normalizeFileName(String fileName) {
+        if (fileName == null) {
+            return null;
+        }
+        String trimmed = DlcDownloadUtil.stripQuery(fileName);
+        if (trimmed == null) {
+            return null;
+        }
+        trimmed = trimmed.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (com.cozooo.dlc_manager.core.DlcDcFormatUtil.isDcName(trimmed)) {
+            return null;
+        }
+        return trimmed.replaceAll("[\\\\/:*?\"<>|]", "_");
+    }
+
+    private static boolean isTempFileName(String fileName) {
+        return fileName != null && fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".part");
     }
 }

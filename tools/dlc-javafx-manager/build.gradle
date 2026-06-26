@@ -40,6 +40,8 @@ def reusedCommonJavaFiles = [
     'com/cozooo/dlc_manager/client/remote/DlcRemoteMarker.java',
     'com/cozooo/dlc_manager/client/required/DlcRequiredDependency.java',
     'com/cozooo/dlc_manager/client/required/DlcRequiredEntry.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredLoader.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredRuntime.java',
     'com/cozooo/dlc_manager/client/selfupdate/DlcSelfUpdateService.java',
     'com/cozooo/dlc_manager/client/server/DlcServerCache.java',
     'com/cozooo/dlc_manager/client/server/DlcServerConnection.java',
