@@ -23,6 +23,16 @@
                   <project path="$PROJECT_DIR$/architectury/1.21.1/neoforge" />
                 </projects>
               </build>
+              <build path="$PROJECT_DIR$/tools/dlc-external-controller" name="dlc-external-controller">
+                <projects>
+                  <project path="$PROJECT_DIR$/tools/dlc-external-controller" />
+                </projects>
+              </build>
+              <build path="$PROJECT_DIR$/tools/dlc-javafx-manager" name="dlc-javafx-manager">
+                <projects>
+                  <project path="$PROJECT_DIR$/tools/dlc-javafx-manager" />
+                </projects>
+              </build>
             </builds>
           </compositeBuild>
         </compositeConfiguration>
@@ -39,6 +49,9 @@
             <option value="$PROJECT_DIR$/architectury/1.21.1/common" />
             <option value="$PROJECT_DIR$/architectury/1.21.1/fabric" />
             <option value="$PROJECT_DIR$/architectury/1.21.1/neoforge" />
+            <option value="$PROJECT_DIR$/common" />
+            <option value="$PROJECT_DIR$/tools/dlc-external-controller" />
+            <option value="$PROJECT_DIR$/tools/dlc-javafx-manager" />
           </set>
         </option>
         <option name="resolveExternalAnnotations" value="true" />
