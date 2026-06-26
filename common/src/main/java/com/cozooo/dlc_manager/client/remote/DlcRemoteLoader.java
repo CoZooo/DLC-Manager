@@ -12,6 +12,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -190,7 +191,7 @@ public final class DlcRemoteLoader {
         }
         try (Reader reader = Files.newBufferedReader(path)) {
             JsonReader jsonReader = new JsonReader(reader);
-            jsonReader.setLenient(true);
+            jsonReader.setStrictness(Strictness.LENIENT);
             return GSON.fromJson(jsonReader, JsonObject.class);
         } catch (IOException | JsonSyntaxException ignored) {
             return null;
