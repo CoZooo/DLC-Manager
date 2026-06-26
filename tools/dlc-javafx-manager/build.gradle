@@ -3,6 +3,17 @@ plugins {
     id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
+def fileOpsHelperVersion = findProperty('file_ops_helper_version')
+if (fileOpsHelperVersion == null) {
+    def rootPropsFile = file('../../gradle.properties')
+    if (rootPropsFile.exists()) {
+        def rootProps = new Properties()
+        rootPropsFile.withInputStream { rootProps.load(it) }
+        fileOpsHelperVersion = rootProps.getProperty('file_ops_helper_version')
+    }
+}
+fileOpsHelperVersion = (fileOpsHelperVersion ?: '').toString()
+
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
@@ -16,6 +27,7 @@ def reusedCommonJavaFiles = [
     'com/cozooo/dlc_manager/client/download/DlcDownloadService.java',
     'com/cozooo/dlc_manager/client/download/DlcDownloadUtil.java',
     'com/cozooo/dlc_manager/client/download/DlcModrinthClient.java',
+    'com/cozooo/dlc_manager/client/helper/DlcFileOpsHelperClient.java',
     'com/cozooo/dlc_manager/client/preset/DlcPresetEntry.java',
     'com/cozooo/dlc_manager/client/preset/DlcPresetLoader.java',
     'com/cozooo/dlc_manager/client/preset/DlcPresetRuntimeState.java',
@@ -102,6 +114,7 @@ javafx {
 
 dependencies {
     implementation 'com.google.code.gson:gson:2.11.0'
+    implementation "com.cozooo.dlc_manager:dlc-fileops-helper:${fileOpsHelperVersion}"
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
 }
