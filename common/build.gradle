@@ -2,11 +2,15 @@ plugins {
     id 'base'
 }
 
+def kotlinEnabled = (findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+
 tasks.register('compileKotlin') {
     group = 'build'
     description = 'Compile common Kotlin sources for all Architectury versions.'
-    dependsOn(gradle.includedBuild('arch1201').task(':common:compileKotlin'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:compileKotlin'))
+    if (kotlinEnabled) {
+        dependsOn(gradle.includedBuild('arch1201').task(':common:compileKotlin'))
+        dependsOn(gradle.includedBuild('arch1211').task(':common:compileKotlin'))
+    }
 }
 
 tasks.register('compileJava') {
@@ -19,7 +23,9 @@ tasks.register('compileJava') {
 tasks.register('classes') {
     group = 'build'
     description = 'Assemble common classes for all Architectury versions.'
-    dependsOn(tasks.named('compileKotlin'))
+    if (kotlinEnabled) {
+        dependsOn(tasks.named('compileKotlin'))
+    }
     dependsOn(tasks.named('compileJava'))
 }
 

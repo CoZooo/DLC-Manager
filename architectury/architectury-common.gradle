@@ -1,3 +1,16 @@
+ext.architecturyBooleanProperty = { Project targetProject, String propertyName, boolean fallback ->
+    def value = targetProject.findProperty(propertyName)
+    if (value == null) {
+        def rootPropsFile = rootProject.file('../../gradle.properties')
+        if (rootPropsFile.exists()) {
+            def rootProps = new Properties()
+            rootPropsFile.withInputStream { rootProps.load(it) }
+            value = rootProps.getProperty(propertyName)
+        }
+    }
+    return value == null ? fallback : value.toString().toBoolean()
+}
+
 ext.configureArchitecturyShared = { int defaultJavaVersion ->
     allprojects {
         group = mod_group
@@ -40,7 +53,7 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
         apply plugin: 'maven-publish'
 
         def javaVersion = (project.findProperty('java_version') ?: String.valueOf(defaultJavaVersion)) as int
-        def kotlinEnabled = (project.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+        def kotlinEnabled = rootProject.architecturyBooleanProperty(project, 'enable_kotlin', false)
         def useParchment = (project.findProperty('use_parchment') ?: 'false').toString().toBoolean()
         def parchmentVersion = (project.findProperty('parchment_mappings_version') ?: '').toString().trim()
 
@@ -197,7 +210,15 @@ ext.deleteKotlinClassesReplacedByJava = { Project targetProject, List<String> ko
     }
 }
 
-ext.configureReplacementClassSync = { Project targetProject, boolean kotlinEnabled, List<String> kotlinSourceDirs ->
+ext.clearMainJavaClasses = { Project targetProject ->
+    def compileJavaTask = targetProject.tasks.findByName('compileJava')
+    if (compileJavaTask == null || !compileJavaTask.hasProperty('destinationDirectory')) {
+        return
+    }
+    targetProject.delete(compileJavaTask.destinationDirectory.get().asFile)
+}
+
+ext.configureReplacementClassSync = { Project targetProject, boolean kotlinEnabled, List<String> kotlinSourceDirs, boolean excludeJavaCompile = false ->
     def syncTask = targetProject.tasks.register('syncReplacementClasses') {
         if (kotlinEnabled && targetProject.tasks.findByName('compileKotlin') != null) {
             dependsOn targetProject.tasks.named('compileKotlin')
@@ -207,11 +228,15 @@ ext.configureReplacementClassSync = { Project targetProject, boolean kotlinEnabl
 
         doLast {
             if (kotlinEnabled) {
-                rootProject.deleteJavaClassesReplacedByKotlin(
-                    targetProject,
-                    kotlinSourceDirs,
-                    targetProject.tasks.named('compileJava').get().destinationDirectory.get().asFile
-                )
+                if (excludeJavaCompile) {
+                    rootProject.clearMainJavaClasses(targetProject)
+                } else {
+                    rootProject.deleteJavaClassesReplacedByKotlin(
+                        targetProject,
+                        kotlinSourceDirs,
+                        targetProject.tasks.named('compileJava').get().destinationDirectory.get().asFile
+                    )
+                }
             } else {
                 rootProject.deleteKotlinClassesReplacedByJava(
                     targetProject,
