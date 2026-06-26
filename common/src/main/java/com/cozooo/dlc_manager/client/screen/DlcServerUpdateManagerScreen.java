@@ -13,6 +13,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -587,7 +588,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
                 }
                 if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {
                     showToast(Component.translatable("dlc_manager.update.manager_title"),
-                        DlcPackReleaseUpdateService.toCheckFailureComponent(finalResult.error));
+                        DlcMessageAdapter.toCheckFailureComponent(finalResult.error));
                     return;
                 }
                 showToast(Component.translatable("dlc_manager.update.manager_title"),

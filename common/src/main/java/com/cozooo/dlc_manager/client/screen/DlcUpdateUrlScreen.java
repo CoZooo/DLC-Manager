@@ -12,6 +12,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -167,7 +168,7 @@ public class DlcUpdateUrlScreen extends Screen {
                 if (!validation.isValid()) {
                     Files.deleteIfExists(downloaded);
                     Minecraft.getInstance().execute(() -> {
-                        Component message = DlcUpdateService.toImportValidationComponent(validation);
+                        Component message = DlcMessageAdapter.toImportValidationComponent(validation);
                         showToast(Component.translatable("dlc_manager.update.manager_title"),
                             message);
                         errorText = message.getString();
@@ -324,7 +325,7 @@ public class DlcUpdateUrlScreen extends Screen {
             return;
         }
         if (result == null || !result.isSuccess()) {
-            Component component = DlcUpdateService.toFailureComponent(result);
+            Component component = DlcMessageAdapter.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, component));
             return;
         }

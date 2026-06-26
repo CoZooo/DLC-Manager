@@ -12,6 +12,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
@@ -812,7 +813,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                 }
                 if (updateResult?.isSuccess != true) {
                     Minecraft.getInstance().execute {
-                        minecraft.setScreen(DlcUpdateResultScreen(parent, false, DlcUpdateService.toFailureComponent(updateResult)))
+                        minecraft.setScreen(DlcUpdateResultScreen(parent, false, DlcMessageAdapter.toFailureComponent(updateResult)))
                     }
                     return
                 }

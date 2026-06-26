@@ -63,6 +63,10 @@ public class DlcRedirectEntry {
         this.fallbackName = fallbackName;
     }
 
+    public String getFallbackName() {
+        return fallbackName;
+    }
+
     public Map<String, String> getDisplayNames() {
         return displayNames;
     }

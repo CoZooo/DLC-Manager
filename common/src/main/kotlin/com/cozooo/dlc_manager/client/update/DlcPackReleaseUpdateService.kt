@@ -3,12 +3,12 @@ package com.cozooo.dlc_manager.client.update
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
-import net.minecraft.network.chat.Component
 import java.io.IOException
 import java.io.InputStreamReader
 import java.io.InterruptedIOException
@@ -189,27 +189,37 @@ object DlcPackReleaseUpdateService {
     }
 
     @JvmStatic
-    fun toCheckFailureComponent(error: String?): Component {
-        if (isTimeoutFailureMessage(error)) {
-            return Component.translatable(
-                "dlc_manager.pack_update.check_failed",
-                Component.translatable("dlc_manager.pack_update.check_timeout"),
-            )
-        }
-        val safeError = if (error.isNullOrBlank()) "failed" else error
-        return Component.translatable("dlc_manager.pack_update.check_failed", safeError)
+    fun toCheckFailureMessage(error: String?): String {
+        return toCheckFailureUpdateMessage(error).asPlainString()
     }
 
     @JvmStatic
-    fun toDownloadFailureComponent(error: String?): Component {
+    fun toCheckFailureUpdateMessage(error: String?): DlcUpdateMessage {
         if (isTimeoutFailureMessage(error)) {
-            return Component.translatable(
-                "dlc_manager.pack_update.download_failed",
-                Component.translatable("dlc_manager.pack_update.download_timeout"),
+            return DlcUpdateMessage.translatable(
+                "dlc_manager.pack_update.check_failed",
+                DlcUpdateMessage.translatable("dlc_manager.pack_update.check_timeout"),
             )
         }
         val safeError = if (error.isNullOrBlank()) "failed" else error
-        return Component.translatable("dlc_manager.pack_update.download_failed", safeError)
+        return DlcUpdateMessage.translatable("dlc_manager.pack_update.check_failed", safeError)
+    }
+
+    @JvmStatic
+    fun toDownloadFailureMessage(error: String?): String {
+        return toDownloadFailureUpdateMessage(error).asPlainString()
+    }
+
+    @JvmStatic
+    fun toDownloadFailureUpdateMessage(error: String?): DlcUpdateMessage {
+        if (isTimeoutFailureMessage(error)) {
+            return DlcUpdateMessage.translatable(
+                "dlc_manager.pack_update.download_failed",
+                DlcUpdateMessage.translatable("dlc_manager.pack_update.download_timeout"),
+            )
+        }
+        val safeError = if (error.isNullOrBlank()) "failed" else error
+        return DlcUpdateMessage.translatable("dlc_manager.pack_update.download_failed", safeError)
     }
 
     @JvmStatic

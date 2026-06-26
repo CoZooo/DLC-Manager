@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.client.update;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
+import com.cozooo.dlc_manager.client.update.DlcUpdateService.DlcUpdateMessage;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -31,7 +32,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import net.minecraft.network.chat.Component;
 
 public final class DlcPackReleaseUpdateService {
     private static final Pattern SSH_REPO_PATTERN = Pattern.compile("^git@([^:]+):(.+?)(?:\\.git)?/?$", Pattern.CASE_INSENSITIVE);
@@ -235,22 +235,30 @@ public final class DlcPackReleaseUpdateService {
         }
     }
 
-    public static Component toCheckFailureComponent(String error) {
-        if (isTimeoutFailureMessage(error)) {
-            return Component.translatable("dlc_manager.pack_update.check_failed",
-                Component.translatable("dlc_manager.pack_update.check_timeout"));
-        }
-        String safeError = error == null || error.isBlank() ? "failed" : error;
-        return Component.translatable("dlc_manager.pack_update.check_failed", safeError);
+    public static String toCheckFailureMessage(String error) {
+        return toCheckFailureUpdateMessage(error).asPlainString();
     }
 
-    public static Component toDownloadFailureComponent(String error) {
+    public static DlcUpdateMessage toCheckFailureUpdateMessage(String error) {
         if (isTimeoutFailureMessage(error)) {
-            return Component.translatable("dlc_manager.pack_update.download_failed",
-                Component.translatable("dlc_manager.pack_update.download_timeout"));
+            return DlcUpdateMessage.translatable("dlc_manager.pack_update.check_failed",
+                DlcUpdateMessage.translatable("dlc_manager.pack_update.check_timeout"));
         }
         String safeError = error == null || error.isBlank() ? "failed" : error;
-        return Component.translatable("dlc_manager.pack_update.download_failed", safeError);
+        return DlcUpdateMessage.translatable("dlc_manager.pack_update.check_failed", safeError);
+    }
+
+    public static String toDownloadFailureMessage(String error) {
+        return toDownloadFailureUpdateMessage(error).asPlainString();
+    }
+
+    public static DlcUpdateMessage toDownloadFailureUpdateMessage(String error) {
+        if (isTimeoutFailureMessage(error)) {
+            return DlcUpdateMessage.translatable("dlc_manager.pack_update.download_failed",
+                DlcUpdateMessage.translatable("dlc_manager.pack_update.download_timeout"));
+        }
+        String safeError = error == null || error.isBlank() ? "failed" : error;
+        return DlcUpdateMessage.translatable("dlc_manager.pack_update.download_failed", safeError);
     }
 
     public static CheckResult checkForUpdates(String modpackUrl, String githubRepoUrl, String currentBase, String currentDlc, Side side) {

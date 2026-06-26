@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
@@ -176,7 +177,7 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
 
     private void handleResult(UpdateApplyResult result) {
         if (result == null || !result.isSuccess()) {
-            Component component = DlcUpdateService.toFailureComponent(result);
+            Component component = DlcMessageAdapter.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(parent, false, component));
             return;
         }

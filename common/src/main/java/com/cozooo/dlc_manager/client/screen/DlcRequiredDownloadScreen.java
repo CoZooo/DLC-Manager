@@ -15,6 +15,7 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -843,7 +844,7 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
                     return;
                 }
                 if (updateResult == null || !updateResult.isSuccess()) {
-                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, DlcUpdateService.toFailureComponent(updateResult))));
+                    Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcUpdateResultScreen(parent, false, DlcMessageAdapter.toFailureComponent(updateResult))));
                     return;
                 }
                 updateApplied = true;

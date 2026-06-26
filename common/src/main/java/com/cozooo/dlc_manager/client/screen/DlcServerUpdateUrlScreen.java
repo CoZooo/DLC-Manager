@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -158,7 +159,7 @@ public class DlcServerUpdateUrlScreen extends Screen {
                 if (!validation.isValid()) {
                     Files.deleteIfExists(downloaded);
                     Minecraft.getInstance().execute(() -> {
-                        errorText = DlcUpdateService.toImportValidationComponent(validation).getString();
+                        errorText = DlcMessageAdapter.toImportValidationComponent(validation).getString();
                         downloading = false;
                         downloadButton.active = true;
                         pasteButton.active = true;

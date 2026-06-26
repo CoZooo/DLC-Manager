@@ -20,7 +20,6 @@ import com.cozooo.dlc_manager.core.DlcApplier.ApplyResult
 import com.cozooo.dlc_manager.core.DlcStateConfig.DlcState
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.*
-import net.minecraft.network.chat.Component
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
@@ -99,6 +98,57 @@ object DlcUpdateService {
     private const val PLATFORM_UNIVERSAL = "universal"
     private val CURRENT_UPDATE_CONTEXT = ThreadLocal<UpdateContext?>()
     private val CURRENT_PROGRESS_LISTENER = ThreadLocal<ApplyProgressListener?>()
+
+    class DlcUpdateMessage private constructor(
+        val type: Type,
+        val value: String,
+        private val rawArgs: Array<out Any?>,
+    ) {
+        enum class Type {
+            EMPTY,
+            LITERAL,
+            TRANSLATABLE,
+        }
+
+        fun args(): Array<out Any?> = rawArgs.copyOf()
+
+        fun asPlainString(): String {
+            return when (type) {
+                Type.EMPTY -> ""
+                Type.LITERAL -> value
+                Type.TRANSLATABLE -> {
+                    val renderedArgs = rawArgs
+                        .map(::renderArg)
+                        .filter { it.isNotBlank() }
+                        .joinToString(", ")
+                    if (renderedArgs.isBlank()) value else "$value: $renderedArgs"
+                }
+            }
+        }
+
+        companion object {
+            private val EMPTY = DlcUpdateMessage(Type.EMPTY, "", emptyArray())
+
+            @JvmStatic
+            fun empty(): DlcUpdateMessage = EMPTY
+
+            @JvmStatic
+            fun literal(value: String?): DlcUpdateMessage = DlcUpdateMessage(Type.LITERAL, value ?: "", emptyArray())
+
+            @JvmStatic
+            fun translatable(key: String?, vararg args: Any?): DlcUpdateMessage {
+                return DlcUpdateMessage(Type.TRANSLATABLE, key ?: "", args)
+            }
+
+            private fun renderArg(arg: Any?): String {
+                return when (arg) {
+                    null -> ""
+                    is DlcUpdateMessage -> arg.asPlainString()
+                    else -> arg.toString()
+                }
+            }
+        }
+    }
 
     @JvmStatic
     fun checkForUpdates(): UpdateCheckResult {
@@ -238,28 +288,38 @@ object DlcUpdateService {
     }
 
     @JvmStatic
-    fun toFailureComponent(result: UpdateApplyResult?): Component {
-        val message: String? = if (result == null) "" else result.message
-        if (message == null || message.isBlank()) {
-            return Component.translatable("dlc_manager.update.failed")
-        }
-        if ("Version mismatch".equals(message.trim { it <= ' ' }, ignoreCase = true)) {
-            return Component.translatable("dlc_manager.update.failed_version_mismatch")
-        }
-        return Component.literal(message)
+    fun toFailureMessage(result: UpdateApplyResult?): String {
+        return toFailureUpdateMessage(result).asPlainString()
     }
 
     @JvmStatic
-    fun toImportValidationComponent(result: ImportValidationResult?): Component {
+    fun toFailureUpdateMessage(result: UpdateApplyResult?): DlcUpdateMessage {
+        val message: String? = if (result == null) "" else result.message
+        if (message == null || message.isBlank()) {
+            return DlcUpdateMessage.translatable("dlc_manager.update.failed")
+        }
+        if ("Version mismatch".equals(message.trim { it <= ' ' }, ignoreCase = true)) {
+            return DlcUpdateMessage.translatable("dlc_manager.update.failed_version_mismatch")
+        }
+        return DlcUpdateMessage.literal(message)
+    }
+
+    @JvmStatic
+    fun toImportValidationMessage(result: ImportValidationResult?): String {
+        return toImportValidationUpdateMessage(result).asPlainString()
+    }
+
+    @JvmStatic
+    fun toImportValidationUpdateMessage(result: ImportValidationResult?): DlcUpdateMessage {
         if (result == null) {
-            return Component.translatable("dlc_manager.update.import_invalid")
+            return DlcUpdateMessage.translatable("dlc_manager.update.import_invalid")
         }
         return when (result) {
-            ImportValidationResult.VALID -> Component.empty()
-            ImportValidationResult.DLC_ROOT_MISSING -> Component.translatable("dlc_manager.update.dlc_root_missing")
-            ImportValidationResult.PLATFORM_MISMATCH -> Component.translatable("dlc_manager.update.import_platform_mismatch")
-            ImportValidationResult.VERSION_MISMATCH -> Component.translatable("dlc_manager.update.import_version_mismatch")
-            ImportValidationResult.INVALID_PACKAGE -> Component.translatable("dlc_manager.update.import_invalid")
+            ImportValidationResult.VALID -> DlcUpdateMessage.empty()
+            ImportValidationResult.DLC_ROOT_MISSING -> DlcUpdateMessage.translatable("dlc_manager.update.dlc_root_missing")
+            ImportValidationResult.PLATFORM_MISMATCH -> DlcUpdateMessage.translatable("dlc_manager.update.import_platform_mismatch")
+            ImportValidationResult.VERSION_MISMATCH -> DlcUpdateMessage.translatable("dlc_manager.update.import_version_mismatch")
+            ImportValidationResult.INVALID_PACKAGE -> DlcUpdateMessage.translatable("dlc_manager.update.import_invalid")
         }
     }
 

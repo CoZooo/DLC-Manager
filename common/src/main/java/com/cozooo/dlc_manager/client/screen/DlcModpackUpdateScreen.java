@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Side;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -577,7 +578,7 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
         downloading = false;
         updateButtons();
         if (result == null) {
-            errorText = DlcPackReleaseUpdateService.toDownloadFailureComponent("unknown").getString();
+            errorText = DlcMessageAdapter.toDownloadFailureComponent("unknown").getString();
             return;
         }
         if (result.canceled) {
@@ -587,7 +588,7 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
         }
         if (!result.success) {
             String reason = result.message == null || result.message.isBlank() ? "failed" : result.message;
-            errorText = DlcPackReleaseUpdateService.toDownloadFailureComponent(reason).getString();
+            errorText = DlcMessageAdapter.toDownloadFailureComponent(reason).getString();
             return;
         }
         if (side == Side.SERVER) {

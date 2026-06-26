@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
 import com.cozooo.dlc_manager.client.core.DlcFilePicker
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner
@@ -514,7 +515,7 @@ class DlcUpdateManagerScreen(
             return
         }
         if (result?.isSuccess != true) {
-            val component = DlcUpdateService.toFailureComponent(result)
+            val component = DlcMessageAdapter.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(this, false, component))
             return
         }
@@ -672,7 +673,7 @@ class DlcUpdateManagerScreen(
         if (!validation.isValid) {
             showToast(
                 Component.translatable("dlc_manager.update.manager_title"),
-                DlcUpdateService.toImportValidationComponent(validation),
+                DlcMessageAdapter.toImportValidationComponent(validation),
             )
             return
         }
@@ -728,7 +729,7 @@ class DlcUpdateManagerScreen(
                 if (result != null && !result.error.isNullOrBlank()) {
                     showToast(
                         Component.translatable("dlc_manager.update.manager_title"),
-                        DlcPackReleaseUpdateService.toCheckFailureComponent(result.error),
+                        DlcMessageAdapter.toCheckFailureComponent(result.error),
                     )
                     return@execute
                 }

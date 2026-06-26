@@ -55,7 +55,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.network.chat.Component;
 
 public final class DlcUpdateService {
     private static final Gson UPDATE_GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -66,6 +65,81 @@ public final class DlcUpdateService {
     private static final ThreadLocal<ApplyProgressListener> CURRENT_PROGRESS_LISTENER = new ThreadLocal<>();
 
     private DlcUpdateService() {
+    }
+
+    public static final class DlcUpdateMessage {
+        public enum Type {
+            EMPTY,
+            LITERAL,
+            TRANSLATABLE
+        }
+
+        private static final DlcUpdateMessage EMPTY = new DlcUpdateMessage(Type.EMPTY, "", new Object[0]);
+
+        private final Type type;
+        private final String value;
+        private final Object[] args;
+
+        private DlcUpdateMessage(Type type, String value, Object[] args) {
+            this.type = type;
+            this.value = value == null ? "" : value;
+            this.args = args == null ? new Object[0] : args;
+        }
+
+        public static DlcUpdateMessage empty() {
+            return EMPTY;
+        }
+
+        public static DlcUpdateMessage literal(String value) {
+            return new DlcUpdateMessage(Type.LITERAL, value, new Object[0]);
+        }
+
+        public static DlcUpdateMessage translatable(String key, Object... args) {
+            return new DlcUpdateMessage(Type.TRANSLATABLE, key, args);
+        }
+
+        public Type type() {
+            return type;
+        }
+
+        public String value() {
+            return value;
+        }
+
+        public Object[] args() {
+            return args.clone();
+        }
+
+        public String asPlainString() {
+            return switch (type) {
+                case EMPTY -> "";
+                case LITERAL -> value;
+                case TRANSLATABLE -> {
+                    StringBuilder renderedArgs = new StringBuilder();
+                    for (Object arg : args) {
+                        String rendered = renderArg(arg);
+                        if (rendered == null || rendered.isBlank()) {
+                            continue;
+                        }
+                        if (!renderedArgs.isEmpty()) {
+                            renderedArgs.append(", ");
+                        }
+                        renderedArgs.append(rendered);
+                    }
+                    yield renderedArgs.isEmpty() ? value : value + ": " + renderedArgs;
+                }
+            };
+        }
+
+        private static String renderArg(Object arg) {
+            if (arg == null) {
+                return "";
+            }
+            if (arg instanceof DlcUpdateMessage message) {
+                return message.asPlainString();
+            }
+            return String.valueOf(arg);
+        }
     }
 
     public static UpdateCheckResult checkForUpdates() {
@@ -175,27 +249,35 @@ public final class DlcUpdateService {
         }
     }
 
-    public static Component toFailureComponent(UpdateApplyResult result) {
-        String message = result == null ? "" : result.getMessage();
-        if (message == null || message.isBlank()) {
-            return Component.translatable("dlc_manager.update.failed");
-        }
-        if ("Version mismatch".equalsIgnoreCase(message.trim())) {
-            return Component.translatable("dlc_manager.update.failed_version_mismatch");
-        }
-        return Component.literal(message);
+    public static String toFailureMessage(UpdateApplyResult result) {
+        return toFailureUpdateMessage(result).asPlainString();
     }
 
-    public static Component toImportValidationComponent(ImportValidationResult result) {
+    public static DlcUpdateMessage toFailureUpdateMessage(UpdateApplyResult result) {
+        String message = result == null ? "" : result.getMessage();
+        if (message == null || message.isBlank()) {
+            return DlcUpdateMessage.translatable("dlc_manager.update.failed");
+        }
+        if ("Version mismatch".equalsIgnoreCase(message.trim())) {
+            return DlcUpdateMessage.translatable("dlc_manager.update.failed_version_mismatch");
+        }
+        return DlcUpdateMessage.literal(message);
+    }
+
+    public static String toImportValidationMessage(ImportValidationResult result) {
+        return toImportValidationUpdateMessage(result).asPlainString();
+    }
+
+    public static DlcUpdateMessage toImportValidationUpdateMessage(ImportValidationResult result) {
         if (result == null) {
-            return Component.translatable("dlc_manager.update.import_invalid");
+            return DlcUpdateMessage.translatable("dlc_manager.update.import_invalid");
         }
         return switch (result) {
-            case VALID -> Component.empty();
-            case DLC_ROOT_MISSING -> Component.translatable("dlc_manager.update.dlc_root_missing");
-            case PLATFORM_MISMATCH -> Component.translatable("dlc_manager.update.import_platform_mismatch");
-            case VERSION_MISMATCH -> Component.translatable("dlc_manager.update.import_version_mismatch");
-            case INVALID_PACKAGE -> Component.translatable("dlc_manager.update.import_invalid");
+            case VALID -> DlcUpdateMessage.empty();
+            case DLC_ROOT_MISSING -> DlcUpdateMessage.translatable("dlc_manager.update.dlc_root_missing");
+            case PLATFORM_MISMATCH -> DlcUpdateMessage.translatable("dlc_manager.update.import_platform_mismatch");
+            case VERSION_MISMATCH -> DlcUpdateMessage.translatable("dlc_manager.update.import_version_mismatch");
+            case INVALID_PACKAGE -> DlcUpdateMessage.translatable("dlc_manager.update.import_invalid");
         };
     }
 

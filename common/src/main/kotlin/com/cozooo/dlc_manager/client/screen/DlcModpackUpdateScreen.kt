@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Download
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.ReleaseStep
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Side
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import net.minecraft.Util
@@ -539,7 +540,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         downloading = false
         updateButtons()
         if (result == null) {
-            errorText = DlcPackReleaseUpdateService.toDownloadFailureComponent("unknown").string
+            errorText = DlcMessageAdapter.toDownloadFailureComponent("unknown").string
             return
         }
         if (result.canceled) {
@@ -549,7 +550,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
         }
         if (!result.success) {
             val reason = if (result.message.isNullOrBlank()) "failed" else result.message
-            errorText = DlcPackReleaseUpdateService.toDownloadFailureComponent(reason).string
+            errorText = DlcMessageAdapter.toDownloadFailureComponent(reason).string
             return
         }
         if (side == Side.SERVER) {

@@ -638,11 +638,16 @@ public final class DlcPresetRuntimeState {
             return exact.getId();
         }
         for (DlcPresetEntry entry : PRESETS_BY_ID.values()) {
-            if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
+            if (entry == null) {
                 continue;
             }
-            if (entry.getId().equalsIgnoreCase(value)) {
-                return entry.getId();
+            String id = entry.getId();
+            if (id != null && !id.isBlank() && id.equalsIgnoreCase(value)) {
+                return id;
+            }
+            String fileName = entry.getFileName();
+            if (fileName != null && !fileName.isBlank() && fileName.equalsIgnoreCase(value)) {
+                return id;
             }
         }
         return null;

@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateState
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService
 import com.cozooo.dlc_manager.client.core.DlcFilePicker
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
@@ -565,7 +566,7 @@ class DlcServerUpdateManagerScreen(
                     return@execute
                 }
                 if (result != null && !result.error.isNullOrBlank()) {
-                    showToast(Component.translatable("dlc_manager.update.manager_title"), DlcPackReleaseUpdateService.toCheckFailureComponent(result.error))
+                    showToast(Component.translatable("dlc_manager.update.manager_title"), DlcMessageAdapter.toCheckFailureComponent(result.error))
                     return@execute
                 }
                 showToast(Component.translatable("dlc_manager.update.manager_title"), Component.translatable("dlc_manager.pack_update.no_updates"))
