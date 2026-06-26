@@ -22,7 +22,7 @@ object DlcConfig {
     const val DEFAULT_CONFIG_BUTTON_SHOWN: Boolean = false
     const val DEFAULT_U_BUTTON_SHOWN: Boolean = true
     const val DEFAULT_UPDATE_MANAGER_ON: Boolean = true
-    const val DEFAULT_SELF_UPDATE_AUTO_CHECK_ON: Boolean = true
+    const val DEFAULT_SELF_UPDATE_AUTO_CHECK_ON: Boolean = false
     const val DEFAULT_PRESET_FUNC_ON: Boolean = true
     const val DEFAULT_PACK_FUNC_ON: Boolean = true
     const val DEFAULT_P_BUTTON_SHOWN: Boolean = true
