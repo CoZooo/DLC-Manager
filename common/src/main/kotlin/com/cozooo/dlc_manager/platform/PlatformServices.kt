@@ -13,6 +13,9 @@ object PlatformServices {
         fun mcVersion(): String
         fun modVersion(modId: String?): String
         fun modFilePath(modId: String?): Path?
+        fun isResourcePackSelected(fileName: String?): Boolean {
+            return false
+        }
         fun playerName(): String
         fun playerUuid(): String
     }

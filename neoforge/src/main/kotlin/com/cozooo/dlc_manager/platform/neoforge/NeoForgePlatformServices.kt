@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.platform.neoforge
 
+import com.cozooo.dlc_manager.client.DlcMinecraftSupport
 import com.cozooo.dlc_manager.platform.PlatformServices
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
@@ -86,6 +87,10 @@ class NeoForgePlatformServices : PlatformServices.Provider {
         } catch (_: Exception) {
             null
         }
+    }
+
+    override fun isResourcePackSelected(fileName: String?): Boolean {
+        return DlcMinecraftSupport.isResourcePackSelected(fileName)
     }
 
     override fun playerName(): String {

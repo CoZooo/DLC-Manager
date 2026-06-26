@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.platform.fabric;
 
+import com.cozooo.dlc_manager.client.DlcMinecraftSupport;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -96,6 +97,11 @@ public final class FabricPlatformServices implements PlatformServices.Provider {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    @Override
+    public boolean isResourcePackSelected(String fileName) {
+        return DlcMinecraftSupport.isResourcePackSelected(fileName);
     }
 
     @Override

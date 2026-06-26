@@ -2,8 +2,6 @@ package com.cozooo.dlc_manager.core;
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
-import net.minecraft.client.Minecraft;
-import net.minecraft.server.packs.repository.PackRepository;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -330,7 +328,7 @@ public class DlcScanner {
             default -> List.of();
         };
         if (type == DlcType.RESOURCE_PACK) {
-            return isResourcePackSelected(fileName);
+            return PlatformServices.get().isResourcePackSelected(fileName);
         }
         if (targetDirs.isEmpty()) {
             return false;
@@ -430,50 +428,6 @@ public class DlcScanner {
             return legacyBackup;
         }
         return null;
-    }
-
-    private boolean isResourcePackSelected(String fileName) {
-        try {
-            Minecraft minecraft = Minecraft.getInstance();
-            PackRepository repo = minecraft.getResourcePackRepository();
-            String packId = resolvePackId(repo, fileName);
-            if (packId == null) {
-                return false;
-            }
-            return repo.getSelectedIds().contains(packId);
-        } catch (Throwable ignored) {
-            return false;
-        }
-    }
-
-    private String resolvePackId(PackRepository repo, String fileName) {
-        if (repo == null) {
-            return null;
-        }
-        String stripped = stripArchiveExtension(fileName);
-        String[] candidates = new String[] {
-            "file/" + fileName,
-            "file/" + stripped,
-            "vanilla/" + fileName,
-            "vanilla/" + stripped
-        };
-        for (String candidate : candidates) {
-            if (repo.getPack(candidate) != null) {
-                return candidate;
-            }
-        }
-        return repo.getAvailableIds().stream()
-            .filter(id -> id.endsWith("/" + fileName) || id.endsWith("/" + stripped))
-            .findFirst()
-            .orElse(null);
-    }
-
-    private String stripArchiveExtension(String fileName) {
-        String lower = fileName.toLowerCase();
-        if (lower.endsWith(".zip") || lower.endsWith(".jar")) {
-            return fileName.substring(0, fileName.length() - 4);
-        }
-        return fileName;
     }
 
     private Map<String, String> buildGroupedOwners(Map<String, DlcTooltipLoader.TooltipData> tooltips) {
