@@ -1,13 +1,10 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
-import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
-import com.cozooo.dlc_manager.client.download.DlcDownloadService;
-import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.DlcClientRuntime;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
+import com.cozooo.dlc_manager.client.required.DlcRequiredService;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
@@ -27,20 +24,13 @@ import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorCompletionService;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
     private static final long SWITCH_DELAY_MS = 20_000L;
@@ -57,9 +47,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
     private final boolean forceRestartRequired;
     private boolean updatePackageRequired;
     private final int maxConcurrentDownloads;
-    private final int maxRetry;
-    private final int connectTimeoutMs;
-    private final int taskTimeoutMs;
     private final Map<String, Float> progressByKey = new ConcurrentHashMap<>();
     private final Map<String, Integer> attemptByKey = new ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicInteger attemptCounter = new java.util.concurrent.atomic.AtomicInteger();
@@ -95,9 +82,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         this.forceRequired = DlcRequiredManager.hasForceMarker();
         this.forceRestartRequired = DlcRequiredManager.hasForceRestartMarker();
         this.maxConcurrentDownloads = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
-        this.maxRetry = Math.max(1, DlcConfig.getMaxRetryCount());
-        this.connectTimeoutMs = Math.max(1, DlcConfig.getConnectTimeoutMs());
-        this.taskTimeoutMs = Math.max(1, DlcConfig.getTaskTimeoutMs());
     }
 
     @Override
@@ -282,60 +266,18 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void detectEntries() {
-        List<DlcRequiredEntry> missingOrApply = new ArrayList<>();
-        List<DlcRequiredEntry> download = new ArrayList<>();
         List<DlcRequiredEntry> applyCandidates = new ArrayList<>();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null) {
-                continue;
+            if (entry != null) {
+                applyCandidates.add(entry);
             }
-            applyCandidates.add(entry);
-            String fileName = entry.getRequiredFileName();
-            if (isConfigFileName(fileName)) {
-                fileName = null;
-            }
-            if (fileName == null || fileName.isBlank()) {
-                fileName = resolveFileName(entry);
-            }
-            if (isConfigFileName(fileName)) {
-                fileName = null;
-            }
-            if (isTempFileName(fileName)) {
-                fileName = null;
-            }
-            entry.setResolvedFileName(fileName);
-            boolean hasFile = fileName != null && entry.resolveRequiredPath(fileName) != null
-                && Files.exists(entry.resolveRequiredPath(fileName)) && !isTempFileName(fileName);
-            if (!hasFile && fileName == null) {
-                String base = entry.getBaseName();
-                if (base != null && !base.isBlank() && entry.getRequiredDir() != null) {
-                    try (var stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
-                        for (Path file : stream) {
-                            if (isConfigFile(entry, file)) {
-                                continue;
-                            }
-                            fileName = file.getFileName().toString();
-                            if (isTempFileName(fileName)) {
-                                continue;
-                            }
-                            entry.setResolvedFileName(fileName);
-                            hasFile = true;
-                            break;
-                        }
-                    } catch (IOException ignored) {
-                    }
-                }
-            }
-            if (!hasFile) {
-                download.add(entry);
+        }
+        List<DlcRequiredEntry> download = DlcRequiredService.collectMissingDownloads(applyCandidates);
+        List<DlcRequiredEntry> needsApply = DlcRequiredService.collectNeedsApply(applyCandidates);
+        List<DlcRequiredEntry> missingOrApply = new ArrayList<>();
+        for (DlcRequiredEntry entry : applyCandidates) {
+            if (download.contains(entry) || needsApply.contains(entry)) {
                 missingOrApply.add(entry);
-            } else {
-                if (DlcRequiredManager.entryNeedsApply(entry)) {
-                    missingOrApply.add(entry);
-                }
-                if (fileName != null && !fileName.isBlank()) {
-                    DlcRequiredManager.ensureFileNameKey(entry, fileName);
-                }
             }
         }
         displayList.clear();
@@ -473,7 +415,93 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         List<DlcRequiredEntry> pending = new ArrayList<>(downloadQueue);
         totalCount = pending.size();
         completedCount = 0;
-        List<DlcRequiredEntry> failed = runDownloadBatch(pending);
+        DlcRequiredService.BatchResult result;
+        try {
+            result = DlcRequiredService.downloadAll(pending, new DlcRequiredService.BatchProgressListener() {
+                @Override
+                public void onEntryStart(DlcRequiredEntry entry, int index, int total) {
+                    String key = progressKey(entry);
+                    if (maxConcurrentDownloads <= 1) {
+                        activeDownloadEntry = entry;
+                        statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                    } else {
+                        statusText = Component.translatable("dlc_manager.required.downloading_multi").getString();
+                    }
+                }
+
+                @Override
+                public void onEntryAttemptStart(DlcRequiredEntry entry, int attemptId, int index, int total) {
+                    String key = progressKey(entry);
+                    attemptByKey.put(key, attemptId);
+                    markDownloadStart(key);
+                    if (maxConcurrentDownloads <= 1) {
+                        activeDownloadEntry = entry;
+                    }
+                }
+
+                @Override
+                public void onEntryProgress(DlcRequiredEntry entry, long downloadedBytes, long totalBytes) {
+                    if (totalBytes > 0) {
+                        String key = progressKey(entry);
+                        Integer attemptId = attemptByKey.get(key);
+                        setEntryProgress(key, attemptId == null ? 0 : attemptId, Math.min(1f, downloadedBytes / (float) totalBytes));
+                    }
+                }
+
+                @Override
+                public void onEntryStatus(DlcRequiredEntry entry, String statusKey, int completed, int total) {
+                    if ("selecting_source".equals(statusKey)) {
+                        statusText = Component.translatable("dlc_manager.required.selecting_source").getString();
+                    } else if (maxConcurrentDownloads <= 1 && entry != null) {
+                        statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
+                    } else {
+                        statusText = Component.translatable("dlc_manager.required.downloading_multi").getString();
+                    }
+                }
+
+                @Override
+                public void onEntrySuccess(DlcRequiredEntry entry, String fileName, int completed, int total) {
+                    completedCount = completed;
+                    downloadedAny = true;
+                    String key = progressKey(entry);
+                    Integer attemptId = attemptByKey.get(key);
+                    setEntryProgress(key, attemptId == null ? 0 : attemptId, 1f);
+                }
+
+                @Override
+                public void onEntryFailure(DlcRequiredEntry entry, Throwable error, int completed, int total) {
+                    completedCount = completed;
+                    errorText = Component.translatable("dlc_manager.required.error", error == null ? "" : error.getMessage()).getString();
+                }
+
+                @Override
+                public void onEntryComplete(DlcRequiredEntry entry) {
+                    String key = progressKey(entry);
+                    downloadStartByKey.remove(key);
+                    switchRequested.remove(key);
+                    if (activeDownloadEntry == entry) {
+                        activeDownloadEntry = null;
+                    }
+                }
+            }, () -> cancelRequested, new DlcRequiredService.SourceSwitchChecker() {
+                @Override
+                public boolean isSwitchRequested(DlcRequiredEntry entry) {
+                    return DlcRequiredDownloadScreen.this.isSwitchRequested(progressKey(entry));
+                }
+
+                @Override
+                public void clearSwitchRequest(DlcRequiredEntry entry) {
+                    DlcRequiredDownloadScreen.this.clearSwitchRequest(progressKey(entry));
+                }
+            });
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            cancelRequested = true;
+            result = new DlcRequiredService.BatchResult(pending.size(), 0,
+                List.of(new DlcRequiredService.EntryError(null, e)));
+        } finally {
+            activeDownloadEntry = null;
+        }
         if (cancelRequested) {
             downloading = false;
             statusText = Component.translatable("dlc_manager.required.canceled").getString();
@@ -486,22 +514,7 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             });
             return;
         }
-        if (!failed.isEmpty()) {
-            failed = runDownloadBatch(failed);
-        }
-        if (cancelRequested) {
-            downloading = false;
-            statusText = Component.translatable("dlc_manager.required.canceled").getString();
-            Minecraft.getInstance().execute(() -> {
-                updateDownloadButtonLabel(false);
-                downloadButton.active = true;
-                if (!forceRequired) {
-                    skipButton.active = true;
-                }
-            });
-            return;
-        }
-        if (!failed.isEmpty()) {
+        if (!result.errors.isEmpty()) {
             downloading = false;
             Minecraft.getInstance().execute(() -> {
                 updateDownloadButtonLabel(false);
@@ -541,243 +554,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         downloading = false;
     }
 
-    private List<DlcRequiredEntry> runDownloadBatch(List<DlcRequiredEntry> pending) {
-        List<DlcRequiredEntry> failed = new ArrayList<>();
-        if (pending.isEmpty()) {
-            return failed;
-        }
-        if (cancelRequested) {
-            return failed;
-        }
-        if (maxConcurrentDownloads <= 1) {
-            for (DlcRequiredEntry entry : pending) {
-                if (cancelRequested) {
-                    break;
-                }
-                statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
-                try {
-                    downloadEntry(entry);
-                    completedCount++;
-                    if (cancelRequested) {
-                        break;
-                    }
-                } catch (Exception e) {
-                    if (e instanceof DownloadCanceledException) {
-                        cancelRequested = true;
-                        break;
-                    }
-                    failed.add(entry);
-                    errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
-                }
-            }
-            return failed;
-        }
-        ExecutorService executor = Executors.newFixedThreadPool(maxConcurrentDownloads);
-        ExecutorCompletionService<DownloadResult> completion = new ExecutorCompletionService<>(executor);
-        for (DlcRequiredEntry entry : pending) {
-            completion.submit(() -> downloadEntryWithResult(entry));
-        }
-        for (int i = 0; i < pending.size(); i++) {
-            try {
-                Future<DownloadResult> future = completion.take();
-                DownloadResult result = future.get();
-                if (result.canceled) {
-                    cancelRequested = true;
-                } else if (result.success) {
-                    completedCount++;
-                } else {
-                    failed.add(result.entry);
-                    if (result.error != null) {
-                        errorText = Component.translatable("dlc_manager.required.error", result.error.getMessage()).getString();
-                    }
-                }
-            } catch (Exception e) {
-                if (e instanceof DownloadCanceledException) {
-                    cancelRequested = true;
-                } else {
-                    errorText = Component.translatable("dlc_manager.required.error", e.getMessage()).getString();
-                    failed.add(pending.get(i));
-                }
-            }
-            if (cancelRequested) {
-                break;
-            }
-        }
-        executor.shutdownNow();
-        return failed;
-    }
-
-    private DownloadResult downloadEntryWithResult(DlcRequiredEntry entry) {
-        try {
-            downloadEntry(entry);
-            return new DownloadResult(entry, true, false, null);
-        } catch (DownloadCanceledException e) {
-            return new DownloadResult(entry, false, true, null);
-        } catch (Exception e) {
-            return new DownloadResult(entry, false, false, e);
-        }
-    }
-
-    private void downloadEntry(DlcRequiredEntry entry) throws IOException, InterruptedException {
-        if (entry == null) {
-            return;
-        }
-        checkCanceled();
-        currentProgress = 0f;
-        String progressKey = progressKey(entry);
-        if (maxConcurrentDownloads <= 1) {
-            activeDownloadEntry = entry;
-        }
-        try {
-            DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
-            IOException lastError = null;
-            int attemptId = 0;
-            boolean canceled = false;
-            List<DlcDownloadCandidate> candidates;
-            while (!(candidates = resolver.next()).isEmpty()) {
-                for (DlcDownloadCandidate candidate : candidates) {
-                for (int attempt = 1; attempt <= maxRetry; attempt++) {
-                    try {
-                        checkCanceled();
-                        attemptId = attemptCounter.incrementAndGet();
-                        attemptByKey.put(progressKey, attemptId);
-                        markDownloadStart(progressKey);
-                        String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
-                        if (fileName == null && candidate.fileNameOverride != null) {
-                            fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
-                        }
-                        if (fileName == null) {
-                            fileName = DlcDownloadUtil.sanitizeFileName(DlcDownloadUtil.extractFileNameFromUrl(candidate.url));
-                        }
-                        DownloadInfo downloadInfo = null;
-                        boolean shouldProbe = candidate.direct || !DlcDownloadUtil.isLikelyFileName(fileName);
-                        if (shouldProbe) {
-                            downloadInfo = openDownload(candidate.url, 0);
-                            if (fileName == null) {
-                                fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName);
-                            }
-                            closeQuietly(downloadInfo.connection);
-                        }
-                        if (fileName == null) {
-                            fileName = DlcDownloadService.suggestFileName(candidate.url);
-                        }
-                        if (fileName == null) {
-                            fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
-                        }
-                        Path target = entry.resolveRequiredPath(fileName);
-                        if (target == null) {
-                            throw new IOException("invalid target path");
-                        }
-                        Files.createDirectories(target.getParent());
-                        if (Files.exists(target)) {
-                            entry.setResolvedFileName(fileName);
-                            setEntryProgress(progressKey, attemptId, 1f);
-                            return;
-                        }
-                        final int currentAttemptId = attemptId;
-                        Path downloaded = shouldProbe
-                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName,
-                                progressListener(progressKey, currentAttemptId, entry),
-                                () -> cancelRequested || isSwitchRequested(progressKey))
-                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize,
-                                progressListener(progressKey, currentAttemptId, entry),
-                                () -> cancelRequested || isSwitchRequested(progressKey));
-                        Path resolved = downloaded.equals(target)
-                            ? downloaded
-                            : Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING);
-                        verifyDownloadedFile(resolved, candidate, downloadInfo);
-                        downloadedAny = true;
-                        setEntryProgress(progressKey, currentAttemptId, 1f);
-                        entry.setResolvedFileName(fileName);
-                        DlcRequiredManager.updateFileNameKey(entry, fileName);
-                        return;
-                    } catch (DlcDownloadService.DownloadCanceledException ex) {
-                        if (isSwitchRequested(progressKey)) {
-                            lastError = new DownloadSwitchException("switch");
-                            clearSwitchRequest(progressKey);
-                            if (!canceled) {
-                                setEntryProgress(progressKey, attemptId, 0f);
-                            }
-                            break;
-                        }
-                        canceled = true;
-                        throw new DownloadCanceledException("canceled");
-                    } catch (DownloadCanceledException ex) {
-                        canceled = true;
-                        throw ex;
-                    } catch (IOException ex) {
-                        if (isSwitchException(ex)) {
-                            lastError = ex;
-                            clearSwitchRequest(progressKey);
-                            if (!canceled) {
-                                setEntryProgress(progressKey, attemptId, 0f);
-                            }
-                            break;
-                        }
-                        if (ex.getCause() instanceof DownloadCanceledException) {
-                            canceled = true;
-                            throw (DownloadCanceledException) ex.getCause();
-                        }
-                        lastError = ex;
-                        if (ex instanceof DlcDownloadService.SegmentDownloadException) {
-                            if (!canceled) {
-                                setEntryProgress(progressKey, attemptId, 0f);
-                            }
-                            break;
-                        }
-                        if (attempt >= maxRetry) {
-                            if (!canceled) {
-                                setEntryProgress(progressKey, attemptId, 0f);
-                            }
-                        }
-                    }
-                }
-            }
-            }
-            if (cancelRequested || canceled) {
-                throw new DownloadCanceledException("canceled");
-            }
-            if (attemptId > 0) {
-                setEntryProgress(progressKey, attemptId, 0f);
-            }
-            if (lastError == null) {
-                lastError = resolver.lastError();
-            }
-            if (lastError != null) {
-                throw lastError;
-            }
-            throw new IOException("missing download url");
-        } finally {
-            downloadStartByKey.remove(progressKey);
-            switchRequested.remove(progressKey);
-            if (activeDownloadEntry == entry) {
-                activeDownloadEntry = null;
-            }
-        }
-    }
-
-    private DlcDownloadService.ProgressListener progressListener(String progressKey, int attemptId, DlcRequiredEntry entry) {
-        return new DlcDownloadService.StatusProgressListener() {
-            @Override
-            public void onProgress(long done, long total) {
-                if (total > 0) {
-                    setEntryProgress(progressKey, attemptId, Math.min(1f, done / (float) total));
-                }
-            }
-
-            @Override
-            public void onStatusKey(String statusKey) {
-                if ("selecting_source".equals(statusKey)) {
-                    statusText = Component.translatable("dlc_manager.required.selecting_source").getString();
-                } else if (maxConcurrentDownloads <= 1 && entry != null) {
-                    statusText = Component.translatable("dlc_manager.required.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).getString();
-                } else {
-                    statusText = Component.translatable("dlc_manager.required.downloading_multi").getString();
-                }
-            }
-        };
-    }
-
     private void applyAll() throws IOException {
         Minecraft minecraft = Minecraft.getInstance();
         boolean didApply = downloadedAny;
@@ -798,42 +574,12 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             DlcRequiredRuntimeState.getBaseline(id, baselines.get(id));
         }
         for (DlcRequiredEntry entry : applyQueue) {
-            String fileName = entry.getResolvedFileName();
-            if (fileName == null || fileName.isBlank()) {
-                continue;
-            }
-            Path source = entry.resolveRequiredPath(fileName);
-            if (source == null || !Files.exists(source)) {
-                continue;
-            }
-            if (entry.resolveAppliedTargets().isEmpty()) {
-                didApply = true;
-            }
-            for (Path targetDir : entry.resolveAppliedTargets()) {
-                Path target = resolveTargetPath(targetDir, fileName);
-                if (target == null) {
-                    continue;
-                }
-                try {
-                    Files.createDirectories(target.getParent());
-                    if (!Files.exists(target)) {
-                        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-                        didApply = true;
-                    }
-                } catch (IOException ignored) {
-                }
-            }
-        }
-        for (DlcRequiredEntry entry : applyQueue) {
             if (entry == null) {
                 continue;
             }
-            String id = entry.getIdentifier();
-            if (id == null || id.isBlank()) {
-                continue;
+            if (DlcRequiredService.installOne(entry)) {
+                didApply = true;
             }
-            DlcRequiredManager.updateUserRemoved(entry, false);
-            DlcRequiredRuntimeState.setOverride(id, true);
         }
         if (updatePackageRequired) {
             UpdateCheckResult updateCheck = DlcUpdateService.checkForUpdates(true);
@@ -1133,33 +879,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         return fileName;
     }
 
-    private String resolveFileName(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return null;
-        }
-        DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
-        try {
-            List<DlcDownloadCandidate> candidates;
-            while (!(candidates = resolver.next()).isEmpty()) {
-                for (DlcDownloadCandidate candidate : candidates) {
-                    String name = candidate.fileNameOverride;
-                    if (!DlcDownloadUtil.isLikelyFileName(name) && candidate.direct) {
-                        name = DlcDownloadUtil.extractFileNameFromUrl(candidate.url);
-                    }
-                    name = DlcDownloadUtil.sanitizeFileName(name);
-                    if (DlcDownloadUtil.isLikelyFileName(name)) {
-                        return name;
-                    }
-                }
-            }
-        } catch (IOException | InterruptedException ignored) {
-            if (Thread.currentThread().isInterrupted()) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        return null;
-    }
-
     private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
         if (maxScroll <= 0 || totalLines <= maxVisible) {
             return;
@@ -1182,12 +901,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         guiGraphics.fill(x, y, x + filled, y + height, fg);
     }
 
-    private void checkCanceled() throws DownloadCanceledException {
-        if (cancelRequested) {
-            throw new DownloadCanceledException("canceled");
-        }
-    }
-
     private void markDownloadStart(String key) {
         if (key == null) {
             return;
@@ -1203,13 +916,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         if (key != null) {
             switchRequested.remove(key);
         }
-    }
-
-    private boolean isSwitchException(IOException ex) {
-        if (ex instanceof DownloadSwitchException) {
-            return true;
-        }
-        return ex.getCause() instanceof DownloadSwitchException;
     }
 
     private boolean hasMultipleSources(DlcRequiredEntry entry) {
@@ -1291,7 +997,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             int row = i - scrollIndex;
             int rowY = listTop + row * lineHeight;
             int barWidth = 36;
-            int barHeight = 6;
             int percentBoxWidth = this.font.width("100%");
             int percentRight = this.width - 18;
             int percentLeft = percentRight - percentBoxWidth;
@@ -1308,48 +1013,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             }
         }
         return false;
-    }
-
-    private static final class DownloadSwitchException extends IOException {
-        private DownloadSwitchException(String message) {
-            super(message);
-        }
-    }
-
-    private static final class DownloadCanceledException extends IOException {
-        private DownloadCanceledException(String message) {
-            super(message);
-        }
-    }
-
-    private DownloadInfo openDownload(String url, long offset) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) URI.create(url).toURL().openConnection();
-        connection.setInstanceFollowRedirects(true);
-        connection.setConnectTimeout(connectTimeoutMs);
-        connection.setReadTimeout(taskTimeoutMs);
-        connection.setRequestProperty("User-Agent", "DLC-Manager");
-        if (offset > 0) {
-            connection.setRequestProperty("Range", "bytes=" + offset + "-");
-        }
-        connection.connect();
-        String fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection);
-        if (fileName == null || fileName.isBlank()) {
-            fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.getURL().toString());
-        }
-        int responseCode = connection.getResponseCode();
-        long contentLength = connection.getContentLengthLong();
-        long totalBytes = contentLength > 0 ? contentLength + Math.max(0, offset) : -1L;
-        String contentMd5 = connection.getHeaderField("Content-MD5");
-        return new DownloadInfo(connection, fileName, responseCode, totalBytes, contentMd5);
-    }
-
-    private void closeQuietly(HttpURLConnection connection) {
-        if (connection != null) {
-            try {
-                connection.disconnect();
-            } catch (Exception ignored) {
-            }
-        }
     }
 
     private void initProgressMap(List<DlcRequiredEntry> pending) {
@@ -1405,83 +1068,4 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         return suffix;
     }
 
-    private static final class DownloadResult {
-        private final DlcRequiredEntry entry;
-        private final boolean success;
-        private final boolean canceled;
-        private final Exception error;
-
-        private DownloadResult(DlcRequiredEntry entry, boolean success, boolean canceled, Exception error) {
-            this.entry = entry;
-            this.success = success;
-            this.canceled = canceled;
-            this.error = error;
-        }
-    }
-
-    private static final class DownloadInfo {
-        private final HttpURLConnection connection;
-        private final String fileName;
-        private final int responseCode;
-        private final long totalBytes;
-        private final String contentMd5;
-
-        private DownloadInfo(HttpURLConnection connection, String fileName, int responseCode, long totalBytes, String contentMd5) {
-            this.connection = connection;
-            this.fileName = fileName;
-            this.responseCode = responseCode;
-            this.totalBytes = totalBytes;
-            this.contentMd5 = contentMd5;
-        }
-    }
-
-    private void verifyDownloadedFile(Path tempFile, DlcDownloadCandidate candidate, DownloadInfo info) throws IOException {
-        checkCanceled();
-        String hashType = candidate == null ? null : candidate.hashType;
-        String hashValue = candidate == null ? null : candidate.hashValue;
-        if (hashType != null && hashValue != null && !hashValue.isBlank()) {
-            String algorithm = mapHashAlgorithm(hashType);
-            String actual = DlcDownloadUtil.computeHashHex(tempFile, algorithm);
-            if (actual == null || !actual.equalsIgnoreCase(DlcDownloadUtil.normalizeHash(hashValue))) {
-                Files.deleteIfExists(tempFile);
-                throw new IOException("hash mismatch");
-            }
-            return;
-        }
-        if (info != null && info.contentMd5 != null && !info.contentMd5.isBlank()) {
-            String expected = DlcDownloadUtil.normalizeHash(info.contentMd5);
-            String actualHex = DlcDownloadUtil.computeHashHex(tempFile, "MD5");
-            String actualBase64 = DlcDownloadUtil.computeMd5Base64(tempFile);
-            if (actualHex == null || actualBase64 == null
-                || (!expected.equalsIgnoreCase(actualHex) && !expected.equalsIgnoreCase(actualBase64))) {
-                Files.deleteIfExists(tempFile);
-                throw new IOException("hash mismatch");
-            }
-            return;
-        }
-        long expectedSize = candidate == null ? -1L : candidate.expectedSize;
-        if (expectedSize <= 0 && info != null && info.totalBytes > 0) {
-            expectedSize = info.totalBytes;
-        }
-        if (expectedSize > 0) {
-            long size = Files.size(tempFile);
-            if (size != expectedSize) {
-                Files.deleteIfExists(tempFile);
-                throw new IOException("size mismatch");
-            }
-        }
-    }
-
-    private String mapHashAlgorithm(String hashType) {
-        if (hashType == null) {
-            return null;
-        }
-        return switch (hashType.toLowerCase(java.util.Locale.ROOT)) {
-            case "sha1", "sha-1" -> "SHA-1";
-            case "sha256", "sha-256" -> "SHA-256";
-            case "sha512", "sha-512" -> "SHA-512";
-            case "md5" -> "MD5";
-            default -> hashType;
-        };
-    }
 }
