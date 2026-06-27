@@ -22,6 +22,42 @@
     -fx-background-color: -dlc-bg;
 }
 
+.dlc-workspace-root {
+    -fx-background-color: -dlc-bg;
+}
+
+.dlc-mode-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.dlc-mode-title,
+.dlc-hero-title,
+.dlc-workspace-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-weight: 700;
+}
+
+.dlc-hero-title {
+    -fx-font-size: 24px;
+}
+
+.dlc-mode-title,
+.dlc-workspace-title {
+    -fx-font-size: 18px;
+}
+
+.dlc-action-form {
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
 .dlc-status-root {
     -fx-background-color: #eef2f8;
     -fx-border-color: -dlc-border;

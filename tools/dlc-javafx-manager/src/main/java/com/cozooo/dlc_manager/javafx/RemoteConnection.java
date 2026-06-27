@@ -27,6 +27,8 @@ final class RemoteConnection {
 
     private volatile DlcTcpFacade facade;
     private volatile SyncModels.ServerInfo lastServerInfo;
+    private volatile String connectedHost;
+    private volatile int connectedPort;
 
     BooleanProperty connectedProperty() { return connected; }
     StringProperty statusTextProperty() { return statusText; }
@@ -44,6 +46,8 @@ final class RemoteConnection {
                 SyncModels.ServerInfo info = f.fetchList();
                 facade = f;
                 lastServerInfo = info;
+                connectedHost = host;
+                connectedPort = port;
                 Platform.runLater(() -> {
                     connected.set(true);
                     statusText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.connected_to", host, port));
@@ -64,12 +68,29 @@ final class RemoteConnection {
         DlcTcpFacade f = facade;
         facade = null;
         lastServerInfo = null;
+        connectedHost = null;
+        connectedPort = 0;
         if (f != null) {
             try { f.close(); } catch (Exception ignored) {}
         }
         connected.set(false);
         statusText.set(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
         serverInfoText.set("");
+    }
+
+    void refreshLanguage() {
+        if (connected.get()) {
+            String host = connectedHost == null ? "" : connectedHost;
+            statusText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.connected_to", host, connectedPort));
+            SyncModels.ServerInfo info = lastServerInfo;
+            if (info != null) {
+                serverInfoText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.server_info_value",
+                        info.baseVersion, info.dlcVersion, info.remoteMissing, info.requiredMissing));
+            }
+        } else {
+            statusText.set(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+            serverInfoText.set("");
+        }
     }
 
     /**

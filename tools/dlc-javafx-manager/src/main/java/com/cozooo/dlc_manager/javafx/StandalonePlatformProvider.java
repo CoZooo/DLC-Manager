@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
@@ -29,6 +30,7 @@ public final class StandalonePlatformProvider implements PlatformServices.Provid
 
     private volatile Path gameDir;
     private volatile Path configDir;
+    private volatile String languageOverride;
 
     public StandalonePlatformProvider() {
         // Default to the current working directory until the user picks one.
@@ -91,8 +93,28 @@ public final class StandalonePlatformProvider implements PlatformServices.Provid
 
     @Override
     public String languageCode() {
+        if (languageOverride != null && !languageOverride.isBlank()) {
+            return languageOverride;
+        }
         String lang = readOptionValue("lang");
-        return lang == null || lang.isBlank() ? "en_us" : lang;
+        return lang == null || lang.isBlank() ? systemLanguageCode() : lang;
+    }
+
+    public void setLanguageOverride(String languageOverride) {
+        this.languageOverride = languageOverride == null || languageOverride.isBlank() ? null : languageOverride;
+    }
+
+    public String languageOverride() {
+        return languageOverride;
+    }
+
+    private static String systemLanguageCode() {
+        Locale locale = Locale.getDefault();
+        String language = locale.getLanguage();
+        if ("zh".equalsIgnoreCase(language)) {
+            return "zh_cn";
+        }
+        return "en_us";
     }
 
     @Override
