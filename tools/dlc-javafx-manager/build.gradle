@@ -167,6 +167,12 @@ def jpackageBin() {
     return cmd
 }
 
+def appIconPngFile = file('src/main/resources/assets/dlc_manager/textures/gui/icon.png')
+def appIconIcnsFile = file('src/main/resources/assets/dlc_manager/textures/gui/icon.icns')
+def appIconIcoFile = file('src/main/resources/assets/dlc_manager/textures/gui/icon.ico')
+def appDisplayName = 'DLC Manager'
+def appIdentifier = 'com.cozooo.dlcmanager'
+
 tasks.register('jpackageImage') {
     group = 'distribution'
     description = 'Build a native application image with bundled JRE.'
@@ -182,16 +188,31 @@ tasks.register('jpackageImage') {
         def appDir = file("${buildDir}/install/${project.name}")
         exec {
             executable cmd.absolutePath
-            args '--name', project.name
+            args '--name', appDisplayName
             args '--input', "${appDir}/lib".toString()
             args '--main-jar', "${project.name}.jar".toString()
             args '--main-class', application.mainClass.get()
             args '--type', 'app-image'
             args '--dest', outputDir.absolutePath
+            def osName = System.getProperty('os.name', '').toLowerCase(Locale.ROOT)
+            def isMacOs = osName.contains('mac')
+            def packageIconFile = appIconPngFile
+            if (isMacOs && appIconIcnsFile.exists()) {
+                packageIconFile = appIconIcnsFile
+            } else if (osName.contains('windows') && appIconIcoFile.exists()) {
+                packageIconFile = appIconIcoFile
+            }
+            if (packageIconFile.exists()) {
+                args '--icon', packageIconFile.absolutePath
+            }
             // Add JavaFX jars as module path so JavaFX loads as proper modules
             args '--module-path', "${appDir}/lib".toString()
-            args '--add-modules', 'javafx.controls,javafx.fxml,javafx.graphics'
+            args '--add-modules', 'javafx.controls,javafx.fxml,javafx.graphics,java.desktop'
             args '--java-options', '-Dfile.encoding=UTF-8'
+            if (isMacOs) {
+                args '--mac-package-identifier', appIdentifier
+                args '--mac-package-name', appDisplayName
+            }
             args '--verbose'
         }
     }

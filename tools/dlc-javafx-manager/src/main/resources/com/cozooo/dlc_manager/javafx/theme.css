@@ -87,7 +87,7 @@
 }
 
 .tab-pane > .tab-header-area {
-    -fx-padding: 10 12 8 12;
+    -fx-padding: 10 12 0 12;
 }
 
 .tab-pane > .tab-header-area > .tab-header-background {
@@ -95,17 +95,25 @@
 }
 
 .tab-pane > .tab-header-area > .headers-region > .tab {
-    -fx-background-color: #eef2f8;
-    -fx-background-radius: 999;
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
     -fx-border-color: transparent;
-    -fx-border-width: 0;
-    -fx-padding: 7 14;
+    -fx-border-width: 0 0 2 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-padding: 8 14 9 14;
 }
 
 .tab-pane > .tab-header-area > .headers-region > .tab:selected {
-    -fx-background-color: #dbeafe;
-    -fx-border-color: #93b4e8;
-    -fx-border-width: 1;
+    -fx-background-color: #f8fbff;
+    -fx-border-color: transparent transparent -dlc-accent transparent;
+    -fx-border-width: 0 0 2 0;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-background-insets: 0;
 }
 
 .tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
@@ -119,8 +127,8 @@
 
 .tab-pane > .tab-content-area {
     -fx-background-color: -dlc-panel;
-    -fx-border-color: transparent;
-    -fx-border-width: 0;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1 0 0 0;
 }
 
 .dlc-view {
@@ -213,6 +221,8 @@
     -fx-border-color: -dlc-border-strong;
     -fx-border-radius: 6;
     -fx-background-radius: 6;
+    -fx-min-height: 32px;
+    -fx-pref-height: 32px;
 }
 
 .code-editor {
@@ -221,7 +231,7 @@
 
 .text-field,
 .combo-box-base {
-    -fx-padding: 6 8;
+    -fx-padding: 0 8;
 }
 
 .text-field:focused,
@@ -237,6 +247,15 @@
 
 .combo-box-base,
 .combo-box-base .list-cell {
+    -fx-text-fill: -dlc-text;
+}
+
+.combo-box-base > .list-cell,
+.combo-box-base:showing > .list-cell,
+.combo-box-base:focused > .list-cell {
+    -fx-background-color: transparent;
+    -fx-effect: null;
+    -fx-padding: 0 2;
     -fx-text-fill: -dlc-text;
 }
 

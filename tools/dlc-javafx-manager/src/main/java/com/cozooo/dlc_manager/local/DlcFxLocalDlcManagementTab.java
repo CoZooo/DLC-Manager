@@ -178,15 +178,13 @@ public final class DlcFxLocalDlcManagementTab {
         applyActions.setAlignment(Pos.CENTER_LEFT);
         VBox selectionBox = new VBox(8, selectionTitle, selectionActions);
         VBox applyBox = new VBox(8, applyTitle, applyActions);
-        HBox actionPanel = new HBox(18, selectionBox, applyBox);
+        HBox actionPanel = new HBox(18, selectionBox, applyBox, progressBar, statusLabel);
         HBox.setHgrow(selectionBox, Priority.ALWAYS);
         HBox.setHgrow(applyBox, Priority.ALWAYS);
+        actionPanel.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.actionPanel(actionPanel);
-
-        HBox statusBox = new HBox(8, progressBar, statusLabel);
-        statusBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(statusBox);
-        root.setBottom(new VBox(actionPanel, statusBox));
+        DlcFxStyle.routeStatus(statusLabel);
+        root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;

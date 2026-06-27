@@ -32,6 +32,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -40,7 +41,12 @@ import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
+import javax.imageio.ImageIO;
+import java.awt.GraphicsEnvironment;
+import java.awt.Taskbar;
 import java.io.File;
+import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Path;
 
 /**
@@ -114,13 +120,41 @@ public final class DlcFxManagerApp extends Application {
         showHome();
 
         Scene scene = new Scene(shell, 1100, 720);
-        java.net.URL css = DlcFxManagerApp.class.getResource("/com/cozooo/dlc_manager/javafx/theme.css");
+        URL css = DlcFxManagerApp.class.getResource("/com/cozooo/dlc_manager/javafx/theme.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
         }
+        installApplicationIcon(primaryStage);
         primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.javafx.window_title"));
         primaryStage.setScene(scene);
         primaryStage.show();
+    }
+
+    private void installApplicationIcon(Stage primaryStage) {
+        URL icon = DlcFxManagerApp.class.getResource("/assets/dlc_manager/textures/gui/icon.png");
+        if (icon == null) {
+            return;
+        }
+        primaryStage.getIcons().add(new Image(icon.toExternalForm()));
+        installTaskbarIcon(icon);
+    }
+
+    private void installTaskbarIcon(URL icon) {
+        try {
+            if (GraphicsEnvironment.isHeadless() || !Taskbar.isTaskbarSupported()) {
+                return;
+            }
+            Taskbar taskbar = Taskbar.getTaskbar();
+            if (!taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                return;
+            }
+            java.awt.Image awtIcon = ImageIO.read(icon);
+            if (awtIcon != null) {
+                taskbar.setIconImage(awtIcon);
+            }
+        } catch (IOException | RuntimeException | LinkageError ignored) {
+            // Icon installation is best-effort; the app should still start normally.
+        }
     }
 
     private Node buildHomeView() {
@@ -372,7 +406,9 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private javafx.scene.Node statusBar() {
-        Label localStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.ready_select_game_dir"));
+        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.javafx.status.ready"));
+        Label localStatus = new Label();
+        localStatus.textProperty().bind(DlcFxStyle.statusTextProperty());
         Label remoteStatus = new Label();
         remoteStatus.textProperty().bind(
                 remoteConnection != null ? remoteConnection.statusTextProperty() : new javafx.beans.property.SimpleStringProperty(""));

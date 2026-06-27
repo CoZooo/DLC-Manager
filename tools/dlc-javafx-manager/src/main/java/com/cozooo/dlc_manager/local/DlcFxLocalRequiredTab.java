@@ -131,16 +131,13 @@ public final class DlcFxLocalRequiredTab {
 
         VBox downloadActions = new VBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn);
         VBox installActions = new VBox(8, installTitle, applyBtn);
-        HBox actionPanel = new HBox(18, downloadActions, installActions);
+        HBox actionPanel = new HBox(18, downloadActions, installActions, progressBar, statusLabel);
         actionPanel.setAlignment(Pos.TOP_LEFT);
         HBox.setHgrow(downloadActions, Priority.ALWAYS);
         HBox.setHgrow(installActions, Priority.ALWAYS);
         DlcFxStyle.actionPanel(actionPanel);
-
-        HBox bottomBox = new HBox(8, progressBar, statusLabel);
-        bottomBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(new VBox(actionPanel, bottomBox));
+        DlcFxStyle.routeStatus(statusLabel);
+        root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;

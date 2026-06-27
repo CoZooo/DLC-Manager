@@ -109,14 +109,11 @@ public final class DlcFxLocalRemoteDownloadTab {
         Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.download_missing"));
         DlcFxStyle.actionTitle(downloadTitle);
 
-        HBox actionPanel = new HBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn);
+        HBox actionPanel = new HBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn, progressBar, statusLabel);
         actionPanel.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.actionPanel(actionPanel);
-
-        HBox bottomBox = new HBox(8, progressBar, statusLabel);
-        bottomBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(new VBox(actionPanel, bottomBox));
+        DlcFxStyle.routeStatus(statusLabel);
+        root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;

@@ -101,15 +101,13 @@ public final class DlcFxLocalPresetTab {
 
         VBox applyBox = new VBox(8, applyTitle, applyBtn);
         VBox clearBox = new VBox(8, clearTitle, clearBtn);
-        HBox actionPanel = new HBox(18, applyBox, clearBox);
+        HBox actionPanel = new HBox(18, applyBox, clearBox, statusLabel);
         HBox.setHgrow(applyBox, Priority.ALWAYS);
         HBox.setHgrow(clearBox, Priority.ALWAYS);
+        actionPanel.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.actionPanel(actionPanel);
-
-        HBox statusBox = new HBox(8, statusLabel);
-        statusBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(statusBox);
-        root.setBottom(new VBox(actionPanel, statusBox));
+        DlcFxStyle.routeStatus(statusLabel);
+        root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;

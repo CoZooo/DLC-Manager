@@ -202,13 +202,12 @@ public final class DlcFxLocalUpdateTab {
 
         Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.action_panel"));
         DlcFxStyle.actionTitle(actionTitle);
-        VBox actionPanel = new VBox(10, actionTitle, modeBar, inspector);
+        HBox progressRow = new HBox(8, progressBar, statusLabel);
+        progressRow.setAlignment(Pos.CENTER_LEFT);
+        VBox actionPanel = new VBox(8, actionTitle, modeBar, inspector, progressRow);
         DlcFxStyle.actionPanel(actionPanel);
-
-        HBox bottomBox = new HBox(8, progressBar, statusLabel);
-        bottomBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(new VBox(actionPanel, bottomBox));
+        DlcFxStyle.routeStatus(statusLabel);
+        root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;
