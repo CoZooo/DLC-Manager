@@ -99,8 +99,7 @@ public final class DlcFxRemotePackTab {
         HBox listRow = new HBox(8, listBtn, statusLabel);
         listRow.setAlignment(Pos.CENTER_LEFT);
 
-        HBox applyRow = new HBox(8,
-                new Label(DlcFxI18n.tr("dlc_manager.apply")), applyStartBtn, applyStatusBtn, applyPauseBtn, applyResumeBtn, applyCancelBtn);
+        HBox applyRow = new HBox(8, applyStartBtn, applyStatusBtn, applyPauseBtn, applyResumeBtn, applyCancelBtn);
         applyRow.setAlignment(Pos.CENTER_LEFT);
 
         VBox topBox = new VBox(8, listRow, applyRow);
@@ -231,9 +230,7 @@ public final class DlcFxRemotePackTab {
             else setActiveForm(installForm, installForm, deleteForm, uninstallForm, importForm, importUrlForm);
         });
 
-        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.pack.action_panel"));
-        DlcFxStyle.title(actionTitle);
-        VBox rightBox = new VBox(10, actionTitle, modeBar, inspector);
+        VBox rightBox = new VBox(10, modeBar, inspector);
         rightBox.setPadding(new Insets(14, 16, 14, 16));
         DlcFxStyle.section(rightBox);
         VBox.setVgrow(inspector, Priority.ALWAYS);

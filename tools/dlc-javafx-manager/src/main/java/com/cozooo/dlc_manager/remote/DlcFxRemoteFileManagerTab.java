@@ -217,9 +217,7 @@ public final class DlcFxRemoteFileManagerTab {
             }
         });
 
-        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.pack.action_panel"));
-        DlcFxStyle.actionTitle(actionTitle);
-        VBox actionPanel = new VBox(8, actionTitle, modeBar, inspector);
+        VBox actionPanel = new VBox(8, modeBar, inspector);
         DlcFxStyle.actionPanel(actionPanel);
         root.setBottom(actionPanel);
 

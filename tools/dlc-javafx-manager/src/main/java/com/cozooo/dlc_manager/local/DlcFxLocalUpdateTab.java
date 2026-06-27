@@ -42,8 +42,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -96,8 +94,6 @@ public final class DlcFxLocalUpdateTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        DlcFxStyle.title(versionLabel);
-
         refreshBtn.setOnAction(e -> checkLocalAsync());
         checkRemoteBtn.setOnAction(e -> checkRemoteAsync());
         downloadRemoteBtn.setOnAction(e -> downloadRemoteAsync());
@@ -120,7 +116,7 @@ public final class DlcFxLocalUpdateTab {
         historyView.getSelectionModel().selectedItemProperty().addListener(
                 (obs, old, sel) -> showChangelogFor(sel));
 
-        Label historyHeader = new Label(DlcFxI18n.tr("dlc_manager.update.history_header"));
+        Label historyHeader = new Label(DlcFxI18n.tr("dlc_manager.update.version_list_header"));
         DlcFxStyle.title(historyHeader);
         VBox leftBox = new VBox(4, historyHeader, historyView);
         VBox.setVgrow(historyView, Priority.ALWAYS);
@@ -139,72 +135,15 @@ public final class DlcFxLocalUpdateTab {
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
-        ToggleGroup actionGroup = new ToggleGroup();
-        ToggleButton scanMode = modeButton(DlcFxI18n.tr("dlc_manager.update.check_local"), actionGroup, true);
-        ToggleButton remoteMode = modeButton(DlcFxI18n.tr("dlc_manager.update.sync_remote"), actionGroup, false);
-        ToggleButton applyMode = modeButton(DlcFxI18n.tr("dlc_manager.update.apply"), actionGroup, false);
-        ToggleButton rollbackMode = modeButton(DlcFxI18n.tr("dlc_manager.update.rollback_selected"), actionGroup, false);
-        ToggleButton importMode = modeButton(DlcFxI18n.tr("dlc_manager.update.import_package"), actionGroup, false);
-        HBox modeBar = new HBox(6, scanMode, remoteMode, applyMode, rollbackMode, importMode);
-        modeBar.setAlignment(Pos.CENTER_LEFT);
-
-        VBox scanForm = actionForm(DlcFxI18n.tr("dlc_manager.update.check_local"), refreshBtn);
-        VBox remoteForm = actionForm(DlcFxI18n.tr("dlc_manager.update.sync_remote"),
-                new HBox(8, checkRemoteBtn, downloadRemoteBtn, cancelDownloadBtn));
-        VBox applyForm = actionForm(DlcFxI18n.tr("dlc_manager.update.apply"), applyBtn);
-        VBox rollbackForm = actionForm(DlcFxI18n.tr("dlc_manager.update.rollback_selected"), rollbackBtn);
-        VBox importForm = actionForm(DlcFxI18n.tr("dlc_manager.update.import_package"), importBtn);
-        VBox inspector = new VBox(scanForm, remoteForm, applyForm, rollbackForm, importForm);
-        setActiveForm(scanForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
-        actionGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
-            if (newToggle == remoteMode) {
-                setActiveForm(remoteForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
-            } else if (newToggle == applyMode) {
-                setActiveForm(applyForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
-            } else if (newToggle == rollbackMode) {
-                setActiveForm(rollbackForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
-            } else if (newToggle == importMode) {
-                setActiveForm(importForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
-            } else {
-                setActiveForm(scanForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
-            }
-        });
-
-        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.pack.action_panel"));
-        DlcFxStyle.actionTitle(actionTitle);
-        HBox progressRow = new HBox(8, progressBar, statusLabel);
-        progressRow.setAlignment(Pos.CENTER_LEFT);
-        VBox actionPanel = new VBox(8, actionTitle, modeBar, inspector, progressRow);
+        VBox actionPanel = new VBox(0,
+                new HBox(8, refreshBtn, checkRemoteBtn, downloadRemoteBtn, cancelDownloadBtn, applyBtn, rollbackBtn, importBtn),
+                new HBox(8, progressBar, statusLabel));
         DlcFxStyle.actionPanel(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
         root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;
-    }
-
-    private static ToggleButton modeButton(String text, ToggleGroup group, boolean selected) {
-        ToggleButton button = new ToggleButton(text);
-        button.setToggleGroup(group);
-        button.setSelected(selected);
-        return button;
-    }
-
-    private static VBox actionForm(String title, Node content) {
-        Label titleLabel = new Label(title);
-        DlcFxStyle.title(titleLabel);
-        VBox box = new VBox(8, titleLabel, content);
-        box.getStyleClass().add("dlc-action-form");
-        box.setPadding(new Insets(12, 12, 12, 12));
-        return box;
-    }
-
-    private static void setActiveForm(VBox active, VBox... forms) {
-        for (VBox form : forms) {
-            boolean show = form == active;
-            form.setVisible(show);
-            form.setManaged(show);
-        }
     }
 
     public void onGameDirChanged() {
@@ -512,13 +451,13 @@ public final class DlcFxLocalUpdateTab {
     private void renderVersionHeader(UpdateCheckResult result) {
         DlcUpdateVersion v = result.getCurrent();
         String rollbackFrom = v.getRollbackFrom();
-        String base = formatVersionHeader(v.getBase(), null);
-        String dlc = formatVersionHeader(v.getDlc(), null);
+        String base = v.getBase() == null || v.getBase().isBlank() ? "-" : v.getBase();
+        String dlc = v.getDlc() == null || v.getDlc().isBlank() ? "-" : v.getDlc();
+        String current = DlcFxI18n.tr("dlc_manager.update.current_version", base, dlc);
         if (rollbackFrom != null && !rollbackFrom.isBlank()) {
-            versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version_rollback", base, dlc, rollbackFrom));
-        } else {
-            versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version", base, dlc));
+            current = current + DlcFxI18n.tr("dlc_manager.update.current_version_suffix", rollbackFrom);
         }
+        versionLabel.setText(current);
     }
 
     private void showChangelogFor(DlcUpdateMeta meta) {
@@ -597,16 +536,9 @@ public final class DlcFxLocalUpdateTab {
     }
 
     private static String formatVersion(String base, String dlc) {
-        String b = base == null || base.isBlank() ? "1.0.0" : base;
-        String d = dlc == null || dlc.isBlank() ? "1.0.0" : dlc;
+        String b = base == null || base.isBlank() ? "-" : base;
+        String d = dlc == null || dlc.isBlank() ? "-" : dlc;
         return b + "+" + d;
-    }
-
-    private static String formatVersionHeader(String base, String dlc) {
-        if (dlc == null || dlc.isBlank()) {
-            return base == null || base.isBlank() ? "1.0.0" : base;
-        }
-        return base + "+" + dlc;
     }
 
     private static String currentLang() {
@@ -703,8 +635,8 @@ public final class DlcFxLocalUpdateTab {
             if (dlcChanged && !baseChanged) {
                 return DlcFxI18n.tr("dlc_manager.update.dlc_transition", dlcOld, dlcNew);
             }
-            String from = formatVersionHeader(baseOld.isBlank() ? null : baseOld, dlcOld);
-            String to = formatVersionHeader(baseNew.isBlank() ? null : baseNew, dlcNew);
+            String from = DlcFxI18n.tr("dlc_manager.update.current_version", baseOld.isBlank() ? "-" : baseOld, dlcOld.isBlank() ? "-" : dlcOld);
+            String to = DlcFxI18n.tr("dlc_manager.update.current_version", baseNew.isBlank() ? "-" : baseNew, dlcNew.isBlank() ? "-" : dlcNew);
             return from + " -> " + to;
         }
     }

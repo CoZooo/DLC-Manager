@@ -114,6 +114,8 @@
     -fx-focus-color: transparent;
     -fx-faint-focus-color: transparent;
     -fx-background-insets: 0;
+    -fx-border-width: 0 0 2 0;
+    -fx-border-color: transparent transparent -dlc-accent transparent;
 }
 
 .tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
@@ -312,6 +314,19 @@
 
 .list-cell:filled:selected .label {
     -fx-text-fill: -dlc-text;
+}
+
+.dlc-action-panel .button {
+    -fx-min-height: 32px;
+}
+
+.dlc-toolbar .button,
+.dlc-toolbar .combo-box-base {
+    -fx-min-height: 32px;
+}
+
+.dlc-mode-panel .button {
+    -fx-min-width: 112px;
 }
 
 .progress-bar {

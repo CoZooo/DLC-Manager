@@ -20,12 +20,14 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.io.IOException;
@@ -44,7 +46,7 @@ public final class DlcFxLocalRequiredTab {
     private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.required.refresh"));
     private final Button downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.required.download_missing"));
     private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.common.download_selected"));
-    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.required.install_targets"));
+    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.required.install_selected"));
     private final Label countLabel = new Label("");
 
     public DlcFxLocalRequiredTab(DlcFxPlatformProvider provider) {
@@ -65,23 +67,44 @@ public final class DlcFxLocalRequiredTab {
         downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
         applyBtn.disableProperty().bind(refreshBtn.disabledProperty());
         applyBtn.setOnAction(e -> installAsync());
+        DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(downloadMissingBtn);
         DlcFxStyle.primary(applyBtn);
         DlcFxStyle.muted(countLabel);
 
-        HBox topBox = new HBox(8, refreshBtn, countLabel);
+        Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_all"));
+        Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_none"));
+        Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
+        HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
+        selectionActions.setAlignment(Pos.CENTER_LEFT);
+        Region topSpacer = new Region();
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
+        HBox topBox = new HBox(8, refreshBtn, countLabel, topSpacer, selectionActions);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         ListView<DlcRequiredEntry> listView = new ListView<>(entries);
         listView.setCellFactory(param -> new RequiredEntryCell());
-        listView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
+        listView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         VBox.setVgrow(listView, Priority.ALWAYS);
         VBox centerBox = new VBox(listView);
         centerBox.setPadding(new Insets(14, 16, 12, 16));
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
+
+        selectAllBtn.setOnAction(e -> listView.getSelectionModel().selectAll());
+        selectNoneBtn.setOnAction(e -> listView.getSelectionModel().clearSelection());
+        invertBtn.setOnAction(e -> {
+            var selectionModel = listView.getSelectionModel();
+            java.util.List<Integer> selected = new java.util.ArrayList<>(selectionModel.getSelectedIndices());
+            selectionModel.clearSelection();
+            for (int i = 0; i < listView.getItems().size(); i++) {
+                if (!selected.contains(i)) {
+                    selectionModel.select(i);
+                }
+            }
+        });
 
         downloadSelectedBtn.setOnAction(e -> {
             java.util.List<DlcRequiredEntry> selected = listView.getSelectionModel().getSelectedItems();
@@ -104,17 +127,14 @@ public final class DlcFxLocalRequiredTab {
             downloadAll(toDownload);
         });
 
-        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.required.download_missing"));
-        Label installTitle = new Label(DlcFxI18n.tr("dlc_manager.required.install_targets"));
-        DlcFxStyle.actionTitle(downloadTitle);
-        DlcFxStyle.actionTitle(installTitle);
+        HBox downloadActions = new HBox(14, applyBtn, downloadMissingBtn, downloadSelectedBtn);
+        downloadActions.setAlignment(Pos.CENTER_LEFT);
+        HBox rightActions = new HBox(8, progressBar, statusLabel);
+        rightActions.setAlignment(Pos.CENTER_RIGHT);
 
-        VBox downloadActions = new VBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn);
-        VBox installActions = new VBox(8, installTitle, applyBtn);
-        HBox actionPanel = new HBox(18, downloadActions, installActions, progressBar, statusLabel);
-        actionPanel.setAlignment(Pos.TOP_LEFT);
-        HBox.setHgrow(downloadActions, Priority.ALWAYS);
-        HBox.setHgrow(installActions, Priority.ALWAYS);
+        BorderPane actionPanel = new BorderPane();
+        actionPanel.setLeft(downloadActions);
+        actionPanel.setRight(rightActions);
         DlcFxStyle.actionPanel(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
         root.setBottom(actionPanel);

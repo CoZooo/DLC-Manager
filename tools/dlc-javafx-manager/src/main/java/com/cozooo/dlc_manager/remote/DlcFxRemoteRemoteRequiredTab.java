@@ -150,11 +150,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
-        Label remoteActionTitle = new Label(DlcFxI18n.tr("dlc_manager.remote_required.remote_title"));
-        Label requiredActionTitle = new Label(DlcFxI18n.tr("dlc_manager.remote_required.required_title"));
-        DlcFxStyle.actionTitle(remoteActionTitle);
-        DlcFxStyle.actionTitle(requiredActionTitle);
-
         HBox remoteActions = new HBox(8, remoteDownloadBtn, remoteStatusBtn);
         remoteActions.setAlignment(Pos.CENTER_LEFT);
 
@@ -181,8 +176,8 @@ public final class DlcFxRemoteRemoteRequiredTab {
         HBox requiredActions = new HBox(8, requiredActionBox, runRequiredActionBtn);
         requiredActions.setAlignment(Pos.CENTER_LEFT);
 
-        VBox remoteActionBox = new VBox(8, remoteActionTitle, remoteActions);
-        VBox requiredActionPane = new VBox(8, requiredActionTitle, requiredActions);
+        VBox remoteActionBox = new VBox(8, remoteActions);
+        VBox requiredActionPane = new VBox(8, requiredActions);
         HBox actionPanel = new HBox(18, remoteActionBox, requiredActionPane);
         HBox.setHgrow(remoteActionBox, Priority.ALWAYS);
         HBox.setHgrow(requiredActionPane, Priority.ALWAYS);

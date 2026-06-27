@@ -30,6 +30,7 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.image.Image;
@@ -88,7 +89,7 @@ public final class DlcFxManagerApp extends Application {
         showHome();
 
         Scene scene = new Scene(shell, 1100, 720);
-        URL css = DlcFxManagerApp.class.getResource("/com/cozooo/dlc_manager/javafx/theme.css");
+        URL css = DlcFxManagerApp.class.getResource("/javafx/theme.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
         }
@@ -133,8 +134,8 @@ public final class DlcFxManagerApp extends Application {
         topBar.setAlignment(Pos.CENTER_RIGHT);
 
         Label title = new Label(DlcFxI18n.tr("dlc_manager.home.title"));
-        Label subtitle = new Label(DlcFxI18n.tr("dlc_manager.home.subtitle"));
         DlcFxStyle.add(title, "dlc-hero-title");
+        Label subtitle = new Label(DlcFxI18n.tr("dlc_manager.home.subtitle"));
         DlcFxStyle.muted(subtitle);
 
         Node localChoice = modeChoice(
@@ -147,9 +148,9 @@ public final class DlcFxManagerApp extends Application {
                 DlcFxI18n.tr("dlc_manager.home.remote_desc"),
                 DlcFxI18n.tr("dlc_manager.home.enter_remote"),
                 this::showRemoteWorkspace);
-        HBox choices = new HBox(16, localChoice, remoteChoice);
-        HBox.setHgrow(localChoice, Priority.ALWAYS);
-        HBox.setHgrow(remoteChoice, Priority.ALWAYS);
+        VBox choices = new VBox(16, localChoice, remoteChoice);
+        VBox.setVgrow(localChoice, Priority.ALWAYS);
+        VBox.setVgrow(remoteChoice, Priority.ALWAYS);
 
         VBox content = new VBox(10, title, subtitle, choices);
         VBox.setVgrow(choices, Priority.ALWAYS);
@@ -159,27 +160,38 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private Node modeChoice(String titleText, String descText, String actionText, Runnable action) {
-        VBox box = new VBox(10);
+        HBox box = new HBox(12);
         box.getStyleClass().add("dlc-mode-panel");
         box.setPadding(new Insets(18, 18, 18, 18));
-        box.setMinHeight(180);
+        box.setMinHeight(160);
         box.setMaxWidth(Double.MAX_VALUE);
+        box.setAlignment(Pos.CENTER_LEFT);
 
+        VBox textBox = new VBox(8);
+        textBox.setAlignment(Pos.CENTER_LEFT);
         Label title = new Label(titleText);
         Label desc = new Label(descText);
         DlcFxStyle.add(title, "dlc-mode-title");
         DlcFxStyle.muted(desc);
-        desc.setWrapText(true);
-
-        Region spacer = new Region();
-        VBox.setVgrow(spacer, Priority.ALWAYS);
+        desc.setWrapText(false);
+        desc.setTextOverrun(OverrunStyle.CLIP);
+        desc.setMaxWidth(Double.MAX_VALUE);
+        textBox.getChildren().addAll(title, desc);
+        HBox.setHgrow(textBox, Priority.ALWAYS);
 
         Button enter = new Button(actionText);
         DlcFxStyle.primary(enter);
-        enter.setMaxWidth(Double.MAX_VALUE);
+        enter.setMinHeight(64);
+        enter.setPrefHeight(64);
+        enter.setMaxHeight(64);
+        enter.setMinWidth(180);
+        enter.setPrefWidth(180);
+        enter.setMaxWidth(180);
         enter.setOnAction(e -> action.run());
 
-        box.getChildren().addAll(title, desc, spacer, enter);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        box.getChildren().addAll(textBox, spacer, enter);
         return box;
     }
 
@@ -372,7 +384,6 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private Node languagePicker() {
-        Label languageLabel = new Label(DlcFxI18n.tr("dlc_manager.language.label"));
         ComboBox<LanguageOption> languageBox = new ComboBox<>();
         languageBox.getItems().addAll(
                 new LanguageOption("en_us", DlcFxI18n.tr("dlc_manager.language.en_us")),
@@ -386,11 +397,12 @@ public final class DlcFxManagerApp extends Application {
             }
         });
 
-        HBox picker = new HBox(8, languageLabel, languageBox);
+        Label label = new Label(DlcFxI18n.tr("dlc_manager.language.label"));
+        DlcFxStyle.muted(label);
+        HBox picker = new HBox(8, label, languageBox);
         languageBox.setPrefWidth(150);
         picker.setAlignment(Pos.CENTER_RIGHT);
         DlcFxStyle.add(picker, "dlc-language-picker");
-        DlcFxStyle.muted(languageLabel);
         return picker;
     }
 

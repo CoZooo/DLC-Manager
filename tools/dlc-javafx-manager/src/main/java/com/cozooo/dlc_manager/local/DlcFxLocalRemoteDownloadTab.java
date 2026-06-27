@@ -17,12 +17,14 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.nio.file.Path;
@@ -53,25 +55,48 @@ public final class DlcFxLocalRemoteDownloadTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
+        refreshBtn.setText(DlcFxI18n.tr("dlc_manager.remote.refresh_download_list"));
         refreshBtn.setOnAction(e -> refreshAsync());
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
-        downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
+        DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(downloadMissingBtn);
         DlcFxStyle.muted(countLabel);
 
-        HBox topBox = new HBox(8, refreshBtn, countLabel);
+        Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_all"));
+        Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_none"));
+        Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
+
+        Region topSpacer = new Region();
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
+        HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
+        selectionActions.setAlignment(Pos.CENTER_LEFT);
+
+        HBox topBox = new HBox(8, refreshBtn, countLabel, topSpacer, selectionActions);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         ListView<DlcRemoteEntry> listView = new ListView<>(entries);
         listView.setCellFactory(param -> new RemoteEntryCell());
-        listView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
+        listView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         VBox.setVgrow(listView, Priority.ALWAYS);
         VBox centerBox = new VBox(listView);
         centerBox.setPadding(new Insets(14, 16, 12, 16));
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
+
+        selectAllBtn.setOnAction(e -> listView.getSelectionModel().selectAll());
+        selectNoneBtn.setOnAction(e -> listView.getSelectionModel().clearSelection());
+        invertBtn.setOnAction(e -> {
+            var selectionModel = listView.getSelectionModel();
+            java.util.List<Integer> selected = new java.util.ArrayList<>(selectionModel.getSelectedIndices());
+            selectionModel.clearSelection();
+            for (int i = 0; i < listView.getItems().size(); i++) {
+                if (!selected.contains(i)) {
+                    selectionModel.select(i);
+                }
+            }
+        });
 
         downloadSelectedBtn.setOnAction(e -> {
             java.util.List<DlcRemoteEntry> selected = listView.getSelectionModel().getSelectedItems();
@@ -93,10 +118,7 @@ public final class DlcFxLocalRemoteDownloadTab {
             downloadAll(toDownload);
         });
 
-        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.download_missing"));
-        DlcFxStyle.actionTitle(downloadTitle);
-
-        HBox actionPanel = new HBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn, progressBar, statusLabel);
+        HBox actionPanel = new HBox(8, downloadMissingBtn, downloadSelectedBtn, progressBar, statusLabel);
         actionPanel.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.actionPanel(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
@@ -117,7 +139,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.loading"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.loading_status"));
         Thread thread = new Thread(() -> {
             try {
                 Path dlcRoot = DlcConfig.getDlcRoot();

@@ -55,6 +55,7 @@ public final class DlcFxLocalDlcManagementTab {
     private final ComboBox<DlcType> typeFilter = new ComboBox<>();
     private Button rescanBtn;
     private Button openDlcDirBtn;
+    private Button cancelBtn;
     private Button applyBtn;
     private boolean gameDirSelected;
 
@@ -85,21 +86,13 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxStyle.primary(rescanBtn);
         DlcFxStyle.muted(countLabel);
 
-        Region topSpacer = new Region();
-        HBox.setHgrow(topSpacer, Priority.ALWAYS);
-        HBox topBox = new HBox(10,
-                rescanBtn, openDlcDirBtn, topSpacer, countLabel);
-        topBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.toolbar(topBox);
-        root.setTop(topBox);
-
         searchField.setPromptText(DlcFxI18n.tr("dlc_manager.local.search_prompt"));
         searchField.setPrefColumnCount(30);
         searchField.textProperty().addListener((obs, o, n) -> applyFilter(n, typeFilter.getValue()));
 
         typeFilter.getItems().add(null);
         for (DlcType t : DlcType.values()) {
-            if (t == DlcType.DLC_PACK) {
+            if (!isVisibleDlcType(t)) {
                 continue;
             }
             typeFilter.getItems().add(t);
@@ -144,29 +137,27 @@ public final class DlcFxLocalDlcManagementTab {
             for (DlcItem it : allItems) setItemEnabled(it, !it.isEnabled());
             listView.refresh();
         });
-
-        ComboBox<DlcApplyMode> modeCombo = new ComboBox<>(FXCollections.observableArrayList(DlcApplyMode.values()));
-        modeCombo.getSelectionModel().select(DlcApplyMode.RESTART_ONLY);
-
-        applyBtn = new Button(DlcFxI18n.tr("dlc_manager.local.apply_changes"));
-        applyBtn.setDisable(!gameDirSelected);
-        applyBtn.setOnAction(e -> applyAsync(modeCombo.getValue()));
-        DlcFxStyle.primary(applyBtn);
-
-        Label selectionTitle = new Label(DlcFxI18n.tr("dlc_manager.local.select_all"));
-        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.local.apply_changes"));
-        DlcFxStyle.actionTitle(selectionTitle);
-        DlcFxStyle.actionTitle(applyTitle);
-
         HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
         selectionActions.setAlignment(Pos.CENTER_LEFT);
-        HBox applyActions = new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.apply_mode")), modeCombo, applyBtn);
+
+        cancelBtn = new Button(DlcFxI18n.tr("dlc_manager.local.cancel_changes"));
+        cancelBtn.setDisable(!gameDirSelected);
+        cancelBtn.setOnAction(e -> resetChanges());
+        applyBtn = new Button(DlcFxI18n.tr("dlc_manager.local.apply_changes"));
+        applyBtn.setDisable(!gameDirSelected);
+        applyBtn.setOnAction(e -> applyAsync());
+        DlcFxStyle.primary(applyBtn);
+
+        Region topSpacer2 = new Region();
+        HBox.setHgrow(topSpacer2, Priority.ALWAYS);
+        HBox topBox = new HBox(10, rescanBtn, openDlcDirBtn, countLabel, topSpacer2, selectionActions);
+        topBox.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.toolbar(topBox);
+        root.setTop(topBox);
+
+        HBox applyActions = new HBox(8, applyBtn, cancelBtn);
         applyActions.setAlignment(Pos.CENTER_LEFT);
-        VBox selectionBox = new VBox(8, selectionTitle, selectionActions);
-        VBox applyBox = new VBox(8, applyTitle, applyActions);
-        HBox actionPanel = new HBox(18, selectionBox, applyBox, progressBar, statusLabel);
-        HBox.setHgrow(selectionBox, Priority.ALWAYS);
-        HBox.setHgrow(applyBox, Priority.ALWAYS);
+        HBox actionPanel = new HBox(18, applyActions, progressBar, statusLabel);
         actionPanel.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.actionPanel(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
@@ -184,12 +175,16 @@ public final class DlcFxLocalDlcManagementTab {
         if (openDlcDirBtn != null) {
             openDlcDirBtn.setDisable(false);
         }
+        if (cancelBtn != null) {
+            cancelBtn.setDisable(false);
+        }
         if (applyBtn != null) {
             applyBtn.setDisable(false);
         }
         allItems.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
+        refreshTypeFilterItems();
         scanAsync();
     }
 
@@ -212,6 +207,7 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     private void scanAsync() {
+        refreshTypeFilterItems();
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scanning"));
@@ -290,7 +286,7 @@ public final class DlcFxLocalDlcManagementTab {
                 Map<DlcType, List<DlcItem>> scanned = scanner.scan(true);
                 List<DlcItem> flat = new ArrayList<>();
                 for (DlcType type : DlcType.values()) {
-                    if (type == DlcType.DLC_PACK) {
+                    if (!isVisibleDlcType(type)) {
                         continue;
                     }
                     List<DlcItem> group = scanned.get(type);
@@ -355,36 +351,20 @@ public final class DlcFxLocalDlcManagementTab {
         thread.start();
     }
 
-    private void applyAsync(DlcApplyMode mode) {
-        if (mode == null) {
-            mode = DlcApplyMode.RESTART_ONLY;
-        }
-        final DlcApplyMode finalMode = mode;
+    private void applyAsync() {
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
         Thread thread = new Thread(() -> {
             try {
-                DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(allItems), finalMode);
+                DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(allItems), DlcApplyMode.RESTART_ONLY);
                 DlcStateConfig.save();
                 if (DlcConfig.isPresetFuncOn()) {
                     DlcPresetRuntimeState.syncStatusFromRuntime();
                 }
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
-                    StringBuilder sb = new StringBuilder();
-                    if (result.requiresRestart()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.apply.requires_restart"));
-                    }
-                    if (result.hotReloaded()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.apply.hot_reloaded"));
-                    }
-                    if (result.helperScheduled()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.apply.helper_scheduled"));
-                    }
-                    if (sb.length() == 0) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.status.apply_done"));
-                    }
+                    StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.status.apply_done"));
                     if (!result.messages().isEmpty()) {
                         sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
                     }
@@ -411,8 +391,41 @@ public final class DlcFxLocalDlcManagementTab {
         thread.start();
     }
 
+    private void resetChanges() {
+        for (DlcItem item : allItems) {
+            if (item == null) {
+                continue;
+            }
+            Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());
+            boolean enabled = baseline == null ? item.isEnabled() : baseline;
+            item.setEnabled(enabled);
+        }
+        DlcRuntimeState.clearOverrides();
+        if (DlcConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.applyOverridesToRuntime();
+        }
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.cancel_done"));
+    }
+
     private DlcType currentTypeFilter;
     private String currentSearchText = "";
+
+    private void refreshTypeFilterItems() {
+        DlcType selected = typeFilter.getValue();
+        typeFilter.getItems().clear();
+        typeFilter.getItems().add(null);
+        for (DlcType type : DlcType.values()) {
+            if (isVisibleDlcType(type)) {
+                typeFilter.getItems().add(type);
+            }
+        }
+        typeFilter.setValue(isVisibleDlcType(selected) ? selected : null);
+    }
+
+    private boolean isVisibleDlcType(DlcType type) {
+        return type != DlcType.DLC_PACK
+            && (type != DlcType.TACZ_PACK || provider.hasTaczSupportJar());
+    }
 
     void applyFilter(String searchText, DlcType typeFilter) {
         currentSearchText = searchText == null ? "" : searchText.toLowerCase();

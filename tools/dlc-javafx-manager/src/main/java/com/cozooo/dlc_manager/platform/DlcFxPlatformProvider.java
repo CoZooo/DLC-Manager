@@ -49,6 +49,9 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
         if (modId == null || modId.isBlank()) {
             return false;
         }
+        if ("tacz".equalsIgnoreCase(modId)) {
+            return hasTaczSupportJar();
+        }
         String needle = modId.toLowerCase(java.util.Locale.ROOT);
         for (Path jar : modFiles()) {
             String fileName = jar.getFileName() == null ? "" : jar.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
@@ -60,6 +63,18 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
                 || jarContainsIgnoreCase(jar, "modId = \"" + needle + "\"")
                 || jarContainsIgnoreCase(jar, "\"id\":\"" + needle + "\"")
                 || jarContainsIgnoreCase(jar, "\"id\": \"" + needle + "\"")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean hasTaczSupportJar() {
+        for (Path jar : modFiles()) {
+            String fileName = jar.getFileName() == null ? "" : jar.getFileName().toString();
+            String lower = fileName.toLowerCase(Locale.ROOT);
+            if ((fileName.startsWith("tacz-") || fileName.startsWith("TACZ-"))
+                    && lower.endsWith(".jar")) {
                 return true;
             }
         }

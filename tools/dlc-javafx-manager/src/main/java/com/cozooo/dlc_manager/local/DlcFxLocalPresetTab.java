@@ -28,6 +28,7 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
@@ -63,16 +64,13 @@ public final class DlcFxLocalPresetTab {
         DlcFxStyle.muted(countLabel);
         DlcFxStyle.muted(statusLabel);
 
-        Button clearBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.clear_all"));
-        clearBtn.setOnAction(e -> {
-            for (DlcPresetEntry entry : entries) {
-                DlcPresetRuntimeState.setPresetEnabled(entry.getId(), false);
-            }
-            DlcPresetRuntimeState.applyOverridesToRuntime();
-            saveAndRefresh();
-        });
+        Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_none"));
+        Region topSpacer = new Region();
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
+        HBox selectionActions = new HBox(8, selectNoneBtn);
+        selectionActions.setAlignment(Pos.CENTER_LEFT);
 
-        HBox topBox = new HBox(8, refreshBtn, countLabel);
+        HBox topBox = new HBox(8, refreshBtn, countLabel, topSpacer, selectionActions);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
@@ -85,17 +83,9 @@ public final class DlcFxLocalPresetTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
-        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.preset.apply"));
-        Label clearTitle = new Label(DlcFxI18n.tr("dlc_manager.preset.clear_all"));
-        DlcFxStyle.actionTitle(applyTitle);
-        DlcFxStyle.actionTitle(clearTitle);
-        DlcFxStyle.danger(clearBtn);
+        selectNoneBtn.setOnAction(e -> setAllPresetEnabled(false));
 
-        VBox applyBox = new VBox(8, applyTitle, applyBtn);
-        VBox clearBox = new VBox(8, clearTitle, clearBtn);
-        HBox actionPanel = new HBox(18, applyBox, clearBox, statusLabel);
-        HBox.setHgrow(applyBox, Priority.ALWAYS);
-        HBox.setHgrow(clearBox, Priority.ALWAYS);
+        HBox actionPanel = new HBox(18, applyBtn, statusLabel);
         actionPanel.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.actionPanel(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
@@ -137,16 +127,7 @@ public final class DlcFxLocalPresetTab {
                 DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(), DlcApplyMode.RESTART_ONLY);
                 DlcPresetRuntimeState.syncStatusFromRuntime();
                 Platform.runLater(() -> {
-                    StringBuilder sb = new StringBuilder();
-                    if (result.requiresRestart()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.apply.requires_restart"));
-                    }
-                    if (result.hotReloaded()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.apply.hot_reloaded"));
-                    }
-                    if (sb.length() == 0) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.status.apply_done"));
-                    }
+                    StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.status.apply_done"));
                     if (!result.messages().isEmpty()) {
                         sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
                     }
@@ -185,6 +166,27 @@ public final class DlcFxLocalPresetTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.saved"));
         } catch (Throwable t) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.save_failed", safeMessage(t)));
+        }
+    }
+
+    private void resetPresetChanges() {
+        DlcPresetRuntimeState.reload();
+        entries.setAll(DlcPresetRuntimeState.getPresets());
+        countLabel.setText(DlcFxI18n.tr("dlc_manager.preset.count", entries.size(), countEnabled(entries)));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.canceled_value", DlcFxI18n.tr("dlc_manager.preset.clear_all")));
+    }
+
+    private void setAllPresetEnabled(boolean enabled) {
+        boolean changed = false;
+        for (DlcPresetEntry entry : DlcPresetRuntimeState.getPresets()) {
+            if (entry == null) {
+                continue;
+            }
+            changed |= DlcPresetRuntimeState.setPresetEnabled(entry.getId(), enabled);
+        }
+        if (changed || !entries.isEmpty()) {
+            DlcPresetRuntimeState.applyOverridesToRuntime();
+            saveAndRefresh();
         }
     }
 
