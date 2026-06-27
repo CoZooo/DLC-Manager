@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -30,6 +31,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -250,6 +252,22 @@ public final class DlcFxLocalPresetTab {
                         updateStatusDisplay(item);
                         DlcPresetRuntimeState.applyOverridesToRuntime();
                         saveAndRefresh();
+                        if (enabled) {
+                            DlcFxModalOverlay.show(
+                                    checkBox.getScene(),
+                                    DlcFxI18n.tr("dlc_manager.preset.title"),
+                                    DlcFxI18n.tr("dlc_manager.preset.apply_hint"),
+                                    () -> {
+                                        DlcFxManagerApp app = DlcFxManagerApp.instance();
+                                        if (app != null) {
+                                            app.showLocalDlcManagementTab();
+                                        }
+                                    },
+                                    DlcFxI18n.tr("dlc_manager.preset.goto_dlc"),
+                                    null,
+                                    null
+                            );
+                        }
                     }
                 }
             });

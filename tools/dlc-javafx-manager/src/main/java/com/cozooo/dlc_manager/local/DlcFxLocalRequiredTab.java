@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.local;
 
-import com.cozooo.dlc_manager.app.DlcFxManagerApp;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
@@ -9,6 +8,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredService;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
+import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -48,6 +48,8 @@ public final class DlcFxLocalRequiredTab {
     private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.common.download_selected"));
     private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.required.install_selected"));
     private final Label countLabel = new Label("");
+    private List<DlcRequiredEntry> forcedEntries = List.of();
+    private boolean forceInstallFlow;
 
     public DlcFxLocalRequiredTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -148,6 +150,17 @@ public final class DlcFxLocalRequiredTab {
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.game_dir_changed"));
         refreshBtn.setDisable(false);
+        forcedEntries = List.of();
+        forceInstallFlow = false;
+    }
+
+    public void forceDownloadAndInstall(List<DlcRequiredEntry> missing) {
+        if (missing != null && !missing.isEmpty()) {
+            forcedEntries = new ArrayList<>(missing);
+            entries.setAll(forcedEntries);
+        }
+        forceInstallFlow = true;
+        downloadMissingAsync();
     }
 
     private void refreshAsync() {
@@ -230,6 +243,10 @@ public final class DlcFxLocalRequiredTab {
                 downloadMissingBtn.setDisable(false);
                 refreshBtn.setDisable(false);
                 refreshAsync();
+                if (forceInstallFlow) {
+                    forceInstallFlow = false;
+                    startInstallThread(new ArrayList<>(entries));
+                }
             });
         }, "dlc-required-download");
         thread.setDaemon(true);
@@ -237,6 +254,10 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void installAsync() {
+        runInstall(false);
+    }
+
+    private void runInstall(boolean force) {
         List<DlcRequiredEntry> targets = DlcRequiredService.collectNeedsApply(entries);
         if (targets.isEmpty()) {
             for (DlcRequiredEntry e : entries) {
@@ -250,13 +271,22 @@ public final class DlcFxLocalRequiredTab {
             }
         }
         final List<DlcRequiredEntry> finalTargets = targets;
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                DlcFxI18n.tr("dlc_manager.required.install_confirm", finalTargets.size()));
-        confirm.setTitle(DlcFxI18n.tr("dlc_manager.required.install_title"));
-        confirm.setHeaderText(null);
-        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
+        if (force) {
+            startInstallThread(finalTargets);
             return;
         }
+        DlcFxModalOverlay.show(
+                applyBtn.getScene(),
+                DlcFxI18n.tr("dlc_manager.required.install_title"),
+                DlcFxI18n.tr("dlc_manager.required.install_confirm", finalTargets.size()),
+                () -> startInstallThread(finalTargets),
+                DlcFxI18n.tr("dlc_manager.confirm_yes"),
+                () -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.canceled")),
+                DlcFxI18n.tr("dlc_manager.confirm_no")
+        );
+    }
+
+    private void startInstallThread(List<DlcRequiredEntry> finalTargets) {
         applyBtn.setDisable(true);
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);

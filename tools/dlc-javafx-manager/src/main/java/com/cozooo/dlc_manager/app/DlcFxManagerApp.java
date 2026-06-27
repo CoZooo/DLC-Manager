@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.app;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
+import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
@@ -11,6 +13,7 @@ import com.cozooo.dlc_manager.local.DlcFxLocalRequiredTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalUpdateTab;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteConnection;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteDlcManagementTab;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteFileManagerTab;
@@ -39,6 +42,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.StackPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
@@ -49,26 +53,31 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.List;
 
 public final class DlcFxManagerApp extends Application {
 
     static final DlcFxPlatformProvider PROVIDER = new DlcFxPlatformProvider();
+    private static DlcFxManagerApp INSTANCE;
 
     private Stage primaryStage;
     private DlcFxLocalDlcManagementTab localDlcManagementTab;
     private DlcFxLocalRemoteDownloadTab localRemoteDownloadTab;
-    private DlcFxLocalRequiredTab localRequiredTab;
+    private DlcFxLocalRequiredTab localRequiredTabPage;
     private DlcFxLocalUpdateTab localUpdateTab;
 
     private Label localGameDirLabel;
     private boolean localGameDirSelected;
 
     private DlcFxRemoteConnection remoteConnection;
-    private BorderPane shell;
+    private StackPane shell;
+    private BorderPane shellContent;
     private Node homeView;
     private Node localView;
     private Node remoteView;
     private ViewMode currentView = ViewMode.HOME;
+    private TabPane localTabPane;
+    private Tab localRequiredTabNode;
 
     @Override
     public void init() {
@@ -77,11 +86,14 @@ public final class DlcFxManagerApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        INSTANCE = this;
         this.primaryStage = primaryStage;
         remoteConnection = new DlcFxRemoteConnection();
-        shell = new BorderPane();
-        shell.setBottom(statusBar());
-        DlcFxStyle.add(shell, "dlc-app-root");
+        shellContent = new BorderPane();
+        shellContent.setBottom(statusBar());
+        DlcFxStyle.add(shellContent, "dlc-app-root");
+        shell = new StackPane(shellContent);
+        DlcFxStyle.add(shell, "dlc-app-shell");
 
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
@@ -213,14 +225,15 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private TabPane buildLocalTabs() {
-        TabPane tabPane = new TabPane();
-        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabPane.getTabs().add(localDlcManagementTab());
-        tabPane.getTabs().add(localRemoteDownloadTab());
-        tabPane.getTabs().add(localRequiredTab());
-        tabPane.getTabs().add(localPresetTab());
-        tabPane.getTabs().add(localUpdateTab());
-        return tabPane;
+        localTabPane = new TabPane();
+        localTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        localTabPane.getTabs().add(localDlcManagementTab());
+        localTabPane.getTabs().add(localRemoteDownloadTab());
+        localRequiredTabNode = createLocalRequiredTab();
+        localTabPane.getTabs().add(localRequiredTabNode);
+        localTabPane.getTabs().add(localPresetTab());
+        localTabPane.getTabs().add(localUpdateTab());
+        return localTabPane;
     }
 
     private TabPane buildRemoteTabs() {
@@ -262,17 +275,18 @@ public final class DlcFxManagerApp extends Application {
 
     private void showHome() {
         currentView = ViewMode.HOME;
-        shell.setCenter(homeView);
+        shellContent.setCenter(homeView);
     }
 
     private void showLocalWorkspace() {
         currentView = ViewMode.LOCAL;
-        shell.setCenter(localView);
+        shellContent.setCenter(localView);
+        promptMissingRequiredResources();
     }
 
     private void showRemoteWorkspace() {
         currentView = ViewMode.REMOTE;
-        shell.setCenter(remoteView);
+        shellContent.setCenter(remoteView);
     }
 
     private Tab localDlcManagementTab() {
@@ -288,8 +302,8 @@ public final class DlcFxManagerApp extends Application {
         if (localRemoteDownloadTab != null) {
             localRemoteDownloadTab.onGameDirChanged();
         }
-        if (localRequiredTab != null) {
-            localRequiredTab.onGameDirChanged();
+        if (localRequiredTabPage != null) {
+            localRequiredTabPage.onGameDirChanged();
         }
         if (localUpdateTab != null) {
             localUpdateTab.onGameDirChanged();
@@ -301,9 +315,9 @@ public final class DlcFxManagerApp extends Application {
         return localRemoteDownloadTab.build();
     }
 
-    private Tab localRequiredTab() {
-        localRequiredTab = new DlcFxLocalRequiredTab(PROVIDER);
-        return localRequiredTab.build();
+    private Tab createLocalRequiredTab() {
+        localRequiredTabPage = new DlcFxLocalRequiredTab(PROVIDER);
+        return localRequiredTabPage.build();
     }
 
     private Tab localPresetTab() {
@@ -363,6 +377,7 @@ public final class DlcFxManagerApp extends Application {
         DlcRuntimeState.clearOverrides();
         DlcPresetRuntimeState.clearAll();
         onLocalGameDirChanged();
+        promptMissingRequiredResources();
     }
 
     private javafx.scene.Node statusBar() {
@@ -424,7 +439,7 @@ public final class DlcFxManagerApp extends Application {
         }
         localDlcManagementTab = null;
         localRemoteDownloadTab = null;
-        localRequiredTab = null;
+        localRequiredTabPage = null;
         localUpdateTab = null;
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
@@ -432,12 +447,63 @@ public final class DlcFxManagerApp extends Application {
         if (localGameDirSelected) {
             onLocalGameDirChanged();
         }
-        shell.setBottom(statusBar());
+        shellContent.setBottom(statusBar());
         switch (target) {
             case LOCAL -> showLocalWorkspace();
             case REMOTE -> showRemoteWorkspace();
             case HOME -> showHome();
         }
+    }
+
+    public void showRequiredTabWithPrompt() {
+        showLocalWorkspace();
+        if (localTabPane != null && localRequiredTabNode != null) {
+            localTabPane.getSelectionModel().select(localRequiredTabNode);
+        }
+    }
+
+    public void showLocalDlcManagementTab() {
+        showLocalWorkspace();
+        if (localTabPane != null) {
+            localTabPane.getSelectionModel().select(0);
+        }
+    }
+
+    public static DlcFxManagerApp instance() {
+        return INSTANCE;
+    }
+
+    private void promptMissingRequiredResources() {
+        if (!localGameDirSelected || localRequiredTabPage == null) {
+            return;
+        }
+        if (DlcFxModalOverlay.isShowing(scene())) {
+            return;
+        }
+        List<DlcRequiredEntry> missing = DlcRequiredRuntime.collectMissingDownloadsForPrompt();
+        if (missing.isEmpty()) {
+            return;
+        }
+        String title = DlcFxI18n.tr("dlc_manager.required.missing_title");
+        String message = DlcFxI18n.tr("dlc_manager.required.missing_prompt", missing.size());
+        boolean forceOnly = DlcRequiredRuntime.hasForceMarker();
+        if (forceOnly) {
+            DlcFxModalOverlay.show(scene(), title, message, () -> {
+                showRequiredTabWithPrompt();
+                localRequiredTabPage.forceDownloadAndInstall(missing);
+            }, DlcFxI18n.tr("dlc_manager.required.download_install"));
+            return;
+        }
+        DlcFxModalOverlay.show(scene(), title, message, () -> {
+            showRequiredTabWithPrompt();
+            localRequiredTabPage.forceDownloadAndInstall(missing);
+        }, DlcFxI18n.tr("dlc_manager.required.download_install"), () -> {
+            DlcRequiredRuntime.markSkipped();
+        }, DlcFxI18n.tr("dlc_manager.required.skip"));
+    }
+
+    private Scene scene() {
+        return shell == null ? null : shell.getScene();
     }
 
     private enum ViewMode {

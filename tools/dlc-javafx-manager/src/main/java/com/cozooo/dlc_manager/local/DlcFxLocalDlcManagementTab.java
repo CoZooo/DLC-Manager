@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
@@ -58,6 +59,7 @@ public final class DlcFxLocalDlcManagementTab {
     private Button cancelBtn;
     private Button applyBtn;
     private boolean gameDirSelected;
+    private List<DlcItem> pendingForcedEnable = List.of();
 
     public DlcFxLocalDlcManagementTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -124,17 +126,24 @@ public final class DlcFxLocalDlcManagementTab {
 
         Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_all"));
         selectAllBtn.setOnAction(e -> {
-            for (DlcItem it : allItems) setItemEnabled(it, true);
+            handleBatchEnable(new ArrayList<>(allItems), true);
             listView.refresh();
         });
         Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_none"));
         selectNoneBtn.setOnAction(e -> {
-            for (DlcItem it : allItems) setItemEnabled(it, false);
+            handleBatchEnable(new ArrayList<>(allItems), false);
             listView.refresh();
         });
         Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
         invertBtn.setOnAction(e -> {
-            for (DlcItem it : allItems) setItemEnabled(it, !it.isEnabled());
+            List<DlcItem> toggled = new ArrayList<>();
+            for (DlcItem it : allItems) {
+                if (it != null) {
+                    it.setEnabled(!it.isEnabled());
+                    DlcRuntimeState.setOverride(it.getId(), it.isEnabled());
+                    toggled.add(it);
+                }
+            }
             listView.refresh();
         });
         HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
@@ -420,6 +429,119 @@ public final class DlcFxLocalDlcManagementTab {
             }
         }
         typeFilter.setValue(isVisibleDlcType(selected) ? selected : null);
+    }
+
+    private void handleBatchEnable(List<DlcItem> targets, boolean enabled) {
+        if (targets == null || targets.isEmpty()) {
+            return;
+        }
+        List<DlcItem> active = new ArrayList<>();
+        for (DlcItem item : targets) {
+            if (item != null) {
+                active.add(item);
+            }
+        }
+        if (active.isEmpty()) {
+            return;
+        }
+        DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(active);
+        if (!conflicts.getLines().isEmpty() && enabled) {
+            showBatchConflictPrompt(conflicts.getLines(), () -> applyBatchEnable(active, true));
+            return;
+        }
+        DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(active);
+        if (!deps.getLines().isEmpty() && enabled) {
+            showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), active);
+            return;
+        }
+        if (active.stream().anyMatch(DlcItem::isAlarm) && enabled) {
+            String tip = buildAlarmTip(active);
+            DlcFxModalOverlay.show(
+                    applyBtn.getScene(),
+                    DlcFxI18n.tr("dlc_manager.alarm.title"),
+                    tip,
+                    () -> applyBatchEnable(active, true),
+                    DlcFxI18n.tr("dlc_manager.confirm_yes"),
+                    () -> {},
+                    DlcFxI18n.tr("dlc_manager.confirm_no")
+            );
+            return;
+        }
+        applyBatchEnable(active, enabled);
+    }
+
+    private void applyBatchEnable(List<DlcItem> items, boolean enabled) {
+        for (DlcItem item : items) {
+            item.setEnabled(enabled);
+            DlcRuntimeState.setOverride(item.getId(), enabled);
+        }
+        scanAsync();
+    }
+
+    private void showBatchConflictPrompt(List<DlcRuntimeState.ConflictLine> lines, Runnable onConfirm) {
+        DlcFxModalOverlay.show(
+                applyBtn.getScene(),
+                DlcFxI18n.tr("dlc_manager.batch.conflicts_title"),
+                buildConflictMessage(lines),
+                onConfirm,
+                DlcFxI18n.tr("dlc_manager.batch.conflicts_skip_enable"),
+                null,
+                null
+        );
+    }
+
+    private void showBatchDependencyPrompt(List<DlcRuntimeState.DependencyLine> lines, List<DlcItem> depsToEnable, List<DlcItem> targets) {
+        StringBuilder message = new StringBuilder();
+        for (DlcRuntimeState.DependencyLine line : lines) {
+            if (message.length() > 0) {
+                message.append('\n');
+            }
+            message.append(line.getItemName()).append(" -> ").append(line.getDependencyName());
+        }
+        DlcFxModalOverlay.show(
+                applyBtn.getScene(),
+                DlcFxI18n.tr("dlc_manager.batch.dependencies_title"),
+                message.toString(),
+                () -> {
+                    List<DlcItem> planned = new ArrayList<>();
+                    if (depsToEnable != null) {
+                        planned.addAll(depsToEnable);
+                    }
+                    planned.addAll(targets);
+                    applyBatchEnable(planned, true);
+                },
+                DlcFxI18n.tr("dlc_manager.batch.enable_deps", DlcFxI18n.tr("dlc_manager.scope.group")),
+                null,
+                null
+        );
+    }
+
+    private String buildAlarmTip(List<DlcItem> items) {
+        StringBuilder sb = new StringBuilder();
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append("\n\n");
+            }
+            sb.append(item.getName() == null ? item.getIdentifier() : item.getName());
+        }
+        return sb.toString();
+    }
+
+    private String buildConflictMessage(List<DlcRuntimeState.ConflictLine> lines) {
+        StringBuilder sb = new StringBuilder();
+        for (DlcRuntimeState.ConflictLine line : lines) {
+            if (line == null) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            sb.append(line.getLeftName()).append(" <-> ").append(line.getRightName());
+        }
+        return sb.toString();
     }
 
     private boolean isVisibleDlcType(DlcType type) {
