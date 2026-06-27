@@ -6,13 +6,17 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcApplyMode;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -65,6 +69,7 @@ final class LocalPresetTab {
             for (DlcPresetEntry entry : entries) {
                 DlcPresetRuntimeState.setPresetEnabled(entry.getId(), false);
             }
+            DlcPresetRuntimeState.applyOverridesToRuntime();
             saveAndRefresh();
         });
 
@@ -159,6 +164,7 @@ final class LocalPresetTab {
             for (DlcPresetEntry entry : DlcPresetRuntimeState.getPresets()) {
                 statuses.put(entry.getId(), entry.getStatus());
             }
+            DlcPresetRuntimeState.applyOverridesToRuntime();
             DlcPresetStateStore.savePresetStatus(statuses);
             entries.setAll(DlcPresetRuntimeState.getPresets());
             int enabled = countEnabled(entries);
@@ -182,7 +188,25 @@ final class LocalPresetTab {
         return msg == null ? t.getClass().getSimpleName() : msg;
     }
 
-    private static final class PresetCell extends javafx.scene.control.ListCell<DlcPresetEntry> {
+    private static String currentLang() {
+        String lang = CrossPlatformRuntime.languageCode();
+        return lang == null || lang.isBlank() ? "en_us" : lang;
+    }
+
+    private boolean confirmAlarmPreset(DlcPresetEntry item) {
+        String tip = item == null ? "" : item.resolveTip(currentLang());
+        String message = tip == null || tip.isBlank()
+                ? "该预设标记为警告预设，启用后可能产生较大影响，是否继续？"
+                : tip;
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
+                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
+                new ButtonType("确定", ButtonData.OK_DONE));
+        alert.setTitle("启用警告预设");
+        alert.setHeaderText(null);
+        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
+    }
+
+    private final class PresetCell extends javafx.scene.control.ListCell<DlcPresetEntry> {
         private final CheckBox checkBox = new CheckBox();
         private final Label statusLabel = new Label();
         private final Label nameLabel = new Label();
@@ -194,16 +218,21 @@ final class LocalPresetTab {
                 DlcPresetEntry item = getItem();
                 if (item != null) {
                     boolean enabled = checkBox.isSelected();
-                    boolean wasBlocked = DlcPresetRuntimeState.isPresetBlocked(item.getId());
+                    if (enabled && item.isAlarm() && !confirmAlarmPreset(item)) {
+                        checkBox.setSelected(item.getStatus().isEnabled());
+                        return;
+                    }
                     boolean ok = DlcPresetRuntimeState.setPresetEnabled(item.getId(), enabled);
                     if (!ok && enabled) {
                         checkBox.setSelected(false);
-                        List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(item.getId(), "zh_cn");
+                        List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(item.getId(), currentLang());
                         String msg = blockers.isEmpty() ? "被冲突预设阻止" : "被阻止: " + String.join(", ", blockers);
                         statusLabel.setText("[阻止]");
                         setTooltip(new Tooltip(msg));
                     } else {
                         updateStatusDisplay(item);
+                        DlcPresetRuntimeState.applyOverridesToRuntime();
+                        saveAndRefresh();
                     }
                 }
             });
@@ -218,7 +247,8 @@ final class LocalPresetTab {
             } else {
                 checkBox.setSelected(item.getStatus().isEnabled());
                 updateStatusDisplay(item);
-                nameLabel.setText(item.resolveDisplayName("zh_cn"));
+                String lang = currentLang();
+                nameLabel.setText(item.resolveDisplayName(lang));
                 StringBuilder tip = new StringBuilder();
                 tip.append("ID: ").append(item.getId());
                 tip.append("\n文件: ").append(item.getFileName());
@@ -231,7 +261,7 @@ final class LocalPresetTab {
                 if (item.isAlarm()) {
                     tip.append("\n[警告预设]");
                 }
-                String tipText = item.resolveTip("zh_cn");
+                String tipText = item.resolveTip(lang);
                 if (tipText != null && !tipText.isBlank()) {
                     tip.append("\n说明: ").append(tipText);
                 }

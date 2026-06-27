@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.javafx;
 
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -140,17 +141,17 @@ final class LocalDlcManagementTab {
         // ── Bottom: apply controls ────────────────────────────────
         Button selectAllBtn = new Button("全选");
         selectAllBtn.setOnAction(e -> {
-            for (DlcItem it : allItems) it.setEnabled(true);
+            for (DlcItem it : allItems) setItemEnabled(it, true);
             listView.refresh();
         });
         Button selectNoneBtn = new Button("全不选");
         selectNoneBtn.setOnAction(e -> {
-            for (DlcItem it : allItems) it.setEnabled(false);
+            for (DlcItem it : allItems) setItemEnabled(it, false);
             listView.refresh();
         });
         Button invertBtn = new Button("反选");
         invertBtn.setOnAction(e -> {
-            for (DlcItem it : allItems) it.setEnabled(!it.isEnabled());
+            for (DlcItem it : allItems) setItemEnabled(it, !it.isEnabled());
             listView.refresh();
         });
 
@@ -196,6 +197,7 @@ final class LocalDlcManagementTab {
         DlcConfig.load();
         DlcStateConfig.load();
         DlcRuntimeState.clearOverrides();
+        DlcPresetRuntimeState.clearAll();
         allItems.clear();
         countLabel.setText("");
         // Notify sibling local tabs that the game directory changed.
@@ -317,6 +319,33 @@ final class LocalDlcManagementTab {
                         flat.addAll(group);
                     }
                 }
+                if (DlcConfig.isPresetFuncOn()) {
+                    DlcPresetRuntimeState.reload();
+                } else {
+                    DlcPresetRuntimeState.clearAll();
+                }
+                for (DlcItem item : flat) {
+                    if (item == null) {
+                        continue;
+                    }
+                    boolean enabled = item.isEnabled();
+                    DlcRuntimeState.ensureBaseline(item.getId(), enabled);
+                    Boolean override = DlcRuntimeState.getOverride(item.getId());
+                    if (override != null) {
+                        item.setEnabled(override);
+                    }
+                }
+                DlcRuntimeState.updateItemIndex(flat);
+                DlcPresetRuntimeState.applyOverridesToRuntime();
+                for (DlcItem item : flat) {
+                    if (item == null) {
+                        continue;
+                    }
+                    Boolean override = DlcRuntimeState.getOverride(item.getId());
+                    if (override != null) {
+                        item.setEnabled(override);
+                    }
+                }
                 final int total = flat.size();
                 final String diagText = diag.toString();
                 System.out.println("[DLC-Scan-Debug]\n" + diagText + "total=" + total);
@@ -359,6 +388,9 @@ final class LocalDlcManagementTab {
             try {
                 DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(allItems), finalMode);
                 DlcStateConfig.save();
+                if (DlcConfig.isPresetFuncOn()) {
+                    DlcPresetRuntimeState.syncStatusFromRuntime();
+                }
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
                     StringBuilder sb = new StringBuilder();
@@ -442,7 +474,7 @@ final class LocalDlcManagementTab {
             checkBox.setOnAction(e -> {
                 DlcItem item = getItem();
                 if (item != null) {
-                    item.setEnabled(checkBox.isSelected());
+                    setItemEnabled(item, checkBox.isSelected());
                 }
             });
         }
@@ -480,5 +512,13 @@ final class LocalDlcManagementTab {
     private static String safeMessage(Throwable t) {
         String msg = t.getMessage();
         return msg == null ? t.getClass().getSimpleName() : msg;
+    }
+
+    private static void setItemEnabled(DlcItem item, boolean enabled) {
+        if (item == null) {
+            return;
+        }
+        item.setEnabled(enabled);
+        DlcRuntimeState.setOverride(item.getId(), enabled);
     }
 }

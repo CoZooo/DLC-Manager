@@ -6,7 +6,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
@@ -145,6 +148,9 @@ final class RemoteFileManagerTab {
                 remotePath = remoteNameField.getText().trim();
             }
             if (remotePath.isBlank()) { statusLabel.setText("请选择文件或输入路径"); return; }
+            if (!confirm("删除远程文件", "将删除远程路径: " + remotePath + "\n是否继续？")) {
+                return;
+            }
             statusLabel.setText("删除中…");
             conn.runAsync(client -> { client.deleteFile(remotePath); return true; }, ok -> {
                 statusLabel.setText("已删除: " + remotePath);
@@ -157,6 +163,9 @@ final class RemoteFileManagerTab {
             chooser.setTitle("选择要推送的文件夹");
             File dir = chooser.showDialog(primaryStage);
             if (dir == null) return;
+            if (!confirm("推送文件夹", "将以 overwrite 模式推送文件夹到服务器，是否继续？")) {
+                return;
+            }
             statusLabel.setText("推送中…");
             conn.runAsync(client -> {
                 pushDirectory(client, dir.toPath());
@@ -225,5 +234,14 @@ final class RemoteFileManagerTab {
         if (bytes < 1024 * 1024) return String.format("%.1f KB", bytes / 1024.0);
         if (bytes < 1024 * 1024 * 1024) return String.format("%.1f MB", bytes / (1024.0 * 1024));
         return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
+    }
+
+    private static boolean confirm(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
+                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
+                new ButtonType("确定", ButtonData.OK_DONE));
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
 }

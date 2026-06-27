@@ -6,7 +6,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
@@ -60,6 +63,9 @@ final class RemotePackTab {
         });
 
         applyStartBtn.setOnAction(e -> {
+            if (!confirm("开始应用 Pack", "将开始在服务器应用 DLC Pack，是否继续？")) {
+                return;
+            }
             statusLabel.setText("启动应用…");
             conn.runAsync(f -> f.packApplyStart(), resp -> statusLabel.setText("已启动: " + resp.toString()),
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
@@ -77,6 +83,9 @@ final class RemotePackTab {
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
         });
         applyCancelBtn.setOnAction(e -> {
+            if (!confirm("取消 Pack 应用", "将取消当前服务器 Pack 应用流程，是否继续？")) {
+                return;
+            }
             conn.runAsync(f -> f.packApplyCancel(), resp -> statusLabel.setText("已取消"),
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
         });
@@ -105,12 +114,20 @@ final class RemotePackTab {
         deleteBtn.disableProperty().bind(conn.connectedProperty().not());
         installBtn.setOnAction(e -> {
             String p = archiveField.getText().trim();
+            if (p.isBlank()) { statusLabel.setText("请输入 archivePath"); return; }
+            if (!confirm("安装 Pack", "将安装 Pack: " + p + "\n是否继续？")) {
+                return;
+            }
             statusLabel.setText("安装中…");
             conn.runAsync(f -> f.packInstall(p), resp -> statusLabel.setText("结果: " + resp.toString()),
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
         });
         deleteBtn.setOnAction(e -> {
             String p = archiveField.getText().trim();
+            if (p.isBlank()) { statusLabel.setText("请输入 archivePath"); return; }
+            if (!confirm("删除 Pack 归档", "将删除 Pack 归档: " + p + "\n是否继续？")) {
+                return;
+            }
             statusLabel.setText("删除中…");
             conn.runAsync(f -> f.packDelete(p), resp -> statusLabel.setText("结果: " + resp.toString()),
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
@@ -123,6 +140,10 @@ final class RemotePackTab {
         uninstallBtn.disableProperty().bind(conn.connectedProperty().not());
         uninstallBtn.setOnAction(e -> {
             String id = idField.getText().trim();
+            if (id.isBlank()) { statusLabel.setText("请输入 identifier"); return; }
+            if (!confirm("卸载 Pack", "将卸载 Pack: " + id + "\n是否继续？")) {
+                return;
+            }
             statusLabel.setText("卸载中…");
             conn.runAsync(f -> f.packUninstall(id), resp -> statusLabel.setText("结果: " + resp.toString()),
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
@@ -135,6 +156,10 @@ final class RemotePackTab {
         importBtn.disableProperty().bind(conn.connectedProperty().not());
         importBtn.setOnAction(e -> {
             String p = importPathField.getText().trim();
+            if (p.isBlank()) { statusLabel.setText("请输入服务器路径"); return; }
+            if (!confirm("导入 Pack", "将从服务器路径导入 Pack: " + p + "\n是否继续？")) {
+                return;
+            }
             statusLabel.setText("导入中…");
             conn.runAsync(f -> f.packImport(p), resp -> statusLabel.setText("结果: " + resp.toString()),
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
@@ -151,6 +176,10 @@ final class RemotePackTab {
         importUrlBtn.setOnAction(e -> {
             String url = urlField.getText().trim();
             String name = nameField.getText().trim();
+            if (url.isBlank()) { statusLabel.setText("请输入 URL"); return; }
+            if (!confirm("URL 导入 Pack", "服务器将下载并导入该 URL，是否继续？")) {
+                return;
+            }
             statusLabel.setText("下载并导入中…");
             conn.runAsync(f -> f.packImportUrl(url, name), resp -> statusLabel.setText("结果: " + resp.toString()),
                     err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
@@ -178,5 +207,14 @@ final class RemotePackTab {
             list.add(e.toString());
         }
         return list;
+    }
+
+    private static boolean confirm(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
+                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
+                new ButtonType("确定", ButtonData.OK_DONE));
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
 }

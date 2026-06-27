@@ -2,9 +2,15 @@ package com.cozooo.dlc_manager.javafx;
 
 import com.cozooo.dlc_manager.platform.PlatformServices;
 
+import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.jar.JarFile;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Standalone {@link PlatformServices.Provider} for the JavaFX DLC Manager.
@@ -58,8 +64,23 @@ public final class StandalonePlatformProvider implements PlatformServices.Provid
 
     @Override
     public boolean isModLoaded(String modId) {
-        // In standalone mode we cannot query the mod loader.
-        // Detection is done via file existence in DlcScanner instead.
+        if (modId == null || modId.isBlank()) {
+            return false;
+        }
+        String needle = modId.toLowerCase(java.util.Locale.ROOT);
+        for (Path jar : modFiles()) {
+            String fileName = jar.getFileName() == null ? "" : jar.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+            if (fileName.contains(needle)) {
+                return true;
+            }
+            if (jarContainsIgnoreCase(jar, "modid=\"" + needle + "\"")
+                || jarContainsIgnoreCase(jar, "modid='" + needle + "'")
+                || jarContainsIgnoreCase(jar, "modId = \"" + needle + "\"")
+                || jarContainsIgnoreCase(jar, "\"id\":\"" + needle + "\"")
+                || jarContainsIgnoreCase(jar, "\"id\": \"" + needle + "\"")) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -70,17 +91,41 @@ public final class StandalonePlatformProvider implements PlatformServices.Provid
 
     @Override
     public String languageCode() {
-        return "en_us";
+        String lang = readOptionValue("lang");
+        return lang == null || lang.isBlank() ? "en_us" : lang;
     }
 
     @Override
     public String loaderName() {
-        // Unknown until we inspect the game dir; left blank.
+        for (Path jar : modFiles()) {
+            if (jarHasEntry(jar, "fabric.mod.json")) {
+                return "Fabric";
+            }
+            if (jarHasEntry(jar, "META-INF/neoforge.mods.toml")) {
+                return "NeoForge";
+            }
+            if (jarHasEntry(jar, "META-INF/mods.toml")) {
+                return "Forge";
+            }
+        }
+        if (java.nio.file.Files.exists(configDir.resolve("fabric_loader_dependencies.json"))) {
+            return "Fabric";
+        }
         return "";
     }
 
     @Override
     public String mcVersion() {
+        String fromVersionJson = readLatestVersionJson();
+        if (fromVersionJson != null) {
+            return fromVersionJson;
+        }
+        for (Path jar : modFiles()) {
+            String fromJar = readMinecraftVersionFromJar(jar);
+            if (fromJar != null && !fromJar.isBlank()) {
+                return fromJar;
+            }
+        }
         return "";
     }
 
@@ -154,6 +199,153 @@ public final class StandalonePlatformProvider implements PlatformServices.Provid
             return null;
         }
         return null;
+    }
+
+    private String readOptionValue(String key) {
+        Path options = gameDir.resolve("options.txt");
+        if (!java.nio.file.Files.exists(options)) {
+            return null;
+        }
+        try {
+            for (String line : java.nio.file.Files.readAllLines(options)) {
+                if (line == null || !line.startsWith(key + ":")) {
+                    continue;
+                }
+                String value = line.substring((key + ":").length()).trim();
+                return value.isEmpty() ? null : value;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private List<Path> modFiles() {
+        Path mods = gameDir.resolve("mods");
+        if (!java.nio.file.Files.isDirectory(mods)) {
+            return List.of();
+        }
+        List<Path> jars = new ArrayList<>();
+        try (var stream = java.nio.file.Files.list(mods)) {
+            stream.filter(path -> {
+                String name = path.getFileName() == null ? "" : path.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
+                return java.nio.file.Files.isRegularFile(path) && name.endsWith(".jar");
+            }).forEach(jars::add);
+        } catch (Exception ignored) {
+        }
+        return jars;
+    }
+
+    private static boolean jarHasEntry(Path jar, String entryName) {
+        try (JarFile jf = new JarFile(jar.toFile())) {
+            return jf.getEntry(entryName) != null;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean jarContainsIgnoreCase(Path jar, String needle) {
+        if (needle == null || needle.isBlank()) {
+            return false;
+        }
+        String lowerNeedle = needle.toLowerCase(java.util.Locale.ROOT);
+        for (String entry : List.of("fabric.mod.json", "META-INF/mods.toml", "META-INF/neoforge.mods.toml")) {
+            String content = readJarText(jar, entry);
+            if (content != null && content.toLowerCase(java.util.Locale.ROOT).contains(lowerNeedle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String readLatestVersionJson() {
+        Path versions = gameDir.resolve("versions");
+        if (!java.nio.file.Files.isDirectory(versions)) {
+            return null;
+        }
+        try (var stream = java.nio.file.Files.list(versions)) {
+            return stream
+                .filter(java.nio.file.Files::isDirectory)
+                .map(path -> path.getFileName() == null ? "" : path.getFileName().toString())
+                .map(StandalonePlatformProvider::extractMcVersion)
+                .filter(value -> value != null && !value.isBlank())
+                .sorted(StandalonePlatformProvider::compareVersionsDescending)
+                .findFirst()
+                .orElse(null);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String readMinecraftVersionFromJar(Path jar) {
+        String fabric = readJarText(jar, "fabric.mod.json");
+        String version = extractJsonString(fabric, "minecraft");
+        if (version != null) {
+            return extractMcVersion(version);
+        }
+        for (String entry : List.of("META-INF/neoforge.mods.toml", "META-INF/mods.toml")) {
+            String toml = readJarText(jar, entry);
+            version = extractMcVersion(toml);
+            if (version != null) {
+                return version;
+            }
+        }
+        return null;
+    }
+
+    private static String readJarText(Path jar, String entryName) {
+        try (JarFile jf = new JarFile(jar.toFile())) {
+            var entry = jf.getEntry(entryName);
+            if (entry == null) {
+                return null;
+            }
+            try (InputStream in = jf.getInputStream(entry)) {
+                return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static String extractJsonString(String json, String key) {
+        if (json == null || key == null) {
+            return null;
+        }
+        Matcher matcher = Pattern.compile("\"" + Pattern.quote(key) + "\"\\s*:\\s*\"([^\"]+)\"").matcher(json);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static String extractMcVersion(String text) {
+        if (text == null) {
+            return null;
+        }
+        Matcher matcher = Pattern.compile("(1\\.\\d+(?:\\.\\d+)?)").matcher(text);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static int compareVersionsDescending(String left, String right) {
+        return -compareVersions(left, right);
+    }
+
+    private static int compareVersions(String left, String right) {
+        String[] a = left.split("\\.");
+        String[] b = right.split("\\.");
+        int len = Math.max(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            int ai = i < a.length ? parseInt(a[i]) : 0;
+            int bi = i < b.length ? parseInt(b[i]) : 0;
+            if (ai != bi) {
+                return Integer.compare(ai, bi);
+            }
+        }
+        return left.compareTo(right);
+    }
+
+    private static int parseInt(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     private java.util.List<Path> resourcepackRoots() {

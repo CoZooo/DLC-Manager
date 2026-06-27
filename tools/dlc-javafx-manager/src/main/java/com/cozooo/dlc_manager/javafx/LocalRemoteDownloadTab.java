@@ -1,8 +1,7 @@
 package com.cozooo.dlc_manager.javafx;
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
-import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteService;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import javafx.application.Platform;
@@ -21,31 +20,15 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Controller for the "本地 · Remote 下载" tab.
  * <p>
  * Lists every {@code .dc} entry under {@code DLC/remote/}, marks the ones
- * whose target file is missing, and lets the user resolve + download them via
- * {@link DlcDownloadCandidate#resolve(DlcRemoteEntry)}.
- * <p>
- * Downloads use a plain {@link HttpClient} (the in-game client uses a more
- * elaborate segmented downloader, but for the standalone manager a simple
- * stream copy with hash verification is sufficient and dependency-free).
+ * whose target file is missing, and lets the user resolve + download them
+ * through the same download runtime used by the in-game client.
  */
 final class LocalRemoteDownloadTab {
 
@@ -101,7 +84,7 @@ final class LocalRemoteDownloadTab {
             }
             java.util.List<DlcRemoteEntry> missingSelected = new java.util.ArrayList<>();
             for (DlcRemoteEntry entry : selected) {
-                if (entry != null && isMissing(entry)) {
+                if (entry != null && DlcRemoteService.isMissing(entry)) {
                     missingSelected.add(entry);
                 }
             }
@@ -109,7 +92,7 @@ final class LocalRemoteDownloadTab {
                 statusLabel.setText("所选条目均已存在");
                 return;
             }
-            java.util.List<DlcRemoteEntry> toDownload = expandWithDependencies(missingSelected);
+            java.util.List<DlcRemoteEntry> toDownload = DlcRemoteService.expandMissingWithDependencies(missingSelected);
             downloadAll(toDownload);
         });
 
@@ -146,7 +129,7 @@ final class LocalRemoteDownloadTab {
                 List<DlcRemoteEntry> loaded = DlcRemoteLoader.load(dlcRoot);
                 Platform.runLater(() -> {
                     entries.setAll(loaded);
-                    int missing = countMissing(loaded);
+                    int missing = DlcRemoteService.countMissing(loaded);
                     countLabel.setText(String.format("共 %d 项，缺失 %d 项", loaded.size(), missing));
                     statusLabel.setText(missing == 0 ? "无缺失项" : "存在缺失项，可点击「下载全部缺失项」");
                     progressBar.setVisible(false);
@@ -164,32 +147,12 @@ final class LocalRemoteDownloadTab {
         thread.start();
     }
 
-    private int countMissing(List<DlcRemoteEntry> list) {
-        int n = 0;
-        for (DlcRemoteEntry e : list) {
-            if (isMissing(e)) {
-                n++;
-            }
-        }
-        return n;
-    }
-
-    private boolean isMissing(DlcRemoteEntry entry) {
-        Path target = entry.getTargetPath();
-        return target == null || !Files.exists(target);
-    }
-
     // ───────────────────────────────────────────────────────────────
     //  Download
     // ───────────────────────────────────────────────────────────────
 
     private void downloadMissingAsync() {
-        List<DlcRemoteEntry> missing = new ArrayList<>();
-        for (DlcRemoteEntry e : entries) {
-            if (isMissing(e)) {
-                missing.add(e);
-            }
-        }
+        List<DlcRemoteEntry> missing = DlcRemoteService.collectMissing(entries);
         if (missing.isEmpty()) {
             statusLabel.setText("无缺失项需要下载");
             return;
@@ -197,43 +160,8 @@ final class LocalRemoteDownloadTab {
         // Recursively pull in each missing entry's nested remote dependencies
         // (declared inline in its [dependencies] block) that are themselves
         // missing — mirrors the in-game remote downloader.
-        List<DlcRemoteEntry> toDownload = expandWithDependencies(missing);
+        List<DlcRemoteEntry> toDownload = DlcRemoteService.expandMissingWithDependencies(missing);
         downloadAll(toDownload);
-    }
-
-    /**
-     * Recursively expand {@code roots} with their nested remote dependencies,
-     * keeping only entries that are still missing.  Already-present entries are
-     * skipped but still traversed so their own dependencies get a chance to be
-     * pulled in.  Dedup is by dlc-identifier (falling back to the download
-     * unique-key) so the same pack isn't downloaded twice.
-     */
-    private List<DlcRemoteEntry> expandWithDependencies(List<DlcRemoteEntry> roots) {
-        List<DlcRemoteEntry> result = new ArrayList<>();
-        java.util.LinkedHashSet<String> seen = new java.util.LinkedHashSet<>();
-        java.util.ArrayDeque<DlcRemoteEntry> queue = new java.util.ArrayDeque<>(roots);
-        while (!queue.isEmpty()) {
-            DlcRemoteEntry entry = queue.poll();
-            if (entry == null) {
-                continue;
-            }
-            String key = entry.getDlcIdentifier();
-            if (key == null || key.isBlank()) {
-                key = entry.getUniqueKey();
-            }
-            if (key == null || key.isBlank() || !seen.add(key)) {
-                continue;
-            }
-            if (isMissing(entry)) {
-                result.add(entry);
-            }
-            for (DlcRemoteEntry dep : entry.getRemoteDependencies()) {
-                if (dep != null) {
-                    queue.add(dep);
-                }
-            }
-        }
-        return result;
     }
 
     private void downloadAll(List<DlcRemoteEntry> toDownload) {
@@ -242,23 +170,30 @@ final class LocalRemoteDownloadTab {
         progressBar.setVisible(true);
         progressBar.setProgress(0);
         Thread thread = new Thread(() -> {
-            int total = toDownload.size();
-            AtomicLong done = new AtomicLong();
-            List<String> errors = new ArrayList<>();
-            for (DlcRemoteEntry entry : toDownload) {
-                try {
-                    downloadOne(entry);
-                } catch (Throwable t) {
-                    errors.add(safeName(entry) + ": " + safeMessage(t));
-                }
-                long d = done.incrementAndGet();
-                Platform.runLater(() -> progressBar.setProgress((double) d / total));
+            DlcRemoteService.BatchResult result;
+            try {
+                result = DlcRemoteService.downloadAll(toDownload, new DlcRemoteService.BatchProgressListener() {
+                    @Override
+                    public void onEntrySuccess(DlcRemoteEntry entry, String fileName, int completed, int total) {
+                        Platform.runLater(() -> progressBar.setProgress((double) completed / total));
+                    }
+
+                    @Override
+                    public void onEntryFailure(DlcRemoteEntry entry, Throwable error, int completed, int total) {
+                        Platform.runLater(() -> progressBar.setProgress((double) completed / total));
+                    }
+                }, null);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                result = new DlcRemoteService.BatchResult(toDownload.size(), 0,
+                        List.of(new DlcRemoteService.EntryError(null, ex)));
             }
+            DlcRemoteService.BatchResult finalResult = result;
             Platform.runLater(() -> {
                 StringBuilder sb = new StringBuilder();
-                sb.append("完成 ").append(done.get()).append('/').append(total);
-                if (!errors.isEmpty()) {
-                    sb.append("，失败 ").append(errors.size()).append(" 项");
+                sb.append("完成 ").append(finalResult.success).append('/').append(finalResult.total);
+                if (!finalResult.errors.isEmpty()) {
+                    sb.append("，失败 ").append(finalResult.errors.size()).append(" 项");
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
@@ -270,80 +205,6 @@ final class LocalRemoteDownloadTab {
         }, "dlc-remote-download");
         thread.setDaemon(true);
         thread.start();
-    }
-
-    private void downloadOne(DlcRemoteEntry entry) throws IOException, InterruptedException {
-        Path target = entry.getTargetPath();
-        if (target == null) {
-            throw new IOException("无法解析目标路径: " + safeName(entry));
-        }
-        if (Files.exists(target)) {
-            return; // already present
-        }
-        List<DlcDownloadCandidate> candidates = DlcDownloadCandidate.resolve(entry);
-        if (candidates.isEmpty()) {
-            throw new IOException("无可用下载源");
-        }
-        Files.createDirectories(target.getParent());
-        IOException last = null;
-        for (DlcDownloadCandidate c : candidates) {
-            try {
-                downloadCandidate(c, target, entry.getFileNameHint());
-                return;
-            } catch (IOException ioe) {
-                last = ioe;
-            }
-        }
-        throw last != null ? last : new IOException("下载失败: " + safeName(entry));
-    }
-
-    private void downloadCandidate(DlcDownloadCandidate candidate, Path target, String preferredName)
-            throws IOException, InterruptedException {
-        String fileName = firstNonBlank(preferredName,
-                candidate.fileNameOverride,
-                DlcDownloadUtil.extractFileNameFromUrl(candidate.url),
-                target.getFileName().toString());
-        fileName = DlcDownloadUtil.sanitizeFileName(fileName);
-        if (fileName == null || fileName.isBlank()) {
-            fileName = target.getFileName().toString();
-        }
-        Path finalPath = target.getParent().resolve(fileName);
-        Path temp = target.getParent().resolve(fileName + ".part");
-        Files.deleteIfExists(temp);
-        try {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(15))
-                    .followRedirects(HttpClient.Redirect.NORMAL)
-                    .build();
-            HttpRequest request = HttpRequest.newBuilder(URI.create(candidate.url))
-                    .timeout(Duration.ofMinutes(10))
-                    .header("User-Agent", "DLC-Manager-JavaFX")
-                    .GET()
-                    .build();
-            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IOException("HTTP " + response.statusCode());
-            }
-            try (InputStream in = response.body(); OutputStream out = Files.newOutputStream(temp)) {
-                in.transferTo(out);
-            }
-            // Hash verification
-            if (candidate.hashType != null && !candidate.hashType.isBlank()
-                    && candidate.hashValue != null && !candidate.hashValue.isBlank()) {
-                String actual = DlcDownloadUtil.computeHashHex(temp, candidate.hashType);
-                String expected = DlcDownloadUtil.normalizeHash(candidate.hashValue);
-                if (actual == null || !actual.equalsIgnoreCase(expected)) {
-                    throw new IOException("校验失败: " + candidate.hashType + " 不匹配");
-                }
-            }
-            try {
-                Files.move(temp, finalPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException ignored) {
-                Files.move(temp, finalPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-        } finally {
-            Files.deleteIfExists(temp);
-        }
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -370,7 +231,7 @@ final class LocalRemoteDownloadTab {
                 setText(null);
             } else {
                 nameLabel.setText(safeName(item));
-                boolean missing = isMissing(item);
+                boolean missing = DlcRemoteService.isMissing(item);
                 if (missing) {
                     statusTag.setText(" 缺失 ");
                     statusTag.setStyle("-fx-text-fill: white; -fx-background-color: #c0392b; -fx-background-radius: 3; -fx-padding: 0 4;");
@@ -413,15 +274,6 @@ final class LocalRemoteDownloadTab {
             name = entry.getDlcIdentifier();
         }
         return name == null ? "(未命名)" : name;
-    }
-
-    private static String firstNonBlank(String... candidates) {
-        for (String c : candidates) {
-            if (c != null && !c.isBlank()) {
-                return c;
-            }
-        }
-        return null;
     }
 
     private static String safeMessage(Throwable t) {

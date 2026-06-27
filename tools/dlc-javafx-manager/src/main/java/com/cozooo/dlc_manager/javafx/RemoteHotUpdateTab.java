@@ -6,7 +6,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
@@ -64,6 +67,9 @@ final class RemoteHotUpdateTab {
         });
 
         applyBtn.setOnAction(e -> {
+            if (!confirm("应用远程热更新", "将应用服务器上的全部可用热更新，是否继续？")) {
+                return;
+            }
             statusLabel.setText("应用中…");
             conn.runAsync(f -> f.updateApply(null, null, null, null), resp -> {
                 statusLabel.setText("结果: " + resp.toString());
@@ -96,6 +102,9 @@ final class RemoteHotUpdateTab {
             String dlcNew = blankToNull(dlcNewField.getText());
             if (baseOld == null && dlcOld == null && baseNew == null && dlcNew == null) {
                 statusLabel.setText("请至少填写一个版本参数");
+                return;
+            }
+            if (!confirm("按版本应用远程热更新", "将按填写的版本参数应用服务器热更新，是否继续？")) {
                 return;
             }
             statusLabel.setText("应用中…");
@@ -137,6 +146,9 @@ final class RemoteHotUpdateTab {
         rollbackBtn.setOnAction(e -> {
             String target = rollbackField.getText().trim();
             if (target.isBlank()) { statusLabel.setText("请输入回滚目标"); return; }
+            if (!confirm("回滚远程版本", "将回滚服务器到 " + target + "，是否继续？")) {
+                return;
+            }
             statusLabel.setText("回滚中…");
             conn.runAsync(f -> f.updateRollback(target), resp -> {
                 statusLabel.setText("回滚结果: " + resp.toString());
@@ -150,6 +162,10 @@ final class RemoteHotUpdateTab {
         importBtn.disableProperty().bind(conn.connectedProperty().not());
         importBtn.setOnAction(e -> {
             String path = importPathField.getText().trim();
+            if (path.isBlank()) { statusLabel.setText("请输入服务器本地包路径"); return; }
+            if (!confirm("导入远程热更新包", "将从服务器路径导入热更新包: " + path + "\n是否继续？")) {
+                return;
+            }
             statusLabel.setText("导入中…");
             conn.runAsync(f -> f.updateImport(path), resp -> {
                 statusLabel.setText("导入结果: " + resp.toString());
@@ -167,6 +183,10 @@ final class RemoteHotUpdateTab {
         importUrlBtn.setOnAction(e -> {
             String url = importUrlField.getText().trim();
             String name = importNameField.getText().trim();
+            if (url.isBlank()) { statusLabel.setText("请输入 URL"); return; }
+            if (!confirm("从 URL 导入远程热更新包", "服务器将下载并导入该 URL，是否继续？")) {
+                return;
+            }
             statusLabel.setText("下载并导入中…");
             conn.runAsync(f -> f.updateImportUrl(url, name), resp -> {
                 statusLabel.setText("导入结果: " + resp.toString());
@@ -217,5 +237,14 @@ final class RemoteHotUpdateTab {
         if (s == null) return null;
         String t = s.trim();
         return t.isEmpty() ? null : t;
+    }
+
+    private static boolean confirm(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
+                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
+                new ButtonType("确定", ButtonData.OK_DONE));
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
 }

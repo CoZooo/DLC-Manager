@@ -7,7 +7,10 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
@@ -109,6 +112,9 @@ final class RemoteServerConfigTab {
             statusLabel.setText("JSON 无效: " + RemoteConnection.safeMessage(t));
             return;
         }
+        if (!confirm("保存服务器配置", "将覆盖远程服务器当前配置，是否继续？")) {
+            return;
+        }
         statusLabel.setText("保存中…");
         saveBtn.setDisable(true);
         conn.runAsync(f -> f.configSet(config), resp -> {
@@ -119,5 +125,14 @@ final class RemoteServerConfigTab {
             statusLabel.setText("保存失败: " + RemoteConnection.safeMessage(err));
             saveBtn.setDisable(false);
         });
+    }
+
+    private static boolean confirm(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
+                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
+                new ButtonType("确定", ButtonData.OK_DONE));
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
 }

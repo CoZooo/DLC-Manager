@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.javafx;
 
+import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRemoteRuntime;
+import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
+import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CancelChecker;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult;
@@ -17,6 +21,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateRollbackResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -40,7 +45,6 @@ import javafx.stage.FileChooser;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -551,7 +555,7 @@ final class LocalUpdateTab {
         return meta;
     }
 
-    private static String describeApply(UpdateApplyResult result) {
+    private String describeApply(UpdateApplyResult result) {
         if (result == null) {
             return "更新结果未知";
         }
@@ -559,9 +563,17 @@ final class LocalUpdateTab {
             StringBuilder sb = new StringBuilder("更新完成。");
             if (result.hasRequiredAdd()) {
                 sb.append(" 已新增必装资源。");
+                List<DlcRequiredEntry> missing = DlcRequiredRuntime.collectMissingDownloadsForPrompt();
+                if (!missing.isEmpty()) {
+                    sb.append(" 仍有 ").append(missing.size()).append(" 个必装资源缺失，请转到「本地 · Required」下载。");
+                }
             }
             if (result.hasRemoteAdd()) {
                 sb.append(" 已新增远程资源。");
+                List<DlcRemoteEntry> missing = DlcRemoteRuntime.collectMissing();
+                if (!missing.isEmpty()) {
+                    sb.append(" 仍有 ").append(missing.size()).append(" 个远程资源缺失，请转到「本地 · Remote 下载」。");
+                }
             }
             if (result.isHelperScheduled()) {
                 sb.append(" 部分文件操作已安排在退出后处理。");
@@ -570,9 +582,6 @@ final class LocalUpdateTab {
                 sb.append(" DLC 管理器自身已更新。");
             }
             return sb.toString();
-        }
-        if (result.isMissing()) {
-            return "更新失败：缺失文件 — " + result.getMissingPaths();
         }
         return "更新失败：" + DlcUpdateService.toFailureMessage(result);
     }
@@ -591,7 +600,8 @@ final class LocalUpdateTab {
     }
 
     private static String currentLang() {
-        return Locale.getDefault().toLanguageTag().toLowerCase(Locale.ROOT).replace('-', '_');
+        String lang = CrossPlatformRuntime.languageCode();
+        return lang == null || lang.isBlank() ? "en_us" : lang;
     }
 
     private void setBusy(boolean busy, String status) {

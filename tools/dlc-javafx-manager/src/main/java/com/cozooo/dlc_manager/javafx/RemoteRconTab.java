@@ -8,6 +8,9 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
@@ -96,6 +99,9 @@ final class RemoteRconTab {
         restartBtn.setStyle("-fx-text-fill: #c0392b;");
         restartBtn.disableProperty().bind(conn.connectedProperty().not());
         restartBtn.setOnAction(e -> {
+            if (!confirm("重启服务器", "将向远程服务器发送重启命令，是否继续？")) {
+                return;
+            }
             appendLog("发送 server_restart…");
             conn.runAsync(f -> f.serverRestart(), resp -> appendLog("server_restart: " + resp.toString()),
                     err -> appendLog("server_restart 失败: " + RemoteConnection.safeMessage(err)));
@@ -163,5 +169,14 @@ final class RemoteRconTab {
         if (obj == null || !obj.has(key)) return "";
         JsonElement e = obj.get(key);
         return e.isJsonPrimitive() ? e.getAsString() : "";
+    }
+
+    private static boolean confirm(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
+                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
+                new ButtonType("确定", ButtonData.OK_DONE));
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
 }
