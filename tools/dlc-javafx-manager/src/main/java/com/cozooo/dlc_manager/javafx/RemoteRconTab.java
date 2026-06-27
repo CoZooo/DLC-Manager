@@ -39,6 +39,7 @@ final class RemoteRconTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: info + config ────────────────────────────────────
         Button infoBtn = new Button("查询 RCON 信息");
@@ -84,7 +85,7 @@ final class RemoteRconTab {
         HBox topBox = new HBox(8, infoBtn, getBtn, infoLabel,
                 new Label("  设置:"), hostField, portField, pwField, setBtn);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: command + log ─────────────────────────────────
@@ -96,7 +97,7 @@ final class RemoteRconTab {
         execBtn.setOnAction(e -> execCommand());
 
         Button restartBtn = new Button("重启服务器");
-        restartBtn.setStyle("-fx-text-fill: #c0392b;");
+        DlcFxStyle.danger(restartBtn);
         restartBtn.disableProperty().bind(conn.connectedProperty().not());
         restartBtn.setOnAction(e -> {
             if (!confirm("重启服务器", "将向远程服务器发送重启命令，是否继续？")) {
@@ -124,7 +125,8 @@ final class RemoteRconTab {
         ListView<String> logView = new ListView<>(log);
         VBox.setVgrow(logView, Priority.ALWAYS);
         VBox center = new VBox(4, cmdBox, quickBox, logView);
-        center.setPadding(new Insets(0, 8, 0, 8));
+        center.setPadding(new Insets(14, 16, 14, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         tab.setContent(root);

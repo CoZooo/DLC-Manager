@@ -44,6 +44,7 @@ final class RemoteDlcManagementTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top ───────────────────────────────────────────────────
         refreshBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -56,7 +57,7 @@ final class RemoteDlcManagementTab {
         });
 
         applyBtn.disableProperty().bind(conn.connectedProperty().not());
-        applyBtn.setStyle("-fx-font-weight: bold;");
+        DlcFxStyle.primary(applyBtn);
         applyBtn.setOnAction(e -> {
             statusLabel.setText("应用中…");
             applyDetail.clear();
@@ -77,7 +78,7 @@ final class RemoteDlcManagementTab {
 
         HBox topBox = new HBox(8, refreshBtn, applyBtn, statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center ────────────────────────────────────────────────
@@ -95,7 +96,8 @@ final class RemoteDlcManagementTab {
 
         VBox center = new VBox(listView, detailPane);
         VBox.setVgrow(detailPane, Priority.NEVER);
-        center.setPadding(new Insets(0, 8, 0, 8));
+        center.setPadding(new Insets(14, 16, 14, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         tab.setContent(root);
@@ -131,7 +133,9 @@ final class RemoteDlcManagementTab {
         private final HBox row = new HBox(8, checkBox, typeLabel, nameLabel);
 
         ServerItemCell() {
-            typeLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #666;");
+            DlcFxStyle.chip(typeLabel, DlcFxStyle.CHIP_NEUTRAL);
+            DlcFxStyle.title(nameLabel);
+            row.setAlignment(Pos.CENTER_LEFT);
             checkBox.setOnAction(e -> {
                 SyncModels.ServerItem item = getItem();
                 if (item != null) {
@@ -148,7 +152,7 @@ final class RemoteDlcManagementTab {
                 setText(null);
             } else {
                 checkBox.setSelected(item.enabled != null && item.enabled);
-                typeLabel.setText("[" + (item.type == null ? "?" : item.type) + "]");
+                typeLabel.setText(item.type == null ? "?" : item.type);
                 nameLabel.setText(item.name == null || item.name.isBlank() ? item.id : item.name);
                 StringBuilder tip = new StringBuilder();
                 tip.append("ID: ").append(item.id);

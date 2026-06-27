@@ -52,6 +52,7 @@ final class RemoteFileManagerTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: path + list ──────────────────────────────────────
         TextField pathField = new TextField("/");
@@ -70,14 +71,15 @@ final class RemoteFileManagerTab {
 
         HBox topBox = new HBox(8, new Label("路径:"), pathField, listBtn, pathLabel, statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: file list ─────────────────────────────────────
         ListView<String> listView = new ListView<>(entries);
         VBox.setVgrow(listView, Priority.ALWAYS);
         VBox center = new VBox(listView);
-        center.setPadding(new Insets(0, 8, 0, 8));
+        center.setPadding(new Insets(14, 16, 12, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         // ── Bottom: upload/download/delete/push ───────────────────
@@ -85,6 +87,9 @@ final class RemoteFileManagerTab {
         Button downloadBtn = new Button("下载文件…");
         Button deleteBtn = new Button("删除");
         Button pushBtn = new Button("推送文件夹…");
+        DlcFxStyle.primary(uploadBtn);
+        DlcFxStyle.primary(pushBtn);
+        DlcFxStyle.danger(deleteBtn);
 
         uploadBtn.disableProperty().bind(conn.connectedProperty().not());
         downloadBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -177,7 +182,7 @@ final class RemoteFileManagerTab {
                 uploadBtn, downloadBtn, deleteBtn, pushBtn,
                 new Label("远程名:"), remoteNameField);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
-        bottomBox.setPadding(new Insets(8));
+        DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
 
         tab.setContent(root);

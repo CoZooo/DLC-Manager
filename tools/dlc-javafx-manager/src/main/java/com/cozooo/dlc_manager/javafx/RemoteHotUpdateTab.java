@@ -39,6 +39,7 @@ final class RemoteHotUpdateTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: state + actions ──────────────────────────────────
         Button stateBtn = new Button("查询状态");
@@ -48,6 +49,8 @@ final class RemoteHotUpdateTab {
         stateBtn.disableProperty().bind(conn.connectedProperty().not());
         listBtn.disableProperty().bind(conn.connectedProperty().not());
         applyBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(stateBtn);
+        DlcFxStyle.primary(applyBtn);
 
         stateBtn.setOnAction(e -> {
             stateLabel.setText("查询中…");
@@ -78,7 +81,7 @@ final class RemoteHotUpdateTab {
 
         HBox topBox = new HBox(8, stateBtn, listBtn, applyBtn, stateLabel, statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
 
         // ── Versioned apply (optional base/dlc old→new) ──────────
         TextField baseOldField = new TextField();
@@ -95,6 +98,7 @@ final class RemoteHotUpdateTab {
         dlcNewField.setPrefColumnCount(10);
         Button applyVersionBtn = new Button("按版本应用");
         applyVersionBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(applyVersionBtn);
         applyVersionBtn.setOnAction(e -> {
             String baseOld = blankToNull(baseOldField.getText());
             String dlcOld = blankToNull(dlcOldField.getText());
@@ -117,9 +121,9 @@ final class RemoteHotUpdateTab {
                 new Label("按版本应用:"), baseOldField, dlcOldField,
                 new Label("→"), baseNewField, dlcNewField, applyVersionBtn);
         versionBox.setAlignment(Pos.CENTER_LEFT);
-        versionBox.setPadding(new Insets(0, 8, 8, 8));
+        DlcFxStyle.filterBar(versionBox);
 
-        VBox top = new VBox(topBox, versionBox);
+        VBox top = new VBox(10, topBox, versionBox);
         root.setTop(top);
 
         // ── Center: updates + history ─────────────────────────────
@@ -128,13 +132,18 @@ final class RemoteHotUpdateTab {
         VBox.setVgrow(updatesList, Priority.ALWAYS);
         VBox.setVgrow(historyList, Priority.ALWAYS);
 
-        VBox updatesBox = new VBox(4, new Label("可用更新"), updatesList);
-        VBox historyBox = new VBox(4, new Label("历史版本"), historyList);
+        Label updatesTitle = new Label("可用更新");
+        Label historyTitle = new Label("历史版本");
+        DlcFxStyle.title(updatesTitle);
+        DlcFxStyle.title(historyTitle);
+        VBox updatesBox = new VBox(4, updatesTitle, updatesList);
+        VBox historyBox = new VBox(4, historyTitle, historyList);
 
         HBox center = new HBox(8, updatesBox, historyBox);
         HBox.setHgrow(updatesBox, Priority.ALWAYS);
         HBox.setHgrow(historyBox, Priority.ALWAYS);
-        center.setPadding(new Insets(4, 8, 4, 8));
+        center.setPadding(new Insets(14, 16, 12, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         // ── Bottom: rollback / import ─────────────────────────────
@@ -143,6 +152,7 @@ final class RemoteHotUpdateTab {
         rollbackField.setPrefColumnCount(20);
         Button rollbackBtn = new Button("回滚");
         rollbackBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.danger(rollbackBtn);
         rollbackBtn.setOnAction(e -> {
             String target = rollbackField.getText().trim();
             if (target.isBlank()) { statusLabel.setText("请输入回滚目标"); return; }
@@ -160,6 +170,7 @@ final class RemoteHotUpdateTab {
         importPathField.setPrefColumnCount(20);
         Button importBtn = new Button("导入包");
         importBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(importBtn);
         importBtn.setOnAction(e -> {
             String path = importPathField.getText().trim();
             if (path.isBlank()) { statusLabel.setText("请输入服务器本地包路径"); return; }
@@ -180,6 +191,7 @@ final class RemoteHotUpdateTab {
         importNameField.setPrefColumnCount(12);
         Button importUrlBtn = new Button("从URL导入");
         importUrlBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(importUrlBtn);
         importUrlBtn.setOnAction(e -> {
             String url = importUrlField.getText().trim();
             String name = importNameField.getText().trim();
@@ -198,7 +210,7 @@ final class RemoteHotUpdateTab {
                 new Label("  导入:"), importPathField, importBtn,
                 new Label("  URL导入:"), importUrlField, importNameField, importUrlBtn);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
-        bottomBox.setPadding(new Insets(8));
+        DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
 
         tab.setContent(root);

@@ -30,15 +30,6 @@ import java.util.List;
  */
 final class RemoteRemoteRequiredTab {
 
-    private static final String TAG_RED =
-            "-fx-text-fill: white; -fx-background-color: #c0392b; -fx-background-radius: 3; -fx-padding: 0 4;";
-    private static final String TAG_ORANGE =
-            "-fx-text-fill: white; -fx-background-color: #e67e22; -fx-background-radius: 3; -fx-padding: 0 4;";
-    private static final String TAG_GREEN =
-            "-fx-text-fill: white; -fx-background-color: #27ae60; -fx-background-radius: 3; -fx-padding: 0 4;";
-    private static final String TAG_GRAY =
-            "-fx-text-fill: white; -fx-background-color: gray; -fx-background-radius: 3; -fx-padding: 0 4;";
-
     private final RemoteConnection conn;
     private final ObservableList<Row> remoteItems = FXCollections.observableArrayList();
     private final ObservableList<Row> requiredItems = FXCollections.observableArrayList();
@@ -54,6 +45,7 @@ final class RemoteRemoteRequiredTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Remote section ────────────────────────────────────────
         Button remoteRefreshBtn = new Button("刷新 Remote");
@@ -88,11 +80,13 @@ final class RemoteRemoteRequiredTab {
         remoteList.setCellFactory(param -> new RowCell());
         VBox.setVgrow(remoteList, Priority.ALWAYS);
 
-        VBox remoteBox = new VBox(4,
-                new Label("Remote 远程下载 (缺失项)"),
+        Label remoteTitle = new Label("Remote 远程下载 (缺失项)");
+        DlcFxStyle.title(remoteTitle);
+        DlcFxStyle.primary(remoteDownloadBtn);
+        VBox remoteBox = new VBox(8,
+                remoteTitle,
                 new HBox(8, remoteRefreshBtn, remoteDownloadBtn, remoteStatusBtn, remoteStatus),
                 remoteList);
-        remoteBox.setPadding(new Insets(4));
 
         // ── Required section ──────────────────────────────────────
         Button requiredRefreshBtn = new Button("刷新 Required");
@@ -145,17 +139,23 @@ final class RemoteRemoteRequiredTab {
         requiredList.setCellFactory(param -> new RowCell());
         VBox.setVgrow(requiredList, Priority.ALWAYS);
 
-        VBox requiredBox = new VBox(4,
-                new Label("Required 必装资源"),
+        Label requiredTitle = new Label("Required 必装资源");
+        DlcFxStyle.title(requiredTitle);
+        DlcFxStyle.primary(requiredDownloadBtn);
+        DlcFxStyle.primary(requiredApplyBtn);
+        DlcFxStyle.danger(requiredCancelBtn);
+        DlcFxStyle.danger(requiredUninstallBtn);
+        VBox requiredBox = new VBox(8,
+                requiredTitle,
                 new HBox(8, requiredRefreshBtn, requiredDownloadBtn, requiredCancelBtn, requiredApplyBtn, requiredUninstallBtn, requiredStatus),
                 requiredList);
-        requiredBox.setPadding(new Insets(4));
 
         // ── Layout: side by side ──────────────────────────────────
         HBox center = new HBox(8, remoteBox, requiredBox);
         HBox.setHgrow(remoteBox, Priority.ALWAYS);
         HBox.setHgrow(requiredBox, Priority.ALWAYS);
-        center.setPadding(new Insets(4, 8, 4, 8));
+        center.setPadding(new Insets(14, 16, 14, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         tab.setContent(root);
@@ -172,14 +172,14 @@ final class RemoteRemoteRequiredTab {
         final String subtitle;
         final String detail;
         final String tag;
-        final String tagStyle;
+        final String tagState;
 
-        Row(String title, String subtitle, String detail, String tag, String tagStyle) {
+        Row(String title, String subtitle, String detail, String tag, String tagState) {
             this.title = title;
             this.subtitle = subtitle;
             this.detail = detail;
             this.tag = tag;
-            this.tagStyle = tagStyle;
+            this.tagState = tagState;
         }
     }
 
@@ -190,8 +190,10 @@ final class RemoteRemoteRequiredTab {
         private final HBox row = new HBox(8, title, tag, subtitle);
 
         RowCell() {
-            title.setStyle("-fx-font-weight: bold;");
-            subtitle.setStyle("-fx-text-fill: #666;");
+            DlcFxStyle.title(title);
+            DlcFxStyle.chip(tag, DlcFxStyle.CHIP_NEUTRAL);
+            DlcFxStyle.muted(subtitle);
+            row.setAlignment(Pos.CENTER_LEFT);
         }
 
         @Override
@@ -204,7 +206,7 @@ final class RemoteRemoteRequiredTab {
             } else {
                 title.setText(item.title);
                 tag.setText(item.tag);
-                tag.setStyle(item.tagStyle);
+                DlcFxStyle.chip(tag, item.tagState);
                 subtitle.setText(item.subtitle);
                 if (item.detail != null && !item.detail.isBlank()) {
                     setTooltip(new Tooltip(item.detail));
@@ -236,16 +238,16 @@ final class RemoteRemoteRequiredTab {
             boolean success = bool(obj, "success");
             String error = str(obj, "error");
             String tag;
-            String tagStyle;
+            String tagState;
             if (done && success) {
-                tag = " 已下载 ";
-                tagStyle = TAG_GREEN;
+                tag = "已下载";
+                tagState = DlcFxStyle.CHIP_OK;
             } else if (done) {
-                tag = " 失败 ";
-                tagStyle = TAG_RED;
+                tag = "失败";
+                tagState = DlcFxStyle.CHIP_ERROR;
             } else {
-                tag = " 缺失 ";
-                tagStyle = TAG_RED;
+                tag = "缺失";
+                tagState = DlcFxStyle.CHIP_ERROR;
             }
             StringBuilder sub = new StringBuilder();
             if (key != null && !key.isBlank()) {
@@ -265,7 +267,7 @@ final class RemoteRemoteRequiredTab {
                 }
                 sub.append("错误: ").append(error);
             }
-            rows.add(new Row(title, sub.toString(), sub.toString(), tag, tagStyle));
+            rows.add(new Row(title, sub.toString(), sub.toString(), tag, tagState));
         }
         return rows;
     }
@@ -288,19 +290,19 @@ final class RemoteRemoteRequiredTab {
             boolean needsApply = bool(obj, "needsApply");
             boolean applied = bool(obj, "applied");
             String tag;
-            String tagStyle;
+            String tagState;
             if (!hasFile) {
-                tag = " 缺失下载 ";
-                tagStyle = TAG_RED;
+                tag = "缺失下载";
+                tagState = DlcFxStyle.CHIP_ERROR;
             } else if (needsApply) {
-                tag = " 待安装 ";
-                tagStyle = TAG_ORANGE;
+                tag = "待安装";
+                tagState = DlcFxStyle.CHIP_WARN;
             } else if (applied) {
-                tag = " 已安装 ";
-                tagStyle = TAG_GREEN;
+                tag = "已安装";
+                tagState = DlcFxStyle.CHIP_OK;
             } else {
-                tag = " 已下载 ";
-                tagStyle = TAG_GRAY;
+                tag = "已下载";
+                tagState = DlcFxStyle.CHIP_NEUTRAL;
             }
             StringBuilder sub = new StringBuilder();
             if (identifier != null && !identifier.isBlank()) {
@@ -328,7 +330,7 @@ final class RemoteRemoteRequiredTab {
                 }
                 detail.append("文件: ").append(fileName);
             }
-            rows.add(new Row(title, sub.toString(), detail.toString(), tag, tagStyle));
+            rows.add(new Row(title, sub.toString(), detail.toString(), tag, tagState));
         }
         return rows;
     }

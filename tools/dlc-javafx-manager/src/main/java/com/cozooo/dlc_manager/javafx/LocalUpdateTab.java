@@ -113,9 +113,10 @@ final class LocalUpdateTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: version header + action bar ──────────────────────
-        versionLabel.setStyle("-fx-font-weight: bold; -fx-padding: 0 0 4 0;");
+        DlcFxStyle.title(versionLabel);
 
         refreshBtn.setOnAction(e -> checkLocalAsync());
         checkRemoteBtn.setOnAction(e -> checkRemoteAsync());
@@ -125,6 +126,10 @@ final class LocalUpdateTab {
         applyBtn.setOnAction(e -> applySelectedAsync());
         rollbackBtn.setOnAction(e -> rollbackSelectedAsync());
         importBtn.setOnAction(e -> importPackage());
+        DlcFxStyle.primary(refreshBtn);
+        DlcFxStyle.primary(checkRemoteBtn);
+        DlcFxStyle.primary(applyBtn);
+        DlcFxStyle.danger(cancelDownloadBtn);
 
         HBox actionBar = new HBox(8,
                 refreshBtn, checkRemoteBtn, downloadRemoteBtn, cancelDownloadBtn,
@@ -132,7 +137,7 @@ final class LocalUpdateTab {
         actionBar.setAlignment(Pos.CENTER_LEFT);
 
         VBox topBox = new VBox(4, versionLabel, actionBar);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: history list (left) + changelog (right) ──────
@@ -142,27 +147,28 @@ final class LocalUpdateTab {
                 (obs, old, sel) -> showChangelogFor(sel));
 
         Label historyHeader = new Label("可更新 / 历史版本");
-        historyHeader.setStyle("-fx-font-weight: bold;");
+        DlcFxStyle.title(historyHeader);
         VBox leftBox = new VBox(4, historyHeader, historyView);
         VBox.setVgrow(historyView, Priority.ALWAYS);
-        leftBox.setPadding(new Insets(0, 4, 0, 8));
+        leftBox.setPadding(new Insets(0, 4, 0, 0));
 
         Label changelogHeader = new Label("更新日志");
-        changelogHeader.setStyle("-fx-font-weight: bold;");
+        DlcFxStyle.title(changelogHeader);
         VBox rightBox = new VBox(4, changelogHeader, changelogArea);
         VBox.setVgrow(changelogArea, Priority.ALWAYS);
-        rightBox.setPadding(new Insets(0, 8, 0, 4));
+        rightBox.setPadding(new Insets(0, 0, 0, 4));
 
         HBox centerBox = new HBox(8, leftBox, rightBox);
         HBox.setHgrow(leftBox, Priority.ALWAYS);
         HBox.setHgrow(rightBox, Priority.ALWAYS);
-        centerBox.setPadding(new Insets(0, 0, 0, 0));
+        centerBox.setPadding(new Insets(14, 16, 12, 16));
+        DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
         // ── Bottom: progress + status ────────────────────────────
         HBox bottomBox = new HBox(8, progressBar, statusLabel);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
-        bottomBox.setPadding(new Insets(8));
+        DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
 
         tab.setContent(root);
@@ -658,8 +664,8 @@ final class LocalUpdateTab {
         private final Label tagLabel = new Label();
 
         UpdateRowCell() {
-            transitionLabel.setStyle("-fx-font-weight: bold;");
-            tagLabel.setStyle("-fx-text-fill: white; -fx-background-color: gray; -fx-background-radius: 3; -fx-padding: 0 4;");
+            DlcFxStyle.title(transitionLabel);
+            DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_NEUTRAL);
         }
 
         @Override
@@ -672,11 +678,11 @@ final class LocalUpdateTab {
                 transitionLabel.setText(describeTransition(item));
                 boolean isHistory = item.getTimestamp() != null && !item.getTimestamp().isBlank();
                 if (isHistory) {
-                    tagLabel.setText(" 历史 ");
-                    tagLabel.setStyle("-fx-text-fill: white; -fx-background-color: #7f8c8d; -fx-background-radius: 3; -fx-padding: 0 4;");
+                    tagLabel.setText("历史");
+                    DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_NEUTRAL);
                 } else {
-                    tagLabel.setText(" 可更新 ");
-                    tagLabel.setStyle("-fx-text-fill: white; -fx-background-color: #27ae60; -fx-background-radius: 3; -fx-padding: 0 4;");
+                    tagLabel.setText("可更新");
+                    DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_OK);
                 }
                 HBox row = new HBox(8, transitionLabel, tagLabel);
                 row.setAlignment(Pos.CENTER_LEFT);

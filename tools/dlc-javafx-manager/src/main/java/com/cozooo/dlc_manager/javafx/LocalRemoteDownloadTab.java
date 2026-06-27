@@ -53,15 +53,18 @@ final class LocalRemoteDownloadTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: action bar ───────────────────────────────────────
         refreshBtn.setOnAction(e -> refreshAsync());
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
         downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
+        DlcFxStyle.primary(downloadMissingBtn);
+        DlcFxStyle.muted(countLabel);
 
         HBox topBox = new HBox(8, refreshBtn, downloadMissingBtn, downloadSelectedBtn, countLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: entry list ────────────────────────────────────
@@ -70,7 +73,8 @@ final class LocalRemoteDownloadTab {
         listView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
         VBox.setVgrow(listView, Priority.ALWAYS);
         VBox centerBox = new VBox(listView);
-        centerBox.setPadding(new Insets(0, 8, 0, 8));
+        centerBox.setPadding(new Insets(14, 16, 12, 16));
+        DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
         // Download the user-selected entries (any that are still missing),
@@ -99,7 +103,7 @@ final class LocalRemoteDownloadTab {
         // ── Bottom: progress + status ─────────────────────────────
         HBox bottomBox = new HBox(8, progressBar, statusLabel);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
-        bottomBox.setPadding(new Insets(8));
+        DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
 
         tab.setContent(root);
@@ -218,9 +222,10 @@ final class LocalRemoteDownloadTab {
         private final HBox row = new HBox(8, nameLabel, statusTag, detailLabel);
 
         RemoteEntryCell() {
-            nameLabel.setStyle("-fx-font-weight: bold;");
-            statusTag.setStyle("-fx-text-fill: white; -fx-background-color: gray; -fx-background-radius: 3; -fx-padding: 0 4;");
-            detailLabel.setStyle("-fx-text-fill: #666;");
+            DlcFxStyle.title(nameLabel);
+            DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_NEUTRAL);
+            DlcFxStyle.muted(detailLabel);
+            row.setAlignment(Pos.CENTER_LEFT);
         }
 
         @Override
@@ -233,11 +238,11 @@ final class LocalRemoteDownloadTab {
                 nameLabel.setText(safeName(item));
                 boolean missing = DlcRemoteService.isMissing(item);
                 if (missing) {
-                    statusTag.setText(" 缺失 ");
-                    statusTag.setStyle("-fx-text-fill: white; -fx-background-color: #c0392b; -fx-background-radius: 3; -fx-padding: 0 4;");
+                    statusTag.setText("缺失");
+                    DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_ERROR);
                 } else {
-                    statusTag.setText(" 已存在 ");
-                    statusTag.setStyle("-fx-text-fill: white; -fx-background-color: #27ae60; -fx-background-radius: 3; -fx-padding: 0 4;");
+                    statusTag.setText("已存在");
+                    DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_OK);
                 }
                 Path target = item.getTargetPath();
                 detailLabel.setText(target == null ? "(无目标路径)" : target.toString());

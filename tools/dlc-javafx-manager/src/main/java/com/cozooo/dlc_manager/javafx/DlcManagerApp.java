@@ -80,8 +80,13 @@ public final class DlcManagerApp extends Application {
 
         BorderPane root = new BorderPane(tabPane);
         root.setBottom(statusBar());
+        DlcFxStyle.add(root, "dlc-app-root");
 
         Scene scene = new Scene(root, 1100, 720);
+        java.net.URL css = DlcManagerApp.class.getResource("theme.css");
+        if (css != null) {
+            scene.getStylesheets().add(css.toExternalForm());
+        }
         primaryStage.setTitle("DLC Manager — JavaFX");
         primaryStage.setScene(scene);
         primaryStage.show();
@@ -151,7 +156,9 @@ public final class DlcManagerApp extends Application {
         javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(8, localStatus, remoteStatus);
         javafx.scene.layout.HBox.setHgrow(localStatus, javafx.scene.layout.Priority.ALWAYS);
         bar.setPadding(new Insets(4, 8, 4, 8));
-        bar.setStyle("-fx-background-color: #f0f0f0; -fx-border-color: #cccccc; -fx-border-width: 1 0 0 0;");
+        DlcFxStyle.add(bar, "dlc-status-root");
+        DlcFxStyle.muted(localStatus);
+        DlcFxStyle.muted(remoteStatus);
         return bar;
     }
 

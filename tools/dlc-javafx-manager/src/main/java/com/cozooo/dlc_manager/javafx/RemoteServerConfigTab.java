@@ -40,7 +40,7 @@ final class RemoteServerConfigTab {
     RemoteServerConfigTab(RemoteConnection conn) {
         this.conn = conn;
         editor.setPromptText("点击「载入配置」从服务器拉取当前 DLC 配置…");
-        editor.setStyle("-fx-font-family: monospace;");
+        DlcFxStyle.add(editor, "code-editor");
     }
 
     Tab build() {
@@ -48,22 +48,24 @@ final class RemoteServerConfigTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         reloadBtn.disableProperty().bind(conn.connectedProperty().not());
         reloadBtn.setOnAction(e -> loadAsync());
 
         saveBtn.disableProperty().bind(conn.connectedProperty().not());
-        saveBtn.setStyle("-fx-font-weight: bold;");
+        DlcFxStyle.primary(saveBtn);
         saveBtn.setOnAction(e -> saveAsync());
 
         HBox topBox = new HBox(8, reloadBtn, saveBtn, statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         VBox.setVgrow(editor, Priority.ALWAYS);
         VBox center = new VBox(editor);
-        center.setPadding(new Insets(0, 8, 0, 8));
+        center.setPadding(new Insets(14, 16, 14, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         tab.setContent(root);

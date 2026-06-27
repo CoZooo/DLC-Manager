@@ -54,15 +54,18 @@ final class LocalPresetTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: refresh + apply ──────────────────────────────────
         Button refreshBtn = new Button("刷新预设");
-        refreshBtn.setStyle("-fx-font-weight: bold;");
         refreshBtn.setOnAction(e -> refreshAsync());
 
         Button applyBtn = new Button("应用预设");
-        applyBtn.setStyle("-fx-font-weight: bold;");
         applyBtn.setOnAction(e -> applyAsync());
+        DlcFxStyle.primary(refreshBtn);
+        DlcFxStyle.primary(applyBtn);
+        DlcFxStyle.muted(countLabel);
+        DlcFxStyle.muted(statusLabel);
 
         Button clearBtn = new Button("全部关闭");
         clearBtn.setOnAction(e -> {
@@ -75,7 +78,7 @@ final class LocalPresetTab {
 
         HBox topBox = new HBox(8, refreshBtn, applyBtn, clearBtn, countLabel, statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: preset list ───────────────────────────────────
@@ -83,7 +86,8 @@ final class LocalPresetTab {
         listView.setCellFactory(param -> new PresetCell());
         VBox.setVgrow(listView, Priority.ALWAYS);
         VBox center = new VBox(listView);
-        center.setPadding(new Insets(0, 8, 0, 8));
+        center.setPadding(new Insets(14, 16, 14, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         tab.setContent(root);
@@ -213,7 +217,9 @@ final class LocalPresetTab {
         private final HBox row = new HBox(8, checkBox, statusLabel, nameLabel);
 
         PresetCell() {
-            statusLabel.setStyle("-fx-font-weight: bold;");
+            DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
+            DlcFxStyle.title(nameLabel);
+            row.setAlignment(Pos.CENTER_LEFT);
             checkBox.setOnAction(e -> {
                 DlcPresetEntry item = getItem();
                 if (item != null) {
@@ -274,16 +280,16 @@ final class LocalPresetTab {
             DlcPresetStatus status = item.getStatus();
             switch (status) {
                 case ON -> {
-                    statusLabel.setText("[ON]");
-                    statusLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-weight: bold;");
+                    statusLabel.setText("ON");
+                    DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_OK);
                 }
                 case PART -> {
-                    statusLabel.setText("[PART]");
-                    statusLabel.setStyle("-fx-text-fill: #f39c12; -fx-font-weight: bold;");
+                    statusLabel.setText("PART");
+                    DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_WARN);
                 }
                 case OFF -> {
-                    statusLabel.setText("[OFF]");
-                    statusLabel.setStyle("-fx-text-fill: #999; -fx-font-weight: bold;");
+                    statusLabel.setText("OFF");
+                    DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
                 }
             }
         }

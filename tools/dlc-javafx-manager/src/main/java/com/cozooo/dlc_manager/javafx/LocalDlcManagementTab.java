@@ -88,6 +88,7 @@ final class LocalDlcManagementTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: directory chooser + scan controls ────────────────
         Button chooseDirBtn = new Button("选择游戏目录…");
@@ -100,13 +101,17 @@ final class LocalDlcManagementTab {
         Button openDlcDirBtn = new Button("打开 DLC 目录");
         openDlcDirBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo("未选择游戏目录"));
         openDlcDirBtn.setOnAction(e -> openDlcDirectory());
+        DlcFxStyle.primary(chooseDirBtn);
+        DlcFxStyle.primary(rescanBtn);
+        DlcFxStyle.muted(dirLabel);
+        DlcFxStyle.muted(countLabel);
 
-        HBox topBox = new HBox(8,
+        HBox topBox = new HBox(10,
                 chooseDirBtn, dirLabel,
-                new Label("  |  "), rescanBtn, countLabel,
-                new Label("  |  "), openDlcDirBtn);
+                rescanBtn, countLabel,
+                openDlcDirBtn);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: filter bar + DLC list ─────────────────────────
@@ -125,17 +130,22 @@ final class LocalDlcManagementTab {
         });
         typeFilter.valueProperty().addListener((obs, o, n) -> applyFilter(searchField.getText(), n));
 
-        HBox filterBox = new HBox(8, new Label("过滤:"), searchField, new Label("类型:"), typeFilter);
+        Label searchLabel = new Label("过滤");
+        Label typeLabel = new Label("类型");
+        DlcFxStyle.muted(searchLabel);
+        DlcFxStyle.muted(typeLabel);
+        HBox filterBox = new HBox(8, searchLabel, searchField, typeLabel, typeFilter);
         filterBox.setAlignment(Pos.CENTER_LEFT);
-        filterBox.setPadding(new Insets(4, 8, 4, 8));
+        DlcFxStyle.filterBar(filterBox);
 
         ListView<DlcItem> listView = new ListView<>(filteredItems);
         listView.setCellFactory(param -> new DlcItemCell());
         listView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         VBox.setVgrow(listView, Priority.ALWAYS);
 
-        VBox centerBox = new VBox(4, filterBox, listView);
-        centerBox.setPadding(new Insets(0, 8, 0, 8));
+        VBox centerBox = new VBox(10, filterBox, listView);
+        centerBox.setPadding(new Insets(14, 16, 12, 16));
+        DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
         // ── Bottom: apply controls ────────────────────────────────
@@ -159,16 +169,16 @@ final class LocalDlcManagementTab {
         modeCombo.getSelectionModel().select(DlcApplyMode.RESTART_ONLY);
 
         Button applyBtn = new Button("应用更改");
-        applyBtn.setStyle("-fx-font-weight: bold;");
         applyBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo("未选择游戏目录"));
         applyBtn.setOnAction(e -> applyAsync(modeCombo.getValue()));
+        DlcFxStyle.primary(applyBtn);
 
         HBox bottomBox = new HBox(8,
                 selectAllBtn, selectNoneBtn, invertBtn,
-                new Label("  |  应用模式:"), modeCombo, applyBtn,
-                new Label("  |  "), progressBar, statusLabel);
+                new Label("应用模式"), modeCombo, applyBtn,
+                progressBar, statusLabel);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
-        bottomBox.setPadding(new Insets(8));
+        DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
 
         tab.setContent(root);
@@ -469,8 +479,9 @@ final class LocalDlcManagementTab {
         private final HBox row = new HBox(8, checkBox, typeLabel, nameLabel);
 
         DlcItemCell() {
-            typeLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #666;");
-            nameLabel.setStyle("-fx-text-fill: #333;");
+            DlcFxStyle.chip(typeLabel, DlcFxStyle.CHIP_NEUTRAL);
+            DlcFxStyle.title(nameLabel);
+            row.setAlignment(Pos.CENTER_LEFT);
             checkBox.setOnAction(e -> {
                 DlcItem item = getItem();
                 if (item != null) {
@@ -487,7 +498,7 @@ final class LocalDlcManagementTab {
                 setText(null);
             } else {
                 checkBox.setSelected(item.isEnabled());
-                typeLabel.setText("[" + item.getType().name() + "]");
+                typeLabel.setText(item.getType().name());
                 nameLabel.setText(item.getName() != null ? item.getName() : item.getId());
                 StringBuilder tip = new StringBuilder();
                 tip.append("ID: ").append(item.getId());

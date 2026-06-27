@@ -38,6 +38,7 @@ final class RemotePackTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: list + apply controls ────────────────────────────
         Button listBtn = new Button("刷新 Pack 列表");
@@ -53,6 +54,9 @@ final class RemotePackTab {
         applyPauseBtn.disableProperty().bind(conn.connectedProperty().not());
         applyResumeBtn.disableProperty().bind(conn.connectedProperty().not());
         applyCancelBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(listBtn);
+        DlcFxStyle.primary(applyStartBtn);
+        DlcFxStyle.danger(applyCancelBtn);
 
         listBtn.setOnAction(e -> {
             statusLabel.setText("加载中…");
@@ -94,14 +98,15 @@ final class RemotePackTab {
                 new Label("应用:"), applyStartBtn, applyStatusBtn, applyPauseBtn, applyResumeBtn, applyCancelBtn,
                 statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        topBox.setPadding(new Insets(8));
+        DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: pack list ─────────────────────────────────────
         ListView<String> packList = new ListView<>(packs);
         VBox.setVgrow(packList, Priority.ALWAYS);
         VBox center = new VBox(packList);
-        center.setPadding(new Insets(0, 8, 0, 8));
+        center.setPadding(new Insets(14, 16, 12, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         // ── Bottom: install/uninstall/delete/import/order ─────────
@@ -112,6 +117,8 @@ final class RemotePackTab {
         Button deleteBtn = new Button("删除");
         installBtn.disableProperty().bind(conn.connectedProperty().not());
         deleteBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(installBtn);
+        DlcFxStyle.danger(deleteBtn);
         installBtn.setOnAction(e -> {
             String p = archiveField.getText().trim();
             if (p.isBlank()) { statusLabel.setText("请输入 archivePath"); return; }
@@ -138,6 +145,7 @@ final class RemotePackTab {
         idField.setPrefColumnCount(14);
         Button uninstallBtn = new Button("卸载");
         uninstallBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.danger(uninstallBtn);
         uninstallBtn.setOnAction(e -> {
             String id = idField.getText().trim();
             if (id.isBlank()) { statusLabel.setText("请输入 identifier"); return; }
@@ -154,6 +162,7 @@ final class RemotePackTab {
         importPathField.setPrefColumnCount(14);
         Button importBtn = new Button("导入");
         importBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(importBtn);
         importBtn.setOnAction(e -> {
             String p = importPathField.getText().trim();
             if (p.isBlank()) { statusLabel.setText("请输入服务器路径"); return; }
@@ -173,6 +182,7 @@ final class RemotePackTab {
         nameField.setPrefColumnCount(10);
         Button importUrlBtn = new Button("URL导入");
         importUrlBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(importUrlBtn);
         importUrlBtn.setOnAction(e -> {
             String url = urlField.getText().trim();
             String name = nameField.getText().trim();
@@ -191,7 +201,7 @@ final class RemotePackTab {
                 new Label("导入:"), importPathField, importBtn,
                 new Label("URL:"), urlField, nameField, importUrlBtn);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
-        bottomBox.setPadding(new Insets(8));
+        DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
 
         tab.setContent(root);

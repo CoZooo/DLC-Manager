@@ -37,6 +37,7 @@ final class RemoteServerConnectionTab {
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
+        DlcFxStyle.view(root);
 
         // ── Top: connection form ──────────────────────────────────
         Button connectBtn = new Button("连接");
@@ -57,6 +58,7 @@ final class RemoteServerConnectionTab {
         Button disconnectBtn = new Button("断开");
         disconnectBtn.disableProperty().bind(conn.connectedProperty().not());
         disconnectBtn.setOnAction(e -> conn.disconnect());
+        DlcFxStyle.primary(connectBtn);
 
         HBox formBox = new HBox(8,
                 new Label("主机:"), hostField,
@@ -64,14 +66,18 @@ final class RemoteServerConnectionTab {
                 new Label("密码:"), passwordField,
                 connectBtn, disconnectBtn);
         formBox.setAlignment(Pos.CENTER_LEFT);
-        formBox.setPadding(new Insets(12));
+        DlcFxStyle.toolbar(formBox);
         root.setTop(formBox);
 
         // ── Center: status ────────────────────────────────────────
-        VBox center = new VBox(8,
-                new Label("连接状态:"), statusLabel,
-                new Label("服务器信息:"), infoLabel);
-        center.setPadding(new Insets(12));
+        Label statusTitle = new Label("连接状态");
+        Label infoTitle = new Label("服务器信息");
+        DlcFxStyle.title(statusTitle);
+        DlcFxStyle.title(infoTitle);
+        DlcFxStyle.muted(infoLabel);
+        VBox center = new VBox(8, statusTitle, statusLabel, infoTitle, infoLabel);
+        center.setPadding(new Insets(18, 16, 16, 16));
+        DlcFxStyle.section(center);
         root.setCenter(center);
 
         tab.setContent(root);
