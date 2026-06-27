@@ -59,7 +59,7 @@ public final class DlcFxLocalPresetTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: refresh + apply ──────────────────────────────────
+        // ── Top: refresh + summary ────────────────────────────────
         Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.preset.refresh"));
         refreshBtn.setOnAction(e -> refreshAsync());
 
@@ -79,7 +79,7 @@ public final class DlcFxLocalPresetTab {
             saveAndRefresh();
         });
 
-        HBox topBox = new HBox(8, refreshBtn, applyBtn, clearBtn, countLabel, statusLabel);
+        HBox topBox = new HBox(8, refreshBtn, countLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
@@ -92,6 +92,24 @@ public final class DlcFxLocalPresetTab {
         center.setPadding(new Insets(14, 16, 14, 16));
         DlcFxStyle.section(center);
         root.setCenter(center);
+
+        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.preset.apply"));
+        Label clearTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.preset.clear_all"));
+        DlcFxStyle.actionTitle(applyTitle);
+        DlcFxStyle.actionTitle(clearTitle);
+        DlcFxStyle.danger(clearBtn);
+
+        VBox applyBox = new VBox(8, applyTitle, applyBtn);
+        VBox clearBox = new VBox(8, clearTitle, clearBtn);
+        HBox actionPanel = new HBox(18, applyBox, clearBox);
+        HBox.setHgrow(applyBox, Priority.ALWAYS);
+        HBox.setHgrow(clearBox, Priority.ALWAYS);
+        DlcFxStyle.actionPanel(actionPanel);
+
+        HBox statusBox = new HBox(8, statusLabel);
+        statusBox.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.statusStrip(statusBox);
+        root.setBottom(new VBox(actionPanel, statusBox));
 
         tab.setContent(root);
         return tab;

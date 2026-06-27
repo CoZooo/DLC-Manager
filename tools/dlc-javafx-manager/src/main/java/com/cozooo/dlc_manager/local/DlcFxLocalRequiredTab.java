@@ -74,7 +74,7 @@ public final class DlcFxLocalRequiredTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: action bar ───────────────────────────────────────
+        // ── Top: refresh + summary ────────────────────────────────
         refreshBtn.setOnAction(e -> refreshAsync());
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
         downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
@@ -84,7 +84,7 @@ public final class DlcFxLocalRequiredTab {
         DlcFxStyle.primary(applyBtn);
         DlcFxStyle.muted(countLabel);
 
-        HBox topBox = new HBox(8, refreshBtn, downloadMissingBtn, downloadSelectedBtn, applyBtn, countLabel);
+        HBox topBox = new HBox(8, refreshBtn, countLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
@@ -123,11 +123,24 @@ public final class DlcFxLocalRequiredTab {
             downloadAll(toDownload);
         });
 
-        // ── Bottom: progress + status ─────────────────────────────
+        // ── Bottom: contextual actions + progress/status ──────────
+        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.required.download_missing"));
+        Label installTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.required.install_targets"));
+        DlcFxStyle.actionTitle(downloadTitle);
+        DlcFxStyle.actionTitle(installTitle);
+
+        VBox downloadActions = new VBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn);
+        VBox installActions = new VBox(8, installTitle, applyBtn);
+        HBox actionPanel = new HBox(18, downloadActions, installActions);
+        actionPanel.setAlignment(Pos.TOP_LEFT);
+        HBox.setHgrow(downloadActions, Priority.ALWAYS);
+        HBox.setHgrow(installActions, Priority.ALWAYS);
+        DlcFxStyle.actionPanel(actionPanel);
+
         HBox bottomBox = new HBox(8, progressBar, statusLabel);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(bottomBox);
+        root.setBottom(new VBox(actionPanel, bottomBox));
 
         tab.setContent(root);
         return tab;

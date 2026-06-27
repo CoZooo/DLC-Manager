@@ -9,6 +9,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar.ButtonData;
@@ -17,6 +18,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -99,16 +102,22 @@ public final class DlcFxRemoteFileManagerTab {
         deleteBtn.disableProperty().bind(conn.connectedProperty().not());
         pushBtn.disableProperty().bind(conn.connectedProperty().not());
 
-        TextField remoteNameField = new TextField();
-        remoteNameField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
-        remoteNameField.setPrefColumnCount(20);
+        TextField uploadNameField = new TextField();
+        uploadNameField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
+        uploadNameField.setPrefColumnCount(24);
+        TextField downloadPathField = new TextField();
+        downloadPathField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
+        downloadPathField.setPrefColumnCount(24);
+        TextField deletePathField = new TextField();
+        deletePathField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
+        deletePathField.setPrefColumnCount(24);
 
         uploadBtn.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
             chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.files.choose_upload"));
             File f = chooser.showOpenDialog(primaryStage);
             if (f == null) return;
-            String remote = remoteNameField.getText().trim();
+            String remote = uploadNameField.getText().trim();
             if (remote.isBlank()) {
                 remote = (currentPath.isEmpty() ? "" : currentPath + "/") + f.getName();
             }
@@ -133,7 +142,7 @@ public final class DlcFxRemoteFileManagerTab {
                 String name = entryName(sel);
                 remotePath = (currentPath.isEmpty() ? "" : currentPath + "/") + name;
             } else {
-                remotePath = remoteNameField.getText().trim();
+                remotePath = downloadPathField.getText().trim();
             }
             if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.select_or_enter_path")); return; }
             DirectoryChooser chooser = new DirectoryChooser();
@@ -153,7 +162,7 @@ public final class DlcFxRemoteFileManagerTab {
                 String name = entryName(sel);
                 remotePath = (currentPath.isEmpty() ? "" : currentPath + "/") + name;
             } else {
-                remotePath = remoteNameField.getText().trim();
+                remotePath = deletePathField.getText().trim();
             }
             if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.select_or_enter_path")); return; }
             if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.files.delete_title"), DlcFxI18n.tr("dlc_manager.javafx.files.delete_confirm", remotePath))) {
@@ -181,15 +190,73 @@ public final class DlcFxRemoteFileManagerTab {
             }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        HBox bottomBox = new HBox(8,
-                uploadBtn, downloadBtn, deleteBtn, pushBtn,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), remoteNameField);
-        bottomBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(bottomBox);
+        ToggleGroup actionGroup = new ToggleGroup();
+        ToggleButton uploadMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.files.upload_file"), actionGroup, true);
+        ToggleButton downloadMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.files.download_file"), actionGroup, false);
+        ToggleButton deleteMode = modeButton(DlcFxI18n.tr("dlc_manager.server.files_delete"), actionGroup, false);
+        ToggleButton pushMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.files.push_folder"), actionGroup, false);
+        HBox modeBar = new HBox(6, uploadMode, downloadMode, deleteMode, pushMode);
+        modeBar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox uploadForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.files.upload_file"),
+                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), uploadNameField, uploadBtn));
+        VBox downloadForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.files.download_file"),
+                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), downloadPathField, downloadBtn));
+        VBox deleteForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.server.files_delete"),
+                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), deletePathField, deleteBtn));
+        VBox pushForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.files.push_folder"),
+                pushBtn);
+
+        VBox inspector = new VBox(uploadForm, downloadForm, deleteForm, pushForm);
+        setActiveForm(uploadForm, uploadForm, downloadForm, deleteForm, pushForm);
+        actionGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == downloadMode) {
+                setActiveForm(downloadForm, uploadForm, downloadForm, deleteForm, pushForm);
+            } else if (newToggle == deleteMode) {
+                setActiveForm(deleteForm, uploadForm, downloadForm, deleteForm, pushForm);
+            } else if (newToggle == pushMode) {
+                setActiveForm(pushForm, uploadForm, downloadForm, deleteForm, pushForm);
+            } else {
+                setActiveForm(uploadForm, uploadForm, downloadForm, deleteForm, pushForm);
+            }
+        });
+
+        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.action_panel"));
+        DlcFxStyle.actionTitle(actionTitle);
+        VBox actionPanel = new VBox(10, actionTitle, modeBar, inspector);
+        DlcFxStyle.actionPanel(actionPanel);
+        root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;
+    }
+
+    private static ToggleButton modeButton(String text, ToggleGroup group, boolean selected) {
+        ToggleButton button = new ToggleButton(text);
+        button.setToggleGroup(group);
+        button.setSelected(selected);
+        return button;
+    }
+
+    private static VBox actionForm(String title, Node content) {
+        Label titleLabel = new Label(title);
+        DlcFxStyle.title(titleLabel);
+        VBox box = new VBox(8, titleLabel, content);
+        box.getStyleClass().add("dlc-action-form");
+        box.setPadding(new Insets(12, 12, 12, 12));
+        return box;
+    }
+
+    private static void setActiveForm(VBox active, VBox... forms) {
+        for (VBox form : forms) {
+            boolean show = form == active;
+            form.setVisible(show);
+            form.setManaged(show);
+        }
     }
 
     private void pushDirectory(DlcFxRemoteConnection conn2, Path dir) {

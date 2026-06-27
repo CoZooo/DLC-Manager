@@ -9,6 +9,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar.ButtonData;
@@ -17,6 +18,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -82,7 +85,7 @@ public final class DlcFxRemoteHotUpdateTab {
             }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        HBox topBox = new HBox(8, stateBtn, listBtn, applyBtn, stateLabel, statusLabel);
+        HBox topBox = new HBox(8, stateBtn, listBtn, stateLabel, statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
 
@@ -120,14 +123,7 @@ public final class DlcFxRemoteHotUpdateTab {
             }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        HBox versionBox = new HBox(8,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_label")), baseOldField, dlcOldField,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.common.arrow")), baseNewField, dlcNewField, applyVersionBtn);
-        versionBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.filterBar(versionBox);
-
-        VBox top = new VBox(10, topBox, versionBox);
-        root.setTop(top);
+        root.setTop(topBox);
 
         // ── Center: updates + history ─────────────────────────────
         ListView<String> updatesList = new ListView<>(updates);
@@ -149,7 +145,7 @@ public final class DlcFxRemoteHotUpdateTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
-        // ── Bottom: rollback / import ─────────────────────────────
+        // ── Bottom: one active operation at a time ────────────────
         TextField rollbackField = new TextField();
         rollbackField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_target"));
         rollbackField.setPrefColumnCount(20);
@@ -208,16 +204,81 @@ public final class DlcFxRemoteHotUpdateTab {
             }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        HBox bottomBox = new HBox(8,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_label")), rollbackField, rollbackBtn,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_label")), importPathField, importBtn,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_label")), importUrlField, importNameField, importUrlBtn);
-        bottomBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(bottomBox);
+        ToggleGroup actionGroup = new ToggleGroup();
+        ToggleButton applyAllMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_all"), actionGroup, true);
+        ToggleButton applyVersionMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version"), actionGroup, false);
+        ToggleButton rollbackMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback"), actionGroup, false);
+        ToggleButton importMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"), actionGroup, false);
+        ToggleButton importUrlMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url"), actionGroup, false);
+        HBox modeBar = new HBox(6, applyAllMode, applyVersionMode, rollbackMode, importMode, importUrlMode);
+        modeBar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox applyAllForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_all"),
+                applyBtn);
+        VBox applyVersionForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_label"),
+                new HBox(8, baseOldField, dlcOldField,
+                        new Label(DlcFxI18n.tr("dlc_manager.javafx.common.arrow")),
+                        baseNewField, dlcNewField, applyVersionBtn));
+        VBox rollbackForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_label"),
+                new HBox(8, rollbackField, rollbackBtn));
+        VBox importForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_label"),
+                new HBox(8, importPathField, importBtn));
+        VBox importUrlForm = actionForm(
+                DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_label"),
+                new HBox(8, importUrlField, importNameField, importUrlBtn));
+
+        VBox inspector = new VBox(applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
+        setActiveForm(applyAllForm, applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
+        actionGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == applyVersionMode) {
+                setActiveForm(applyVersionForm, applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
+            } else if (newToggle == rollbackMode) {
+                setActiveForm(rollbackForm, applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
+            } else if (newToggle == importMode) {
+                setActiveForm(importForm, applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
+            } else if (newToggle == importUrlMode) {
+                setActiveForm(importUrlForm, applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
+            } else {
+                setActiveForm(applyAllForm, applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
+            }
+        });
+
+        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.action_panel"));
+        DlcFxStyle.actionTitle(actionTitle);
+        VBox actionPanel = new VBox(10, actionTitle, modeBar, inspector);
+        DlcFxStyle.actionPanel(actionPanel);
+        root.setBottom(actionPanel);
 
         tab.setContent(root);
         return tab;
+    }
+
+    private static ToggleButton modeButton(String text, ToggleGroup group, boolean selected) {
+        ToggleButton button = new ToggleButton(text);
+        button.setToggleGroup(group);
+        button.setSelected(selected);
+        return button;
+    }
+
+    private static VBox actionForm(String title, Node content) {
+        Label titleLabel = new Label(title);
+        DlcFxStyle.title(titleLabel);
+        VBox box = new VBox(8, titleLabel, content);
+        box.getStyleClass().add("dlc-action-form");
+        box.setPadding(new Insets(12, 12, 12, 12));
+        return box;
+    }
+
+    private static void setActiveForm(VBox active, VBox... forms) {
+        for (VBox form : forms) {
+            boolean show = form == active;
+            form.setVisible(show);
+            form.setManaged(show);
+        }
     }
 
     private static String formatState(JsonObject resp) {

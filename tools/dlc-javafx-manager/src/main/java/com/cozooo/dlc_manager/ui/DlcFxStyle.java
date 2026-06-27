@@ -14,6 +14,8 @@ public final class DlcFxStyle {
     public static final String STATUS_BAR = "dlc-status-strip";
     public static final String SECTION = "dlc-section";
     public static final String SECTION_TITLE = "dlc-section-title";
+    public static final String ACTION_PANEL = "dlc-action-panel";
+    public static final String ACTION_PANEL_TITLE = "dlc-action-panel-title";
     public static final String PRIMARY = "primary";
     public static final String DANGER = "danger";
     public static final String MUTED = "muted";
@@ -44,6 +46,11 @@ public final class DlcFxStyle {
         add(region, SECTION);
     }
 
+    public static void actionPanel(Region region) {
+        add(region, ACTION_PANEL);
+        region.setPadding(new Insets(12, 14, 14, 14));
+    }
+
     public static void statusStrip(Region region) {
         add(region, STATUS_BAR);
         region.setPadding(new Insets(10, 16, 10, 16));
@@ -51,6 +58,10 @@ public final class DlcFxStyle {
 
     public static void title(Label label) {
         add(label, SECTION_TITLE);
+    }
+
+    public static void actionTitle(Label label) {
+        add(label, ACTION_PANEL_TITLE);
     }
 
     public static void muted(Label label) {

@@ -11,6 +11,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
@@ -86,10 +87,7 @@ public final class DlcFxRemoteRemoteRequiredTab {
         Label remoteTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.remote_title"));
         DlcFxStyle.title(remoteTitle);
         DlcFxStyle.primary(remoteDownloadBtn);
-        VBox remoteBox = new VBox(8,
-                remoteTitle,
-                new HBox(8, remoteRefreshBtn, remoteDownloadBtn, remoteStatusBtn, remoteStatus),
-                remoteList);
+        VBox remoteBox = new VBox(8, remoteTitle, remoteList);
 
         // ── Required section ──────────────────────────────────────
         Button requiredRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.refresh_required"));
@@ -148,12 +146,14 @@ public final class DlcFxRemoteRemoteRequiredTab {
         DlcFxStyle.primary(requiredApplyBtn);
         DlcFxStyle.danger(requiredCancelBtn);
         DlcFxStyle.danger(requiredUninstallBtn);
-        VBox requiredBox = new VBox(8,
-                requiredTitle,
-                new HBox(8, requiredRefreshBtn, requiredDownloadBtn, requiredCancelBtn, requiredApplyBtn, requiredUninstallBtn, requiredStatus),
-                requiredList);
+        VBox requiredBox = new VBox(8, requiredTitle, requiredList);
 
         // ── Layout: side by side ──────────────────────────────────
+        HBox topBox = new HBox(8, remoteRefreshBtn, requiredRefreshBtn, remoteStatus, requiredStatus);
+        topBox.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.toolbar(topBox);
+        root.setTop(topBox);
+
         HBox center = new HBox(8, remoteBox, requiredBox);
         HBox.setHgrow(remoteBox, Priority.ALWAYS);
         HBox.setHgrow(requiredBox, Priority.ALWAYS);
@@ -161,8 +161,51 @@ public final class DlcFxRemoteRemoteRequiredTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
+        Label remoteActionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.remote_title"));
+        Label requiredActionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.required_title"));
+        DlcFxStyle.actionTitle(remoteActionTitle);
+        DlcFxStyle.actionTitle(requiredActionTitle);
+
+        HBox remoteActions = new HBox(8, remoteDownloadBtn, remoteStatusBtn);
+        remoteActions.setAlignment(Pos.CENTER_LEFT);
+
+        ComboBox<UiAction> requiredActionBox = new ComboBox<>();
+        requiredActionBox.getItems().addAll(
+                new UiAction(requiredDownloadBtn.getText(), requiredDownloadBtn::fire),
+                new UiAction(requiredStatusBtnText(), () -> conn.runAsync(f -> f.requiredDownloadStatus(), resp -> {
+                    requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.status_value", summarizeStatus(resp)));
+                }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))))),
+                new UiAction(requiredApplyBtn.getText(), requiredApplyBtn::fire),
+                new UiAction(requiredUninstallBtn.getText(), requiredUninstallBtn::fire),
+                new UiAction(requiredCancelBtn.getText(), requiredCancelBtn::fire));
+        requiredActionBox.getSelectionModel().selectFirst();
+        requiredActionBox.disableProperty().bind(conn.connectedProperty().not());
+        Button runRequiredActionBtn = new Button(DlcFxI18n.tr("dlc_manager.server.rcon_send"));
+        runRequiredActionBtn.disableProperty().bind(conn.connectedProperty().not());
+        DlcFxStyle.primary(runRequiredActionBtn);
+        runRequiredActionBtn.setOnAction(e -> {
+            UiAction action = requiredActionBox.getValue();
+            if (action != null) {
+                action.run();
+            }
+        });
+        HBox requiredActions = new HBox(8, requiredActionBox, runRequiredActionBtn);
+        requiredActions.setAlignment(Pos.CENTER_LEFT);
+
+        VBox remoteActionBox = new VBox(8, remoteActionTitle, remoteActions);
+        VBox requiredActionPane = new VBox(8, requiredActionTitle, requiredActions);
+        HBox actionPanel = new HBox(18, remoteActionBox, requiredActionPane);
+        HBox.setHgrow(remoteActionBox, Priority.ALWAYS);
+        HBox.setHgrow(requiredActionPane, Priority.ALWAYS);
+        DlcFxStyle.actionPanel(actionPanel);
+        root.setBottom(actionPanel);
+
         tab.setContent(root);
         return tab;
+    }
+
+    private static String requiredStatusBtnText() {
+        return DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_status");
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -218,6 +261,17 @@ public final class DlcFxRemoteRemoteRequiredTab {
                 }
                 setGraphic(row);
             }
+        }
+    }
+
+    private record UiAction(String label, Runnable action) {
+        void run() {
+            action.run();
+        }
+
+        @Override
+        public String toString() {
+            return label;
         }
     }
 

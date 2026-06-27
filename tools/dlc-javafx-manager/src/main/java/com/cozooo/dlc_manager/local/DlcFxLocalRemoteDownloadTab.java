@@ -60,14 +60,14 @@ public final class DlcFxLocalRemoteDownloadTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: action bar ───────────────────────────────────────
+        // ── Top: refresh + summary ────────────────────────────────
         refreshBtn.setOnAction(e -> refreshAsync());
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
         downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
         DlcFxStyle.primary(downloadMissingBtn);
         DlcFxStyle.muted(countLabel);
 
-        HBox topBox = new HBox(8, refreshBtn, downloadMissingBtn, downloadSelectedBtn, countLabel);
+        HBox topBox = new HBox(8, refreshBtn, countLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
@@ -105,11 +105,18 @@ public final class DlcFxLocalRemoteDownloadTab {
             downloadAll(toDownload);
         });
 
-        // ── Bottom: progress + status ─────────────────────────────
+        // ── Bottom: contextual actions + progress/status ──────────
+        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.download_missing"));
+        DlcFxStyle.actionTitle(downloadTitle);
+
+        HBox actionPanel = new HBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn);
+        actionPanel.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.actionPanel(actionPanel);
+
         HBox bottomBox = new HBox(8, progressBar, statusLabel);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(bottomBox);
+        root.setBottom(new VBox(actionPanel, bottomBox));
 
         tab.setContent(root);
         return tab;

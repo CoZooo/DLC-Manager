@@ -32,6 +32,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
@@ -41,6 +42,8 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -136,12 +139,7 @@ public final class DlcFxLocalUpdateTab {
         DlcFxStyle.primary(applyBtn);
         DlcFxStyle.danger(cancelDownloadBtn);
 
-        HBox actionBar = new HBox(8,
-                refreshBtn, checkRemoteBtn, downloadRemoteBtn, cancelDownloadBtn,
-                applyBtn, rollbackBtn, importBtn);
-        actionBar.setAlignment(Pos.CENTER_LEFT);
-
-        VBox topBox = new VBox(4, versionLabel, actionBar);
+        VBox topBox = new VBox(4, versionLabel);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
@@ -170,14 +168,74 @@ public final class DlcFxLocalUpdateTab {
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
-        // ── Bottom: progress + status ────────────────────────────
+        // ── Bottom: one active operation at a time + progress/status ─
+        ToggleGroup actionGroup = new ToggleGroup();
+        ToggleButton scanMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.check_local"), actionGroup, true);
+        ToggleButton remoteMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.sync_remote"), actionGroup, false);
+        ToggleButton applyMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.apply"), actionGroup, false);
+        ToggleButton rollbackMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_selected"), actionGroup, false);
+        ToggleButton importMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"), actionGroup, false);
+        HBox modeBar = new HBox(6, scanMode, remoteMode, applyMode, rollbackMode, importMode);
+        modeBar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox scanForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.check_local"), refreshBtn);
+        VBox remoteForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.sync_remote"),
+                new HBox(8, checkRemoteBtn, downloadRemoteBtn, cancelDownloadBtn));
+        VBox applyForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.apply"), applyBtn);
+        VBox rollbackForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_selected"), rollbackBtn);
+        VBox importForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"), importBtn);
+        VBox inspector = new VBox(scanForm, remoteForm, applyForm, rollbackForm, importForm);
+        setActiveForm(scanForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
+        actionGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == remoteMode) {
+                setActiveForm(remoteForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
+            } else if (newToggle == applyMode) {
+                setActiveForm(applyForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
+            } else if (newToggle == rollbackMode) {
+                setActiveForm(rollbackForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
+            } else if (newToggle == importMode) {
+                setActiveForm(importForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
+            } else {
+                setActiveForm(scanForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
+            }
+        });
+
+        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.action_panel"));
+        DlcFxStyle.actionTitle(actionTitle);
+        VBox actionPanel = new VBox(10, actionTitle, modeBar, inspector);
+        DlcFxStyle.actionPanel(actionPanel);
+
         HBox bottomBox = new HBox(8, progressBar, statusLabel);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(bottomBox);
+        root.setBottom(new VBox(actionPanel, bottomBox));
 
         tab.setContent(root);
         return tab;
+    }
+
+    private static ToggleButton modeButton(String text, ToggleGroup group, boolean selected) {
+        ToggleButton button = new ToggleButton(text);
+        button.setToggleGroup(group);
+        button.setSelected(selected);
+        return button;
+    }
+
+    private static VBox actionForm(String title, Node content) {
+        Label titleLabel = new Label(title);
+        DlcFxStyle.title(titleLabel);
+        VBox box = new VBox(8, titleLabel, content);
+        box.getStyleClass().add("dlc-action-form");
+        box.setPadding(new Insets(12, 12, 12, 12));
+        return box;
+    }
+
+    private static void setActiveForm(VBox active, VBox... forms) {
+        for (VBox form : forms) {
+            boolean show = form == active;
+            form.setVisible(show);
+            form.setManaged(show);
+        }
     }
 
     /** Called by DlcFxManagerApp when the game directory changes. */

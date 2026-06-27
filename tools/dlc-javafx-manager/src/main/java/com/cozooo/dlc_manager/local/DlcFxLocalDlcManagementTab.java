@@ -33,11 +33,9 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import javafx.stage.DirectoryChooser;
-import javafx.stage.Stage;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,20 +60,17 @@ public final class DlcFxLocalDlcManagementTab {
 
     private final DlcFxPlatformProvider provider;
 
-    /**
-     * Notified after the user picks a new game directory, so sibling local
-     * tabs (Remote download, Required) can clear/refresh their cached state.
-     */
-    private Runnable onGameDirChanged;
-
     private final ObservableList<DlcItem> allItems = FXCollections.observableArrayList();
     private final FilteredList<DlcItem> filteredItems = new FilteredList<>(allItems);
-    private final Label dirLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir"));
     private final Label countLabel = new Label("");
     private final ProgressBar progressBar = new ProgressBar(0);
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.ready"));
     private final TextField searchField = new TextField();
     private final ComboBox<DlcType> typeFilter = new ComboBox<>();
+    private Button rescanBtn;
+    private Button openDlcDirBtn;
+    private Button applyBtn;
+    private boolean gameDirSelected;
 
     public DlcFxLocalDlcManagementTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -83,37 +78,32 @@ public final class DlcFxLocalDlcManagementTab {
         progressBar.setPrefWidth(200);
     }
 
-    public void setOnGameDirChanged(Runnable onGameDirChanged) {
-        this.onGameDirChanged = onGameDirChanged;
+    public void setGameDirSelected(boolean selected) {
+        this.gameDirSelected = selected;
     }
 
-    public Tab build(Stage stage) {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_dlc"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: directory chooser + scan controls ────────────────
-        Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir"));
-        chooseDirBtn.setOnAction(e -> chooseDirectory(stage));
-
-        Button rescanBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.scan_dlc"));
-        rescanBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir")));
+        // ── Top: scan controls ───────────────────────────────────
+        rescanBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.scan_dlc"));
+        rescanBtn.setDisable(!gameDirSelected);
         rescanBtn.setOnAction(e -> scanAsync());
 
-        Button openDlcDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.open_dlc_dir"));
-        openDlcDirBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir")));
+        openDlcDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.open_dlc_dir"));
+        openDlcDirBtn.setDisable(!gameDirSelected);
         openDlcDirBtn.setOnAction(e -> openDlcDirectory());
-        DlcFxStyle.primary(chooseDirBtn);
         DlcFxStyle.primary(rescanBtn);
-        DlcFxStyle.muted(dirLabel);
         DlcFxStyle.muted(countLabel);
 
+        Region topSpacer = new Region();
+        HBox.setHgrow(topSpacer, Priority.ALWAYS);
         HBox topBox = new HBox(10,
-                chooseDirBtn, dirLabel,
-                rescanBtn, countLabel,
-                openDlcDirBtn);
+                rescanBtn, openDlcDirBtn, topSpacer, countLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
@@ -129,7 +119,7 @@ public final class DlcFxLocalDlcManagementTab {
         }
         typeFilter.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.local.all_types"));
         typeFilter.setConverter(new javafx.util.StringConverter<>() {
-            @Override public String toString(DlcType t) { return t == null ? DlcFxI18n.tr("dlc_manager.javafx.local.all_types") : t.name(); }
+            @Override public String toString(DlcType t) { return t == null ? DlcFxI18n.tr("dlc_manager.javafx.local.all_types") : DlcFxI18n.tr(t.getDisplayKey()); }
             @Override public DlcType fromString(String s) { return null; }
         });
         typeFilter.valueProperty().addListener((obs, o, n) -> applyFilter(searchField.getText(), n));
@@ -172,55 +162,56 @@ public final class DlcFxLocalDlcManagementTab {
         ComboBox<DlcApplyMode> modeCombo = new ComboBox<>(FXCollections.observableArrayList(DlcApplyMode.values()));
         modeCombo.getSelectionModel().select(DlcApplyMode.RESTART_ONLY);
 
-        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.apply_changes"));
-        applyBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir")));
+        applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.apply_changes"));
+        applyBtn.setDisable(!gameDirSelected);
         applyBtn.setOnAction(e -> applyAsync(modeCombo.getValue()));
         DlcFxStyle.primary(applyBtn);
 
-        HBox bottomBox = new HBox(8,
-                selectAllBtn, selectNoneBtn, invertBtn,
-                new Label(DlcFxI18n.tr("dlc_manager.apply_mode")), modeCombo, applyBtn,
-                progressBar, statusLabel);
-        bottomBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.statusStrip(bottomBox);
-        root.setBottom(bottomBox);
+        Label selectionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.select_all"));
+        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.apply_changes"));
+        DlcFxStyle.actionTitle(selectionTitle);
+        DlcFxStyle.actionTitle(applyTitle);
+
+        HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
+        selectionActions.setAlignment(Pos.CENTER_LEFT);
+        HBox applyActions = new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.apply_mode")), modeCombo, applyBtn);
+        applyActions.setAlignment(Pos.CENTER_LEFT);
+        VBox selectionBox = new VBox(8, selectionTitle, selectionActions);
+        VBox applyBox = new VBox(8, applyTitle, applyActions);
+        HBox actionPanel = new HBox(18, selectionBox, applyBox);
+        HBox.setHgrow(selectionBox, Priority.ALWAYS);
+        HBox.setHgrow(applyBox, Priority.ALWAYS);
+        DlcFxStyle.actionPanel(actionPanel);
+
+        HBox statusBox = new HBox(8, progressBar, statusLabel);
+        statusBox.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.statusStrip(statusBox);
+        root.setBottom(new VBox(actionPanel, statusBox));
 
         tab.setContent(root);
         return tab;
     }
 
+    public void onGameDirChanged() {
+        gameDirSelected = true;
+        if (rescanBtn != null) {
+            rescanBtn.setDisable(false);
+        }
+        if (openDlcDirBtn != null) {
+            openDlcDirBtn.setDisable(false);
+        }
+        if (applyBtn != null) {
+            applyBtn.setDisable(false);
+        }
+        allItems.clear();
+        countLabel.setText("");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.game_dir_changed"));
+        scanAsync();
+    }
+
     // ───────────────────────────────────────────────────────────────
     //  Actions
     // ───────────────────────────────────────────────────────────────
-
-    private void chooseDirectory(Stage stage) {
-        DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir_title"));
-        File current = new File(provider.gameDir().toString());
-        if (current.isDirectory()) {
-            chooser.setInitialDirectory(current);
-        }
-        File chosen = chooser.showDialog(stage);
-        if (chosen == null) {
-            return;
-        }
-        Path gameDir = chosen.toPath();
-        provider.setGameDir(gameDir);
-        dirLabel.setText(gameDir.toString());
-        // Reload config + state for the new game dir
-        DlcConfig.load();
-        DlcStateConfig.load();
-        DlcRuntimeState.clearOverrides();
-        DlcPresetRuntimeState.clearAll();
-        allItems.clear();
-        countLabel.setText("");
-        // Notify sibling local tabs that the game directory changed.
-        if (onGameDirChanged != null) {
-            onGameDirChanged.run();
-        }
-        // Auto-scan after directory selection
-        scanAsync();
-    }
 
     private void openDlcDirectory() {
         List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();

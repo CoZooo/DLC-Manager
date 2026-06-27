@@ -1,5 +1,9 @@
 package com.cozooo.dlc_manager.app;
 
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcRuntimeState;
+import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.local.DlcFxLocalDlcManagementTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalPresetTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRemoteDownloadTab;
@@ -33,7 +37,11 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
+
+import java.io.File;
+import java.nio.file.Path;
 
 /**
  * JavaFX desktop DLC Manager entry point.
@@ -66,6 +74,10 @@ public final class DlcFxManagerApp extends Application {
 
     /** Local hot-update tab, notified when the game directory changes. */
     private DlcFxLocalUpdateTab localUpdateTab;
+
+    /** Local workspace game directory selected by the user. */
+    private Label localGameDirLabel;
+    private boolean localGameDirSelected;
 
     /** Shared connection state for all remote-server tabs. */
     private DlcFxRemoteConnection remoteConnection;
@@ -116,6 +128,9 @@ public final class DlcFxManagerApp extends Application {
         root.setPadding(new Insets(28, 28, 30, 28));
         DlcFxStyle.view(root);
 
+        HBox topBar = new HBox(languagePicker());
+        topBar.setAlignment(Pos.CENTER_RIGHT);
+
         Label title = new Label(DlcFxI18n.tr("dlc_manager.javafx.home.title"));
         Label subtitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.home.subtitle"));
         DlcFxStyle.add(title, "dlc-hero-title");
@@ -138,7 +153,7 @@ public final class DlcFxManagerApp extends Application {
         VBox content = new VBox(10, title, subtitle, choices);
         VBox.setVgrow(choices, Priority.ALWAYS);
         content.setAlignment(Pos.TOP_LEFT);
-        root.getChildren().add(content);
+        root.getChildren().addAll(topBar, content);
         return root;
     }
 
@@ -178,7 +193,10 @@ public final class DlcFxManagerApp extends Application {
         DlcFxStyle.muted(desc);
 
         VBox text = new VBox(4, title, desc);
-        HBox header = new HBox(12, back, text);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox header = new HBox(12, back, text, spacer, languagePicker());
         header.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(header);
         return header;
@@ -211,10 +229,13 @@ public final class DlcFxManagerApp extends Application {
 
     private Node buildLocalWorkspace() {
         BorderPane root = new BorderPane();
-        root.setTop(workspaceHeader(
-                DlcFxI18n.tr("dlc_manager.javafx.workspace.local_title"),
-                DlcFxI18n.tr("dlc_manager.javafx.workspace.local_desc"),
-                this::showHome));
+        VBox top = new VBox(
+                workspaceHeader(
+                        DlcFxI18n.tr("dlc_manager.javafx.workspace.local_title"),
+                        DlcFxI18n.tr("dlc_manager.javafx.workspace.local_desc"),
+                        this::showHome),
+                localDirectoryBar());
+        root.setTop(top);
         root.setCenter(buildLocalTabs());
         DlcFxStyle.add(root, "dlc-workspace-root");
         return root;
@@ -253,14 +274,15 @@ public final class DlcFxManagerApp extends Application {
     /** [本地] DLC 管理 — directory chooser + scan + list + enable/disable/apply */
     private Tab localDlcManagementTab() {
         localDlcManagementTab = new DlcFxLocalDlcManagementTab(PROVIDER);
-        // When the user picks a new game directory, notify the other local tabs
-        // so they drop stale state and prompt for a refresh.
-        localDlcManagementTab.setOnGameDirChanged(this::onLocalGameDirChanged);
-        return localDlcManagementTab.build(primaryStage);
+        localDlcManagementTab.setGameDirSelected(localGameDirSelected);
+        return localDlcManagementTab.build();
     }
 
     /** Forwards a game-directory change to the sibling local tabs. */
     private void onLocalGameDirChanged() {
+        if (localDlcManagementTab != null) {
+            localDlcManagementTab.onGameDirChanged();
+        }
         if (localRemoteDownloadTab != null) {
             localRemoteDownloadTab.onGameDirChanged();
         }
@@ -299,14 +321,73 @@ public final class DlcFxManagerApp extends Application {
     //  Helpers
     // ───────────────────────────────────────────────────────────────
 
+    private Node localDirectoryBar() {
+        Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir"));
+        chooseDirBtn.setOnAction(e -> chooseLocalGameDirectory());
+        DlcFxStyle.primary(chooseDirBtn);
+
+        localGameDirLabel = new Label(localGameDirSelected
+                ? PROVIDER.gameDir().toString()
+                : DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir"));
+        DlcFxStyle.muted(localGameDirLabel);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox bar = new HBox(10,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.local.game_dir")),
+                localGameDirLabel,
+                spacer,
+                chooseDirBtn);
+        bar.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.filterBar(bar);
+        DlcFxStyle.add(bar, "dlc-local-context-bar");
+        return bar;
+    }
+
+    private void chooseLocalGameDirectory() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir_title"));
+        File current = new File(PROVIDER.gameDir().toString());
+        if (current.isDirectory()) {
+            chooser.setInitialDirectory(current);
+        }
+        File chosen = chooser.showDialog(primaryStage);
+        if (chosen == null) {
+            return;
+        }
+
+        Path gameDir = chosen.toPath();
+        PROVIDER.setGameDir(gameDir);
+        localGameDirSelected = true;
+        if (localGameDirLabel != null) {
+            localGameDirLabel.setText(gameDir.toString());
+        }
+
+        DlcConfig.load();
+        DlcStateConfig.load();
+        DlcRuntimeState.clearOverrides();
+        DlcPresetRuntimeState.clearAll();
+        onLocalGameDirChanged();
+    }
+
     private javafx.scene.Node statusBar() {
-        // Right side mirrors the remote connection state (live-bound), so the
-        // user can tell at a glance whether TCP ops will reach the server.
         Label localStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.ready_select_game_dir"));
         Label remoteStatus = new Label();
         remoteStatus.textProperty().bind(
                 remoteConnection != null ? remoteConnection.statusTextProperty() : new javafx.beans.property.SimpleStringProperty(""));
 
+        javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(8, localStatus, remoteStatus);
+        javafx.scene.layout.HBox.setHgrow(localStatus, javafx.scene.layout.Priority.ALWAYS);
+        bar.setPadding(new Insets(4, 8, 4, 8));
+        bar.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.add(bar, "dlc-status-root");
+        DlcFxStyle.muted(localStatus);
+        DlcFxStyle.muted(remoteStatus);
+        return bar;
+    }
+
+    private Node languagePicker() {
         Label languageLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.language.label"));
         ComboBox<LanguageOption> languageBox = new ComboBox<>();
         languageBox.getItems().addAll(
@@ -321,16 +402,12 @@ public final class DlcFxManagerApp extends Application {
             }
         });
 
-        javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(8, localStatus, remoteStatus, languageLabel, languageBox);
-        javafx.scene.layout.HBox.setHgrow(localStatus, javafx.scene.layout.Priority.ALWAYS);
+        HBox picker = new HBox(8, languageLabel, languageBox);
         languageBox.setPrefWidth(150);
-        bar.setPadding(new Insets(4, 8, 4, 8));
-        bar.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.add(bar, "dlc-status-root");
-        DlcFxStyle.muted(localStatus);
-        DlcFxStyle.muted(remoteStatus);
+        picker.setAlignment(Pos.CENTER_RIGHT);
+        DlcFxStyle.add(picker, "dlc-language-picker");
         DlcFxStyle.muted(languageLabel);
-        return bar;
+        return picker;
     }
 
     private LanguageOption optionForCurrentLanguage(ComboBox<LanguageOption> languageBox) {
@@ -356,6 +433,9 @@ public final class DlcFxManagerApp extends Application {
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
         remoteView = buildRemoteWorkspace();
+        if (localGameDirSelected) {
+            onLocalGameDirChanged();
+        }
         shell.setBottom(statusBar());
         switch (target) {
             case LOCAL -> showLocalWorkspace();
