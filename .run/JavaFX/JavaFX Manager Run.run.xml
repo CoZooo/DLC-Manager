@@ -10,7 +10,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":javafxManagerRun" />
+          <option value=":dlcJavafxManager:run" />
         </list>
       </option>
       <option name="vmOptions" />

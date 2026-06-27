@@ -146,6 +146,10 @@ tasks.named('compileJava', JavaCompile) {
     }
 }
 
+tasks.named('jar') {
+    exclude('rebel.xml')
+}
+
 tasks.named('run') {
     jvmArgs('-Dfile.encoding=UTF-8')
 }
