@@ -41,7 +41,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * Controller for the "本地 · DLC 管理" tab.
+ * Controller for the local DLC management tab.
  * <p>
  * Provides:
  * <ul>
@@ -66,10 +66,10 @@ final class LocalDlcManagementTab {
 
     private final ObservableList<DlcItem> allItems = FXCollections.observableArrayList();
     private final FilteredList<DlcItem> filteredItems = new FilteredList<>(allItems);
-    private final Label dirLabel = new Label("未选择游戏目录");
+    private final Label dirLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir"));
     private final Label countLabel = new Label("");
     private final ProgressBar progressBar = new ProgressBar(0);
-    private final Label statusLabel = new Label("就绪");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.ready"));
     private final TextField searchField = new TextField();
     private final ComboBox<DlcType> typeFilter = new ComboBox<>();
 
@@ -84,22 +84,22 @@ final class LocalDlcManagementTab {
     }
 
     Tab build(Stage stage) {
-        Tab tab = new Tab("本地 · DLC 管理");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_dlc"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: directory chooser + scan controls ────────────────
-        Button chooseDirBtn = new Button("选择游戏目录…");
+        Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir"));
         chooseDirBtn.setOnAction(e -> chooseDirectory(stage));
 
-        Button rescanBtn = new Button("扫描 DLC");
-        rescanBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo("未选择游戏目录"));
+        Button rescanBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.scan_dlc"));
+        rescanBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir")));
         rescanBtn.setOnAction(e -> scanAsync());
 
-        Button openDlcDirBtn = new Button("打开 DLC 目录");
-        openDlcDirBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo("未选择游戏目录"));
+        Button openDlcDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.open_dlc_dir"));
+        openDlcDirBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir")));
         openDlcDirBtn.setOnAction(e -> openDlcDirectory());
         DlcFxStyle.primary(chooseDirBtn);
         DlcFxStyle.primary(rescanBtn);
@@ -115,7 +115,7 @@ final class LocalDlcManagementTab {
         root.setTop(topBox);
 
         // ── Center: filter bar + DLC list ─────────────────────────
-        searchField.setPromptText("搜索 DLC 名称…");
+        searchField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.local.search_prompt"));
         searchField.setPrefColumnCount(30);
         searchField.textProperty().addListener((obs, o, n) -> applyFilter(n, typeFilter.getValue()));
 
@@ -123,15 +123,15 @@ final class LocalDlcManagementTab {
         for (DlcType t : DlcType.values()) {
             typeFilter.getItems().add(t);
         }
-        typeFilter.setPromptText("全部类型");
+        typeFilter.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.local.all_types"));
         typeFilter.setConverter(new javafx.util.StringConverter<>() {
-            @Override public String toString(DlcType t) { return t == null ? "全部类型" : t.name(); }
+            @Override public String toString(DlcType t) { return t == null ? DlcFxI18n.tr("dlc_manager.javafx.local.all_types") : t.name(); }
             @Override public DlcType fromString(String s) { return null; }
         });
         typeFilter.valueProperty().addListener((obs, o, n) -> applyFilter(searchField.getText(), n));
 
-        Label searchLabel = new Label("过滤");
-        Label typeLabel = new Label("类型");
+        Label searchLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.filter"));
+        Label typeLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.type"));
         DlcFxStyle.muted(searchLabel);
         DlcFxStyle.muted(typeLabel);
         HBox filterBox = new HBox(8, searchLabel, searchField, typeLabel, typeFilter);
@@ -149,17 +149,17 @@ final class LocalDlcManagementTab {
         root.setCenter(centerBox);
 
         // ── Bottom: apply controls ────────────────────────────────
-        Button selectAllBtn = new Button("全选");
+        Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.select_all"));
         selectAllBtn.setOnAction(e -> {
             for (DlcItem it : allItems) setItemEnabled(it, true);
             listView.refresh();
         });
-        Button selectNoneBtn = new Button("全不选");
+        Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.select_none"));
         selectNoneBtn.setOnAction(e -> {
             for (DlcItem it : allItems) setItemEnabled(it, false);
             listView.refresh();
         });
-        Button invertBtn = new Button("反选");
+        Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.invert"));
         invertBtn.setOnAction(e -> {
             for (DlcItem it : allItems) setItemEnabled(it, !it.isEnabled());
             listView.refresh();
@@ -168,14 +168,14 @@ final class LocalDlcManagementTab {
         ComboBox<DlcApplyMode> modeCombo = new ComboBox<>(FXCollections.observableArrayList(DlcApplyMode.values()));
         modeCombo.getSelectionModel().select(DlcApplyMode.RESTART_ONLY);
 
-        Button applyBtn = new Button("应用更改");
-        applyBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo("未选择游戏目录"));
+        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.apply_changes"));
+        applyBtn.disableProperty().bind(dirLabel.textProperty().isEqualTo(DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir")));
         applyBtn.setOnAction(e -> applyAsync(modeCombo.getValue()));
         DlcFxStyle.primary(applyBtn);
 
         HBox bottomBox = new HBox(8,
                 selectAllBtn, selectNoneBtn, invertBtn,
-                new Label("应用模式"), modeCombo, applyBtn,
+                new Label(DlcFxI18n.tr("dlc_manager.apply_mode")), modeCombo, applyBtn,
                 progressBar, statusLabel);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.statusStrip(bottomBox);
@@ -191,7 +191,7 @@ final class LocalDlcManagementTab {
 
     private void chooseDirectory(Stage stage) {
         DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle("选择 Minecraft 游戏目录 (.minecraft)");
+        chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir_title"));
         File current = new File(provider.gameDir().toString());
         if (current.isDirectory()) {
             chooser.setInitialDirectory(current);
@@ -221,52 +221,52 @@ final class LocalDlcManagementTab {
     private void openDlcDirectory() {
         List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
         if (roots.isEmpty()) {
-            statusLabel.setText("未配置 DLC 根目录");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.no_dlc_root"));
             return;
         }
         java.nio.file.Path dlcRoot = roots.get(0);
         if (!java.nio.file.Files.exists(dlcRoot)) {
-            statusLabel.setText("DLC 目录不存在: " + dlcRoot);
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.dlc_dir_missing", dlcRoot));
             return;
         }
         try {
             java.awt.Desktop.getDesktop().open(dlcRoot.toFile());
         } catch (Exception ex) {
-            statusLabel.setText("无法打开: " + safeMessage(ex));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.open_failed", safeMessage(ex)));
         }
     }
 
     private void scanAsync() {
         progressBar.setVisible(true);
         progressBar.setProgress(-1); // indeterminate
-        statusLabel.setText("扫描中…");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.scanning"));
         Thread thread = new Thread(() -> {
             try {
                 // Diagnostic: collect DLC roots state
                 List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
                 StringBuilder diag = new StringBuilder();
-                diag.append("gameDir=").append(provider.gameDir()).append('\n');
-                diag.append("dlcRootRaw=").append(DlcConfig.getDlcRootRaw()).append('\n');
+                diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.game_dir", provider.gameDir())).append('\n');
+                diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dlc_root_raw", DlcConfig.getDlcRootRaw())).append('\n');
                 boolean[] anyRootExists = {false};
                 for (java.nio.file.Path root : roots) {
                     boolean exists = java.nio.file.Files.exists(root);
                     if (exists) anyRootExists[0] = true;
-                    diag.append("dlcRoot=").append(root).append(" exists=").append(exists).append('\n');
-                    // 诊断 info 目录及配置文件
+                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dlc_root", root, exists)).append('\n');
+                    // Diagnose the info directory and config files.
                     java.nio.file.Path infoDir = root.resolve("info");
                     boolean infoExists = java.nio.file.Files.isDirectory(infoDir);
-                    diag.append("  infoDir=").append(infoDir).append(" exists=").append(infoExists).append('\n');
+                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.info_dir", infoDir, infoExists)).append('\n');
                     if (infoExists) {
                         try (var stream = java.nio.file.Files.list(infoDir)) {
                             var items = stream.toList();
-                            diag.append("  info 文件数: ").append(items.size()).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.info_file_count", items.size())).append('\n');
                             int dcCount = 0;
                             int otherCount = 0;
                             for (var item : items) {
                                 String fn = item.getFileName().toString();
                                 if (fn.toLowerCase().endsWith(".dc")) {
                                     dcCount++;
-                                    // 读取 .dc 文件内容摘要
+                                    // Read a compact .dc file summary.
                                     try {
                                         var obj = com.cozooo.dlc_manager.core.DlcDcConfigIO.read(item,
                                             com.cozooo.dlc_manager.core.DlcDcConfigIO.Layout.DLC_STRUCTURED);
@@ -274,48 +274,44 @@ final class LocalDlcManagementTab {
                                             String fName = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "fileName");
                                             String fType = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "type");
                                             String fTarget = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "appliedTarget");
-                                            diag.append("  [.dc] ").append(fn)
-                                                .append(" | fileName=").append(fName)
-                                                .append(" | type=").append(fType)
-                                                .append(" | appliedTarget=").append(fTarget)
-                                                .append('\n');
+                                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_summary", fn, fName, fType, fTarget)).append('\n');
                                         } else {
-                                            diag.append("  [.dc] ").append(fn).append(" | 解析失败(返回null)\n");
+                                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_parse_failed", fn)).append('\n');
                                         }
                                     } catch (Exception ex) {
-                                        diag.append("  [.dc] ").append(fn).append(" | 读取异常: ").append(ex.getMessage()).append('\n');
+                                        diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_read_failed", fn, ex.getMessage())).append('\n');
                                     }
                                 } else {
                                     otherCount++;
-                                    diag.append("  [非.dc] ").append(fn).append('\n');
+                                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.non_dc_file", fn)).append('\n');
                                 }
                             }
-                            diag.append("  .dc 配置文件数: ").append(dcCount).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_config_count", dcCount)).append('\n');
                             if (otherCount > 0) {
-                                diag.append("  其他文件数: ").append(otherCount).append(" (这些不会被识别为配置文件)\n");
+                                diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.other_file_count", otherCount)).append('\n');
                             }
                         } catch (Exception ex) {
-                            diag.append("  读取 info 目录失败: ").append(ex.getMessage()).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.info_read_failed", ex.getMessage())).append('\n');
                         }
                     }
-                    // 诊断实际 DLC 文件
+                    // Diagnose actual DLC files.
                     if (exists) {
                         try (var stream = java.nio.file.Files.walk(root)) {
                             var allFiles = stream.toList();
                             long jars = allFiles.stream().filter(p -> p.toString().toLowerCase().endsWith(".jar")).count();
                             long zips = allFiles.stream().filter(p -> p.toString().toLowerCase().endsWith(".zip")).count();
-                            diag.append("  DLC 目录下 .jar 文件数: ").append(jars).append('\n');
-                            diag.append("  DLC 目录下 .zip 文件数: ").append(zips).append('\n');
-                            // 列出所有非 info 目录下的文件
+                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.jar_count", jars)).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.zip_count", zips)).append('\n');
+                            // List every file outside the info directory.
                             java.nio.file.Path infoDir0 = root.resolve("info");
                             for (var p : allFiles) {
                                 if (java.nio.file.Files.isRegularFile(p) && !p.startsWith(infoDir0)) {
                                     String rel = root.relativize(p).toString().replace('\\', '/');
-                                    diag.append("  [文件] ").append(rel).append('\n');
+                                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.file", rel)).append('\n');
                                 }
                             }
                         } catch (Exception ex) {
-                            diag.append("  遍历 DLC 目录失败: ").append(ex.getMessage()).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.walk_failed", ex.getMessage())).append('\n');
                         }
                     }
                 }
@@ -361,16 +357,16 @@ final class LocalDlcManagementTab {
                 System.out.println("[DLC-Scan-Debug]\n" + diagText + "total=" + total);
                 Platform.runLater(() -> {
                     allItems.setAll(flat);
-                    countLabel.setText(String.format("共 %d 项", total));
+                    countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", total));
                     progressBar.setVisible(false);
                     if (total == 0) {
                         String msg = anyRootExists[0]
-                            ? "未找到 DLC — DLC 目录存在但无可用项"
-                            : "未找到 DLC 目录 — 请确认游戏目录下有 DLC 文件夹";
+                            ? DlcFxI18n.tr("dlc_manager.javafx.local.no_dlc_items")
+                            : DlcFxI18n.tr("dlc_manager.javafx.local.no_dlc_dir");
                         statusLabel.setText(msg);
                         statusLabel.setTooltip(new Tooltip(diagText));
                     } else {
-                        statusLabel.setText("扫描完成");
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.scan_done"));
                         statusLabel.setTooltip(new Tooltip(diagText));
                     }
                 });
@@ -378,7 +374,7 @@ final class LocalDlcManagementTab {
                 t.printStackTrace();
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
-                    statusLabel.setText("扫描失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.scan_failed", safeMessage(t)));
                 });
             }
         }, "dlc-scan");
@@ -393,7 +389,7 @@ final class LocalDlcManagementTab {
         final DlcApplyMode finalMode = mode;
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
-        statusLabel.setText("应用中…");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
         Thread thread = new Thread(() -> {
             try {
                 DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(allItems), finalMode);
@@ -405,19 +401,19 @@ final class LocalDlcManagementTab {
                     progressBar.setVisible(false);
                     StringBuilder sb = new StringBuilder();
                     if (result.requiresRestart()) {
-                        sb.append("需要重启游戏以生效。");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.requires_restart"));
                     }
                     if (result.hotReloaded()) {
-                        sb.append("已热重载。");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.hot_reloaded"));
                     }
                     if (result.helperScheduled()) {
-                        sb.append("部分操作已安排到 FileOps Helper。");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.helper_scheduled"));
                     }
                     if (sb.length() == 0) {
-                        sb.append("应用完成");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.apply_done"));
                     }
                     if (!result.messages().isEmpty()) {
-                        sb.append(" (").append(result.messages().size()).append(" 条消息)");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.message_count_suffix", result.messages().size()));
                     }
                     statusLabel.setText(sb.toString());
                     // Surface the per-item apply messages (conflicts/enables/etc.)
@@ -436,7 +432,7 @@ final class LocalDlcManagementTab {
             } catch (Throwable t) {
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
-                    statusLabel.setText("应用失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", safeMessage(t)));
                 });
             }
         }, "dlc-apply");
@@ -501,18 +497,18 @@ final class LocalDlcManagementTab {
                 typeLabel.setText(item.getType().name());
                 nameLabel.setText(item.getName() != null ? item.getName() : item.getId());
                 StringBuilder tip = new StringBuilder();
-                tip.append("ID: ").append(item.getId());
+                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.id")).append(item.getId());
                 if (item.getSourcePath() != null) {
-                    tip.append("\n源: ").append(item.getSourcePath());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.source")).append(item.getSourcePath());
                 }
                 if (item.getAppliedTargetRaw() != null && !item.getAppliedTargetRaw().isBlank()) {
-                    tip.append("\n目标: ").append(item.getAppliedTargetRaw());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.target")).append(item.getAppliedTargetRaw());
                 }
                 if (!item.getDependencies().isEmpty()) {
-                    tip.append("\n依赖: ").append(String.join(", ", item.getDependencies()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.dependencies")).append(String.join(", ", item.getDependencies()));
                 }
                 if (!item.getConflicts().isEmpty()) {
-                    tip.append("\n冲突: ").append(String.join(", ", item.getConflicts()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
                 }
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);

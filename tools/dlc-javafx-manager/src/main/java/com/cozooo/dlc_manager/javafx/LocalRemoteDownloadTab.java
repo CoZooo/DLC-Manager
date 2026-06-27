@@ -24,7 +24,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Controller for the "本地 · Remote 下载" tab.
+ * Controller for the local Remote download tab.
  * <p>
  * Lists every {@code .dc} entry under {@code DLC/remote/}, marks the ones
  * whose target file is missing, and lets the user resolve + download them
@@ -35,11 +35,11 @@ final class LocalRemoteDownloadTab {
     private final StandalonePlatformProvider provider;
 
     private final ObservableList<DlcRemoteEntry> entries = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label("请先在「本地 · DLC 管理」中选择游戏目录");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
-    private final Button refreshBtn = new Button("刷新远程列表");
-    private final Button downloadMissingBtn = new Button("下载全部缺失项");
-    private final Button downloadSelectedBtn = new Button("下载选中项");
+    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote.refresh"));
+    private final Button downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote.download_missing"));
+    private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.download_selected"));
     private final Label countLabel = new Label("");
 
     LocalRemoteDownloadTab(StandalonePlatformProvider provider) {
@@ -49,7 +49,7 @@ final class LocalRemoteDownloadTab {
     }
 
     Tab build() {
-        Tab tab = new Tab("本地 · Remote 下载");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_remote"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -83,7 +83,7 @@ final class LocalRemoteDownloadTab {
         downloadSelectedBtn.setOnAction(e -> {
             java.util.List<DlcRemoteEntry> selected = listView.getSelectionModel().getSelectedItems();
             if (selected == null || selected.isEmpty()) {
-                statusLabel.setText("请先在列表中选择条目");
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.select_list_item"));
                 return;
             }
             java.util.List<DlcRemoteEntry> missingSelected = new java.util.ArrayList<>();
@@ -93,7 +93,7 @@ final class LocalRemoteDownloadTab {
                 }
             }
             if (missingSelected.isEmpty()) {
-                statusLabel.setText("所选条目均已存在");
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.selected_present"));
                 return;
             }
             java.util.List<DlcRemoteEntry> toDownload = DlcRemoteService.expandMissingWithDependencies(missingSelected);
@@ -114,7 +114,7 @@ final class LocalRemoteDownloadTab {
     void onGameDirChanged() {
         entries.clear();
         countLabel.setText("");
-        statusLabel.setText("游戏目录已更新，点击「刷新远程列表」");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.game_dir_changed"));
         refreshBtn.setDisable(false);
     }
 
@@ -126,7 +126,7 @@ final class LocalRemoteDownloadTab {
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
-        statusLabel.setText("加载远程 DLC 列表…");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.loading"));
         Thread thread = new Thread(() -> {
             try {
                 Path dlcRoot = DlcConfig.getDlcRoot();
@@ -134,14 +134,14 @@ final class LocalRemoteDownloadTab {
                 Platform.runLater(() -> {
                     entries.setAll(loaded);
                     int missing = DlcRemoteService.countMissing(loaded);
-                    countLabel.setText(String.format("共 %d 项，缺失 %d 项", loaded.size(), missing));
-                    statusLabel.setText(missing == 0 ? "无缺失项" : "存在缺失项，可点击「下载全部缺失项」");
+                    countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.count", loaded.size(), missing));
+                    statusLabel.setText(missing == 0 ? DlcFxI18n.tr("dlc_manager.javafx.status.no_missing") : DlcFxI18n.tr("dlc_manager.javafx.remote.has_missing"));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText("加载失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
                 });
@@ -158,7 +158,7 @@ final class LocalRemoteDownloadTab {
     private void downloadMissingAsync() {
         List<DlcRemoteEntry> missing = DlcRemoteService.collectMissing(entries);
         if (missing.isEmpty()) {
-            statusLabel.setText("无缺失项需要下载");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.no_missing_downloads"));
             return;
         }
         // Recursively pull in each missing entry's nested remote dependencies
@@ -195,9 +195,9 @@ final class LocalRemoteDownloadTab {
             DlcRemoteService.BatchResult finalResult = result;
             Platform.runLater(() -> {
                 StringBuilder sb = new StringBuilder();
-                sb.append("完成 ").append(finalResult.success).append('/').append(finalResult.total);
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.completed", finalResult.success, finalResult.total));
                 if (!finalResult.errors.isEmpty()) {
-                    sb.append("，失败 ").append(finalResult.errors.size()).append(" 项");
+                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.failed_count_suffix", finalResult.errors.size()));
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
@@ -238,27 +238,27 @@ final class LocalRemoteDownloadTab {
                 nameLabel.setText(safeName(item));
                 boolean missing = DlcRemoteService.isMissing(item);
                 if (missing) {
-                    statusTag.setText("缺失");
+                    statusTag.setText(DlcFxI18n.tr("dlc_manager.javafx.status.missing"));
                     DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_ERROR);
                 } else {
-                    statusTag.setText("已存在");
+                    statusTag.setText(DlcFxI18n.tr("dlc_manager.javafx.status.present"));
                     DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_OK);
                 }
                 Path target = item.getTargetPath();
-                detailLabel.setText(target == null ? "(无目标路径)" : target.toString());
+                detailLabel.setText(target == null ? DlcFxI18n.tr("dlc_manager.javafx.status.no_target_path") : target.toString());
                 StringBuilder tip = new StringBuilder();
-                tip.append("标识: ").append(item.getDlcIdentifier() == null ? "" : item.getDlcIdentifier());
+                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(item.getDlcIdentifier() == null ? "" : item.getDlcIdentifier());
                 if (item.getType() != null) {
-                    tip.append("\n类型: ").append(item.getType().name());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.type")).append(item.getType().name());
                 }
                 if (!item.getDirectUrls().isEmpty()) {
-                    tip.append("\n直链: ").append(item.getDirectUrls().get(0));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.direct_url")).append(item.getDirectUrls().get(0));
                 }
                 if (item.getCurseforgeProjectId() != null && !item.getCurseforgeProjectId().isBlank()) {
-                    tip.append("\nCurseForge: ").append(item.getCurseforgeProjectId());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.curseforge")).append(item.getCurseforgeProjectId());
                 }
                 if (item.getModrinthProjectId() != null && !item.getModrinthProjectId().isBlank()) {
-                    tip.append("\nModrinth: ").append(item.getModrinthProjectId());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.modrinth")).append(item.getModrinthProjectId());
                 }
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);
@@ -278,7 +278,7 @@ final class LocalRemoteDownloadTab {
         if (name == null || name.isBlank()) {
             name = entry.getDlcIdentifier();
         }
-        return name == null ? "(未命名)" : name;
+        return name == null ? DlcFxI18n.tr("dlc_manager.javafx.status.unnamed") : name;
     }
 
     private static String safeMessage(Throwable t) {

@@ -33,18 +33,18 @@ final class RemoteServerConfigTab {
 
     private final RemoteConnection conn;
     private final TextArea editor = new TextArea();
-    private final Label statusLabel = new Label("未连接");
-    private final Button reloadBtn = new Button("载入配置");
-    private final Button saveBtn = new Button("保存配置");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Button reloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.load"));
+    private final Button saveBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.save"));
 
     RemoteServerConfigTab(RemoteConnection conn) {
         this.conn = conn;
-        editor.setPromptText("点击「载入配置」从服务器拉取当前 DLC 配置…");
+        editor.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.config.editor_prompt"));
         DlcFxStyle.add(editor, "code-editor");
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · 服务器配置");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_config"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -77,21 +77,21 @@ final class RemoteServerConfigTab {
     // ───────────────────────────────────────────────────────────────
 
     private void loadAsync() {
-        statusLabel.setText("载入中…");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.loading"));
         reloadBtn.setDisable(true);
         conn.runAsync(f -> f.configGet(), resp -> {
             JsonElement config = resp.get("config");
             if (config == null || !config.isJsonObject()) {
-                statusLabel.setText("载入失败: 服务器未返回 config 对象");
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.load_missing_config"));
                 reloadBtn.setDisable(false);
                 return;
             }
             editor.setText(PRETTY.toJson(config));
             editor.setScrollTop(0);
-            statusLabel.setText("已载入，编辑后点击「保存配置」");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.loaded"));
             reloadBtn.setDisable(false);
         }, err -> {
-            statusLabel.setText("载入失败: " + RemoteConnection.safeMessage(err));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.load_failed", RemoteConnection.safeMessage(err)));
             reloadBtn.setDisable(false);
         });
     }
@@ -107,32 +107,32 @@ final class RemoteServerConfigTab {
             // we never ship a malformed payload to the server.
             JsonElement parsed = JsonParser.parseString(editor.getText());
             if (parsed == null || !parsed.isJsonObject()) {
-                throw new IllegalStateException("配置必须是 JSON 对象");
+                throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.javafx.config.must_be_object"));
             }
             config = parsed.getAsJsonObject();
         } catch (Throwable t) {
-            statusLabel.setText("JSON 无效: " + RemoteConnection.safeMessage(t));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.invalid_json", RemoteConnection.safeMessage(t)));
             return;
         }
-        if (!confirm("保存服务器配置", "将覆盖远程服务器当前配置，是否继续？")) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.config.save_title"), DlcFxI18n.tr("dlc_manager.javafx.config.save_confirm"))) {
             return;
         }
-        statusLabel.setText("保存中…");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.saving"));
         saveBtn.setDisable(true);
         conn.runAsync(f -> f.configSet(config), resp -> {
             boolean ok = resp.has("ok") && resp.get("ok").isJsonPrimitive() && resp.get("ok").getAsBoolean();
-            statusLabel.setText(ok ? "已保存到服务器" : "保存失败: 服务器拒绝");
+            statusLabel.setText(ok ? DlcFxI18n.tr("dlc_manager.javafx.config.saved") : DlcFxI18n.tr("dlc_manager.javafx.config.save_rejected"));
             saveBtn.setDisable(false);
         }, err -> {
-            statusLabel.setText("保存失败: " + RemoteConnection.safeMessage(err));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.save_failed", RemoteConnection.safeMessage(err)));
             saveBtn.setDisable(false);
         });
     }
 
     private static boolean confirm(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
-                new ButtonType("确定", ButtonData.OK_DONE));
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
         alert.setTitle(title);
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;

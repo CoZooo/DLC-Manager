@@ -27,7 +27,7 @@ final class RemoteHotUpdateTab {
     private final RemoteConnection conn;
     private final ObservableList<String> updates = FXCollections.observableArrayList();
     private final ObservableList<String> history = FXCollections.observableArrayList();
-    private final Label stateLabel = new Label("未连接");
+    private final Label stateLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Label statusLabel = new Label("");
 
     RemoteHotUpdateTab(RemoteConnection conn) {
@@ -35,16 +35,16 @@ final class RemoteHotUpdateTab {
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · 热更新");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_update"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: state + actions ──────────────────────────────────
-        Button stateBtn = new Button("查询状态");
-        Button listBtn = new Button("查询更新列表");
-        Button applyBtn = new Button("应用全部更新");
+        Button stateBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.query_state"));
+        Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.query_list"));
+        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_all"));
 
         stateBtn.disableProperty().bind(conn.connectedProperty().not());
         listBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -53,30 +53,30 @@ final class RemoteHotUpdateTab {
         DlcFxStyle.primary(applyBtn);
 
         stateBtn.setOnAction(e -> {
-            stateLabel.setText("查询中…");
+            stateLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.querying"));
             conn.runAsync(f -> f.updateState(), resp -> {
                 stateLabel.setText(formatState(resp));
                 history.setAll(extractStrings(resp, "history"));
                 updates.setAll(extractStrings(resp, "updates"));
-            }, err -> stateLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            }, err -> stateLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         listBtn.setOnAction(e -> {
-            statusLabel.setText("查询中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.querying"));
             conn.runAsync(f -> f.updateList(), resp -> {
                 updates.setAll(extractStrings(resp, "updates"));
-                statusLabel.setText("共 " + updates.size() + " 个更新");
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.update_count", updates.size()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         applyBtn.setOnAction(e -> {
-            if (!confirm("应用远程热更新", "将应用服务器上的全部可用热更新，是否继续？")) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_confirm"))) {
                 return;
             }
-            statusLabel.setText("应用中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
             conn.runAsync(f -> f.updateApply(null, null, null, null), resp -> {
-                statusLabel.setText("结果: " + resp.toString());
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, stateBtn, listBtn, applyBtn, stateLabel, statusLabel);
@@ -85,18 +85,18 @@ final class RemoteHotUpdateTab {
 
         // ── Versioned apply (optional base/dlc old→new) ──────────
         TextField baseOldField = new TextField();
-        baseOldField.setPromptText("baseOld");
+        baseOldField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.base_old"));
         baseOldField.setPrefColumnCount(10);
         TextField dlcOldField = new TextField();
-        dlcOldField.setPromptText("dlcOld");
+        dlcOldField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.dlc_old"));
         dlcOldField.setPrefColumnCount(10);
         TextField baseNewField = new TextField();
-        baseNewField.setPromptText("baseNew");
+        baseNewField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.base_new"));
         baseNewField.setPrefColumnCount(10);
         TextField dlcNewField = new TextField();
-        dlcNewField.setPromptText("dlcNew");
+        dlcNewField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.dlc_new"));
         dlcNewField.setPrefColumnCount(10);
-        Button applyVersionBtn = new Button("按版本应用");
+        Button applyVersionBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version"));
         applyVersionBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(applyVersionBtn);
         applyVersionBtn.setOnAction(e -> {
@@ -105,21 +105,21 @@ final class RemoteHotUpdateTab {
             String baseNew = blankToNull(baseNewField.getText());
             String dlcNew = blankToNull(dlcNewField.getText());
             if (baseOld == null && dlcOld == null && baseNew == null && dlcNew == null) {
-                statusLabel.setText("请至少填写一个版本参数");
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.version_required"));
                 return;
             }
-            if (!confirm("按版本应用远程热更新", "将按填写的版本参数应用服务器热更新，是否继续？")) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_confirm"))) {
                 return;
             }
-            statusLabel.setText("应用中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
             conn.runAsync(f -> f.updateApply(baseOld, dlcOld, baseNew, dlcNew), resp -> {
-                statusLabel.setText("结果: " + resp.toString());
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox versionBox = new HBox(8,
-                new Label("按版本应用:"), baseOldField, dlcOldField,
-                new Label("→"), baseNewField, dlcNewField, applyVersionBtn);
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_label")), baseOldField, dlcOldField,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.common.arrow")), baseNewField, dlcNewField, applyVersionBtn);
         versionBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.filterBar(versionBox);
 
@@ -132,8 +132,8 @@ final class RemoteHotUpdateTab {
         VBox.setVgrow(updatesList, Priority.ALWAYS);
         VBox.setVgrow(historyList, Priority.ALWAYS);
 
-        Label updatesTitle = new Label("可用更新");
-        Label historyTitle = new Label("历史版本");
+        Label updatesTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.available_updates"));
+        Label historyTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.history_versions"));
         DlcFxStyle.title(updatesTitle);
         DlcFxStyle.title(historyTitle);
         VBox updatesBox = new VBox(4, updatesTitle, updatesList);
@@ -148,67 +148,67 @@ final class RemoteHotUpdateTab {
 
         // ── Bottom: rollback / import ─────────────────────────────
         TextField rollbackField = new TextField();
-        rollbackField.setPromptText("回滚目标版本");
+        rollbackField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_target"));
         rollbackField.setPrefColumnCount(20);
-        Button rollbackBtn = new Button("回滚");
+        Button rollbackBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback"));
         rollbackBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.danger(rollbackBtn);
         rollbackBtn.setOnAction(e -> {
             String target = rollbackField.getText().trim();
-            if (target.isBlank()) { statusLabel.setText("请输入回滚目标"); return; }
-            if (!confirm("回滚远程版本", "将回滚服务器到 " + target + "，是否继续？")) {
+            if (target.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_target_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_confirm", target))) {
                 return;
             }
-            statusLabel.setText("回滚中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.rolling_back"));
             conn.runAsync(f -> f.updateRollback(target), resp -> {
-                statusLabel.setText("回滚结果: " + resp.toString());
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_result", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         TextField importPathField = new TextField();
-        importPathField.setPromptText("服务器本地包路径");
+        importPathField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.server_package_path"));
         importPathField.setPrefColumnCount(20);
-        Button importBtn = new Button("导入包");
+        Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"));
         importBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(importBtn);
         importBtn.setOnAction(e -> {
             String path = importPathField.getText().trim();
-            if (path.isBlank()) { statusLabel.setText("请输入服务器本地包路径"); return; }
-            if (!confirm("导入远程热更新包", "将从服务器路径导入热更新包: " + path + "\n是否继续？")) {
+            if (path.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.server_package_path_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_confirm", path))) {
                 return;
             }
-            statusLabel.setText("导入中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.importing"));
             conn.runAsync(f -> f.updateImport(path), resp -> {
-                statusLabel.setText("导入结果: " + resp.toString());
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_result", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         TextField importUrlField = new TextField();
-        importUrlField.setPromptText("URL");
+        importUrlField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.common.url"));
         importUrlField.setPrefColumnCount(24);
         TextField importNameField = new TextField();
-        importNameField.setPromptText("文件名");
+        importNameField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.common.file_name"));
         importNameField.setPrefColumnCount(12);
-        Button importUrlBtn = new Button("从URL导入");
+        Button importUrlBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url"));
         importUrlBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(importUrlBtn);
         importUrlBtn.setOnAction(e -> {
             String url = importUrlField.getText().trim();
             String name = importNameField.getText().trim();
-            if (url.isBlank()) { statusLabel.setText("请输入 URL"); return; }
-            if (!confirm("从 URL 导入远程热更新包", "服务器将下载并导入该 URL，是否继续？")) {
+            if (url.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.url_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_confirm"))) {
                 return;
             }
-            statusLabel.setText("下载并导入中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.downloading_importing"));
             conn.runAsync(f -> f.updateImportUrl(url, name), resp -> {
-                statusLabel.setText("导入结果: " + resp.toString());
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_result", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox bottomBox = new HBox(8,
-                new Label("回滚:"), rollbackField, rollbackBtn,
-                new Label("  导入:"), importPathField, importBtn,
-                new Label("  URL导入:"), importUrlField, importNameField, importUrlBtn);
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_label")), rollbackField, rollbackBtn,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_label")), importPathField, importBtn,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_label")), importUrlField, importNameField, importUrlBtn);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
@@ -218,7 +218,7 @@ final class RemoteHotUpdateTab {
     }
 
     private static String formatState(JsonObject resp) {
-        if (resp == null) return "无数据";
+        if (resp == null) return DlcFxI18n.tr("dlc_manager.javafx.status.no_data");
         StringBuilder sb = new StringBuilder();
         sb.append("base=").append(str(resp, "base"));
         sb.append("  dlc=").append(str(resp, "dlc"));
@@ -253,8 +253,8 @@ final class RemoteHotUpdateTab {
 
     private static boolean confirm(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
-                new ButtonType("确定", ButtonData.OK_DONE));
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
         alert.setTitle(title);
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;

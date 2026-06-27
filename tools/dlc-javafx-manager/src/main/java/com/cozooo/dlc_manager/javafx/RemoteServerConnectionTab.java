@@ -19,7 +19,7 @@ final class RemoteServerConnectionTab {
     private final TextField hostField = new TextField("127.0.0.1");
     private final TextField portField = new TextField("29690");
     private final TextField passwordField = new TextField();
-    private final Label statusLabel = new Label("未连接");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Label infoLabel = new Label("");
 
     RemoteServerConnectionTab(RemoteConnection conn) {
@@ -33,45 +33,45 @@ final class RemoteServerConnectionTab {
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · 服务器连接");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_connection"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: connection form ──────────────────────────────────
-        Button connectBtn = new Button("连接");
+        Button connectBtn = new Button(DlcFxI18n.tr("dlc_manager.server.connect"));
         connectBtn.setOnAction(e -> {
             String host = hostField.getText().trim();
             int port;
             try { port = Integer.parseInt(portField.getText().trim()); }
             catch (NumberFormatException ex) { port = 29690; }
             String pw = passwordField.getText();
-            statusLabel.setText("连接中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.server.connecting"));
             conn.connectAsync(host, port, pw, 10000, err -> {
                 if (err != null) {
-                    statusLabel.setText("连接失败: " + RemoteConnection.safeMessage(err));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.server.connect_failed") + ": " + RemoteConnection.safeMessage(err));
                 }
             });
         });
 
-        Button disconnectBtn = new Button("断开");
+        Button disconnectBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote.disconnect"));
         disconnectBtn.disableProperty().bind(conn.connectedProperty().not());
         disconnectBtn.setOnAction(e -> conn.disconnect());
         DlcFxStyle.primary(connectBtn);
 
         HBox formBox = new HBox(8,
-                new Label("主机:"), hostField,
-                new Label("端口:"), portField,
-                new Label("密码:"), passwordField,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.host")), hostField,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.port")), portField,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.password")), passwordField,
                 connectBtn, disconnectBtn);
         formBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(formBox);
         root.setTop(formBox);
 
         // ── Center: status ────────────────────────────────────────
-        Label statusTitle = new Label("连接状态");
-        Label infoTitle = new Label("服务器信息");
+        Label statusTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.connection_status"));
+        Label infoTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.server_info"));
         DlcFxStyle.title(statusTitle);
         DlcFxStyle.title(infoTitle);
         DlcFxStyle.muted(infoLabel);

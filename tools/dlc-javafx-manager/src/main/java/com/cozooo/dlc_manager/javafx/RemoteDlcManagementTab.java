@@ -29,9 +29,9 @@ final class RemoteDlcManagementTab {
 
     private final RemoteConnection conn;
     private final ObservableList<SyncModels.ServerItem> items = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label("未连接");
-    private final Button refreshBtn = new Button("刷新列表");
-    private final Button applyBtn = new Button("应用更改");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.refresh_list"));
+    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.apply_changes"));
     /** Read-only transcript of the most recent apply's per-item message lines. */
     private final TextArea applyDetail = new TextArea();
 
@@ -40,7 +40,7 @@ final class RemoteDlcManagementTab {
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · DLC 管理");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_dlc"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -49,17 +49,17 @@ final class RemoteDlcManagementTab {
         // ── Top ───────────────────────────────────────────────────
         refreshBtn.disableProperty().bind(conn.connectedProperty().not());
         refreshBtn.setOnAction(e -> {
-            statusLabel.setText("加载中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
             conn.runAsync(f -> f.fetchList(), info -> {
                 items.setAll(info.items);
-                statusLabel.setText(String.format("共 %d 项 (base=%s dlc=%s)", info.items.size(), info.baseVersion, info.dlcVersion));
-            }, err -> statusLabel.setText("加载失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.dlc_count", info.items.size(), info.baseVersion, info.dlcVersion));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", RemoteConnection.safeMessage(err))));
         });
 
         applyBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(applyBtn);
         applyBtn.setOnAction(e -> {
-            statusLabel.setText("应用中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
             applyDetail.clear();
             // Send set for each changed item, then apply (fetching messages).
             List<SyncModels.ServerItem> snapshot = new ArrayList<>(items);
@@ -71,9 +71,9 @@ final class RemoteDlcManagementTab {
                 }
                 return f.applyWithMessages();
             }, outcome -> {
-                statusLabel.setText(outcome.requiresRestart() ? "已应用 — 需要重启服务器" : "已应用");
+                statusLabel.setText(outcome.requiresRestart() ? DlcFxI18n.tr("dlc_manager.javafx.remote.applied_restart") : DlcFxI18n.tr("dlc_manager.javafx.remote.applied"));
                 renderApplyOutcome(outcome);
-            }, err -> statusLabel.setText("应用失败: " + RemoteConnection.safeMessage(err)));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, refreshBtn, applyBtn, statusLabel);
@@ -88,9 +88,9 @@ final class RemoteDlcManagementTab {
 
         applyDetail.setEditable(false);
         applyDetail.setWrapText(true);
-        applyDetail.setPromptText("应用后此处显示服务器返回的逐项详情（启用/禁用/冲突等）。");
+        applyDetail.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote.apply_detail_prompt"));
         applyDetail.setPrefRowCount(6);
-        TitledPane detailPane = new TitledPane("应用详情", applyDetail);
+        TitledPane detailPane = new TitledPane(DlcFxI18n.tr("dlc_manager.javafx.remote.apply_detail"), applyDetail);
         detailPane.setCollapsible(true);
         detailPane.setExpanded(false);
 
@@ -109,13 +109,13 @@ final class RemoteDlcManagementTab {
         List<String> messages = outcome.messages();
         if (messages.isEmpty()) {
             applyDetail.setText(outcome.requiresRestart()
-                    ? "服务器已应用更改，需要重启。"
-                    : "服务器已应用更改。");
+                    ? DlcFxI18n.tr("dlc_manager.javafx.remote.apply_detail_restart")
+                    : DlcFxI18n.tr("dlc_manager.javafx.remote.apply_detail_done"));
             return;
         }
         StringBuilder sb = new StringBuilder();
         if (outcome.requiresRestart()) {
-            sb.append("[需要重启服务器]\n");
+            sb.append(DlcFxI18n.tr("dlc_manager.javafx.remote.restart_required_tag")).append('\n');
         }
         for (String msg : messages) {
             if (sb.length() > 0) {
@@ -155,9 +155,9 @@ final class RemoteDlcManagementTab {
                 typeLabel.setText(item.type == null ? "?" : item.type);
                 nameLabel.setText(item.name == null || item.name.isBlank() ? item.id : item.name);
                 StringBuilder tip = new StringBuilder();
-                tip.append("ID: ").append(item.id);
-                if (item.identifier != null) tip.append("\n标识: ").append(item.identifier);
-                if (item.path != null) tip.append("\n路径: ").append(item.path);
+                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.id")).append(item.id);
+                if (item.identifier != null) tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(item.identifier);
+                if (item.path != null) tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.path")).append(item.path);
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);
             }

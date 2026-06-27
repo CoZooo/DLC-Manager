@@ -7,7 +7,6 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -42,7 +41,7 @@ final class LocalPresetTab {
 
     private final StandalonePlatformProvider provider;
     private final ObservableList<DlcPresetEntry> entries = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label("请先在「本地 · DLC 管理」中选择游戏目录");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
     private final Label countLabel = new Label("");
 
     LocalPresetTab(StandalonePlatformProvider provider) {
@@ -50,24 +49,24 @@ final class LocalPresetTab {
     }
 
     Tab build() {
-        Tab tab = new Tab("本地 · Preset 预设");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_preset"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: refresh + apply ──────────────────────────────────
-        Button refreshBtn = new Button("刷新预设");
+        Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.preset.refresh"));
         refreshBtn.setOnAction(e -> refreshAsync());
 
-        Button applyBtn = new Button("应用预设");
+        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.preset.apply"));
         applyBtn.setOnAction(e -> applyAsync());
         DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(applyBtn);
         DlcFxStyle.muted(countLabel);
         DlcFxStyle.muted(statusLabel);
 
-        Button clearBtn = new Button("全部关闭");
+        Button clearBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.preset.clear_all"));
         clearBtn.setOnAction(e -> {
             for (DlcPresetEntry entry : entries) {
                 DlcPresetRuntimeState.setPresetEnabled(entry.getId(), false);
@@ -95,7 +94,7 @@ final class LocalPresetTab {
     }
 
     private void refreshAsync() {
-        statusLabel.setText("加载中…");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
         Thread thread = new Thread(() -> {
             try {
                 List<DlcPresetEntry> loaded = DlcPresetRuntimeState.getPresets();
@@ -107,11 +106,11 @@ final class LocalPresetTab {
                 Platform.runLater(() -> {
                     entries.setAll(finalLoaded);
                     int enabled = countEnabled(finalLoaded);
-                    countLabel.setText(String.format("共 %d 个预设，已启用 %d", finalLoaded.size(), enabled));
-                    statusLabel.setText(finalLoaded.isEmpty() ? "未找到预设 (dlc/preset/*.dc)" : "已加载");
+                    countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.count", finalLoaded.size(), enabled));
+                    statusLabel.setText(finalLoaded.isEmpty() ? DlcFxI18n.tr("dlc_manager.javafx.preset.none") : DlcFxI18n.tr("dlc_manager.javafx.status.loaded"));
                 });
             } catch (Throwable t) {
-                Platform.runLater(() -> statusLabel.setText("加载失败: " + safeMessage(t)));
+                Platform.runLater(() -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", safeMessage(t))));
             }
         }, "dlc-preset-refresh");
         thread.setDaemon(true);
@@ -119,7 +118,7 @@ final class LocalPresetTab {
     }
 
     private void applyAsync() {
-        statusLabel.setText("应用中…");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
         Thread thread = new Thread(() -> {
             try {
                 DlcPresetRuntimeState.applyOverridesToRuntime();
@@ -128,16 +127,16 @@ final class LocalPresetTab {
                 Platform.runLater(() -> {
                     StringBuilder sb = new StringBuilder();
                     if (result.requiresRestart()) {
-                        sb.append("需要重启游戏以生效。");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.requires_restart"));
                     }
                     if (result.hotReloaded()) {
-                        sb.append("已热重载。");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.hot_reloaded"));
                     }
                     if (sb.length() == 0) {
-                        sb.append("应用完成");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.apply_done"));
                     }
                     if (!result.messages().isEmpty()) {
-                        sb.append(" (").append(result.messages().size()).append(" 条消息)");
+                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.message_count_suffix", result.messages().size()));
                     }
                     statusLabel.setText(sb.toString());
                     // Surface the per-item apply messages like the DLC tab does.
@@ -155,7 +154,7 @@ final class LocalPresetTab {
                     entries.setAll(DlcPresetRuntimeState.getPresets());
                 });
             } catch (Throwable t) {
-                Platform.runLater(() -> statusLabel.setText("应用失败: " + safeMessage(t)));
+                Platform.runLater(() -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", safeMessage(t))));
             }
         }, "dlc-preset-apply");
         thread.setDaemon(true);
@@ -172,10 +171,10 @@ final class LocalPresetTab {
             DlcPresetStateStore.savePresetStatus(statuses);
             entries.setAll(DlcPresetRuntimeState.getPresets());
             int enabled = countEnabled(entries);
-            countLabel.setText(String.format("共 %d 个预设，已启用 %d", entries.size(), enabled));
-            statusLabel.setText("已保存");
+            countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.count", entries.size(), enabled));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.saved"));
         } catch (Throwable t) {
-            statusLabel.setText("保存失败: " + safeMessage(t));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.save_failed", safeMessage(t)));
         }
     }
 
@@ -200,12 +199,12 @@ final class LocalPresetTab {
     private boolean confirmAlarmPreset(DlcPresetEntry item) {
         String tip = item == null ? "" : item.resolveTip(currentLang());
         String message = tip == null || tip.isBlank()
-                ? "该预设标记为警告预设，启用后可能产生较大影响，是否继续？"
+                ? DlcFxI18n.tr("dlc_manager.javafx.preset.alarm_confirm")
                 : tip;
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
-                new ButtonType("确定", ButtonData.OK_DONE));
-        alert.setTitle("启用警告预设");
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
+        alert.setTitle(DlcFxI18n.tr("dlc_manager.javafx.preset.alarm_title"));
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
@@ -232,8 +231,8 @@ final class LocalPresetTab {
                     if (!ok && enabled) {
                         checkBox.setSelected(false);
                         List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(item.getId(), currentLang());
-                        String msg = blockers.isEmpty() ? "被冲突预设阻止" : "被阻止: " + String.join(", ", blockers);
-                        statusLabel.setText("[阻止]");
+                        String msg = blockers.isEmpty() ? DlcFxI18n.tr("dlc_manager.javafx.preset.blocked_by_conflict") : DlcFxI18n.tr("dlc_manager.javafx.preset.blocked_by", String.join(", ", blockers));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.blocked"));
                         setTooltip(new Tooltip(msg));
                     } else {
                         updateStatusDisplay(item);
@@ -256,20 +255,20 @@ final class LocalPresetTab {
                 String lang = currentLang();
                 nameLabel.setText(item.resolveDisplayName(lang));
                 StringBuilder tip = new StringBuilder();
-                tip.append("ID: ").append(item.getId());
-                tip.append("\n文件: ").append(item.getFileName());
+                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.id")).append(item.getId());
+                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.file")).append(item.getFileName());
                 if (!item.getEnable().isEmpty()) {
-                    tip.append("\n启用: ").append(String.join(", ", item.getEnable()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.enable")).append(String.join(", ", item.getEnable()));
                 }
                 if (!item.getConflicts().isEmpty()) {
-                    tip.append("\n冲突: ").append(String.join(", ", item.getConflicts()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
                 }
                 if (item.isAlarm()) {
-                    tip.append("\n[警告预设]");
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.preset.alarm_tag"));
                 }
                 String tipText = item.resolveTip(lang);
                 if (tipText != null && !tipText.isBlank()) {
-                    tip.append("\n说明: ").append(tipText);
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.description")).append(tipText);
                 }
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);
@@ -280,15 +279,15 @@ final class LocalPresetTab {
             DlcPresetStatus status = item.getStatus();
             switch (status) {
                 case ON -> {
-                    statusLabel.setText("ON");
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.status_on"));
                     DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_OK);
                 }
                 case PART -> {
-                    statusLabel.setText("PART");
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.status_part"));
                     DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_WARN);
                 }
                 case OFF -> {
-                    statusLabel.setText("OFF");
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.status_off"));
                     DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
                 }
             }

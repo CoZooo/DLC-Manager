@@ -48,18 +48,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Controller for the "本地 · 热更新" tab.
+ * Controller for the local hot-update tab.
  * <p>
  * This is the standalone counterpart of the in-game
  * {@code DlcUpdateManagerScreen} + {@code DlcModpackUpdateScreen} and is the
  * direct fix for the two reported bugs:
  * <ul>
- *   <li><b>"无法检测dlc内的更新内容"</b> — Layer A: scans the {@code update/}
+ *   <li><b>Cannot detect update contents inside DLC</b> — Layer A: scans the {@code update/}
  *       directory for {@code .zip} packages via
  *       {@link DlcUpdateService#checkForUpdates()}, resolves the applicable
  *       update chain, shows the version transition + changelog, and applies /
  *       rolls back / imports packages — all on the local game directory.</li>
- *   <li><b>"没有同步远程仓库校验本地mod"</b> — Layer B: queries the configured
+ *   <li><b>No remote repository sync for local mod verification</b> — Layer B: queries the configured
  *       GitHub/Gitea/GitCode/GitLab releases API via
  *       {@link DlcPackReleaseUpdateService#checkForUpdates} and downloads the
  *       matching {@code Client_*.zip} assets into {@code update/}, then hands
@@ -74,16 +74,16 @@ final class LocalUpdateTab {
     private final StandalonePlatformProvider provider;
 
     // ── Version header ──────────────────────────────────────────────
-    private final Label versionLabel = new Label("底包：-　当前 DLC：-");
+    private final Label versionLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.version_empty"));
 
     // ── Action buttons ──────────────────────────────────────────────
-    private final Button refreshBtn = new Button("检查本地热更新");
-    private final Button checkRemoteBtn = new Button("同步远程仓库");
-    private final Button downloadRemoteBtn = new Button("下载远程热更新包");
-    private final Button cancelDownloadBtn = new Button("取消下载");
-    private final Button applyBtn = new Button("应用更新");
-    private final Button rollbackBtn = new Button("回溯选中版本");
-    private final Button importBtn = new Button("导入更新包");
+    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.check_local"));
+    private final Button checkRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.sync_remote"));
+    private final Button downloadRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.download_remote"));
+    private final Button cancelDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.cancel_download"));
+    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.apply"));
+    private final Button rollbackBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_selected"));
+    private final Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"));
 
     // ── Center: history / available-update list ─────────────────────
     private final ObservableList<DlcUpdateMeta> history = FXCollections.observableArrayList();
@@ -91,7 +91,7 @@ final class LocalUpdateTab {
 
     // ── Changelog panel ─────────────────────────────────────────────
     private final TextArea changelogArea = new TextArea();
-    private final Label statusLabel = new Label("请先在「本地 · DLC 管理」中选择游戏目录");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
 
     // Live update state (touched only on the FX thread unless noted).
@@ -104,12 +104,12 @@ final class LocalUpdateTab {
         progressBar.setVisible(false);
         changelogArea.setEditable(false);
         changelogArea.setWrapText(true);
-        changelogArea.setPromptText("更新日志将显示在此处");
+        changelogArea.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.update.changelog_prompt"));
         cancelDownloadBtn.setVisible(false);
     }
 
     Tab build() {
-        Tab tab = new Tab("本地 · 热更新");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_update"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -146,13 +146,13 @@ final class LocalUpdateTab {
         historyView.getSelectionModel().selectedItemProperty().addListener(
                 (obs, old, sel) -> showChangelogFor(sel));
 
-        Label historyHeader = new Label("可更新 / 历史版本");
+        Label historyHeader = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.history_header"));
         DlcFxStyle.title(historyHeader);
         VBox leftBox = new VBox(4, historyHeader, historyView);
         VBox.setVgrow(historyView, Priority.ALWAYS);
         leftBox.setPadding(new Insets(0, 4, 0, 0));
 
-        Label changelogHeader = new Label("更新日志");
+        Label changelogHeader = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.changelog_header"));
         DlcFxStyle.title(changelogHeader);
         VBox rightBox = new VBox(4, changelogHeader, changelogArea);
         VBox.setVgrow(changelogArea, Priority.ALWAYS);
@@ -179,10 +179,10 @@ final class LocalUpdateTab {
     void onGameDirChanged() {
         history.clear();
         changelogArea.clear();
-        versionLabel.setText("底包：-　当前 DLC：-");
+        versionLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.version_empty"));
         lastRemoteCheck = null;
         downloadRemoteBtn.setDisable(true);
-        statusLabel.setText("游戏目录已更新，点击「检查本地热更新」");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.game_dir_changed"));
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -193,7 +193,7 @@ final class LocalUpdateTab {
         if (!requireGameDir()) {
             return;
         }
-        setBusy(true, "扫描本地热更新包…");
+        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.scanning_local"));
         progressBar.setProgress(-1);
         Thread thread = new Thread(() -> {
             try {
@@ -215,18 +215,16 @@ final class LocalUpdateTab {
                     history.setAll(rows);
                     renderVersionHeader(result);
                     if (result.hasUpdates()) {
-                        statusLabel.setText(String.format(
-                                "发现 %d 个可用热更新，可选择后点击「应用更新」",
-                                result.getUpdates().size()));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.available_count", result.getUpdates().size()));
                     } else {
-                        statusLabel.setText("已是最新版本（无可用本地热更新）");
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.local_latest"));
                     }
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText("检查失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.check_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -239,15 +237,14 @@ final class LocalUpdateTab {
     private void applySelectedAsync() {
         DlcUpdateMeta selected = historyView.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            statusLabel.setText("请先在列表中选择一个要应用的版本");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.select_apply_version"));
             return;
         }
-        if (!confirm("应用热更新",
-                String.format("将应用更新到 DLC %s，期间会增删改文件，是否继续？",
-                        safe(selected.getDlcNew())))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.update.apply_title"),
+                DlcFxI18n.tr("dlc_manager.javafx.update.apply_confirm", safe(selected.getDlcNew())))) {
             return;
         }
-        setBusy(true, "应用更新中…");
+        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.applying"));
         progressBar.setProgress(-1);
         final String dlcOld = safe(selected.getDlcOld());
         final String dlcNew = safe(selected.getDlcNew());
@@ -266,7 +263,7 @@ final class LocalUpdateTab {
                 }
                 if (chain.isEmpty()) {
                     Platform.runLater(() -> {
-                        statusLabel.setText("无法解析到该版本的更新链（包可能缺失）");
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.chain_missing"));
                         progressBar.setVisible(false);
                         setBusy(false, null);
                     });
@@ -284,7 +281,7 @@ final class LocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText("应用失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -297,7 +294,7 @@ final class LocalUpdateTab {
     private void rollbackSelectedAsync() {
         DlcUpdateMeta selected = historyView.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            statusLabel.setText("请先在列表中选择一个要回溯的版本");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.select_rollback_version"));
             return;
         }
         String target = safe(selected.getDlcNew());
@@ -305,14 +302,14 @@ final class LocalUpdateTab {
             target = safe(selected.getDlcOld());
         }
         if (target.isBlank()) {
-            statusLabel.setText("无法确定回溯目标版本");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_target_missing"));
             return;
         }
-        if (!confirm("回溯版本",
-                String.format("将回溯到 DLC %s，部分文件操作会在退出后生效，是否继续？", target))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_title"),
+                DlcFxI18n.tr("dlc_manager.javafx.update.rollback_confirm", target))) {
             return;
         }
-        setBusy(true, "回溯中…");
+        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.rolling_back"));
         progressBar.setProgress(-1);
         final String finalTarget = target;
         Thread thread = new Thread(() -> {
@@ -320,8 +317,8 @@ final class LocalUpdateTab {
                 UpdateRollbackResult result = DlcUpdateService.rollbackTo(finalTarget);
                 Platform.runLater(() -> {
                     statusLabel.setText(result.isSuccess()
-                            ? "已回溯到 " + safe(result.getVersion())
-                            : "回溯失败: " + safe(result.getMessage()));
+                            ? DlcFxI18n.tr("dlc_manager.javafx.update.rollback_done", safe(result.getVersion()))
+                            : DlcFxI18n.tr("dlc_manager.javafx.update.rollback_failed", safe(result.getMessage())));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                     if (result.isSuccess()) {
@@ -330,7 +327,7 @@ final class LocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText("回溯失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -345,9 +342,9 @@ final class LocalUpdateTab {
             return;
         }
         FileChooser chooser = new FileChooser();
-        chooser.setTitle("选择热更新包 (.zip)");
+        chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.update.choose_package"));
         chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter("热更新包", "*.zip"));
+                new FileChooser.ExtensionFilter(DlcFxI18n.tr("dlc_manager.javafx.update.package_filter"), "*.zip"));
         java.io.File file = chooser.showOpenDialog(primaryStage());
         if (file == null) {
             return;
@@ -356,18 +353,18 @@ final class LocalUpdateTab {
         // Validate before importing so we can show a precise reason.
         ImportValidationResult validation = DlcUpdateService.validateImportPackage(zipPath);
         if (!validation.isValid()) {
-            statusLabel.setText("导入校验失败: " + DlcUpdateService.toImportValidationMessage(validation));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.import_validation_failed", DlcUpdateService.toImportValidationMessage(validation)));
             return;
         }
-        setBusy(true, "导入更新包…");
+        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.importing"));
         progressBar.setProgress(-1);
         Thread thread = new Thread(() -> {
             try {
                 boolean ok = DlcUpdateService.importUpdatePackage(zipPath);
                 Platform.runLater(() -> {
                     statusLabel.setText(ok
-                            ? "导入成功，请点击「检查本地热更新」"
-                            : "导入失败：包格式无效或已存在");
+                            ? DlcFxI18n.tr("dlc_manager.javafx.update.import_done")
+                            : DlcFxI18n.tr("dlc_manager.javafx.update.import_invalid"));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                     if (ok) {
@@ -376,7 +373,7 @@ final class LocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText("导入失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.import_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -396,10 +393,10 @@ final class LocalUpdateTab {
         }
         String repoUrl = DlcConfig.getUpdateGitRepoUrl();
         if (repoUrl == null || repoUrl.isBlank()) {
-            statusLabel.setText("未配置远程仓库地址（updateGitRepoClient），无法同步");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_repo_missing"));
             return;
         }
-        setBusy(true, "查询远程仓库版本…");
+        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.checking_remote"));
         progressBar.setProgress(-1);
         final DlcUpdateVersion current = DlcUpdateVersion.load(DlcConfig.getDlcRoot());
         final String base = safe(current.getBase());
@@ -411,18 +408,17 @@ final class LocalUpdateTab {
                 lastRemoteCheck = result;
                 Platform.runLater(() -> {
                     if (result.error != null && !result.error.isBlank()) {
-                        statusLabel.setText("远程查询失败: "
-                                + DlcPackReleaseUpdateService.toCheckFailureMessage(result.error));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_check_failed",
+                                DlcPackReleaseUpdateService.toCheckFailureMessage(result.error)));
                         downloadRemoteBtn.setDisable(true);
                     } else if (result.hasUpdate()) {
-                        statusLabel.setText(String.format(
-                                "远程有更新：%s -> %s（可下载）",
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_available",
                                 formatVersion(result.currentBase, result.currentDlc),
                                 formatVersion(result.targetBase, result.targetDlc)));
                         changelogArea.setText(result.resolveCombinedChangelog(currentLang()));
                         downloadRemoteBtn.setDisable(!result.canDownload());
                     } else {
-                        statusLabel.setText("远程仓库已是最新版本");
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_latest"));
                         downloadRemoteBtn.setDisable(true);
                     }
                     progressBar.setVisible(false);
@@ -430,7 +426,7 @@ final class LocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText("远程查询失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_check_failed", safeMessage(t)));
                     downloadRemoteBtn.setDisable(true);
                     progressBar.setVisible(false);
                     setBusy(false, null);
@@ -444,15 +440,15 @@ final class LocalUpdateTab {
     private void downloadRemoteAsync() {
         CheckResult result = lastRemoteCheck;
         if (result == null || !result.hasUpdate()) {
-            statusLabel.setText("请先点击「同步远程仓库」检测更新");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.check_remote_first"));
             return;
         }
         if (!result.canDownload()) {
-            statusLabel.setText("远程缺少可下载的热更新包资源");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_no_assets"));
             return;
         }
         downloadCanceled = false;
-        setBusy(true, "正在下载热更新包…");
+        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.downloading"));
         progressBar.setProgress(0);
         cancelDownloadBtn.setVisible(true);
         final CancelChecker cancelChecker = () -> downloadCanceled;
@@ -460,7 +456,7 @@ final class LocalUpdateTab {
                 Platform.runLater(() -> {
                     progressBar.setProgress(overall < 0 ? -1 : overall);
                     if (stepCount > 0) {
-                        statusLabel.setText(String.format("正在下载（%d/%d）：%s",
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.download_progress",
                                 stepIndex + 1, stepCount, safe(fileName)));
                     }
                 });
@@ -473,16 +469,14 @@ final class LocalUpdateTab {
                     progressBar.setVisible(false);
                     setBusy(false, null);
                     if (dl.canceled) {
-                        statusLabel.setText("下载已取消");
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_canceled"));
                     } else if (dl.success) {
-                        statusLabel.setText(String.format(
-                                "下载完成，已导入 %d 个包，请点击「检查本地热更新」",
-                                dl.files.size()));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.download_done", dl.files.size()));
                         // Auto re-check so the freshly imported packages appear.
                         checkLocalAsync();
                     } else {
-                        statusLabel.setText("下载失败: "
-                                + DlcPackReleaseUpdateService.toDownloadFailureMessage(dl.message));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed",
+                                DlcPackReleaseUpdateService.toDownloadFailureMessage(dl.message)));
                     }
                 });
             } catch (Throwable t) {
@@ -490,7 +484,7 @@ final class LocalUpdateTab {
                     cancelDownloadBtn.setVisible(false);
                     progressBar.setVisible(false);
                     setBusy(false, null);
-                    statusLabel.setText("下载失败: " + safeMessage(t));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed", safeMessage(t)));
                 });
             }
         }, "dlc-update-download");
@@ -508,9 +502,9 @@ final class LocalUpdateTab {
         String base = formatVersionHeader(v.getBase(), null);
         String dlc = formatVersionHeader(v.getDlc(), null);
         if (rollbackFrom != null && !rollbackFrom.isBlank()) {
-            versionLabel.setText(String.format("底包：%s　当前 DLC：%s　（已回溯：%s）", base, dlc, rollbackFrom));
+            versionLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.version_rollback", base, dlc, rollbackFrom));
         } else {
-            versionLabel.setText(String.format("底包：%s　当前 DLC：%s", base, dlc));
+            versionLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.version", base, dlc));
         }
     }
 
@@ -563,33 +557,33 @@ final class LocalUpdateTab {
 
     private String describeApply(UpdateApplyResult result) {
         if (result == null) {
-            return "更新结果未知";
+            return DlcFxI18n.tr("dlc_manager.javafx.update.result_unknown");
         }
         if (result.isSuccess()) {
-            StringBuilder sb = new StringBuilder("更新完成。");
+            StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.javafx.update.result_success"));
             if (result.hasRequiredAdd()) {
-                sb.append(" 已新增必装资源。");
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_required_added"));
                 List<DlcRequiredEntry> missing = DlcRequiredRuntime.collectMissingDownloadsForPrompt();
                 if (!missing.isEmpty()) {
-                    sb.append(" 仍有 ").append(missing.size()).append(" 个必装资源缺失，请转到「本地 · Required」下载。");
+                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_required_missing", missing.size()));
                 }
             }
             if (result.hasRemoteAdd()) {
-                sb.append(" 已新增远程资源。");
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_remote_added"));
                 List<DlcRemoteEntry> missing = DlcRemoteRuntime.collectMissing();
                 if (!missing.isEmpty()) {
-                    sb.append(" 仍有 ").append(missing.size()).append(" 个远程资源缺失，请转到「本地 · Remote 下载」。");
+                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_remote_missing", missing.size()));
                 }
             }
             if (result.isHelperScheduled()) {
-                sb.append(" 部分文件操作已安排在退出后处理。");
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.helper_scheduled"));
             }
             if (result.isDlcManagerUpdated()) {
-                sb.append(" DLC 管理器自身已更新。");
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.manager_updated"));
             }
             return sb.toString();
         }
-        return "更新失败：" + DlcUpdateService.toFailureMessage(result);
+        return DlcFxI18n.tr("dlc_manager.javafx.update.result_failed", DlcUpdateService.toFailureMessage(result));
     }
 
     private static String formatVersion(String base, String dlc) {
@@ -627,7 +621,7 @@ final class LocalUpdateTab {
 
     private boolean requireGameDir() {
         if (DlcConfig.getDlcRoot() == null) {
-            statusLabel.setText("请先在「本地 · DLC 管理」中选择游戏目录");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
             return false;
         }
         return true;
@@ -635,8 +629,8 @@ final class LocalUpdateTab {
 
     private boolean confirm(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
-                new ButtonType("确定", ButtonData.OK_DONE));
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
         alert.setTitle(title);
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
@@ -678,10 +672,10 @@ final class LocalUpdateTab {
                 transitionLabel.setText(describeTransition(item));
                 boolean isHistory = item.getTimestamp() != null && !item.getTimestamp().isBlank();
                 if (isHistory) {
-                    tagLabel.setText("历史");
+                    tagLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.tag_history"));
                     DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_NEUTRAL);
                 } else {
-                    tagLabel.setText("可更新");
+                    tagLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.tag_available"));
                     DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_OK);
                 }
                 HBox row = new HBox(8, transitionLabel, tagLabel);
@@ -699,10 +693,10 @@ final class LocalUpdateTab {
             boolean baseChanged = !baseOld.isBlank() && !baseNew.isBlank() && !baseOld.equals(baseNew);
             boolean dlcChanged = !dlcOld.isBlank() && !dlcNew.isBlank() && !dlcOld.equals(dlcNew);
             if (baseChanged && !dlcChanged) {
-                return "底包：" + baseOld + " -> " + baseNew;
+                return DlcFxI18n.tr("dlc_manager.javafx.update.base_transition", baseOld, baseNew);
             }
             if (dlcChanged && !baseChanged) {
-                return "DLC：" + dlcOld + " -> " + dlcNew;
+                return DlcFxI18n.tr("dlc_manager.javafx.update.dlc_transition", dlcOld, dlcNew);
             }
             String from = formatVersionHeader(baseOld.isBlank() ? null : baseOld, dlcOld);
             String to = formatVersionHeader(baseNew.isBlank() ? null : baseNew, dlcNew);

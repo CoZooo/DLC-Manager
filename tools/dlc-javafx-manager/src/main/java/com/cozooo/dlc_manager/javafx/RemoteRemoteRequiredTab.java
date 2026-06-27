@@ -33,54 +33,54 @@ final class RemoteRemoteRequiredTab {
     private final RemoteConnection conn;
     private final ObservableList<Row> remoteItems = FXCollections.observableArrayList();
     private final ObservableList<Row> requiredItems = FXCollections.observableArrayList();
-    private final Label remoteStatus = new Label("未连接");
-    private final Label requiredStatus = new Label("未连接");
+    private final Label remoteStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Label requiredStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
 
     RemoteRemoteRequiredTab(RemoteConnection conn) {
         this.conn = conn;
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · Remote/Required");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_remote_required"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Remote section ────────────────────────────────────────
-        Button remoteRefreshBtn = new Button("刷新 Remote");
+        Button remoteRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.refresh_remote"));
         remoteRefreshBtn.disableProperty().bind(conn.connectedProperty().not());
         remoteRefreshBtn.setOnAction(e -> {
-            remoteStatus.setText("加载中…");
+            remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
             conn.runAsync(f -> f.remoteList(), resp -> {
                 List<Row> rows = extractRemoteRows(resp);
                 remoteItems.setAll(rows);
-                remoteStatus.setText("共 " + rows.size() + " 项");
-            }, err -> remoteStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", rows.size()));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
-        Button remoteDownloadBtn = new Button("下载全部缺失");
+        Button remoteDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.required.download_missing"));
         remoteDownloadBtn.disableProperty().bind(conn.connectedProperty().not());
         remoteDownloadBtn.setOnAction(e -> {
-            remoteStatus.setText("启动下载…");
+            remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.starting_download"));
             conn.runAsync(f -> f.remoteDownloadStart(null), resp -> {
-                remoteStatus.setText("下载已启动: " + summarizeStatus(resp));
-            }, err -> remoteStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_started", summarizeStatus(resp)));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
-        Button remoteStatusBtn = new Button("查询下载状态");
+        Button remoteStatusBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_status"));
         remoteStatusBtn.disableProperty().bind(conn.connectedProperty().not());
         remoteStatusBtn.setOnAction(e -> {
             conn.runAsync(f -> f.remoteDownloadStatus(), resp -> {
-                remoteStatus.setText("状态: " + summarizeStatus(resp));
-            }, err -> remoteStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.status_value", summarizeStatus(resp)));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         ListView<Row> remoteList = new ListView<>(remoteItems);
         remoteList.setCellFactory(param -> new RowCell());
         VBox.setVgrow(remoteList, Priority.ALWAYS);
 
-        Label remoteTitle = new Label("Remote 远程下载 (缺失项)");
+        Label remoteTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.remote_title"));
         DlcFxStyle.title(remoteTitle);
         DlcFxStyle.primary(remoteDownloadBtn);
         VBox remoteBox = new VBox(8,
@@ -89,57 +89,57 @@ final class RemoteRemoteRequiredTab {
                 remoteList);
 
         // ── Required section ──────────────────────────────────────
-        Button requiredRefreshBtn = new Button("刷新 Required");
+        Button requiredRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.refresh_required"));
         requiredRefreshBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredRefreshBtn.setOnAction(e -> {
-            requiredStatus.setText("加载中…");
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
             conn.runAsync(f -> f.requiredList(), resp -> {
                 List<Row> rows = extractRequiredRows(resp);
                 requiredItems.setAll(rows);
-                requiredStatus.setText("共 " + rows.size() + " 项");
-            }, err -> requiredStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", rows.size()));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
-        Button requiredDownloadBtn = new Button("下载全部");
+        Button requiredDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_all"));
         requiredDownloadBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredDownloadBtn.setOnAction(e -> {
-            requiredStatus.setText("启动下载…");
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.starting_download"));
             conn.runAsync(f -> f.requiredDownloadStart(null), resp -> {
-                requiredStatus.setText("下载已启动: " + summarizeStatus(resp));
-            }, err -> requiredStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_started", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
-        Button requiredCancelBtn = new Button("取消下载");
+        Button requiredCancelBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.cancel_download"));
         requiredCancelBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredCancelBtn.setOnAction(e -> {
             conn.runAsync(f -> f.requiredDownloadCancel(), resp -> {
-                requiredStatus.setText("已取消: " + summarizeStatus(resp));
-            }, err -> requiredStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.canceled_value", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
-        Button requiredApplyBtn = new Button("应用 Required");
+        Button requiredApplyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.apply_required"));
         requiredApplyBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredApplyBtn.setOnAction(e -> {
-            requiredStatus.setText("应用中…");
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
             conn.runAsync(f -> f.requiredApply(null), resp -> {
-                requiredStatus.setText("已应用: " + summarizeStatus(resp));
-            }, err -> requiredStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applied_value", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
-        Button requiredUninstallBtn = new Button("卸载 Required");
+        Button requiredUninstallBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.uninstall_required"));
         requiredUninstallBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredUninstallBtn.setOnAction(e -> {
-            requiredStatus.setText("卸载中…");
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalling"));
             conn.runAsync(f -> f.requiredUninstall(null), resp -> {
-                requiredStatus.setText("已卸载: " + summarizeStatus(resp));
-            }, err -> requiredStatus.setText("失败: " + RemoteConnection.safeMessage(err)));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalled_value", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         ListView<Row> requiredList = new ListView<>(requiredItems);
         requiredList.setCellFactory(param -> new RowCell());
         VBox.setVgrow(requiredList, Priority.ALWAYS);
 
-        Label requiredTitle = new Label("Required 必装资源");
+        Label requiredTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.required_title"));
         DlcFxStyle.title(requiredTitle);
         DlcFxStyle.primary(requiredDownloadBtn);
         DlcFxStyle.primary(requiredApplyBtn);
@@ -233,25 +233,25 @@ final class RemoteRemoteRequiredTab {
             JsonObject obj = e.getAsJsonObject();
             String name = str(obj, "name");
             String key = str(obj, "key");
-            String title = firstNonBlank(name, key, "(未命名)");
+            String title = firstNonBlank(name, key, DlcFxI18n.tr("dlc_manager.javafx.status.unnamed"));
             boolean done = bool(obj, "done");
             boolean success = bool(obj, "success");
             String error = str(obj, "error");
             String tag;
             String tagState;
             if (done && success) {
-                tag = "已下载";
+                tag = DlcFxI18n.tr("dlc_manager.javafx.status.downloaded");
                 tagState = DlcFxStyle.CHIP_OK;
             } else if (done) {
-                tag = "失败";
+                tag = DlcFxI18n.tr("dlc_manager.javafx.status.failed_short");
                 tagState = DlcFxStyle.CHIP_ERROR;
             } else {
-                tag = "缺失";
+                tag = DlcFxI18n.tr("dlc_manager.javafx.status.missing");
                 tagState = DlcFxStyle.CHIP_ERROR;
             }
             StringBuilder sub = new StringBuilder();
             if (key != null && !key.isBlank()) {
-                sub.append("key: ").append(key);
+                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.key")).append(key);
             }
             long total = lng(obj, "totalBytes");
             long downloaded = lng(obj, "downloadedBytes");
@@ -265,7 +265,7 @@ final class RemoteRemoteRequiredTab {
                 if (sub.length() > 0) {
                     sub.append("  ");
                 }
-                sub.append("错误: ").append(error);
+                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.error")).append(error);
             }
             rows.add(new Row(title, sub.toString(), sub.toString(), tag, tagState));
         }
@@ -285,50 +285,50 @@ final class RemoteRemoteRequiredTab {
             String identifier = str(obj, "identifier");
             String id = str(obj, "id");
             String fileName = str(obj, "fileName");
-            String title = firstNonBlank(name, identifier, id, "(未命名)");
+            String title = firstNonBlank(name, identifier, id, DlcFxI18n.tr("dlc_manager.javafx.status.unnamed"));
             boolean hasFile = bool(obj, "hasFile");
             boolean needsApply = bool(obj, "needsApply");
             boolean applied = bool(obj, "applied");
             String tag;
             String tagState;
             if (!hasFile) {
-                tag = "缺失下载";
+                tag = DlcFxI18n.tr("dlc_manager.javafx.status.missing_download");
                 tagState = DlcFxStyle.CHIP_ERROR;
             } else if (needsApply) {
-                tag = "待安装";
+                tag = DlcFxI18n.tr("dlc_manager.javafx.status.needs_install");
                 tagState = DlcFxStyle.CHIP_WARN;
             } else if (applied) {
-                tag = "已安装";
+                tag = DlcFxI18n.tr("dlc_manager.javafx.status.installed");
                 tagState = DlcFxStyle.CHIP_OK;
             } else {
-                tag = "已下载";
+                tag = DlcFxI18n.tr("dlc_manager.javafx.status.downloaded");
                 tagState = DlcFxStyle.CHIP_NEUTRAL;
             }
             StringBuilder sub = new StringBuilder();
             if (identifier != null && !identifier.isBlank()) {
-                sub.append("标识: ").append(identifier);
+                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(identifier);
             }
             if (fileName != null && !fileName.isBlank()) {
                 if (sub.length() > 0) {
                     sub.append("  ");
                 }
-                sub.append("文件: ").append(fileName);
+                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.file")).append(fileName);
             }
             StringBuilder detail = new StringBuilder();
             if (id != null && !id.isBlank()) {
-                detail.append("id: ").append(id);
+                detail.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.id")).append(id);
             }
             if (identifier != null && !identifier.isBlank()) {
                 if (detail.length() > 0) {
                     detail.append('\n');
                 }
-                detail.append("标识: ").append(identifier);
+                detail.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(identifier);
             }
             if (fileName != null && !fileName.isBlank()) {
                 if (detail.length() > 0) {
                     detail.append('\n');
                 }
-                detail.append("文件: ").append(fileName);
+                detail.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.file")).append(fileName);
             }
             rows.add(new Row(title, sub.toString(), detail.toString(), tag, tagState));
         }
@@ -359,11 +359,11 @@ final class RemoteRemoteRequiredTab {
             boolean finished = bool(status, "finished");
             boolean success = bool(status, "success");
             if (finished) {
-                sb.append(success ? "已完成" : "已完成(存在失败)");
+                sb.append(success ? DlcFxI18n.tr("dlc_manager.javafx.status.completed_short") : DlcFxI18n.tr("dlc_manager.javafx.status.completed_with_failures"));
             } else if (running) {
-                sb.append("下载中");
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.downloading_short"));
             } else {
-                sb.append("未运行");
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.not_running"));
             }
             int total = (int) lng(status, "totalCount");
             int completed = (int) lng(status, "completedCount");
@@ -372,30 +372,30 @@ final class RemoteRemoteRequiredTab {
             }
             String error = str(status, "error");
             if (error != null && !error.isBlank()) {
-                sb.append("，错误: ").append(error);
+                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.error_suffix", error));
             }
             return sb.toString();
         }
         // required_download_cancel → "canceled"
         JsonElement canceledElement = response.get("canceled");
         if (canceledElement != null && canceledElement.isJsonPrimitive()) {
-            return "canceled=" + canceledElement.getAsBoolean();
+            return DlcFxI18n.tr("dlc_manager.javafx.status.canceled_value", canceledElement.getAsBoolean());
         }
         // required_uninstall → "removed"
         JsonElement removedElement = response.get("removed");
         if (removedElement != null && removedElement.isJsonPrimitive()) {
-            return "已移除 " + removedElement.getAsInt() + " 项";
+            return DlcFxI18n.tr("dlc_manager.javafx.status.removed_count", removedElement.getAsInt());
         }
         // required_apply → "applied"
         JsonElement appliedElement = response.get("applied");
         if (appliedElement != null && appliedElement.isJsonPrimitive()) {
-            return "已应用 " + appliedElement.getAsInt() + " 项";
+            return DlcFxI18n.tr("dlc_manager.javafx.status.applied_count", appliedElement.getAsInt());
         }
         JsonElement items = response.get("items");
         if (items != null && items.isJsonArray()) {
-            return "共 " + items.getAsJsonArray().size() + " 项";
+            return DlcFxI18n.tr("dlc_manager.javafx.common.count_items", items.getAsJsonArray().size());
         }
-        return "ok";
+        return DlcFxI18n.tr("dlc_manager.javafx.status.ok");
     }
 
     // ───────────────────────────────────────────────────────────────

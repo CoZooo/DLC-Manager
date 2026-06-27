@@ -27,7 +27,7 @@ final class RemoteRconTab {
 
     private final RemoteConnection conn;
     private final ObservableList<String> log = FXCollections.observableArrayList();
-    private final Label infoLabel = new Label("未连接");
+    private final Label infoLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final TextField cmdField = new TextField();
 
     RemoteRconTab(RemoteConnection conn) {
@@ -35,40 +35,40 @@ final class RemoteRconTab {
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · RCON");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_rcon"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: info + config ────────────────────────────────────
-        Button infoBtn = new Button("查询 RCON 信息");
-        Button getBtn = new Button("获取配置");
+        Button infoBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.rcon.query_info"));
+        Button getBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.rcon.get_config"));
         infoBtn.disableProperty().bind(conn.connectedProperty().not());
         getBtn.disableProperty().bind(conn.connectedProperty().not());
         infoBtn.setOnAction(e -> {
             conn.runAsync(f -> f.rconInfo(), resp -> {
                 infoLabel.setText(formatInfo(resp));
                 appendLog("rcon_info: " + resp.toString());
-            }, err -> infoLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            }, err -> infoLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
         getBtn.setOnAction(e -> {
             conn.runAsync(f -> f.rconGet(), resp -> {
                 infoLabel.setText(formatGet(resp));
                 appendLog("rcon_get: " + resp.toString());
-            }, err -> infoLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            }, err -> infoLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         TextField hostField = new TextField();
-        hostField.setPromptText("RCON host");
+        hostField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.rcon.host_prompt"));
         hostField.setPrefColumnCount(14);
         TextField portField = new TextField();
-        portField.setPromptText("端口");
+        portField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote.port_plain"));
         portField.setPrefColumnCount(6);
         TextField pwField = new TextField();
-        pwField.setPromptText("密码");
+        pwField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote.password_plain"));
         pwField.setPrefColumnCount(14);
-        Button setBtn = new Button("保存配置");
+        Button setBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.save"));
         setBtn.disableProperty().bind(conn.connectedProperty().not());
         setBtn.setOnAction(e -> {
             String h = hostField.getText().trim();
@@ -78,34 +78,34 @@ final class RemoteRconTab {
             final int p = parsed;
             String pw = pwField.getText();
             conn.runAsync(f -> f.rconSet(h, p, pw), resp -> {
-                appendLog("rcon_set: 已保存");
-            }, err -> appendLog("rcon_set 失败: " + RemoteConnection.safeMessage(err)));
+                appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.set_saved"));
+            }, err -> appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.set_failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, infoBtn, getBtn, infoLabel,
-                new Label("  设置:"), hostField, portField, pwField, setBtn);
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.rcon.settings_label")), hostField, portField, pwField, setBtn);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: command + log ─────────────────────────────────
-        cmdField.setPromptText("输入命令…");
+        cmdField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.rcon.command_prompt"));
         cmdField.setPrefColumnCount(40);
         cmdField.setOnAction(e -> execCommand());
-        Button execBtn = new Button("执行");
+        Button execBtn = new Button(DlcFxI18n.tr("dlc_manager.server.rcon_send"));
         execBtn.disableProperty().bind(conn.connectedProperty().not());
         execBtn.setOnAction(e -> execCommand());
 
-        Button restartBtn = new Button("重启服务器");
+        Button restartBtn = new Button(DlcFxI18n.tr("dlc_manager.server.restart_title"));
         DlcFxStyle.danger(restartBtn);
         restartBtn.disableProperty().bind(conn.connectedProperty().not());
         restartBtn.setOnAction(e -> {
-            if (!confirm("重启服务器", "将向远程服务器发送重启命令，是否继续？")) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.server.restart_title"), DlcFxI18n.tr("dlc_manager.server.restart_prompt"))) {
                 return;
             }
-            appendLog("发送 server_restart…");
+            appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.sending_restart"));
             conn.runAsync(f -> f.serverRestart(), resp -> appendLog("server_restart: " + resp.toString()),
-                    err -> appendLog("server_restart 失败: " + RemoteConnection.safeMessage(err)));
+                    err -> appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.restart_failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox cmdBox = new HBox(8, cmdField, execBtn, restartBtn);
@@ -139,8 +139,8 @@ final class RemoteRconTab {
         appendLog("> " + cmd);
         conn.runAsync(f -> f.rconExec(cmd), resp -> {
             String msg = str(resp, "message");
-            appendLog(msg.isBlank() ? "(无输出)" : msg);
-        }, err -> appendLog("错误: " + RemoteConnection.safeMessage(err)));
+            appendLog(msg.isBlank() ? DlcFxI18n.tr("dlc_manager.javafx.rcon.no_output") : msg);
+        }, err -> appendLog(DlcFxI18n.tr("dlc_manager.javafx.tooltip.error") + RemoteConnection.safeMessage(err)));
         cmdField.clear();
     }
 
@@ -155,16 +155,18 @@ final class RemoteRconTab {
     }
 
     private static String formatInfo(JsonObject resp) {
-        if (resp == null) return "无数据";
-        return String.format("enabled=%s port=%s passwordSet=%s",
+        if (resp == null) return DlcFxI18n.tr("dlc_manager.javafx.status.no_data");
+        return DlcFxI18n.tr("dlc_manager.javafx.rcon.info_format",
                 str(resp, "enabled"), str(resp, "port"), str(resp, "passwordSet"));
     }
 
     private static String formatGet(JsonObject resp) {
-        if (resp == null) return "无数据";
-        return String.format("host=%s port=%s passwordSet=%s",
+        if (resp == null) return DlcFxI18n.tr("dlc_manager.javafx.status.no_data");
+        return DlcFxI18n.tr("dlc_manager.javafx.rcon.get_format",
                 str(resp, "host"), str(resp, "port"),
-                resp.has("password") && !str(resp, "password").isBlank() ? "yes" : "no");
+                resp.has("password") && !str(resp, "password").isBlank()
+                        ? DlcFxI18n.tr("dlc_manager.javafx.common.yes")
+                        : DlcFxI18n.tr("dlc_manager.javafx.common.no"));
     }
 
     private static String str(JsonObject obj, String key) {
@@ -175,8 +177,8 @@ final class RemoteRconTab {
 
     private static boolean confirm(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
-                new ButtonType("确定", ButtonData.OK_DONE));
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
         alert.setTitle(title);
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;

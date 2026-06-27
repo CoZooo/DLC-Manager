@@ -36,7 +36,7 @@ final class RemoteFileManagerTab {
 
     private final RemoteConnection conn;
     private final ObservableList<String> entries = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label("未连接");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Label pathLabel = new Label("/");
     private String currentPath = "";
 
@@ -48,7 +48,7 @@ final class RemoteFileManagerTab {
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · 文件管理");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_files"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -57,19 +57,19 @@ final class RemoteFileManagerTab {
         // ── Top: path + list ──────────────────────────────────────
         TextField pathField = new TextField("/");
         pathField.setPrefColumnCount(30);
-        Button listBtn = new Button("列出");
+        Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.list"));
         listBtn.disableProperty().bind(conn.connectedProperty().not());
         listBtn.setOnAction(e -> {
             currentPath = pathField.getText().trim();
             pathLabel.setText(currentPath.isEmpty() ? "/" : currentPath);
-            statusLabel.setText("加载中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
             conn.runAsync(f -> f.listFiles(currentPath), list -> {
                 entries.setAll(formatEntries(list));
-                statusLabel.setText("共 " + list.size() + " 项");
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", list.size()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
-        HBox topBox = new HBox(8, new Label("路径:"), pathField, listBtn, pathLabel, statusLabel);
+        HBox topBox = new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.server.files_path")), pathField, listBtn, pathLabel, statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
@@ -83,10 +83,10 @@ final class RemoteFileManagerTab {
         root.setCenter(center);
 
         // ── Bottom: upload/download/delete/push ───────────────────
-        Button uploadBtn = new Button("上传文件…");
-        Button downloadBtn = new Button("下载文件…");
-        Button deleteBtn = new Button("删除");
-        Button pushBtn = new Button("推送文件夹…");
+        Button uploadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.upload_file"));
+        Button downloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.download_file"));
+        Button deleteBtn = new Button(DlcFxI18n.tr("dlc_manager.server.files_delete"));
+        Button pushBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.push_folder"));
         DlcFxStyle.primary(uploadBtn);
         DlcFxStyle.primary(pushBtn);
         DlcFxStyle.danger(deleteBtn);
@@ -97,12 +97,12 @@ final class RemoteFileManagerTab {
         pushBtn.disableProperty().bind(conn.connectedProperty().not());
 
         TextField remoteNameField = new TextField();
-        remoteNameField.setPromptText("远程文件名 (可选)");
+        remoteNameField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
         remoteNameField.setPrefColumnCount(20);
 
         uploadBtn.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
-            chooser.setTitle("选择要上传的文件");
+            chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.files.choose_upload"));
             File f = chooser.showOpenDialog(primaryStage);
             if (f == null) return;
             String remote = remoteNameField.getText().trim();
@@ -110,77 +110,77 @@ final class RemoteFileManagerTab {
                 remote = (currentPath.isEmpty() ? "" : currentPath + "/") + f.getName();
             }
             final String remotePath = remote;
-            statusLabel.setText("上传中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.uploading"));
             conn.runAsync(client -> {
                 client.uploadFile(remotePath, f.toPath());
                 return true;
             }, ok -> {
-                statusLabel.setText("上传完成: " + remotePath);
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.upload_done", remotePath));
                 // refresh
                 conn.runAsync(c -> c.listFiles(currentPath), list -> {
                     entries.setAll(formatEntries(list));
                 }, err -> {});
-            }, err -> statusLabel.setText("上传失败: " + RemoteConnection.safeMessage(err)));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.upload_failed", RemoteConnection.safeMessage(err))));
         });
 
         downloadBtn.setOnAction(e -> {
             String sel = listView.getSelectionModel().getSelectedItem();
             String remotePath;
-            if (sel != null && !sel.startsWith("[DIR]")) {
-                String name = sel.startsWith("[FILE] ") ? sel.substring(7) : sel;
-                remotePath = (currentPath.isEmpty() ? "" : currentPath + "/") + name.split("\\s+")[0];
+            if (sel != null && !isDirectoryRow(sel)) {
+                String name = entryName(sel);
+                remotePath = (currentPath.isEmpty() ? "" : currentPath + "/") + name;
             } else {
                 remotePath = remoteNameField.getText().trim();
             }
-            if (remotePath.isBlank()) { statusLabel.setText("请选择文件或输入路径"); return; }
+            if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.select_or_enter_path")); return; }
             DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle("选择保存目录");
+            chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.files.choose_save_dir"));
             File dir = chooser.showDialog(primaryStage);
             if (dir == null) return;
-            statusLabel.setText("下载中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.downloading_short"));
             conn.runAsync(client -> client.downloadFile(remotePath, dir.toPath()), saved -> {
-                statusLabel.setText("已下载: " + saved);
-            }, err -> statusLabel.setText("下载失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.download_done", saved));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed", RemoteConnection.safeMessage(err))));
         });
 
         deleteBtn.setOnAction(e -> {
             String sel = listView.getSelectionModel().getSelectedItem();
             String remotePath;
             if (sel != null) {
-                String name = sel.startsWith("[FILE] ") ? sel.substring(7) : (sel.startsWith("[DIR] ") ? sel.substring(6) : sel);
-                remotePath = (currentPath.isEmpty() ? "" : currentPath + "/") + name.split("\\s+")[0];
+                String name = entryName(sel);
+                remotePath = (currentPath.isEmpty() ? "" : currentPath + "/") + name;
             } else {
                 remotePath = remoteNameField.getText().trim();
             }
-            if (remotePath.isBlank()) { statusLabel.setText("请选择文件或输入路径"); return; }
-            if (!confirm("删除远程文件", "将删除远程路径: " + remotePath + "\n是否继续？")) {
+            if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.select_or_enter_path")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.files.delete_title"), DlcFxI18n.tr("dlc_manager.javafx.files.delete_confirm", remotePath))) {
                 return;
             }
-            statusLabel.setText("删除中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.deleting"));
             conn.runAsync(client -> { client.deleteFile(remotePath); return true; }, ok -> {
-                statusLabel.setText("已删除: " + remotePath);
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.deleted", remotePath));
                 conn.runAsync(c -> c.listFiles(currentPath), list -> entries.setAll(formatEntries(list)), err -> {});
-            }, err -> statusLabel.setText("删除失败: " + RemoteConnection.safeMessage(err)));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", RemoteConnection.safeMessage(err))));
         });
 
         pushBtn.setOnAction(e -> {
             DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle("选择要推送的文件夹");
+            chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.files.choose_push_folder"));
             File dir = chooser.showDialog(primaryStage);
             if (dir == null) return;
-            if (!confirm("推送文件夹", "将以 overwrite 模式推送文件夹到服务器，是否继续？")) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.files.push_title"), DlcFxI18n.tr("dlc_manager.javafx.files.push_confirm"))) {
                 return;
             }
-            statusLabel.setText("推送中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.pushing"));
             conn.runAsync(client -> {
                 pushDirectory(client, dir.toPath());
                 return true;
-            }, ok -> statusLabel.setText("推送完成"), err -> statusLabel.setText("推送失败: " + RemoteConnection.safeMessage(err)));
+            }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox bottomBox = new HBox(8,
                 uploadBtn, downloadBtn, deleteBtn, pushBtn,
-                new Label("远程名:"), remoteNameField);
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), remoteNameField);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
@@ -226,12 +226,41 @@ final class RemoteFileManagerTab {
         java.util.List<String> rows = new java.util.ArrayList<>();
         for (SyncModels.FileEntry e : list) {
             if (e.dir) {
-                rows.add("[DIR] " + e.name);
+                rows.add(dirPrefix() + e.name);
             } else {
-                rows.add("[FILE] " + e.name + "  (" + formatSize(e.size) + ")");
+                rows.add(filePrefix() + e.name + "  (" + formatSize(e.size) + ")");
             }
         }
         return rows;
+    }
+
+    private static boolean isDirectoryRow(String row) {
+        return row != null && row.startsWith(dirPrefix());
+    }
+
+    private static String entryName(String row) {
+        if (row == null) {
+            return "";
+        }
+        String value = row;
+        if (value.startsWith(filePrefix())) {
+            value = value.substring(filePrefix().length());
+        } else if (value.startsWith(dirPrefix())) {
+            value = value.substring(dirPrefix().length());
+        }
+        int sizeSuffix = value.indexOf("  (");
+        if (sizeSuffix >= 0) {
+            value = value.substring(0, sizeSuffix);
+        }
+        return value.trim();
+    }
+
+    private static String dirPrefix() {
+        return DlcFxI18n.tr("dlc_manager.javafx.files.dir_prefix");
+    }
+
+    private static String filePrefix() {
+        return DlcFxI18n.tr("dlc_manager.javafx.files.file_prefix");
     }
 
     private static String formatSize(long bytes) {
@@ -243,8 +272,8 @@ final class RemoteFileManagerTab {
 
     private static boolean confirm(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
-                new ButtonType("确定", ButtonData.OK_DONE));
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
         alert.setTitle(title);
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;

@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 final class RemoteConnection {
 
     private final BooleanProperty connected = new SimpleBooleanProperty(false);
-    private final StringProperty statusText = new SimpleStringProperty("未连接");
+    private final StringProperty statusText = new SimpleStringProperty(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final StringProperty serverInfoText = new SimpleStringProperty("");
 
     private volatile DlcTcpFacade facade;
@@ -46,8 +46,8 @@ final class RemoteConnection {
                 lastServerInfo = info;
                 Platform.runLater(() -> {
                     connected.set(true);
-                    statusText.set("已连接 " + host + ":" + port);
-                    serverInfoText.set(String.format("base=%s  dlc=%s  缺失: remote=%d required=%d",
+                    statusText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.connected_to", host, port));
+                    serverInfoText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.server_info_value",
                             info.baseVersion, info.dlcVersion, info.remoteMissing, info.requiredMissing));
                     onDone.accept(null);
                 });
@@ -68,7 +68,7 @@ final class RemoteConnection {
             try { f.close(); } catch (Exception ignored) {}
         }
         connected.set(false);
-        statusText.set("未连接");
+        statusText.set(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
         serverInfoText.set("");
     }
 
@@ -82,7 +82,7 @@ final class RemoteConnection {
                       Consumer<T> onSuccess, Consumer<Throwable> onError) {
         DlcTcpFacade f = facade;
         if (f == null) {
-            Platform.runLater(() -> onError.accept(new IllegalStateException("未连接到服务器")));
+            Platform.runLater(() -> onError.accept(new IllegalStateException(DlcFxI18n.tr("dlc_manager.javafx.remote.not_connected"))));
             return;
         }
         Thread thread = new Thread(() -> {

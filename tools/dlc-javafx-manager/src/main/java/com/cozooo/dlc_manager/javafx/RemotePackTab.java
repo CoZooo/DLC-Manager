@@ -27,26 +27,26 @@ final class RemotePackTab {
 
     private final RemoteConnection conn;
     private final ObservableList<String> packs = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label("未连接");
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
 
     RemotePackTab(RemoteConnection conn) {
         this.conn = conn;
     }
 
     Tab build() {
-        Tab tab = new Tab("远程 · DLC Pack");
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_pack"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: list + apply controls ────────────────────────────
-        Button listBtn = new Button("刷新 Pack 列表");
-        Button applyStartBtn = new Button("开始应用");
-        Button applyStatusBtn = new Button("应用状态");
-        Button applyPauseBtn = new Button("暂停");
-        Button applyResumeBtn = new Button("继续");
-        Button applyCancelBtn = new Button("取消");
+        Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.pack.refresh"));
+        Button applyStartBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.pack.apply_start"));
+        Button applyStatusBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.pack.apply_status"));
+        Button applyPauseBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.pause_install"));
+        Button applyResumeBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.continue_install"));
+        Button applyCancelBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.cancel_install"));
 
         listBtn.disableProperty().bind(conn.connectedProperty().not());
         applyStartBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -59,43 +59,43 @@ final class RemotePackTab {
         DlcFxStyle.danger(applyCancelBtn);
 
         listBtn.setOnAction(e -> {
-            statusLabel.setText("加载中…");
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
             conn.runAsync(f -> f.packList(), resp -> {
                 packs.setAll(extractStrings(resp, "packs"));
-                statusLabel.setText("共 " + packs.size() + " 个 Pack");
-            }, err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.count", packs.size()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         applyStartBtn.setOnAction(e -> {
-            if (!confirm("开始应用 Pack", "将开始在服务器应用 DLC Pack，是否继续？")) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.apply_start_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.apply_start_confirm"))) {
                 return;
             }
-            statusLabel.setText("启动应用…");
-            conn.runAsync(f -> f.packApplyStart(), resp -> statusLabel.setText("已启动: " + resp.toString()),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.starting_apply"));
+            conn.runAsync(f -> f.packApplyStart(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.started_value", resp.toString())),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
         applyStatusBtn.setOnAction(e -> {
-            conn.runAsync(f -> f.packApplyStatus(), resp -> statusLabel.setText("状态: " + resp.toString()),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            conn.runAsync(f -> f.packApplyStatus(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.status_value", resp.toString())),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
         applyPauseBtn.setOnAction(e -> {
-            conn.runAsync(f -> f.packApplyPause(), resp -> statusLabel.setText("已暂停"),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            conn.runAsync(f -> f.packApplyPause(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.paused")),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
         applyResumeBtn.setOnAction(e -> {
-            conn.runAsync(f -> f.packApplyResume(), resp -> statusLabel.setText("已继续"),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            conn.runAsync(f -> f.packApplyResume(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.resumed")),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
         applyCancelBtn.setOnAction(e -> {
-            if (!confirm("取消 Pack 应用", "将取消当前服务器 Pack 应用流程，是否继续？")) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.cancel_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.cancel_confirm"))) {
                 return;
             }
-            conn.runAsync(f -> f.packApplyCancel(), resp -> statusLabel.setText("已取消"),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            conn.runAsync(f -> f.packApplyCancel(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.canceled")),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, listBtn,
-                new Label("应用:"), applyStartBtn, applyStatusBtn, applyPauseBtn, applyResumeBtn, applyCancelBtn,
+                new Label(DlcFxI18n.tr("dlc_manager.apply")), applyStartBtn, applyStatusBtn, applyPauseBtn, applyResumeBtn, applyCancelBtn,
                 statusLabel);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
@@ -111,95 +111,95 @@ final class RemotePackTab {
 
         // ── Bottom: install/uninstall/delete/import/order ─────────
         TextField archiveField = new TextField();
-        archiveField.setPromptText("archivePath");
+        archiveField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.pack.archive_path_prompt"));
         archiveField.setPrefColumnCount(18);
-        Button installBtn = new Button("安装");
-        Button deleteBtn = new Button("删除");
+        Button installBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.install"));
+        Button deleteBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.delete"));
         installBtn.disableProperty().bind(conn.connectedProperty().not());
         deleteBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(installBtn);
         DlcFxStyle.danger(deleteBtn);
         installBtn.setOnAction(e -> {
             String p = archiveField.getText().trim();
-            if (p.isBlank()) { statusLabel.setText("请输入 archivePath"); return; }
-            if (!confirm("安装 Pack", "将安装 Pack: " + p + "\n是否继续？")) {
+            if (p.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.archive_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.install_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.install_confirm", p))) {
                 return;
             }
-            statusLabel.setText("安装中…");
-            conn.runAsync(f -> f.packInstall(p), resp -> statusLabel.setText("结果: " + resp.toString()),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.installing"));
+            conn.runAsync(f -> f.packInstall(p), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
         deleteBtn.setOnAction(e -> {
             String p = archiveField.getText().trim();
-            if (p.isBlank()) { statusLabel.setText("请输入 archivePath"); return; }
-            if (!confirm("删除 Pack 归档", "将删除 Pack 归档: " + p + "\n是否继续？")) {
+            if (p.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.archive_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.delete_archive_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.delete_archive_confirm", p))) {
                 return;
             }
-            statusLabel.setText("删除中…");
-            conn.runAsync(f -> f.packDelete(p), resp -> statusLabel.setText("结果: " + resp.toString()),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.deleting"));
+            conn.runAsync(f -> f.packDelete(p), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         TextField idField = new TextField();
-        idField.setPromptText("identifier");
+        idField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.pack.identifier_prompt"));
         idField.setPrefColumnCount(14);
-        Button uninstallBtn = new Button("卸载");
+        Button uninstallBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.uninstall"));
         uninstallBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.danger(uninstallBtn);
         uninstallBtn.setOnAction(e -> {
             String id = idField.getText().trim();
-            if (id.isBlank()) { statusLabel.setText("请输入 identifier"); return; }
-            if (!confirm("卸载 Pack", "将卸载 Pack: " + id + "\n是否继续？")) {
+            if (id.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.identifier_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.uninstall_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.uninstall_confirm", id))) {
                 return;
             }
-            statusLabel.setText("卸载中…");
-            conn.runAsync(f -> f.packUninstall(id), resp -> statusLabel.setText("结果: " + resp.toString()),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalling"));
+            conn.runAsync(f -> f.packUninstall(id), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         TextField importPathField = new TextField();
-        importPathField.setPromptText("服务器路径");
+        importPathField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.common.server_path"));
         importPathField.setPrefColumnCount(14);
-        Button importBtn = new Button("导入");
+        Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.import"));
         importBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(importBtn);
         importBtn.setOnAction(e -> {
             String p = importPathField.getText().trim();
-            if (p.isBlank()) { statusLabel.setText("请输入服务器路径"); return; }
-            if (!confirm("导入 Pack", "将从服务器路径导入 Pack: " + p + "\n是否继续？")) {
+            if (p.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.server_path_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.import_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.import_confirm", p))) {
                 return;
             }
-            statusLabel.setText("导入中…");
-            conn.runAsync(f -> f.packImport(p), resp -> statusLabel.setText("结果: " + resp.toString()),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.importing"));
+            conn.runAsync(f -> f.packImport(p), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         TextField urlField = new TextField();
-        urlField.setPromptText("URL");
+        urlField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.common.url"));
         urlField.setPrefColumnCount(18);
         TextField nameField = new TextField();
-        nameField.setPromptText("文件名");
+        nameField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.common.file_name"));
         nameField.setPrefColumnCount(10);
-        Button importUrlBtn = new Button("URL导入");
+        Button importUrlBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.import_url"));
         importUrlBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(importUrlBtn);
         importUrlBtn.setOnAction(e -> {
             String url = urlField.getText().trim();
             String name = nameField.getText().trim();
-            if (url.isBlank()) { statusLabel.setText("请输入 URL"); return; }
-            if (!confirm("URL 导入 Pack", "服务器将下载并导入该 URL，是否继续？")) {
+            if (url.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.url_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.import_url_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.import_url_confirm"))) {
                 return;
             }
-            statusLabel.setText("下载并导入中…");
-            conn.runAsync(f -> f.packImportUrl(url, name), resp -> statusLabel.setText("结果: " + resp.toString()),
-                    err -> statusLabel.setText("失败: " + RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.downloading_importing"));
+            conn.runAsync(f -> f.packImportUrl(url, name), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
         });
 
         HBox bottomBox = new HBox(8,
-                new Label("安装/删除:"), archiveField, installBtn, deleteBtn,
-                new Label("卸载:"), idField, uninstallBtn,
-                new Label("导入:"), importPathField, importBtn,
-                new Label("URL:"), urlField, nameField, importUrlBtn);
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.install_delete_label")), archiveField, installBtn, deleteBtn,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.uninstall_label")), idField, uninstallBtn,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_label")), importPathField, importBtn,
+                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_label")), urlField, nameField, importUrlBtn);
         bottomBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.statusStrip(bottomBox);
         root.setBottom(bottomBox);
@@ -221,8 +221,8 @@ final class RemotePackTab {
 
     private static boolean confirm(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType("取消", ButtonData.CANCEL_CLOSE),
-                new ButtonType("确定", ButtonData.OK_DONE));
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
+                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
         alert.setTitle(title);
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;

@@ -87,7 +87,7 @@ public final class DlcManagerApp extends Application {
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
         }
-        primaryStage.setTitle("DLC Manager — JavaFX");
+        primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.javafx.window_title"));
         primaryStage.setScene(scene);
         primaryStage.show();
     }
@@ -148,7 +148,7 @@ public final class DlcManagerApp extends Application {
     private javafx.scene.Node statusBar() {
         // Right side mirrors the remote connection state (live-bound), so the
         // user can tell at a glance whether TCP ops will reach the server.
-        Label localStatus = new Label("就绪 — 请在「本地 · DLC 管理」中选择游戏目录");
+        Label localStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.ready_select_game_dir"));
         Label remoteStatus = new Label();
         remoteStatus.textProperty().bind(
                 remoteConnection != null ? remoteConnection.statusTextProperty() : new javafx.beans.property.SimpleStringProperty(""));
