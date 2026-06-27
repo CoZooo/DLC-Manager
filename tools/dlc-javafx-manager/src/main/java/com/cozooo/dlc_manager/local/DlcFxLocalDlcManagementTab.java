@@ -99,6 +99,9 @@ public final class DlcFxLocalDlcManagementTab {
 
         typeFilter.getItems().add(null);
         for (DlcType t : DlcType.values()) {
+            if (t == DlcType.DLC_PACK) {
+                continue;
+            }
             typeFilter.getItems().add(t);
         }
         typeFilter.setPromptText(DlcFxI18n.tr("dlc_manager.local.all_types"));
@@ -287,6 +290,9 @@ public final class DlcFxLocalDlcManagementTab {
                 Map<DlcType, List<DlcItem>> scanned = scanner.scan(true);
                 List<DlcItem> flat = new ArrayList<>();
                 for (DlcType type : DlcType.values()) {
+                    if (type == DlcType.DLC_PACK) {
+                        continue;
+                    }
                     List<DlcItem> group = scanned.get(type);
                     if (group != null) {
                         flat.addAll(group);
@@ -451,7 +457,7 @@ public final class DlcFxLocalDlcManagementTab {
                 setText(null);
             } else {
                 checkBox.setSelected(item.isEnabled());
-                typeLabel.setText(item.getType().name());
+                typeLabel.setText(DlcFxI18n.tr(item.getType().getDisplayKey()));
                 nameLabel.setText(item.getName() != null ? item.getName() : item.getId());
                 StringBuilder tip = new StringBuilder();
                 tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());

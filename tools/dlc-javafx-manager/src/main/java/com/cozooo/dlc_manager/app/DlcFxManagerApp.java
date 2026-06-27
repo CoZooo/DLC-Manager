@@ -183,21 +183,18 @@ public final class DlcFxManagerApp extends Application {
         return box;
     }
 
-    private Node workspaceHeader(String titleText, String descText, Runnable backAction) {
+    private Node workspaceHeader(String titleText, Runnable backAction) {
         Button back = new Button(DlcFxI18n.tr("dlc_manager.workspace.back"));
         DlcFxStyle.primary(back);
         back.setOnAction(e -> backAction.run());
 
         Label title = new Label(titleText);
-        Label desc = new Label(descText);
         DlcFxStyle.add(title, "dlc-workspace-title");
-        DlcFxStyle.muted(desc);
 
-        VBox text = new VBox(4, title, desc);
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox header = new HBox(12, back, text, spacer, languagePicker());
+        HBox header = new HBox(12, back, title, spacer, languagePicker());
         header.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(header);
         return header;
@@ -233,7 +230,6 @@ public final class DlcFxManagerApp extends Application {
         VBox top = new VBox(
                 workspaceHeader(
                         DlcFxI18n.tr("dlc_manager.workspace.local_title"),
-                        DlcFxI18n.tr("dlc_manager.workspace.local_desc"),
                         this::showHome),
                 localDirectoryBar());
         root.setTop(top);
@@ -246,7 +242,6 @@ public final class DlcFxManagerApp extends Application {
         BorderPane root = new BorderPane();
         root.setTop(workspaceHeader(
                 DlcFxI18n.tr("dlc_manager.workspace.remote_title"),
-                DlcFxI18n.tr("dlc_manager.workspace.remote_desc"),
                 this::showHome));
         root.setCenter(buildRemoteTabs());
         DlcFxStyle.add(root, "dlc-workspace-root");
