@@ -1,46 +1,24 @@
 package com.cozooo.dlc_manager.client.required
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
-import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
+import com.cozooo.dlc_manager.client.download.DlcSharedService
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Locale
-import java.util.concurrent.ExecutorCompletionService
-import java.util.concurrent.Executors
 
 object DlcRequiredService {
-    fun interface ProgressListener {
-        fun onProgress(downloadedBytes: Long, totalBytes: Long)
+    fun interface ProgressListener : DlcSharedService.ProgressListener
 
-        fun onStatusKey(statusKey: String) {}
-    }
+    fun interface CancelChecker : DlcSharedService.CancelChecker
 
-    fun interface CancelChecker {
-        fun isCanceled(): Boolean
-    }
+    interface SourceSwitchChecker : DlcSharedService.SourceSwitchChecker<DlcRequiredEntry>
 
-    interface SourceSwitchChecker {
-        fun isSwitchRequested(entry: DlcRequiredEntry?): Boolean = false
-        fun clearSwitchRequest(entry: DlcRequiredEntry?) {}
-    }
-
-    interface BatchProgressListener {
-        fun onEntryStart(entry: DlcRequiredEntry?, index: Int, total: Int) {}
-        fun onEntryAttemptStart(entry: DlcRequiredEntry?, attemptId: Int, index: Int, total: Int) {}
-        fun onEntryProgress(entry: DlcRequiredEntry?, downloadedBytes: Long, totalBytes: Long) {}
-        fun onEntryStatus(entry: DlcRequiredEntry?, statusKey: String?, completed: Int, total: Int) {}
-        fun onEntrySuccess(entry: DlcRequiredEntry?, fileName: String?, completed: Int, total: Int) {}
-        fun onEntryFailure(entry: DlcRequiredEntry?, error: Throwable?, completed: Int, total: Int) {}
-        fun onEntryComplete(entry: DlcRequiredEntry?) {}
-    }
+    interface BatchProgressListener : DlcSharedService.BatchProgressListener<DlcRequiredEntry>
 
     class Status(
         @JvmField val total: Int,
@@ -123,6 +101,16 @@ object DlcRequiredService {
     @JvmStatic
     @Throws(IOException::class, InterruptedException::class)
     fun downloadOne(entry: DlcRequiredEntry?, listener: ProgressListener?, cancelChecker: CancelChecker?, switchChecker: SourceSwitchChecker?): String {
+        return downloadOneShared(entry, listener, cancelChecker, switchChecker)
+    }
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun downloadOneShared(
+        entry: DlcRequiredEntry?,
+        listener: DlcSharedService.ProgressListener?,
+        cancelChecker: DlcSharedService.CancelChecker?,
+        switchChecker: DlcSharedService.SourceSwitchChecker<DlcRequiredEntry>?,
+    ): String {
         if (entry == null) {
             throw IOException("missing required entry")
         }
@@ -147,23 +135,23 @@ object DlcRequiredService {
                 val maxRetry = maxOf(1, DlcConfig.getMaxRetryCount())
                 for (attempt in 1..maxRetry) {
                     try {
-                        checkCanceled(cancelChecker)
+                        DlcSharedService.checkCanceled(cancelChecker)
                         attemptId += 1
-                        if (listener is AttemptProgressListener) {
+                        if (listener is DlcSharedService.AttemptProgressListener) {
                             listener.onAttemptStart(attemptId)
                         }
                         var fileName = chooseFileNameOriginal(entry, candidate)
-                        var downloadInfo: DownloadInfo? = null
+                        var downloadInfo: DlcSharedService.DownloadInfo? = null
                         val shouldProbe = candidate.direct || !DlcDownloadUtil.isLikelyFileName(fileName)
                         if (shouldProbe) {
-                            downloadInfo = openDownload(candidate.url, 0)
+                            downloadInfo = DlcSharedService.openDownload(candidate.url, 0)
                             if (fileName == null) {
                                 fileName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName)
                             }
-                            closeQuietly(downloadInfo.connection)
+                            DlcSharedService.closeQuietly(downloadInfo.connection)
                         }
                         if (fileName == null) {
-                            fileName = DlcDownloadService.suggestFileName(candidate.url)
+                            fileName = com.cozooo.dlc_manager.client.download.DlcDownloadService.suggestFileName(candidate.url)
                         }
                         if (fileName == null) {
                             fileName = DlcDownloadUtil.stripQuery(entry.getBaseName())
@@ -175,58 +163,53 @@ object DlcRequiredService {
                             entry.setResolvedFileName(finalFileName)
                             return finalFileName
                         }
-                        val progress = if (listener == null) null else toDownloadProgress(listener)
-                        val cancel = DlcDownloadService.CancelChecker { isCanceled(cancelChecker) || isSwitchRequested(switchChecker, entry) }
-                        val downloaded = if (shouldProbe) {
-                            DlcDownloadService.download(candidate.url, resolvedTarget.parent, finalFileName, progress, cancel)
-                        } else {
-                            DlcDownloadService.downloadKnown(candidate.url, resolvedTarget.parent, finalFileName, candidate.expectedSize, progress, cancel)
+                        val resolved = DlcSharedService.downloadCandidate(candidate, resolvedTarget, finalFileName, shouldProbe, listener) {
+                            DlcSharedService.isCanceled(cancelChecker) || DlcSharedService.isSwitchRequested(switchChecker, entry)
                         }
-                        val resolved = if (downloaded == resolvedTarget) downloaded else Files.move(downloaded, resolvedTarget, StandardCopyOption.REPLACE_EXISTING)
-                        verifyDownloadedFile(resolved, candidate, downloadInfo, cancelChecker)
+                        DlcSharedService.verifyDownloadedFile(resolved, candidate, downloadInfo, cancelChecker)
                         entry.setResolvedFileName(finalFileName)
                         DlcRequiredRuntime.updateFileNameKey(entry, finalFileName)
                         return finalFileName
-                    } catch (ex: DlcDownloadService.DownloadCanceledException) {
-                        if (isSwitchRequested(switchChecker, entry)) {
-                            lastError = DownloadSwitchException("switch")
-                            clearSwitchRequest(switchChecker, entry)
-                            listener?.onProgress(0L, 1L)
+                    } catch (ex: com.cozooo.dlc_manager.client.download.DlcDownloadService.DownloadCanceledException) {
+                        if (DlcSharedService.isSwitchRequested(switchChecker, entry)) {
+                            lastError = DlcSharedService.DownloadSwitchException("switch")
+                            DlcSharedService.clearSwitchRequest(switchChecker, entry)
+                            DlcSharedService.notifyProgress(listener, 0L, 1L)
                             break
                         }
                         canceled = true
-                        throw DownloadCanceledException("canceled")
-                    } catch (ex: DownloadCanceledException) {
+                        throw DlcSharedService.DownloadCanceledException("canceled")
+                    } catch (ex: DlcSharedService.DownloadCanceledException) {
                         canceled = true
                         throw ex
                     } catch (ex: IOException) {
-                        if (isSwitchException(ex)) {
+                        if (DlcSharedService.isSwitchException(ex)) {
                             lastError = ex
-                            clearSwitchRequest(switchChecker, entry)
-                            listener?.onProgress(0L, 1L)
+                            DlcSharedService.clearSwitchRequest(switchChecker, entry)
+                            DlcSharedService.notifyProgress(listener, 0L, 1L)
                             break
                         }
-                        if (ex.cause is DownloadCanceledException) {
+                        if (ex.cause is DlcSharedService.DownloadCanceledException) {
                             canceled = true
-                            throw ex.cause as DownloadCanceledException
+                            throw ex.cause as DlcSharedService.DownloadCanceledException
                         }
                         lastError = ex
-                        if (ex is DlcDownloadService.SegmentDownloadException) {
-                            listener?.onProgress(0L, 1L)
+                        if (ex is com.cozooo.dlc_manager.client.download.DlcDownloadService.SegmentDownloadException) {
+                            DlcSharedService.notifyProgress(listener, 0L, 1L)
                             break
                         }
                         if (attempt >= maxRetry) {
-                            listener?.onProgress(0L, 1L)
+                            DlcSharedService.notifyProgress(listener, 0L, 1L)
                         }
                     }
                 }
             }
         }
-        if (isCanceled(cancelChecker) || canceled) {
-            throw DownloadCanceledException("canceled")
+        if (DlcSharedService.isCanceled(cancelChecker) || canceled) {
+            throw DlcSharedService.DownloadCanceledException("canceled")
         }
         if (attemptId > 0) {
-            listener?.onProgress(0L, 1L)
+            DlcSharedService.notifyProgress(listener, 0L, 1L)
         }
         if (lastError == null) {
             lastError = resolver.lastError()
@@ -243,24 +226,8 @@ object DlcRequiredService {
     @JvmStatic
     @Throws(InterruptedException::class)
     fun downloadAll(entries: List<DlcRequiredEntry>?, listener: BatchProgressListener?, cancelChecker: CancelChecker?, switchChecker: SourceSwitchChecker?): BatchResult {
-        val targets = entries?.filterNotNull() ?: emptyList()
-        val total = targets.size
-        if (total == 0) {
-            return BatchResult(0, 0, emptyList())
-        }
-        var success = 0
-        val completed = java.util.concurrent.atomic.AtomicInteger()
-        val first = runDownloadBatch(targets, total, completed, listener, cancelChecker, switchChecker)
-        success += first.success
-        if (isCanceled(cancelChecker)) {
-            return BatchResult(total, success, first.errors)
-        }
-        val second = if (first.failed.isEmpty()) BatchRunResult(emptyList(), emptyList(), 0) else runDownloadBatch(first.failed, total, completed, listener, cancelChecker, switchChecker)
-        success += second.success
-        if (second.failed.isEmpty()) {
-            return BatchResult(total, success, emptyList())
-        }
-        return BatchResult(total, success, second.errors)
+        val result = DlcSharedService.downloadAll(entries, listener, cancelChecker, switchChecker, DlcSharedService.EntryDownloader(::downloadOneShared))
+        return toBatchResult(result)
     }
 
     @JvmStatic
@@ -439,126 +406,6 @@ object DlcRequiredService {
         return fileName
     }
 
-    @Throws(InterruptedException::class)
-    private fun runDownloadBatch(
-        pending: List<DlcRequiredEntry>,
-        total: Int,
-        completed: java.util.concurrent.atomic.AtomicInteger,
-        listener: BatchProgressListener?,
-        cancelChecker: CancelChecker?,
-        switchChecker: SourceSwitchChecker?,
-    ): BatchRunResult {
-        val failed = ArrayList<DlcRequiredEntry>()
-        val errors = ArrayList<EntryError>()
-        if (pending.isEmpty() || isCanceled(cancelChecker)) {
-            return BatchRunResult(failed, errors, 0)
-        }
-        val maxConcurrentDownloads = maxOf(1, DlcConfig.getMaxConcurrentDownloads())
-        if (maxConcurrentDownloads <= 1) {
-            var success = 0
-            for (entry in pending) {
-                if (isCanceled(cancelChecker)) {
-                    break
-                }
-                listener?.onEntryStart(entry, completed.get(), total)
-                try {
-                    val fileName = downloadOne(entry, BatchEntryProgress(listener, entry, completed, total), cancelChecker, switchChecker)
-                    val done = completed.incrementAndGet()
-                    success++
-                    listener?.onEntrySuccess(entry, fileName, done, total)
-                } catch (_: DownloadCanceledException) {
-                    break
-                } catch (e: Exception) {
-                    failed.add(entry)
-                    errors.add(EntryError(entry, e))
-                    listener?.onEntryFailure(entry, e, completed.get(), total)
-                } finally {
-                    listener?.onEntryComplete(entry)
-                }
-            }
-            return BatchRunResult(failed, errors, success)
-        }
-        val executor = Executors.newFixedThreadPool(maxConcurrentDownloads)
-        val completion = ExecutorCompletionService<DownloadResult>(executor)
-        for (entry in pending) {
-            completion.submit {
-                listener?.onEntryStart(entry, completed.get(), total)
-                try {
-                    val fileName = downloadOne(entry, BatchEntryProgress(listener, entry, completed, total), cancelChecker, switchChecker)
-                    DownloadResult(entry, fileName, null, false)
-                } catch (_: DownloadCanceledException) {
-                    DownloadResult(entry, null, null, true)
-                } catch (t: Throwable) {
-                    DownloadResult(entry, null, t, false)
-                } finally {
-                    listener?.onEntryComplete(entry)
-                }
-            }
-        }
-        var success = 0
-        try {
-            for (i in pending.indices) {
-                if (isCanceled(cancelChecker)) {
-                    break
-                }
-                val result = try {
-                    completion.take().get()
-                } catch (e: Exception) {
-                    DownloadResult(pending[minOf(i, pending.size - 1)], null, e, false)
-                }
-                if (result.canceled) {
-                    break
-                } else if (result.error == null) {
-                    val done = completed.incrementAndGet()
-                    success++
-                    listener?.onEntrySuccess(result.entry, result.fileName, done, total)
-                } else {
-                    result.entry?.let { failed.add(it) }
-                    errors.add(EntryError(result.entry, result.error))
-                    listener?.onEntryFailure(result.entry, result.error, completed.get(), total)
-                }
-            }
-        } finally {
-            executor.shutdownNow()
-        }
-        return BatchRunResult(failed, errors, success)
-    }
-
-    private fun toDownloadProgress(listener: ProgressListener): DlcDownloadService.ProgressListener {
-        return object : DlcDownloadService.StatusProgressListener {
-            override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
-                listener.onProgress(downloadedBytes, totalBytes)
-            }
-
-            override fun onStatusKey(statusKey: String) {
-                listener.onStatusKey(statusKey)
-            }
-        }
-    }
-
-    @Throws(DownloadCanceledException::class)
-    private fun checkCanceled(cancelChecker: CancelChecker?) {
-        if (isCanceled(cancelChecker)) {
-            throw DownloadCanceledException("canceled")
-        }
-    }
-
-    private fun isCanceled(cancelChecker: CancelChecker?): Boolean {
-        return cancelChecker?.isCanceled() == true
-    }
-
-    private fun isSwitchRequested(switchChecker: SourceSwitchChecker?, entry: DlcRequiredEntry?): Boolean {
-        return switchChecker?.isSwitchRequested(entry) == true
-    }
-
-    private fun clearSwitchRequest(switchChecker: SourceSwitchChecker?, entry: DlcRequiredEntry?) {
-        switchChecker?.clearSwitchRequest(entry)
-    }
-
-    private fun isSwitchException(ex: IOException): Boolean {
-        return ex is DownloadSwitchException || ex.cause is DownloadSwitchException
-    }
-
     private fun isConfigFile(entry: DlcRequiredEntry?, path: Path?): Boolean {
         if (entry == null || path == null) {
             return false
@@ -569,71 +416,6 @@ object DlcRequiredService {
         }
         val name = path.fileName?.toString() ?: ""
         return isConfigFileName(name)
-    }
-
-    @Throws(IOException::class)
-    private fun openDownload(url: String, offset: Long): DownloadInfo {
-        val connection = URI.create(url).toURL().openConnection() as HttpURLConnection
-        connection.instanceFollowRedirects = true
-        connection.connectTimeout = maxOf(1, DlcConfig.getConnectTimeoutMs())
-        connection.readTimeout = maxOf(1, DlcConfig.getTaskTimeoutMs())
-        connection.setRequestProperty("User-Agent", "DLC-Manager")
-        if (offset > 0) {
-            connection.setRequestProperty("Range", "bytes=$offset-")
-        }
-        connection.connect()
-        var fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection)
-        if (fileName.isNullOrBlank()) {
-            fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.url.toString())
-        }
-        val responseCode = connection.responseCode
-        val contentLength = connection.contentLengthLong
-        val totalBytes = if (contentLength > 0) contentLength + maxOf(0L, offset) else -1L
-        val contentMd5 = connection.getHeaderField("Content-MD5")
-        return DownloadInfo(connection, fileName, responseCode, totalBytes, contentMd5)
-    }
-
-    private fun closeQuietly(connection: HttpURLConnection?) {
-        try {
-            connection?.disconnect()
-        } catch (_: Exception) {
-        }
-    }
-
-    @Throws(IOException::class)
-    private fun verifyDownloadedFile(file: Path?, candidate: DlcDownloadCandidate?, info: DownloadInfo?, cancelChecker: CancelChecker?) {
-        checkCanceled(cancelChecker)
-        if (file == null || candidate == null) {
-            return
-        }
-        if (candidate.hashType != null && !candidate.hashValue.isNullOrBlank()) {
-            val actual = DlcDownloadUtil.computeHashHex(file, mapHashAlgorithm(candidate.hashType))
-            if (actual == null || !actual.equals(DlcDownloadUtil.normalizeHash(candidate.hashValue), ignoreCase = true)) {
-                Files.deleteIfExists(file)
-                throw IOException("hash mismatch")
-            }
-            return
-        }
-        if (info != null && !info.contentMd5.isNullOrBlank()) {
-            val expected = DlcDownloadUtil.normalizeHash(info.contentMd5)
-            val actualHex = DlcDownloadUtil.computeHashHex(file, "MD5")
-            val actualBase64 = DlcDownloadUtil.computeMd5Base64(file)
-            if (actualHex == null || actualBase64 == null ||
-                (!expected.equals(actualHex, ignoreCase = true) && !expected.equals(actualBase64, ignoreCase = true))
-            ) {
-                Files.deleteIfExists(file)
-                throw IOException("hash mismatch")
-            }
-            return
-        }
-        var expectedSize = candidate.expectedSize
-        if (expectedSize <= 0 && info != null && info.totalBytes > 0) {
-            expectedSize = info.totalBytes
-        }
-        if (expectedSize > 0 && Files.size(file) != expectedSize) {
-            Files.deleteIfExists(file)
-            throw IOException("size mismatch")
-        }
     }
 
     private fun resolveTarget(targetDir: Path?, fileName: String?): Path? {
@@ -661,62 +443,7 @@ object DlcRequiredService {
         return fileName != null && DlcDcFormatUtil.isDcName(fileName)
     }
 
-    private fun mapHashAlgorithm(hashType: String?): String? {
-        return when (hashType?.lowercase(Locale.ROOT)) {
-            null -> null
-            "sha1", "sha-1" -> "SHA-1"
-            "sha256", "sha-256" -> "SHA-256"
-            "sha512", "sha-512" -> "SHA-512"
-            "md5" -> "MD5"
-            else -> hashType
-        }
+    private fun toBatchResult(result: DlcSharedService.BatchResult<DlcRequiredEntry>): BatchResult {
+        return BatchResult(result.total, result.success, result.errors.map { EntryError(it.entry, it.error) })
     }
-
-    private interface AttemptProgressListener : ProgressListener {
-        fun onAttemptStart(attemptId: Int)
-    }
-
-    private class BatchEntryProgress(
-        private val listener: BatchProgressListener?,
-        private val entry: DlcRequiredEntry?,
-        private val completed: java.util.concurrent.atomic.AtomicInteger,
-        private val total: Int,
-    ) : AttemptProgressListener {
-        override fun onAttemptStart(attemptId: Int) {
-            listener?.onEntryAttemptStart(entry, attemptId, completed.get(), total)
-        }
-
-        override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
-            listener?.onEntryProgress(entry, downloadedBytes, totalBytes)
-        }
-
-        override fun onStatusKey(statusKey: String) {
-            listener?.onEntryStatus(entry, statusKey, completed.get(), total)
-        }
-    }
-
-    private class BatchRunResult(
-        val failed: List<DlcRequiredEntry>,
-        val errors: List<EntryError>,
-        val success: Int,
-    )
-
-    class DownloadSwitchException(message: String?) : IOException(message)
-
-    class DownloadCanceledException(message: String?) : IOException(message)
-
-    private class DownloadInfo(
-        val connection: HttpURLConnection,
-        val fileName: String?,
-        val responseCode: Int,
-        val totalBytes: Long,
-        val contentMd5: String?,
-    )
-
-    private class DownloadResult(
-        val entry: DlcRequiredEntry?,
-        val fileName: String?,
-        val error: Throwable?,
-        val canceled: Boolean,
-    )
 }
