@@ -49,49 +49,21 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
 
-/**
- * JavaFX desktop DLC Manager entry point.
- * <p>
- * Functionality is parity with the in-game client DLC manager, supporting both
- * <b>local</b> mode (operating on a user-selected game directory) and
- * <b>remote</b> mode (connecting to a server running the DLC Manager mod via
- * the .dc/TCP protocol on port 29690).
- * <p>
- * All validation logic, the encrypted CurseForge API, and the .dc/TCP protocol
- * are reused from {@code tools/dlc-external-controller} (pure Java) and ported
- * from {@code common} (Kotlin → Java, stripped of {@code net.minecraft} deps).
- */
 public final class DlcFxManagerApp extends Application {
 
-    /** Shared platform provider — the UI updates its game directory. */
     static final DlcFxPlatformProvider PROVIDER = new DlcFxPlatformProvider();
 
-    /** Primary stage reference, used by tabs that need directory choosers. */
     private Stage primaryStage;
-
-    /** Local DLC management tab — owns the game-directory chooser. */
     private DlcFxLocalDlcManagementTab localDlcManagementTab;
-
-    /** Local remote-download tab, notified when the game directory changes. */
     private DlcFxLocalRemoteDownloadTab localRemoteDownloadTab;
-
-    /** Local required tab, notified when the game directory changes. */
     private DlcFxLocalRequiredTab localRequiredTab;
-
-    /** Local hot-update tab, notified when the game directory changes. */
     private DlcFxLocalUpdateTab localUpdateTab;
 
-    /** Local workspace game directory selected by the user. */
     private Label localGameDirLabel;
     private boolean localGameDirSelected;
 
-    /** Shared connection state for all remote-server tabs. */
     private DlcFxRemoteConnection remoteConnection;
-
-    /** Root shell that swaps between the home screen and each workspace. */
     private BorderPane shell;
-
-    /** Top-level navigation surfaces. */
     private Node homeView;
     private Node localView;
     private Node remoteView;
@@ -99,10 +71,6 @@ public final class DlcFxManagerApp extends Application {
 
     @Override
     public void init() {
-        // Install the standalone provider BEFORE any common logic is touched.
-        // Every class ported from common calls CrossPlatformRuntime.gameDir() /
-        // configDir(), which delegates here.  This is the key architectural
-        // seam that lets us reuse the engine without MC dependencies.
         PlatformServices.setProvider(PROVIDER);
     }
 
@@ -153,7 +121,6 @@ public final class DlcFxManagerApp extends Application {
                 taskbar.setIconImage(awtIcon);
             }
         } catch (IOException | RuntimeException | LinkageError ignored) {
-            // Icon installation is best-effort; the app should still start normally.
         }
     }
 
@@ -301,18 +268,12 @@ public final class DlcFxManagerApp extends Application {
         shell.setCenter(remoteView);
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Local tabs
-    // ───────────────────────────────────────────────────────────────
-
-    /** [本地] DLC 管理 — directory chooser + scan + list + enable/disable/apply */
     private Tab localDlcManagementTab() {
         localDlcManagementTab = new DlcFxLocalDlcManagementTab(PROVIDER);
         localDlcManagementTab.setGameDirSelected(localGameDirSelected);
         return localDlcManagementTab.build();
     }
 
-    /** Forwards a game-directory change to the sibling local tabs. */
     private void onLocalGameDirChanged() {
         if (localDlcManagementTab != null) {
             localDlcManagementTab.onGameDirChanged();
@@ -328,32 +289,24 @@ public final class DlcFxManagerApp extends Application {
         }
     }
 
-    /** [本地] Remote 远程下载 — CurseForge/Modrinth/Direct + 缺失检测 + 校验 */
     private Tab localRemoteDownloadTab() {
         localRemoteDownloadTab = new DlcFxLocalRemoteDownloadTab(PROVIDER);
         return localRemoteDownloadTab.build();
     }
 
-    /** [本地] Required 必装资源 — 本地缺失检测 + 下载 + 安装到目标目录 */
     private Tab localRequiredTab() {
         localRequiredTab = new DlcFxLocalRequiredTab(PROVIDER);
         return localRequiredTab.build();
     }
 
-    /** [本地] Preset 预设 — 切换一组 DLC 状态 */
     private Tab localPresetTab() {
         return new DlcFxLocalPresetTab(PROVIDER).build();
     }
 
-    /** [本地] 热更新 — 检测本地热更新包 + 同步远程仓库（Layer A + Layer B） */
     private Tab localUpdateTab() {
         localUpdateTab = new DlcFxLocalUpdateTab(PROVIDER);
         return localUpdateTab.build();
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Helpers
-    // ───────────────────────────────────────────────────────────────
 
     private Node localDirectoryBar() {
         Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));

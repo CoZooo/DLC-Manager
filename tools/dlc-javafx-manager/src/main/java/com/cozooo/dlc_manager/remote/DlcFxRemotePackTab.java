@@ -26,10 +26,6 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.control.SplitPane;
 
-/**
- * [远程] DLC Pack — pack_list/install/uninstall/delete/import/import_url/order +
- * pack_apply_start/status/pause/resume/cancel.
- */
 public final class DlcFxRemotePackTab {
 
     private final DlcFxRemoteConnection conn;
@@ -47,7 +43,6 @@ public final class DlcFxRemotePackTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: list refresh + pack apply controls ───────────────
         Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.refresh"));
         Button applyStartBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.apply_start"));
         Button applyStatusBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.apply_status"));
@@ -112,7 +107,6 @@ public final class DlcFxRemotePackTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: pack list + one-action inspector ──────────────
         ListView<String> packList = new ListView<>(packs);
         VBox.setVgrow(packList, Priority.ALWAYS);
         VBox listBox = new VBox(8, new Label(DlcFxI18n.tr("dlc_manager.pack.list_header")), packList);

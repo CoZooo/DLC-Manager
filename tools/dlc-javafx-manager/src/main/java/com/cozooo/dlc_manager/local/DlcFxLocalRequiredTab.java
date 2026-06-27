@@ -34,20 +34,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Controller for the local Required tab.
- * <p>
- * Lists every {@code .dc} entry under {@code DLC/required/}, classifies each as
- * <i>缺失下载</i> (file absent from the required directory), <i>已下载未安装</i>
- * (present but not yet copied to its applied-target directories), or <i>已安装</i>,
- * and lets the user download missing files and install them — reusing the
- * encrypted CurseForge / Modrinth / direct-URL resolver via the shared
- * required install service.
- * <p>
- * Parity with the in-game Required screen; loading and dependency
- * expansion reuse the shared common implementation, while this tab only keeps
- * JavaFX-specific view helpers locally.
- */
 public final class DlcFxLocalRequiredTab {
 
     private final DlcFxPlatformProvider provider;
@@ -74,7 +60,6 @@ public final class DlcFxLocalRequiredTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: refresh + summary ────────────────────────────────
         refreshBtn.setOnAction(e -> refreshAsync());
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
         downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
@@ -89,7 +74,6 @@ public final class DlcFxLocalRequiredTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: entry list ────────────────────────────────────
         ListView<DlcRequiredEntry> listView = new ListView<>(entries);
         listView.setCellFactory(param -> new RequiredEntryCell());
         listView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
@@ -99,9 +83,6 @@ public final class DlcFxLocalRequiredTab {
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
-        // Download the user-selected entries (any that are still missing),
-        // expanded with their transitive dependencies so a selected pack pulls
-        // in its declared deps too.
         downloadSelectedBtn.setOnAction(e -> {
             java.util.List<DlcRequiredEntry> selected = listView.getSelectionModel().getSelectedItems();
             if (selected == null || selected.isEmpty()) {
@@ -123,7 +104,6 @@ public final class DlcFxLocalRequiredTab {
             downloadAll(toDownload);
         });
 
-        // ── Bottom: contextual actions + progress/status ──────────
         Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.required.download_missing"));
         Label installTitle = new Label(DlcFxI18n.tr("dlc_manager.required.install_targets"));
         DlcFxStyle.actionTitle(downloadTitle);
@@ -143,17 +123,12 @@ public final class DlcFxLocalRequiredTab {
         return tab;
     }
 
-    /** Called by DlcFxManagerApp when the game directory changes. */
     public void onGameDirChanged() {
         entries.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.game_dir_changed"));
         refreshBtn.setDisable(false);
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Refresh
-    // ───────────────────────────────────────────────────────────────
 
     private void refreshAsync() {
         refreshBtn.setDisable(true);
@@ -188,20 +163,12 @@ public final class DlcFxLocalRequiredTab {
         thread.start();
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Download
-    // ───────────────────────────────────────────────────────────────
-
     private void downloadMissingAsync() {
         List<DlcRequiredEntry> missing = DlcRequiredService.collectMissingDownloads(entries);
         if (missing.isEmpty()) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
             return;
         }
-        // Expand transitive dependencies declared in each entry's [dependencies]
-        // block (mirrors DlcRequiredRuntime.collectDependencies), then keep only
-        // those still missing — so downloading a required pack pulls in its
-        // declared deps that are also absent.
         List<DlcRequiredEntry> expanded = DlcRequiredRuntime.collectDependencies(missing);
         List<DlcRequiredEntry> toDownload = DlcRequiredService.collectMissingDownloads(expanded);
         downloadAll(toDownload);
@@ -242,7 +209,6 @@ public final class DlcFxLocalRequiredTab {
                 progressBar.setVisible(false);
                 downloadMissingBtn.setDisable(false);
                 refreshBtn.setDisable(false);
-                // refresh list to reflect new files
                 refreshAsync();
             });
         }, "dlc-required-download");
@@ -250,14 +216,9 @@ public final class DlcFxLocalRequiredTab {
         thread.start();
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Install (copy downloaded file → applied targets)
-    // ───────────────────────────────────────────────────────────────
-
     private void installAsync() {
         List<DlcRequiredEntry> targets = DlcRequiredService.collectNeedsApply(entries);
         if (targets.isEmpty()) {
-            // Fall back to re-installing every downloaded entry on explicit request.
             for (DlcRequiredEntry e : entries) {
                 if (e != null && DlcRequiredService.isDownloaded(e)) {
                     targets.add(e);
@@ -269,7 +230,6 @@ public final class DlcFxLocalRequiredTab {
             }
         }
         final List<DlcRequiredEntry> finalTargets = targets;
-        // Confirm before mutating game directories.
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                 DlcFxI18n.tr("dlc_manager.required.install_confirm", finalTargets.size()));
         confirm.setTitle(DlcFxI18n.tr("dlc_manager.required.install_title"));
@@ -311,10 +271,6 @@ public final class DlcFxLocalRequiredTab {
         thread.setDaemon(true);
         thread.start();
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Cell renderer
-    // ───────────────────────────────────────────────────────────────
 
     private final class RequiredEntryCell extends javafx.scene.control.ListCell<DlcRequiredEntry> {
         private final Label nameLabel = new Label();
@@ -375,10 +331,6 @@ public final class DlcFxLocalRequiredTab {
             }
         }
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Helpers
-    // ───────────────────────────────────────────────────────────────
 
     private static String safeName(DlcRequiredEntry entry) {
         String name = entry.resolveDisplayName();

@@ -96,15 +96,10 @@ def reusedCommonJavaFiles = [
     'com/cozooo/dlc_manager/platform/PlatformServices.java'
 ]
 
-// Reuse the pure-Java externalsync engine sources (CurseForgeClient, ModrinthClient,
-// Downloader, DownloadResolver, HashUtil, DcRemoteLoader, DlcTcpClient, SyncModels, etc.)
-// without copying them.  Same package name com.cozooo.dlc_manager.tools.externalsync.
 sourceSets {
     main {
         java {
             srcDirs += ['../dlc-external-controller/src/main/java']
-            // Keep JavaFX-specific forks local, but compile byte-identical
-            // copied classes from common so fixes land in both surfaces.
             exclude reusedCommonJavaFiles
         }
     }
@@ -128,8 +123,6 @@ dependencies {
 }
 
 application {
-    // Use the non-JavaFX launcher to avoid "Missing JavaFX runtime components"
-    // when running from a non-modular jar (e.g. jpackage app-image).
     mainClass = 'com.cozooo.dlc_manager.app.DlcFxLauncher'
 }
 
@@ -154,7 +147,6 @@ tasks.named('compileJava', JavaCompile) {
 }
 
 tasks.named('run') {
-    // Ensure UTF-8 for .dc file parsing consistency
     jvmArgs('-Dfile.encoding=UTF-8')
 }
 
@@ -205,7 +197,6 @@ tasks.register('jpackageImage') {
             if (packageIconFile.exists()) {
                 args '--icon', packageIconFile.absolutePath
             }
-            // Add JavaFX jars as module path so JavaFX loads as proper modules
             args '--module-path', "${appDir}/lib".toString()
             args '--add-modules', 'javafx.controls,javafx.fxml,javafx.graphics,java.desktop'
             args '--java-options', '-Dfile.encoding=UTF-8'

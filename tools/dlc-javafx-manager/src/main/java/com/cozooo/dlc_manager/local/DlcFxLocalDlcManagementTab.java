@@ -42,20 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
-/**
- * Controller for the local DLC management tab.
- * <p>
- * Provides:
- * <ul>
- *   <li>Game-directory chooser (updates {@link DlcFxPlatformProvider})</li>
- *   <li>Scan button invoking {@link DlcScanner}</li>
- *   <li>Grouped DLC list with enable/disable checkboxes</li>
- *   <li>Search/filter bar</li>
- *   <li>Apply button invoking {@link DlcApplier}</li>
- * </ul>
- * All long-running operations run on a background thread; UI updates are
- * marshalled back via {@link Platform#runLater}.
- */
 public final class DlcFxLocalDlcManagementTab {
 
     private final DlcFxPlatformProvider provider;
@@ -89,7 +75,6 @@ public final class DlcFxLocalDlcManagementTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: scan controls ───────────────────────────────────
         rescanBtn = new Button(DlcFxI18n.tr("dlc_manager.local.scan_dlc"));
         rescanBtn.setDisable(!gameDirSelected);
         rescanBtn.setOnAction(e -> scanAsync());
@@ -108,12 +93,11 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: filter bar + DLC list ─────────────────────────
         searchField.setPromptText(DlcFxI18n.tr("dlc_manager.local.search_prompt"));
         searchField.setPrefColumnCount(30);
         searchField.textProperty().addListener((obs, o, n) -> applyFilter(n, typeFilter.getValue()));
 
-        typeFilter.getItems().add(null); // "All"
+        typeFilter.getItems().add(null);
         for (DlcType t : DlcType.values()) {
             typeFilter.getItems().add(t);
         }
@@ -142,7 +126,6 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
-        // ── Bottom: apply controls ────────────────────────────────
         Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_all"));
         selectAllBtn.setOnAction(e -> {
             for (DlcItem it : allItems) setItemEnabled(it, true);
@@ -207,10 +190,6 @@ public final class DlcFxLocalDlcManagementTab {
         scanAsync();
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Actions
-    // ───────────────────────────────────────────────────────────────
-
     private void openDlcDirectory() {
         List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
         if (roots.isEmpty()) {
@@ -231,11 +210,10 @@ public final class DlcFxLocalDlcManagementTab {
 
     private void scanAsync() {
         progressBar.setVisible(true);
-        progressBar.setProgress(-1); // indeterminate
+        progressBar.setProgress(-1);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scanning"));
         Thread thread = new Thread(() -> {
             try {
-                // Diagnostic: collect DLC roots state
                 List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
                 StringBuilder diag = new StringBuilder();
                 diag.append(DlcFxI18n.tr("dlc_manager.local.diag.game_dir", provider.gameDir())).append('\n');
@@ -245,7 +223,6 @@ public final class DlcFxLocalDlcManagementTab {
                     boolean exists = java.nio.file.Files.exists(root);
                     if (exists) anyRootExists[0] = true;
                     diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dlc_root", root, exists)).append('\n');
-                    // Diagnose the info directory and config files.
                     java.nio.file.Path infoDir = root.resolve("info");
                     boolean infoExists = java.nio.file.Files.isDirectory(infoDir);
                     diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_dir", infoDir, infoExists)).append('\n');
@@ -259,7 +236,6 @@ public final class DlcFxLocalDlcManagementTab {
                                 String fn = item.getFileName().toString();
                                 if (fn.toLowerCase().endsWith(".dc")) {
                                     dcCount++;
-                                    // Read a compact .dc file summary.
                                     try {
                                         var obj = com.cozooo.dlc_manager.core.DlcDcConfigIO.read(item,
                                             com.cozooo.dlc_manager.core.DlcDcConfigIO.Layout.DLC_STRUCTURED);
@@ -287,7 +263,6 @@ public final class DlcFxLocalDlcManagementTab {
                             diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_read_failed", ex.getMessage())).append('\n');
                         }
                     }
-                    // Diagnose actual DLC files.
                     if (exists) {
                         try (var stream = java.nio.file.Files.walk(root)) {
                             var allFiles = stream.toList();
@@ -295,7 +270,6 @@ public final class DlcFxLocalDlcManagementTab {
                             long zips = allFiles.stream().filter(p -> p.toString().toLowerCase().endsWith(".zip")).count();
                             diag.append(DlcFxI18n.tr("dlc_manager.local.diag.jar_count", jars)).append('\n');
                             diag.append(DlcFxI18n.tr("dlc_manager.local.diag.zip_count", zips)).append('\n');
-                            // List every file outside the info directory.
                             java.nio.file.Path infoDir0 = root.resolve("info");
                             for (var p : allFiles) {
                                 if (java.nio.file.Files.isRegularFile(p) && !p.startsWith(infoDir0)) {
@@ -409,8 +383,6 @@ public final class DlcFxLocalDlcManagementTab {
                         sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
                     }
                     statusLabel.setText(sb.toString());
-                    // Surface the per-item apply messages (conflicts/enables/etc.)
-                    // that the in-game screen shows; the count above is just a summary.
                     if (!result.messages().isEmpty()) {
                         StringBuilder tip = new StringBuilder();
                         for (String msg : result.messages()) {
@@ -433,10 +405,6 @@ public final class DlcFxLocalDlcManagementTab {
         thread.start();
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Filtering
-    // ───────────────────────────────────────────────────────────────
-
     private DlcType currentTypeFilter;
     private String currentSearchText = "";
 
@@ -456,10 +424,6 @@ public final class DlcFxLocalDlcManagementTab {
         };
         filteredItems.setPredicate(pred);
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Cell renderer
-    // ───────────────────────────────────────────────────────────────
 
     private static final class DlcItemCell extends ListCell<DlcItem> {
         private final CheckBox checkBox = new CheckBox();

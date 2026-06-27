@@ -11,19 +11,6 @@ import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Standalone {@link PlatformServices.Provider} for the JavaFX DLC Manager.
- * <p>
- * Unlike the in-game provider which reads the running Minecraft instance, this
- * implementation returns the game directory chosen by the user in the UI.  By
- * installing it via {@code PlatformServices.setProvider(...)} at startup, every
- * piece of logic ported from {@code common} (DlcScanner, DlcApplier, DlcConfig,
- * DlcStateConfig, …) operates against the selected game directory without any
- * modification.
- * <p>
- * The game directory and config directory are mutable so the UI can update them
- * when the user picks a different game folder.
- */
 public final class DlcFxPlatformProvider implements PlatformServices.Provider {
 
     private volatile Path gameDir;
@@ -31,7 +18,6 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
     private volatile String languageOverride;
 
     public DlcFxPlatformProvider() {
-        // Default to the current working directory until the user picks one.
         this.gameDir = Path.of("").toAbsolutePath().normalize();
         this.configDir = gameDir.resolve("config");
     }
@@ -40,10 +26,6 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
         setGameDir(gameDir);
     }
 
-    /**
-     * Update the target game directory.  {@code configDir} is derived as
-     * {@code gameDir/config}.
-     */
     public void setGameDir(Path gameDir) {
         if (gameDir == null) {
             return;

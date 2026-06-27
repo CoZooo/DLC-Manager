@@ -23,9 +23,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-/**
- * [远程] RCON 控制台 — rcon_info/get/set/exec + 快捷命令 + server_restart.
- */
 public final class DlcFxRemoteRconTab {
 
     private final DlcFxRemoteConnection conn;
@@ -44,7 +41,6 @@ public final class DlcFxRemoteRconTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: info + config ────────────────────────────────────
         Button infoBtn = new Button(DlcFxI18n.tr("dlc_manager.rcon.query_info"));
         Button getBtn = new Button(DlcFxI18n.tr("dlc_manager.rcon.get_config"));
         infoBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -91,7 +87,6 @@ public final class DlcFxRemoteRconTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: command + log ─────────────────────────────────
         cmdField.setPromptText(DlcFxI18n.tr("dlc_manager.rcon.command_prompt"));
         cmdField.setPrefColumnCount(40);
         cmdField.setOnAction(e -> execCommand());
@@ -115,7 +110,6 @@ public final class DlcFxRemoteRconTab {
         cmdBox.setAlignment(Pos.CENTER_LEFT);
         cmdBox.setPadding(new Insets(4, 8, 4, 8));
 
-        // Quick commands
         HBox quickBox = new HBox(4);
         for (String q : new String[]{"list", "say Hello", "weather clear", "time set day", "gamerule keepInventory true"}) {
             Button qb = new Button(q);
@@ -150,7 +144,6 @@ public final class DlcFxRemoteRconTab {
     private void appendLog(String line) {
         Platform.runLater(() -> {
             log.add(line);
-            // Keep last 200 lines
             while (log.size() > 200) {
                 log.remove(0);
             }

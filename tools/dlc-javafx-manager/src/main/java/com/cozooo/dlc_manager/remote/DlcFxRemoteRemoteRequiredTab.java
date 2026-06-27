@@ -24,14 +24,6 @@ import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * [远程] 服务器 Remote/Required 下载 —
- * remote_list/download_start/download_status +
- * required_list/download_start/download_status/cancel/uninstall/apply.
- * <p>
- * List responses are rendered as structured rows (name / id / status tag /
- * file name) instead of raw JSON, mirroring the in-game Remote/Required view.
- */
 public final class DlcFxRemoteRemoteRequiredTab {
 
     private final DlcFxRemoteConnection conn;
@@ -51,7 +43,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Remote section ────────────────────────────────────────
         Button remoteRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.refresh_remote"));
         remoteRefreshBtn.disableProperty().bind(conn.connectedProperty().not());
         remoteRefreshBtn.setOnAction(e -> {
@@ -89,7 +80,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
         DlcFxStyle.primary(remoteDownloadBtn);
         VBox remoteBox = new VBox(8, remoteTitle, remoteList);
 
-        // ── Required section ──────────────────────────────────────
         Button requiredRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.refresh_required"));
         requiredRefreshBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredRefreshBtn.setOnAction(e -> {
@@ -148,7 +138,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
         DlcFxStyle.danger(requiredUninstallBtn);
         VBox requiredBox = new VBox(8, requiredTitle, requiredList);
 
-        // ── Layout: side by side ──────────────────────────────────
         HBox topBox = new HBox(8, remoteRefreshBtn, requiredRefreshBtn, remoteStatus, requiredStatus);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
@@ -208,11 +197,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
         return DlcFxI18n.tr("dlc_manager.remote_required.download_status");
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Row model + cell
-    // ───────────────────────────────────────────────────────────────
-
-    /** A single structured row shown in either the Remote or Required list. */
     private static final class Row {
         final String title;
         final String subtitle;
@@ -274,10 +258,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
             return label;
         }
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Response → structured rows
-    // ───────────────────────────────────────────────────────────────
 
     private static List<Row> extractRemoteRows(JsonObject response) {
         List<Row> rows = new ArrayList<>();
@@ -400,7 +380,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
         return (element != null && element.isJsonArray()) ? element.getAsJsonArray() : null;
     }
 
-    /** Build a compact, human-readable summary of a status/ack response. */
     private static String summarizeStatus(JsonObject response) {
         if (response == null) {
             return "";
@@ -433,17 +412,14 @@ public final class DlcFxRemoteRemoteRequiredTab {
             }
             return sb.toString();
         }
-        // required_download_cancel → "canceled"
         JsonElement canceledElement = response.get("canceled");
         if (canceledElement != null && canceledElement.isJsonPrimitive()) {
             return DlcFxI18n.tr("dlc_manager.status.canceled_value", canceledElement.getAsBoolean());
         }
-        // required_uninstall → "removed"
         JsonElement removedElement = response.get("removed");
         if (removedElement != null && removedElement.isJsonPrimitive()) {
             return DlcFxI18n.tr("dlc_manager.status.removed_count", removedElement.getAsInt());
         }
-        // required_apply → "applied"
         JsonElement appliedElement = response.get("applied");
         if (appliedElement != null && appliedElement.isJsonPrimitive()) {
             return DlcFxI18n.tr("dlc_manager.status.applied_count", appliedElement.getAsInt());
@@ -454,10 +430,6 @@ public final class DlcFxRemoteRemoteRequiredTab {
         }
         return DlcFxI18n.tr("dlc_manager.status.ok");
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  JSON helpers
-    // ───────────────────────────────────────────────────────────────
 
     private static String str(JsonObject obj, String key) {
         JsonElement e = obj.get(key);

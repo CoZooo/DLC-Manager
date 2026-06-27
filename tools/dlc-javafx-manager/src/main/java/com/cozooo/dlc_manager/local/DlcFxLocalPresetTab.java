@@ -35,12 +35,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * [本地] Preset 预设 — 列出所有预设、切换启用状态、应用更改.
- * <p>
- * 预设是 .dc 配置文件，定义一组要启用的 DLC 标识符和冲突项。
- * 启用预设后，对应的 DLC 会被启用，冲突的 DLC 会被禁用。
- */
 public final class DlcFxLocalPresetTab {
 
     private final DlcFxPlatformProvider provider;
@@ -59,7 +53,6 @@ public final class DlcFxLocalPresetTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: refresh + summary ────────────────────────────────
         Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.refresh"));
         refreshBtn.setOnAction(e -> refreshAsync());
 
@@ -84,7 +77,6 @@ public final class DlcFxLocalPresetTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: preset list ───────────────────────────────────
         ListView<DlcPresetEntry> listView = new ListView<>(entries);
         listView.setCellFactory(param -> new PresetCell());
         VBox.setVgrow(listView, Priority.ALWAYS);
@@ -159,7 +151,6 @@ public final class DlcFxLocalPresetTab {
                         sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
                     }
                     statusLabel.setText(sb.toString());
-                    // Surface the per-item apply messages like the DLC tab does.
                     if (!result.messages().isEmpty()) {
                         StringBuilder tip = new StringBuilder();
                         for (String msg : result.messages()) {
@@ -170,7 +161,6 @@ public final class DlcFxLocalPresetTab {
                     } else {
                         statusLabel.setTooltip(null);
                     }
-                    // Refresh to update PART/ON/OFF statuses
                     entries.setAll(DlcPresetRuntimeState.getPresets());
                 });
             } catch (Throwable t) {

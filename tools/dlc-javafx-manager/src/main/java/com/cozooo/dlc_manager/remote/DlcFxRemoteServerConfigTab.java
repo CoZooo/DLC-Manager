@@ -22,14 +22,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-/**
- * [远程] 服务器配置 — config_get → 编辑 → config_set.
- * <p>
- * Fetches the live {@code DlcConfig} JSON from the server (via the encrypted
- * TCP protocol), lets the operator edit it as pretty-printed JSON with
- * up-front validation, and writes it back.  Mirrors the in-game server-config
- * screen's get/apply round-trip without depending on the running client.
- */
 public final class DlcFxRemoteServerConfigTab {
 
     private static final Gson PRETTY = new GsonBuilder().setPrettyPrinting().create();
@@ -75,10 +67,6 @@ public final class DlcFxRemoteServerConfigTab {
         return tab;
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Load
-    // ───────────────────────────────────────────────────────────────
-
     private void loadAsync() {
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.config.loading"));
         reloadBtn.setDisable(true);
@@ -98,10 +86,6 @@ public final class DlcFxRemoteServerConfigTab {
             reloadBtn.setDisable(false);
         });
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Save (with JSON validation)
-    // ───────────────────────────────────────────────────────────────
 
     private void saveAsync() {
         JsonObject config;

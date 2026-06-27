@@ -55,36 +55,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Controller for the local hot-update tab.
- * <p>
- * This is the standalone counterpart of the in-game
- * {@code DlcUpdateManagerScreen} + {@code DlcModpackUpdateScreen} and is the
- * direct fix for the two reported bugs:
- * <ul>
- *   <li><b>Cannot detect update contents inside DLC</b> — Layer A: scans the {@code update/}
- *       directory for {@code .zip} packages via
- *       {@link DlcUpdateService#checkForUpdates()}, resolves the applicable
- *       update chain, shows the version transition + changelog, and applies /
- *       rolls back / imports packages — all on the local game directory.</li>
- *   <li><b>No remote repository sync for local mod verification</b> — Layer B: queries the configured
- *       GitHub/Gitea/GitCode/GitLab releases API via
- *       {@link DlcPackReleaseUpdateService#checkForUpdates} and downloads the
- *       matching {@code Client_*.zip} assets into {@code update/}, then hands
- *       off to Layer A to verify and apply.</li>
- * </ul>
- * Detection reuses the engine ported 1:1 from {@code common} (only the four
- * {@code Component} display helpers were converted to {@code String}); there is
- * no {@code net.minecraft} dependency.
- */
 public final class DlcFxLocalUpdateTab {
 
     private final DlcFxPlatformProvider provider;
 
-    // ── Version header ──────────────────────────────────────────────
     private final Label versionLabel = new Label(DlcFxI18n.tr("dlc_manager.update.version_empty"));
 
-    // ── Action buttons ──────────────────────────────────────────────
     private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.update.check_local"));
     private final Button checkRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.update.sync_remote"));
     private final Button downloadRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.update.download_remote"));
@@ -93,16 +69,13 @@ public final class DlcFxLocalUpdateTab {
     private final Button rollbackBtn = new Button(DlcFxI18n.tr("dlc_manager.update.rollback_selected"));
     private final Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.update.import_package"));
 
-    // ── Center: history / available-update list ─────────────────────
     private final ObservableList<DlcUpdateMeta> history = FXCollections.observableArrayList();
     private final ListView<DlcUpdateMeta> historyView = new ListView<>(history);
 
-    // ── Changelog panel ─────────────────────────────────────────────
     private final TextArea changelogArea = new TextArea();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
 
-    // Live update state (touched only on the FX thread unless noted).
     private CheckResult lastRemoteCheck;
     private volatile boolean downloadCanceled;
 
@@ -123,7 +96,6 @@ public final class DlcFxLocalUpdateTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: version header + action bar ──────────────────────
         DlcFxStyle.title(versionLabel);
 
         refreshBtn.setOnAction(e -> checkLocalAsync());
@@ -143,7 +115,6 @@ public final class DlcFxLocalUpdateTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: history list (left) + changelog (right) ──────
         historyView.setCellFactory(param -> new UpdateRowCell());
         historyView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.SINGLE);
         historyView.getSelectionModel().selectedItemProperty().addListener(
@@ -168,7 +139,6 @@ public final class DlcFxLocalUpdateTab {
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
-        // ── Bottom: one active operation at a time + progress/status ─
         ToggleGroup actionGroup = new ToggleGroup();
         ToggleButton scanMode = modeButton(DlcFxI18n.tr("dlc_manager.update.check_local"), actionGroup, true);
         ToggleButton remoteMode = modeButton(DlcFxI18n.tr("dlc_manager.update.sync_remote"), actionGroup, false);
@@ -237,7 +207,6 @@ public final class DlcFxLocalUpdateTab {
         }
     }
 
-    /** Called by DlcFxManagerApp when the game directory changes. */
     public void onGameDirChanged() {
         history.clear();
         changelogArea.clear();
@@ -247,10 +216,6 @@ public final class DlcFxLocalUpdateTab {
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.game_dir_changed"));
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Layer A — local update detection
-    // ───────────────────────────────────────────────────────────────
-
     private void checkLocalAsync() {
         if (!requireGameDir()) {
             return;
@@ -259,8 +224,6 @@ public final class DlcFxLocalUpdateTab {
         progressBar.setProgress(-1);
         Thread thread = new Thread(() -> {
             try {
-                // Layer A: scan update/*.zip, compare manifest vs installed
-                // version, resolve the applicable update chain.
                 UpdateCheckResult result = DlcUpdateService.checkForUpdates(false);
                 List<DlcUpdateMeta> rows = new ArrayList<>();
                 if (result.hasUpdates()) {
@@ -271,7 +234,6 @@ public final class DlcFxLocalUpdateTab {
                         }
                     }
                 }
-                // Always show history so the user can roll back.
                 rows.addAll(DlcUpdateService.listUpdateHistory());
                 Platform.runLater(() -> {
                     history.setAll(rows);
@@ -337,7 +299,6 @@ public final class DlcFxLocalUpdateTab {
                     progressBar.setVisible(false);
                     setBusy(false, null);
                     if (result.isSuccess()) {
-                        // Refresh version header + history after a successful apply.
                         checkLocalAsync();
                     }
                 });
@@ -412,7 +373,6 @@ public final class DlcFxLocalUpdateTab {
             return;
         }
         Path zipPath = file.toPath();
-        // Validate before importing so we can show a precise reason.
         ImportValidationResult validation = DlcUpdateService.validateImportPackage(zipPath);
         if (!validation.isValid()) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_validation_failed", DlcUpdateService.toImportValidationMessage(validation)));
@@ -444,10 +404,6 @@ public final class DlcFxLocalUpdateTab {
         thread.setDaemon(true);
         thread.start();
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Layer B — remote repo sync (download release packages)
-    // ───────────────────────────────────────────────────────────────
 
     private void checkRemoteAsync() {
         if (!requireGameDir()) {
@@ -534,7 +490,6 @@ public final class DlcFxLocalUpdateTab {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_canceled"));
                     } else if (dl.success) {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.download_done", dl.files.size()));
-                        // Auto re-check so the freshly imported packages appear.
                         checkLocalAsync();
                     } else {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_failed",
@@ -553,10 +508,6 @@ public final class DlcFxLocalUpdateTab {
         thread.setDaemon(true);
         thread.start();
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Rendering helpers
-    // ───────────────────────────────────────────────────────────────
 
     private void renderVersionHeader(UpdateCheckResult result) {
         DlcUpdateVersion v = result.getCurrent();
@@ -583,8 +534,6 @@ public final class DlcFxLocalUpdateTab {
         if (meta == null) {
             return "";
         }
-        // Both update-package rows and on-disk history rows carry their
-        // localized changelog map (populated by metaForPackage / DlcUpdateMeta.load).
         Map<String, String> log = meta.getChangelog();
         if (log == null || log.isEmpty()) {
             return "";
@@ -606,7 +555,6 @@ public final class DlcFxLocalUpdateTab {
         }
         DlcUpdateManifest.VersionInfo info = pkg.getManifest().getVersion();
         DlcUpdateMeta meta = new DlcUpdateMeta();
-        // VersionInfo models the transition as base(old) -> baseNew, dlcOld -> dlcNew.
         meta.setBaseOld(info.getBase());
         meta.setBaseNew(info.getBaseNew());
         meta.setDlcOld(info.getDlcOld());
@@ -672,7 +620,6 @@ public final class DlcFxLocalUpdateTab {
         applyBtn.setDisable(busy);
         rollbackBtn.setDisable(busy);
         importBtn.setDisable(busy);
-        // downloadRemoteBtn / cancelDownloadBtn are managed by the download flow.
         if (busy) {
             progressBar.setVisible(true);
             if (status != null) {
@@ -710,10 +657,6 @@ public final class DlcFxLocalUpdateTab {
     private javafx.stage.Stage primaryStage() {
         return (javafx.stage.Stage) versionLabel.getScene().getWindow();
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Cell renderer — mirrors DlcUpdateRowPlanner row labels
-    // ───────────────────────────────────────────────────────────────
 
     private final class UpdateRowCell extends javafx.scene.control.ListCell<DlcUpdateMeta> {
         private final Label transitionLabel = new Label();

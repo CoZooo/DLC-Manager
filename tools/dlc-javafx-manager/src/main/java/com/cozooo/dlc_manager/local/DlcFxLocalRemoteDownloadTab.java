@@ -28,13 +28,6 @@ import javafx.scene.layout.VBox;
 import java.nio.file.Path;
 import java.util.List;
 
-/**
- * Controller for the local Remote download tab.
- * <p>
- * Lists every {@code .dc} entry under {@code DLC/remote/}, marks the ones
- * whose target file is missing, and lets the user resolve + download them
- * through the same download runtime used by the in-game client.
- */
 public final class DlcFxLocalRemoteDownloadTab {
 
     private final DlcFxPlatformProvider provider;
@@ -60,7 +53,6 @@ public final class DlcFxLocalRemoteDownloadTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: refresh + summary ────────────────────────────────
         refreshBtn.setOnAction(e -> refreshAsync());
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
         downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
@@ -72,7 +64,6 @@ public final class DlcFxLocalRemoteDownloadTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: entry list ────────────────────────────────────
         ListView<DlcRemoteEntry> listView = new ListView<>(entries);
         listView.setCellFactory(param -> new RemoteEntryCell());
         listView.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
@@ -82,9 +73,6 @@ public final class DlcFxLocalRemoteDownloadTab {
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
 
-        // Download the user-selected entries (any that are still missing),
-        // expanded with their nested remote dependencies so a selected pack
-        // pulls in its declared deps too.
         downloadSelectedBtn.setOnAction(e -> {
             java.util.List<DlcRemoteEntry> selected = listView.getSelectionModel().getSelectedItems();
             if (selected == null || selected.isEmpty()) {
@@ -105,7 +93,6 @@ public final class DlcFxLocalRemoteDownloadTab {
             downloadAll(toDownload);
         });
 
-        // ── Bottom: contextual actions + progress/status ──────────
         Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.download_missing"));
         DlcFxStyle.actionTitle(downloadTitle);
 
@@ -119,17 +106,12 @@ public final class DlcFxLocalRemoteDownloadTab {
         return tab;
     }
 
-    /** Called by DlcFxManagerApp when the game directory changes. */
     public void onGameDirChanged() {
         entries.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.game_dir_changed"));
         refreshBtn.setDisable(false);
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Refresh
-    // ───────────────────────────────────────────────────────────────
 
     private void refreshAsync() {
         refreshBtn.setDisable(true);
@@ -160,19 +142,12 @@ public final class DlcFxLocalRemoteDownloadTab {
         thread.start();
     }
 
-    // ───────────────────────────────────────────────────────────────
-    //  Download
-    // ───────────────────────────────────────────────────────────────
-
     private void downloadMissingAsync() {
         List<DlcRemoteEntry> missing = DlcRemoteService.collectMissing(entries);
         if (missing.isEmpty()) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
             return;
         }
-        // Recursively pull in each missing entry's nested remote dependencies
-        // (declared inline in its [dependencies] block) that are themselves
-        // missing — mirrors the in-game remote downloader.
         List<DlcRemoteEntry> toDownload = DlcRemoteService.expandMissingWithDependencies(missing);
         downloadAll(toDownload);
     }
@@ -212,17 +187,12 @@ public final class DlcFxLocalRemoteDownloadTab {
                 progressBar.setVisible(false);
                 downloadMissingBtn.setDisable(false);
                 refreshBtn.setDisable(false);
-                // refresh list to reflect new files
                 refreshAsync();
             });
         }, "dlc-remote-download");
         thread.setDaemon(true);
         thread.start();
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Cell renderer
-    // ───────────────────────────────────────────────────────────────
 
     private final class RemoteEntryCell extends javafx.scene.control.ListCell<DlcRemoteEntry> {
         private final Label nameLabel = new Label();
@@ -274,10 +244,6 @@ public final class DlcFxLocalRemoteDownloadTab {
             }
         }
     }
-
-    // ───────────────────────────────────────────────────────────────
-    //  Helpers
-    // ───────────────────────────────────────────────────────────────
 
     private static String safeName(DlcRemoteEntry entry) {
         String name = entry.resolveDisplayName();

@@ -13,14 +13,6 @@ import javafx.beans.property.StringProperty;
 
 import java.util.function.Consumer;
 
-/**
- * Shared connection state for all remote-server tabs.
- * <p>
- * Holds the current {@link DlcTcpFacade} (or {@code null} when disconnected),
- * exposes observable connection status for the UI, and runs blocking protocol
- * operations on a background thread, marshalling results back via
- * {@link Platform#runLater}.
- */
 public final class DlcFxRemoteConnection {
 
     public DlcFxRemoteConnection() {
@@ -43,7 +35,6 @@ public final class DlcFxRemoteConnection {
     DlcTcpFacade facade() { return facade; }
     SyncModels.ServerInfo lastServerInfo() { return lastServerInfo; }
 
-    /** Connect on a background thread.  {@code onDone} runs on the FX thread. */
     void connectAsync(String host, int port, String password, int timeoutMs, Consumer<Throwable> onDone) {
         Thread thread = new Thread(() -> {
             try {
@@ -68,7 +59,6 @@ public final class DlcFxRemoteConnection {
         thread.start();
     }
 
-    /** Disconnect and reset state. */
     void disconnect() {
         DlcTcpFacade f = facade;
         facade = null;
@@ -98,12 +88,7 @@ public final class DlcFxRemoteConnection {
         }
     }
 
-    /**
-     * Run a blocking operation on a background thread.
-     * @param action the operation to run (receives the current facade)
-     * @param onSuccess runs on FX thread with the result
-     * @param onError runs on FX thread with the exception
-     */
+    /** Runs blocking protocol work off the UI thread and returns callbacks on the FX thread. */
     <T> void runAsync(AsyncAction<T> action,
                       Consumer<T> onSuccess, Consumer<Throwable> onError) {
         DlcTcpFacade f = facade;
@@ -123,7 +108,6 @@ public final class DlcFxRemoteConnection {
         thread.start();
     }
 
-    /** Functional interface that allows throwing checked exceptions. */
     @FunctionalInterface
     interface AsyncAction<T> {
         T apply(DlcTcpFacade facade) throws Exception;

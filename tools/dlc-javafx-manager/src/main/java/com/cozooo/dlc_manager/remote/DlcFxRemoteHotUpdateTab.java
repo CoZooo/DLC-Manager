@@ -25,9 +25,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
-/**
- * [远程] 热更新 — update_state/list/apply/rollback/import/import_url.
- */
 public final class DlcFxRemoteHotUpdateTab {
 
     private final DlcFxRemoteConnection conn;
@@ -47,7 +44,6 @@ public final class DlcFxRemoteHotUpdateTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: state + actions ──────────────────────────────────
         Button stateBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.query_state"));
         Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.query_list"));
         Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.apply_all"));
@@ -89,7 +85,6 @@ public final class DlcFxRemoteHotUpdateTab {
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
 
-        // ── Versioned apply (optional base/dlc old→new) ──────────
         TextField baseOldField = new TextField();
         baseOldField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.base_old"));
         baseOldField.setPrefColumnCount(10);
@@ -125,7 +120,6 @@ public final class DlcFxRemoteHotUpdateTab {
 
         root.setTop(topBox);
 
-        // ── Center: updates + history ─────────────────────────────
         ListView<String> updatesList = new ListView<>(updates);
         ListView<String> historyList = new ListView<>(history);
         VBox.setVgrow(updatesList, Priority.ALWAYS);
@@ -145,7 +139,6 @@ public final class DlcFxRemoteHotUpdateTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
-        // ── Bottom: one active operation at a time ────────────────
         TextField rollbackField = new TextField();
         rollbackField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.rollback_target"));
         rollbackField.setPrefColumnCount(20);

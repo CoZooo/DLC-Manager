@@ -34,10 +34,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * [远程] 文件管理器 — file_list/upload/download/delete +
- * push_init/chunk/finish (本地→服务器推送).
- */
 public final class DlcFxRemoteFileManagerTab {
 
     private final DlcFxRemoteConnection conn;
@@ -60,7 +56,6 @@ public final class DlcFxRemoteFileManagerTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: path + list ──────────────────────────────────────
         TextField pathField = new TextField("/");
         pathField.setPrefColumnCount(30);
         Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.files.list"));
@@ -80,7 +75,6 @@ public final class DlcFxRemoteFileManagerTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center: file list ─────────────────────────────────────
         ListView<String> listView = new ListView<>(entries);
         VBox.setVgrow(listView, Priority.ALWAYS);
         VBox center = new VBox(listView);
@@ -88,7 +82,6 @@ public final class DlcFxRemoteFileManagerTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
-        // ── Bottom: upload/download/delete/push ───────────────────
         Button uploadBtn = new Button(DlcFxI18n.tr("dlc_manager.files.upload_file"));
         Button downloadBtn = new Button(DlcFxI18n.tr("dlc_manager.files.download_file"));
         Button deleteBtn = new Button(DlcFxI18n.tr("dlc_manager.server.files_delete"));
@@ -128,7 +121,6 @@ public final class DlcFxRemoteFileManagerTab {
                 return true;
             }, ok -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.upload_done", remotePath));
-                // refresh
                 conn.runAsync(c -> c.listFiles(currentPath), list -> {
                     entries.setAll(formatEntries(list));
                 }, err -> {});
@@ -260,13 +252,11 @@ public final class DlcFxRemoteFileManagerTab {
     }
 
     private void pushDirectory(DlcFxRemoteConnection conn2, Path dir) {
-        // not used; placeholder for direct push via facade
     }
 
     private void pushDirectory(com.cozooo.dlc_manager.tools.externalsync.DlcTcpFacade facade, Path dir) throws Exception {
         String id = UUID.randomUUID().toString();
         facade.pushInit(id, "overwrite", java.util.List.of("all"), null);
-        // Zip the directory in-memory and send chunks
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
         try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(baos)) {
             java.nio.file.Files.walk(dir)

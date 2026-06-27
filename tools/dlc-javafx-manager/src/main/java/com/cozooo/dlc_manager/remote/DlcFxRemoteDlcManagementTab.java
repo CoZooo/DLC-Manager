@@ -25,9 +25,6 @@ import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * [远程] 服务器 DLC 管理 — list/set/apply 经 TCP.
- */
 public final class DlcFxRemoteDlcManagementTab {
 
     private final DlcFxRemoteConnection conn;
@@ -35,7 +32,6 @@ public final class DlcFxRemoteDlcManagementTab {
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.common.refresh_list"));
     private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.local.apply_changes"));
-    /** Read-only transcript of the most recent apply's per-item message lines. */
     private final TextArea applyDetail = new TextArea();
 
     public DlcFxRemoteDlcManagementTab(DlcFxRemoteConnection conn) {
@@ -49,7 +45,6 @@ public final class DlcFxRemoteDlcManagementTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top ───────────────────────────────────────────────────
         refreshBtn.disableProperty().bind(conn.connectedProperty().not());
         refreshBtn.setOnAction(e -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
@@ -64,7 +59,6 @@ public final class DlcFxRemoteDlcManagementTab {
         applyBtn.setOnAction(e -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
             applyDetail.clear();
-            // Send set for each changed item, then apply (fetching messages).
             List<SyncModels.ServerItem> snapshot = new ArrayList<>(items);
             conn.runAsync(f -> {
                 for (SyncModels.ServerItem it : snapshot) {
@@ -84,7 +78,6 @@ public final class DlcFxRemoteDlcManagementTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        // ── Center ────────────────────────────────────────────────
         ListView<SyncModels.ServerItem> listView = new ListView<>(items);
         listView.setCellFactory(param -> new ServerItemCell());
         VBox.setVgrow(listView, Priority.ALWAYS);
@@ -107,7 +100,6 @@ public final class DlcFxRemoteDlcManagementTab {
         return tab;
     }
 
-    /** Populate the apply-detail box from the server's response. */
     private void renderApplyOutcome(ApplyOutcome outcome) {
         List<String> messages = outcome.messages();
         if (messages.isEmpty()) {

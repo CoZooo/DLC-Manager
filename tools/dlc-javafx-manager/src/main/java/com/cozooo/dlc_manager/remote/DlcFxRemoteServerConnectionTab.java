@@ -13,9 +13,6 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
-/**
- * [远程] 服务器连接 tab — host/port/password + 连接状态 + base/dlc 版本显示.
- */
 public final class DlcFxRemoteServerConnectionTab {
 
     private final DlcFxRemoteConnection conn;
@@ -30,7 +27,6 @@ public final class DlcFxRemoteServerConnectionTab {
         hostField.setPrefColumnCount(18);
         portField.setPrefColumnCount(6);
         passwordField.setPrefColumnCount(20);
-        // Bind labels to connection properties
         statusLabel.textProperty().bind(conn.statusTextProperty());
         infoLabel.textProperty().bind(conn.serverInfoTextProperty());
     }
@@ -42,7 +38,6 @@ public final class DlcFxRemoteServerConnectionTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        // ── Top: connection form ──────────────────────────────────
         Button connectBtn = new Button(DlcFxI18n.tr("dlc_manager.server.connect"));
         connectBtn.setOnAction(e -> {
             String host = hostField.getText().trim();
@@ -72,7 +67,6 @@ public final class DlcFxRemoteServerConnectionTab {
         DlcFxStyle.toolbar(formBox);
         root.setTop(formBox);
 
-        // ── Center: status ────────────────────────────────────────
         Label statusTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.connection_status"));
         Label infoTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.server_info"));
         DlcFxStyle.title(statusTitle);
