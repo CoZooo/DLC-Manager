@@ -1,6 +1,23 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.app;
 
+import com.cozooo.dlc_manager.local.DlcFxLocalDlcManagementTab;
+import com.cozooo.dlc_manager.local.DlcFxLocalPresetTab;
+import com.cozooo.dlc_manager.local.DlcFxLocalRemoteDownloadTab;
+import com.cozooo.dlc_manager.local.DlcFxLocalRequiredTab;
+import com.cozooo.dlc_manager.local.DlcFxLocalUpdateTab;
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteConnection;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteDlcManagementTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteFileManagerTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteHotUpdateTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemotePackTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteRconTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteRemoteRequiredTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteServerConfigTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteServerConnectionTab;
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -30,28 +47,28 @@ import javafx.stage.Stage;
  * are reused from {@code tools/dlc-external-controller} (pure Java) and ported
  * from {@code common} (Kotlin → Java, stripped of {@code net.minecraft} deps).
  */
-public final class DlcManagerApp extends Application {
+public final class DlcFxManagerApp extends Application {
 
     /** Shared platform provider — the UI updates its game directory. */
-    static final StandalonePlatformProvider PROVIDER = new StandalonePlatformProvider();
+    static final DlcFxPlatformProvider PROVIDER = new DlcFxPlatformProvider();
 
     /** Primary stage reference, used by tabs that need directory choosers. */
     private Stage primaryStage;
 
     /** Local DLC management tab — owns the game-directory chooser. */
-    private LocalDlcManagementTab localDlcManagementTab;
+    private DlcFxLocalDlcManagementTab localDlcManagementTab;
 
     /** Local remote-download tab, notified when the game directory changes. */
-    private LocalRemoteDownloadTab localRemoteDownloadTab;
+    private DlcFxLocalRemoteDownloadTab localRemoteDownloadTab;
 
     /** Local required tab, notified when the game directory changes. */
-    private LocalRequiredTab localRequiredTab;
+    private DlcFxLocalRequiredTab localRequiredTab;
 
     /** Local hot-update tab, notified when the game directory changes. */
-    private LocalUpdateTab localUpdateTab;
+    private DlcFxLocalUpdateTab localUpdateTab;
 
     /** Shared connection state for all remote-server tabs. */
-    private RemoteConnection remoteConnection;
+    private DlcFxRemoteConnection remoteConnection;
 
     /** Root shell that swaps between the home screen and each workspace. */
     private BorderPane shell;
@@ -74,7 +91,7 @@ public final class DlcManagerApp extends Application {
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
-        remoteConnection = new RemoteConnection();
+        remoteConnection = new DlcFxRemoteConnection();
         shell = new BorderPane();
         shell.setBottom(statusBar());
         DlcFxStyle.add(shell, "dlc-app-root");
@@ -85,7 +102,7 @@ public final class DlcManagerApp extends Application {
         showHome();
 
         Scene scene = new Scene(shell, 1100, 720);
-        java.net.URL css = DlcManagerApp.class.getResource("theme.css");
+        java.net.URL css = DlcFxManagerApp.class.getResource("/com/cozooo/dlc_manager/javafx/theme.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
         }
@@ -181,14 +198,14 @@ public final class DlcManagerApp extends Application {
     private TabPane buildRemoteTabs() {
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabPane.getTabs().add(new RemoteServerConnectionTab(remoteConnection).build());
-        tabPane.getTabs().add(new RemoteDlcManagementTab(remoteConnection).build());
-        tabPane.getTabs().add(new RemoteRemoteRequiredTab(remoteConnection).build());
-        tabPane.getTabs().add(new RemoteHotUpdateTab(remoteConnection).build());
-        tabPane.getTabs().add(new RemotePackTab(remoteConnection).build());
-        tabPane.getTabs().add(new RemoteRconTab(remoteConnection).build());
-        tabPane.getTabs().add(new RemoteFileManagerTab(remoteConnection, primaryStage).build());
-        tabPane.getTabs().add(new RemoteServerConfigTab(remoteConnection).build());
+        tabPane.getTabs().add(new DlcFxRemoteServerConnectionTab(remoteConnection).build());
+        tabPane.getTabs().add(new DlcFxRemoteDlcManagementTab(remoteConnection).build());
+        tabPane.getTabs().add(new DlcFxRemoteRemoteRequiredTab(remoteConnection).build());
+        tabPane.getTabs().add(new DlcFxRemoteHotUpdateTab(remoteConnection).build());
+        tabPane.getTabs().add(new DlcFxRemotePackTab(remoteConnection).build());
+        tabPane.getTabs().add(new DlcFxRemoteRconTab(remoteConnection).build());
+        tabPane.getTabs().add(new DlcFxRemoteFileManagerTab(remoteConnection, primaryStage).build());
+        tabPane.getTabs().add(new DlcFxRemoteServerConfigTab(remoteConnection).build());
         return tabPane;
     }
 
@@ -235,7 +252,7 @@ public final class DlcManagerApp extends Application {
 
     /** [本地] DLC 管理 — directory chooser + scan + list + enable/disable/apply */
     private Tab localDlcManagementTab() {
-        localDlcManagementTab = new LocalDlcManagementTab(PROVIDER);
+        localDlcManagementTab = new DlcFxLocalDlcManagementTab(PROVIDER);
         // When the user picks a new game directory, notify the other local tabs
         // so they drop stale state and prompt for a refresh.
         localDlcManagementTab.setOnGameDirChanged(this::onLocalGameDirChanged);
@@ -257,24 +274,24 @@ public final class DlcManagerApp extends Application {
 
     /** [本地] Remote 远程下载 — CurseForge/Modrinth/Direct + 缺失检测 + 校验 */
     private Tab localRemoteDownloadTab() {
-        localRemoteDownloadTab = new LocalRemoteDownloadTab(PROVIDER);
+        localRemoteDownloadTab = new DlcFxLocalRemoteDownloadTab(PROVIDER);
         return localRemoteDownloadTab.build();
     }
 
     /** [本地] Required 必装资源 — 本地缺失检测 + 下载 + 安装到目标目录 */
     private Tab localRequiredTab() {
-        localRequiredTab = new LocalRequiredTab(PROVIDER);
+        localRequiredTab = new DlcFxLocalRequiredTab(PROVIDER);
         return localRequiredTab.build();
     }
 
     /** [本地] Preset 预设 — 切换一组 DLC 状态 */
     private Tab localPresetTab() {
-        return new LocalPresetTab(PROVIDER).build();
+        return new DlcFxLocalPresetTab(PROVIDER).build();
     }
 
     /** [本地] 热更新 — 检测本地热更新包 + 同步远程仓库（Layer A + Layer B） */
     private Tab localUpdateTab() {
-        localUpdateTab = new LocalUpdateTab(PROVIDER);
+        localUpdateTab = new DlcFxLocalUpdateTab(PROVIDER);
         return localUpdateTab.build();
     }
 

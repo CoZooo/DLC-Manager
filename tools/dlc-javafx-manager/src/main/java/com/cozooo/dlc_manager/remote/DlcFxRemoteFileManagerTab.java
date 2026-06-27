@@ -1,4 +1,7 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.tools.externalsync.SyncModels;
 import javafx.application.Platform;
@@ -32,9 +35,9 @@ import java.util.UUID;
  * [远程] 文件管理器 — file_list/upload/download/delete +
  * push_init/chunk/finish (本地→服务器推送).
  */
-final class RemoteFileManagerTab {
+public final class DlcFxRemoteFileManagerTab {
 
-    private final RemoteConnection conn;
+    private final DlcFxRemoteConnection conn;
     private final ObservableList<String> entries = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Label pathLabel = new Label("/");
@@ -42,12 +45,12 @@ final class RemoteFileManagerTab {
 
     private final Stage primaryStage;
 
-    RemoteFileManagerTab(RemoteConnection conn, Stage primaryStage) {
+    public DlcFxRemoteFileManagerTab(DlcFxRemoteConnection conn, Stage primaryStage) {
         this.conn = conn;
         this.primaryStage = primaryStage;
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_files"));
         tab.setClosable(false);
 
@@ -66,7 +69,7 @@ final class RemoteFileManagerTab {
             conn.runAsync(f -> f.listFiles(currentPath), list -> {
                 entries.setAll(formatEntries(list));
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", list.size()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.server.files_path")), pathField, listBtn, pathLabel, statusLabel);
@@ -120,7 +123,7 @@ final class RemoteFileManagerTab {
                 conn.runAsync(c -> c.listFiles(currentPath), list -> {
                     entries.setAll(formatEntries(list));
                 }, err -> {});
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.upload_failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.upload_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         downloadBtn.setOnAction(e -> {
@@ -140,7 +143,7 @@ final class RemoteFileManagerTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.downloading_short"));
             conn.runAsync(client -> client.downloadFile(remotePath, dir.toPath()), saved -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.download_done", saved));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         deleteBtn.setOnAction(e -> {
@@ -160,7 +163,7 @@ final class RemoteFileManagerTab {
             conn.runAsync(client -> { client.deleteFile(remotePath); return true; }, ok -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.deleted", remotePath));
                 conn.runAsync(c -> c.listFiles(currentPath), list -> entries.setAll(formatEntries(list)), err -> {});
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         pushBtn.setOnAction(e -> {
@@ -175,7 +178,7 @@ final class RemoteFileManagerTab {
             conn.runAsync(client -> {
                 pushDirectory(client, dir.toPath());
                 return true;
-            }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_failed", RemoteConnection.safeMessage(err))));
+            }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox bottomBox = new HBox(8,
@@ -189,7 +192,7 @@ final class RemoteFileManagerTab {
         return tab;
     }
 
-    private void pushDirectory(RemoteConnection conn2, Path dir) {
+    private void pushDirectory(DlcFxRemoteConnection conn2, Path dir) {
         // not used; placeholder for direct push via facade
     }
 

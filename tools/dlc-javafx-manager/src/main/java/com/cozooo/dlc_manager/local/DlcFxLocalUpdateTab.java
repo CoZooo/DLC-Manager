@@ -1,4 +1,9 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.local;
+
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteRuntime;
@@ -69,9 +74,9 @@ import java.util.Map;
  * {@code Component} display helpers were converted to {@code String}); there is
  * no {@code net.minecraft} dependency.
  */
-final class LocalUpdateTab {
+public final class DlcFxLocalUpdateTab {
 
-    private final StandalonePlatformProvider provider;
+    private final DlcFxPlatformProvider provider;
 
     // ── Version header ──────────────────────────────────────────────
     private final Label versionLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.version_empty"));
@@ -98,7 +103,7 @@ final class LocalUpdateTab {
     private CheckResult lastRemoteCheck;
     private volatile boolean downloadCanceled;
 
-    LocalUpdateTab(StandalonePlatformProvider provider) {
+    public DlcFxLocalUpdateTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
         progressBar.setPrefWidth(220);
         progressBar.setVisible(false);
@@ -108,7 +113,7 @@ final class LocalUpdateTab {
         cancelDownloadBtn.setVisible(false);
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_update"));
         tab.setClosable(false);
 
@@ -175,8 +180,8 @@ final class LocalUpdateTab {
         return tab;
     }
 
-    /** Called by DlcManagerApp when the game directory changes. */
-    void onGameDirChanged() {
+    /** Called by DlcFxManagerApp when the game directory changes. */
+    public void onGameDirChanged() {
         history.clear();
         changelogArea.clear();
         versionLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.version_empty"));

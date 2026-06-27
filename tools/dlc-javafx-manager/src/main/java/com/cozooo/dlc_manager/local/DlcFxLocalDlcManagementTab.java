@@ -1,4 +1,8 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.local;
+
+import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.core.DlcApplier;
@@ -45,7 +49,7 @@ import java.util.function.Predicate;
  * <p>
  * Provides:
  * <ul>
- *   <li>Game-directory chooser (updates {@link StandalonePlatformProvider})</li>
+ *   <li>Game-directory chooser (updates {@link DlcFxPlatformProvider})</li>
  *   <li>Scan button invoking {@link DlcScanner}</li>
  *   <li>Grouped DLC list with enable/disable checkboxes</li>
  *   <li>Search/filter bar</li>
@@ -54,9 +58,9 @@ import java.util.function.Predicate;
  * All long-running operations run on a background thread; UI updates are
  * marshalled back via {@link Platform#runLater}.
  */
-final class LocalDlcManagementTab {
+public final class DlcFxLocalDlcManagementTab {
 
-    private final StandalonePlatformProvider provider;
+    private final DlcFxPlatformProvider provider;
 
     /**
      * Notified after the user picks a new game directory, so sibling local
@@ -73,17 +77,17 @@ final class LocalDlcManagementTab {
     private final TextField searchField = new TextField();
     private final ComboBox<DlcType> typeFilter = new ComboBox<>();
 
-    LocalDlcManagementTab(StandalonePlatformProvider provider) {
+    public DlcFxLocalDlcManagementTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
         progressBar.setVisible(false);
         progressBar.setPrefWidth(200);
     }
 
-    void setOnGameDirChanged(Runnable onGameDirChanged) {
+    public void setOnGameDirChanged(Runnable onGameDirChanged) {
         this.onGameDirChanged = onGameDirChanged;
     }
 
-    Tab build(Stage stage) {
+    public Tab build(Stage stage) {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_dlc"));
         tab.setClosable(false);
 

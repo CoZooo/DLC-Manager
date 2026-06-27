@@ -130,7 +130,7 @@ dependencies {
 application {
     // Use the non-JavaFX launcher to avoid "Missing JavaFX runtime components"
     // when running from a non-modular jar (e.g. jpackage app-image).
-    mainClass = 'com.cozooo.dlc_manager.javafx.Launcher'
+    mainClass = 'com.cozooo.dlc_manager.app.DlcFxLauncher'
 }
 
 distributions {

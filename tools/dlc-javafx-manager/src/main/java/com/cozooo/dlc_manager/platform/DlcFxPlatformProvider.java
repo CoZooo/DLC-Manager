@@ -1,6 +1,4 @@
-package com.cozooo.dlc_manager.javafx;
-
-import com.cozooo.dlc_manager.platform.PlatformServices;
+package com.cozooo.dlc_manager.platform;
 
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -26,19 +24,19 @@ import java.util.regex.Pattern;
  * The game directory and config directory are mutable so the UI can update them
  * when the user picks a different game folder.
  */
-public final class StandalonePlatformProvider implements PlatformServices.Provider {
+public final class DlcFxPlatformProvider implements PlatformServices.Provider {
 
     private volatile Path gameDir;
     private volatile Path configDir;
     private volatile String languageOverride;
 
-    public StandalonePlatformProvider() {
+    public DlcFxPlatformProvider() {
         // Default to the current working directory until the user picks one.
         this.gameDir = Path.of("").toAbsolutePath().normalize();
         this.configDir = gameDir.resolve("config");
     }
 
-    public StandalonePlatformProvider(Path gameDir) {
+    public DlcFxPlatformProvider(Path gameDir) {
         setGameDir(gameDir);
     }
 
@@ -288,9 +286,9 @@ public final class StandalonePlatformProvider implements PlatformServices.Provid
             return stream
                 .filter(java.nio.file.Files::isDirectory)
                 .map(path -> path.getFileName() == null ? "" : path.getFileName().toString())
-                .map(StandalonePlatformProvider::extractMcVersion)
+                .map(DlcFxPlatformProvider::extractMcVersion)
                 .filter(value -> value != null && !value.isBlank())
-                .sorted(StandalonePlatformProvider::compareVersionsDescending)
+                .sorted(DlcFxPlatformProvider::compareVersionsDescending)
                 .findFirst()
                 .orElse(null);
         } catch (Exception ignored) {

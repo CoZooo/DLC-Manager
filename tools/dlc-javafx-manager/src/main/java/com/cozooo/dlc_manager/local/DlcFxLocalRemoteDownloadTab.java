@@ -1,4 +1,9 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.local;
+
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteService;
@@ -30,9 +35,9 @@ import java.util.List;
  * whose target file is missing, and lets the user resolve + download them
  * through the same download runtime used by the in-game client.
  */
-final class LocalRemoteDownloadTab {
+public final class DlcFxLocalRemoteDownloadTab {
 
-    private final StandalonePlatformProvider provider;
+    private final DlcFxPlatformProvider provider;
 
     private final ObservableList<DlcRemoteEntry> entries = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
@@ -42,13 +47,13 @@ final class LocalRemoteDownloadTab {
     private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.download_selected"));
     private final Label countLabel = new Label("");
 
-    LocalRemoteDownloadTab(StandalonePlatformProvider provider) {
+    public DlcFxLocalRemoteDownloadTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
         progressBar.setPrefWidth(220);
         progressBar.setVisible(false);
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_remote"));
         tab.setClosable(false);
 
@@ -110,8 +115,8 @@ final class LocalRemoteDownloadTab {
         return tab;
     }
 
-    /** Called by DlcManagerApp when the game directory changes. */
-    void onGameDirChanged() {
+    /** Called by DlcFxManagerApp when the game directory changes. */
+    public void onGameDirChanged() {
         entries.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.game_dir_changed"));

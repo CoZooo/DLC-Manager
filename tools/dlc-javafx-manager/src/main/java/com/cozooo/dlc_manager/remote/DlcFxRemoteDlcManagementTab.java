@@ -1,4 +1,7 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.tools.externalsync.ApplyOutcome;
 import com.cozooo.dlc_manager.tools.externalsync.SyncModels;
@@ -25,9 +28,9 @@ import java.util.List;
 /**
  * [远程] 服务器 DLC 管理 — list/set/apply 经 TCP.
  */
-final class RemoteDlcManagementTab {
+public final class DlcFxRemoteDlcManagementTab {
 
-    private final RemoteConnection conn;
+    private final DlcFxRemoteConnection conn;
     private final ObservableList<SyncModels.ServerItem> items = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.refresh_list"));
@@ -35,11 +38,11 @@ final class RemoteDlcManagementTab {
     /** Read-only transcript of the most recent apply's per-item message lines. */
     private final TextArea applyDetail = new TextArea();
 
-    RemoteDlcManagementTab(RemoteConnection conn) {
+    public DlcFxRemoteDlcManagementTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_dlc"));
         tab.setClosable(false);
 
@@ -53,7 +56,7 @@ final class RemoteDlcManagementTab {
             conn.runAsync(f -> f.fetchList(), info -> {
                 items.setAll(info.items);
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.dlc_count", info.items.size(), info.baseVersion, info.dlcVersion));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         applyBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -73,7 +76,7 @@ final class RemoteDlcManagementTab {
             }, outcome -> {
                 statusLabel.setText(outcome.requiresRestart() ? DlcFxI18n.tr("dlc_manager.javafx.remote.applied_restart") : DlcFxI18n.tr("dlc_manager.javafx.remote.applied"));
                 renderApplyOutcome(outcome);
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, refreshBtn, applyBtn, statusLabel);

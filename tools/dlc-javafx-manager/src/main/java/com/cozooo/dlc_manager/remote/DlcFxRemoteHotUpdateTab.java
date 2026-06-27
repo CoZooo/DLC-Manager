@@ -1,4 +1,7 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -22,19 +25,19 @@ import javafx.scene.layout.VBox;
 /**
  * [远程] 热更新 — update_state/list/apply/rollback/import/import_url.
  */
-final class RemoteHotUpdateTab {
+public final class DlcFxRemoteHotUpdateTab {
 
-    private final RemoteConnection conn;
+    private final DlcFxRemoteConnection conn;
     private final ObservableList<String> updates = FXCollections.observableArrayList();
     private final ObservableList<String> history = FXCollections.observableArrayList();
     private final Label stateLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Label statusLabel = new Label("");
 
-    RemoteHotUpdateTab(RemoteConnection conn) {
+    public DlcFxRemoteHotUpdateTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_update"));
         tab.setClosable(false);
 
@@ -58,7 +61,7 @@ final class RemoteHotUpdateTab {
                 stateLabel.setText(formatState(resp));
                 history.setAll(extractStrings(resp, "history"));
                 updates.setAll(extractStrings(resp, "updates"));
-            }, err -> stateLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> stateLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         listBtn.setOnAction(e -> {
@@ -66,7 +69,7 @@ final class RemoteHotUpdateTab {
             conn.runAsync(f -> f.updateList(), resp -> {
                 updates.setAll(extractStrings(resp, "updates"));
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.update_count", updates.size()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         applyBtn.setOnAction(e -> {
@@ -76,7 +79,7 @@ final class RemoteHotUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
             conn.runAsync(f -> f.updateApply(null, null, null, null), resp -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, stateBtn, listBtn, applyBtn, stateLabel, statusLabel);
@@ -114,7 +117,7 @@ final class RemoteHotUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
             conn.runAsync(f -> f.updateApply(baseOld, dlcOld, baseNew, dlcNew), resp -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox versionBox = new HBox(8,
@@ -162,7 +165,7 @@ final class RemoteHotUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.rolling_back"));
             conn.runAsync(f -> f.updateRollback(target), resp -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_result", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         TextField importPathField = new TextField();
@@ -180,7 +183,7 @@ final class RemoteHotUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.importing"));
             conn.runAsync(f -> f.updateImport(path), resp -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_result", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         TextField importUrlField = new TextField();
@@ -202,7 +205,7 @@ final class RemoteHotUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.downloading_importing"));
             conn.runAsync(f -> f.updateImportUrl(url, name), resp -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_result", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox bottomBox = new HBox(8,

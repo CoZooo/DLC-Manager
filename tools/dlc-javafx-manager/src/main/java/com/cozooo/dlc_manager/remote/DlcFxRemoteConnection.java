@@ -1,4 +1,6 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
 
 import com.cozooo.dlc_manager.tools.externalsync.DlcTcpFacade;
 import com.cozooo.dlc_manager.tools.externalsync.ExternalSyncException;
@@ -19,7 +21,10 @@ import java.util.function.Consumer;
  * operations on a background thread, marshalling results back via
  * {@link Platform#runLater}.
  */
-final class RemoteConnection {
+public final class DlcFxRemoteConnection {
+
+    public DlcFxRemoteConnection() {
+    }
 
     private final BooleanProperty connected = new SimpleBooleanProperty(false);
     private final StringProperty statusText = new SimpleStringProperty(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
@@ -31,7 +36,7 @@ final class RemoteConnection {
     private volatile int connectedPort;
 
     BooleanProperty connectedProperty() { return connected; }
-    StringProperty statusTextProperty() { return statusText; }
+    public StringProperty statusTextProperty() { return statusText; }
     StringProperty serverInfoTextProperty() { return serverInfoText; }
 
     boolean isConnected() { return connected.get(); }
@@ -78,7 +83,7 @@ final class RemoteConnection {
         serverInfoText.set("");
     }
 
-    void refreshLanguage() {
+    public void refreshLanguage() {
         if (connected.get()) {
             String host = connectedHost == null ? "" : connectedHost;
             statusText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.connected_to", host, connectedPort));

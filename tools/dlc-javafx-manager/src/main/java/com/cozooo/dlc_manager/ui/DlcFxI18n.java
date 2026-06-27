@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.ui;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-final class DlcFxI18n {
+public final class DlcFxI18n {
     private static final Gson GSON = new Gson();
     private static final Map<String, Map<String, String>> CACHE = new HashMap<>();
     private static final String FALLBACK_LANG = "en_us";
@@ -21,7 +21,7 @@ final class DlcFxI18n {
     private DlcFxI18n() {
     }
 
-    static String tr(String key, Object... args) {
+    public static String tr(String key, Object... args) {
         String pattern = lookup(key);
         if (args == null || args.length == 0) {
             return pattern;

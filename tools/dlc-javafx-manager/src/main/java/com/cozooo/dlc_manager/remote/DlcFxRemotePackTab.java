@@ -1,4 +1,7 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -27,17 +30,17 @@ import javafx.scene.control.SplitPane;
  * [远程] DLC Pack — pack_list/install/uninstall/delete/import/import_url/order +
  * pack_apply_start/status/pause/resume/cancel.
  */
-final class RemotePackTab {
+public final class DlcFxRemotePackTab {
 
-    private final RemoteConnection conn;
+    private final DlcFxRemoteConnection conn;
     private final ObservableList<String> packs = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
 
-    RemotePackTab(RemoteConnection conn) {
+    public DlcFxRemotePackTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_pack"));
         tab.setClosable(false);
 
@@ -67,7 +70,7 @@ final class RemotePackTab {
             conn.runAsync(f -> f.packList(), resp -> {
                 packs.setAll(extractStrings(resp, "packs"));
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.count", packs.size()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         applyStartBtn.setOnAction(e -> {
@@ -76,26 +79,26 @@ final class RemotePackTab {
             }
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.starting_apply"));
             conn.runAsync(f -> f.packApplyStart(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.started_value", resp.toString())),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
         applyStatusBtn.setOnAction(e -> {
             conn.runAsync(f -> f.packApplyStatus(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.status_value", resp.toString())),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
         applyPauseBtn.setOnAction(e -> {
             conn.runAsync(f -> f.packApplyPause(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.paused")),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
         applyResumeBtn.setOnAction(e -> {
             conn.runAsync(f -> f.packApplyResume(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.resumed")),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
         applyCancelBtn.setOnAction(e -> {
             if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.pack.cancel_title"), DlcFxI18n.tr("dlc_manager.javafx.pack.cancel_confirm"))) {
                 return;
             }
             conn.runAsync(f -> f.packApplyCancel(), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.canceled")),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox listRow = new HBox(8, listBtn, statusLabel);
@@ -158,14 +161,14 @@ final class RemotePackTab {
                 DlcFxI18n.tr("dlc_manager.javafx.pack.install_confirm", installArchiveField.getText().trim()),
                 DlcFxI18n.tr("dlc_manager.javafx.status.installing"),
                 p -> conn.runAsync(f -> f.packInstall(p), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
-                        err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))))));
+                        err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))))));
         deleteBtn.setOnAction(e -> submitArchiveAction(
                 deleteArchiveField.getText(),
                 DlcFxI18n.tr("dlc_manager.javafx.pack.delete_archive_title"),
                 DlcFxI18n.tr("dlc_manager.javafx.pack.delete_archive_confirm", deleteArchiveField.getText().trim()),
                 DlcFxI18n.tr("dlc_manager.javafx.status.deleting"),
                 p -> conn.runAsync(f -> f.packDelete(p), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
-                        err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))))));
+                        err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))))));
         uninstallBtn.setOnAction(e -> {
             String id = idField.getText().trim();
             if (id.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.pack.identifier_required")); return; }
@@ -174,7 +177,7 @@ final class RemotePackTab {
             }
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalling"));
             conn.runAsync(f -> f.packUninstall(id), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
         importBtn.setOnAction(e -> {
             String p = importPathField.getText().trim();
@@ -184,7 +187,7 @@ final class RemotePackTab {
             }
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.importing"));
             conn.runAsync(f -> f.packImport(p), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
         importUrlBtn.setOnAction(e -> {
             String url = importUrlField.getText().trim();
@@ -195,7 +198,7 @@ final class RemotePackTab {
             }
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.downloading_importing"));
             conn.runAsync(f -> f.packImportUrl(url, name), resp -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString())),
-                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+                    err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         VBox installForm = actionForm(

@@ -1,4 +1,8 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.local;
+
+import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -37,18 +41,18 @@ import java.util.Map;
  * 预设是 .dc 配置文件，定义一组要启用的 DLC 标识符和冲突项。
  * 启用预设后，对应的 DLC 会被启用，冲突的 DLC 会被禁用。
  */
-final class LocalPresetTab {
+public final class DlcFxLocalPresetTab {
 
-    private final StandalonePlatformProvider provider;
+    private final DlcFxPlatformProvider provider;
     private final ObservableList<DlcPresetEntry> entries = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
     private final Label countLabel = new Label("");
 
-    LocalPresetTab(StandalonePlatformProvider provider) {
+    public DlcFxLocalPresetTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_preset"));
         tab.setClosable(false);
 

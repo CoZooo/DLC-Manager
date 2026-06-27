@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.app;
 
 import javafx.application.Application;
 
@@ -10,14 +10,14 @@ import javafx.application.Application;
  * components" error).  This launcher avoids that check by not subclassing
  * {@code Application} itself; it delegates to the explicit
  * {@link Application#launch(Class, String[])} overload, passing
- * {@link DlcManagerApp} as the Application subclass.
+ * {@link DlcFxManagerApp} as the Application subclass.
  */
-public final class Launcher {
+public final class DlcFxLauncher {
 
-    private Launcher() {
+    private DlcFxLauncher() {
     }
 
     public static void main(String[] args) {
-        Application.launch(DlcManagerApp.class, args);
+        Application.launch(DlcFxManagerApp.class, args);
     }
 }

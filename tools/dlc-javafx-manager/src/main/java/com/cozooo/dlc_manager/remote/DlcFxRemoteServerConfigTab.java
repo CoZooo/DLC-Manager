@@ -1,4 +1,7 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -27,23 +30,23 @@ import javafx.scene.layout.VBox;
  * up-front validation, and writes it back.  Mirrors the in-game server-config
  * screen's get/apply round-trip without depending on the running client.
  */
-final class RemoteServerConfigTab {
+public final class DlcFxRemoteServerConfigTab {
 
     private static final Gson PRETTY = new GsonBuilder().setPrettyPrinting().create();
 
-    private final RemoteConnection conn;
+    private final DlcFxRemoteConnection conn;
     private final TextArea editor = new TextArea();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Button reloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.load"));
     private final Button saveBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.save"));
 
-    RemoteServerConfigTab(RemoteConnection conn) {
+    public DlcFxRemoteServerConfigTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
         editor.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.config.editor_prompt"));
         DlcFxStyle.add(editor, "code-editor");
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_config"));
         tab.setClosable(false);
 
@@ -91,7 +94,7 @@ final class RemoteServerConfigTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.loaded"));
             reloadBtn.setDisable(false);
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.load_failed", RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.load_failed", DlcFxRemoteConnection.safeMessage(err)));
             reloadBtn.setDisable(false);
         });
     }
@@ -111,7 +114,7 @@ final class RemoteServerConfigTab {
             }
             config = parsed.getAsJsonObject();
         } catch (Throwable t) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.invalid_json", RemoteConnection.safeMessage(t)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.invalid_json", DlcFxRemoteConnection.safeMessage(t)));
             return;
         }
         if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.config.save_title"), DlcFxI18n.tr("dlc_manager.javafx.config.save_confirm"))) {
@@ -124,7 +127,7 @@ final class RemoteServerConfigTab {
             statusLabel.setText(ok ? DlcFxI18n.tr("dlc_manager.javafx.config.saved") : DlcFxI18n.tr("dlc_manager.javafx.config.save_rejected"));
             saveBtn.setDisable(false);
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.save_failed", RemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.save_failed", DlcFxRemoteConnection.safeMessage(err)));
             saveBtn.setDisable(false);
         });
     }

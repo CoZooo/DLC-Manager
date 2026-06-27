@@ -1,4 +1,7 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -28,19 +31,19 @@ import java.util.List;
  * List responses are rendered as structured rows (name / id / status tag /
  * file name) instead of raw JSON, mirroring the in-game Remote/Required view.
  */
-final class RemoteRemoteRequiredTab {
+public final class DlcFxRemoteRemoteRequiredTab {
 
-    private final RemoteConnection conn;
+    private final DlcFxRemoteConnection conn;
     private final ObservableList<Row> remoteItems = FXCollections.observableArrayList();
     private final ObservableList<Row> requiredItems = FXCollections.observableArrayList();
     private final Label remoteStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Label requiredStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
 
-    RemoteRemoteRequiredTab(RemoteConnection conn) {
+    public DlcFxRemoteRemoteRequiredTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_remote_required"));
         tab.setClosable(false);
 
@@ -56,7 +59,7 @@ final class RemoteRemoteRequiredTab {
                 List<Row> rows = extractRemoteRows(resp);
                 remoteItems.setAll(rows);
                 remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", rows.size()));
-            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         Button remoteDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.required.download_missing"));
@@ -65,7 +68,7 @@ final class RemoteRemoteRequiredTab {
             remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.starting_download"));
             conn.runAsync(f -> f.remoteDownloadStart(null), resp -> {
                 remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_started", summarizeStatus(resp)));
-            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         Button remoteStatusBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_status"));
@@ -73,7 +76,7 @@ final class RemoteRemoteRequiredTab {
         remoteStatusBtn.setOnAction(e -> {
             conn.runAsync(f -> f.remoteDownloadStatus(), resp -> {
                 remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.status_value", summarizeStatus(resp)));
-            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         ListView<Row> remoteList = new ListView<>(remoteItems);
@@ -97,7 +100,7 @@ final class RemoteRemoteRequiredTab {
                 List<Row> rows = extractRequiredRows(resp);
                 requiredItems.setAll(rows);
                 requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", rows.size()));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         Button requiredDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_all"));
@@ -106,7 +109,7 @@ final class RemoteRemoteRequiredTab {
             requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.starting_download"));
             conn.runAsync(f -> f.requiredDownloadStart(null), resp -> {
                 requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_started", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         Button requiredCancelBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.cancel_download"));
@@ -114,7 +117,7 @@ final class RemoteRemoteRequiredTab {
         requiredCancelBtn.setOnAction(e -> {
             conn.runAsync(f -> f.requiredDownloadCancel(), resp -> {
                 requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.canceled_value", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         Button requiredApplyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.apply_required"));
@@ -123,7 +126,7 @@ final class RemoteRemoteRequiredTab {
             requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
             conn.runAsync(f -> f.requiredApply(null), resp -> {
                 requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applied_value", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         Button requiredUninstallBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.uninstall_required"));
@@ -132,7 +135,7 @@ final class RemoteRemoteRequiredTab {
             requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalling"));
             conn.runAsync(f -> f.requiredUninstall(null), resp -> {
                 requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalled_value", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", RemoteConnection.safeMessage(err))));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         ListView<Row> requiredList = new ListView<>(requiredItems);

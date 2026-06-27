@@ -57,9 +57,12 @@ Outputs land in `build/native-image` and `build/native-distributions`.
 
 ```
 src/main/java/com/cozooo/dlc_manager/
-  javafx/         UI: DlcManagerApp + per-tab controllers
+  app/            JavaFX app entry and shell
+  local/          local workspace tabs
+  remote/         remote workspace tabs and connection state
+  ui/             JavaFX i18n and style helpers
   core/           .dc engine, scanner, applier, config, paths (ported from common)
   client/         download / remote / required / preset clients (ported from common)
-  platform/       CrossPlatformRuntime + StandalonePlatformProvider
+  platform/       CrossPlatformRuntime + DlcFxPlatformProvider
 ../dlc-external-controller/src/main/java/   reused pure-Java engine (CurseForge, TCP, ...)
 ```

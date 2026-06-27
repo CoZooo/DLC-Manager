@@ -1,4 +1,7 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.remote;
+
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -13,16 +16,16 @@ import javafx.scene.layout.VBox;
 /**
  * [远程] 服务器连接 tab — host/port/password + 连接状态 + base/dlc 版本显示.
  */
-final class RemoteServerConnectionTab {
+public final class DlcFxRemoteServerConnectionTab {
 
-    private final RemoteConnection conn;
+    private final DlcFxRemoteConnection conn;
     private final TextField hostField = new TextField("127.0.0.1");
     private final TextField portField = new TextField("29690");
     private final TextField passwordField = new TextField();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
     private final Label infoLabel = new Label("");
 
-    RemoteServerConnectionTab(RemoteConnection conn) {
+    public DlcFxRemoteServerConnectionTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
         hostField.setPrefColumnCount(18);
         portField.setPrefColumnCount(6);
@@ -32,7 +35,7 @@ final class RemoteServerConnectionTab {
         infoLabel.textProperty().bind(conn.serverInfoTextProperty());
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_connection"));
         tab.setClosable(false);
 
@@ -50,7 +53,7 @@ final class RemoteServerConnectionTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.server.connecting"));
             conn.connectAsync(host, port, pw, 10000, err -> {
                 if (err != null) {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.server.connect_failed") + ": " + RemoteConnection.safeMessage(err));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.server.connect_failed") + ": " + DlcFxRemoteConnection.safeMessage(err));
                 }
             });
         });

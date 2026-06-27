@@ -1,4 +1,9 @@
-package com.cozooo.dlc_manager.javafx;
+package com.cozooo.dlc_manager.local;
+
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredService;
@@ -43,9 +48,9 @@ import java.util.concurrent.atomic.AtomicLong;
  * expansion reuse the shared common implementation, while this tab only keeps
  * JavaFX-specific view helpers locally.
  */
-final class LocalRequiredTab {
+public final class DlcFxLocalRequiredTab {
 
-    private final StandalonePlatformProvider provider;
+    private final DlcFxPlatformProvider provider;
 
     private final ObservableList<DlcRequiredEntry> entries = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
@@ -56,13 +61,13 @@ final class LocalRequiredTab {
     private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.required.install_targets"));
     private final Label countLabel = new Label("");
 
-    LocalRequiredTab(StandalonePlatformProvider provider) {
+    public DlcFxLocalRequiredTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
         progressBar.setPrefWidth(220);
         progressBar.setVisible(false);
     }
 
-    Tab build() {
+    public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_required"));
         tab.setClosable(false);
 
@@ -128,8 +133,8 @@ final class LocalRequiredTab {
         return tab;
     }
 
-    /** Called by DlcManagerApp when the game directory changes. */
-    void onGameDirChanged() {
+    /** Called by DlcFxManagerApp when the game directory changes. */
+    public void onGameDirChanged() {
         entries.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.required.game_dir_changed"));
