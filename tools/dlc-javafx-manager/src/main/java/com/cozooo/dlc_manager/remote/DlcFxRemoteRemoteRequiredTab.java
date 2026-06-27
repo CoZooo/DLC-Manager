@@ -37,110 +37,110 @@ public final class DlcFxRemoteRemoteRequiredTab {
     private final DlcFxRemoteConnection conn;
     private final ObservableList<Row> remoteItems = FXCollections.observableArrayList();
     private final ObservableList<Row> requiredItems = FXCollections.observableArrayList();
-    private final Label remoteStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
-    private final Label requiredStatus = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Label remoteStatus = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
+    private final Label requiredStatus = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
 
     public DlcFxRemoteRemoteRequiredTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_remote_required"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_remote_required"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Remote section ────────────────────────────────────────
-        Button remoteRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.refresh_remote"));
+        Button remoteRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.refresh_remote"));
         remoteRefreshBtn.disableProperty().bind(conn.connectedProperty().not());
         remoteRefreshBtn.setOnAction(e -> {
-            remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
+            remoteStatus.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
             conn.runAsync(f -> f.remoteList(), resp -> {
                 List<Row> rows = extractRemoteRows(resp);
                 remoteItems.setAll(rows);
-                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", rows.size()));
-            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.common.count_items", rows.size()));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        Button remoteDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.required.download_missing"));
+        Button remoteDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.required.download_missing"));
         remoteDownloadBtn.disableProperty().bind(conn.connectedProperty().not());
         remoteDownloadBtn.setOnAction(e -> {
-            remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.starting_download"));
+            remoteStatus.setText(DlcFxI18n.tr("dlc_manager.status.starting_download"));
             conn.runAsync(f -> f.remoteDownloadStart(null), resp -> {
-                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_started", summarizeStatus(resp)));
-            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.status.download_started", summarizeStatus(resp)));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        Button remoteStatusBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_status"));
+        Button remoteStatusBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.download_status"));
         remoteStatusBtn.disableProperty().bind(conn.connectedProperty().not());
         remoteStatusBtn.setOnAction(e -> {
             conn.runAsync(f -> f.remoteDownloadStatus(), resp -> {
-                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.status_value", summarizeStatus(resp)));
-            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                remoteStatus.setText(DlcFxI18n.tr("dlc_manager.status.status_value", summarizeStatus(resp)));
+            }, err -> remoteStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         ListView<Row> remoteList = new ListView<>(remoteItems);
         remoteList.setCellFactory(param -> new RowCell());
         VBox.setVgrow(remoteList, Priority.ALWAYS);
 
-        Label remoteTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.remote_title"));
+        Label remoteTitle = new Label(DlcFxI18n.tr("dlc_manager.remote_required.remote_title"));
         DlcFxStyle.title(remoteTitle);
         DlcFxStyle.primary(remoteDownloadBtn);
         VBox remoteBox = new VBox(8, remoteTitle, remoteList);
 
         // ── Required section ──────────────────────────────────────
-        Button requiredRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.refresh_required"));
+        Button requiredRefreshBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.refresh_required"));
         requiredRefreshBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredRefreshBtn.setOnAction(e -> {
-            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
             conn.runAsync(f -> f.requiredList(), resp -> {
                 List<Row> rows = extractRequiredRows(resp);
                 requiredItems.setAll(rows);
-                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", rows.size()));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.common.count_items", rows.size()));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        Button requiredDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_all"));
+        Button requiredDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.download_all"));
         requiredDownloadBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredDownloadBtn.setOnAction(e -> {
-            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.starting_download"));
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.starting_download"));
             conn.runAsync(f -> f.requiredDownloadStart(null), resp -> {
-                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_started", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.download_started", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        Button requiredCancelBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.cancel_download"));
+        Button requiredCancelBtn = new Button(DlcFxI18n.tr("dlc_manager.common.cancel_download"));
         requiredCancelBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredCancelBtn.setOnAction(e -> {
             conn.runAsync(f -> f.requiredDownloadCancel(), resp -> {
-                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.canceled_value", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.canceled_value", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        Button requiredApplyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.apply_required"));
+        Button requiredApplyBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.apply_required"));
         requiredApplyBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredApplyBtn.setOnAction(e -> {
-            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
             conn.runAsync(f -> f.requiredApply(null), resp -> {
-                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applied_value", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.applied_value", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        Button requiredUninstallBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_required.uninstall_required"));
+        Button requiredUninstallBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_required.uninstall_required"));
         requiredUninstallBtn.disableProperty().bind(conn.connectedProperty().not());
         requiredUninstallBtn.setOnAction(e -> {
-            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalling"));
+            requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.uninstalling"));
             conn.runAsync(f -> f.requiredUninstall(null), resp -> {
-                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.uninstalled_value", summarizeStatus(resp)));
-            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.uninstalled_value", summarizeStatus(resp)));
+            }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         ListView<Row> requiredList = new ListView<>(requiredItems);
         requiredList.setCellFactory(param -> new RowCell());
         VBox.setVgrow(requiredList, Priority.ALWAYS);
 
-        Label requiredTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.required_title"));
+        Label requiredTitle = new Label(DlcFxI18n.tr("dlc_manager.remote_required.required_title"));
         DlcFxStyle.title(requiredTitle);
         DlcFxStyle.primary(requiredDownloadBtn);
         DlcFxStyle.primary(requiredApplyBtn);
@@ -161,8 +161,8 @@ public final class DlcFxRemoteRemoteRequiredTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
-        Label remoteActionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.remote_title"));
-        Label requiredActionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote_required.required_title"));
+        Label remoteActionTitle = new Label(DlcFxI18n.tr("dlc_manager.remote_required.remote_title"));
+        Label requiredActionTitle = new Label(DlcFxI18n.tr("dlc_manager.remote_required.required_title"));
         DlcFxStyle.actionTitle(remoteActionTitle);
         DlcFxStyle.actionTitle(requiredActionTitle);
 
@@ -173,8 +173,8 @@ public final class DlcFxRemoteRemoteRequiredTab {
         requiredActionBox.getItems().addAll(
                 new UiAction(requiredDownloadBtn.getText(), requiredDownloadBtn::fire),
                 new UiAction(requiredStatusBtnText(), () -> conn.runAsync(f -> f.requiredDownloadStatus(), resp -> {
-                    requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.status_value", summarizeStatus(resp)));
-                }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))))),
+                    requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.status_value", summarizeStatus(resp)));
+                }, err -> requiredStatus.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))))),
                 new UiAction(requiredApplyBtn.getText(), requiredApplyBtn::fire),
                 new UiAction(requiredUninstallBtn.getText(), requiredUninstallBtn::fire),
                 new UiAction(requiredCancelBtn.getText(), requiredCancelBtn::fire));
@@ -205,7 +205,7 @@ public final class DlcFxRemoteRemoteRequiredTab {
     }
 
     private static String requiredStatusBtnText() {
-        return DlcFxI18n.tr("dlc_manager.javafx.remote_required.download_status");
+        return DlcFxI18n.tr("dlc_manager.remote_required.download_status");
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -290,25 +290,25 @@ public final class DlcFxRemoteRemoteRequiredTab {
             JsonObject obj = e.getAsJsonObject();
             String name = str(obj, "name");
             String key = str(obj, "key");
-            String title = firstNonBlank(name, key, DlcFxI18n.tr("dlc_manager.javafx.status.unnamed"));
+            String title = firstNonBlank(name, key, DlcFxI18n.tr("dlc_manager.status.unnamed"));
             boolean done = bool(obj, "done");
             boolean success = bool(obj, "success");
             String error = str(obj, "error");
             String tag;
             String tagState;
             if (done && success) {
-                tag = DlcFxI18n.tr("dlc_manager.javafx.status.downloaded");
+                tag = DlcFxI18n.tr("dlc_manager.status.downloaded");
                 tagState = DlcFxStyle.CHIP_OK;
             } else if (done) {
-                tag = DlcFxI18n.tr("dlc_manager.javafx.status.failed_short");
+                tag = DlcFxI18n.tr("dlc_manager.status.failed_short");
                 tagState = DlcFxStyle.CHIP_ERROR;
             } else {
-                tag = DlcFxI18n.tr("dlc_manager.javafx.status.missing");
+                tag = DlcFxI18n.tr("dlc_manager.status.missing");
                 tagState = DlcFxStyle.CHIP_ERROR;
             }
             StringBuilder sub = new StringBuilder();
             if (key != null && !key.isBlank()) {
-                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.key")).append(key);
+                sub.append(DlcFxI18n.tr("dlc_manager.tooltip.key")).append(key);
             }
             long total = lng(obj, "totalBytes");
             long downloaded = lng(obj, "downloadedBytes");
@@ -322,7 +322,7 @@ public final class DlcFxRemoteRemoteRequiredTab {
                 if (sub.length() > 0) {
                     sub.append("  ");
                 }
-                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.error")).append(error);
+                sub.append(DlcFxI18n.tr("dlc_manager.tooltip.error")).append(error);
             }
             rows.add(new Row(title, sub.toString(), sub.toString(), tag, tagState));
         }
@@ -342,50 +342,50 @@ public final class DlcFxRemoteRemoteRequiredTab {
             String identifier = str(obj, "identifier");
             String id = str(obj, "id");
             String fileName = str(obj, "fileName");
-            String title = firstNonBlank(name, identifier, id, DlcFxI18n.tr("dlc_manager.javafx.status.unnamed"));
+            String title = firstNonBlank(name, identifier, id, DlcFxI18n.tr("dlc_manager.status.unnamed"));
             boolean hasFile = bool(obj, "hasFile");
             boolean needsApply = bool(obj, "needsApply");
             boolean applied = bool(obj, "applied");
             String tag;
             String tagState;
             if (!hasFile) {
-                tag = DlcFxI18n.tr("dlc_manager.javafx.status.missing_download");
+                tag = DlcFxI18n.tr("dlc_manager.status.missing_download");
                 tagState = DlcFxStyle.CHIP_ERROR;
             } else if (needsApply) {
-                tag = DlcFxI18n.tr("dlc_manager.javafx.status.needs_install");
+                tag = DlcFxI18n.tr("dlc_manager.status.needs_install");
                 tagState = DlcFxStyle.CHIP_WARN;
             } else if (applied) {
-                tag = DlcFxI18n.tr("dlc_manager.javafx.status.installed");
+                tag = DlcFxI18n.tr("dlc_manager.status.installed");
                 tagState = DlcFxStyle.CHIP_OK;
             } else {
-                tag = DlcFxI18n.tr("dlc_manager.javafx.status.downloaded");
+                tag = DlcFxI18n.tr("dlc_manager.status.downloaded");
                 tagState = DlcFxStyle.CHIP_NEUTRAL;
             }
             StringBuilder sub = new StringBuilder();
             if (identifier != null && !identifier.isBlank()) {
-                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(identifier);
+                sub.append(DlcFxI18n.tr("dlc_manager.tooltip.identifier")).append(identifier);
             }
             if (fileName != null && !fileName.isBlank()) {
                 if (sub.length() > 0) {
                     sub.append("  ");
                 }
-                sub.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.file")).append(fileName);
+                sub.append(DlcFxI18n.tr("dlc_manager.tooltip.file")).append(fileName);
             }
             StringBuilder detail = new StringBuilder();
             if (id != null && !id.isBlank()) {
-                detail.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.id")).append(id);
+                detail.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(id);
             }
             if (identifier != null && !identifier.isBlank()) {
                 if (detail.length() > 0) {
                     detail.append('\n');
                 }
-                detail.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(identifier);
+                detail.append(DlcFxI18n.tr("dlc_manager.tooltip.identifier")).append(identifier);
             }
             if (fileName != null && !fileName.isBlank()) {
                 if (detail.length() > 0) {
                     detail.append('\n');
                 }
-                detail.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.file")).append(fileName);
+                detail.append(DlcFxI18n.tr("dlc_manager.tooltip.file")).append(fileName);
             }
             rows.add(new Row(title, sub.toString(), detail.toString(), tag, tagState));
         }
@@ -416,11 +416,11 @@ public final class DlcFxRemoteRemoteRequiredTab {
             boolean finished = bool(status, "finished");
             boolean success = bool(status, "success");
             if (finished) {
-                sb.append(success ? DlcFxI18n.tr("dlc_manager.javafx.status.completed_short") : DlcFxI18n.tr("dlc_manager.javafx.status.completed_with_failures"));
+                sb.append(success ? DlcFxI18n.tr("dlc_manager.status.completed_short") : DlcFxI18n.tr("dlc_manager.status.completed_with_failures"));
             } else if (running) {
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.downloading_short"));
+                sb.append(DlcFxI18n.tr("dlc_manager.status.downloading_short"));
             } else {
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.not_running"));
+                sb.append(DlcFxI18n.tr("dlc_manager.status.not_running"));
             }
             int total = (int) lng(status, "totalCount");
             int completed = (int) lng(status, "completedCount");
@@ -429,30 +429,30 @@ public final class DlcFxRemoteRemoteRequiredTab {
             }
             String error = str(status, "error");
             if (error != null && !error.isBlank()) {
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.error_suffix", error));
+                sb.append(DlcFxI18n.tr("dlc_manager.status.error_suffix", error));
             }
             return sb.toString();
         }
         // required_download_cancel → "canceled"
         JsonElement canceledElement = response.get("canceled");
         if (canceledElement != null && canceledElement.isJsonPrimitive()) {
-            return DlcFxI18n.tr("dlc_manager.javafx.status.canceled_value", canceledElement.getAsBoolean());
+            return DlcFxI18n.tr("dlc_manager.status.canceled_value", canceledElement.getAsBoolean());
         }
         // required_uninstall → "removed"
         JsonElement removedElement = response.get("removed");
         if (removedElement != null && removedElement.isJsonPrimitive()) {
-            return DlcFxI18n.tr("dlc_manager.javafx.status.removed_count", removedElement.getAsInt());
+            return DlcFxI18n.tr("dlc_manager.status.removed_count", removedElement.getAsInt());
         }
         // required_apply → "applied"
         JsonElement appliedElement = response.get("applied");
         if (appliedElement != null && appliedElement.isJsonPrimitive()) {
-            return DlcFxI18n.tr("dlc_manager.javafx.status.applied_count", appliedElement.getAsInt());
+            return DlcFxI18n.tr("dlc_manager.status.applied_count", appliedElement.getAsInt());
         }
         JsonElement items = response.get("items");
         if (items != null && items.isJsonArray()) {
-            return DlcFxI18n.tr("dlc_manager.javafx.common.count_items", items.getAsJsonArray().size());
+            return DlcFxI18n.tr("dlc_manager.common.count_items", items.getAsJsonArray().size());
         }
-        return DlcFxI18n.tr("dlc_manager.javafx.status.ok");
+        return DlcFxI18n.tr("dlc_manager.status.ok");
     }
 
     // ───────────────────────────────────────────────────────────────

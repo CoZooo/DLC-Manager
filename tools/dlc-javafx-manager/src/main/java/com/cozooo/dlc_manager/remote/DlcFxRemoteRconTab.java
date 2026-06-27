@@ -30,7 +30,7 @@ public final class DlcFxRemoteRconTab {
 
     private final DlcFxRemoteConnection conn;
     private final ObservableList<String> log = FXCollections.observableArrayList();
-    private final Label infoLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Label infoLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final TextField cmdField = new TextField();
 
     public DlcFxRemoteRconTab(DlcFxRemoteConnection conn) {
@@ -38,40 +38,40 @@ public final class DlcFxRemoteRconTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_rcon"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_rcon"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: info + config ────────────────────────────────────
-        Button infoBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.rcon.query_info"));
-        Button getBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.rcon.get_config"));
+        Button infoBtn = new Button(DlcFxI18n.tr("dlc_manager.rcon.query_info"));
+        Button getBtn = new Button(DlcFxI18n.tr("dlc_manager.rcon.get_config"));
         infoBtn.disableProperty().bind(conn.connectedProperty().not());
         getBtn.disableProperty().bind(conn.connectedProperty().not());
         infoBtn.setOnAction(e -> {
             conn.runAsync(f -> f.rconInfo(), resp -> {
                 infoLabel.setText(formatInfo(resp));
                 appendLog("rcon_info: " + resp.toString());
-            }, err -> infoLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> infoLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
         getBtn.setOnAction(e -> {
             conn.runAsync(f -> f.rconGet(), resp -> {
                 infoLabel.setText(formatGet(resp));
                 appendLog("rcon_get: " + resp.toString());
-            }, err -> infoLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> infoLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         TextField hostField = new TextField();
-        hostField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.rcon.host_prompt"));
+        hostField.setPromptText(DlcFxI18n.tr("dlc_manager.rcon.host_prompt"));
         hostField.setPrefColumnCount(14);
         TextField portField = new TextField();
-        portField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote.port_plain"));
+        portField.setPromptText(DlcFxI18n.tr("dlc_manager.remote.port_plain"));
         portField.setPrefColumnCount(6);
         TextField pwField = new TextField();
-        pwField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote.password_plain"));
+        pwField.setPromptText(DlcFxI18n.tr("dlc_manager.remote.password_plain"));
         pwField.setPrefColumnCount(14);
-        Button setBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.save"));
+        Button setBtn = new Button(DlcFxI18n.tr("dlc_manager.config.save"));
         setBtn.disableProperty().bind(conn.connectedProperty().not());
         setBtn.setOnAction(e -> {
             String h = hostField.getText().trim();
@@ -81,18 +81,18 @@ public final class DlcFxRemoteRconTab {
             final int p = parsed;
             String pw = pwField.getText();
             conn.runAsync(f -> f.rconSet(h, p, pw), resp -> {
-                appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.set_saved"));
-            }, err -> appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.set_failed", DlcFxRemoteConnection.safeMessage(err))));
+                appendLog(DlcFxI18n.tr("dlc_manager.rcon.set_saved"));
+            }, err -> appendLog(DlcFxI18n.tr("dlc_manager.rcon.set_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, infoBtn, getBtn, infoLabel,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.rcon.settings_label")), hostField, portField, pwField, setBtn);
+                new Label(DlcFxI18n.tr("dlc_manager.rcon.settings_label")), hostField, portField, pwField, setBtn);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
         // ── Center: command + log ─────────────────────────────────
-        cmdField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.rcon.command_prompt"));
+        cmdField.setPromptText(DlcFxI18n.tr("dlc_manager.rcon.command_prompt"));
         cmdField.setPrefColumnCount(40);
         cmdField.setOnAction(e -> execCommand());
         Button execBtn = new Button(DlcFxI18n.tr("dlc_manager.server.rcon_send"));
@@ -106,9 +106,9 @@ public final class DlcFxRemoteRconTab {
             if (!confirm(DlcFxI18n.tr("dlc_manager.server.restart_title"), DlcFxI18n.tr("dlc_manager.server.restart_prompt"))) {
                 return;
             }
-            appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.sending_restart"));
+            appendLog(DlcFxI18n.tr("dlc_manager.rcon.sending_restart"));
             conn.runAsync(f -> f.serverRestart(), resp -> appendLog("server_restart: " + resp.toString()),
-                    err -> appendLog(DlcFxI18n.tr("dlc_manager.javafx.rcon.restart_failed", DlcFxRemoteConnection.safeMessage(err))));
+                    err -> appendLog(DlcFxI18n.tr("dlc_manager.rcon.restart_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox cmdBox = new HBox(8, cmdField, execBtn, restartBtn);
@@ -142,8 +142,8 @@ public final class DlcFxRemoteRconTab {
         appendLog("> " + cmd);
         conn.runAsync(f -> f.rconExec(cmd), resp -> {
             String msg = str(resp, "message");
-            appendLog(msg.isBlank() ? DlcFxI18n.tr("dlc_manager.javafx.rcon.no_output") : msg);
-        }, err -> appendLog(DlcFxI18n.tr("dlc_manager.javafx.tooltip.error") + DlcFxRemoteConnection.safeMessage(err)));
+            appendLog(msg.isBlank() ? DlcFxI18n.tr("dlc_manager.rcon.no_output") : msg);
+        }, err -> appendLog(DlcFxI18n.tr("dlc_manager.tooltip.error") + DlcFxRemoteConnection.safeMessage(err)));
         cmdField.clear();
     }
 
@@ -158,18 +158,18 @@ public final class DlcFxRemoteRconTab {
     }
 
     private static String formatInfo(JsonObject resp) {
-        if (resp == null) return DlcFxI18n.tr("dlc_manager.javafx.status.no_data");
-        return DlcFxI18n.tr("dlc_manager.javafx.rcon.info_format",
+        if (resp == null) return DlcFxI18n.tr("dlc_manager.status.no_data");
+        return DlcFxI18n.tr("dlc_manager.rcon.info_format",
                 str(resp, "enabled"), str(resp, "port"), str(resp, "passwordSet"));
     }
 
     private static String formatGet(JsonObject resp) {
-        if (resp == null) return DlcFxI18n.tr("dlc_manager.javafx.status.no_data");
-        return DlcFxI18n.tr("dlc_manager.javafx.rcon.get_format",
+        if (resp == null) return DlcFxI18n.tr("dlc_manager.status.no_data");
+        return DlcFxI18n.tr("dlc_manager.rcon.get_format",
                 str(resp, "host"), str(resp, "port"),
                 resp.has("password") && !str(resp, "password").isBlank()
-                        ? DlcFxI18n.tr("dlc_manager.javafx.common.yes")
-                        : DlcFxI18n.tr("dlc_manager.javafx.common.no"));
+                        ? DlcFxI18n.tr("dlc_manager.common.yes")
+                        : DlcFxI18n.tr("dlc_manager.common.no"));
     }
 
     private static String str(JsonObject obj, String key) {

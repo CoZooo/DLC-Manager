@@ -33,7 +33,7 @@ public final class DlcFxRemoteHotUpdateTab {
     private final DlcFxRemoteConnection conn;
     private final ObservableList<String> updates = FXCollections.observableArrayList();
     private final ObservableList<String> history = FXCollections.observableArrayList();
-    private final Label stateLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Label stateLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label statusLabel = new Label("");
 
     public DlcFxRemoteHotUpdateTab(DlcFxRemoteConnection conn) {
@@ -41,16 +41,16 @@ public final class DlcFxRemoteHotUpdateTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_update"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_update"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: state + actions ──────────────────────────────────
-        Button stateBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.query_state"));
-        Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.query_list"));
-        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_all"));
+        Button stateBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.query_state"));
+        Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.query_list"));
+        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.apply_all"));
 
         stateBtn.disableProperty().bind(conn.connectedProperty().not());
         listBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -59,30 +59,30 @@ public final class DlcFxRemoteHotUpdateTab {
         DlcFxStyle.primary(applyBtn);
 
         stateBtn.setOnAction(e -> {
-            stateLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.querying"));
+            stateLabel.setText(DlcFxI18n.tr("dlc_manager.status.querying"));
             conn.runAsync(f -> f.updateState(), resp -> {
                 stateLabel.setText(formatState(resp));
                 history.setAll(extractStrings(resp, "history"));
                 updates.setAll(extractStrings(resp, "updates"));
-            }, err -> stateLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> stateLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         listBtn.setOnAction(e -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.querying"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.querying"));
             conn.runAsync(f -> f.updateList(), resp -> {
                 updates.setAll(extractStrings(resp, "updates"));
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.update_count", updates.size()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.update_count", updates.size()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         applyBtn.setOnAction(e -> {
-            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_confirm"))) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.apply_title"), DlcFxI18n.tr("dlc_manager.remote_update.apply_confirm"))) {
                 return;
             }
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
             conn.runAsync(f -> f.updateApply(null, null, null, null), resp -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.result_value", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, stateBtn, listBtn, stateLabel, statusLabel);
@@ -91,18 +91,18 @@ public final class DlcFxRemoteHotUpdateTab {
 
         // ── Versioned apply (optional base/dlc old→new) ──────────
         TextField baseOldField = new TextField();
-        baseOldField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.base_old"));
+        baseOldField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.base_old"));
         baseOldField.setPrefColumnCount(10);
         TextField dlcOldField = new TextField();
-        dlcOldField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.dlc_old"));
+        dlcOldField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.dlc_old"));
         dlcOldField.setPrefColumnCount(10);
         TextField baseNewField = new TextField();
-        baseNewField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.base_new"));
+        baseNewField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.base_new"));
         baseNewField.setPrefColumnCount(10);
         TextField dlcNewField = new TextField();
-        dlcNewField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.dlc_new"));
+        dlcNewField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.dlc_new"));
         dlcNewField.setPrefColumnCount(10);
-        Button applyVersionBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version"));
+        Button applyVersionBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.apply_by_version"));
         applyVersionBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(applyVersionBtn);
         applyVersionBtn.setOnAction(e -> {
@@ -111,16 +111,16 @@ public final class DlcFxRemoteHotUpdateTab {
             String baseNew = blankToNull(baseNewField.getText());
             String dlcNew = blankToNull(dlcNewField.getText());
             if (baseOld == null && dlcOld == null && baseNew == null && dlcNew == null) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.version_required"));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.version_required"));
                 return;
             }
-            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_confirm"))) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.apply_by_version_title"), DlcFxI18n.tr("dlc_manager.remote_update.apply_by_version_confirm"))) {
                 return;
             }
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
             conn.runAsync(f -> f.updateApply(baseOld, dlcOld, baseNew, dlcNew), resp -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.result_value", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.result_value", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         root.setTop(topBox);
@@ -131,8 +131,8 @@ public final class DlcFxRemoteHotUpdateTab {
         VBox.setVgrow(updatesList, Priority.ALWAYS);
         VBox.setVgrow(historyList, Priority.ALWAYS);
 
-        Label updatesTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.available_updates"));
-        Label historyTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.history_versions"));
+        Label updatesTitle = new Label(DlcFxI18n.tr("dlc_manager.update.available_updates"));
+        Label historyTitle = new Label(DlcFxI18n.tr("dlc_manager.update.history_versions"));
         DlcFxStyle.title(updatesTitle);
         DlcFxStyle.title(historyTitle);
         VBox updatesBox = new VBox(4, updatesTitle, updatesList);
@@ -147,88 +147,88 @@ public final class DlcFxRemoteHotUpdateTab {
 
         // ── Bottom: one active operation at a time ────────────────
         TextField rollbackField = new TextField();
-        rollbackField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_target"));
+        rollbackField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.rollback_target"));
         rollbackField.setPrefColumnCount(20);
-        Button rollbackBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback"));
+        Button rollbackBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.rollback"));
         rollbackBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.danger(rollbackBtn);
         rollbackBtn.setOnAction(e -> {
             String target = rollbackField.getText().trim();
-            if (target.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_target_required")); return; }
-            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_confirm", target))) {
+            if (target.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.rollback_target_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.rollback_title"), DlcFxI18n.tr("dlc_manager.remote_update.rollback_confirm", target))) {
                 return;
             }
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.rolling_back"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rolling_back"));
             conn.runAsync(f -> f.updateRollback(target), resp -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_result", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.rollback_result", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         TextField importPathField = new TextField();
-        importPathField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.server_package_path"));
+        importPathField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.server_package_path"));
         importPathField.setPrefColumnCount(20);
-        Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"));
+        Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.update.import_package"));
         importBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(importBtn);
         importBtn.setOnAction(e -> {
             String path = importPathField.getText().trim();
-            if (path.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.server_package_path_required")); return; }
-            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_confirm", path))) {
+            if (path.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.server_package_path_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.import_title"), DlcFxI18n.tr("dlc_manager.remote_update.import_confirm", path))) {
                 return;
             }
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.importing"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.importing"));
             conn.runAsync(f -> f.updateImport(path), resp -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_result", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.import_result", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         TextField importUrlField = new TextField();
-        importUrlField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.common.url"));
+        importUrlField.setPromptText(DlcFxI18n.tr("dlc_manager.common.url"));
         importUrlField.setPrefColumnCount(24);
         TextField importNameField = new TextField();
-        importNameField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.common.file_name"));
+        importNameField.setPromptText(DlcFxI18n.tr("dlc_manager.common.file_name"));
         importNameField.setPrefColumnCount(12);
-        Button importUrlBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url"));
+        Button importUrlBtn = new Button(DlcFxI18n.tr("dlc_manager.remote_update.import_url"));
         importUrlBtn.disableProperty().bind(conn.connectedProperty().not());
         DlcFxStyle.primary(importUrlBtn);
         importUrlBtn.setOnAction(e -> {
             String url = importUrlField.getText().trim();
             String name = importNameField.getText().trim();
-            if (url.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.url_required")); return; }
-            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_title"), DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_confirm"))) {
+            if (url.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.common.url_required")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.import_url_title"), DlcFxI18n.tr("dlc_manager.remote_update.import_url_confirm"))) {
                 return;
             }
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.downloading_importing"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.downloading_importing"));
             conn.runAsync(f -> f.updateImportUrl(url, name), resp -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_result", resp.toString()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.import_result", resp.toString()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         ToggleGroup actionGroup = new ToggleGroup();
-        ToggleButton applyAllMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_all"), actionGroup, true);
-        ToggleButton applyVersionMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version"), actionGroup, false);
-        ToggleButton rollbackMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback"), actionGroup, false);
-        ToggleButton importMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"), actionGroup, false);
-        ToggleButton importUrlMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url"), actionGroup, false);
+        ToggleButton applyAllMode = modeButton(DlcFxI18n.tr("dlc_manager.remote_update.apply_all"), actionGroup, true);
+        ToggleButton applyVersionMode = modeButton(DlcFxI18n.tr("dlc_manager.remote_update.apply_by_version"), actionGroup, false);
+        ToggleButton rollbackMode = modeButton(DlcFxI18n.tr("dlc_manager.remote_update.rollback"), actionGroup, false);
+        ToggleButton importMode = modeButton(DlcFxI18n.tr("dlc_manager.update.import_package"), actionGroup, false);
+        ToggleButton importUrlMode = modeButton(DlcFxI18n.tr("dlc_manager.remote_update.import_url"), actionGroup, false);
         HBox modeBar = new HBox(6, applyAllMode, applyVersionMode, rollbackMode, importMode, importUrlMode);
         modeBar.setAlignment(Pos.CENTER_LEFT);
 
         VBox applyAllForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_all"),
+                DlcFxI18n.tr("dlc_manager.remote_update.apply_all"),
                 applyBtn);
         VBox applyVersionForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.remote_update.apply_by_version_label"),
+                DlcFxI18n.tr("dlc_manager.remote_update.apply_by_version_label"),
                 new HBox(8, baseOldField, dlcOldField,
-                        new Label(DlcFxI18n.tr("dlc_manager.javafx.common.arrow")),
+                        new Label(DlcFxI18n.tr("dlc_manager.common.arrow")),
                         baseNewField, dlcNewField, applyVersionBtn));
         VBox rollbackForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.remote_update.rollback_label"),
+                DlcFxI18n.tr("dlc_manager.remote_update.rollback_label"),
                 new HBox(8, rollbackField, rollbackBtn));
         VBox importForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_label"),
+                DlcFxI18n.tr("dlc_manager.remote_update.import_label"),
                 new HBox(8, importPathField, importBtn));
         VBox importUrlForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.remote_update.import_url_label"),
+                DlcFxI18n.tr("dlc_manager.remote_update.import_url_label"),
                 new HBox(8, importUrlField, importNameField, importUrlBtn));
 
         VBox inspector = new VBox(applyAllForm, applyVersionForm, rollbackForm, importForm, importUrlForm);
@@ -247,7 +247,7 @@ public final class DlcFxRemoteHotUpdateTab {
             }
         });
 
-        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.action_panel"));
+        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.pack.action_panel"));
         DlcFxStyle.actionTitle(actionTitle);
         VBox actionPanel = new VBox(8, actionTitle, modeBar, inspector);
         DlcFxStyle.actionPanel(actionPanel);
@@ -282,7 +282,7 @@ public final class DlcFxRemoteHotUpdateTab {
     }
 
     private static String formatState(JsonObject resp) {
-        if (resp == null) return DlcFxI18n.tr("dlc_manager.javafx.status.no_data");
+        if (resp == null) return DlcFxI18n.tr("dlc_manager.status.no_data");
         StringBuilder sb = new StringBuilder();
         sb.append("base=").append(str(resp, "base"));
         sb.append("  dlc=").append(str(resp, "dlc"));

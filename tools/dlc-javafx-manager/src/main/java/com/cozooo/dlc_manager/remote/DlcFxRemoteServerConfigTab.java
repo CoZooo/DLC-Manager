@@ -36,18 +36,18 @@ public final class DlcFxRemoteServerConfigTab {
 
     private final DlcFxRemoteConnection conn;
     private final TextArea editor = new TextArea();
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
-    private final Button reloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.load"));
-    private final Button saveBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.config.save"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
+    private final Button reloadBtn = new Button(DlcFxI18n.tr("dlc_manager.config.load"));
+    private final Button saveBtn = new Button(DlcFxI18n.tr("dlc_manager.config.save"));
 
     public DlcFxRemoteServerConfigTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
-        editor.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.config.editor_prompt"));
+        editor.setPromptText(DlcFxI18n.tr("dlc_manager.config.editor_prompt"));
         DlcFxStyle.add(editor, "code-editor");
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_config"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_config"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -80,21 +80,21 @@ public final class DlcFxRemoteServerConfigTab {
     // ───────────────────────────────────────────────────────────────
 
     private void loadAsync() {
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.loading"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.config.loading"));
         reloadBtn.setDisable(true);
         conn.runAsync(f -> f.configGet(), resp -> {
             JsonElement config = resp.get("config");
             if (config == null || !config.isJsonObject()) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.load_missing_config"));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.config.load_missing_config"));
                 reloadBtn.setDisable(false);
                 return;
             }
             editor.setText(PRETTY.toJson(config));
             editor.setScrollTop(0);
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.loaded"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.config.loaded"));
             reloadBtn.setDisable(false);
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.load_failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.config.load_failed", DlcFxRemoteConnection.safeMessage(err)));
             reloadBtn.setDisable(false);
         });
     }
@@ -110,24 +110,24 @@ public final class DlcFxRemoteServerConfigTab {
             // we never ship a malformed payload to the server.
             JsonElement parsed = JsonParser.parseString(editor.getText());
             if (parsed == null || !parsed.isJsonObject()) {
-                throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.javafx.config.must_be_object"));
+                throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.config.must_be_object"));
             }
             config = parsed.getAsJsonObject();
         } catch (Throwable t) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.invalid_json", DlcFxRemoteConnection.safeMessage(t)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.config.invalid_json", DlcFxRemoteConnection.safeMessage(t)));
             return;
         }
-        if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.config.save_title"), DlcFxI18n.tr("dlc_manager.javafx.config.save_confirm"))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.config.save_title"), DlcFxI18n.tr("dlc_manager.config.save_confirm"))) {
             return;
         }
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.config.saving"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.config.saving"));
         saveBtn.setDisable(true);
         conn.runAsync(f -> f.configSet(config), resp -> {
             boolean ok = resp.has("ok") && resp.get("ok").isJsonPrimitive() && resp.get("ok").getAsBoolean();
-            statusLabel.setText(ok ? DlcFxI18n.tr("dlc_manager.javafx.config.saved") : DlcFxI18n.tr("dlc_manager.javafx.config.save_rejected"));
+            statusLabel.setText(ok ? DlcFxI18n.tr("dlc_manager.config.saved") : DlcFxI18n.tr("dlc_manager.config.save_rejected"));
             saveBtn.setDisable(false);
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.save_failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.save_failed", DlcFxRemoteConnection.safeMessage(err)));
             saveBtn.setDisable(false);
         });
     }

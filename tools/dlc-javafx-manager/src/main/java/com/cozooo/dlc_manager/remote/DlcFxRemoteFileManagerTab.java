@@ -42,7 +42,7 @@ public final class DlcFxRemoteFileManagerTab {
 
     private final DlcFxRemoteConnection conn;
     private final ObservableList<String> entries = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label pathLabel = new Label("/");
     private String currentPath = "";
 
@@ -54,7 +54,7 @@ public final class DlcFxRemoteFileManagerTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_files"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_files"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -63,16 +63,16 @@ public final class DlcFxRemoteFileManagerTab {
         // ── Top: path + list ──────────────────────────────────────
         TextField pathField = new TextField("/");
         pathField.setPrefColumnCount(30);
-        Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.list"));
+        Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.files.list"));
         listBtn.disableProperty().bind(conn.connectedProperty().not());
         listBtn.setOnAction(e -> {
             currentPath = pathField.getText().trim();
             pathLabel.setText(currentPath.isEmpty() ? "/" : currentPath);
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
             conn.runAsync(f -> f.listFiles(currentPath), list -> {
                 entries.setAll(formatEntries(list));
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", list.size()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", list.size()));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         HBox topBox = new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.server.files_path")), pathField, listBtn, pathLabel, statusLabel);
@@ -89,10 +89,10 @@ public final class DlcFxRemoteFileManagerTab {
         root.setCenter(center);
 
         // ── Bottom: upload/download/delete/push ───────────────────
-        Button uploadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.upload_file"));
-        Button downloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.download_file"));
+        Button uploadBtn = new Button(DlcFxI18n.tr("dlc_manager.files.upload_file"));
+        Button downloadBtn = new Button(DlcFxI18n.tr("dlc_manager.files.download_file"));
         Button deleteBtn = new Button(DlcFxI18n.tr("dlc_manager.server.files_delete"));
-        Button pushBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.files.push_folder"));
+        Button pushBtn = new Button(DlcFxI18n.tr("dlc_manager.files.push_folder"));
         DlcFxStyle.primary(uploadBtn);
         DlcFxStyle.primary(pushBtn);
         DlcFxStyle.danger(deleteBtn);
@@ -103,18 +103,18 @@ public final class DlcFxRemoteFileManagerTab {
         pushBtn.disableProperty().bind(conn.connectedProperty().not());
 
         TextField uploadNameField = new TextField();
-        uploadNameField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
+        uploadNameField.setPromptText(DlcFxI18n.tr("dlc_manager.files.remote_name_prompt"));
         uploadNameField.setPrefColumnCount(24);
         TextField downloadPathField = new TextField();
-        downloadPathField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
+        downloadPathField.setPromptText(DlcFxI18n.tr("dlc_manager.files.remote_name_prompt"));
         downloadPathField.setPrefColumnCount(24);
         TextField deletePathField = new TextField();
-        deletePathField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name_prompt"));
+        deletePathField.setPromptText(DlcFxI18n.tr("dlc_manager.files.remote_name_prompt"));
         deletePathField.setPrefColumnCount(24);
 
         uploadBtn.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
-            chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.files.choose_upload"));
+            chooser.setTitle(DlcFxI18n.tr("dlc_manager.files.choose_upload"));
             File f = chooser.showOpenDialog(primaryStage);
             if (f == null) return;
             String remote = uploadNameField.getText().trim();
@@ -122,17 +122,17 @@ public final class DlcFxRemoteFileManagerTab {
                 remote = (currentPath.isEmpty() ? "" : currentPath + "/") + f.getName();
             }
             final String remotePath = remote;
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.uploading"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.uploading"));
             conn.runAsync(client -> {
                 client.uploadFile(remotePath, f.toPath());
                 return true;
             }, ok -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.upload_done", remotePath));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.upload_done", remotePath));
                 // refresh
                 conn.runAsync(c -> c.listFiles(currentPath), list -> {
                     entries.setAll(formatEntries(list));
                 }, err -> {});
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.upload_failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.upload_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         downloadBtn.setOnAction(e -> {
@@ -144,15 +144,15 @@ public final class DlcFxRemoteFileManagerTab {
             } else {
                 remotePath = downloadPathField.getText().trim();
             }
-            if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.select_or_enter_path")); return; }
+            if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.select_or_enter_path")); return; }
             DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.files.choose_save_dir"));
+            chooser.setTitle(DlcFxI18n.tr("dlc_manager.files.choose_save_dir"));
             File dir = chooser.showDialog(primaryStage);
             if (dir == null) return;
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.downloading_short"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.downloading_short"));
             conn.runAsync(client -> client.downloadFile(remotePath, dir.toPath()), saved -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.download_done", saved));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.download_done", saved));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         deleteBtn.setOnAction(e -> {
@@ -164,51 +164,51 @@ public final class DlcFxRemoteFileManagerTab {
             } else {
                 remotePath = deletePathField.getText().trim();
             }
-            if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.select_or_enter_path")); return; }
-            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.files.delete_title"), DlcFxI18n.tr("dlc_manager.javafx.files.delete_confirm", remotePath))) {
+            if (remotePath.isBlank()) { statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.select_or_enter_path")); return; }
+            if (!confirm(DlcFxI18n.tr("dlc_manager.files.delete_title"), DlcFxI18n.tr("dlc_manager.files.delete_confirm", remotePath))) {
                 return;
             }
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.deleting"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.deleting"));
             conn.runAsync(client -> { client.deleteFile(remotePath); return true; }, ok -> {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.deleted", remotePath));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.deleted", remotePath));
                 conn.runAsync(c -> c.listFiles(currentPath), list -> entries.setAll(formatEntries(list)), err -> {});
             }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         pushBtn.setOnAction(e -> {
             DirectoryChooser chooser = new DirectoryChooser();
-            chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.files.choose_push_folder"));
+            chooser.setTitle(DlcFxI18n.tr("dlc_manager.files.choose_push_folder"));
             File dir = chooser.showDialog(primaryStage);
             if (dir == null) return;
-            if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.files.push_title"), DlcFxI18n.tr("dlc_manager.javafx.files.push_confirm"))) {
+            if (!confirm(DlcFxI18n.tr("dlc_manager.files.push_title"), DlcFxI18n.tr("dlc_manager.files.push_confirm"))) {
                 return;
             }
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.pushing"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.pushing"));
             conn.runAsync(client -> {
                 pushDirectory(client, dir.toPath());
                 return true;
-            }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.files.push_failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.push_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
         ToggleGroup actionGroup = new ToggleGroup();
-        ToggleButton uploadMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.files.upload_file"), actionGroup, true);
-        ToggleButton downloadMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.files.download_file"), actionGroup, false);
+        ToggleButton uploadMode = modeButton(DlcFxI18n.tr("dlc_manager.files.upload_file"), actionGroup, true);
+        ToggleButton downloadMode = modeButton(DlcFxI18n.tr("dlc_manager.files.download_file"), actionGroup, false);
         ToggleButton deleteMode = modeButton(DlcFxI18n.tr("dlc_manager.server.files_delete"), actionGroup, false);
-        ToggleButton pushMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.files.push_folder"), actionGroup, false);
+        ToggleButton pushMode = modeButton(DlcFxI18n.tr("dlc_manager.files.push_folder"), actionGroup, false);
         HBox modeBar = new HBox(6, uploadMode, downloadMode, deleteMode, pushMode);
         modeBar.setAlignment(Pos.CENTER_LEFT);
 
         VBox uploadForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.files.upload_file"),
-                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), uploadNameField, uploadBtn));
+                DlcFxI18n.tr("dlc_manager.files.upload_file"),
+                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.files.remote_name")), uploadNameField, uploadBtn));
         VBox downloadForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.files.download_file"),
-                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), downloadPathField, downloadBtn));
+                DlcFxI18n.tr("dlc_manager.files.download_file"),
+                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.files.remote_name")), downloadPathField, downloadBtn));
         VBox deleteForm = actionForm(
                 DlcFxI18n.tr("dlc_manager.server.files_delete"),
-                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.javafx.files.remote_name")), deletePathField, deleteBtn));
+                new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.files.remote_name")), deletePathField, deleteBtn));
         VBox pushForm = actionForm(
-                DlcFxI18n.tr("dlc_manager.javafx.files.push_folder"),
+                DlcFxI18n.tr("dlc_manager.files.push_folder"),
                 pushBtn);
 
         VBox inspector = new VBox(uploadForm, downloadForm, deleteForm, pushForm);
@@ -225,7 +225,7 @@ public final class DlcFxRemoteFileManagerTab {
             }
         });
 
-        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.action_panel"));
+        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.pack.action_panel"));
         DlcFxStyle.actionTitle(actionTitle);
         VBox actionPanel = new VBox(8, actionTitle, modeBar, inspector);
         DlcFxStyle.actionPanel(actionPanel);
@@ -326,11 +326,11 @@ public final class DlcFxRemoteFileManagerTab {
     }
 
     private static String dirPrefix() {
-        return DlcFxI18n.tr("dlc_manager.javafx.files.dir_prefix");
+        return DlcFxI18n.tr("dlc_manager.files.dir_prefix");
     }
 
     private static String filePrefix() {
-        return DlcFxI18n.tr("dlc_manager.javafx.files.file_prefix");
+        return DlcFxI18n.tr("dlc_manager.files.file_prefix");
     }
 
     private static String formatSize(long bytes) {

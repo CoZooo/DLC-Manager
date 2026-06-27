@@ -27,7 +27,7 @@ public final class DlcFxRemoteConnection {
     }
 
     private final BooleanProperty connected = new SimpleBooleanProperty(false);
-    private final StringProperty statusText = new SimpleStringProperty(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final StringProperty statusText = new SimpleStringProperty(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final StringProperty serverInfoText = new SimpleStringProperty("");
 
     private volatile DlcTcpFacade facade;
@@ -55,8 +55,8 @@ public final class DlcFxRemoteConnection {
                 connectedPort = port;
                 Platform.runLater(() -> {
                     connected.set(true);
-                    statusText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.connected_to", host, port));
-                    serverInfoText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.server_info_value",
+                    statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, port));
+                    serverInfoText.set(DlcFxI18n.tr("dlc_manager.remote.server_info_value",
                             info.baseVersion, info.dlcVersion, info.remoteMissing, info.requiredMissing));
                     onDone.accept(null);
                 });
@@ -79,21 +79,21 @@ public final class DlcFxRemoteConnection {
             try { f.close(); } catch (Exception ignored) {}
         }
         connected.set(false);
-        statusText.set(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+        statusText.set(DlcFxI18n.tr("dlc_manager.status.disconnected"));
         serverInfoText.set("");
     }
 
     public void refreshLanguage() {
         if (connected.get()) {
             String host = connectedHost == null ? "" : connectedHost;
-            statusText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.connected_to", host, connectedPort));
+            statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, connectedPort));
             SyncModels.ServerInfo info = lastServerInfo;
             if (info != null) {
-                serverInfoText.set(DlcFxI18n.tr("dlc_manager.javafx.remote.server_info_value",
+                serverInfoText.set(DlcFxI18n.tr("dlc_manager.remote.server_info_value",
                         info.baseVersion, info.dlcVersion, info.remoteMissing, info.requiredMissing));
             }
         } else {
-            statusText.set(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+            statusText.set(DlcFxI18n.tr("dlc_manager.status.disconnected"));
             serverInfoText.set("");
         }
     }
@@ -108,7 +108,7 @@ public final class DlcFxRemoteConnection {
                       Consumer<T> onSuccess, Consumer<Throwable> onError) {
         DlcTcpFacade f = facade;
         if (f == null) {
-            Platform.runLater(() -> onError.accept(new IllegalStateException(DlcFxI18n.tr("dlc_manager.javafx.remote.not_connected"))));
+            Platform.runLater(() -> onError.accept(new IllegalStateException(DlcFxI18n.tr("dlc_manager.remote.not_connected"))));
             return;
         }
         Thread thread = new Thread(() -> {

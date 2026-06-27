@@ -64,7 +64,7 @@ public final class DlcFxLocalDlcManagementTab {
     private final FilteredList<DlcItem> filteredItems = new FilteredList<>(allItems);
     private final Label countLabel = new Label("");
     private final ProgressBar progressBar = new ProgressBar(0);
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.ready"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.ready"));
     private final TextField searchField = new TextField();
     private final ComboBox<DlcType> typeFilter = new ComboBox<>();
     private Button rescanBtn;
@@ -83,18 +83,18 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_dlc"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_dlc"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: scan controls ───────────────────────────────────
-        rescanBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.scan_dlc"));
+        rescanBtn = new Button(DlcFxI18n.tr("dlc_manager.local.scan_dlc"));
         rescanBtn.setDisable(!gameDirSelected);
         rescanBtn.setOnAction(e -> scanAsync());
 
-        openDlcDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.open_dlc_dir"));
+        openDlcDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.open_dlc_dir"));
         openDlcDirBtn.setDisable(!gameDirSelected);
         openDlcDirBtn.setOnAction(e -> openDlcDirectory());
         DlcFxStyle.primary(rescanBtn);
@@ -109,7 +109,7 @@ public final class DlcFxLocalDlcManagementTab {
         root.setTop(topBox);
 
         // ── Center: filter bar + DLC list ─────────────────────────
-        searchField.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.local.search_prompt"));
+        searchField.setPromptText(DlcFxI18n.tr("dlc_manager.local.search_prompt"));
         searchField.setPrefColumnCount(30);
         searchField.textProperty().addListener((obs, o, n) -> applyFilter(n, typeFilter.getValue()));
 
@@ -117,15 +117,15 @@ public final class DlcFxLocalDlcManagementTab {
         for (DlcType t : DlcType.values()) {
             typeFilter.getItems().add(t);
         }
-        typeFilter.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.local.all_types"));
+        typeFilter.setPromptText(DlcFxI18n.tr("dlc_manager.local.all_types"));
         typeFilter.setConverter(new javafx.util.StringConverter<>() {
-            @Override public String toString(DlcType t) { return t == null ? DlcFxI18n.tr("dlc_manager.javafx.local.all_types") : DlcFxI18n.tr(t.getDisplayKey()); }
+            @Override public String toString(DlcType t) { return t == null ? DlcFxI18n.tr("dlc_manager.local.all_types") : DlcFxI18n.tr(t.getDisplayKey()); }
             @Override public DlcType fromString(String s) { return null; }
         });
         typeFilter.valueProperty().addListener((obs, o, n) -> applyFilter(searchField.getText(), n));
 
-        Label searchLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.filter"));
-        Label typeLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.type"));
+        Label searchLabel = new Label(DlcFxI18n.tr("dlc_manager.local.filter"));
+        Label typeLabel = new Label(DlcFxI18n.tr("dlc_manager.local.type"));
         DlcFxStyle.muted(searchLabel);
         DlcFxStyle.muted(typeLabel);
         HBox filterBox = new HBox(8, searchLabel, searchField, typeLabel, typeFilter);
@@ -143,17 +143,17 @@ public final class DlcFxLocalDlcManagementTab {
         root.setCenter(centerBox);
 
         // ── Bottom: apply controls ────────────────────────────────
-        Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.select_all"));
+        Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_all"));
         selectAllBtn.setOnAction(e -> {
             for (DlcItem it : allItems) setItemEnabled(it, true);
             listView.refresh();
         });
-        Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.select_none"));
+        Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_none"));
         selectNoneBtn.setOnAction(e -> {
             for (DlcItem it : allItems) setItemEnabled(it, false);
             listView.refresh();
         });
-        Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.invert"));
+        Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
         invertBtn.setOnAction(e -> {
             for (DlcItem it : allItems) setItemEnabled(it, !it.isEnabled());
             listView.refresh();
@@ -162,13 +162,13 @@ public final class DlcFxLocalDlcManagementTab {
         ComboBox<DlcApplyMode> modeCombo = new ComboBox<>(FXCollections.observableArrayList(DlcApplyMode.values()));
         modeCombo.getSelectionModel().select(DlcApplyMode.RESTART_ONLY);
 
-        applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.apply_changes"));
+        applyBtn = new Button(DlcFxI18n.tr("dlc_manager.local.apply_changes"));
         applyBtn.setDisable(!gameDirSelected);
         applyBtn.setOnAction(e -> applyAsync(modeCombo.getValue()));
         DlcFxStyle.primary(applyBtn);
 
-        Label selectionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.select_all"));
-        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.local.apply_changes"));
+        Label selectionTitle = new Label(DlcFxI18n.tr("dlc_manager.local.select_all"));
+        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.local.apply_changes"));
         DlcFxStyle.actionTitle(selectionTitle);
         DlcFxStyle.actionTitle(applyTitle);
 
@@ -203,7 +203,7 @@ public final class DlcFxLocalDlcManagementTab {
         }
         allItems.clear();
         countLabel.setText("");
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.game_dir_changed"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
         scanAsync();
     }
 
@@ -214,45 +214,45 @@ public final class DlcFxLocalDlcManagementTab {
     private void openDlcDirectory() {
         List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
         if (roots.isEmpty()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.no_dlc_root"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.no_dlc_root"));
             return;
         }
         java.nio.file.Path dlcRoot = roots.get(0);
         if (!java.nio.file.Files.exists(dlcRoot)) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.dlc_dir_missing", dlcRoot));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.dlc_dir_missing", dlcRoot));
             return;
         }
         try {
             java.awt.Desktop.getDesktop().open(dlcRoot.toFile());
         } catch (Exception ex) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.open_failed", safeMessage(ex)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.open_failed", safeMessage(ex)));
         }
     }
 
     private void scanAsync() {
         progressBar.setVisible(true);
         progressBar.setProgress(-1); // indeterminate
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.scanning"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scanning"));
         Thread thread = new Thread(() -> {
             try {
                 // Diagnostic: collect DLC roots state
                 List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
                 StringBuilder diag = new StringBuilder();
-                diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.game_dir", provider.gameDir())).append('\n');
-                diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dlc_root_raw", DlcConfig.getDlcRootRaw())).append('\n');
+                diag.append(DlcFxI18n.tr("dlc_manager.local.diag.game_dir", provider.gameDir())).append('\n');
+                diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dlc_root_raw", DlcConfig.getDlcRootRaw())).append('\n');
                 boolean[] anyRootExists = {false};
                 for (java.nio.file.Path root : roots) {
                     boolean exists = java.nio.file.Files.exists(root);
                     if (exists) anyRootExists[0] = true;
-                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dlc_root", root, exists)).append('\n');
+                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dlc_root", root, exists)).append('\n');
                     // Diagnose the info directory and config files.
                     java.nio.file.Path infoDir = root.resolve("info");
                     boolean infoExists = java.nio.file.Files.isDirectory(infoDir);
-                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.info_dir", infoDir, infoExists)).append('\n');
+                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_dir", infoDir, infoExists)).append('\n');
                     if (infoExists) {
                         try (var stream = java.nio.file.Files.list(infoDir)) {
                             var items = stream.toList();
-                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.info_file_count", items.size())).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_file_count", items.size())).append('\n');
                             int dcCount = 0;
                             int otherCount = 0;
                             for (var item : items) {
@@ -267,24 +267,24 @@ public final class DlcFxLocalDlcManagementTab {
                                             String fName = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "fileName");
                                             String fType = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "type");
                                             String fTarget = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "appliedTarget");
-                                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_summary", fn, fName, fType, fTarget)).append('\n');
+                                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_summary", fn, fName, fType, fTarget)).append('\n');
                                         } else {
-                                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_parse_failed", fn)).append('\n');
+                                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_parse_failed", fn)).append('\n');
                                         }
                                     } catch (Exception ex) {
-                                        diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_read_failed", fn, ex.getMessage())).append('\n');
+                                        diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_read_failed", fn, ex.getMessage())).append('\n');
                                     }
                                 } else {
                                     otherCount++;
-                                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.non_dc_file", fn)).append('\n');
+                                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.non_dc_file", fn)).append('\n');
                                 }
                             }
-                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.dc_config_count", dcCount)).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_config_count", dcCount)).append('\n');
                             if (otherCount > 0) {
-                                diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.other_file_count", otherCount)).append('\n');
+                                diag.append(DlcFxI18n.tr("dlc_manager.local.diag.other_file_count", otherCount)).append('\n');
                             }
                         } catch (Exception ex) {
-                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.info_read_failed", ex.getMessage())).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_read_failed", ex.getMessage())).append('\n');
                         }
                     }
                     // Diagnose actual DLC files.
@@ -293,18 +293,18 @@ public final class DlcFxLocalDlcManagementTab {
                             var allFiles = stream.toList();
                             long jars = allFiles.stream().filter(p -> p.toString().toLowerCase().endsWith(".jar")).count();
                             long zips = allFiles.stream().filter(p -> p.toString().toLowerCase().endsWith(".zip")).count();
-                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.jar_count", jars)).append('\n');
-                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.zip_count", zips)).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.jar_count", jars)).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.zip_count", zips)).append('\n');
                             // List every file outside the info directory.
                             java.nio.file.Path infoDir0 = root.resolve("info");
                             for (var p : allFiles) {
                                 if (java.nio.file.Files.isRegularFile(p) && !p.startsWith(infoDir0)) {
                                     String rel = root.relativize(p).toString().replace('\\', '/');
-                                    diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.file", rel)).append('\n');
+                                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.file", rel)).append('\n');
                                 }
                             }
                         } catch (Exception ex) {
-                            diag.append(DlcFxI18n.tr("dlc_manager.javafx.local.diag.walk_failed", ex.getMessage())).append('\n');
+                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.walk_failed", ex.getMessage())).append('\n');
                         }
                     }
                 }
@@ -350,16 +350,16 @@ public final class DlcFxLocalDlcManagementTab {
                 System.out.println("[DLC-Scan-Debug]\n" + diagText + "total=" + total);
                 Platform.runLater(() -> {
                     allItems.setAll(flat);
-                    countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.common.count_items", total));
+                    countLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", total));
                     progressBar.setVisible(false);
                     if (total == 0) {
                         String msg = anyRootExists[0]
-                            ? DlcFxI18n.tr("dlc_manager.javafx.local.no_dlc_items")
-                            : DlcFxI18n.tr("dlc_manager.javafx.local.no_dlc_dir");
+                            ? DlcFxI18n.tr("dlc_manager.local.no_dlc_items")
+                            : DlcFxI18n.tr("dlc_manager.local.no_dlc_dir");
                         statusLabel.setText(msg);
                         statusLabel.setTooltip(new Tooltip(diagText));
                     } else {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.scan_done"));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_done"));
                         statusLabel.setTooltip(new Tooltip(diagText));
                     }
                 });
@@ -367,7 +367,7 @@ public final class DlcFxLocalDlcManagementTab {
                 t.printStackTrace();
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.local.scan_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_failed", safeMessage(t)));
                 });
             }
         }, "dlc-scan");
@@ -382,7 +382,7 @@ public final class DlcFxLocalDlcManagementTab {
         final DlcApplyMode finalMode = mode;
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
         Thread thread = new Thread(() -> {
             try {
                 DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(allItems), finalMode);
@@ -394,19 +394,19 @@ public final class DlcFxLocalDlcManagementTab {
                     progressBar.setVisible(false);
                     StringBuilder sb = new StringBuilder();
                     if (result.requiresRestart()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.requires_restart"));
+                        sb.append(DlcFxI18n.tr("dlc_manager.apply.requires_restart"));
                     }
                     if (result.hotReloaded()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.hot_reloaded"));
+                        sb.append(DlcFxI18n.tr("dlc_manager.apply.hot_reloaded"));
                     }
                     if (result.helperScheduled()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.helper_scheduled"));
+                        sb.append(DlcFxI18n.tr("dlc_manager.apply.helper_scheduled"));
                     }
                     if (sb.length() == 0) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.apply_done"));
+                        sb.append(DlcFxI18n.tr("dlc_manager.status.apply_done"));
                     }
                     if (!result.messages().isEmpty()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.message_count_suffix", result.messages().size()));
+                        sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
                     }
                     statusLabel.setText(sb.toString());
                     // Surface the per-item apply messages (conflicts/enables/etc.)
@@ -425,7 +425,7 @@ public final class DlcFxLocalDlcManagementTab {
             } catch (Throwable t) {
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", safeMessage(t)));
                 });
             }
         }, "dlc-apply");
@@ -490,18 +490,18 @@ public final class DlcFxLocalDlcManagementTab {
                 typeLabel.setText(item.getType().name());
                 nameLabel.setText(item.getName() != null ? item.getName() : item.getId());
                 StringBuilder tip = new StringBuilder();
-                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.id")).append(item.getId());
+                tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());
                 if (item.getSourcePath() != null) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.source")).append(item.getSourcePath());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.source")).append(item.getSourcePath());
                 }
                 if (item.getAppliedTargetRaw() != null && !item.getAppliedTargetRaw().isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.target")).append(item.getAppliedTargetRaw());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(item.getAppliedTargetRaw());
                 }
                 if (!item.getDependencies().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.dependencies")).append(String.join(", ", item.getDependencies()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.dependencies")).append(String.join(", ", item.getDependencies()));
                 }
                 if (!item.getConflicts().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
                 }
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);

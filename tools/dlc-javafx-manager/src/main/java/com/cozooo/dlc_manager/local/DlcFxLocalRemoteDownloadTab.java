@@ -40,11 +40,11 @@ public final class DlcFxLocalRemoteDownloadTab {
     private final DlcFxPlatformProvider provider;
 
     private final ObservableList<DlcRemoteEntry> entries = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
-    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote.refresh"));
-    private final Button downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote.download_missing"));
-    private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.download_selected"));
+    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.remote.refresh"));
+    private final Button downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.remote.download_missing"));
+    private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.common.download_selected"));
     private final Label countLabel = new Label("");
 
     public DlcFxLocalRemoteDownloadTab(DlcFxPlatformProvider provider) {
@@ -54,7 +54,7 @@ public final class DlcFxLocalRemoteDownloadTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_remote"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_remote"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -88,7 +88,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         downloadSelectedBtn.setOnAction(e -> {
             java.util.List<DlcRemoteEntry> selected = listView.getSelectionModel().getSelectedItems();
             if (selected == null || selected.isEmpty()) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.select_list_item"));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_list_item"));
                 return;
             }
             java.util.List<DlcRemoteEntry> missingSelected = new java.util.ArrayList<>();
@@ -98,7 +98,7 @@ public final class DlcFxLocalRemoteDownloadTab {
                 }
             }
             if (missingSelected.isEmpty()) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.selected_present"));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.selected_present"));
                 return;
             }
             java.util.List<DlcRemoteEntry> toDownload = DlcRemoteService.expandMissingWithDependencies(missingSelected);
@@ -106,7 +106,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         });
 
         // ── Bottom: contextual actions + progress/status ──────────
-        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.download_missing"));
+        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.download_missing"));
         DlcFxStyle.actionTitle(downloadTitle);
 
         HBox actionPanel = new HBox(8, downloadTitle, downloadMissingBtn, downloadSelectedBtn, progressBar, statusLabel);
@@ -123,7 +123,7 @@ public final class DlcFxLocalRemoteDownloadTab {
     public void onGameDirChanged() {
         entries.clear();
         countLabel.setText("");
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.game_dir_changed"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.game_dir_changed"));
         refreshBtn.setDisable(false);
     }
 
@@ -135,7 +135,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.loading"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.loading"));
         Thread thread = new Thread(() -> {
             try {
                 Path dlcRoot = DlcConfig.getDlcRoot();
@@ -143,14 +143,14 @@ public final class DlcFxLocalRemoteDownloadTab {
                 Platform.runLater(() -> {
                     entries.setAll(loaded);
                     int missing = DlcRemoteService.countMissing(loaded);
-                    countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.remote.count", loaded.size(), missing));
-                    statusLabel.setText(missing == 0 ? DlcFxI18n.tr("dlc_manager.javafx.status.no_missing") : DlcFxI18n.tr("dlc_manager.javafx.remote.has_missing"));
+                    countLabel.setText(DlcFxI18n.tr("dlc_manager.remote.count", loaded.size(), missing));
+                    statusLabel.setText(missing == 0 ? DlcFxI18n.tr("dlc_manager.status.no_missing") : DlcFxI18n.tr("dlc_manager.remote.has_missing"));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
                 });
@@ -167,7 +167,7 @@ public final class DlcFxLocalRemoteDownloadTab {
     private void downloadMissingAsync() {
         List<DlcRemoteEntry> missing = DlcRemoteService.collectMissing(entries);
         if (missing.isEmpty()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.no_missing_downloads"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
             return;
         }
         // Recursively pull in each missing entry's nested remote dependencies
@@ -204,9 +204,9 @@ public final class DlcFxLocalRemoteDownloadTab {
             DlcRemoteService.BatchResult finalResult = result;
             Platform.runLater(() -> {
                 StringBuilder sb = new StringBuilder();
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.completed", finalResult.success, finalResult.total));
+                sb.append(DlcFxI18n.tr("dlc_manager.status.completed", finalResult.success, finalResult.total));
                 if (!finalResult.errors.isEmpty()) {
-                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.failed_count_suffix", finalResult.errors.size()));
+                    sb.append(DlcFxI18n.tr("dlc_manager.status.failed_count_suffix", finalResult.errors.size()));
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
@@ -247,27 +247,27 @@ public final class DlcFxLocalRemoteDownloadTab {
                 nameLabel.setText(safeName(item));
                 boolean missing = DlcRemoteService.isMissing(item);
                 if (missing) {
-                    statusTag.setText(DlcFxI18n.tr("dlc_manager.javafx.status.missing"));
+                    statusTag.setText(DlcFxI18n.tr("dlc_manager.status.missing"));
                     DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_ERROR);
                 } else {
-                    statusTag.setText(DlcFxI18n.tr("dlc_manager.javafx.status.present"));
+                    statusTag.setText(DlcFxI18n.tr("dlc_manager.status.present"));
                     DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_OK);
                 }
                 Path target = item.getTargetPath();
-                detailLabel.setText(target == null ? DlcFxI18n.tr("dlc_manager.javafx.status.no_target_path") : target.toString());
+                detailLabel.setText(target == null ? DlcFxI18n.tr("dlc_manager.status.no_target_path") : target.toString());
                 StringBuilder tip = new StringBuilder();
-                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(item.getDlcIdentifier() == null ? "" : item.getDlcIdentifier());
+                tip.append(DlcFxI18n.tr("dlc_manager.tooltip.identifier")).append(item.getDlcIdentifier() == null ? "" : item.getDlcIdentifier());
                 if (item.getType() != null) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.type")).append(item.getType().name());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.type")).append(item.getType().name());
                 }
                 if (!item.getDirectUrls().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.direct_url")).append(item.getDirectUrls().get(0));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.direct_url")).append(item.getDirectUrls().get(0));
                 }
                 if (item.getCurseforgeProjectId() != null && !item.getCurseforgeProjectId().isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.curseforge")).append(item.getCurseforgeProjectId());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.curseforge")).append(item.getCurseforgeProjectId());
                 }
                 if (item.getModrinthProjectId() != null && !item.getModrinthProjectId().isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.modrinth")).append(item.getModrinthProjectId());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.modrinth")).append(item.getModrinthProjectId());
                 }
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);
@@ -287,7 +287,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         if (name == null || name.isBlank()) {
             name = entry.getDlcIdentifier();
         }
-        return name == null ? DlcFxI18n.tr("dlc_manager.javafx.status.unnamed") : name;
+        return name == null ? DlcFxI18n.tr("dlc_manager.status.unnamed") : name;
     }
 
     private static String safeMessage(Throwable t) {

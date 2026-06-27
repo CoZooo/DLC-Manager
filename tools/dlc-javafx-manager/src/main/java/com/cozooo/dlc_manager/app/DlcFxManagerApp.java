@@ -125,7 +125,7 @@ public final class DlcFxManagerApp extends Application {
             scene.getStylesheets().add(css.toExternalForm());
         }
         installApplicationIcon(primaryStage);
-        primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.javafx.window_title"));
+        primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.window_title"));
         primaryStage.setScene(scene);
         primaryStage.show();
     }
@@ -165,20 +165,20 @@ public final class DlcFxManagerApp extends Application {
         HBox topBar = new HBox(languagePicker());
         topBar.setAlignment(Pos.CENTER_RIGHT);
 
-        Label title = new Label(DlcFxI18n.tr("dlc_manager.javafx.home.title"));
-        Label subtitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.home.subtitle"));
+        Label title = new Label(DlcFxI18n.tr("dlc_manager.home.title"));
+        Label subtitle = new Label(DlcFxI18n.tr("dlc_manager.home.subtitle"));
         DlcFxStyle.add(title, "dlc-hero-title");
         DlcFxStyle.muted(subtitle);
 
         Node localChoice = modeChoice(
-                DlcFxI18n.tr("dlc_manager.javafx.home.local_title"),
-                DlcFxI18n.tr("dlc_manager.javafx.home.local_desc"),
-                DlcFxI18n.tr("dlc_manager.javafx.home.enter_local"),
+                DlcFxI18n.tr("dlc_manager.home.local_title"),
+                DlcFxI18n.tr("dlc_manager.home.local_desc"),
+                DlcFxI18n.tr("dlc_manager.home.enter_local"),
                 this::showLocalWorkspace);
         Node remoteChoice = modeChoice(
-                DlcFxI18n.tr("dlc_manager.javafx.home.remote_title"),
-                DlcFxI18n.tr("dlc_manager.javafx.home.remote_desc"),
-                DlcFxI18n.tr("dlc_manager.javafx.home.enter_remote"),
+                DlcFxI18n.tr("dlc_manager.home.remote_title"),
+                DlcFxI18n.tr("dlc_manager.home.remote_desc"),
+                DlcFxI18n.tr("dlc_manager.home.enter_remote"),
                 this::showRemoteWorkspace);
         HBox choices = new HBox(16, localChoice, remoteChoice);
         HBox.setHgrow(localChoice, Priority.ALWAYS);
@@ -217,7 +217,7 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private Node workspaceHeader(String titleText, String descText, Runnable backAction) {
-        Button back = new Button(DlcFxI18n.tr("dlc_manager.javafx.workspace.back"));
+        Button back = new Button(DlcFxI18n.tr("dlc_manager.workspace.back"));
         DlcFxStyle.primary(back);
         back.setOnAction(e -> backAction.run());
 
@@ -265,8 +265,8 @@ public final class DlcFxManagerApp extends Application {
         BorderPane root = new BorderPane();
         VBox top = new VBox(
                 workspaceHeader(
-                        DlcFxI18n.tr("dlc_manager.javafx.workspace.local_title"),
-                        DlcFxI18n.tr("dlc_manager.javafx.workspace.local_desc"),
+                        DlcFxI18n.tr("dlc_manager.workspace.local_title"),
+                        DlcFxI18n.tr("dlc_manager.workspace.local_desc"),
                         this::showHome),
                 localDirectoryBar());
         root.setTop(top);
@@ -278,8 +278,8 @@ public final class DlcFxManagerApp extends Application {
     private Node buildRemoteWorkspace() {
         BorderPane root = new BorderPane();
         root.setTop(workspaceHeader(
-                DlcFxI18n.tr("dlc_manager.javafx.workspace.remote_title"),
-                DlcFxI18n.tr("dlc_manager.javafx.workspace.remote_desc"),
+                DlcFxI18n.tr("dlc_manager.workspace.remote_title"),
+                DlcFxI18n.tr("dlc_manager.workspace.remote_desc"),
                 this::showHome));
         root.setCenter(buildRemoteTabs());
         DlcFxStyle.add(root, "dlc-workspace-root");
@@ -356,20 +356,20 @@ public final class DlcFxManagerApp extends Application {
     // ───────────────────────────────────────────────────────────────
 
     private Node localDirectoryBar() {
-        Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir"));
+        Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));
         chooseDirBtn.setOnAction(e -> chooseLocalGameDirectory());
         DlcFxStyle.primary(chooseDirBtn);
 
         localGameDirLabel = new Label(localGameDirSelected
                 ? PROVIDER.gameDir().toString()
-                : DlcFxI18n.tr("dlc_manager.javafx.local.no_game_dir"));
+                : DlcFxI18n.tr("dlc_manager.local.no_game_dir"));
         DlcFxStyle.muted(localGameDirLabel);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         HBox bar = new HBox(10,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.local.game_dir")),
+                new Label(DlcFxI18n.tr("dlc_manager.local.game_dir")),
                 localGameDirLabel,
                 spacer,
                 chooseDirBtn);
@@ -381,7 +381,7 @@ public final class DlcFxManagerApp extends Application {
 
     private void chooseLocalGameDirectory() {
         DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.local.choose_game_dir_title"));
+        chooser.setTitle(DlcFxI18n.tr("dlc_manager.local.choose_game_dir_title"));
         File current = new File(PROVIDER.gameDir().toString());
         if (current.isDirectory()) {
             chooser.setInitialDirectory(current);
@@ -406,7 +406,7 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private javafx.scene.Node statusBar() {
-        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.javafx.status.ready"));
+        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.ready"));
         Label localStatus = new Label();
         localStatus.textProperty().bind(DlcFxStyle.statusTextProperty());
         Label remoteStatus = new Label();
@@ -424,11 +424,11 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private Node languagePicker() {
-        Label languageLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.language.label"));
+        Label languageLabel = new Label(DlcFxI18n.tr("dlc_manager.language.label"));
         ComboBox<LanguageOption> languageBox = new ComboBox<>();
         languageBox.getItems().addAll(
-                new LanguageOption("en_us", DlcFxI18n.tr("dlc_manager.javafx.language.en_us")),
-                new LanguageOption("zh_cn", DlcFxI18n.tr("dlc_manager.javafx.language.zh_cn")));
+                new LanguageOption("en_us", DlcFxI18n.tr("dlc_manager.language.en_us")),
+                new LanguageOption("zh_cn", DlcFxI18n.tr("dlc_manager.language.zh_cn")));
         languageBox.setValue(optionForCurrentLanguage(languageBox));
         languageBox.setOnAction(event -> {
             LanguageOption option = languageBox.getValue();
@@ -458,7 +458,7 @@ public final class DlcFxManagerApp extends Application {
 
     private void rebuildForLanguageChange() {
         ViewMode target = currentView;
-        primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.javafx.window_title"));
+        primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.window_title"));
         if (remoteConnection != null) {
             remoteConnection.refreshLanguage();
         }

@@ -53,12 +53,12 @@ public final class DlcFxLocalRequiredTab {
     private final DlcFxPlatformProvider provider;
 
     private final ObservableList<DlcRequiredEntry> entries = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
-    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.required.refresh"));
-    private final Button downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.required.download_missing"));
-    private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.download_selected"));
-    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.required.install_targets"));
+    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.required.refresh"));
+    private final Button downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.required.download_missing"));
+    private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.common.download_selected"));
+    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.required.install_targets"));
     private final Label countLabel = new Label("");
 
     public DlcFxLocalRequiredTab(DlcFxPlatformProvider provider) {
@@ -68,7 +68,7 @@ public final class DlcFxLocalRequiredTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_required"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_required"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -105,7 +105,7 @@ public final class DlcFxLocalRequiredTab {
         downloadSelectedBtn.setOnAction(e -> {
             java.util.List<DlcRequiredEntry> selected = listView.getSelectionModel().getSelectedItems();
             if (selected == null || selected.isEmpty()) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.select_list_item"));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_list_item"));
                 return;
             }
             java.util.List<DlcRequiredEntry> missingSelected = new java.util.ArrayList<>();
@@ -115,7 +115,7 @@ public final class DlcFxLocalRequiredTab {
                 }
             }
             if (missingSelected.isEmpty()) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.required.selected_downloaded"));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.selected_downloaded"));
                 return;
             }
             java.util.List<DlcRequiredEntry> toDownload = DlcRequiredService.collectMissingDownloads(
@@ -124,8 +124,8 @@ public final class DlcFxLocalRequiredTab {
         });
 
         // ── Bottom: contextual actions + progress/status ──────────
-        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.required.download_missing"));
-        Label installTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.required.install_targets"));
+        Label downloadTitle = new Label(DlcFxI18n.tr("dlc_manager.required.download_missing"));
+        Label installTitle = new Label(DlcFxI18n.tr("dlc_manager.required.install_targets"));
         DlcFxStyle.actionTitle(downloadTitle);
         DlcFxStyle.actionTitle(installTitle);
 
@@ -147,7 +147,7 @@ public final class DlcFxLocalRequiredTab {
     public void onGameDirChanged() {
         entries.clear();
         countLabel.setText("");
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.required.game_dir_changed"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.game_dir_changed"));
         refreshBtn.setDisable(false);
     }
 
@@ -159,7 +159,7 @@ public final class DlcFxLocalRequiredTab {
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.required.loading"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.loading"));
         Thread thread = new Thread(() -> {
             try {
                 Path dlcRoot = DlcConfig.getDlcRoot();
@@ -169,16 +169,16 @@ public final class DlcFxLocalRequiredTab {
                 final int fNeedsApply = status.needsApply;
                 Platform.runLater(() -> {
                     entries.setAll(loaded);
-                    countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.required.count", loaded.size(), fMissing, fNeedsApply));
+                    countLabel.setText(DlcFxI18n.tr("dlc_manager.required.count", loaded.size(), fMissing, fNeedsApply));
                     statusLabel.setText(fMissing == 0 && fNeedsApply == 0
-                            ? DlcFxI18n.tr("dlc_manager.javafx.status.all_ready")
-                            : (fMissing > 0 ? DlcFxI18n.tr("dlc_manager.javafx.required.has_missing") : DlcFxI18n.tr("dlc_manager.javafx.required.has_needs_apply")));
+                            ? DlcFxI18n.tr("dlc_manager.status.all_ready")
+                            : (fMissing > 0 ? DlcFxI18n.tr("dlc_manager.required.has_missing") : DlcFxI18n.tr("dlc_manager.required.has_needs_apply")));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
                 });
@@ -195,7 +195,7 @@ public final class DlcFxLocalRequiredTab {
     private void downloadMissingAsync() {
         List<DlcRequiredEntry> missing = DlcRequiredService.collectMissingDownloads(entries);
         if (missing.isEmpty()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.no_missing_downloads"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
             return;
         }
         // Expand transitive dependencies declared in each entry's [dependencies]
@@ -234,9 +234,9 @@ public final class DlcFxLocalRequiredTab {
             DlcRequiredService.BatchResult finalResult = result;
             Platform.runLater(() -> {
                 StringBuilder sb = new StringBuilder();
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.completed", finalResult.success, finalResult.total));
+                sb.append(DlcFxI18n.tr("dlc_manager.status.completed", finalResult.success, finalResult.total));
                 if (!finalResult.errors.isEmpty()) {
-                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.failed_count_suffix", finalResult.errors.size()));
+                    sb.append(DlcFxI18n.tr("dlc_manager.status.failed_count_suffix", finalResult.errors.size()));
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
@@ -264,15 +264,15 @@ public final class DlcFxLocalRequiredTab {
                 }
             }
             if (targets.isEmpty()) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.required.no_installable"));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.no_installable"));
                 return;
             }
         }
         final List<DlcRequiredEntry> finalTargets = targets;
         // Confirm before mutating game directories.
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                DlcFxI18n.tr("dlc_manager.javafx.required.install_confirm", finalTargets.size()));
-        confirm.setTitle(DlcFxI18n.tr("dlc_manager.javafx.required.install_title"));
+                DlcFxI18n.tr("dlc_manager.required.install_confirm", finalTargets.size()));
+        confirm.setTitle(DlcFxI18n.tr("dlc_manager.required.install_title"));
         confirm.setHeaderText(null);
         if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
             return;
@@ -281,7 +281,7 @@ public final class DlcFxLocalRequiredTab {
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(0);
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.required.installing"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.installing"));
         Thread thread = new Thread(() -> {
             int total = finalTargets.size();
             AtomicLong done = new AtomicLong();
@@ -297,9 +297,9 @@ public final class DlcFxLocalRequiredTab {
             }
             Platform.runLater(() -> {
                 StringBuilder sb = new StringBuilder();
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.required.installed_count", done.get(), total));
+                sb.append(DlcFxI18n.tr("dlc_manager.required.installed_count", done.get(), total));
                 if (!errors.isEmpty()) {
-                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.failed_count_suffix", errors.size()));
+                    sb.append(DlcFxI18n.tr("dlc_manager.status.failed_count_suffix", errors.size()));
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
@@ -340,35 +340,35 @@ public final class DlcFxLocalRequiredTab {
                 boolean downloaded = DlcRequiredService.isDownloaded(item);
                 boolean needsApply = downloaded && DlcRequiredRuntime.entryNeedsApply(item);
                 if (!downloaded) {
-                    statusTag.setText(DlcFxI18n.tr("dlc_manager.javafx.status.missing_download"));
+                    statusTag.setText(DlcFxI18n.tr("dlc_manager.status.missing_download"));
                     DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_ERROR);
                 } else if (needsApply) {
-                    statusTag.setText(DlcFxI18n.tr("dlc_manager.javafx.status.needs_install"));
+                    statusTag.setText(DlcFxI18n.tr("dlc_manager.status.needs_install"));
                     DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_WARN);
                 } else {
-                    statusTag.setText(DlcFxI18n.tr("dlc_manager.javafx.status.installed"));
+                    statusTag.setText(DlcFxI18n.tr("dlc_manager.status.installed"));
                     DlcFxStyle.chip(statusTag, DlcFxStyle.CHIP_OK);
                 }
                 String fileName = item.getResolvedFileName();
-                detailLabel.setText(fileName == null || fileName.isBlank() ? DlcFxI18n.tr("dlc_manager.javafx.status.unknown_file_name") : fileName);
+                detailLabel.setText(fileName == null || fileName.isBlank() ? DlcFxI18n.tr("dlc_manager.status.unknown_file_name") : fileName);
                 StringBuilder tip = new StringBuilder();
-                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.identifier")).append(item.getIdentifier() == null ? "" : item.getIdentifier());
+                tip.append(DlcFxI18n.tr("dlc_manager.tooltip.identifier")).append(item.getIdentifier() == null ? "" : item.getIdentifier());
                 Path requiredDir = item.getRequiredDir();
                 if (requiredDir != null) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.directory")).append(requiredDir);
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.directory")).append(requiredDir);
                 }
                 if (!item.getDirectUrls().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.direct_url")).append(item.getDirectUrls().get(0));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.direct_url")).append(item.getDirectUrls().get(0));
                 }
                 if (item.getCurseforgeProjectId() != null && !item.getCurseforgeProjectId().isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.curseforge")).append(item.getCurseforgeProjectId());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.curseforge")).append(item.getCurseforgeProjectId());
                 }
                 if (item.getModrinthProjectId() != null && !item.getModrinthProjectId().isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.modrinth")).append(item.getModrinthProjectId());
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.modrinth")).append(item.getModrinthProjectId());
                 }
                 String applied = item.getAppliedTargetRaw();
                 if (applied != null && !applied.isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.target")).append(applied);
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(applied);
                 }
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);
@@ -388,7 +388,7 @@ public final class DlcFxLocalRequiredTab {
         if (name == null || name.isBlank()) {
             name = entry.getIdentifier();
         }
-        return name == null ? DlcFxI18n.tr("dlc_manager.javafx.status.unnamed") : name;
+        return name == null ? DlcFxI18n.tr("dlc_manager.status.unnamed") : name;
     }
 
     private static String safeMessage(Throwable t) {

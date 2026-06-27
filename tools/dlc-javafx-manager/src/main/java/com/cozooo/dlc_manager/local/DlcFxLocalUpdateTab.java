@@ -82,16 +82,16 @@ public final class DlcFxLocalUpdateTab {
     private final DlcFxPlatformProvider provider;
 
     // ── Version header ──────────────────────────────────────────────
-    private final Label versionLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.version_empty"));
+    private final Label versionLabel = new Label(DlcFxI18n.tr("dlc_manager.update.version_empty"));
 
     // ── Action buttons ──────────────────────────────────────────────
-    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.check_local"));
-    private final Button checkRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.sync_remote"));
-    private final Button downloadRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.download_remote"));
-    private final Button cancelDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.common.cancel_download"));
-    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.apply"));
-    private final Button rollbackBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_selected"));
-    private final Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"));
+    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.update.check_local"));
+    private final Button checkRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.update.sync_remote"));
+    private final Button downloadRemoteBtn = new Button(DlcFxI18n.tr("dlc_manager.update.download_remote"));
+    private final Button cancelDownloadBtn = new Button(DlcFxI18n.tr("dlc_manager.common.cancel_download"));
+    private final Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.update.apply"));
+    private final Button rollbackBtn = new Button(DlcFxI18n.tr("dlc_manager.update.rollback_selected"));
+    private final Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.update.import_package"));
 
     // ── Center: history / available-update list ─────────────────────
     private final ObservableList<DlcUpdateMeta> history = FXCollections.observableArrayList();
@@ -99,7 +99,7 @@ public final class DlcFxLocalUpdateTab {
 
     // ── Changelog panel ─────────────────────────────────────────────
     private final TextArea changelogArea = new TextArea();
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
 
     // Live update state (touched only on the FX thread unless noted).
@@ -112,12 +112,12 @@ public final class DlcFxLocalUpdateTab {
         progressBar.setVisible(false);
         changelogArea.setEditable(false);
         changelogArea.setWrapText(true);
-        changelogArea.setPromptText(DlcFxI18n.tr("dlc_manager.javafx.update.changelog_prompt"));
+        changelogArea.setPromptText(DlcFxI18n.tr("dlc_manager.update.changelog_prompt"));
         cancelDownloadBtn.setVisible(false);
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_update"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_update"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -149,13 +149,13 @@ public final class DlcFxLocalUpdateTab {
         historyView.getSelectionModel().selectedItemProperty().addListener(
                 (obs, old, sel) -> showChangelogFor(sel));
 
-        Label historyHeader = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.history_header"));
+        Label historyHeader = new Label(DlcFxI18n.tr("dlc_manager.update.history_header"));
         DlcFxStyle.title(historyHeader);
         VBox leftBox = new VBox(4, historyHeader, historyView);
         VBox.setVgrow(historyView, Priority.ALWAYS);
         leftBox.setPadding(new Insets(0, 4, 0, 0));
 
-        Label changelogHeader = new Label(DlcFxI18n.tr("dlc_manager.javafx.update.changelog_header"));
+        Label changelogHeader = new Label(DlcFxI18n.tr("dlc_manager.update.changelog_header"));
         DlcFxStyle.title(changelogHeader);
         VBox rightBox = new VBox(4, changelogHeader, changelogArea);
         VBox.setVgrow(changelogArea, Priority.ALWAYS);
@@ -170,20 +170,20 @@ public final class DlcFxLocalUpdateTab {
 
         // ── Bottom: one active operation at a time + progress/status ─
         ToggleGroup actionGroup = new ToggleGroup();
-        ToggleButton scanMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.check_local"), actionGroup, true);
-        ToggleButton remoteMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.sync_remote"), actionGroup, false);
-        ToggleButton applyMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.apply"), actionGroup, false);
-        ToggleButton rollbackMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_selected"), actionGroup, false);
-        ToggleButton importMode = modeButton(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"), actionGroup, false);
+        ToggleButton scanMode = modeButton(DlcFxI18n.tr("dlc_manager.update.check_local"), actionGroup, true);
+        ToggleButton remoteMode = modeButton(DlcFxI18n.tr("dlc_manager.update.sync_remote"), actionGroup, false);
+        ToggleButton applyMode = modeButton(DlcFxI18n.tr("dlc_manager.update.apply"), actionGroup, false);
+        ToggleButton rollbackMode = modeButton(DlcFxI18n.tr("dlc_manager.update.rollback_selected"), actionGroup, false);
+        ToggleButton importMode = modeButton(DlcFxI18n.tr("dlc_manager.update.import_package"), actionGroup, false);
         HBox modeBar = new HBox(6, scanMode, remoteMode, applyMode, rollbackMode, importMode);
         modeBar.setAlignment(Pos.CENTER_LEFT);
 
-        VBox scanForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.check_local"), refreshBtn);
-        VBox remoteForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.sync_remote"),
+        VBox scanForm = actionForm(DlcFxI18n.tr("dlc_manager.update.check_local"), refreshBtn);
+        VBox remoteForm = actionForm(DlcFxI18n.tr("dlc_manager.update.sync_remote"),
                 new HBox(8, checkRemoteBtn, downloadRemoteBtn, cancelDownloadBtn));
-        VBox applyForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.apply"), applyBtn);
-        VBox rollbackForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_selected"), rollbackBtn);
-        VBox importForm = actionForm(DlcFxI18n.tr("dlc_manager.javafx.update.import_package"), importBtn);
+        VBox applyForm = actionForm(DlcFxI18n.tr("dlc_manager.update.apply"), applyBtn);
+        VBox rollbackForm = actionForm(DlcFxI18n.tr("dlc_manager.update.rollback_selected"), rollbackBtn);
+        VBox importForm = actionForm(DlcFxI18n.tr("dlc_manager.update.import_package"), importBtn);
         VBox inspector = new VBox(scanForm, remoteForm, applyForm, rollbackForm, importForm);
         setActiveForm(scanForm, scanForm, remoteForm, applyForm, rollbackForm, importForm);
         actionGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
@@ -200,7 +200,7 @@ public final class DlcFxLocalUpdateTab {
             }
         });
 
-        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.pack.action_panel"));
+        Label actionTitle = new Label(DlcFxI18n.tr("dlc_manager.pack.action_panel"));
         DlcFxStyle.actionTitle(actionTitle);
         HBox progressRow = new HBox(8, progressBar, statusLabel);
         progressRow.setAlignment(Pos.CENTER_LEFT);
@@ -241,10 +241,10 @@ public final class DlcFxLocalUpdateTab {
     public void onGameDirChanged() {
         history.clear();
         changelogArea.clear();
-        versionLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.version_empty"));
+        versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version_empty"));
         lastRemoteCheck = null;
         downloadRemoteBtn.setDisable(true);
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.game_dir_changed"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.game_dir_changed"));
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -255,7 +255,7 @@ public final class DlcFxLocalUpdateTab {
         if (!requireGameDir()) {
             return;
         }
-        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.scanning_local"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.scanning_local"));
         progressBar.setProgress(-1);
         Thread thread = new Thread(() -> {
             try {
@@ -277,16 +277,16 @@ public final class DlcFxLocalUpdateTab {
                     history.setAll(rows);
                     renderVersionHeader(result);
                     if (result.hasUpdates()) {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.available_count", result.getUpdates().size()));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.available_count", result.getUpdates().size()));
                     } else {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.local_latest"));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.local_latest"));
                     }
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.check_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.check_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -299,14 +299,14 @@ public final class DlcFxLocalUpdateTab {
     private void applySelectedAsync() {
         DlcUpdateMeta selected = historyView.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.select_apply_version"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.select_apply_version"));
             return;
         }
-        if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.update.apply_title"),
-                DlcFxI18n.tr("dlc_manager.javafx.update.apply_confirm", safe(selected.getDlcNew())))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.update.apply_title"),
+                DlcFxI18n.tr("dlc_manager.update.apply_confirm", safe(selected.getDlcNew())))) {
             return;
         }
-        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.applying"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.applying"));
         progressBar.setProgress(-1);
         final String dlcOld = safe(selected.getDlcOld());
         final String dlcNew = safe(selected.getDlcNew());
@@ -325,7 +325,7 @@ public final class DlcFxLocalUpdateTab {
                 }
                 if (chain.isEmpty()) {
                     Platform.runLater(() -> {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.chain_missing"));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.chain_missing"));
                         progressBar.setVisible(false);
                         setBusy(false, null);
                     });
@@ -343,7 +343,7 @@ public final class DlcFxLocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -356,7 +356,7 @@ public final class DlcFxLocalUpdateTab {
     private void rollbackSelectedAsync() {
         DlcUpdateMeta selected = historyView.getSelectionModel().getSelectedItem();
         if (selected == null) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.select_rollback_version"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.select_rollback_version"));
             return;
         }
         String target = safe(selected.getDlcNew());
@@ -364,14 +364,14 @@ public final class DlcFxLocalUpdateTab {
             target = safe(selected.getDlcOld());
         }
         if (target.isBlank()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_target_missing"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_target_missing"));
             return;
         }
-        if (!confirm(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_title"),
-                DlcFxI18n.tr("dlc_manager.javafx.update.rollback_confirm", target))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.update.rollback_title"),
+                DlcFxI18n.tr("dlc_manager.update.rollback_confirm", target))) {
             return;
         }
-        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.rolling_back"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.rolling_back"));
         progressBar.setProgress(-1);
         final String finalTarget = target;
         Thread thread = new Thread(() -> {
@@ -379,8 +379,8 @@ public final class DlcFxLocalUpdateTab {
                 UpdateRollbackResult result = DlcUpdateService.rollbackTo(finalTarget);
                 Platform.runLater(() -> {
                     statusLabel.setText(result.isSuccess()
-                            ? DlcFxI18n.tr("dlc_manager.javafx.update.rollback_done", safe(result.getVersion()))
-                            : DlcFxI18n.tr("dlc_manager.javafx.update.rollback_failed", safe(result.getMessage())));
+                            ? DlcFxI18n.tr("dlc_manager.update.rollback_done", safe(result.getVersion()))
+                            : DlcFxI18n.tr("dlc_manager.update.rollback_failed", safe(result.getMessage())));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                     if (result.isSuccess()) {
@@ -389,7 +389,7 @@ public final class DlcFxLocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.rollback_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -404,9 +404,9 @@ public final class DlcFxLocalUpdateTab {
             return;
         }
         FileChooser chooser = new FileChooser();
-        chooser.setTitle(DlcFxI18n.tr("dlc_manager.javafx.update.choose_package"));
+        chooser.setTitle(DlcFxI18n.tr("dlc_manager.update.choose_package"));
         chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter(DlcFxI18n.tr("dlc_manager.javafx.update.package_filter"), "*.zip"));
+                new FileChooser.ExtensionFilter(DlcFxI18n.tr("dlc_manager.update.package_filter"), "*.zip"));
         java.io.File file = chooser.showOpenDialog(primaryStage());
         if (file == null) {
             return;
@@ -415,18 +415,18 @@ public final class DlcFxLocalUpdateTab {
         // Validate before importing so we can show a precise reason.
         ImportValidationResult validation = DlcUpdateService.validateImportPackage(zipPath);
         if (!validation.isValid()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.import_validation_failed", DlcUpdateService.toImportValidationMessage(validation)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_validation_failed", DlcUpdateService.toImportValidationMessage(validation)));
             return;
         }
-        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.importing"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.importing"));
         progressBar.setProgress(-1);
         Thread thread = new Thread(() -> {
             try {
                 boolean ok = DlcUpdateService.importUpdatePackage(zipPath);
                 Platform.runLater(() -> {
                     statusLabel.setText(ok
-                            ? DlcFxI18n.tr("dlc_manager.javafx.update.import_done")
-                            : DlcFxI18n.tr("dlc_manager.javafx.update.import_invalid"));
+                            ? DlcFxI18n.tr("dlc_manager.update.import_done")
+                            : DlcFxI18n.tr("dlc_manager.update.import_invalid"));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                     if (ok) {
@@ -435,7 +435,7 @@ public final class DlcFxLocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.import_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     setBusy(false, null);
                 });
@@ -455,10 +455,10 @@ public final class DlcFxLocalUpdateTab {
         }
         String repoUrl = DlcConfig.getUpdateGitRepoUrl();
         if (repoUrl == null || repoUrl.isBlank()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_repo_missing"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_repo_missing"));
             return;
         }
-        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.checking_remote"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.checking_remote"));
         progressBar.setProgress(-1);
         final DlcUpdateVersion current = DlcUpdateVersion.load(DlcConfig.getDlcRoot());
         final String base = safe(current.getBase());
@@ -470,17 +470,17 @@ public final class DlcFxLocalUpdateTab {
                 lastRemoteCheck = result;
                 Platform.runLater(() -> {
                     if (result.error != null && !result.error.isBlank()) {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_check_failed",
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_check_failed",
                                 DlcPackReleaseUpdateService.toCheckFailureMessage(result.error)));
                         downloadRemoteBtn.setDisable(true);
                     } else if (result.hasUpdate()) {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_available",
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_available",
                                 formatVersion(result.currentBase, result.currentDlc),
                                 formatVersion(result.targetBase, result.targetDlc)));
                         changelogArea.setText(result.resolveCombinedChangelog(currentLang()));
                         downloadRemoteBtn.setDisable(!result.canDownload());
                     } else {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_latest"));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_latest"));
                         downloadRemoteBtn.setDisable(true);
                     }
                     progressBar.setVisible(false);
@@ -488,7 +488,7 @@ public final class DlcFxLocalUpdateTab {
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_check_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_check_failed", safeMessage(t)));
                     downloadRemoteBtn.setDisable(true);
                     progressBar.setVisible(false);
                     setBusy(false, null);
@@ -502,15 +502,15 @@ public final class DlcFxLocalUpdateTab {
     private void downloadRemoteAsync() {
         CheckResult result = lastRemoteCheck;
         if (result == null || !result.hasUpdate()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.check_remote_first"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.check_remote_first"));
             return;
         }
         if (!result.canDownload()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.remote_no_assets"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_no_assets"));
             return;
         }
         downloadCanceled = false;
-        setBusy(true, DlcFxI18n.tr("dlc_manager.javafx.update.downloading"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.downloading"));
         progressBar.setProgress(0);
         cancelDownloadBtn.setVisible(true);
         final CancelChecker cancelChecker = () -> downloadCanceled;
@@ -518,7 +518,7 @@ public final class DlcFxLocalUpdateTab {
                 Platform.runLater(() -> {
                     progressBar.setProgress(overall < 0 ? -1 : overall);
                     if (stepCount > 0) {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.download_progress",
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.download_progress",
                                 stepIndex + 1, stepCount, safe(fileName)));
                     }
                 });
@@ -531,13 +531,13 @@ public final class DlcFxLocalUpdateTab {
                     progressBar.setVisible(false);
                     setBusy(false, null);
                     if (dl.canceled) {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_canceled"));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_canceled"));
                     } else if (dl.success) {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.download_done", dl.files.size()));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.download_done", dl.files.size()));
                         // Auto re-check so the freshly imported packages appear.
                         checkLocalAsync();
                     } else {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed",
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_failed",
                                 DlcPackReleaseUpdateService.toDownloadFailureMessage(dl.message)));
                     }
                 });
@@ -546,7 +546,7 @@ public final class DlcFxLocalUpdateTab {
                     cancelDownloadBtn.setVisible(false);
                     progressBar.setVisible(false);
                     setBusy(false, null);
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.download_failed", safeMessage(t)));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_failed", safeMessage(t)));
                 });
             }
         }, "dlc-update-download");
@@ -564,9 +564,9 @@ public final class DlcFxLocalUpdateTab {
         String base = formatVersionHeader(v.getBase(), null);
         String dlc = formatVersionHeader(v.getDlc(), null);
         if (rollbackFrom != null && !rollbackFrom.isBlank()) {
-            versionLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.version_rollback", base, dlc, rollbackFrom));
+            versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version_rollback", base, dlc, rollbackFrom));
         } else {
-            versionLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.version", base, dlc));
+            versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version", base, dlc));
         }
     }
 
@@ -619,33 +619,33 @@ public final class DlcFxLocalUpdateTab {
 
     private String describeApply(UpdateApplyResult result) {
         if (result == null) {
-            return DlcFxI18n.tr("dlc_manager.javafx.update.result_unknown");
+            return DlcFxI18n.tr("dlc_manager.update.result_unknown");
         }
         if (result.isSuccess()) {
-            StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.javafx.update.result_success"));
+            StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.update.result_success"));
             if (result.hasRequiredAdd()) {
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_required_added"));
+                sb.append(DlcFxI18n.tr("dlc_manager.update.result_required_added"));
                 List<DlcRequiredEntry> missing = DlcRequiredRuntime.collectMissingDownloadsForPrompt();
                 if (!missing.isEmpty()) {
-                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_required_missing", missing.size()));
+                    sb.append(DlcFxI18n.tr("dlc_manager.update.result_required_missing", missing.size()));
                 }
             }
             if (result.hasRemoteAdd()) {
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_remote_added"));
+                sb.append(DlcFxI18n.tr("dlc_manager.update.result_remote_added"));
                 List<DlcRemoteEntry> missing = DlcRemoteRuntime.collectMissing();
                 if (!missing.isEmpty()) {
-                    sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.result_remote_missing", missing.size()));
+                    sb.append(DlcFxI18n.tr("dlc_manager.update.result_remote_missing", missing.size()));
                 }
             }
             if (result.isHelperScheduled()) {
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.helper_scheduled"));
+                sb.append(DlcFxI18n.tr("dlc_manager.apply.helper_scheduled"));
             }
             if (result.isDlcManagerUpdated()) {
-                sb.append(DlcFxI18n.tr("dlc_manager.javafx.update.manager_updated"));
+                sb.append(DlcFxI18n.tr("dlc_manager.update.manager_updated"));
             }
             return sb.toString();
         }
-        return DlcFxI18n.tr("dlc_manager.javafx.update.result_failed", DlcUpdateService.toFailureMessage(result));
+        return DlcFxI18n.tr("dlc_manager.update.result_failed", DlcUpdateService.toFailureMessage(result));
     }
 
     private static String formatVersion(String base, String dlc) {
@@ -683,7 +683,7 @@ public final class DlcFxLocalUpdateTab {
 
     private boolean requireGameDir() {
         if (DlcConfig.getDlcRoot() == null) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
             return false;
         }
         return true;
@@ -734,10 +734,10 @@ public final class DlcFxLocalUpdateTab {
                 transitionLabel.setText(describeTransition(item));
                 boolean isHistory = item.getTimestamp() != null && !item.getTimestamp().isBlank();
                 if (isHistory) {
-                    tagLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.tag_history"));
+                    tagLabel.setText(DlcFxI18n.tr("dlc_manager.update.tag_history"));
                     DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_NEUTRAL);
                 } else {
-                    tagLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.update.tag_available"));
+                    tagLabel.setText(DlcFxI18n.tr("dlc_manager.update.tag_available"));
                     DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_OK);
                 }
                 HBox row = new HBox(8, transitionLabel, tagLabel);
@@ -755,10 +755,10 @@ public final class DlcFxLocalUpdateTab {
             boolean baseChanged = !baseOld.isBlank() && !baseNew.isBlank() && !baseOld.equals(baseNew);
             boolean dlcChanged = !dlcOld.isBlank() && !dlcNew.isBlank() && !dlcOld.equals(dlcNew);
             if (baseChanged && !dlcChanged) {
-                return DlcFxI18n.tr("dlc_manager.javafx.update.base_transition", baseOld, baseNew);
+                return DlcFxI18n.tr("dlc_manager.update.base_transition", baseOld, baseNew);
             }
             if (dlcChanged && !baseChanged) {
-                return DlcFxI18n.tr("dlc_manager.javafx.update.dlc_transition", dlcOld, dlcNew);
+                return DlcFxI18n.tr("dlc_manager.update.dlc_transition", dlcOld, dlcNew);
             }
             String from = formatVersionHeader(baseOld.isBlank() ? null : baseOld, dlcOld);
             String to = formatVersionHeader(baseNew.isBlank() ? null : baseNew, dlcNew);

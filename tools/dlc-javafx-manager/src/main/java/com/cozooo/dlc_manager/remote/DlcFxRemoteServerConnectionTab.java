@@ -22,7 +22,7 @@ public final class DlcFxRemoteServerConnectionTab {
     private final TextField hostField = new TextField("127.0.0.1");
     private final TextField portField = new TextField("29690");
     private final TextField passwordField = new TextField();
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.disconnected"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label infoLabel = new Label("");
 
     public DlcFxRemoteServerConnectionTab(DlcFxRemoteConnection conn) {
@@ -36,7 +36,7 @@ public final class DlcFxRemoteServerConnectionTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.remote_connection"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_connection"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
@@ -58,23 +58,23 @@ public final class DlcFxRemoteServerConnectionTab {
             });
         });
 
-        Button disconnectBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.remote.disconnect"));
+        Button disconnectBtn = new Button(DlcFxI18n.tr("dlc_manager.remote.disconnect"));
         disconnectBtn.disableProperty().bind(conn.connectedProperty().not());
         disconnectBtn.setOnAction(e -> conn.disconnect());
         DlcFxStyle.primary(connectBtn);
 
         HBox formBox = new HBox(8,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.host")), hostField,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.port")), portField,
-                new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.password")), passwordField,
+                new Label(DlcFxI18n.tr("dlc_manager.remote.host")), hostField,
+                new Label(DlcFxI18n.tr("dlc_manager.remote.port")), portField,
+                new Label(DlcFxI18n.tr("dlc_manager.remote.password")), passwordField,
                 connectBtn, disconnectBtn);
         formBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(formBox);
         root.setTop(formBox);
 
         // ── Center: status ────────────────────────────────────────
-        Label statusTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.connection_status"));
-        Label infoTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.remote.server_info"));
+        Label statusTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.connection_status"));
+        Label infoTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.server_info"));
         DlcFxStyle.title(statusTitle);
         DlcFxStyle.title(infoTitle);
         DlcFxStyle.muted(infoLabel);

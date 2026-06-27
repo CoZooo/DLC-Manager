@@ -45,7 +45,7 @@ public final class DlcFxLocalPresetTab {
 
     private final DlcFxPlatformProvider provider;
     private final ObservableList<DlcPresetEntry> entries = FXCollections.observableArrayList();
-    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.javafx.status.select_game_dir"));
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final Label countLabel = new Label("");
 
     public DlcFxLocalPresetTab(DlcFxPlatformProvider provider) {
@@ -53,24 +53,24 @@ public final class DlcFxLocalPresetTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.javafx.tab.local_preset"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_preset"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
         // ── Top: refresh + summary ────────────────────────────────
-        Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.preset.refresh"));
+        Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.refresh"));
         refreshBtn.setOnAction(e -> refreshAsync());
 
-        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.preset.apply"));
+        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.apply"));
         applyBtn.setOnAction(e -> applyAsync());
         DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(applyBtn);
         DlcFxStyle.muted(countLabel);
         DlcFxStyle.muted(statusLabel);
 
-        Button clearBtn = new Button(DlcFxI18n.tr("dlc_manager.javafx.preset.clear_all"));
+        Button clearBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.clear_all"));
         clearBtn.setOnAction(e -> {
             for (DlcPresetEntry entry : entries) {
                 DlcPresetRuntimeState.setPresetEnabled(entry.getId(), false);
@@ -93,8 +93,8 @@ public final class DlcFxLocalPresetTab {
         DlcFxStyle.section(center);
         root.setCenter(center);
 
-        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.preset.apply"));
-        Label clearTitle = new Label(DlcFxI18n.tr("dlc_manager.javafx.preset.clear_all"));
+        Label applyTitle = new Label(DlcFxI18n.tr("dlc_manager.preset.apply"));
+        Label clearTitle = new Label(DlcFxI18n.tr("dlc_manager.preset.clear_all"));
         DlcFxStyle.actionTitle(applyTitle);
         DlcFxStyle.actionTitle(clearTitle);
         DlcFxStyle.danger(clearBtn);
@@ -114,7 +114,7 @@ public final class DlcFxLocalPresetTab {
     }
 
     private void refreshAsync() {
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.loading"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
         Thread thread = new Thread(() -> {
             try {
                 List<DlcPresetEntry> loaded = DlcPresetRuntimeState.getPresets();
@@ -126,11 +126,11 @@ public final class DlcFxLocalPresetTab {
                 Platform.runLater(() -> {
                     entries.setAll(finalLoaded);
                     int enabled = countEnabled(finalLoaded);
-                    countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.count", finalLoaded.size(), enabled));
-                    statusLabel.setText(finalLoaded.isEmpty() ? DlcFxI18n.tr("dlc_manager.javafx.preset.none") : DlcFxI18n.tr("dlc_manager.javafx.status.loaded"));
+                    countLabel.setText(DlcFxI18n.tr("dlc_manager.preset.count", finalLoaded.size(), enabled));
+                    statusLabel.setText(finalLoaded.isEmpty() ? DlcFxI18n.tr("dlc_manager.preset.none") : DlcFxI18n.tr("dlc_manager.status.loaded"));
                 });
             } catch (Throwable t) {
-                Platform.runLater(() -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.load_failed", safeMessage(t))));
+                Platform.runLater(() -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", safeMessage(t))));
             }
         }, "dlc-preset-refresh");
         thread.setDaemon(true);
@@ -138,7 +138,7 @@ public final class DlcFxLocalPresetTab {
     }
 
     private void applyAsync() {
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.applying"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
         Thread thread = new Thread(() -> {
             try {
                 DlcPresetRuntimeState.applyOverridesToRuntime();
@@ -147,16 +147,16 @@ public final class DlcFxLocalPresetTab {
                 Platform.runLater(() -> {
                     StringBuilder sb = new StringBuilder();
                     if (result.requiresRestart()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.requires_restart"));
+                        sb.append(DlcFxI18n.tr("dlc_manager.apply.requires_restart"));
                     }
                     if (result.hotReloaded()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.apply.hot_reloaded"));
+                        sb.append(DlcFxI18n.tr("dlc_manager.apply.hot_reloaded"));
                     }
                     if (sb.length() == 0) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.apply_done"));
+                        sb.append(DlcFxI18n.tr("dlc_manager.status.apply_done"));
                     }
                     if (!result.messages().isEmpty()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.javafx.status.message_count_suffix", result.messages().size()));
+                        sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
                     }
                     statusLabel.setText(sb.toString());
                     // Surface the per-item apply messages like the DLC tab does.
@@ -174,7 +174,7 @@ public final class DlcFxLocalPresetTab {
                     entries.setAll(DlcPresetRuntimeState.getPresets());
                 });
             } catch (Throwable t) {
-                Platform.runLater(() -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.apply_failed", safeMessage(t))));
+                Platform.runLater(() -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", safeMessage(t))));
             }
         }, "dlc-preset-apply");
         thread.setDaemon(true);
@@ -191,10 +191,10 @@ public final class DlcFxLocalPresetTab {
             DlcPresetStateStore.savePresetStatus(statuses);
             entries.setAll(DlcPresetRuntimeState.getPresets());
             int enabled = countEnabled(entries);
-            countLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.count", entries.size(), enabled));
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.saved"));
+            countLabel.setText(DlcFxI18n.tr("dlc_manager.preset.count", entries.size(), enabled));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.saved"));
         } catch (Throwable t) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.save_failed", safeMessage(t)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.save_failed", safeMessage(t)));
         }
     }
 
@@ -219,12 +219,12 @@ public final class DlcFxLocalPresetTab {
     private boolean confirmAlarmPreset(DlcPresetEntry item) {
         String tip = item == null ? "" : item.resolveTip(currentLang());
         String message = tip == null || tip.isBlank()
-                ? DlcFxI18n.tr("dlc_manager.javafx.preset.alarm_confirm")
+                ? DlcFxI18n.tr("dlc_manager.preset.alarm_confirm")
                 : tip;
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
                 new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
                 new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
-        alert.setTitle(DlcFxI18n.tr("dlc_manager.javafx.preset.alarm_title"));
+        alert.setTitle(DlcFxI18n.tr("dlc_manager.preset.alarm_title"));
         alert.setHeaderText(null);
         return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
@@ -251,8 +251,8 @@ public final class DlcFxLocalPresetTab {
                     if (!ok && enabled) {
                         checkBox.setSelected(false);
                         List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(item.getId(), currentLang());
-                        String msg = blockers.isEmpty() ? DlcFxI18n.tr("dlc_manager.javafx.preset.blocked_by_conflict") : DlcFxI18n.tr("dlc_manager.javafx.preset.blocked_by", String.join(", ", blockers));
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.status.blocked"));
+                        String msg = blockers.isEmpty() ? DlcFxI18n.tr("dlc_manager.preset.blocked_by_conflict") : DlcFxI18n.tr("dlc_manager.preset.blocked_by", String.join(", ", blockers));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.blocked"));
                         setTooltip(new Tooltip(msg));
                     } else {
                         updateStatusDisplay(item);
@@ -275,20 +275,20 @@ public final class DlcFxLocalPresetTab {
                 String lang = currentLang();
                 nameLabel.setText(item.resolveDisplayName(lang));
                 StringBuilder tip = new StringBuilder();
-                tip.append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.id")).append(item.getId());
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.file")).append(item.getFileName());
+                tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());
+                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.file")).append(item.getFileName());
                 if (!item.getEnable().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.enable")).append(String.join(", ", item.getEnable()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.enable")).append(String.join(", ", item.getEnable()));
                 }
                 if (!item.getConflicts().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
                 }
                 if (item.isAlarm()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.preset.alarm_tag"));
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.preset.alarm_tag"));
                 }
                 String tipText = item.resolveTip(lang);
                 if (tipText != null && !tipText.isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.javafx.tooltip.description")).append(tipText);
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.description")).append(tipText);
                 }
                 setTooltip(new Tooltip(tip.toString()));
                 setGraphic(row);
@@ -299,15 +299,15 @@ public final class DlcFxLocalPresetTab {
             DlcPresetStatus status = item.getStatus();
             switch (status) {
                 case ON -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.status_on"));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.preset.status_on"));
                     DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_OK);
                 }
                 case PART -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.status_part"));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.preset.status_part"));
                     DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_WARN);
                 }
                 case OFF -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.javafx.preset.status_off"));
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.preset.status_off"));
                     DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
                 }
             }
