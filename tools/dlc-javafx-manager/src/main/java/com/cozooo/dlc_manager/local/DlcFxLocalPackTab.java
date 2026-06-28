@@ -126,7 +126,6 @@ public final class DlcFxLocalPackTab {
         cancelBtn.setOnAction(e -> onBackOrCancel());
         DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(importBtn);
-        DlcFxStyle.primary(importUrlBtn);
         DlcFxStyle.primary(applyBtn);
         cancelBtn.setVisible(false);
         cancelBtn.setManaged(false);
@@ -968,6 +967,11 @@ public final class DlcFxLocalPackTab {
         }
         TextField urlField = new TextField();
         urlField.setPromptText(DlcFxI18n.tr("dlc_manager.common.url"));
+        Scene currentScene = scene();
+        double dialogWidth = currentScene == null || currentScene.getWidth() <= 0
+            ? 520
+            : Math.max(420, Math.min(620, currentScene.getWidth() - 96));
+        urlField.setPrefWidth(dialogWidth);
         Label prompt = new Label(DlcFxI18n.tr("dlc_manager.pack.url_prompt"));
         DlcFxStyle.muted(prompt);
         VBox content = new VBox(8, prompt, urlField);
@@ -978,7 +982,12 @@ public final class DlcFxLocalPackTab {
                 return;
             }
             startDownloadPackFromUrl(url);
-        }, DlcFxI18n.tr("dlc_manager.common.confirm"), null, null);
+        }, DlcFxI18n.tr("dlc_manager.update.url_download"), () -> {
+        }, DlcFxI18n.tr("dlc_manager.common.cancel"), confirm -> {
+            confirm.setDisable(true);
+            urlField.textProperty().addListener((obs, oldValue, newValue) ->
+                confirm.setDisable(newValue == null || newValue.trim().isEmpty()));
+        });
     }
 
     private void startDownloadPackFromUrl(String url) {
@@ -1063,11 +1072,8 @@ public final class DlcFxLocalPackTab {
         if (source.toAbsolutePath().normalize().equals(defaultTarget.toAbsolutePath().normalize())) {
             return defaultTarget;
         }
-        Path target = packRoot.resolve(uniqueFileName(packRoot, fileName));
-        if (!source.toAbsolutePath().normalize().equals(target.toAbsolutePath().normalize())) {
-            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-        }
-        return target;
+        Files.copy(source, defaultTarget, StandardCopyOption.REPLACE_EXISTING);
+        return defaultTarget;
     }
 
     private void showPackConfirm(String title, String message, Runnable onConfirm) {

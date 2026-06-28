@@ -1,17 +1,16 @@
 package com.cozooo.dlc_manager.ui;
 
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.Node;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+
+import java.util.function.Consumer;
 
 public final class DlcFxModalOverlay {
     private DlcFxModalOverlay() {
@@ -31,49 +30,68 @@ public final class DlcFxModalOverlay {
     public static void show(Scene scene, String title, String message, Runnable confirmAction, String confirmText, Runnable cancelAction, String cancelText) {
         Label messageLabel = new Label(message);
         messageLabel.setWrapText(true);
+        messageLabel.setMinWidth(Region.USE_PREF_SIZE);
+        messageLabel.setPrefWidth(preferredDialogWidth(scene));
+        messageLabel.setMaxWidth(preferredDialogWidth(scene));
         DlcFxStyle.muted(messageLabel);
         show(scene, title, messageLabel, confirmAction, confirmText, cancelAction, cancelText);
     }
 
     public static void show(Scene scene, String title, Node contentNode, Runnable confirmAction, String confirmText, Runnable cancelAction, String cancelText) {
+        show(scene, title, contentNode, confirmAction, confirmText, cancelAction, cancelText, null);
+    }
+
+    public static void show(
+        Scene scene,
+        String title,
+        Node contentNode,
+        Runnable confirmAction,
+        String confirmText,
+        Runnable cancelAction,
+        String cancelText,
+        Consumer<Button> confirmButtonConfigurer
+    ) {
         if (scene == null) {
             if (confirmAction != null) {
                 confirmAction.run();
             }
             return;
         }
-        StackPane root = (StackPane) scene.getRoot();
-        if (root == null) {
+        if (!(scene.getRoot() instanceof StackPane root)) {
             if (confirmAction != null) {
                 confirmAction.run();
             }
             return;
         }
-        Region blocker = new Region();
-        blocker.setStyle("-fx-background-color: rgba(16, 20, 28, 0.45);");
-        blocker.setMouseTransparent(false);
-        blocker.setPickOnBounds(true);
-        blocker.setMinSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        blocker.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
 
-        BorderPane panel = new BorderPane();
+        StackPane overlay = new StackPane();
+        overlay.getStyleClass().add("dlc-modal-overlay");
+        overlay.setPickOnBounds(true);
+        overlay.setMouseTransparent(false);
+
+        VBox panel = new VBox(14);
         panel.getStyleClass().add("dlc-modal-panel");
-        panel.setMaxWidth(520);
-        panel.setMinWidth(420);
-        panel.setPadding(new Insets(18));
+        panel.setFillWidth(true);
+        panel.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        panel.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+        panel.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
 
         Label titleLabel = new Label(title);
-        DlcFxStyle.title(titleLabel);
+        titleLabel.getStyleClass().add("dlc-modal-title");
+        titleLabel.setWrapText(true);
+        titleLabel.setMaxWidth(preferredDialogWidth(scene));
         Node contentBody = contentNode == null ? new Region() : contentNode;
         VBox content = new VBox(10, titleLabel, contentBody);
-        content.setAlignment(Pos.CENTER_LEFT);
-        panel.setCenter(content);
+        content.getStyleClass().add("dlc-modal-content");
+        content.setFillWidth(true);
 
         Button confirm = new Button(confirmText);
         DlcFxStyle.primary(confirm);
+        if (confirmButtonConfigurer != null) {
+            confirmButtonConfigurer.accept(confirm);
+        }
         confirm.setOnAction(e -> {
-            root.getChildren().remove(blocker);
-            root.getChildren().remove(panel);
+            root.getChildren().remove(overlay);
             if (confirmAction != null) {
                 confirmAction.run();
             }
@@ -84,21 +102,28 @@ public final class DlcFxModalOverlay {
         if (cancelAction != null && cancelText != null && !cancelText.isBlank()) {
             Button cancel = new Button(cancelText);
             cancel.setOnAction(e -> {
-                root.getChildren().remove(blocker);
-                root.getChildren().remove(panel);
+                root.getChildren().remove(overlay);
                 cancelAction.run();
             });
             footer.getChildren().add(cancel);
         }
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        footer.getChildren().addAll(spacer, confirm);
+        footer.getChildren().add(confirm);
         footer.setAlignment(Pos.CENTER_RIGHT);
-        panel.setBottom(footer);
-        StackPane.setAlignment(panel, Pos.CENTER);
 
-        blocker.setOnMouseClicked(e -> e.consume());
+        panel.getChildren().addAll(content, footer);
+        StackPane.setAlignment(panel, Pos.CENTER);
+        overlay.getChildren().add(panel);
+
+        overlay.setOnMouseClicked(e -> e.consume());
         panel.setOnMouseClicked(e -> e.consume());
-        root.getChildren().addAll(blocker, panel);
+        root.getChildren().add(overlay);
+    }
+
+    private static double preferredDialogWidth(Scene scene) {
+        double sceneWidth = scene == null ? 720 : scene.getWidth();
+        if (sceneWidth <= 0) {
+            sceneWidth = 720;
+        }
+        return Math.max(420, Math.min(620, sceneWidth - 96));
     }
 }

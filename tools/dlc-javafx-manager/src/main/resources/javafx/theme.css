@@ -171,6 +171,36 @@
     -fx-font-weight: 700;
 }
 
+.dlc-modal-overlay {
+    -fx-background-color: rgba(23, 32, 51, 0.42);
+    -fx-padding: 28;
+}
+
+.dlc-modal-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-background-radius: 8;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 18 20 16 20;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.26), 28, 0.22, 0, 10);
+}
+
+.dlc-modal-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+}
+
+.dlc-modal-content {
+    -fx-alignment: center-left;
+}
+
+.dlc-modal-panel .button {
+    -fx-min-height: 32px;
+    -fx-min-width: 76px;
+}
+
 .muted {
     -fx-text-fill: -dlc-text-muted;
 }
