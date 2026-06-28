@@ -156,7 +156,7 @@ public final class DlcFxLocalRequiredTab {
 
     public void forceDownloadAndInstall(List<DlcRequiredEntry> missing) {
         if (missing != null && !missing.isEmpty()) {
-            forcedEntries = new ArrayList<>(missing);
+            forcedEntries = new ArrayList<>(DlcRequiredRuntime.collectDependencies(missing));
             entries.setAll(forcedEntries);
         }
         forceInstallFlow = true;
@@ -199,6 +199,16 @@ public final class DlcFxLocalRequiredTab {
     private void downloadMissingAsync() {
         List<DlcRequiredEntry> missing = DlcRequiredService.collectMissingDownloads(entries);
         if (missing.isEmpty()) {
+            if (forceInstallFlow) {
+                forceInstallFlow = false;
+                List<DlcRequiredEntry> installTargets = resolveForceInstallTargets();
+                if (installTargets.isEmpty()) {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.no_installable"));
+                    return;
+                }
+                startInstallThread(installTargets);
+                return;
+            }
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
             return;
         }
@@ -245,12 +255,35 @@ public final class DlcFxLocalRequiredTab {
                 refreshAsync();
                 if (forceInstallFlow) {
                     forceInstallFlow = false;
-                    startInstallThread(new ArrayList<>(entries));
+                    List<DlcRequiredEntry> installTargets = resolveForceInstallTargets();
+                    if (installTargets.isEmpty()) {
+                        installTargets = new ArrayList<>(forcedEntries.isEmpty() ? entries : forcedEntries);
+                    }
+                    startInstallThread(installTargets);
                 }
             });
         }, "dlc-required-download");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private List<DlcRequiredEntry> resolveForceInstallTargets() {
+        List<DlcRequiredEntry> source = forcedEntries.isEmpty() ? entries : forcedEntries;
+        List<DlcRequiredEntry> installTargets = new ArrayList<>();
+        for (DlcRequiredEntry entry : source) {
+            if (entry != null && DlcRequiredService.isDownloaded(entry) && DlcRequiredRuntime.entryNeedsApply(entry)) {
+                installTargets.add(entry);
+            }
+        }
+        if (!installTargets.isEmpty()) {
+            return installTargets;
+        }
+        for (DlcRequiredEntry entry : source) {
+            if (entry != null && DlcRequiredService.isDownloaded(entry)) {
+                installTargets.add(entry);
+            }
+        }
+        return installTargets;
     }
 
     private void installAsync() {

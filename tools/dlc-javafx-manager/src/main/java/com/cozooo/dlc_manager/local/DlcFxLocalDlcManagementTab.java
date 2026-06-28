@@ -135,17 +135,7 @@ public final class DlcFxLocalDlcManagementTab {
             listView.refresh();
         });
         Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
-        invertBtn.setOnAction(e -> {
-            List<DlcItem> toggled = new ArrayList<>();
-            for (DlcItem it : allItems) {
-                if (it != null) {
-                    it.setEnabled(!it.isEnabled());
-                    DlcRuntimeState.setOverride(it.getId(), it.isEnabled());
-                    toggled.add(it);
-                }
-            }
-            listView.refresh();
-        });
+        invertBtn.setOnAction(e -> handleToggleItems(new ArrayList<>(allItems)));
         HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
         selectionActions.setAlignment(Pos.CENTER_LEFT);
 
@@ -444,30 +434,25 @@ public final class DlcFxLocalDlcManagementTab {
         if (active.isEmpty()) {
             return;
         }
+        if (!enabled) {
+            applyBatchEnable(active, false);
+            return;
+        }
         DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(active);
-        if (!conflicts.getLines().isEmpty() && enabled) {
-            showBatchConflictPrompt(conflicts.getLines(), () -> applyBatchEnable(active, true));
+        if (!conflicts.getLines().isEmpty()) {
+            showBatchConflictPrompt(conflicts.getLines(), active);
             return;
         }
         DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(active);
-        if (!deps.getLines().isEmpty() && enabled) {
+        if (!deps.getLines().isEmpty()) {
             showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), active);
             return;
         }
-        if (active.stream().anyMatch(DlcItem::isAlarm) && enabled) {
-            String tip = buildAlarmTip(active);
-            DlcFxModalOverlay.show(
-                    applyBtn.getScene(),
-                    DlcFxI18n.tr("dlc_manager.alarm.title"),
-                    tip,
-                    () -> applyBatchEnable(active, true),
-                    DlcFxI18n.tr("dlc_manager.confirm_yes"),
-                    () -> {},
-                    DlcFxI18n.tr("dlc_manager.confirm_no")
-            );
+        if (active.stream().anyMatch(DlcItem::isAlarm)) {
+            showAlarmPrompt(active);
             return;
         }
-        applyBatchEnable(active, enabled);
+        applyBatchEnable(active, true);
     }
 
     private void applyBatchEnable(List<DlcItem> items, boolean enabled) {
@@ -478,12 +463,41 @@ public final class DlcFxLocalDlcManagementTab {
         scanAsync();
     }
 
-    private void showBatchConflictPrompt(List<DlcRuntimeState.ConflictLine> lines, Runnable onConfirm) {
+    private void handleToggleItems(List<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        List<DlcItem> toEnable = new ArrayList<>();
+        List<DlcItem> toDisable = new ArrayList<>();
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            if (item.isEnabled()) {
+                toDisable.add(item);
+            } else {
+                toEnable.add(item);
+            }
+        }
+        if (!toDisable.isEmpty()) {
+            disableItemsWithDependents(toDisable);
+        }
+        if (!toEnable.isEmpty()) {
+            handleBatchEnable(toEnable, true);
+        }
+    }
+
+    private void showBatchConflictPrompt(List<DlcRuntimeState.ConflictLine> lines, List<DlcItem> targets) {
         DlcFxModalOverlay.show(
                 applyBtn.getScene(),
                 DlcFxI18n.tr("dlc_manager.batch.conflicts_title"),
                 buildConflictMessage(lines),
-                onConfirm,
+                () -> {
+                    List<DlcItem> filtered = filterConflictTargets(targets, lines);
+                    if (!filtered.isEmpty()) {
+                        continueBatchEnable(filtered);
+                    }
+                },
                 DlcFxI18n.tr("dlc_manager.batch.conflicts_skip_enable"),
                 null,
                 null
@@ -507,13 +521,105 @@ public final class DlcFxLocalDlcManagementTab {
                     if (depsToEnable != null) {
                         planned.addAll(depsToEnable);
                     }
-                    planned.addAll(targets);
-                    applyBatchEnable(planned, true);
+                    if (targets != null) {
+                        planned.addAll(targets);
+                    }
+                    DlcRuntimeState.ConflictBatchResult plannedConflicts = DlcRuntimeState.collectConflicts(planned);
+                    if (!plannedConflicts.getLines().isEmpty()) {
+                        showBatchConflictPrompt(plannedConflicts.getLines(), planned);
+                        return;
+                    }
+                    continueBatchEnable(planned);
                 },
                 DlcFxI18n.tr("dlc_manager.batch.enable_deps", DlcFxI18n.tr("dlc_manager.scope.group")),
                 null,
                 null
         );
+    }
+
+    private void showAlarmPrompt(List<DlcItem> items) {
+        DlcFxModalOverlay.show(
+                applyBtn.getScene(),
+                DlcFxI18n.tr("dlc_manager.alarm.title"),
+                buildAlarmTip(items),
+                () -> applyBatchEnable(items, true),
+                DlcFxI18n.tr("dlc_manager.confirm_yes"),
+                null,
+                null
+        );
+    }
+
+    private void continueBatchEnable(List<DlcItem> targets) {
+        if (targets == null || targets.isEmpty()) {
+            return;
+        }
+        DlcRuntimeState.DependencyBatchResult deps = DlcRuntimeState.collectMissingDependencies(targets);
+        if (!deps.getLines().isEmpty()) {
+            showBatchDependencyPrompt(deps.getLines(), deps.getItemsToEnable(), targets);
+            return;
+        }
+        List<DlcItem> alarmItems = targets.stream().filter(DlcItem::isAlarm).toList();
+        if (!alarmItems.isEmpty()) {
+            showAlarmPrompt(alarmItems);
+            return;
+        }
+        applyBatchEnable(targets, true);
+    }
+
+    private List<DlcItem> filterConflictTargets(List<DlcItem> targets, List<DlcRuntimeState.ConflictLine> lines) {
+        if (targets == null || targets.isEmpty()) {
+            return List.of();
+        }
+        if (lines == null || lines.isEmpty()) {
+            return targets;
+        }
+        java.util.Set<String> targetIds = new java.util.HashSet<>();
+        for (DlcItem item : targets) {
+            if (item != null && item.getIdentifier() != null && !item.getIdentifier().isBlank()) {
+                targetIds.add(item.getIdentifier());
+            }
+        }
+        java.util.Set<String> skipped = new java.util.HashSet<>();
+        for (DlcRuntimeState.ConflictLine line : lines) {
+            if (line == null) {
+                continue;
+            }
+            if (line.getLeftName() != null && targetIds.contains(line.getLeftName())) {
+                skipped.add(line.getLeftName());
+            }
+            if (line.getRightName() != null && targetIds.contains(line.getRightName())) {
+                skipped.add(line.getRightName());
+            }
+        }
+        if (skipped.isEmpty()) {
+            return targets;
+        }
+        List<DlcItem> filtered = new ArrayList<>();
+        for (DlcItem item : targets) {
+            if (item == null) {
+                continue;
+            }
+            String id = item.getIdentifier();
+            if (id == null || !skipped.contains(id)) {
+                filtered.add(item);
+            }
+        }
+        return filtered;
+    }
+
+    private void disableItemsWithDependents(List<DlcItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        java.util.LinkedHashSet<DlcItem> toDisable = new java.util.LinkedHashSet<>();
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            toDisable.addAll(DlcRuntimeState.collectDependentsRecursive(item));
+        }
+        toDisable.addAll(DlcRuntimeState.collectHiddenDependenciesToDisable(toDisable));
+        applyBatchEnable(new ArrayList<>(toDisable), false);
     }
 
     private String buildAlarmTip(List<DlcItem> items) {
@@ -566,7 +672,7 @@ public final class DlcFxLocalDlcManagementTab {
         filteredItems.setPredicate(pred);
     }
 
-    private static final class DlcItemCell extends ListCell<DlcItem> {
+    private final class DlcItemCell extends ListCell<DlcItem> {
         private final CheckBox checkBox = new CheckBox();
         private final Label typeLabel = new Label();
         private final Label nameLabel = new Label();
@@ -579,7 +685,11 @@ public final class DlcFxLocalDlcManagementTab {
             checkBox.setOnAction(e -> {
                 DlcItem item = getItem();
                 if (item != null) {
-                    setItemEnabled(item, checkBox.isSelected());
+                    if (checkBox.isSelected()) {
+                        handleBatchEnable(List.of(item), true);
+                    } else {
+                        disableItemsWithDependents(List.of(item));
+                    }
                 }
             });
         }
@@ -619,11 +729,4 @@ public final class DlcFxLocalDlcManagementTab {
         return msg == null ? t.getClass().getSimpleName() : msg;
     }
 
-    private static void setItemEnabled(DlcItem item, boolean enabled) {
-        if (item == null) {
-            return;
-        }
-        item.setEnabled(enabled);
-        DlcRuntimeState.setOverride(item.getId(), enabled);
-    }
 }

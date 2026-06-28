@@ -27,16 +27,13 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateRollbackResul
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonType;
-import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
@@ -203,10 +200,89 @@ public final class DlcFxLocalUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.select_apply_version"));
             return;
         }
-        if (!confirm(DlcFxI18n.tr("dlc_manager.update.apply_title"),
-                DlcFxI18n.tr("dlc_manager.update.apply_confirm", safe(selected.getDlcNew())))) {
+        DlcFxModalOverlay.show(
+                versionLabel.getScene(),
+                DlcFxI18n.tr("dlc_manager.update.apply_title"),
+                DlcFxI18n.tr("dlc_manager.update.apply_confirm", safe(selected.getDlcNew())),
+                () -> startApplyThread(selected),
+                DlcFxI18n.tr("dlc_manager.confirm_yes"),
+                null,
+                null
+        );
+    }
+
+    private void rollbackSelectedAsync() {
+        DlcUpdateMeta selected = historyView.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.select_rollback_version"));
             return;
         }
+        String target = safe(selected.getDlcNew());
+        if (target.isBlank()) {
+            target = safe(selected.getDlcOld());
+        }
+        if (target.isBlank()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_target_missing"));
+            return;
+        }
+        final String finalTarget = target;
+        DlcFxModalOverlay.show(
+                versionLabel.getScene(),
+                DlcFxI18n.tr("dlc_manager.update.rollback_title"),
+                DlcFxI18n.tr("dlc_manager.update.rollback_confirm", finalTarget),
+                () -> startRollbackThread(finalTarget),
+                DlcFxI18n.tr("dlc_manager.confirm_yes"),
+                null,
+                null
+        );
+    }
+
+    private void importPackage() {
+        if (!requireGameDir()) {
+            return;
+        }
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle(DlcFxI18n.tr("dlc_manager.update.choose_package"));
+        chooser.getExtensionFilters().add(
+                new FileChooser.ExtensionFilter(DlcFxI18n.tr("dlc_manager.update.package_filter"), "*.zip"));
+        java.io.File file = chooser.showOpenDialog(primaryStage());
+        if (file == null) {
+            return;
+        }
+        Path zipPath = file.toPath();
+        ImportValidationResult validation = DlcUpdateService.validateImportPackage(zipPath);
+        if (!validation.isValid()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_validation_failed", DlcUpdateService.toImportValidationMessage(validation)));
+            return;
+        }
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.importing"));
+        progressBar.setProgress(-1);
+        Thread thread = new Thread(() -> {
+            try {
+                boolean ok = DlcUpdateService.importUpdatePackage(zipPath);
+                Platform.runLater(() -> {
+                    statusLabel.setText(ok
+                            ? DlcFxI18n.tr("dlc_manager.update.import_done")
+                            : DlcFxI18n.tr("dlc_manager.update.import_invalid"));
+                    progressBar.setVisible(false);
+                    setBusy(false, null);
+                    if (ok) {
+                        checkLocalAsync();
+                    }
+                });
+            } catch (Throwable t) {
+                Platform.runLater(() -> {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_failed", safeMessage(t)));
+                    progressBar.setVisible(false);
+                    setBusy(false, null);
+                });
+            }
+        }, "dlc-update-import");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void startApplyThread(DlcUpdateMeta selected) {
         setBusy(true, DlcFxI18n.tr("dlc_manager.update.applying"));
         progressBar.setProgress(-1);
         final String dlcOld = safe(selected.getDlcOld());
@@ -253,24 +329,7 @@ public final class DlcFxLocalUpdateTab {
         thread.start();
     }
 
-    private void rollbackSelectedAsync() {
-        DlcUpdateMeta selected = historyView.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.select_rollback_version"));
-            return;
-        }
-        String target = safe(selected.getDlcNew());
-        if (target.isBlank()) {
-            target = safe(selected.getDlcOld());
-        }
-        if (target.isBlank()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_target_missing"));
-            return;
-        }
-        if (!confirm(DlcFxI18n.tr("dlc_manager.update.rollback_title"),
-                DlcFxI18n.tr("dlc_manager.update.rollback_confirm", target))) {
-            return;
-        }
+    private void startRollbackThread(String target) {
         setBusy(true, DlcFxI18n.tr("dlc_manager.update.rolling_back"));
         progressBar.setProgress(-1);
         final String finalTarget = target;
@@ -295,51 +354,6 @@ public final class DlcFxLocalUpdateTab {
                 });
             }
         }, "dlc-update-rollback");
-        thread.setDaemon(true);
-        thread.start();
-    }
-
-    private void importPackage() {
-        if (!requireGameDir()) {
-            return;
-        }
-        FileChooser chooser = new FileChooser();
-        chooser.setTitle(DlcFxI18n.tr("dlc_manager.update.choose_package"));
-        chooser.getExtensionFilters().add(
-                new FileChooser.ExtensionFilter(DlcFxI18n.tr("dlc_manager.update.package_filter"), "*.zip"));
-        java.io.File file = chooser.showOpenDialog(primaryStage());
-        if (file == null) {
-            return;
-        }
-        Path zipPath = file.toPath();
-        ImportValidationResult validation = DlcUpdateService.validateImportPackage(zipPath);
-        if (!validation.isValid()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_validation_failed", DlcUpdateService.toImportValidationMessage(validation)));
-            return;
-        }
-        setBusy(true, DlcFxI18n.tr("dlc_manager.update.importing"));
-        progressBar.setProgress(-1);
-        Thread thread = new Thread(() -> {
-            try {
-                boolean ok = DlcUpdateService.importUpdatePackage(zipPath);
-                Platform.runLater(() -> {
-                    statusLabel.setText(ok
-                            ? DlcFxI18n.tr("dlc_manager.update.import_done")
-                            : DlcFxI18n.tr("dlc_manager.update.import_invalid"));
-                    progressBar.setVisible(false);
-                    setBusy(false, null);
-                    if (ok) {
-                        checkLocalAsync();
-                    }
-                });
-            } catch (Throwable t) {
-                Platform.runLater(() -> {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_failed", safeMessage(t)));
-                    progressBar.setVisible(false);
-                    setBusy(false, null);
-                });
-            }
-        }, "dlc-update-import");
         thread.setDaemon(true);
         thread.start();
     }
@@ -451,9 +465,11 @@ public final class DlcFxLocalUpdateTab {
     private void renderVersionHeader(UpdateCheckResult result) {
         DlcUpdateVersion v = result.getCurrent();
         String rollbackFrom = v.getRollbackFrom();
-        String base = v.getBase() == null || v.getBase().isBlank() ? "-" : v.getBase();
-        String dlc = v.getDlc() == null || v.getDlc().isBlank() ? "-" : v.getDlc();
-        String current = DlcFxI18n.tr("dlc_manager.update.current_version", base, dlc);
+        String base = v.getBase();
+        String dlc = v.getDlc();
+        String current = DlcFxI18n.tr("dlc_manager.update.current_version",
+                base == null || base.isBlank() ? "-" : base,
+                dlc == null || dlc.isBlank() ? "-" : dlc);
         if (rollbackFrom != null && !rollbackFrom.isBlank()) {
             current = current + DlcFxI18n.tr("dlc_manager.update.current_version_suffix", rollbackFrom);
         }
@@ -566,15 +582,6 @@ public final class DlcFxLocalUpdateTab {
             return false;
         }
         return true;
-    }
-
-    private boolean confirm(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
     }
 
     private static String safe(String s) {

@@ -9,18 +9,13 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStateStore;
 import com.cozooo.dlc_manager.app.DlcFxManagerApp;
-import com.cozooo.dlc_manager.core.DlcApplier;
-import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar.ButtonData;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
@@ -126,24 +121,10 @@ public final class DlcFxLocalPresetTab {
         Thread thread = new Thread(() -> {
             try {
                 DlcPresetRuntimeState.applyOverridesToRuntime();
-                DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(), DlcApplyMode.RESTART_ONLY);
                 DlcPresetRuntimeState.syncStatusFromRuntime();
                 Platform.runLater(() -> {
-                    StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.status.apply_done"));
-                    if (!result.messages().isEmpty()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
-                    }
-                    statusLabel.setText(sb.toString());
-                    if (!result.messages().isEmpty()) {
-                        StringBuilder tip = new StringBuilder();
-                        for (String msg : result.messages()) {
-                            if (tip.length() > 0) tip.append('\n');
-                            tip.append(msg);
-                        }
-                        statusLabel.setTooltip(new Tooltip(tip.toString()));
-                    } else {
-                        statusLabel.setTooltip(null);
-                    }
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_done"));
+                    statusLabel.setTooltip(null);
                     entries.setAll(DlcPresetRuntimeState.getPresets());
                 });
             } catch (Throwable t) {
@@ -210,17 +191,50 @@ public final class DlcFxLocalPresetTab {
         return lang == null || lang.isBlank() ? "en_us" : lang;
     }
 
-    private boolean confirmAlarmPreset(DlcPresetEntry item) {
+    private void confirmAlarmPreset(DlcPresetEntry item, javafx.scene.Scene scene) {
         String tip = item == null ? "" : item.resolveTip(currentLang());
         String message = tip == null || tip.isBlank()
                 ? DlcFxI18n.tr("dlc_manager.preset.alarm_confirm")
                 : tip;
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
-        alert.setTitle(DlcFxI18n.tr("dlc_manager.preset.alarm_title"));
-        alert.setHeaderText(null);
-        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
+        DlcFxModalOverlay.show(
+                scene,
+                DlcFxI18n.tr("dlc_manager.preset.alarm_title"),
+                message,
+                () -> onPresetAlarmConfirmed(item, scene),
+                DlcFxI18n.tr("dlc_manager.confirm_yes"),
+                () -> {},
+                DlcFxI18n.tr("dlc_manager.confirm_no")
+        );
+    }
+
+    private void onPresetAlarmConfirmed(DlcPresetEntry item, javafx.scene.Scene scene) {
+        if (item == null) {
+            return;
+        }
+        boolean ok = DlcPresetRuntimeState.setPresetEnabled(item.getId(), true);
+        if (!ok) {
+            return;
+        }
+        DlcPresetRuntimeState.applyOverridesToRuntime();
+        saveAndRefresh();
+        showGoToDlcManagementPrompt(scene);
+    }
+
+    private void showGoToDlcManagementPrompt(javafx.scene.Scene scene) {
+        DlcFxModalOverlay.show(
+                scene,
+                DlcFxI18n.tr("dlc_manager.preset.title"),
+                DlcFxI18n.tr("dlc_manager.preset.apply_hint"),
+                () -> {
+                    DlcFxManagerApp app = DlcFxManagerApp.instance();
+                    if (app != null) {
+                        app.showLocalDlcManagementTab();
+                    }
+                },
+                DlcFxI18n.tr("dlc_manager.preset.goto_dlc"),
+                null,
+                null
+        );
     }
 
     private final class PresetCell extends javafx.scene.control.ListCell<DlcPresetEntry> {
@@ -237,38 +251,30 @@ public final class DlcFxLocalPresetTab {
                 DlcPresetEntry item = getItem();
                 if (item != null) {
                     boolean enabled = checkBox.isSelected();
-                    if (enabled && item.isAlarm() && !confirmAlarmPreset(item)) {
+                    if (enabled && item.isAlarm()) {
                         checkBox.setSelected(item.getStatus().isEnabled());
+                        confirmAlarmPreset(item, checkBox.getScene());
                         return;
                     }
-                    boolean ok = DlcPresetRuntimeState.setPresetEnabled(item.getId(), enabled);
-                    if (!ok && enabled) {
-                        checkBox.setSelected(false);
+                    if (enabled && !DlcPresetRuntimeState.setPresetEnabled(item.getId(), true)) {
+                        checkBox.setSelected(item.getStatus().isEnabled());
                         List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(item.getId(), currentLang());
                         String msg = blockers.isEmpty() ? DlcFxI18n.tr("dlc_manager.preset.blocked_by_conflict") : DlcFxI18n.tr("dlc_manager.preset.blocked_by", String.join(", ", blockers));
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.blocked"));
                         setTooltip(new Tooltip(msg));
-                    } else {
+                        return;
+                    }
+                    if (!enabled) {
+                        DlcPresetRuntimeState.setPresetEnabled(item.getId(), false);
                         updateStatusDisplay(item);
                         DlcPresetRuntimeState.applyOverridesToRuntime();
                         saveAndRefresh();
-                        if (enabled) {
-                            DlcFxModalOverlay.show(
-                                    checkBox.getScene(),
-                                    DlcFxI18n.tr("dlc_manager.preset.title"),
-                                    DlcFxI18n.tr("dlc_manager.preset.apply_hint"),
-                                    () -> {
-                                        DlcFxManagerApp app = DlcFxManagerApp.instance();
-                                        if (app != null) {
-                                            app.showLocalDlcManagementTab();
-                                        }
-                                    },
-                                    DlcFxI18n.tr("dlc_manager.preset.goto_dlc"),
-                                    null,
-                                    null
-                            );
-                        }
+                        return;
                     }
+                    updateStatusDisplay(item);
+                    DlcPresetRuntimeState.applyOverridesToRuntime();
+                    saveAndRefresh();
+                    showGoToDlcManagementPrompt(checkBox.getScene());
                 }
             });
         }

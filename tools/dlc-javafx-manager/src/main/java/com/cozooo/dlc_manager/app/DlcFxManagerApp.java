@@ -484,6 +484,7 @@ public final class DlcFxManagerApp extends Application {
         if (missing.isEmpty()) {
             return;
         }
+        DlcRequiredRuntime.markPrompted();
         String title = DlcFxI18n.tr("dlc_manager.required.missing_title");
         String message = DlcFxI18n.tr("dlc_manager.required.missing_prompt", missing.size());
         boolean forceOnly = DlcRequiredRuntime.hasForceMarker();
