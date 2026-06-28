@@ -12,7 +12,7 @@
     -dlc-warn: #b86b00;
     -dlc-error: #c03434;
     -dlc-neutral: #596579;
-    -fx-font-family: "Inter", "SF Pro Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+    -fx-font-family: "Noto Sans SC";
     -fx-font-size: 13px;
     -fx-text-fill: -dlc-text;
     -fx-background-color: -dlc-bg;
@@ -38,7 +38,7 @@
 .dlc-hero-title,
 .dlc-workspace-title {
     -fx-text-fill: -dlc-text;
-    -fx-font-weight: 700;
+    -fx-font-family: "Noto Sans SC SemiBold";
 }
 
 .dlc-hero-title {
@@ -67,7 +67,7 @@
 .dlc-action-panel-title {
     -fx-text-fill: -dlc-text;
     -fx-font-size: 13px;
-    -fx-font-weight: 700;
+    -fx-font-family: "Noto Sans SC SemiBold";
 }
 
 .dlc-status-root {
@@ -120,7 +120,7 @@
 
 .tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
     -fx-text-fill: -dlc-text-muted;
-    -fx-font-weight: 600;
+    -fx-font-family: "Noto Sans SC SemiBold";
 }
 
 .tab-pane > .tab-header-area > .headers-region > .tab:selected .tab-label {
@@ -168,7 +168,7 @@
 .dlc-section-title {
     -fx-text-fill: -dlc-text;
     -fx-font-size: 13px;
-    -fx-font-weight: 700;
+    -fx-font-family: "Noto Sans SC SemiBold";
 }
 
 .dlc-modal-overlay {
@@ -189,7 +189,7 @@
 .dlc-modal-title {
     -fx-text-fill: -dlc-text;
     -fx-font-size: 16px;
-    -fx-font-weight: 700;
+    -fx-font-family: "Noto Sans SC SemiBold";
 }
 
 .dlc-modal-content {
@@ -211,7 +211,7 @@
     -fx-border-radius: 6;
     -fx-background-radius: 6;
     -fx-padding: 7 12;
-    -fx-font-weight: 600;
+    -fx-font-family: "Noto Sans SC SemiBold";
     -fx-text-fill: -dlc-text;
     -fx-cursor: hand;
 }
@@ -258,7 +258,7 @@
 }
 
 .code-editor {
-    -fx-font-family: "JetBrains Mono", "SF Mono", "Consolas", "Menlo", monospace;
+    -fx-font-family: "JetBrains Mono";
 }
 
 .text-field,
@@ -377,7 +377,7 @@
     -fx-background-radius: 999;
     -fx-padding: 2 8;
     -fx-font-size: 11px;
-    -fx-font-weight: 700;
+    -fx-font-family: "Noto Sans SC SemiBold";
     -fx-text-fill: white;
     -fx-min-width: 54px;
 }

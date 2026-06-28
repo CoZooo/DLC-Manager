@@ -37,6 +37,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.text.Font;
 import javafx.scene.image.Image;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -89,6 +90,7 @@ public final class DlcFxManagerApp extends Application {
     @Override
     public void start(Stage primaryStage) {
         INSTANCE = this;
+        loadBundledFonts();
         this.primaryStage = primaryStage;
         remoteConnection = new DlcFxRemoteConnection();
         shellContent = new BorderPane();
@@ -111,6 +113,19 @@ public final class DlcFxManagerApp extends Application {
         primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.window_title"));
         primaryStage.setScene(scene);
         primaryStage.show();
+    }
+
+    private void loadBundledFonts() {
+        loadBundledFont("/javafx/fonts/NotoSansSC-Regular.ttf");
+        loadBundledFont("/javafx/fonts/NotoSansSC-SemiBold.ttf");
+        loadBundledFont("/javafx/fonts/JetbrainsMono-Regular.ttf");
+    }
+
+    private void loadBundledFont(String path) {
+        URL font = DlcFxManagerApp.class.getResource(path);
+        if (font != null) {
+            Font.loadFont(font.toExternalForm(), 13);
+        }
     }
 
     private void installApplicationIcon(Stage primaryStage) {
