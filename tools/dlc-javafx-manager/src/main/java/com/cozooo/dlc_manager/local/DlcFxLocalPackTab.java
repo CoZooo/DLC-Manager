@@ -18,6 +18,7 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -1105,11 +1106,11 @@ public final class DlcFxLocalPackTab {
     }
 
     private void showPackConfirm(String title, String message, Runnable onConfirm) {
-        DlcFxModalOverlay.show(scene(), title, message, onConfirm, DlcFxI18n.tr("dlc_manager.common.confirm"));
+        DlcFxModalOverlay.show(scene(), title, DlcFxRichTextRenderer.formatted(message), onConfirm, DlcFxI18n.tr("dlc_manager.common.confirm"), null, null);
     }
 
     private void showExternalOpenConfirm(String title, String message, Runnable onConfirm) {
-        DlcFxModalOverlay.show(scene(), title, message, onConfirm, DlcFxI18n.tr("dlc_manager.common.confirm"));
+        DlcFxModalOverlay.show(scene(), title, DlcFxRichTextRenderer.formatted(message), onConfirm, DlcFxI18n.tr("dlc_manager.common.confirm"), null, null);
     }
 
     private void finishBusy(String message) {
@@ -1538,13 +1539,12 @@ public final class DlcFxLocalPackTab {
             }
 
             PackArchiveEntry entry = group.displayEntry();
-            Label title = new Label(entry.displayName);
-            title.getStyleClass().add("row-title");
-            Label meta = new Label(DlcFxI18n.tr("dlc_manager.pack.version_line", entry.metadata.version) + "  " + entry.author);
-            DlcFxStyle.muted(meta);
-            Label description = new Label(entry.description == null || entry.description.isBlank() ? entry.metadata.identifier : entry.description);
-            description.setWrapText(true);
-            DlcFxStyle.muted(description);
+            Node title = DlcFxRichTextRenderer.formatted(entry.displayName);
+            DlcFxStyle.add(title, "row-title");
+            Node meta = DlcFxRichTextRenderer.formatted(DlcFxI18n.tr("dlc_manager.pack.version_line", entry.metadata.version) + "  " + entry.author);
+            DlcFxStyle.add(meta, "muted");
+            Node description = DlcFxRichTextRenderer.markdown(entry.description == null || entry.description.isBlank() ? entry.metadata.identifier : entry.description);
+            DlcFxStyle.add(description, "muted");
 
             VBox textBox = new VBox(4, title, meta, description);
             HBox.setHgrow(textBox, Priority.ALWAYS);

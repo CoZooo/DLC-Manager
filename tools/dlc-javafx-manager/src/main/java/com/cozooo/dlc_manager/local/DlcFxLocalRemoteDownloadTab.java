@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.local;
 import com.cozooo.dlc_manager.app.DlcFxManagerApp;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
@@ -295,7 +296,7 @@ public final class DlcFxLocalRemoteDownloadTab {
                 if (item.getType() == DlcType.DLC_PACK) {
                     name = DlcFxI18n.tr("dlc_manager.pack.complete_item_prefix", name);
                 }
-                nameLabel.setText(name);
+                DlcFxRichTextRenderer.setFormatted(nameLabel, name);
                 boolean missing = DlcRemoteService.isMissing(item);
                 if (missing) {
                     statusTag.setText(DlcFxI18n.tr("dlc_manager.status.missing"));
@@ -320,7 +321,7 @@ public final class DlcFxLocalRemoteDownloadTab {
                 if (item.getModrinthProjectId() != null && !item.getModrinthProjectId().isBlank()) {
                     tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.modrinth")).append(item.getModrinthProjectId());
                 }
-                setTooltip(new Tooltip(tip.toString()));
+                setTooltip(DlcFxRichTextRenderer.formattedTooltip(tip.toString()));
                 setGraphic(row);
             }
         }

@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
@@ -232,9 +233,9 @@ public final class DlcFxLocalPresetTab {
 
     private void confirmAlarmPreset(DlcPresetEntry item, javafx.scene.Scene scene) {
         String tip = item == null ? "" : item.resolveTip(currentLang());
-        String message = tip == null || tip.isBlank()
-                ? DlcFxI18n.tr("dlc_manager.preset.alarm_confirm")
-                : tip;
+        javafx.scene.Node message = tip == null || tip.isBlank()
+                ? DlcFxRichTextRenderer.formatted(DlcFxI18n.tr("dlc_manager.preset.alarm_confirm"))
+                : DlcFxRichTextRenderer.formatted(tip);
         DlcFxModalOverlay.show(
                 scene,
                 DlcFxI18n.tr("dlc_manager.preset.alarm_title"),
@@ -300,7 +301,7 @@ public final class DlcFxLocalPresetTab {
                         List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(item.getId(), currentLang());
                         String msg = blockers.isEmpty() ? DlcFxI18n.tr("dlc_manager.preset.blocked_by_conflict") : DlcFxI18n.tr("dlc_manager.preset.blocked_by", String.join(", ", blockers));
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.blocked"));
-                        setTooltip(new Tooltip(msg));
+                        setTooltip(DlcFxRichTextRenderer.formattedTooltip(msg));
                         return;
                     }
                     if (!enabled) {
@@ -328,7 +329,7 @@ public final class DlcFxLocalPresetTab {
                 checkBox.setSelected(item.getStatus().isEnabled());
                 updateStatusDisplay(item);
                 String lang = currentLang();
-                nameLabel.setText(item.resolveDisplayName(lang));
+                DlcFxRichTextRenderer.setFormatted(nameLabel, item.resolveDisplayName(lang));
                 StringBuilder tip = new StringBuilder();
                 tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());
                 tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.file")).append(item.getFileName());
@@ -345,7 +346,7 @@ public final class DlcFxLocalPresetTab {
                 if (tipText != null && !tipText.isBlank()) {
                     tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.description")).append(tipText);
                 }
-                setTooltip(new Tooltip(tip.toString()));
+                setTooltip(DlcFxRichTextRenderer.formattedTooltip(tip.toString()));
                 setGraphic(row);
             }
         }

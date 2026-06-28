@@ -205,6 +205,10 @@
     -fx-text-fill: -dlc-text-muted;
 }
 
+.muted .dlc-rich-text-run {
+    -fx-fill: -dlc-text-muted;
+}
+
 .button {
     -fx-background-color: #ffffff;
     -fx-border-color: -dlc-border-strong;
@@ -273,6 +277,67 @@
 
 .code-editor {
     -fx-font-family: "JetBrains Mono";
+}
+
+.dlc-rich-text-pane {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-padding: 10;
+}
+
+.dlc-rich-text-pane > .viewport {
+    -fx-background-color: #ffffff;
+}
+
+.dlc-rich-text {
+    -fx-background-color: transparent;
+    -fx-line-spacing: 3px;
+}
+
+.dlc-rich-text-run {
+    -fx-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC";
+    -fx-font-size: 13px;
+}
+
+.dlc-rich-text-run.bold,
+.dlc-rich-text .bold {
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-rich-text-run.italic,
+.dlc-rich-text .italic {
+    -fx-font-style: italic;
+}
+
+.dlc-rich-text-run.code,
+.dlc-rich-text .code {
+    -fx-font-family: "JetBrains Mono";
+    -fx-fill: -dlc-neutral;
+}
+
+.dlc-rich-text-run.heading-1 {
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 17px;
+}
+
+.dlc-rich-text-run.heading-2 {
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 15px;
+}
+
+.dlc-rich-text-run.heading-3 {
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 14px;
+}
+
+.dlc-rich-text-run.link {
+    -fx-cursor: hand;
+    -fx-fill: -dlc-accent;
 }
 
 .text-field,

@@ -28,6 +28,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -37,8 +38,8 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
-import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -67,7 +68,7 @@ public final class DlcFxLocalUpdateTab {
     private final ObservableList<DlcUpdateMeta> history = FXCollections.observableArrayList();
     private final ListView<DlcUpdateMeta> historyView = new ListView<>(history);
 
-    private final TextArea changelogArea = new TextArea();
+    private final ScrollPane changelogPane = new ScrollPane();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
 
@@ -81,9 +82,9 @@ public final class DlcFxLocalUpdateTab {
         this.provider = provider;
         progressBar.setPrefWidth(220);
         progressBar.setVisible(false);
-        changelogArea.setEditable(false);
-        changelogArea.setWrapText(true);
-        changelogArea.setPromptText(DlcFxI18n.tr("dlc_manager.update.changelog_prompt"));
+        changelogPane.setFitToWidth(true);
+        DlcFxStyle.add(changelogPane, "dlc-rich-text-pane");
+        setChangelogText("");
         cancelDownloadBtn.setVisible(false);
     }
 
@@ -133,8 +134,8 @@ public final class DlcFxLocalUpdateTab {
 
         Label changelogHeader = new Label(DlcFxI18n.tr("dlc_manager.update.changelog_header"));
         DlcFxStyle.title(changelogHeader);
-        VBox rightBox = new VBox(4, changelogHeader, changelogArea);
-        VBox.setVgrow(changelogArea, Priority.ALWAYS);
+        VBox rightBox = new VBox(4, changelogHeader, changelogPane);
+        VBox.setVgrow(changelogPane, Priority.ALWAYS);
         rightBox.setPadding(new Insets(0, 0, 0, 4));
 
         HBox centerBox = new HBox(8, leftBox, rightBox);
@@ -159,7 +160,7 @@ public final class DlcFxLocalUpdateTab {
         gameDirSelected = true;
         loadedForCurrentGameDir = false;
         history.clear();
-        changelogArea.clear();
+        setChangelogText("");
         versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version_empty"));
         lastRemoteCheck = null;
         lastApplyChain = List.of();
@@ -386,7 +387,7 @@ public final class DlcFxLocalUpdateTab {
         DlcFxModalOverlay.show(
                 versionLabel.getScene(),
                 title,
-                message.toString(),
+                DlcFxRichTextRenderer.formatted(message.toString()),
                 this::startForceApply,
                 DlcFxI18n.tr("dlc_manager.update.force"),
                 () -> {
@@ -494,7 +495,7 @@ public final class DlcFxLocalUpdateTab {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_available",
                                 formatVersion(result.currentBase, result.currentDlc),
                                 formatVersion(result.targetBase, result.targetDlc)));
-                        changelogArea.setText(result.resolveCombinedChangelog(currentLang()));
+                        setChangelogText(result.resolveCombinedChangelog(currentLang()));
                         downloadRemoteBtn.setDisable(!result.canDownload());
                     } else {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_latest"));
@@ -586,11 +587,22 @@ public final class DlcFxLocalUpdateTab {
 
     private void showChangelogFor(DlcUpdateMeta meta) {
         if (meta == null) {
-            changelogArea.clear();
+            setChangelogText("");
             return;
         }
         String text = resolveChangelogText(meta);
-        changelogArea.setText(text == null ? "" : text);
+        setChangelogText(text);
+    }
+
+    private void setChangelogText(String text) {
+        String value = text == null ? "" : text;
+        if (value.isBlank()) {
+            Label prompt = new Label(DlcFxI18n.tr("dlc_manager.update.changelog_prompt"));
+            DlcFxStyle.muted(prompt);
+            changelogPane.setContent(prompt);
+            return;
+        }
+        changelogPane.setContent(DlcFxRichTextRenderer.markdown(value));
     }
 
     private String resolveChangelogText(DlcUpdateMeta meta) {

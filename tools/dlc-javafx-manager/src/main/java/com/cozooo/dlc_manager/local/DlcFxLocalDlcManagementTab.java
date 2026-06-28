@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.local;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -431,7 +432,7 @@ public final class DlcFxLocalDlcManagementTab {
                             if (tip.length() > 0) tip.append('\n');
                             tip.append(msg);
                         }
-                        statusLabel.setTooltip(new Tooltip(tip.toString()));
+                        statusLabel.setTooltip(DlcFxRichTextRenderer.formattedTooltip(tip.toString()));
                     } else {
                         statusLabel.setTooltip(null);
                     }
@@ -544,7 +545,7 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxModalOverlay.show(
                 applyBtn.getScene(),
                 DlcFxI18n.tr("dlc_manager.batch.conflicts_title"),
-                buildConflictMessage(lines),
+                DlcFxRichTextRenderer.formatted(buildConflictMessage(lines)),
                 () -> {
                     List<DlcItem> filtered = filterConflictTargets(targets, lines);
                     if (!filtered.isEmpty()) {
@@ -568,7 +569,7 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxModalOverlay.show(
                 applyBtn.getScene(),
                 DlcFxI18n.tr("dlc_manager.batch.dependencies_title"),
-                message.toString(),
+                DlcFxRichTextRenderer.formatted(message.toString()),
                 () -> {
                     List<DlcItem> planned = new ArrayList<>();
                     if (depsToEnable != null) {
@@ -594,7 +595,7 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxModalOverlay.show(
                 applyBtn.getScene(),
                 DlcFxI18n.tr("dlc_manager.alarm.title"),
-                buildAlarmTip(items),
+                DlcFxRichTextRenderer.formatted(buildAlarmTip(items)),
                 () -> applyBatchEnable(items, true),
                 DlcFxI18n.tr("dlc_manager.confirm_yes"),
                 null,
@@ -1091,8 +1092,8 @@ public final class DlcFxLocalDlcManagementTab {
             typeLabel.getStyleClass().removeAll("type-mod", "type-resource", "type-data", "type-tacz", "type-unknown");
             typeLabel.getStyleClass().add(typeStyleClass(item.getType()));
             typeLabel.setText(DlcFxI18n.tr(item.getType().getDisplayKey()));
-            nameLabel.setText(displayName(item));
-            setTooltip(new Tooltip(buildTooltip(item)));
+            DlcFxRichTextRenderer.setFormatted(nameLabel, displayName(item));
+            setTooltip(DlcFxRichTextRenderer.formattedTooltip(buildTooltip(item)));
             setText(null);
             setGraphic(itemRow);
             syncItemState();

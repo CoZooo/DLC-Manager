@@ -9,6 +9,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredService;
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 public final class DlcFxLocalRequiredTab {
@@ -441,7 +443,7 @@ public final class DlcFxLocalRequiredTab {
                 setGraphic(null);
                 setText(null);
             } else {
-                nameLabel.setText(safeName(item));
+                DlcFxRichTextRenderer.setFormatted(nameLabel, safeName(item));
                 boolean downloaded = DlcRequiredService.isDownloaded(item);
                 boolean needsApply = downloaded && DlcRequiredRuntime.entryNeedsApply(item);
                 if (!downloaded) {
@@ -475,7 +477,11 @@ public final class DlcFxLocalRequiredTab {
                 if (applied != null && !applied.isBlank()) {
                     tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(applied);
                 }
-                setTooltip(new Tooltip(tip.toString()));
+                String entryTip = resolveTip(item);
+                if (entryTip != null && !entryTip.isBlank()) {
+                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.description")).append(entryTip);
+                }
+                setTooltip(DlcFxRichTextRenderer.formattedTooltip(tip.toString()));
                 setGraphic(row);
             }
         }
@@ -490,6 +496,23 @@ public final class DlcFxLocalRequiredTab {
             name = entry.getIdentifier();
         }
         return name == null ? DlcFxI18n.tr("dlc_manager.status.unnamed") : name;
+    }
+
+    private static String resolveTip(DlcRequiredEntry entry) {
+        if (entry == null || entry.getTips().isEmpty()) {
+            return "";
+        }
+        Map<String, String> tips = entry.getTips();
+        String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+        String value = tips.get(lang);
+        if (value == null || value.isBlank()) {
+            value = tips.get("en_us");
+        }
+        if (value == null || value.isBlank()) {
+            value = tips.values().stream().findFirst().orElse("");
+        }
+        return value == null ? "" : value;
     }
 
     private static String safeMessage(Throwable t) {
