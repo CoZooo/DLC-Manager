@@ -22,7 +22,9 @@ public final class DlcPackUpdateGuard {
         try (var stream = Files.list(packRoot)) {
             stream.filter(Files::isDirectory)
                 .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
-                .forEach(packDir -> statuses.add(checkPack(dlcRoot, packDir, targetBase, targetDlc)));
+                .map(packDir -> checkPack(dlcRoot, packDir, targetBase, targetDlc))
+                .filter(status -> status != null)
+                .forEach(statuses::add);
         } catch (Exception ignored) {
         }
         return new CheckResult(statuses);
@@ -35,7 +37,7 @@ public final class DlcPackUpdateGuard {
     private static PackStatus checkPack(Path dlcRoot, Path packDir, String targetBase, String targetDlc) {
         DlcPackMeta meta = DlcPackMeta.load(packDir.resolve("meta.dc"));
         if (meta == null) {
-            return new PackStatus(packDir, null, null, false, List.of("missing meta.dc"));
+            return null;
         }
         Path metadataPath = packDir.resolve("metadata").resolve("pack.dc");
         if (!Files.isRegularFile(metadataPath)) {

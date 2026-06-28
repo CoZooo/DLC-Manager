@@ -18,7 +18,9 @@ object DlcPackUpdateGuard {
             Files.list(packRoot).use { stream ->
                 stream.filter { Files.isDirectory(it) }
                     .sorted { a, b -> a.fileName.toString().lowercase(Locale.ROOT).compareTo(b.fileName.toString().lowercase(Locale.ROOT)) }
-                    .forEach { statuses.add(checkPack(dlcRoot, it, targetBase, targetDlc)) }
+                    .forEach { packDir ->
+                        checkPack(dlcRoot, packDir, targetBase, targetDlc)?.let { statuses.add(it) }
+                    }
             }
         } catch (_: Exception) {
         }
@@ -29,9 +31,9 @@ object DlcPackUpdateGuard {
         return dlcRoot?.resolve("tmp")?.resolve("pack")
     }
 
-    private fun checkPack(dlcRoot: Path?, packDir: Path, targetBase: String?, targetDlc: String?): PackStatus {
+    private fun checkPack(dlcRoot: Path?, packDir: Path, targetBase: String?, targetDlc: String?): PackStatus? {
         val meta = DlcPackMeta.load(packDir.resolve("meta.dc"))
-            ?: return PackStatus(packDir, null, null, false, listOf("missing meta.dc"))
+            ?: return null
         val metadataPath = packDir.resolve("metadata").resolve("pack.dc")
         if (!Files.isRegularFile(metadataPath)) {
             return PackStatus(packDir, meta, null, false, listOf("missing metadata/pack.dc"))

@@ -84,6 +84,20 @@ class DlcPackUpdateGuardTest {
     }
 
     @Test
+    void ignoresPackDirectoriesThatOnlyContainCfCache() throws Exception {
+        Path dlcRoot = tempDir.resolve("DLC");
+        Path packDir = dlcRoot.resolve("tmp").resolve("pack").resolve("CachedOnly");
+        Files.createDirectories(packDir.resolve("cf_cache"));
+        Files.writeString(packDir.resolve("cf_cache").resolve("cache.bin"), "cache");
+
+        DlcPackUpdateGuard.CheckResult result = DlcPackUpdateGuard.check(dlcRoot, "1.0.0", "1.0.0");
+
+        assertFalse(result.hasInstalledPacks());
+        assertFalse(result.hasIncompatiblePacks());
+        assertEquals(List.of(), result.packs);
+    }
+
+    @Test
     void emptyPackRootProducesEmptyResult() {
         DlcPackUpdateGuard.CheckResult result = DlcPackUpdateGuard.check(tempDir.resolve("DLC"), "1.0.0", "1.0.0");
 
