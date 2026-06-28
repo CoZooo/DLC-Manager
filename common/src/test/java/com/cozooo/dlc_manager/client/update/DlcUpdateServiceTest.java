@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -148,6 +149,84 @@ class DlcUpdateServiceTest {
         assertEquals("1.0.8", reapplied.getDlc());
         assertTrue(reapplied.getRollbackFrom() == null || reapplied.getRollbackFrom().isBlank());
         assertEquals("1.0.8", Files.readString(gameDir.resolve("mods").resolve("example.jar")));
+    }
+
+    @Test
+    void missingTargetsIncludesModifyDeleteAndMoveSources() throws Exception {
+        Path gameDir = tempDir.resolve("game");
+        Path dlcRoot = gameDir.resolve("DLC");
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
+        DlcConfig.setDlcRoot(dlcRoot.toString());
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info").resolve("version.dc"), """
+            base = "1.0.0"
+            dlc = "1.0.0"
+            """);
+        Path zip = tempDir.resolve("Client_1.0.0_1.0.0-1.0.1_1.0.1.zip");
+        writeZip(zip, new Entry("update.dc", """
+            [version]
+            base = "1.0.0"
+            dlc_old = "1.0.0"
+            dlc_new = "1.0.1"
+
+            [file]
+              [modify]
+                "config/missing-modify.json":
+                  find = "{}"
+                  replace = "{}"
+                  which = -1
+              [del]
+                "config/missing-delete.json"
+              [move]
+                "config/missing-move.json" = "config/moved.json"
+            """));
+
+        DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(zip);
+        DlcUpdateService.UpdateApplyResult result = DlcUpdateService.applyUpdate(pkg, DlcUpdateVersion.load(dlcRoot), false);
+
+        assertTrue(result.isMissing());
+        assertEquals(List.of(
+            "config/missing-modify.json",
+            "config/missing-delete.json",
+            "config/missing-move.json"
+        ), result.getMissingPaths());
+    }
+
+    @Test
+    void missingTargetsDeduplicateAcrossModifyDeleteAndMove() throws Exception {
+        Path gameDir = tempDir.resolve("game");
+        Path dlcRoot = gameDir.resolve("DLC");
+        PlatformServices.setProvider(new TestPlatformProvider(gameDir, tempDir.resolve("config")));
+        DlcConfig.setDlcRoot(dlcRoot.toString());
+        Files.createDirectories(dlcRoot.resolve("info"));
+        Files.writeString(dlcRoot.resolve("info").resolve("version.dc"), """
+            base = "1.0.0"
+            dlc = "1.0.0"
+            """);
+        Path zip = tempDir.resolve("Client_1.0.0_1.0.0-1.0.1_1.0.1.zip");
+        writeZip(zip, new Entry("update.dc", """
+            [version]
+            base = "1.0.0"
+            dlc_old = "1.0.0"
+            dlc_new = "1.0.1"
+
+            [file]
+              [modify]
+                "config/shared.json":
+                  find = "{}"
+                  replace = "{}"
+                  which = -1
+              [del]
+                "config/shared.json"
+              [move]
+                "config/shared.json" = "config/moved.json"
+            """));
+
+        DlcUpdatePackage pkg = DlcUpdatePackage.fromZip(zip);
+        DlcUpdateService.UpdateApplyResult result = DlcUpdateService.applyUpdate(pkg, DlcUpdateVersion.load(dlcRoot), false);
+
+        assertTrue(result.isMissing());
+        assertEquals(List.of("config/shared.json"), result.getMissingPaths());
     }
 
     private static void writeZip(Path zip, Entry... entries) throws Exception {

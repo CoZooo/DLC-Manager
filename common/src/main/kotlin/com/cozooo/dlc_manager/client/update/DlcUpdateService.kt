@@ -428,10 +428,10 @@ object DlcUpdateService {
             return UpdateApplyResult.Companion.failed("Version mismatch")
         }
 
-        val missingModify: MutableList<String?> =
-            DlcUpdateService.findMissingModifyTargets(manifest, DlcPaths.gameDir())
-        if (!missingModify.isEmpty() && !forceMissing) {
-            return UpdateApplyResult.Companion.missing(missingModify)
+        val missingTargets: MutableList<String?> =
+            DlcUpdateService.findMissingUpdateTargets(manifest, DlcPaths.gameDir())
+        if (!missingTargets.isEmpty() && !forceMissing) {
+            return UpdateApplyResult.Companion.missing(missingTargets)
         }
 
         val staging = pkg.extractTo(dlcRoot)
@@ -1161,18 +1161,42 @@ object DlcUpdateService {
                 && dlc == sourceDlcVersion(info)
     }
 
-    private fun findMissingModifyTargets(manifest: DlcUpdateManifest?, gameDir: Path): MutableList<kotlin.String?> {
+    private fun findMissingUpdateTargets(manifest: DlcUpdateManifest?, gameDir: Path): MutableList<kotlin.String?> {
         if (manifest == null || manifest.getFileOps() == null) {
             return mutableListOf<kotlin.String?>()
         }
-        val missing: MutableList<kotlin.String?> = ArrayList<kotlin.String?>()
+        val missing: LinkedHashSet<kotlin.String?> = LinkedHashSet<kotlin.String?>()
         for (entry in manifest.getFileOps()!!.getModify()) {
             val target: Path? = resolveGamePath(gameDir, entry.getTargetPath())
             if (target == null || !Files.exists(target)) {
-                missing.add(entry.getTargetPath())
+                addMissingPath(missing, entry.getTargetPath())
             }
         }
-        return missing
+        for (raw in manifest.getFileOps()!!.getDel()) {
+            if (raw.isBlank()) {
+                continue
+            }
+            if (DlcPathUtil.findMatches(gameDir, raw).isEmpty()) {
+                addMissingPath(missing, raw)
+            }
+        }
+        for (entry in manifest.getFileOps()!!.getMove().entries) {
+            val rawFrom = entry.key
+            if (rawFrom.isBlank()) {
+                continue
+            }
+            if (DlcPathUtil.findMatches(gameDir, rawFrom).isEmpty()) {
+                addMissingPath(missing, rawFrom)
+            }
+        }
+        return ArrayList<kotlin.String?>(missing)
+    }
+
+    private fun addMissingPath(missing: MutableSet<kotlin.String?>, path: kotlin.String?) {
+        if (path.isNullOrBlank()) {
+            return
+        }
+        missing.add(path)
     }
 
     private fun applyDeleteOps(ops: DlcUpdateManifest.FileOps?, context: UpdateContext) {

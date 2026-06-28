@@ -364,7 +364,7 @@
   "dlc_manager.update.restart": "Please restart Minecraft to apply changes.",
   "dlc_manager.server.update.restart": "Please restart the server to apply changes.",
   "dlc_manager.update.missing_title": "Missing Files",
-  "dlc_manager.update.missing_desc": "Some files to modify are missing.\nEnter a world once, or force update to continue.",
+  "dlc_manager.update.missing_desc": "Some required files are missing.\nPlease check the files manually, or force continue the update.",
   "dlc_manager.update.force": "Force Update",
   "dlc_manager.update.manager_title": "Update Manager",
   "dlc_manager.update.import": "Import Update Package",

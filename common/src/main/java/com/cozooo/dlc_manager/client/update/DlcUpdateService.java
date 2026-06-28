@@ -383,9 +383,9 @@ public final class DlcUpdateService {
             return UpdateApplyResult.failed("Version mismatch");
         }
 
-        List<String> missingModify = findMissingModifyTargets(manifest, DlcPaths.gameDir());
-        if (!missingModify.isEmpty() && !forceMissing) {
-            return UpdateApplyResult.missing(missingModify);
+        List<String> missingTargets = findMissingUpdateTargets(manifest, DlcPaths.gameDir());
+        if (!missingTargets.isEmpty() && !forceMissing) {
+            return UpdateApplyResult.missing(missingTargets);
         }
 
         Path staging = pkg.extractTo(dlcRoot);
@@ -1063,21 +1063,45 @@ public final class DlcUpdateService {
             && dlc.equals(sourceDlcVersion(info));
     }
 
-    private static List<String> findMissingModifyTargets(DlcUpdateManifest manifest, Path gameDir) {
+    private static List<String> findMissingUpdateTargets(DlcUpdateManifest manifest, Path gameDir) {
         if (manifest == null || manifest.getFileOps() == null) {
             return List.of();
         }
-        List<String> missing = new ArrayList<>();
+        java.util.LinkedHashSet<String> missing = new java.util.LinkedHashSet<>();
         for (DlcUpdateManifest.ModifyEntry entry : manifest.getFileOps().getModify()) {
             if (entry == null) {
                 continue;
             }
             Path target = resolveGamePath(gameDir, entry.getTargetPath());
             if (target == null || !Files.exists(target)) {
-                missing.add(entry.getTargetPath());
+                addMissingPath(missing, entry.getTargetPath());
             }
         }
-        return missing;
+        for (String raw : manifest.getFileOps().getDel()) {
+            if (raw == null || raw.isBlank()) {
+                continue;
+            }
+            if (DlcPathUtil.findMatches(gameDir, raw).isEmpty()) {
+                addMissingPath(missing, raw);
+            }
+        }
+        for (java.util.Map.Entry<String, String> entry : manifest.getFileOps().getMove().entrySet()) {
+            String rawFrom = entry.getKey();
+            if (rawFrom == null || rawFrom.isBlank()) {
+                continue;
+            }
+            if (DlcPathUtil.findMatches(gameDir, rawFrom).isEmpty()) {
+                addMissingPath(missing, rawFrom);
+            }
+        }
+        return List.copyOf(missing);
+    }
+
+    private static void addMissingPath(java.util.Set<String> missing, String path) {
+        if (missing == null || path == null || path.isBlank()) {
+            return;
+        }
+        missing.add(path);
     }
 
     private static void applyDeleteOps(DlcUpdateManifest.FileOps ops, UpdateContext context) {

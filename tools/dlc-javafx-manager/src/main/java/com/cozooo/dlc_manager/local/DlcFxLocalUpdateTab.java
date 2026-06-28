@@ -72,6 +72,7 @@ public final class DlcFxLocalUpdateTab {
     private final ProgressBar progressBar = new ProgressBar(0);
 
     private CheckResult lastRemoteCheck;
+    private volatile List<DlcUpdatePackage> lastApplyChain = List.of();
     private volatile boolean downloadCanceled;
 
     public DlcFxLocalUpdateTab(DlcFxPlatformProvider provider) {
@@ -148,6 +149,7 @@ public final class DlcFxLocalUpdateTab {
         changelogArea.clear();
         versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version_empty"));
         lastRemoteCheck = null;
+        lastApplyChain = List.of();
         downloadRemoteBtn.setDisable(true);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.game_dir_changed"));
     }
@@ -308,12 +310,96 @@ public final class DlcFxLocalUpdateTab {
                     });
                     return;
                 }
+                lastApplyChain = new ArrayList<>(chain);
                 UpdateApplyResult result = DlcUpdateService.applyUpdates(chain, false, listener);
                 Platform.runLater(() -> {
-                    statusLabel.setText(describeApply(result));
                     progressBar.setVisible(false);
                     setBusy(false, null);
-                    if (result.isSuccess()) {
+                    handleApplyResult(result);
+                });
+            } catch (Throwable t) {
+                Platform.runLater(() -> {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", safeMessage(t)));
+                    progressBar.setVisible(false);
+                    setBusy(false, null);
+                });
+            }
+        }, "dlc-update-apply");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void handleApplyResult(UpdateApplyResult result) {
+        if (result == null) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.result_unknown"));
+            return;
+        }
+        if (result.isMissing()) {
+            showMissingUpdateTargets(result);
+            return;
+        }
+        statusLabel.setText(describeApply(result));
+        if (result.isSuccess()) {
+            checkLocalAsync();
+        }
+    }
+
+    private void showMissingUpdateTargets(UpdateApplyResult result) {
+        List<String> missing = result.getMissingPaths();
+        if (missing == null || missing.isEmpty()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.result_failed", DlcUpdateService.toFailureMessage(result)));
+            return;
+        }
+        String title = DlcFxI18n.tr("dlc_manager.update.missing_title");
+        StringBuilder message = new StringBuilder(DlcFxI18n.tr("dlc_manager.update.missing_desc"));
+        message.append("\n\n");
+        for (String path : missing) {
+            if (path != null && !path.isBlank()) {
+                message.append("- ").append(path).append('\n');
+            }
+        }
+        if (message.charAt(message.length() - 1) == '\n') {
+            message.setLength(message.length() - 1);
+        }
+        DlcFxModalOverlay.show(
+                versionLabel.getScene(),
+                title,
+                message.toString(),
+                this::startForceApply,
+                DlcFxI18n.tr("dlc_manager.update.force"),
+                () -> {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.missing_cancelled"));
+                },
+                DlcFxI18n.tr("dlc_manager.update.cancel")
+        );
+    }
+
+    private void startForceApply() {
+        if (!requireGameDir()) {
+            return;
+        }
+        List<DlcUpdatePackage> chain = lastApplyChain;
+        if (chain == null || chain.isEmpty()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.chain_missing"));
+            return;
+        }
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.applying"));
+        progressBar.setProgress(-1);
+        final ApplyProgressListener listener = (status, progress) ->
+                Platform.runLater(() -> {
+                    if (status != null && !status.isBlank()) {
+                        statusLabel.setText(status);
+                    }
+                    progressBar.setProgress(progress < 0 ? -1 : progress);
+                });
+        Thread thread = new Thread(() -> {
+            try {
+                UpdateApplyResult forced = DlcUpdateService.applyUpdates(chain, true, listener);
+                Platform.runLater(() -> {
+                    statusLabel.setText(describeApply(forced));
+                    progressBar.setVisible(false);
+                    setBusy(false, null);
+                    if (forced.isSuccess()) {
                         checkLocalAsync();
                     }
                 });
@@ -324,7 +410,7 @@ public final class DlcFxLocalUpdateTab {
                     setBusy(false, null);
                 });
             }
-        }, "dlc-update-apply");
+        }, "dlc-update-force-apply");
         thread.setDaemon(true);
         thread.start();
     }
