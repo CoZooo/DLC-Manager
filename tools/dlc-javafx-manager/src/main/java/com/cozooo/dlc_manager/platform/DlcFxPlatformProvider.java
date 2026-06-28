@@ -8,14 +8,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.jar.JarFile;
+import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class DlcFxPlatformProvider implements PlatformServices.Provider {
+    private static final String PREF_LANGUAGE = "language";
+    private static final Preferences PREFS = Preferences.userNodeForPackage(DlcFxPlatformProvider.class);
 
     private volatile Path gameDir;
     private volatile Path configDir;
-    private volatile String languageOverride;
+    private volatile String languageOverride = readStoredLanguage();
 
     public DlcFxPlatformProvider() {
         this.gameDir = Path.of("").toAbsolutePath().normalize();
@@ -95,7 +98,17 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
     }
 
     public void setLanguageOverride(String languageOverride) {
-        this.languageOverride = languageOverride == null || languageOverride.isBlank() ? null : languageOverride;
+        String normalized = normalizeLanguage(languageOverride);
+        this.languageOverride = normalized;
+        if (normalized == null) {
+            PREFS.remove(PREF_LANGUAGE);
+        } else {
+            PREFS.put(PREF_LANGUAGE, normalized);
+        }
+        try {
+            PREFS.flush();
+        } catch (Throwable ignored) {
+        }
     }
 
     public String languageOverride() {
@@ -109,6 +122,25 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
             return "zh_cn";
         }
         return "en_us";
+    }
+
+    private static String readStoredLanguage() {
+        try {
+            return normalizeLanguage(PREFS.get(PREF_LANGUAGE, null));
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static String normalizeLanguage(String language) {
+        if (language == null || language.isBlank()) {
+            return null;
+        }
+        String normalized = language.trim().toLowerCase(Locale.ROOT).replace('-', '_');
+        return switch (normalized) {
+            case "en_us", "zh_cn" -> normalized;
+            default -> null;
+        };
     }
 
     @Override
