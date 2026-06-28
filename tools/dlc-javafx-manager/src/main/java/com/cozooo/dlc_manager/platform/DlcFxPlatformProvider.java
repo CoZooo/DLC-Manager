@@ -91,8 +91,7 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
         if (languageOverride != null && !languageOverride.isBlank()) {
             return languageOverride;
         }
-        String lang = readOptionValue("lang");
-        return lang == null || lang.isBlank() ? systemLanguageCode() : lang;
+        return systemLanguageCode();
     }
 
     public void setLanguageOverride(String languageOverride) {
@@ -214,24 +213,6 @@ public final class DlcFxPlatformProvider implements PlatformServices.Provider {
             }
         } catch (Exception ignored) {
             return null;
-        }
-        return null;
-    }
-
-    private String readOptionValue(String key) {
-        Path options = gameDir.resolve("options.txt");
-        if (!java.nio.file.Files.exists(options)) {
-            return null;
-        }
-        try {
-            for (String line : java.nio.file.Files.readAllLines(options)) {
-                if (line == null || !line.startsWith(key + ":")) {
-                    continue;
-                }
-                String value = line.substring((key + ":").length()).trim();
-                return value.isEmpty() ? null : value;
-            }
-        } catch (Exception ignored) {
         }
         return null;
     }

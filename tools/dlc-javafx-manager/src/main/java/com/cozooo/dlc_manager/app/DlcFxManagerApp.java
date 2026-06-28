@@ -549,7 +549,7 @@ public final class DlcFxManagerApp extends Application {
         languageBox.setValue(optionForCurrentLanguage(languageBox));
         languageBox.setOnAction(event -> {
             LanguageOption option = languageBox.getValue();
-            if (option != null && !option.code().equals(PROVIDER.languageOverride())) {
+            if (option != null && !option.code().equalsIgnoreCase(PROVIDER.languageCode())) {
                 PROVIDER.setLanguageOverride(option.code());
                 rebuildForLanguageChange();
             }
