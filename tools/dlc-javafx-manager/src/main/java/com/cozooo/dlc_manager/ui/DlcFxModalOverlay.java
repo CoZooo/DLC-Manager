@@ -5,6 +5,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.Node;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -28,6 +29,13 @@ public final class DlcFxModalOverlay {
     }
 
     public static void show(Scene scene, String title, String message, Runnable confirmAction, String confirmText, Runnable cancelAction, String cancelText) {
+        Label messageLabel = new Label(message);
+        messageLabel.setWrapText(true);
+        DlcFxStyle.muted(messageLabel);
+        show(scene, title, messageLabel, confirmAction, confirmText, cancelAction, cancelText);
+    }
+
+    public static void show(Scene scene, String title, Node contentNode, Runnable confirmAction, String confirmText, Runnable cancelAction, String cancelText) {
         if (scene == null) {
             if (confirmAction != null) {
                 confirmAction.run();
@@ -56,11 +64,8 @@ public final class DlcFxModalOverlay {
 
         Label titleLabel = new Label(title);
         DlcFxStyle.title(titleLabel);
-        Label messageLabel = new Label(message);
-        messageLabel.setWrapText(true);
-        DlcFxStyle.muted(messageLabel);
-
-        VBox content = new VBox(10, titleLabel, messageLabel);
+        Node contentBody = contentNode == null ? new Region() : contentNode;
+        VBox content = new VBox(10, titleLabel, contentBody);
         content.setAlignment(Pos.CENTER_LEFT);
         panel.setCenter(content);
 

@@ -9,6 +9,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteService;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcType;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -236,7 +237,11 @@ public final class DlcFxLocalRemoteDownloadTab {
                 setGraphic(null);
                 setText(null);
             } else {
-                nameLabel.setText(safeName(item));
+                String name = safeName(item);
+                if (item.getType() == DlcType.DLC_PACK) {
+                    name = DlcFxI18n.tr("dlc_manager.pack.complete_item_prefix", name);
+                }
+                nameLabel.setText(name);
                 boolean missing = DlcRemoteService.isMissing(item);
                 if (missing) {
                     statusTag.setText(DlcFxI18n.tr("dlc_manager.status.missing"));

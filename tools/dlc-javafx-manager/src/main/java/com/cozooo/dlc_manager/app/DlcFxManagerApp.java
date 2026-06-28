@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.local.DlcFxLocalDlcManagementTab;
+import com.cozooo.dlc_manager.local.DlcFxLocalPackTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalPresetTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRemoteDownloadTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRequiredTab;
@@ -64,6 +65,7 @@ public final class DlcFxManagerApp extends Application {
     private DlcFxLocalDlcManagementTab localDlcManagementTab;
     private DlcFxLocalRemoteDownloadTab localRemoteDownloadTab;
     private DlcFxLocalRequiredTab localRequiredTabPage;
+    private DlcFxLocalPackTab localPackTab;
     private DlcFxLocalUpdateTab localUpdateTab;
 
     private Label localGameDirLabel;
@@ -232,6 +234,7 @@ public final class DlcFxManagerApp extends Application {
         localRequiredTabNode = createLocalRequiredTab();
         localTabPane.getTabs().add(localRequiredTabNode);
         localTabPane.getTabs().add(localPresetTab());
+        localTabPane.getTabs().add(localPackTab());
         localTabPane.getTabs().add(localUpdateTab());
         return localTabPane;
     }
@@ -308,6 +311,9 @@ public final class DlcFxManagerApp extends Application {
         if (localUpdateTab != null) {
             localUpdateTab.onGameDirChanged();
         }
+        if (localPackTab != null) {
+            localPackTab.onGameDirChanged();
+        }
     }
 
     private Tab localRemoteDownloadTab() {
@@ -322,6 +328,11 @@ public final class DlcFxManagerApp extends Application {
 
     private Tab localPresetTab() {
         return new DlcFxLocalPresetTab(PROVIDER).build();
+    }
+
+    private Tab localPackTab() {
+        localPackTab = new DlcFxLocalPackTab(PROVIDER);
+        return localPackTab.build();
     }
 
     private Tab localUpdateTab() {

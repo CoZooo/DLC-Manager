@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.screen
 
 import com.cozooo.dlc_manager.client.core.DlcFilePicker
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive
@@ -1552,8 +1553,8 @@ class DlcPackManagerScreen(
             val pack = result.pack
             if (!result.valid || pack == null) return null
             val lang = Minecraft.getInstance().options.languageCode
-            val displayName = pack.metadata.displayNameComponent(lang)
-            val description = pack.metadata.descriptionComponent(lang)
+            val displayName = DlcTextFormatter.parse(pack.metadata.resolveDisplayName(lang))
+            val description = DlcMarkdownRenderer.renderMarkdownComponent(pack.metadata.resolveDescription(lang))
             val authors = pack.metadata.authors.ifEmpty { listOf(Component.translatable("dlc_manager.pack.unknown_author").string) }
             val author = DlcTextFormatter.parse(authors.joinToString(", "))
             val icon = loadIconTexture(pack.iconFile)

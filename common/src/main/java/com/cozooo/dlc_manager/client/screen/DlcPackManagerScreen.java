@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcFilePicker;
+import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
@@ -1766,8 +1767,8 @@ public class DlcPackManagerScreen extends DlcScreenCompat.MouseScroll {
             }
             DlcPackPackage pack = result.pack;
             String lang = Minecraft.getInstance().options.languageCode;
-            Component displayName = pack.metadata.displayNameComponent(lang);
-            Component description = pack.metadata.descriptionComponent(lang);
+            Component displayName = DlcTextFormatter.parse(pack.metadata.resolveDisplayName(lang));
+            Component description = DlcMarkdownRenderer.renderMarkdownComponent(pack.metadata.resolveDescription(lang));
             List<String> authors = pack.metadata.authors.isEmpty()
                 ? List.of(Component.translatable("dlc_manager.pack.unknown_author").getString())
                 : pack.metadata.authors;
