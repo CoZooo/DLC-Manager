@@ -417,6 +417,22 @@
     -fx-effect: null;
 }
 
+.dlc-dlc-list {
+    -fx-padding: 4;
+}
+
+.dlc-dlc-list-frame {
+    -fx-spacing: 0;
+}
+
+.dlc-dlc-scrollbar-slot {
+    -fx-background-color: transparent;
+    -fx-min-width: 12px;
+    -fx-pref-width: 12px;
+    -fx-max-width: 12px;
+    -fx-padding: 2 1 2 1;
+}
+
 .list-cell {
     -fx-background-color: transparent;
     -fx-background-insets: 0;
@@ -431,6 +447,98 @@
     -fx-background-insets: 0;
     -fx-border-insets: 0;
     -fx-effect: null;
+}
+
+.dlc-dlc-list .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+    -fx-max-width: 0;
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-mouse-transparent: true;
+}
+
+.dlc-dlc-list .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+    -fx-pref-height: 10px;
+    -fx-min-height: 10px;
+    -fx-max-height: 10px;
+    -fx-padding: 1 4 1 4;
+}
+
+.dlc-dlc-list .scroll-bar:horizontal .track {
+    -fx-background-color: transparent;
+}
+
+.dlc-dlc-list .scroll-bar:horizontal .thumb {
+    -fx-background-color: rgba(71, 84, 103, 0.24);
+    -fx-background-radius: 999;
+    -fx-background-insets: 2;
+}
+
+.dlc-dlc-list .scroll-bar:horizontal .thumb:hover {
+    -fx-background-color: rgba(71, 84, 103, 0.40);
+}
+
+.dlc-dlc-scrollbar-slot .track {
+    -fx-background-color: transparent;
+}
+
+.dlc-dlc-scrollbar-slot .thumb {
+    -fx-background-color: rgba(71, 84, 103, 0.26);
+    -fx-background-radius: 999;
+    -fx-background-insets: 2;
+}
+
+.dlc-dlc-scrollbar-slot .thumb:hover {
+    -fx-background-color: rgba(71, 84, 103, 0.42);
+}
+
+.dlc-dlc-scrollbar-slot:disabled .thumb {
+    -fx-background-color: transparent;
+}
+
+.dlc-dlc-scrollbar-slot .increment-button,
+.dlc-dlc-scrollbar-slot .decrement-button {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+}
+
+.dlc-dlc-scrollbar-slot .increment-arrow,
+.dlc-dlc-scrollbar-slot .decrement-arrow {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.dlc-dlc-list .scroll-bar:vertical .increment-button,
+.dlc-dlc-list .scroll-bar:vertical .decrement-button {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-pref-height: 0;
+    -fx-max-height: 0;
+}
+
+.dlc-dlc-list .scroll-bar:vertical .increment-arrow,
+.dlc-dlc-list .scroll-bar:vertical .decrement-arrow {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.dlc-dlc-list .scroll-bar:horizontal .increment-button,
+.dlc-dlc-list .scroll-bar:horizontal .decrement-button {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-max-width: 0;
+}
+
+.dlc-dlc-list .scroll-bar:horizontal .increment-arrow,
+.dlc-dlc-list .scroll-bar:horizontal .decrement-arrow {
+    -fx-opacity: 0;
+    -fx-padding: 0;
 }
 
 .list-cell:filled:hover {
@@ -472,12 +580,18 @@
     -fx-background-color: transparent;
 }
 
+.dlc-dlc-list .list-cell.dlc-row-path:filled:selected .dlc-dlc-path-header,
+.dlc-dlc-list .list-cell.dlc-row-path:filled:selected:focused .dlc-dlc-path-header,
+.dlc-dlc-list .list-cell.dlc-row-path:filled:hover .dlc-dlc-path-header {
+    -fx-text-fill: #344054;
+}
+
 .list-cell.dlc-row-group {
     -fx-padding: 10 10 4 10;
 }
 
 .list-cell.dlc-row-path {
-    -fx-padding: 7 10 4 16;
+    -fx-padding: 5 10 4 16;
 }
 
 .list-cell.dlc-row-item {
@@ -491,8 +605,53 @@
 }
 
 .dlc-dlc-path-header {
-    -fx-text-fill: -dlc-text-muted;
+    -fx-text-fill: #475467;
     -fx-font-size: 12px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-dlc-path-row {
+    -fx-alignment: center-left;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+}
+
+.dlc-folder-collapse-button {
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 26px;
+    -fx-pref-height: 26px;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: #475467;
+    -fx-alignment: center;
+    -fx-content-display: graphic-only;
+}
+
+.dlc-folder-collapse-icon-box {
+    -fx-min-width: 16px;
+    -fx-pref-width: 16px;
+    -fx-max-width: 16px;
+    -fx-min-height: 16px;
+    -fx-pref-height: 16px;
+    -fx-max-height: 16px;
+    -fx-alignment: center;
+}
+
+.dlc-folder-collapse-icon {
+    -fx-stroke: #475467;
+}
+
+.dlc-folder-collapse-button:hover {
+    -fx-background-color: #eef4ff;
+    -fx-border-color: #d5e2f7;
+    -fx-text-fill: #344054;
+}
+
+.dlc-folder-collapse-button:pressed {
+    -fx-background-color: #e7f0ff;
 }
 
 .dlc-dlc-type-label {

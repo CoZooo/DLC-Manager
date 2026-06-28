@@ -50,11 +50,15 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
+import java.awt.GraphicsEnvironment;
+import java.awt.Taskbar;
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import javax.imageio.ImageIO;
 
 public final class DlcFxManagerApp extends Application {
 
@@ -140,6 +144,24 @@ public final class DlcFxManagerApp extends Application {
         URL icon = DlcFxManagerApp.class.getResource("/assets/dlc_manager/textures/gui/icon.png");
         if (icon != null) {
             primaryStage.getIcons().add(new Image(icon.toExternalForm()));
+            installTaskbarIcon(icon);
+        }
+    }
+
+    private void installTaskbarIcon(URL icon) {
+        try {
+            if (GraphicsEnvironment.isHeadless() || !Taskbar.isTaskbarSupported()) {
+                return;
+            }
+            Taskbar taskbar = Taskbar.getTaskbar();
+            if (!taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                return;
+            }
+            java.awt.Image awtIcon = ImageIO.read(icon);
+            if (awtIcon != null) {
+                taskbar.setIconImage(awtIcon);
+            }
+        } catch (IOException | RuntimeException | LinkageError ignored) {
         }
     }
 

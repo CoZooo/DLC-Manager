@@ -16,7 +16,14 @@ import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.core.DlcType;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.PauseTransition;
+import javafx.animation.RotateTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -28,19 +35,32 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollBar;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
+import javafx.scene.Node;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.SVGPath;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
+import javafx.util.Duration;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,12 +69,21 @@ import java.util.WeakHashMap;
 
 public final class DlcFxLocalDlcManagementTab {
 
+    private static final double LIST_SCROLLBAR_SLOT_WIDTH = 12;
+    private static final double LIST_ROW_WIDTH_RESERVED = 34;
+    private static final double LIST_ITEM_CONTENT_MIN_WIDTH = 652;
+    private static final double LIST_PATH_CONTENT_MIN_WIDTH = 360;
+
     private final DlcFxPlatformProvider provider;
 
     private final ObservableList<DlcItem> allItems = FXCollections.observableArrayList();
     private final ObservableList<DlcRow> visibleRows = FXCollections.observableArrayList();
     private final Set<String> selectedItemIds = new LinkedHashSet<>();
+    private final Set<String> collapsedFolders = new LinkedHashSet<>();
+    private final Set<String> animatingFolders = new LinkedHashSet<>();
+    private final Set<ScrollBar> linkedVerticalScrollbars = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<DlcItemCell> activeItemCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
+    private final Set<DlcItemCell> activePathCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Label countLabel = new Label("");
     private final ProgressBar progressBar = new ProgressBar(0);
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.ready"));
@@ -135,8 +164,23 @@ public final class DlcFxLocalDlcManagementTab {
         listView.setCellFactory(param -> new DlcItemCell());
         listView.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
         VBox.setVgrow(listView, Priority.ALWAYS);
+        HBox.setHgrow(listView, Priority.ALWAYS);
+        ScrollBar externalVerticalScrollbar = new ScrollBar();
+        externalVerticalScrollbar.setOrientation(javafx.geometry.Orientation.VERTICAL);
+        DlcFxStyle.add(externalVerticalScrollbar, "dlc-dlc-scrollbar-slot");
+        externalVerticalScrollbar.setMinWidth(LIST_SCROLLBAR_SLOT_WIDTH);
+        externalVerticalScrollbar.setPrefWidth(LIST_SCROLLBAR_SLOT_WIDTH);
+        externalVerticalScrollbar.setMaxWidth(LIST_SCROLLBAR_SLOT_WIDTH);
+        externalVerticalScrollbar.setDisable(true);
+        externalVerticalScrollbar.setMouseTransparent(true);
+        listView.skinProperty().addListener((obs, oldSkin, newSkin) -> Platform.runLater(() -> linkExternalVerticalScrollbar(externalVerticalScrollbar)));
+        listView.sceneProperty().addListener((obs, oldScene, newScene) -> Platform.runLater(() -> linkExternalVerticalScrollbar(externalVerticalScrollbar)));
+        Platform.runLater(() -> linkExternalVerticalScrollbar(externalVerticalScrollbar));
+        HBox listBox = new HBox(0, listView, externalVerticalScrollbar);
+        DlcFxStyle.add(listBox, "dlc-dlc-list-frame");
+        VBox.setVgrow(listBox, Priority.ALWAYS);
 
-        VBox centerBox = new VBox(10, filterBox, listView);
+        VBox centerBox = new VBox(10, filterBox, listBox);
         centerBox.setPadding(new Insets(14, 16, 12, 16));
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
@@ -213,6 +257,8 @@ public final class DlcFxLocalDlcManagementTab {
         allItems.clear();
         visibleRows.clear();
         selectedItemIds.clear();
+        collapsedFolders.clear();
+        animatingFolders.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
         refreshTypeFilterItems();
@@ -752,16 +798,21 @@ public final class DlcFxLocalDlcManagementTab {
             Map<String, List<DlcItem>> byPath = groupByRelativeFolder(typeItems);
             boolean hasSubDir = byPath.keySet().stream().anyMatch(key -> !"__root__".equals(key));
             for (Map.Entry<String, List<DlcItem>> entry : byPath.entrySet()) {
+                String folderKey = folderKey(type, entry.getKey());
+                boolean collapsed = collapsedFolders.contains(folderKey);
                 if ("__root__".equals(entry.getKey())) {
                     if (hasSubDir) {
-                        rows.add(DlcRow.pathHeader(resolvePathLabel(entry.getKey())));
+                        rows.add(DlcRow.pathHeader(resolvePathLabel(entry.getKey()), folderKey, type, entry.getKey(), collapsed));
                     }
                 } else {
-                    rows.add(DlcRow.pathHeader(resolvePathLabel(entry.getKey())));
+                    rows.add(DlcRow.pathHeader(resolvePathLabel(entry.getKey()), folderKey, type, entry.getKey(), collapsed));
+                }
+                if (collapsed) {
+                    continue;
                 }
                 for (DlcItem item : entry.getValue()) {
                     item.setDirty(isDirty(item));
-                    rows.add(DlcRow.item(item));
+                    rows.add(DlcRow.item(item, folderKey));
                 }
             }
         }
@@ -811,6 +862,181 @@ public final class DlcFxLocalDlcManagementTab {
             return DlcFxI18n.tr("dlc_manager.group.root");
         }
         return raw;
+    }
+
+    private String folderKey(DlcType type, String raw) {
+        return (type == null ? "unknown" : type.name()) + ":" + (raw == null ? "__root__" : raw);
+    }
+
+    private boolean setFolderCollapsed(DlcRow row, boolean collapsed) {
+        if (row == null || row.folderKey == null || row.folderKey.isBlank()) {
+            return false;
+        }
+        if (animatingFolders.contains(row.folderKey)) {
+            return false;
+        }
+        int headerIndex = visibleRows.indexOf(row);
+        if (headerIndex < 0) {
+            return false;
+        }
+        if (row.collapsed == collapsed) {
+            return false;
+        }
+        if (collapsed) {
+            animateFolderCollapse(row, headerIndex);
+        } else {
+            animateFolderExpand(row, headerIndex);
+        }
+        if (listView != null) {
+            listView.getSelectionModel().clearSelection();
+        }
+        return true;
+    }
+
+    private void animateFolderCollapse(DlcRow row, int headerIndex) {
+        animatingFolders.add(row.folderKey);
+        collapsedFolders.add(row.folderKey);
+        row.collapsed = true;
+        List<DlcRow> targets = folderItemRowsAfter(headerIndex);
+        if (targets.isEmpty()) {
+            finishFolderAnimation(row.folderKey);
+            return;
+        }
+        for (DlcRow target : targets) {
+            target.expanding = false;
+            target.collapsing = true;
+        }
+        startVisibleFolderAnimations(row.folderKey);
+        PauseTransition removeAfterAnimation = new PauseTransition(Duration.millis(260));
+        removeAfterAnimation.setOnFinished(event -> {
+            visibleRows.removeAll(targets);
+            for (DlcRow target : targets) {
+                if (target.collapsing && !target.expanding) {
+                    target.collapsing = false;
+                }
+            }
+            finishFolderAnimation(row.folderKey);
+        });
+        removeAfterAnimation.play();
+    }
+
+    private void animateFolderExpand(DlcRow row, int headerIndex) {
+        animatingFolders.add(row.folderKey);
+        collapsedFolders.remove(row.folderKey);
+        row.collapsed = false;
+        List<DlcRow> rows = itemRowsForFolder(row.folderType, row.folderRaw);
+        if (rows.isEmpty()) {
+            finishFolderAnimation(row.folderKey);
+            return;
+        }
+        for (DlcRow item : rows) {
+            item.expanding = true;
+            item.collapsing = false;
+        }
+        visibleRows.addAll(headerIndex + 1, rows);
+        Platform.runLater(() -> startVisibleFolderAnimations(row.folderKey));
+        PauseTransition finishExpansion = new PauseTransition(Duration.millis(260));
+        finishExpansion.setOnFinished(event -> {
+            for (DlcRow item : rows) {
+                if (item.expanding && !item.collapsing) {
+                    item.expanding = false;
+                }
+            }
+            finishFolderAnimation(row.folderKey);
+        });
+        finishExpansion.play();
+    }
+
+    private void finishFolderAnimation(String folderKey) {
+        if (folderKey != null) {
+            animatingFolders.remove(folderKey);
+        }
+        syncVisibleFolderHeaders(folderKey);
+        syncVisibleItemCells();
+    }
+
+    private void startVisibleFolderAnimations(String folderKey) {
+        for (DlcItemCell cell : new ArrayList<>(activeItemCells)) {
+            if (cell != null) {
+                cell.startAnimationForFolder(folderKey);
+            }
+        }
+    }
+
+    private void syncVisibleFolderHeaders(String folderKey) {
+        for (DlcItemCell cell : new ArrayList<>(activePathCells)) {
+            if (cell != null) {
+                cell.syncPathState(folderKey);
+            }
+        }
+    }
+
+    private boolean isFolderAnimating(String folderKey) {
+        return folderKey != null && animatingFolders.contains(folderKey);
+    }
+
+    private void linkExternalVerticalScrollbar(ScrollBar external) {
+        if (listView == null || external == null || listView.getScene() == null) {
+            return;
+        }
+        listView.applyCss();
+        Set<Node> nodes = new HashSet<>(listView.lookupAll(".scroll-bar"));
+        for (Node node : nodes) {
+            if (node instanceof ScrollBar internal && internal.getOrientation() == javafx.geometry.Orientation.VERTICAL) {
+                if (linkedVerticalScrollbars.add(internal)) {
+                    external.minProperty().bind(internal.minProperty());
+                    external.maxProperty().bind(internal.maxProperty());
+                    external.valueProperty().bindBidirectional(internal.valueProperty());
+                    external.visibleAmountProperty().bind(internal.visibleAmountProperty());
+                    internal.visibleProperty().addListener((obs, oldValue, newValue) -> updateExternalVerticalScrollbar(external, internal));
+                    internal.visibleAmountProperty().addListener((obs, oldValue, newValue) -> updateExternalVerticalScrollbar(external, internal));
+                    internal.maxProperty().addListener((obs, oldValue, newValue) -> updateExternalVerticalScrollbar(external, internal));
+                }
+                updateExternalVerticalScrollbar(external, internal);
+                return;
+            }
+        }
+        Platform.runLater(() -> linkExternalVerticalScrollbar(external));
+    }
+
+    private void updateExternalVerticalScrollbar(ScrollBar external, ScrollBar internal) {
+        boolean scrollable = internal != null
+            && internal.isVisible()
+            && internal.getMax() > internal.getMin();
+        external.setDisable(!scrollable);
+        external.setMouseTransparent(!scrollable);
+        external.setOpacity(scrollable ? 1 : 0);
+    }
+
+    private List<DlcRow> folderItemRowsAfter(int headerIndex) {
+        List<DlcRow> out = new ArrayList<>();
+        for (int i = headerIndex + 1; i < visibleRows.size(); i++) {
+            DlcRow row = visibleRows.get(i);
+            if (row.type != DlcRowType.ITEM) {
+                break;
+            }
+            out.add(row);
+        }
+        return out;
+    }
+
+    private List<DlcRow> itemRowsForFolder(DlcType type, String rawFolder) {
+        if (type == null) {
+            return List.of();
+        }
+        List<DlcItem> typeItems = allItems.stream()
+            .filter(item -> item != null && item.getType() == type && !item.isHidden() && matchesSearch(item))
+            .toList();
+        List<DlcItem> folderItems = groupByRelativeFolder(typeItems).get(rawFolder == null ? "__root__" : rawFolder);
+        if (folderItems == null || folderItems.isEmpty()) {
+            return List.of();
+        }
+        List<DlcRow> out = new ArrayList<>();
+        for (DlcItem item : folderItems) {
+            item.setDirty(isDirty(item));
+            out.add(DlcRow.item(item, folderKey(type, rawFolder)));
+        }
+        return out;
     }
 
     private boolean matchesSearch(DlcItem item) {
@@ -1001,8 +1227,18 @@ public final class DlcFxLocalDlcManagementTab {
         private final GridPane itemGrid = new GridPane();
         private final HBox nameBox = new HBox(8, selectBox, accent, nameLabel, pendingLabel);
         private final HBox itemRow = new HBox(0, itemGrid);
+        private final StackPane itemAnimationPane = new StackPane(itemRow);
         private final Label groupLabel = new Label();
         private final Label pathLabel = new Label();
+        private final Button collapseButton = new Button();
+        private final SVGPath collapseIcon = new SVGPath();
+        private final StackPane collapseIconBox = new StackPane(collapseIcon);
+        private final BorderPane pathRow = new BorderPane();
+        private final Rectangle rowClip = new Rectangle();
+        private Timeline rowTimeline;
+        private RotateTransition collapseTransition;
+        private DlcRow animatedRow;
+        private Boolean animatedExpansion;
 
         DlcItemCell() {
             DlcFxStyle.title(nameLabel);
@@ -1013,6 +1249,18 @@ public final class DlcFxLocalDlcManagementTab {
             DlcFxStyle.add(typeLabel, "dlc-dlc-type-label");
             DlcFxStyle.add(groupLabel, "dlc-dlc-group-header");
             DlcFxStyle.add(pathLabel, "dlc-dlc-path-header");
+            DlcFxStyle.add(pathRow, "dlc-dlc-path-row");
+            DlcFxStyle.add(collapseButton, "dlc-folder-collapse-button");
+            DlcFxStyle.add(collapseIconBox, "dlc-folder-collapse-icon-box");
+            DlcFxStyle.add(collapseIcon, "dlc-folder-collapse-icon");
+            collapseIcon.setContent("M 3 10 L 8 5 L 13 10");
+            collapseIcon.setFill(Color.TRANSPARENT);
+            collapseIcon.setStroke(Color.web("#475467"));
+            collapseIcon.setStrokeWidth(1.8);
+            collapseIcon.setStrokeLineCap(StrokeLineCap.ROUND);
+            collapseIcon.setStrokeLineJoin(StrokeLineJoin.ROUND);
+            rowClip.widthProperty().bind(itemAnimationPane.widthProperty());
+            rowClip.heightProperty().bind(itemAnimationPane.heightProperty());
             pendingLabel.setMinWidth(64);
             pendingLabel.setPrefWidth(64);
             pendingLabel.setMaxWidth(64);
@@ -1032,12 +1280,62 @@ public final class DlcFxLocalDlcManagementTab {
                 column(112, 150, Priority.NEVER),
                 column(96, 96, Priority.NEVER)
             );
+            itemGrid.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
+            itemGrid.prefWidthProperty().bind(Bindings.max(widthProperty().subtract(LIST_ROW_WIDTH_RESERVED), LIST_ITEM_CONTENT_MIN_WIDTH));
             HBox.setHgrow(itemGrid, Priority.ALWAYS);
+            itemRow.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
             itemRow.setAlignment(Pos.CENTER_LEFT);
+            itemAnimationPane.setAlignment(Pos.CENTER_LEFT);
+            itemAnimationPane.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
+            itemAnimationPane.prefWidthProperty().bind(itemGrid.prefWidthProperty());
+            itemRow.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                if (!isInside(event.getTarget(), selectBox) && !isInside(event.getTarget(), toggleButton)) {
+                    event.consume();
+                }
+            });
             itemRow.setOnMouseClicked(event -> event.consume());
+            HBox.setHgrow(pathLabel, Priority.ALWAYS);
+            pathRow.setCenter(pathLabel);
+            pathRow.setRight(collapseButton);
+            BorderPane.setAlignment(pathLabel, Pos.CENTER_LEFT);
+            BorderPane.setAlignment(collapseButton, Pos.CENTER_RIGHT);
+            pathLabel.setMaxWidth(Double.MAX_VALUE);
+            pathRow.setMinWidth(LIST_PATH_CONTENT_MIN_WIDTH);
+            pathRow.prefWidthProperty().bind(Bindings.max(widthProperty().subtract(LIST_ROW_WIDTH_RESERVED), LIST_PATH_CONTENT_MIN_WIDTH));
+            pathRow.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                if (!isInside(event.getTarget(), collapseButton)) {
+                    event.consume();
+                }
+                if (event.getButton() == MouseButton.PRIMARY) {
+                    if (listView != null) {
+                        listView.getSelectionModel().clearSelection();
+                    }
+                }
+            });
+            collapseButton.setMinWidth(28);
+            collapseButton.setPrefWidth(28);
+            collapseButton.setMaxWidth(28);
+            collapseButton.setText(null);
+            collapseButton.setGraphic(collapseIconBox);
+            collapseButton.setOnAction(event -> {
+                DlcRow current = getItem();
+                if (current != null && (current.folderKey == null || !animatingFolders.contains(current.folderKey))) {
+                    boolean targetCollapsed = !current.collapsed;
+                    if (setFolderCollapsed(current, targetCollapsed)) {
+                        collapseButton.setDisable(true);
+                        animateCollapseButton(targetCollapsed);
+                    }
+                }
+                event.consume();
+            });
             selectBox.setOnMouseClicked(event -> {
                 DlcRow row = super.getItem();
                 if (row == null || row.type != DlcRowType.ITEM || row.item == null) {
+                    event.consume();
+                    return;
+                }
+                if (isFolderAnimating(row.itemFolderKey)) {
+                    selectBox.setSelected(isItemSelected(row.item));
                     event.consume();
                     return;
                 }
@@ -1048,7 +1346,8 @@ public final class DlcFxLocalDlcManagementTab {
             });
             toggleButton.setOnAction(e -> {
                 DlcItem item = currentItem();
-                if (item != null) {
+                DlcRow row = super.getItem();
+                if (item != null && (row == null || !isFolderAnimating(row.itemFolderKey))) {
                     if (item.isEnabled()) {
                         disableItemsWithDependents(List.of(item));
                     } else {
@@ -1062,16 +1361,20 @@ public final class DlcFxLocalDlcManagementTab {
         protected void updateItem(DlcRow row, boolean empty) {
             super.updateItem(row, empty);
             activeItemCells.remove(this);
+            activePathCells.remove(this);
             getStyleClass().removeAll("dlc-row-group", "dlc-row-path", "dlc-row-item");
             getStyleClass().removeAll("dlc-dlc-selected");
             setTooltip(null);
             if (empty || row == null) {
+                resetCellAnimation();
                 setMouseTransparent(false);
                 setGraphic(null);
                 setText(null);
                 return;
             }
             if (row.type == DlcRowType.GROUP_HEADER) {
+                resetCellAnimation();
+                setMouseTransparent(false);
                 getStyleClass().add("dlc-row-group");
                 groupLabel.setText(DlcFxI18n.tr(row.groupType.getDisplayKey()));
                 setGraphic(groupLabel);
@@ -1079,9 +1382,13 @@ public final class DlcFxLocalDlcManagementTab {
                 return;
             }
             if (row.type == DlcRowType.PATH_HEADER) {
+                resetCellAnimation();
+                setMouseTransparent(false);
+                activePathCells.add(this);
                 getStyleClass().add("dlc-row-path");
                 pathLabel.setText(row.label);
-                setGraphic(pathLabel);
+                syncPathState(row.folderKey);
+                setGraphic(pathRow);
                 setText(null);
                 return;
             }
@@ -1095,8 +1402,20 @@ public final class DlcFxLocalDlcManagementTab {
             DlcFxRichTextRenderer.setFormatted(nameLabel, displayName(item));
             setTooltip(DlcFxRichTextRenderer.formattedTooltip(buildTooltip(item)));
             setText(null);
-            setGraphic(itemRow);
+            setGraphic(itemAnimationPane);
             syncItemState();
+            startRowAnimationIfNeeded(row);
+        }
+
+        private void syncPathState(String folderKey) {
+            DlcRow row = super.getItem();
+            if (row == null || row.type != DlcRowType.PATH_HEADER) {
+                return;
+            }
+            if (folderKey == null || folderKey.equals(row.folderKey)) {
+                collapseIcon.setRotate(row.collapsed ? 180 : 0);
+                collapseButton.setDisable(isFolderAnimating(row.folderKey));
+            }
         }
 
         private void syncItemState() {
@@ -1122,12 +1441,145 @@ public final class DlcFxLocalDlcManagementTab {
             toggleButton.getStyleClass().add(dirty ? "dlc-toggle-pending" : item.isEnabled() ? "dlc-toggle-on" : "dlc-toggle-off");
             boolean missing = DlcRuntimeState.hasMissingDependencies(item);
             boolean blocked = DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier());
-            toggleButton.setDisable(blocked || (!item.isEnabled() && missing));
+            DlcRow row = super.getItem();
+            boolean folderAnimating = row != null && isFolderAnimating(row.itemFolderKey);
+            itemRow.setMouseTransparent(folderAnimating);
+            selectBox.setDisable(folderAnimating);
+            toggleButton.setDisable(folderAnimating || blocked || (!item.isEnabled() && missing));
         }
 
         private DlcItem currentItem() {
             DlcRow row = super.getItem();
             return row == null ? null : row.item;
+        }
+
+        private void startAnimationForFolder(String folderKey) {
+            DlcRow row = super.getItem();
+            if (row == null || row.type != DlcRowType.ITEM || !folderKey.equals(row.itemFolderKey)) {
+                return;
+            }
+            syncItemState();
+            startRowAnimationIfNeeded(row);
+        }
+
+        private void animateCollapseButton(boolean collapsing) {
+            if (collapseTransition != null) {
+                collapseTransition.stop();
+            }
+            collapseIcon.setRotate(collapsing ? 0 : 180);
+            collapseTransition = new RotateTransition(Duration.millis(180), collapseIcon);
+            collapseTransition.setInterpolator(Interpolator.EASE_BOTH);
+            collapseTransition.setToAngle(collapsing ? 180 : 0);
+            collapseTransition.play();
+        }
+
+        private void startRowAnimationIfNeeded(DlcRow row) {
+            if (row == null) {
+                resetCellAnimation();
+                return;
+            }
+            if (row.collapsing && !isCurrentAnimation(row, false)) {
+                animateRow(row, false, Math.max(getCurrentAnimatedHeight(), 42), 0, 1, 0, null);
+                return;
+            }
+            if (row.expanding && !isCurrentAnimation(row, true)) {
+                animateRow(row, true, 0, 42, 0, 1, () -> {
+                    if (super.getItem() == row && row.expanding && !row.collapsing) {
+                        row.expanding = false;
+                        resetCellAnimation();
+                    }
+                });
+                return;
+            }
+            if (!row.expanding && !row.collapsing) {
+                resetCellAnimation();
+            }
+        }
+
+        private boolean isCurrentAnimation(DlcRow row, boolean expandingAnimation) {
+            return rowTimeline != null && animatedRow == row && animatedExpansion != null && animatedExpansion == expandingAnimation;
+        }
+
+        private void animateRow(DlcRow row, boolean expandingAnimation, double fromHeight, double toHeight,
+                                double fromOpacity, double toOpacity, Runnable afterFinished) {
+            if (rowTimeline != null) {
+                rowTimeline.stop();
+            }
+            animatedRow = row;
+            animatedExpansion = expandingAnimation;
+            itemAnimationPane.setClip(rowClip);
+            itemAnimationPane.setMinHeight(fromHeight);
+            itemAnimationPane.setPrefHeight(fromHeight);
+            itemAnimationPane.setMaxHeight(fromHeight);
+            itemAnimationPane.setOpacity(fromOpacity);
+            rowTimeline = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                    new KeyValue(itemAnimationPane.minHeightProperty(), fromHeight),
+                    new KeyValue(itemAnimationPane.prefHeightProperty(), fromHeight),
+                    new KeyValue(itemAnimationPane.maxHeightProperty(), fromHeight),
+                    new KeyValue(itemAnimationPane.opacityProperty(), fromOpacity)
+                ),
+                new KeyFrame(Duration.millis(240),
+                    new KeyValue(itemAnimationPane.minHeightProperty(), toHeight, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0)),
+                    new KeyValue(itemAnimationPane.prefHeightProperty(), toHeight, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0)),
+                    new KeyValue(itemAnimationPane.maxHeightProperty(), toHeight, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0)),
+                    new KeyValue(itemAnimationPane.opacityProperty(), toOpacity, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0))
+                )
+            );
+            rowTimeline.setOnFinished(event -> {
+                if (super.getItem() != row || row.expanding != expandingAnimation || row.collapsing == expandingAnimation) {
+                    return;
+                }
+                rowTimeline = null;
+                animatedRow = null;
+                animatedExpansion = null;
+                if (afterFinished != null) {
+                    afterFinished.run();
+                }
+            });
+            rowTimeline.play();
+        }
+
+        private double getCurrentAnimatedHeight() {
+            double height = itemAnimationPane.getHeight();
+            if (Double.isNaN(height) || height <= 0) {
+                height = itemAnimationPane.getPrefHeight();
+            }
+            if (Double.isNaN(height) || height <= 0 || height == Region.USE_COMPUTED_SIZE || height == Region.USE_PREF_SIZE) {
+                return 42;
+            }
+            return height;
+        }
+
+        private void resetCellAnimation() {
+            if (rowTimeline != null) {
+                rowTimeline.stop();
+                rowTimeline = null;
+            }
+            animatedRow = null;
+            animatedExpansion = null;
+            setMinHeight(Region.USE_PREF_SIZE);
+            setPrefHeight(Region.USE_COMPUTED_SIZE);
+            setMaxHeight(Region.USE_COMPUTED_SIZE);
+            setOpacity(1);
+            itemAnimationPane.setMinHeight(Region.USE_PREF_SIZE);
+            itemAnimationPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
+            itemAnimationPane.setMaxHeight(Region.USE_COMPUTED_SIZE);
+            itemAnimationPane.setOpacity(1);
+            itemAnimationPane.setClip(null);
+        }
+
+        private boolean isInside(Object target, Node parent) {
+            if (!(target instanceof Node node) || parent == null) {
+                return false;
+            }
+            while (node != null) {
+                if (node == parent) {
+                    return true;
+                }
+                node = node.getParent();
+            }
+            return false;
         }
     }
 
@@ -1248,24 +1700,37 @@ public final class DlcFxLocalDlcManagementTab {
         private final String label;
         private final DlcType groupType;
         private final DlcItem item;
+        private final String itemFolderKey;
+        private final String folderKey;
+        private final DlcType folderType;
+        private final String folderRaw;
+        private boolean collapsed;
+        private boolean expanding;
+        private boolean collapsing;
 
-        private DlcRow(DlcRowType type, String label, DlcType groupType, DlcItem item) {
+        private DlcRow(DlcRowType type, String label, DlcType groupType, DlcItem item, String itemFolderKey,
+                       String folderKey, DlcType folderType, String folderRaw, boolean collapsed) {
             this.type = type;
             this.label = label;
             this.groupType = groupType;
             this.item = item;
+            this.itemFolderKey = itemFolderKey;
+            this.folderKey = folderKey;
+            this.folderType = folderType;
+            this.folderRaw = folderRaw;
+            this.collapsed = collapsed;
         }
 
         private static DlcRow groupHeader(DlcType type) {
-            return new DlcRow(DlcRowType.GROUP_HEADER, null, type, null);
+            return new DlcRow(DlcRowType.GROUP_HEADER, null, type, null, null, null, null, null, false);
         }
 
-        private static DlcRow pathHeader(String label) {
-            return new DlcRow(DlcRowType.PATH_HEADER, label, null, null);
+        private static DlcRow pathHeader(String label, String folderKey, DlcType folderType, String folderRaw, boolean collapsed) {
+            return new DlcRow(DlcRowType.PATH_HEADER, label, null, null, null, folderKey, folderType, folderRaw, collapsed);
         }
 
-        private static DlcRow item(DlcItem item) {
-            return new DlcRow(DlcRowType.ITEM, null, null, item);
+        private static DlcRow item(DlcItem item, String itemFolderKey) {
+            return new DlcRow(DlcRowType.ITEM, null, null, item, itemFolderKey, null, null, null, false);
         }
     }
 
