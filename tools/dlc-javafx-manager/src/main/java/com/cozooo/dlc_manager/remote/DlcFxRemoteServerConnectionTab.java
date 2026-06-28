@@ -45,11 +45,7 @@ public final class DlcFxRemoteServerConnectionTab {
             try { port = Integer.parseInt(portField.getText().trim()); }
             catch (NumberFormatException ex) { port = 29690; }
             String pw = passwordField.getText();
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.server.connecting"));
             conn.connectAsync(host, port, pw, 10000, err -> {
-                if (err != null) {
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.server.connect_failed") + ": " + DlcFxRemoteConnection.safeMessage(err));
-                }
             });
         });
 

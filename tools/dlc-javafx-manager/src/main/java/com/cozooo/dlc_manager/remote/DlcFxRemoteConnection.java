@@ -36,6 +36,7 @@ public final class DlcFxRemoteConnection {
     SyncModels.ServerInfo lastServerInfo() { return lastServerInfo; }
 
     void connectAsync(String host, int port, String password, int timeoutMs, Consumer<Throwable> onDone) {
+        statusText.set(DlcFxI18n.tr("dlc_manager.server.connecting"));
         Thread thread = new Thread(() -> {
             try {
                 DlcTcpFacade f = DlcTcpFacade.connect(host, port, password, timeoutMs);
@@ -52,7 +53,12 @@ public final class DlcFxRemoteConnection {
                     onDone.accept(null);
                 });
             } catch (Throwable t) {
-                Platform.runLater(() -> onDone.accept(t));
+                Platform.runLater(() -> {
+                    connected.set(false);
+                    statusText.set(DlcFxI18n.tr("dlc_manager.server.connect_failed") + ": " + safeMessage(t));
+                    serverInfoText.set("");
+                    onDone.accept(t);
+                });
             }
         }, "dlc-connect");
         thread.setDaemon(true);

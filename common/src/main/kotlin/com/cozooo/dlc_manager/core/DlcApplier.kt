@@ -753,11 +753,15 @@ object DlcApplier {
         if (source == null || target == null) {
             return
         }
-        if (DlcFileOpsHelperClient.cancelPendingDelete(target) && Files.exists(target)) {
-            return
-        }
         if (target.parent != null) {
             Files.createDirectories(target.parent)
+        }
+        if (!DlcFileOpsHelperClient.shouldUseHelper()) {
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+            return
+        }
+        if (DlcFileOpsHelperClient.cancelPendingDelete(target) && Files.exists(target)) {
+            return
         }
         try {
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
@@ -779,6 +783,14 @@ object DlcApplier {
         if (target.parent != null) {
             Files.createDirectories(target.parent)
         }
+        if (!DlcFileOpsHelperClient.shouldUseHelper()) {
+            if (replaceExisting) {
+                Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
+            } else {
+                Files.move(source, target)
+            }
+            return
+        }
         try {
             if (replaceExisting) {
                 Files.move(source, target, StandardCopyOption.REPLACE_EXISTING)
@@ -798,6 +810,10 @@ object DlcApplier {
     @Throws(IOException::class)
     private fun deleteWithHelperFallback(path: Path?) {
         if (path == null) {
+            return
+        }
+        if (!DlcFileOpsHelperClient.shouldUseHelper()) {
+            Files.deleteIfExists(path)
             return
         }
         try {

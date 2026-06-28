@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcItem;
+import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
@@ -17,7 +18,6 @@ import com.cozooo.dlc_manager.core.DlcType;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -32,6 +32,7 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -39,27 +40,34 @@ import javafx.scene.layout.VBox;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 public final class DlcFxLocalDlcManagementTab {
 
     private final DlcFxPlatformProvider provider;
 
     private final ObservableList<DlcItem> allItems = FXCollections.observableArrayList();
-    private final FilteredList<DlcItem> filteredItems = new FilteredList<>(allItems);
+    private final ObservableList<DlcRow> visibleRows = FXCollections.observableArrayList();
+    private final Set<String> selectedItemIds = new LinkedHashSet<>();
+    private final Set<DlcItemCell> activeItemCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Label countLabel = new Label("");
     private final ProgressBar progressBar = new ProgressBar(0);
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.ready"));
     private final TextField searchField = new TextField();
-    private final ComboBox<DlcType> typeFilter = new ComboBox<>();
+    private final ComboBox<DlcTypeOption> typeFilter = new ComboBox<>();
+    private ListView<DlcRow> listView;
     private Button rescanBtn;
     private Button openDlcDirBtn;
     private Button cancelBtn;
     private Button applyBtn;
+    private Button enableSelectedBtn;
+    private Button disableSelectedBtn;
     private boolean gameDirSelected;
-    private List<DlcItem> pendingForcedEnable = List.of();
+    private boolean loadedForCurrentGameDir;
 
     public DlcFxLocalDlcManagementTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -80,7 +88,11 @@ public final class DlcFxLocalDlcManagementTab {
 
         rescanBtn = new Button(DlcFxI18n.tr("dlc_manager.local.scan_dlc"));
         rescanBtn.setDisable(!gameDirSelected);
-        rescanBtn.setOnAction(e -> scanAsync());
+        rescanBtn.setOnAction(e -> {
+            if (gameDirSelected) {
+                scanAsync();
+            }
+        });
 
         openDlcDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.open_dlc_dir"));
         openDlcDirBtn.setDisable(!gameDirSelected);
@@ -90,21 +102,24 @@ public final class DlcFxLocalDlcManagementTab {
 
         searchField.setPromptText(DlcFxI18n.tr("dlc_manager.local.search_prompt"));
         searchField.setPrefColumnCount(30);
-        searchField.textProperty().addListener((obs, o, n) -> applyFilter(n, typeFilter.getValue()));
+        searchField.textProperty().addListener((obs, o, n) -> applyFilter(n, selectedTypeFilter()));
 
-        typeFilter.getItems().add(null);
+        typeFilter.getItems().add(DlcTypeOption.all());
         for (DlcType t : DlcType.values()) {
             if (!isVisibleDlcType(t)) {
                 continue;
             }
-            typeFilter.getItems().add(t);
+            typeFilter.getItems().add(DlcTypeOption.of(t));
         }
         typeFilter.setPromptText(DlcFxI18n.tr("dlc_manager.local.all_types"));
         typeFilter.setConverter(new javafx.util.StringConverter<>() {
-            @Override public String toString(DlcType t) { return t == null ? DlcFxI18n.tr("dlc_manager.local.all_types") : DlcFxI18n.tr(t.getDisplayKey()); }
-            @Override public DlcType fromString(String s) { return null; }
+            @Override public String toString(DlcTypeOption option) { return typeText(option); }
+            @Override public DlcTypeOption fromString(String s) { return DlcTypeOption.all(); }
         });
-        typeFilter.valueProperty().addListener((obs, o, n) -> applyFilter(searchField.getText(), n));
+        typeFilter.setButtonCell(new DlcTypeButtonCell(typeFilter));
+        typeFilter.setCellFactory(param -> new DlcTypePopupCell());
+        typeFilter.setValue(DlcTypeOption.all());
+        typeFilter.valueProperty().addListener((obs, o, n) -> applyFilter(searchField.getText(), typeOf(n)));
 
         Label searchLabel = new Label(DlcFxI18n.tr("dlc_manager.local.filter"));
         Label typeLabel = new Label(DlcFxI18n.tr("dlc_manager.local.type"));
@@ -114,9 +129,10 @@ public final class DlcFxLocalDlcManagementTab {
         filterBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.filterBar(filterBox);
 
-        ListView<DlcItem> listView = new ListView<>(filteredItems);
+        listView = new ListView<>(visibleRows);
+        DlcFxStyle.add(listView, "dlc-dlc-list");
         listView.setCellFactory(param -> new DlcItemCell());
-        listView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        listView.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
         VBox.setVgrow(listView, Priority.ALWAYS);
 
         VBox centerBox = new VBox(10, filterBox, listView);
@@ -126,26 +142,37 @@ public final class DlcFxLocalDlcManagementTab {
 
         Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_all"));
         selectAllBtn.setOnAction(e -> {
-            handleBatchEnable(new ArrayList<>(allItems), true);
+            selectedItemIds.clear();
+            for (DlcRow row : visibleRows) {
+                if (row.type == DlcRowType.ITEM && row.item != null) {
+                    selectedItemIds.add(selectionId(row.item));
+                }
+            }
             listView.refresh();
+            updateActionState();
         });
         Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_none"));
         selectNoneBtn.setOnAction(e -> {
-            handleBatchEnable(new ArrayList<>(allItems), false);
+            selectedItemIds.clear();
             listView.refresh();
+            updateActionState();
         });
         Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
-        invertBtn.setOnAction(e -> handleToggleItems(new ArrayList<>(allItems)));
+        invertBtn.setOnAction(e -> invertVisibleSelection());
         HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
         selectionActions.setAlignment(Pos.CENTER_LEFT);
 
         cancelBtn = new Button(DlcFxI18n.tr("dlc_manager.local.cancel_changes"));
-        cancelBtn.setDisable(!gameDirSelected);
         cancelBtn.setOnAction(e -> resetChanges());
         applyBtn = new Button(DlcFxI18n.tr("dlc_manager.local.apply_changes"));
-        applyBtn.setDisable(!gameDirSelected);
         applyBtn.setOnAction(e -> applyAsync());
         DlcFxStyle.primary(applyBtn);
+
+        enableSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.local.enable_selected"));
+        enableSelectedBtn.setOnAction(e -> handleBatchEnable(selectedItemsToEnable(), true));
+        DlcFxStyle.primary(enableSelectedBtn);
+        disableSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.local.disable_selected"));
+        disableSelectedBtn.setOnAction(e -> disableItemsWithDependents(selectedItemsToDisable()));
 
         Region topSpacer2 = new Region();
         HBox.setHgrow(topSpacer2, Priority.ALWAYS);
@@ -154,7 +181,7 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
 
-        HBox applyActions = new HBox(8, applyBtn, cancelBtn);
+        HBox applyActions = new HBox(8, applyBtn, cancelBtn, enableSelectedBtn, disableSelectedBtn);
         applyActions.setAlignment(Pos.CENTER_LEFT);
         HBox actionPanel = new HBox(18, applyActions, progressBar, statusLabel);
         actionPanel.setAlignment(Pos.CENTER_LEFT);
@@ -163,11 +190,13 @@ public final class DlcFxLocalDlcManagementTab {
         root.setBottom(actionPanel);
 
         tab.setContent(root);
+        updateActionState();
         return tab;
     }
 
     public void onGameDirChanged() {
         gameDirSelected = true;
+        loadedForCurrentGameDir = false;
         if (rescanBtn != null) {
             rescanBtn.setDisable(false);
         }
@@ -175,15 +204,24 @@ public final class DlcFxLocalDlcManagementTab {
             openDlcDirBtn.setDisable(false);
         }
         if (cancelBtn != null) {
-            cancelBtn.setDisable(false);
+            cancelBtn.setDisable(true);
         }
         if (applyBtn != null) {
-            applyBtn.setDisable(false);
+            applyBtn.setDisable(true);
         }
         allItems.clear();
+        visibleRows.clear();
+        selectedItemIds.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
         refreshTypeFilterItems();
+        updateActionState();
+    }
+
+    public void onTabSelected() {
+        if (!gameDirSelected || loadedForCurrentGameDir) {
+            return;
+        }
         scanAsync();
     }
 
@@ -206,6 +244,11 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     private void scanAsync() {
+        if (!gameDirSelected) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            return;
+        }
+        loadedForCurrentGameDir = true;
         refreshTypeFilterItems();
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
@@ -325,6 +368,8 @@ public final class DlcFxLocalDlcManagementTab {
                 System.out.println("[DLC-Scan-Debug]\n" + diagText + "total=" + total);
                 Platform.runLater(() -> {
                     allItems.setAll(flat);
+                    selectedItemIds.removeIf(id -> flat.stream().noneMatch(item -> id.equals(selectionId(item))));
+                    rebuildRows();
                     countLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", total));
                     progressBar.setVisible(false);
                     if (total == 0) {
@@ -337,12 +382,14 @@ public final class DlcFxLocalDlcManagementTab {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_done"));
                         statusLabel.setTooltip(new Tooltip(diagText));
                     }
+                    updateActionState();
                 });
             } catch (Throwable t) {
                 t.printStackTrace();
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_failed", safeMessage(t)));
+                    updateActionState();
                 });
             }
         }, "dlc-scan");
@@ -354,6 +401,7 @@ public final class DlcFxLocalDlcManagementTab {
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
+        updateActionState();
         Thread thread = new Thread(() -> {
             try {
                 DlcApplier.ApplyResult result = DlcApplier.apply(new ArrayList<>(allItems), DlcApplyMode.RESTART_ONLY);
@@ -361,16 +409,25 @@ public final class DlcFxLocalDlcManagementTab {
                 if (DlcConfig.isPresetFuncOn()) {
                     DlcPresetRuntimeState.syncStatusFromRuntime();
                 }
+                for (DlcItem item : allItems) {
+                    if (item == null) {
+                        continue;
+                    }
+                    DlcRuntimeState.updateBaseline(item.getId(), item.isEnabled());
+                    DlcRuntimeState.clearOverride(item.getId());
+                }
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
+                    rebuildRows();
+                    List<String> failureMessages = applyFailureMessages(result);
                     StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.status.apply_done"));
-                    if (!result.messages().isEmpty()) {
-                        sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", result.messages().size()));
+                    if (!failureMessages.isEmpty()) {
+                        sb.append(DlcFxI18n.tr("dlc_manager.status.message_count_suffix", failureMessages.size()));
                     }
                     statusLabel.setText(sb.toString());
-                    if (!result.messages().isEmpty()) {
+                    if (!failureMessages.isEmpty()) {
                         StringBuilder tip = new StringBuilder();
-                        for (String msg : result.messages()) {
+                        for (String msg : failureMessages) {
                             if (tip.length() > 0) tip.append('\n');
                             tip.append(msg);
                         }
@@ -378,16 +435,31 @@ public final class DlcFxLocalDlcManagementTab {
                     } else {
                         statusLabel.setTooltip(null);
                     }
+                    updateActionState();
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
                     progressBar.setVisible(false);
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", safeMessage(t)));
+                    updateActionState();
                 });
             }
         }, "dlc-apply");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private List<String> applyFailureMessages(DlcApplier.ApplyResult result) {
+        if (result == null || result.messages() == null || result.messages().isEmpty()) {
+            return List.of();
+        }
+        List<String> failures = new ArrayList<>();
+        for (String message : result.messages()) {
+            if (message != null && message.startsWith("Failed to ")) {
+                failures.add(message);
+            }
+        }
+        return failures;
     }
 
     private void resetChanges() {
@@ -403,22 +475,24 @@ public final class DlcFxLocalDlcManagementTab {
         if (DlcConfig.isPresetFuncOn()) {
             DlcPresetRuntimeState.applyOverridesToRuntime();
         }
+        rebuildRows();
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.cancel_done"));
+        updateActionState();
     }
 
     private DlcType currentTypeFilter;
     private String currentSearchText = "";
 
     private void refreshTypeFilterItems() {
-        DlcType selected = typeFilter.getValue();
+        DlcType selected = selectedTypeFilter();
         typeFilter.getItems().clear();
-        typeFilter.getItems().add(null);
+        typeFilter.getItems().add(DlcTypeOption.all());
         for (DlcType type : DlcType.values()) {
             if (isVisibleDlcType(type)) {
-                typeFilter.getItems().add(type);
+                typeFilter.getItems().add(DlcTypeOption.of(type));
             }
         }
-        typeFilter.setValue(isVisibleDlcType(selected) ? selected : null);
+        typeFilter.setValue(isVisibleDlcType(selected) ? DlcTypeOption.of(selected) : DlcTypeOption.all());
     }
 
     private void handleBatchEnable(List<DlcItem> targets, boolean enabled) {
@@ -435,7 +509,7 @@ public final class DlcFxLocalDlcManagementTab {
             return;
         }
         if (!enabled) {
-            applyBatchEnable(active, false);
+            disableItemsWithDependents(active);
             return;
         }
         DlcRuntimeState.ConflictBatchResult conflicts = DlcRuntimeState.collectConflicts(active);
@@ -457,34 +531,13 @@ public final class DlcFxLocalDlcManagementTab {
 
     private void applyBatchEnable(List<DlcItem> items, boolean enabled) {
         for (DlcItem item : items) {
-            item.setEnabled(enabled);
-            DlcRuntimeState.setOverride(item.getId(), enabled);
-        }
-        scanAsync();
-    }
-
-    private void handleToggleItems(List<DlcItem> items) {
-        if (items == null || items.isEmpty()) {
-            return;
-        }
-        List<DlcItem> toEnable = new ArrayList<>();
-        List<DlcItem> toDisable = new ArrayList<>();
-        for (DlcItem item : items) {
             if (item == null) {
                 continue;
             }
-            if (item.isEnabled()) {
-                toDisable.add(item);
-            } else {
-                toEnable.add(item);
-            }
+            item.setEnabled(enabled);
+            DlcRuntimeState.setOverride(item.getId(), enabled);
         }
-        if (!toDisable.isEmpty()) {
-            disableItemsWithDependents(toDisable);
-        }
-        if (!toEnable.isEmpty()) {
-            handleBatchEnable(toEnable, true);
-        }
+        refreshRowsAfterStateChange();
     }
 
     private void showBatchConflictPrompt(List<DlcRuntimeState.ConflictLine> lines, List<DlcItem> targets) {
@@ -658,69 +711,560 @@ public final class DlcFxLocalDlcManagementTab {
     void applyFilter(String searchText, DlcType typeFilter) {
         currentSearchText = searchText == null ? "" : searchText.toLowerCase();
         currentTypeFilter = typeFilter;
-        Predicate<DlcItem> pred = item -> {
-            if (typeFilter != null && item.getType() != typeFilter) {
-                return false;
-            }
-            if (currentSearchText.isBlank()) {
-                return true;
-            }
-            String name = item.getName() == null ? "" : item.getName().toLowerCase();
-            String id = item.getId() == null ? "" : item.getId().toLowerCase();
-            return name.contains(currentSearchText) || id.contains(currentSearchText);
-        };
-        filteredItems.setPredicate(pred);
+        rebuildRows();
     }
 
-    private final class DlcItemCell extends ListCell<DlcItem> {
-        private final CheckBox checkBox = new CheckBox();
+    private void invertVisibleSelection() {
+        if (listView == null) {
+            return;
+        }
+        for (DlcRow row : visibleRows) {
+            if (row.type != DlcRowType.ITEM || row.item == null) {
+                continue;
+            }
+            String id = selectionId(row.item);
+            if (selectedItemIds.contains(id)) {
+                selectedItemIds.remove(id);
+            } else {
+                selectedItemIds.add(id);
+            }
+        }
+        listView.refresh();
+        updateActionState();
+    }
+
+    private void rebuildRows() {
+        List<DlcRow> rows = new ArrayList<>();
+        for (DlcType type : DlcType.values()) {
+            if (!isVisibleDlcType(type) || (currentTypeFilter != null && currentTypeFilter != type)) {
+                continue;
+            }
+            List<DlcItem> typeItems = allItems.stream()
+                .filter(item -> item != null && item.getType() == type && !item.isHidden() && matchesSearch(item))
+                .toList();
+            if (typeItems.isEmpty()) {
+                continue;
+            }
+            if (currentTypeFilter == null) {
+                rows.add(DlcRow.groupHeader(type));
+            }
+            Map<String, List<DlcItem>> byPath = groupByRelativeFolder(typeItems);
+            boolean hasSubDir = byPath.keySet().stream().anyMatch(key -> !"__root__".equals(key));
+            for (Map.Entry<String, List<DlcItem>> entry : byPath.entrySet()) {
+                if ("__root__".equals(entry.getKey())) {
+                    if (hasSubDir) {
+                        rows.add(DlcRow.pathHeader(resolvePathLabel(entry.getKey())));
+                    }
+                } else {
+                    rows.add(DlcRow.pathHeader(resolvePathLabel(entry.getKey())));
+                }
+                for (DlcItem item : entry.getValue()) {
+                    item.setDirty(isDirty(item));
+                    rows.add(DlcRow.item(item));
+                }
+            }
+        }
+        visibleRows.setAll(rows);
+        if (listView != null) {
+            listView.refresh();
+        }
+        updateActionState();
+    }
+
+    private Map<String, List<DlcItem>> groupByRelativeFolder(List<DlcItem> items) {
+        Map<String, List<DlcItem>> grouped = new java.util.TreeMap<>();
+        for (DlcItem item : items) {
+            grouped.computeIfAbsent(resolveGroupLabel(item), key -> new ArrayList<>()).add(item);
+        }
+        return grouped;
+    }
+
+    private String resolveGroupLabel(DlcItem item) {
+        try {
+            Path source = item.getSourcePath();
+            String relative = null;
+            for (Path dlcRoot : DlcConfig.getDlcRoots()) {
+                if (source != null && source.startsWith(dlcRoot)) {
+                    relative = dlcRoot.relativize(source).toString().replace('\\', '/');
+                    break;
+                }
+            }
+            if (relative == null && source != null) {
+                relative = DlcPaths.gameDir().relativize(source).toString().replace('\\', '/');
+            }
+            if (relative == null) {
+                return "__root__";
+            }
+            int lastSlash = relative.lastIndexOf('/');
+            if (lastSlash <= 0) {
+                return "__root__";
+            }
+            return relative.substring(0, lastSlash);
+        } catch (Exception ignored) {
+            return "__root__";
+        }
+    }
+
+    private String resolvePathLabel(String raw) {
+        if ("__root__".equals(raw)) {
+            return DlcFxI18n.tr("dlc_manager.group.root");
+        }
+        return raw;
+    }
+
+    private boolean matchesSearch(DlcItem item) {
+        if (currentSearchText.isBlank()) {
+            return true;
+        }
+        String name = displayName(item).toLowerCase();
+        String rawName = item.getName() == null ? "" : item.getName().toLowerCase();
+        String id = item.getId() == null ? "" : item.getId().toLowerCase();
+        String identifier = item.getIdentifier() == null ? "" : item.getIdentifier().toLowerCase();
+        return name.contains(currentSearchText)
+            || rawName.contains(currentSearchText)
+            || id.contains(currentSearchText)
+            || identifier.contains(currentSearchText);
+    }
+
+    private void refreshRowsAfterStateChange() {
+        if (DlcConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.applyOverridesToRuntime();
+        }
+        for (DlcItem item : allItems) {
+            if (item != null) {
+                item.setDirty(isDirty(item));
+            }
+        }
+        syncVisibleItemCells();
+        updateActionState();
+    }
+
+    private void syncVisibleItemCells() {
+        for (DlcItemCell cell : new ArrayList<>(activeItemCells)) {
+            if (cell != null) {
+                cell.syncItemState();
+            }
+        }
+    }
+
+    private boolean hasPendingChanges() {
+        for (DlcItem item : allItems) {
+            if (isDirty(item)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isDirty(DlcItem item) {
+        return item != null && DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled());
+    }
+
+    private List<DlcItem> selectedItems() {
+        if (selectedItemIds.isEmpty()) {
+            return List.of();
+        }
+        LinkedHashSet<DlcItem> selected = new LinkedHashSet<>();
+        for (DlcItem item : allItems) {
+            if (item != null && selectedItemIds.contains(selectionId(item))) {
+                selected.add(item);
+            }
+        }
+        return new ArrayList<>(selected);
+    }
+
+    private boolean isItemSelected(DlcItem item) {
+        return item != null && selectedItemIds.contains(selectionId(item));
+    }
+
+    private void setSelected(DlcItem item, boolean selected) {
+        if (item == null) {
+            return;
+        }
+        String id = selectionId(item);
+        if (selected) {
+            selectedItemIds.add(id);
+        } else {
+            selectedItemIds.remove(id);
+        }
+    }
+
+    private String selectionId(DlcItem item) {
+        if (item == null) {
+            return "";
+        }
+        String id = item.getId();
+        if (id != null && !id.isBlank()) {
+            return id;
+        }
+        String identifier = item.getIdentifier();
+        if (identifier != null && !identifier.isBlank()) {
+            return identifier;
+        }
+        Path source = item.getSourcePath();
+        return source == null ? String.valueOf(System.identityHashCode(item)) : source.toAbsolutePath().normalize().toString();
+    }
+
+    private List<DlcItem> selectedItemsToEnable() {
+        return selectedItems().stream()
+            .filter(item -> item != null
+                && !item.isEnabled()
+                && item.AllowEnableByAll()
+                && hasOnlyResolvableDependencies(item)
+                && !DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier()))
+            .toList();
+    }
+
+    private boolean hasOnlyResolvableDependencies(DlcItem item) {
+        java.util.Set<String> missing = DlcRuntimeState.collectMissingDependencyIdentifiers(item);
+        if (missing.isEmpty()) {
+            return true;
+        }
+        for (String dependency : missing) {
+            if (DlcRuntimeState.getItemByIdentifier(dependency) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<DlcItem> selectedItemsToDisable() {
+        return selectedItems().stream()
+            .filter(item -> item != null && item.isEnabled())
+            .toList();
+    }
+
+    private void updateActionState() {
+        boolean pending = gameDirSelected && hasPendingChanges();
+        if (applyBtn != null) {
+            applyBtn.setDisable(!pending || progressBar.isVisible());
+        }
+        if (cancelBtn != null) {
+            cancelBtn.setDisable(!pending || progressBar.isVisible());
+        }
+        List<DlcItem> selected = selectedItems();
+        boolean hasSelection = !selected.isEmpty();
+        if (enableSelectedBtn != null) {
+            enableSelectedBtn.setVisible(hasSelection);
+            enableSelectedBtn.setManaged(hasSelection);
+            enableSelectedBtn.setDisable(selectedItemsToEnable().isEmpty() || progressBar.isVisible());
+        }
+        if (disableSelectedBtn != null) {
+            disableSelectedBtn.setVisible(hasSelection);
+            disableSelectedBtn.setManaged(hasSelection);
+            disableSelectedBtn.setDisable(selectedItemsToDisable().isEmpty() || progressBar.isVisible());
+        }
+    }
+
+    private String displayName(DlcItem item) {
+        if (item == null) {
+            return "";
+        }
+        Map<String, String> names = item.getDisplayNames();
+        if (names != null && !names.isEmpty()) {
+            String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+            if (lang != null && names.containsKey(lang)) {
+                return names.get(lang);
+            }
+            if (names.containsKey("en_us")) {
+                return names.get("en_us");
+            }
+            String first = names.values().stream().findFirst().orElse(null);
+            if (first != null && !first.isBlank()) {
+                return first;
+            }
+        }
+        return item.getName() != null ? item.getName() : item.getId();
+    }
+
+    private String pendingSuffix(DlcItem item) {
+        if (!isDirty(item)) {
+            return "";
+        }
+        return DlcFxI18n.tr("dlc_manager.pending.apply");
+    }
+
+    private String toggleLabel(DlcItem item) {
+        return item != null && item.isEnabled()
+            ? DlcFxI18n.tr("dlc_manager.toggle.on")
+            : DlcFxI18n.tr("dlc_manager.toggle.off");
+    }
+
+    private final class DlcItemCell extends ListCell<DlcRow> {
+        private final CheckBox selectBox = new CheckBox();
+        private final Region accent = new Region();
         private final Label typeLabel = new Label();
         private final Label nameLabel = new Label();
-        private final HBox row = new HBox(8, checkBox, typeLabel, nameLabel);
+        private final Label pendingLabel = new Label();
+        private final Button toggleButton = new Button();
+        private final GridPane itemGrid = new GridPane();
+        private final HBox nameBox = new HBox(8, selectBox, accent, nameLabel, pendingLabel);
+        private final HBox itemRow = new HBox(0, itemGrid);
+        private final Label groupLabel = new Label();
+        private final Label pathLabel = new Label();
 
         DlcItemCell() {
-            DlcFxStyle.chip(typeLabel, DlcFxStyle.CHIP_NEUTRAL);
             DlcFxStyle.title(nameLabel);
-            row.setAlignment(Pos.CENTER_LEFT);
-            checkBox.setOnAction(e -> {
-                DlcItem item = getItem();
+            DlcFxStyle.muted(pathLabel);
+            DlcFxStyle.add(pendingLabel, "dlc-pending-badge");
+            DlcFxStyle.add(accent, "dlc-row-accent");
+            DlcFxStyle.add(itemRow, "dlc-dlc-row");
+            DlcFxStyle.add(typeLabel, "dlc-dlc-type-label");
+            DlcFxStyle.add(groupLabel, "dlc-dlc-group-header");
+            DlcFxStyle.add(pathLabel, "dlc-dlc-path-header");
+            pendingLabel.setMinWidth(64);
+            pendingLabel.setPrefWidth(64);
+            pendingLabel.setMaxWidth(64);
+            pendingLabel.setOpacity(0);
+            toggleButton.setMinWidth(96);
+            toggleButton.setPrefWidth(96);
+            toggleButton.setMaxWidth(96);
+            nameBox.setAlignment(Pos.CENTER_LEFT);
+            itemGrid.setAlignment(Pos.CENTER_LEFT);
+            itemGrid.setHgap(12);
+            itemGrid.add(nameBox, 0, 0);
+            itemGrid.add(typeLabel, 1, 0);
+            itemGrid.add(toggleButton, 2, 0);
+            GridPane.setHgrow(nameBox, Priority.ALWAYS);
+            itemGrid.getColumnConstraints().addAll(
+                column(420, 520, Priority.ALWAYS),
+                column(112, 150, Priority.NEVER),
+                column(96, 96, Priority.NEVER)
+            );
+            HBox.setHgrow(itemGrid, Priority.ALWAYS);
+            itemRow.setAlignment(Pos.CENTER_LEFT);
+            itemRow.setOnMouseClicked(event -> event.consume());
+            selectBox.setOnMouseClicked(event -> {
+                DlcRow row = super.getItem();
+                if (row == null || row.type != DlcRowType.ITEM || row.item == null) {
+                    event.consume();
+                    return;
+                }
+                setSelected(row.item, selectBox.isSelected());
+                syncVisibleItemCells();
+                updateActionState();
+                event.consume();
+            });
+            toggleButton.setOnAction(e -> {
+                DlcItem item = currentItem();
                 if (item != null) {
-                    if (checkBox.isSelected()) {
-                        handleBatchEnable(List.of(item), true);
-                    } else {
+                    if (item.isEnabled()) {
                         disableItemsWithDependents(List.of(item));
+                    } else {
+                        handleBatchEnable(List.of(item), true);
                     }
                 }
             });
         }
 
         @Override
-        protected void updateItem(DlcItem item, boolean empty) {
-            super.updateItem(item, empty);
-            if (empty || item == null) {
+        protected void updateItem(DlcRow row, boolean empty) {
+            super.updateItem(row, empty);
+            activeItemCells.remove(this);
+            getStyleClass().removeAll("dlc-row-group", "dlc-row-path", "dlc-row-item");
+            getStyleClass().removeAll("dlc-dlc-selected");
+            setTooltip(null);
+            if (empty || row == null) {
+                setMouseTransparent(false);
                 setGraphic(null);
                 setText(null);
-            } else {
-                checkBox.setSelected(item.isEnabled());
-                typeLabel.setText(DlcFxI18n.tr(item.getType().getDisplayKey()));
-                nameLabel.setText(item.getName() != null ? item.getName() : item.getId());
-                StringBuilder tip = new StringBuilder();
-                tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());
-                if (item.getSourcePath() != null) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.source")).append(item.getSourcePath());
-                }
-                if (item.getAppliedTargetRaw() != null && !item.getAppliedTargetRaw().isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(item.getAppliedTargetRaw());
-                }
-                if (!item.getDependencies().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.dependencies")).append(String.join(", ", item.getDependencies()));
-                }
-                if (!item.getConflicts().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
-                }
-                setTooltip(new Tooltip(tip.toString()));
-                setGraphic(row);
+                return;
             }
+            if (row.type == DlcRowType.GROUP_HEADER) {
+                getStyleClass().add("dlc-row-group");
+                groupLabel.setText(DlcFxI18n.tr(row.groupType.getDisplayKey()));
+                setGraphic(groupLabel);
+                setText(null);
+                return;
+            }
+            if (row.type == DlcRowType.PATH_HEADER) {
+                getStyleClass().add("dlc-row-path");
+                pathLabel.setText(row.label);
+                setGraphic(pathLabel);
+                setText(null);
+                return;
+            }
+            DlcItem item = row.item;
+            activeItemCells.add(this);
+            getStyleClass().add("dlc-row-item");
+            setMouseTransparent(false);
+            typeLabel.getStyleClass().removeAll("type-mod", "type-resource", "type-data", "type-tacz", "type-unknown");
+            typeLabel.getStyleClass().add(typeStyleClass(item.getType()));
+            typeLabel.setText(DlcFxI18n.tr(item.getType().getDisplayKey()));
+            nameLabel.setText(displayName(item));
+            setTooltip(new Tooltip(buildTooltip(item)));
+            setText(null);
+            setGraphic(itemRow);
+            syncItemState();
+        }
+
+        private void syncItemState() {
+            DlcItem item = currentItem();
+            if (item == null) {
+                return;
+            }
+            boolean dirty = isDirty(item);
+            boolean selected = isItemSelected(item);
+            getStyleClass().removeAll("dlc-dlc-selected");
+            if (selected) {
+                getStyleClass().add("dlc-dlc-selected");
+            }
+            selectBox.setSelected(selected);
+            accent.getStyleClass().removeAll("enabled", "pending", "off");
+            accent.getStyleClass().add(dirty ? "pending" : item.isEnabled() ? "enabled" : "off");
+            pendingLabel.setText(pendingSuffix(item));
+            pendingLabel.setManaged(true);
+            pendingLabel.setVisible(true);
+            pendingLabel.setOpacity(dirty ? 1 : 0);
+            toggleButton.setText(toggleLabel(item));
+            toggleButton.getStyleClass().removeAll("dlc-toggle-on", "dlc-toggle-off", "dlc-toggle-pending");
+            toggleButton.getStyleClass().add(dirty ? "dlc-toggle-pending" : item.isEnabled() ? "dlc-toggle-on" : "dlc-toggle-off");
+            boolean missing = DlcRuntimeState.hasMissingDependencies(item);
+            boolean blocked = DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier());
+            toggleButton.setDisable(blocked || (!item.isEnabled() && missing));
+        }
+
+        private DlcItem currentItem() {
+            DlcRow row = super.getItem();
+            return row == null ? null : row.item;
+        }
+    }
+
+    private String typeStyleClass(DlcType type) {
+        if (type == null) {
+            return "type-unknown";
+        }
+        return switch (type) {
+            case MOD -> "type-mod";
+            case RESOURCE_PACK -> "type-resource";
+            case DATA_PACK -> "type-data";
+            case TACZ_PACK -> "type-tacz";
+            default -> "type-unknown";
+        };
+    }
+
+    private DlcType selectedTypeFilter() {
+        return typeOf(typeFilter.getValue());
+    }
+
+    private static DlcType typeOf(DlcTypeOption option) {
+        return option == null || option.all ? null : option.type;
+    }
+
+    private static final class DlcTypeButtonCell extends ListCell<DlcTypeOption> {
+        private final ComboBox<DlcTypeOption> owner;
+
+        private DlcTypeButtonCell(ComboBox<DlcTypeOption> owner) {
+            this.owner = owner;
+        }
+
+        @Override
+        protected void updateItem(DlcTypeOption item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(typeText(owner == null ? item : owner.getValue()));
+        }
+    }
+
+    private static final class DlcTypePopupCell extends ListCell<DlcTypeOption> {
+        @Override
+        protected void updateItem(DlcTypeOption item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? "" : typeText(item));
+        }
+    }
+
+    private static String typeText(DlcTypeOption option) {
+        DlcType type = typeOf(option);
+        return type == null ? DlcFxI18n.tr("dlc_manager.local.all_types") : DlcFxI18n.tr(type.getDisplayKey());
+    }
+
+    private static final class DlcTypeOption {
+        private static final DlcTypeOption ALL = new DlcTypeOption(true, null);
+        private final boolean all;
+        private final DlcType type;
+
+        private DlcTypeOption(boolean all, DlcType type) {
+            this.all = all;
+            this.type = type;
+        }
+
+        private static DlcTypeOption all() {
+            return ALL;
+        }
+
+        private static DlcTypeOption of(DlcType type) {
+            return type == null ? all() : new DlcTypeOption(false, type);
+        }
+
+        @Override
+        public String toString() {
+            return typeText(this);
+        }
+    }
+
+    private javafx.scene.layout.ColumnConstraints column(double min, double pref, Priority grow) {
+        javafx.scene.layout.ColumnConstraints constraints = new javafx.scene.layout.ColumnConstraints();
+        constraints.setMinWidth(min);
+        constraints.setPrefWidth(pref);
+        constraints.setHgrow(grow);
+        return constraints;
+    }
+
+    private String buildTooltip(DlcItem item) {
+        StringBuilder tip = new StringBuilder();
+        tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());
+        if (item.getSourcePath() != null) {
+            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.source")).append(item.getSourcePath());
+        }
+        if (item.getAppliedTargetRaw() != null && !item.getAppliedTargetRaw().isBlank()) {
+            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(item.getAppliedTargetRaw());
+        }
+        if (!DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(),
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode()).isEmpty()) {
+            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.preset_blocked"));
+        }
+        java.util.Set<String> missing = DlcRuntimeState.collectMissingDependencyIdentifiers(item);
+        if (!missing.isEmpty()) {
+            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.missing_dependencies")).append(String.join(", ", missing));
+        }
+        if (!item.getDependencies().isEmpty()) {
+            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.dependencies")).append(String.join(", ", item.getDependencies()));
+        }
+        if (!item.getConflicts().isEmpty()) {
+            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
+        }
+        return tip.toString();
+    }
+
+    private enum DlcRowType {
+        GROUP_HEADER,
+        PATH_HEADER,
+        ITEM
+    }
+
+    private static final class DlcRow {
+        private final DlcRowType type;
+        private final String label;
+        private final DlcType groupType;
+        private final DlcItem item;
+
+        private DlcRow(DlcRowType type, String label, DlcType groupType, DlcItem item) {
+            this.type = type;
+            this.label = label;
+            this.groupType = groupType;
+            this.item = item;
+        }
+
+        private static DlcRow groupHeader(DlcType type) {
+            return new DlcRow(DlcRowType.GROUP_HEADER, null, type, null);
+        }
+
+        private static DlcRow pathHeader(String label) {
+            return new DlcRow(DlcRowType.PATH_HEADER, label, null, null);
+        }
+
+        private static DlcRow item(DlcItem item) {
+            return new DlcRow(DlcRowType.ITEM, null, null, item);
         }
     }
 

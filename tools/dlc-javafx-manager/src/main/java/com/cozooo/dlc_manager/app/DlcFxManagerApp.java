@@ -50,11 +50,7 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
-import javax.imageio.ImageIO;
-import java.awt.GraphicsEnvironment;
-import java.awt.Taskbar;
 import java.io.File;
-import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,6 +70,7 @@ public final class DlcFxManagerApp extends Application {
     private DlcFxLocalUpdateTab localUpdateTab;
 
     private Label localGameDirLabel;
+    private Label footerRemoteStatusLabel;
     private boolean localGameDirSelected;
 
     private DlcFxRemoteConnection remoteConnection;
@@ -102,6 +99,7 @@ public final class DlcFxManagerApp extends Application {
         loadBundledFonts();
         this.primaryStage = primaryStage;
         remoteConnection = new DlcFxRemoteConnection();
+        initializeCurrentDirectoryGameDir();
         shellContent = new BorderPane();
         shellContent.setBottom(statusBar());
         DlcFxStyle.add(shellContent, "dlc-app-root");
@@ -123,7 +121,6 @@ public final class DlcFxManagerApp extends Application {
         primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.window_title"));
         primaryStage.setScene(scene);
         primaryStage.show();
-        detectCurrentDirectoryAsGameDir();
     }
 
     private void loadBundledFonts() {
@@ -141,27 +138,8 @@ public final class DlcFxManagerApp extends Application {
 
     private void installApplicationIcon(Stage primaryStage) {
         URL icon = DlcFxManagerApp.class.getResource("/assets/dlc_manager/textures/gui/icon.png");
-        if (icon == null) {
-            return;
-        }
-        primaryStage.getIcons().add(new Image(icon.toExternalForm()));
-        installTaskbarIcon(icon);
-    }
-
-    private void installTaskbarIcon(URL icon) {
-        try {
-            if (GraphicsEnvironment.isHeadless() || !Taskbar.isTaskbarSupported()) {
-                return;
-            }
-            Taskbar taskbar = Taskbar.getTaskbar();
-            if (!taskbar.isSupported(Taskbar.Feature.ICON_IMAGE)) {
-                return;
-            }
-            java.awt.Image awtIcon = ImageIO.read(icon);
-            if (awtIcon != null) {
-                taskbar.setIconImage(awtIcon);
-            }
-        } catch (IOException | RuntimeException | LinkageError ignored) {
+        if (icon != null) {
+            primaryStage.getIcons().add(new Image(icon.toExternalForm()));
         }
     }
 
@@ -268,7 +246,6 @@ public final class DlcFxManagerApp extends Application {
         localUpdateTabNode = localUpdateTab();
         localTabPane.getTabs().add(localUpdateTabNode);
         localTabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> onLocalTabSelected(newTab));
-        javafx.application.Platform.runLater(() -> onLocalTabSelected(localTabPane.getSelectionModel().getSelectedItem()));
         return localTabPane;
     }
 
@@ -312,11 +289,13 @@ public final class DlcFxManagerApp extends Application {
     private void showHome() {
         currentView = ViewMode.HOME;
         shellContent.setCenter(homeView);
+        updateFooterRemoteStatusVisibility();
     }
 
     private void showLocalWorkspace() {
         currentView = ViewMode.LOCAL;
         shellContent.setCenter(localView);
+        updateFooterRemoteStatusVisibility();
         onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         promptMissingRequiredResources();
     }
@@ -324,6 +303,7 @@ public final class DlcFxManagerApp extends Application {
     private void showRemoteWorkspace() {
         currentView = ViewMode.REMOTE;
         shellContent.setCenter(remoteView);
+        updateFooterRemoteStatusVisibility();
     }
 
     private Tab localDlcManagementTab() {
@@ -439,10 +419,15 @@ public final class DlcFxManagerApp extends Application {
         setLocalGameDirectory(chosen.toPath(), true, true);
     }
 
-    private void detectCurrentDirectoryAsGameDir() {
+    private void initializeCurrentDirectoryGameDir() {
         Path current = Path.of("").toAbsolutePath().normalize();
         if (isGameDirectory(current)) {
-            setLocalGameDirectory(current, false, false);
+            PROVIDER.setGameDir(current);
+            localGameDirSelected = true;
+            DlcConfig.load();
+            DlcStateConfig.load();
+            DlcRuntimeState.clearOverrides();
+            DlcPresetRuntimeState.clearAll();
         }
     }
 
@@ -533,8 +518,10 @@ public final class DlcFxManagerApp extends Application {
         Label localStatus = new Label();
         localStatus.textProperty().bind(DlcFxStyle.statusTextProperty());
         Label remoteStatus = new Label();
+        footerRemoteStatusLabel = remoteStatus;
         remoteStatus.textProperty().bind(
                 remoteConnection != null ? remoteConnection.statusTextProperty() : new javafx.beans.property.SimpleStringProperty(""));
+        remoteStatus.managedProperty().bind(remoteStatus.visibleProperty());
 
         javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(8, localStatus, remoteStatus);
         javafx.scene.layout.HBox.setHgrow(localStatus, javafx.scene.layout.Priority.ALWAYS);
@@ -543,7 +530,15 @@ public final class DlcFxManagerApp extends Application {
         DlcFxStyle.add(bar, "dlc-status-root");
         DlcFxStyle.muted(localStatus);
         DlcFxStyle.muted(remoteStatus);
+        updateFooterRemoteStatusVisibility();
         return bar;
+    }
+
+    private void updateFooterRemoteStatusVisibility() {
+        if (footerRemoteStatusLabel == null) {
+            return;
+        }
+        footerRemoteStatusLabel.setVisible(currentView == ViewMode.REMOTE);
     }
 
     private Node languagePicker() {
