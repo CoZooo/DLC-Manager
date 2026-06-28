@@ -74,6 +74,8 @@ public final class DlcFxLocalUpdateTab {
     private CheckResult lastRemoteCheck;
     private volatile List<DlcUpdatePackage> lastApplyChain = List.of();
     private volatile boolean downloadCanceled;
+    private boolean gameDirSelected;
+    private boolean loadedForCurrentGameDir;
 
     public DlcFxLocalUpdateTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -92,7 +94,16 @@ public final class DlcFxLocalUpdateTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        refreshBtn.setOnAction(e -> checkLocalAsync());
+        refreshBtn.setDisable(true);
+        checkRemoteBtn.setDisable(true);
+        applyBtn.setDisable(true);
+        rollbackBtn.setDisable(true);
+        importBtn.setDisable(true);
+        refreshBtn.setOnAction(e -> {
+            if (gameDirSelected) {
+                checkLocalAsync();
+            }
+        });
         checkRemoteBtn.setOnAction(e -> checkRemoteAsync());
         downloadRemoteBtn.setOnAction(e -> downloadRemoteAsync());
         downloadRemoteBtn.setDisable(true);
@@ -145,19 +156,30 @@ public final class DlcFxLocalUpdateTab {
     }
 
     public void onGameDirChanged() {
+        gameDirSelected = true;
+        loadedForCurrentGameDir = false;
         history.clear();
         changelogArea.clear();
         versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version_empty"));
         lastRemoteCheck = null;
         lastApplyChain = List.of();
         downloadRemoteBtn.setDisable(true);
+        setBusy(false, null);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.game_dir_changed"));
+    }
+
+    public void onTabSelected() {
+        if (!gameDirSelected || loadedForCurrentGameDir) {
+            return;
+        }
+        checkLocalAsync();
     }
 
     private void checkLocalAsync() {
         if (!requireGameDir()) {
             return;
         }
+        loadedForCurrentGameDir = true;
         setBusy(true, DlcFxI18n.tr("dlc_manager.update.scanning_local"));
         progressBar.setProgress(-1);
         Thread thread = new Thread(() -> {
@@ -649,11 +671,12 @@ public final class DlcFxLocalUpdateTab {
     }
 
     private void setBusy(boolean busy, String status) {
-        refreshBtn.setDisable(busy);
-        checkRemoteBtn.setDisable(busy);
-        applyBtn.setDisable(busy);
-        rollbackBtn.setDisable(busy);
-        importBtn.setDisable(busy);
+        boolean disabled = busy || !gameDirSelected;
+        refreshBtn.setDisable(disabled);
+        checkRemoteBtn.setDisable(disabled);
+        applyBtn.setDisable(disabled);
+        rollbackBtn.setDisable(disabled);
+        importBtn.setDisable(disabled);
         if (busy) {
             progressBar.setVisible(true);
             if (status != null) {
@@ -663,8 +686,9 @@ public final class DlcFxLocalUpdateTab {
     }
 
     private boolean requireGameDir() {
-        if (DlcConfig.getDlcRoot() == null) {
+        if (!gameDirSelected || DlcConfig.getDlcRoot() == null) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            setBusy(false, null);
             return false;
         }
         return true;

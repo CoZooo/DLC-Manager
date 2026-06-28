@@ -97,6 +97,8 @@ public final class DlcFxLocalPackTab {
     private float operationProgress = -1f;
     private Label operationStatusLabel;
     private Label operationDetailLabel;
+    private boolean gameDirSelected;
+    private boolean loadedForCurrentGameDir;
 
     public DlcFxLocalPackTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -111,7 +113,15 @@ public final class DlcFxLocalPackTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        refreshBtn.setOnAction(e -> refreshAsync());
+        refreshBtn.setDisable(true);
+        importBtn.setDisable(true);
+        importUrlBtn.setDisable(true);
+        applyBtn.setDisable(true);
+        refreshBtn.setOnAction(e -> {
+            if (gameDirSelected) {
+                refreshAsync();
+            }
+        });
         importBtn.setOnAction(e -> importPackArchive());
         importUrlBtn.setOnAction(e -> importPackFromUrl());
         applyBtn.setOnAction(e -> {
@@ -167,10 +177,12 @@ public final class DlcFxLocalPackTab {
     }
 
     public void onGameDirChanged() {
+        gameDirSelected = true;
+        loadedForCurrentGameDir = false;
         refreshBtn.setDisable(false);
         importBtn.setDisable(false);
         importUrlBtn.setDisable(false);
-        applyBtn.setDisable(false);
+        applyBtn.setDisable(true);
         cancelBtn.setDisable(false);
         cancelBtn.setVisible(false);
         cancelBtn.setManaged(false);
@@ -179,10 +191,26 @@ public final class DlcFxLocalPackTab {
         archiveGroups = List.of();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.game_dir_changed"));
+        updateActionButtons();
+    }
+
+    public void onTabSelected() {
+        if (!gameDirSelected || loadedForCurrentGameDir) {
+            return;
+        }
         refreshAsync();
     }
 
     private void refreshAsync() {
+        if (!gameDirSelected) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            refreshBtn.setDisable(true);
+            importBtn.setDisable(true);
+            importUrlBtn.setDisable(true);
+            applyBtn.setDisable(true);
+            return;
+        }
+        loadedForCurrentGameDir = true;
         if (busy) {
             forceRefreshAfterBusy = true;
             return;

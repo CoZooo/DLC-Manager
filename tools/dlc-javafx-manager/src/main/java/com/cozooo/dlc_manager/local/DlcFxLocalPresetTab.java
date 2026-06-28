@@ -39,6 +39,10 @@ public final class DlcFxLocalPresetTab {
     private final ObservableList<DlcPresetEntry> entries = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final Label countLabel = new Label("");
+    private Button refreshBtn;
+    private Button applyBtn;
+    private boolean gameDirSelected;
+    private boolean loadedForCurrentGameDir;
 
     public DlcFxLocalPresetTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -51,10 +55,16 @@ public final class DlcFxLocalPresetTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.refresh"));
-        refreshBtn.setOnAction(e -> refreshAsync());
+        refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.refresh"));
+        refreshBtn.setDisable(true);
+        refreshBtn.setOnAction(e -> {
+            if (gameDirSelected) {
+                refreshAsync();
+            }
+        });
 
-        Button applyBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.apply"));
+        applyBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.apply"));
+        applyBtn.setDisable(true);
         applyBtn.setOnAction(e -> applyAsync());
         DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(applyBtn);
@@ -92,7 +102,36 @@ public final class DlcFxLocalPresetTab {
         return tab;
     }
 
+    public void onGameDirChanged() {
+        gameDirSelected = true;
+        loadedForCurrentGameDir = false;
+        entries.clear();
+        countLabel.setText("");
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
+        if (refreshBtn != null) {
+            refreshBtn.setDisable(false);
+        }
+        if (applyBtn != null) {
+            applyBtn.setDisable(false);
+        }
+    }
+
+    public void onTabSelected() {
+        if (!gameDirSelected || loadedForCurrentGameDir) {
+            return;
+        }
+        refreshAsync();
+    }
+
     private void refreshAsync() {
+        if (!gameDirSelected) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            if (refreshBtn != null) {
+                refreshBtn.setDisable(true);
+            }
+            return;
+        }
+        loadedForCurrentGameDir = true;
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
         Thread thread = new Thread(() -> {
             try {

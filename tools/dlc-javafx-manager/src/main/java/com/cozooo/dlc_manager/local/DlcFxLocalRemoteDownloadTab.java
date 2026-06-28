@@ -42,6 +42,8 @@ public final class DlcFxLocalRemoteDownloadTab {
     private final Button downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.remote.download_missing"));
     private final Button downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.common.download_selected"));
     private final Label countLabel = new Label("");
+    private boolean gameDirSelected;
+    private boolean loadedForCurrentGameDir;
 
     public DlcFxLocalRemoteDownloadTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -57,8 +59,15 @@ public final class DlcFxLocalRemoteDownloadTab {
         DlcFxStyle.view(root);
 
         refreshBtn.setText(DlcFxI18n.tr("dlc_manager.remote.refresh_download_list"));
-        refreshBtn.setOnAction(e -> refreshAsync());
+        refreshBtn.setDisable(true);
+        refreshBtn.setOnAction(e -> {
+            if (gameDirSelected) {
+                refreshAsync();
+            }
+        });
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
+        downloadMissingBtn.setDisable(true);
+        downloadSelectedBtn.setDisable(true);
         DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(downloadMissingBtn);
         DlcFxStyle.muted(countLabel);
@@ -100,6 +109,9 @@ public final class DlcFxLocalRemoteDownloadTab {
         });
 
         downloadSelectedBtn.setOnAction(e -> {
+            if (!requireGameDir()) {
+                return;
+            }
             java.util.List<DlcRemoteEntry> selected = listView.getSelectionModel().getSelectedItems();
             if (selected == null || selected.isEmpty()) {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_list_item"));
@@ -130,14 +142,32 @@ public final class DlcFxLocalRemoteDownloadTab {
     }
 
     public void onGameDirChanged() {
+        gameDirSelected = true;
+        loadedForCurrentGameDir = false;
         entries.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.game_dir_changed"));
         refreshBtn.setDisable(false);
+        updateActionButtons(false);
+    }
+
+    public void onTabSelected() {
+        if (!gameDirSelected || loadedForCurrentGameDir) {
+            return;
+        }
+        refreshAsync();
     }
 
     private void refreshAsync() {
+        if (!gameDirSelected) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            refreshBtn.setDisable(true);
+            updateActionButtons(false);
+            return;
+        }
+        loadedForCurrentGameDir = true;
         refreshBtn.setDisable(true);
+        updateActionButtons(true);
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.loading_status"));
@@ -152,12 +182,14 @@ public final class DlcFxLocalRemoteDownloadTab {
                     statusLabel.setText(missing == 0 ? DlcFxI18n.tr("dlc_manager.status.no_missing") : DlcFxI18n.tr("dlc_manager.remote.has_missing"));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
+                    updateActionButtons(false);
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
+                    updateActionButtons(false);
                 });
             }
         }, "dlc-remote-refresh");
@@ -166,6 +198,9 @@ public final class DlcFxLocalRemoteDownloadTab {
     }
 
     private void downloadMissingAsync() {
+        if (!requireGameDir()) {
+            return;
+        }
         List<DlcRemoteEntry> missing = DlcRemoteService.collectMissing(entries);
         if (missing.isEmpty()) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
@@ -176,7 +211,11 @@ public final class DlcFxLocalRemoteDownloadTab {
     }
 
     private void downloadAll(List<DlcRemoteEntry> toDownload) {
+        if (!requireGameDir()) {
+            return;
+        }
         downloadMissingBtn.setDisable(true);
+        downloadSelectedBtn.setDisable(true);
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(0);
@@ -208,13 +247,28 @@ public final class DlcFxLocalRemoteDownloadTab {
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
-                downloadMissingBtn.setDisable(false);
                 refreshBtn.setDisable(false);
+                updateActionButtons(false);
                 refreshAsync();
             });
         }, "dlc-remote-download");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private boolean requireGameDir() {
+        if (!gameDirSelected || DlcConfig.getDlcRoot() == null) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            updateActionButtons(false);
+            return false;
+        }
+        return true;
+    }
+
+    private void updateActionButtons(boolean busy) {
+        boolean disabled = busy || !gameDirSelected;
+        downloadMissingBtn.setDisable(disabled);
+        downloadSelectedBtn.setDisable(disabled);
     }
 
     private final class RemoteEntryCell extends javafx.scene.control.ListCell<DlcRemoteEntry> {

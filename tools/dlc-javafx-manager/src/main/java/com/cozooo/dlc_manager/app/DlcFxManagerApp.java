@@ -39,6 +39,8 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.text.Font;
 import javafx.scene.image.Image;
+import javafx.scene.input.Dragboard;
+import javafx.scene.input.TransferMode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -54,6 +56,7 @@ import java.awt.Taskbar;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -67,6 +70,7 @@ public final class DlcFxManagerApp extends Application {
     private DlcFxLocalRemoteDownloadTab localRemoteDownloadTab;
     private DlcFxLocalRequiredTab localRequiredTabPage;
     private DlcFxLocalPackTab localPackTab;
+    private DlcFxLocalPresetTab localPresetTabPage;
     private DlcFxLocalUpdateTab localUpdateTab;
 
     private Label localGameDirLabel;
@@ -81,6 +85,11 @@ public final class DlcFxManagerApp extends Application {
     private ViewMode currentView = ViewMode.HOME;
     private TabPane localTabPane;
     private Tab localRequiredTabNode;
+    private Tab localDlcTabNode;
+    private Tab localRemoteTabNode;
+    private Tab localPresetTabNode;
+    private Tab localPackTabNode;
+    private Tab localUpdateTabNode;
 
     @Override
     public void init() {
@@ -109,10 +118,12 @@ public final class DlcFxManagerApp extends Application {
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
         }
+        installGameDirectoryDropTarget(scene);
         installApplicationIcon(primaryStage);
         primaryStage.setTitle(DlcFxI18n.tr("dlc_manager.window_title"));
         primaryStage.setScene(scene);
         primaryStage.show();
+        detectCurrentDirectoryAsGameDir();
     }
 
     private void loadBundledFonts() {
@@ -244,13 +255,20 @@ public final class DlcFxManagerApp extends Application {
     private TabPane buildLocalTabs() {
         localTabPane = new TabPane();
         localTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        localTabPane.getTabs().add(localDlcManagementTab());
-        localTabPane.getTabs().add(localRemoteDownloadTab());
+        localDlcTabNode = localDlcManagementTab();
+        localTabPane.getTabs().add(localDlcTabNode);
+        localRemoteTabNode = localRemoteDownloadTab();
+        localTabPane.getTabs().add(localRemoteTabNode);
         localRequiredTabNode = createLocalRequiredTab();
         localTabPane.getTabs().add(localRequiredTabNode);
-        localTabPane.getTabs().add(localPresetTab());
-        localTabPane.getTabs().add(localPackTab());
-        localTabPane.getTabs().add(localUpdateTab());
+        localPresetTabNode = localPresetTab();
+        localTabPane.getTabs().add(localPresetTabNode);
+        localPackTabNode = localPackTab();
+        localTabPane.getTabs().add(localPackTabNode);
+        localUpdateTabNode = localUpdateTab();
+        localTabPane.getTabs().add(localUpdateTabNode);
+        localTabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> onLocalTabSelected(newTab));
+        javafx.application.Platform.runLater(() -> onLocalTabSelected(localTabPane.getSelectionModel().getSelectedItem()));
         return localTabPane;
     }
 
@@ -299,6 +317,7 @@ public final class DlcFxManagerApp extends Application {
     private void showLocalWorkspace() {
         currentView = ViewMode.LOCAL;
         shellContent.setCenter(localView);
+        onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         promptMissingRequiredResources();
     }
 
@@ -323,11 +342,17 @@ public final class DlcFxManagerApp extends Application {
         if (localRequiredTabPage != null) {
             localRequiredTabPage.onGameDirChanged();
         }
+        if (localPresetTabPage != null) {
+            localPresetTabPage.onGameDirChanged();
+        }
         if (localUpdateTab != null) {
             localUpdateTab.onGameDirChanged();
         }
         if (localPackTab != null) {
             localPackTab.onGameDirChanged();
+        }
+        if (currentView == ViewMode.LOCAL) {
+            onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         }
     }
 
@@ -342,7 +367,8 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private Tab localPresetTab() {
-        return new DlcFxLocalPresetTab(PROVIDER).build();
+        localPresetTabPage = new DlcFxLocalPresetTab(PROVIDER);
+        return localPresetTabPage.build();
     }
 
     private Tab localPackTab() {
@@ -353,6 +379,25 @@ public final class DlcFxManagerApp extends Application {
     private Tab localUpdateTab() {
         localUpdateTab = new DlcFxLocalUpdateTab(PROVIDER);
         return localUpdateTab.build();
+    }
+
+    private void onLocalTabSelected(Tab selected) {
+        if (!localGameDirSelected || selected == null) {
+            return;
+        }
+        if (selected == localDlcTabNode && localDlcManagementTab != null) {
+            localDlcManagementTab.onTabSelected();
+        } else if (selected == localRemoteTabNode && localRemoteDownloadTab != null) {
+            localRemoteDownloadTab.onTabSelected();
+        } else if (selected == localRequiredTabNode && localRequiredTabPage != null) {
+            localRequiredTabPage.onTabSelected();
+        } else if (selected == localPresetTabNode && localPresetTabPage != null) {
+            localPresetTabPage.onTabSelected();
+        } else if (selected == localPackTabNode && localPackTab != null) {
+            localPackTab.onTabSelected();
+        } else if (selected == localUpdateTabNode && localUpdateTab != null) {
+            localUpdateTab.onTabSelected();
+        }
     }
 
     private Node localDirectoryBar() {
@@ -391,7 +436,73 @@ public final class DlcFxManagerApp extends Application {
             return;
         }
 
-        Path gameDir = chosen.toPath();
+        setLocalGameDirectory(chosen.toPath(), true, true);
+    }
+
+    private void detectCurrentDirectoryAsGameDir() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        if (isGameDirectory(current)) {
+            setLocalGameDirectory(current, false, false);
+        }
+    }
+
+    private void installGameDirectoryDropTarget(Scene scene) {
+        scene.setOnDragOver(event -> {
+            Dragboard dragboard = event.getDragboard();
+            if (firstDraggedDirectory(dragboard) != null) {
+                event.acceptTransferModes(TransferMode.COPY);
+            }
+            event.consume();
+        });
+        scene.setOnDragDropped(event -> {
+            Dragboard dragboard = event.getDragboard();
+            Path gameDir = firstDraggedDirectory(dragboard);
+            boolean success = false;
+            if (gameDir != null) {
+                setLocalGameDirectory(gameDir, true, true);
+                success = true;
+            }
+            event.setDropCompleted(success);
+            event.consume();
+        });
+    }
+
+    private Path firstDraggedDirectory(Dragboard dragboard) {
+        if (dragboard == null || !dragboard.hasFiles()) {
+            return null;
+        }
+        for (File file : dragboard.getFiles()) {
+            if (file == null) {
+                continue;
+            }
+            Path path = file.toPath().toAbsolutePath().normalize();
+            if (Files.isDirectory(path)) {
+                return path;
+            }
+        }
+        return null;
+    }
+
+    private boolean isGameDirectory(Path path) {
+        if (path == null || !Files.isDirectory(path)) {
+            return false;
+        }
+        return Files.isDirectory(path.resolve("mods"))
+            || Files.isDirectory(path.resolve("config"))
+            || Files.isRegularFile(path.resolve("options.txt"));
+    }
+
+    private void setLocalGameDirectory(Path gameDir, boolean promptMissingRequired, boolean showInvalidDialog) {
+        if (gameDir == null) {
+            return;
+        }
+        gameDir = gameDir.toAbsolutePath().normalize();
+        if (!isGameDirectory(gameDir)) {
+            if (showInvalidDialog) {
+                showInvalidGameDirectoryDialog(gameDir);
+            }
+            return;
+        }
         PROVIDER.setGameDir(gameDir);
         localGameDirSelected = true;
         if (localGameDirLabel != null) {
@@ -403,7 +514,18 @@ public final class DlcFxManagerApp extends Application {
         DlcRuntimeState.clearOverrides();
         DlcPresetRuntimeState.clearAll();
         onLocalGameDirChanged();
-        promptMissingRequiredResources();
+        if (promptMissingRequired) {
+            promptMissingRequiredResources();
+        }
+    }
+
+    private void showInvalidGameDirectoryDialog(Path path) {
+        DlcFxModalOverlay.show(
+                scene(),
+                DlcFxI18n.tr("dlc_manager.local.invalid_game_dir_title"),
+                DlcFxI18n.tr("dlc_manager.local.invalid_game_dir", path),
+                () -> {},
+                DlcFxI18n.tr("dlc_manager.confirm_yes"));
     }
 
     private javafx.scene.Node statusBar() {
@@ -466,6 +588,14 @@ public final class DlcFxManagerApp extends Application {
         localDlcManagementTab = null;
         localRemoteDownloadTab = null;
         localRequiredTabPage = null;
+        localPresetTabPage = null;
+        localDlcTabNode = null;
+        localRemoteTabNode = null;
+        localRequiredTabNode = null;
+        localPresetTabNode = null;
+        localPackTabNode = null;
+        localUpdateTabNode = null;
+        localPackTab = null;
         localUpdateTab = null;
         homeView = buildHomeView();
         localView = buildLocalWorkspace();

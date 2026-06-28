@@ -50,6 +50,8 @@ public final class DlcFxLocalRequiredTab {
     private final Label countLabel = new Label("");
     private List<DlcRequiredEntry> forcedEntries = List.of();
     private boolean forceInstallFlow;
+    private boolean gameDirSelected;
+    private boolean loadedForCurrentGameDir;
 
     public DlcFxLocalRequiredTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -64,10 +66,16 @@ public final class DlcFxLocalRequiredTab {
         BorderPane root = new BorderPane();
         DlcFxStyle.view(root);
 
-        refreshBtn.setOnAction(e -> refreshAsync());
+        refreshBtn.setDisable(true);
+        refreshBtn.setOnAction(e -> {
+            if (gameDirSelected) {
+                refreshAsync();
+            }
+        });
         downloadMissingBtn.setOnAction(e -> downloadMissingAsync());
-        downloadSelectedBtn.disableProperty().bind(refreshBtn.disabledProperty());
-        applyBtn.disableProperty().bind(refreshBtn.disabledProperty());
+        downloadMissingBtn.setDisable(true);
+        downloadSelectedBtn.setDisable(true);
+        applyBtn.setDisable(true);
         applyBtn.setOnAction(e -> installAsync());
         DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(downloadMissingBtn);
@@ -109,6 +117,9 @@ public final class DlcFxLocalRequiredTab {
         });
 
         downloadSelectedBtn.setOnAction(e -> {
+            if (!requireGameDir()) {
+                return;
+            }
             java.util.List<DlcRequiredEntry> selected = listView.getSelectionModel().getSelectedItems();
             if (selected == null || selected.isEmpty()) {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_list_item"));
@@ -146,12 +157,22 @@ public final class DlcFxLocalRequiredTab {
     }
 
     public void onGameDirChanged() {
+        gameDirSelected = true;
+        loadedForCurrentGameDir = false;
         entries.clear();
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.game_dir_changed"));
         refreshBtn.setDisable(false);
+        updateActionButtons(false);
         forcedEntries = List.of();
         forceInstallFlow = false;
+    }
+
+    public void onTabSelected() {
+        if (!gameDirSelected || loadedForCurrentGameDir) {
+            return;
+        }
+        refreshAsync();
     }
 
     public void forceDownloadAndInstall(List<DlcRequiredEntry> missing) {
@@ -164,7 +185,15 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void refreshAsync() {
+        if (!gameDirSelected) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            refreshBtn.setDisable(true);
+            updateActionButtons(false);
+            return;
+        }
+        loadedForCurrentGameDir = true;
         refreshBtn.setDisable(true);
+        updateActionButtons(true);
         progressBar.setVisible(true);
         progressBar.setProgress(-1);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.required.loading"));
@@ -183,12 +212,14 @@ public final class DlcFxLocalRequiredTab {
                             : (fMissing > 0 ? DlcFxI18n.tr("dlc_manager.required.has_missing") : DlcFxI18n.tr("dlc_manager.required.has_needs_apply")));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
+                    updateActionButtons(false);
                 });
             } catch (Throwable t) {
                 Platform.runLater(() -> {
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", safeMessage(t)));
                     progressBar.setVisible(false);
                     refreshBtn.setDisable(false);
+                    updateActionButtons(false);
                 });
             }
         }, "dlc-required-refresh");
@@ -197,6 +228,9 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void downloadMissingAsync() {
+        if (!requireGameDir()) {
+            return;
+        }
         List<DlcRequiredEntry> missing = DlcRequiredService.collectMissingDownloads(entries);
         if (missing.isEmpty()) {
             if (forceInstallFlow) {
@@ -218,7 +252,12 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void downloadAll(List<DlcRequiredEntry> toDownload) {
+        if (!requireGameDir()) {
+            return;
+        }
         downloadMissingBtn.setDisable(true);
+        downloadSelectedBtn.setDisable(true);
+        applyBtn.setDisable(true);
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(0);
@@ -250,8 +289,8 @@ public final class DlcFxLocalRequiredTab {
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
-                downloadMissingBtn.setDisable(false);
                 refreshBtn.setDisable(false);
+                updateActionButtons(false);
                 refreshAsync();
                 if (forceInstallFlow) {
                     forceInstallFlow = false;
@@ -287,10 +326,16 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void installAsync() {
+        if (!requireGameDir()) {
+            return;
+        }
         runInstall(false);
     }
 
     private void runInstall(boolean force) {
+        if (!requireGameDir()) {
+            return;
+        }
         List<DlcRequiredEntry> targets = DlcRequiredService.collectNeedsApply(entries);
         if (targets.isEmpty()) {
             for (DlcRequiredEntry e : entries) {
@@ -320,7 +365,12 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void startInstallThread(List<DlcRequiredEntry> finalTargets) {
+        if (!requireGameDir()) {
+            return;
+        }
         applyBtn.setDisable(true);
+        downloadMissingBtn.setDisable(true);
+        downloadSelectedBtn.setDisable(true);
         refreshBtn.setDisable(true);
         progressBar.setVisible(true);
         progressBar.setProgress(0);
@@ -346,13 +396,29 @@ public final class DlcFxLocalRequiredTab {
                 }
                 statusLabel.setText(sb.toString());
                 progressBar.setVisible(false);
-                applyBtn.setDisable(false);
                 refreshBtn.setDisable(false);
+                updateActionButtons(false);
                 refreshAsync();
             });
         }, "dlc-required-install");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private boolean requireGameDir() {
+        if (!gameDirSelected || DlcConfig.getDlcRoot() == null) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            updateActionButtons(false);
+            return false;
+        }
+        return true;
+    }
+
+    private void updateActionButtons(boolean busy) {
+        boolean disabled = busy || !gameDirSelected;
+        downloadMissingBtn.setDisable(disabled);
+        downloadSelectedBtn.setDisable(disabled);
+        applyBtn.setDisable(disabled);
     }
 
     private final class RequiredEntryCell extends javafx.scene.control.ListCell<DlcRequiredEntry> {
