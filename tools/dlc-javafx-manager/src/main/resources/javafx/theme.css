@@ -558,6 +558,21 @@
     -fx-text-fill: -dlc-text;
 }
 
+.dlc-preset-list .list-cell:filled:selected,
+.dlc-preset-list .list-cell:filled:selected:focused {
+    -fx-background-color: transparent;
+}
+
+.dlc-preset-list .list-cell:filled:selected:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.dlc-preset-list .list-cell .status-chip,
+.dlc-preset-list .list-cell:filled:selected .status-chip,
+.dlc-preset-list .list-cell:filled:selected:hover .status-chip {
+    -fx-text-fill: white;
+}
+
 .dlc-dlc-list .list-cell.dlc-row-item .check-box:disabled {
     -fx-opacity: 0;
 }
@@ -811,6 +826,12 @@
 
 .status-chip.neutral {
     -fx-background-color: -dlc-neutral;
+}
+
+.dlc-pending-warning {
+    -fx-text-fill: #9a6700;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 12px;
 }
 
 .check-box > .box {

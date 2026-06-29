@@ -91,6 +91,7 @@ public final class DlcFxManagerApp extends Application {
     private Tab localPresetTabNode;
     private Tab localPackTabNode;
     private Tab localUpdateTabNode;
+    private boolean suppressLocalTabChangePrompt;
 
     @Override
     public void init() {
@@ -267,7 +268,7 @@ public final class DlcFxManagerApp extends Application {
         localTabPane.getTabs().add(localPackTabNode);
         localUpdateTabNode = localUpdateTab();
         localTabPane.getTabs().add(localUpdateTabNode);
-        localTabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> onLocalTabSelected(newTab));
+        localTabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> onLocalTabChanging(oldTab, newTab));
         return localTabPane;
     }
 
@@ -400,6 +401,78 @@ public final class DlcFxManagerApp extends Application {
         } else if (selected == localUpdateTabNode && localUpdateTab != null) {
             localUpdateTab.onTabSelected();
         }
+    }
+
+    private void onLocalTabChanging(Tab oldTab, Tab newTab) {
+        if (suppressLocalTabChangePrompt || oldTab == null || newTab == null || oldTab == newTab) {
+            onLocalTabSelected(newTab);
+            return;
+        }
+        if (!localTabHasPendingChanges(oldTab)) {
+            onLocalTabSelected(newTab);
+            return;
+        }
+        suppressLocalTabChangePrompt = true;
+        localTabPane.getSelectionModel().select(oldTab);
+        suppressLocalTabChangePrompt = false;
+        showPendingLocalTabPrompt(oldTab, newTab);
+    }
+
+    private boolean localTabHasPendingChanges(Tab tab) {
+        if (tab == localDlcTabNode && localDlcManagementTab != null) {
+            return localDlcManagementTab.hasPendingChanges();
+        }
+        if (tab == localPresetTabNode && localPresetTabPage != null) {
+            return localPresetTabPage.hasPendingChanges();
+        }
+        return false;
+    }
+
+    private void applyPendingLocalTab(Tab tab) {
+        if (tab == localDlcTabNode && localDlcManagementTab != null) {
+            localDlcManagementTab.applyPendingChanges();
+        } else if (tab == localPresetTabNode && localPresetTabPage != null) {
+            localPresetTabPage.applyPendingChanges();
+        }
+    }
+
+    private void cancelPendingLocalTab(Tab tab) {
+        if (tab == localDlcTabNode && localDlcManagementTab != null) {
+            localDlcManagementTab.cancelPendingChanges();
+        } else if (tab == localPresetTabNode && localPresetTabPage != null) {
+            localPresetTabPage.cancelPendingChanges();
+        }
+    }
+
+    private void showPendingLocalTabPrompt(Tab sourceTab, Tab targetTab) {
+        if (DlcFxModalOverlay.isShowing(primaryStage == null ? null : primaryStage.getScene())) {
+            return;
+        }
+        DlcFxModalOverlay.show(
+                primaryStage == null ? null : primaryStage.getScene(),
+                DlcFxI18n.tr("dlc_manager.pending.unapplied_title"),
+                DlcFxI18n.tr("dlc_manager.pending.unapplied_message"),
+                () -> {
+                    applyPendingLocalTab(sourceTab);
+                    selectLocalTabWithoutPrompt(targetTab);
+                },
+                DlcFxI18n.tr("dlc_manager.local.apply_changes"),
+                () -> {
+                    cancelPendingLocalTab(sourceTab);
+                    selectLocalTabWithoutPrompt(targetTab);
+                },
+                DlcFxI18n.tr("dlc_manager.local.cancel_changes")
+        );
+    }
+
+    private void selectLocalTabWithoutPrompt(Tab tab) {
+        if (localTabPane == null || tab == null) {
+            return;
+        }
+        suppressLocalTabChangePrompt = true;
+        localTabPane.getSelectionModel().select(tab);
+        suppressLocalTabChangePrompt = false;
+        onLocalTabSelected(tab);
     }
 
     private Node localDirectoryBar() {
@@ -631,14 +704,14 @@ public final class DlcFxManagerApp extends Application {
     public void showRequiredTabWithPrompt() {
         showLocalWorkspace();
         if (localTabPane != null && localRequiredTabNode != null) {
-            localTabPane.getSelectionModel().select(localRequiredTabNode);
+            selectLocalTabWithoutPrompt(localRequiredTabNode);
         }
     }
 
     public void showLocalDlcManagementTab() {
         showLocalWorkspace();
-        if (localTabPane != null) {
-            localTabPane.getSelectionModel().select(0);
+        if (localDlcTabNode != null) {
+            selectLocalTabWithoutPrompt(localDlcTabNode);
         }
     }
 

@@ -92,6 +92,7 @@ public final class DlcFxLocalDlcManagementTab {
     private Button applyBtn;
     private Button enableSelectedBtn;
     private Button disableSelectedBtn;
+    private Label pendingWarningLabel;
     private boolean gameDirSelected;
     private boolean loadedForCurrentGameDir;
 
@@ -210,8 +211,13 @@ public final class DlcFxLocalDlcManagementTab {
 
         HBox applyActions = new HBox(8, applyBtn, cancelBtn, enableSelectedBtn, disableSelectedBtn);
         applyActions.setAlignment(Pos.CENTER_LEFT);
-        HBox actionPanel = new HBox(18, applyActions, progressBar, statusLabel);
-        actionPanel.setAlignment(Pos.CENTER_LEFT);
+        pendingWarningLabel = new Label(DlcFxI18n.tr("dlc_manager.pending.unapplied_changes"));
+        DlcFxStyle.add(pendingWarningLabel, "dlc-pending-warning");
+        pendingWarningLabel.setVisible(false);
+        pendingWarningLabel.setManaged(false);
+        HBox statusRow = new HBox(18, progressBar, statusLabel);
+        statusRow.setAlignment(Pos.CENTER_LEFT);
+        VBox actionPanel = new VBox(new HBox(18, applyActions, pendingWarningLabel, statusRow));
         DlcFxStyle.actionPanel(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
         root.setBottom(actionPanel);
@@ -478,6 +484,12 @@ public final class DlcFxLocalDlcManagementTab {
         thread.start();
     }
 
+    public void applyPendingChanges() {
+        if (hasPendingChanges()) {
+            applyAsync();
+        }
+    }
+
     private List<String> applyFailureMessages(DlcApplier.ApplyResult result) {
         if (result == null || result.messages() == null || result.messages().isEmpty()) {
             return List.of();
@@ -507,6 +519,12 @@ public final class DlcFxLocalDlcManagementTab {
         rebuildRows();
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.cancel_done"));
         updateActionState();
+    }
+
+    public void cancelPendingChanges() {
+        if (hasPendingChanges()) {
+            resetChanges();
+        }
     }
 
     private DlcType currentTypeFilter;
@@ -1024,7 +1042,7 @@ public final class DlcFxLocalDlcManagementTab {
         }
     }
 
-    private boolean hasPendingChanges() {
+    public boolean hasPendingChanges() {
         for (DlcItem item : allItems) {
             if (isDirty(item)) {
                 return true;
@@ -1118,6 +1136,10 @@ public final class DlcFxLocalDlcManagementTab {
         }
         if (cancelBtn != null) {
             cancelBtn.setDisable(!pending || progressBar.isVisible());
+        }
+        if (pendingWarningLabel != null) {
+            pendingWarningLabel.setVisible(pending);
+            pendingWarningLabel.setManaged(pending);
         }
         List<DlcItem> selected = selectedItems();
         boolean hasSelection = !selected.isEmpty();
