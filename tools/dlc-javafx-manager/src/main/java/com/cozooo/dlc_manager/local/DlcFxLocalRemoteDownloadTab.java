@@ -12,6 +12,12 @@ import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.PauseTransition;
+import javafx.animation.RotateTransition;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
@@ -21,6 +27,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
@@ -38,7 +45,12 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.SVGPath;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
+import javafx.util.Duration;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,7 +72,6 @@ public final class DlcFxLocalRemoteDownloadTab {
     private static final double LIST_PROGRESS_WIDTH = 140;
     private static final double LIST_DOWNLOAD_WIDTH = 82;
 
-    private final DlcFxPlatformProvider provider;
     private final ObservableList<DlcRemoteEntry> allEntries = FXCollections.observableArrayList();
     private final ObservableList<RemoteRow> visibleRows = FXCollections.observableArrayList();
     private final Set<String> selectedEntryIds = new LinkedHashSet<>();
@@ -83,13 +94,14 @@ public final class DlcFxLocalRemoteDownloadTab {
     private final Button cancelBatchBtn = new Button(DlcFxI18n.tr("dlc_manager.common.cancel"));
     private final Label countLabel = new Label("");
     private final Label totalProgressLabel = new Label("");
+    private final ComboBox<DlcTypeOption> typeFilter = new ComboBox<>();
     private ListView<RemoteRow> listView;
     private boolean gameDirSelected;
     private boolean loadedForCurrentGameDir;
     private boolean downloading;
+    private DlcType currentTypeFilter;
 
     public DlcFxLocalRemoteDownloadTab(DlcFxPlatformProvider provider) {
-        this.provider = provider;
         progressBar.setPrefWidth(220);
         progressBar.setMinWidth(220);
         progressBar.setMaxWidth(220);
@@ -133,6 +145,22 @@ public final class DlcFxLocalRemoteDownloadTab {
         statusLabel.setPrefWidth(240);
         statusLabel.setMaxWidth(240);
 
+        typeFilter.setPromptText(DlcFxI18n.tr("dlc_manager.local.all_types"));
+        typeFilter.setConverter(new javafx.util.StringConverter<>() {
+            @Override public String toString(DlcTypeOption option) { return typeText(option); }
+            @Override public DlcTypeOption fromString(String s) { return DlcTypeOption.all(); }
+        });
+        typeFilter.setButtonCell(new DlcTypeButtonCell(typeFilter));
+        typeFilter.setCellFactory(param -> new DlcTypePopupCell());
+        typeFilter.valueProperty().addListener((obs, o, n) -> {
+            currentTypeFilter = typeOf(n);
+            selectedEntryIds.clear();
+            rebuildRows();
+        });
+        refreshTypeFilterItems();
+        Label typeLabel = new Label(DlcFxI18n.tr("dlc_manager.local.type"));
+        DlcFxStyle.muted(typeLabel);
+
         Button selectAllBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_all"));
         Button selectNoneBtn = new Button(DlcFxI18n.tr("dlc_manager.local.select_none"));
         Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
@@ -140,7 +168,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         selectionActions.setAlignment(Pos.CENTER_LEFT);
         Region topSpacer = new Region();
         HBox.setHgrow(topSpacer, Priority.ALWAYS);
-        HBox topBox = new HBox(8, refreshBtn, countLabel, topSpacer, selectionActions);
+        HBox topBox = new HBox(8, refreshBtn, typeLabel, typeFilter, countLabel, topSpacer, selectionActions);
         topBox.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(topBox);
         root.setTop(topBox);
@@ -194,6 +222,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote.game_dir_changed"));
         refreshBtn.setDisable(false);
+        refreshTypeFilterItems();
         refreshAsync();
     }
 
@@ -222,6 +251,7 @@ public final class DlcFxLocalRemoteDownloadTab {
                 List<DlcRemoteEntry> loaded = DlcRemoteLoader.load(dlcRoot);
                 Platform.runLater(() -> {
                     allEntries.setAll(loaded);
+                    refreshTypeFilterItems();
                     rebuildRows();
                     int missing = DlcRemoteService.countMissing(loaded);
                     countLabel.setText(DlcFxI18n.tr("dlc_manager.remote.count", loaded.size(), missing));
@@ -268,18 +298,6 @@ public final class DlcFxLocalRemoteDownloadTab {
         updateActionButtons();
     }
 
-    private void toggleGroup(String groupKey) {
-        if (groupKey == null || groupKey.isBlank() || animatingGroups.contains(groupKey)) {
-            return;
-        }
-        if (collapsedGroups.contains(groupKey)) {
-            collapsedGroups.remove(groupKey);
-        } else {
-            collapsedGroups.add(groupKey);
-        }
-        rebuildRows();
-    }
-
     private void setSelected(DlcRemoteEntry entry, boolean selected) {
         String id = selectionId(entry);
         if (selected) {
@@ -303,9 +321,12 @@ public final class DlcFxLocalRemoteDownloadTab {
 
     private List<DlcRemoteEntry> selectedMissingEntries() {
         List<DlcRemoteEntry> selected = new ArrayList<>();
-        for (DlcRemoteEntry entry : allEntries) {
-            if (entry != null && DlcRemoteService.isMissing(entry) && isEntrySelected(entry)) {
-                selected.add(entry);
+        for (RemoteRow row : visibleRows) {
+            if (row.type == RemoteRowType.ITEM
+                && row.entry != null
+                && DlcRemoteService.isMissing(row.entry)
+                && isEntrySelected(row.entry)) {
+                selected.add(row.entry);
             }
         }
         return selected;
@@ -466,6 +487,7 @@ public final class DlcFxLocalRemoteDownloadTab {
                 List<DlcRemoteEntry> reloaded = DlcRemoteLoader.load(DlcConfig.getDlcRoot());
                 Platform.runLater(() -> {
                     allEntries.setAll(reloaded);
+                    refreshTypeFilterItems();
                     rebuildRows();
                     int missing = DlcRemoteService.countMissing(reloaded);
                     countLabel.setText(DlcFxI18n.tr("dlc_manager.remote.count", reloaded.size(), missing));
@@ -537,20 +559,26 @@ public final class DlcFxLocalRemoteDownloadTab {
 
     private void rebuildRows() {
         List<RemoteRow> rows = new ArrayList<>();
-        for (DlcType type : DlcType.values()) {
-            List<DlcRemoteEntry> typeEntries = allEntries.stream()
-                .filter(entry -> entry != null && !entry.isHidden() && entry.getType() == type)
-                .toList();
-            if (typeEntries.isEmpty()) {
+        List<DlcRemoteEntry> filtered = allEntries.stream()
+            .filter(this::isVisibleRemoteEntry)
+            .filter(entry -> currentTypeFilter == null || entry.getType() == currentTypeFilter)
+            .toList();
+        Map<String, List<DlcRemoteEntry>> byFolder = groupByRelativeFolder(filtered);
+        boolean hasSubDir = byFolder.keySet().stream().anyMatch(key -> !"__root__".equals(key));
+        for (Map.Entry<String, List<DlcRemoteEntry>> entry : byFolder.entrySet()) {
+            String groupKey = folderKey(entry.getKey());
+            if ("__root__".equals(entry.getKey()) && !hasSubDir) {
+                for (DlcRemoteEntry remoteEntry : entry.getValue()) {
+                    rows.add(RemoteRow.item(remoteEntry, groupKey));
+                }
                 continue;
             }
-            String groupKey = groupKey(type);
-            rows.add(RemoteRow.group(groupKey, type));
+            rows.add(RemoteRow.group(groupKey, resolvePathLabel(entry.getKey()), entry.getKey(), collapsedGroups.contains(groupKey)));
             if (collapsedGroups.contains(groupKey)) {
                 continue;
             }
-            for (DlcRemoteEntry entry : typeEntries) {
-                rows.add(RemoteRow.item(entry, groupKey));
+            for (DlcRemoteEntry remoteEntry : entry.getValue()) {
+                rows.add(RemoteRow.item(remoteEntry, groupKey));
             }
         }
         visibleRows.setAll(rows);
@@ -560,8 +588,219 @@ public final class DlcFxLocalRemoteDownloadTab {
         updateActionButtons();
     }
 
-    private String groupKey(DlcType type) {
-        return type == null ? "unknown" : type.name();
+    private boolean setFolderCollapsed(RemoteRow row, boolean collapsed) {
+        if (row == null || row.groupKey == null || row.groupKey.isBlank()) {
+            return false;
+        }
+        if (animatingGroups.contains(row.groupKey)) {
+            return false;
+        }
+        int headerIndex = visibleRows.indexOf(row);
+        if (headerIndex < 0 || row.collapsed == collapsed) {
+            return false;
+        }
+        if (collapsed) {
+            animateFolderCollapse(row, headerIndex);
+        } else {
+            animateFolderExpand(row, headerIndex);
+        }
+        if (listView != null) {
+            listView.getSelectionModel().clearSelection();
+        }
+        return true;
+    }
+
+    private void animateFolderCollapse(RemoteRow row, int headerIndex) {
+        animatingGroups.add(row.groupKey);
+        collapsedGroups.add(row.groupKey);
+        row.collapsed = true;
+        List<RemoteRow> targets = folderItemRowsAfter(headerIndex);
+        if (targets.isEmpty()) {
+            finishFolderAnimation(row.groupKey);
+            return;
+        }
+        for (RemoteRow target : targets) {
+            target.expanding = false;
+            target.collapsing = true;
+        }
+        startVisibleFolderAnimations(row.groupKey);
+        PauseTransition removeAfterAnimation = new PauseTransition(Duration.millis(260));
+        removeAfterAnimation.setOnFinished(event -> {
+            visibleRows.removeAll(targets);
+            for (RemoteRow target : targets) {
+                if (target.collapsing && !target.expanding) {
+                    target.collapsing = false;
+                }
+            }
+            finishFolderAnimation(row.groupKey);
+        });
+        removeAfterAnimation.play();
+    }
+
+    private void animateFolderExpand(RemoteRow row, int headerIndex) {
+        animatingGroups.add(row.groupKey);
+        collapsedGroups.remove(row.groupKey);
+        row.collapsed = false;
+        List<RemoteRow> rows = itemRowsForFolder(row.folderRaw);
+        if (rows.isEmpty()) {
+            finishFolderAnimation(row.groupKey);
+            return;
+        }
+        for (RemoteRow item : rows) {
+            item.expanding = true;
+            item.collapsing = false;
+        }
+        visibleRows.addAll(headerIndex + 1, rows);
+        Platform.runLater(() -> startVisibleFolderAnimations(row.groupKey));
+        PauseTransition finishExpansion = new PauseTransition(Duration.millis(260));
+        finishExpansion.setOnFinished(event -> {
+            for (RemoteRow item : rows) {
+                if (item.expanding && !item.collapsing) {
+                    item.expanding = false;
+                }
+            }
+            finishFolderAnimation(row.groupKey);
+        });
+        finishExpansion.play();
+    }
+
+    private void finishFolderAnimation(String folderKey) {
+        if (folderKey != null) {
+            animatingGroups.remove(folderKey);
+        }
+        syncVisibleGroupHeaders(folderKey);
+        syncVisibleItemCells();
+    }
+
+    private void startVisibleFolderAnimations(String folderKey) {
+        for (RemoteEntryCell cell : new ArrayList<>(activeItemCells)) {
+            if (cell != null) {
+                cell.startAnimationForFolder(folderKey);
+            }
+        }
+    }
+
+    private void syncVisibleGroupHeaders(String folderKey) {
+        for (RemoteEntryCell cell : new ArrayList<>(activeGroupCells)) {
+            if (cell != null) {
+                cell.syncGroupState(folderKey);
+            }
+        }
+    }
+
+    private boolean isFolderAnimating(String folderKey) {
+        return folderKey != null && animatingGroups.contains(folderKey);
+    }
+
+    private List<RemoteRow> folderItemRowsAfter(int headerIndex) {
+        List<RemoteRow> out = new ArrayList<>();
+        for (int i = headerIndex + 1; i < visibleRows.size(); i++) {
+            RemoteRow row = visibleRows.get(i);
+            if (row.type != RemoteRowType.ITEM) {
+                break;
+            }
+            out.add(row);
+        }
+        return out;
+    }
+
+    private List<RemoteRow> itemRowsForFolder(String rawFolder) {
+        String normalized = rawFolder == null ? "__root__" : rawFolder;
+        List<DlcRemoteEntry> filtered = allEntries.stream()
+            .filter(this::isVisibleRemoteEntry)
+            .filter(entry -> currentTypeFilter == null || entry.getType() == currentTypeFilter)
+            .toList();
+        List<DlcRemoteEntry> folderEntries = groupByRelativeFolder(filtered).get(normalized);
+        if (folderEntries == null || folderEntries.isEmpty()) {
+            return List.of();
+        }
+        List<RemoteRow> out = new ArrayList<>();
+        String groupKey = folderKey(normalized);
+        for (DlcRemoteEntry entry : folderEntries) {
+            out.add(RemoteRow.item(entry, groupKey));
+        }
+        return out;
+    }
+
+    private boolean isVisibleRemoteEntry(DlcRemoteEntry entry) {
+        return entry != null && (!entry.isHidden() || entry.getType() == DlcType.DLC_PACK);
+    }
+
+    private Map<String, List<DlcRemoteEntry>> groupByRelativeFolder(List<DlcRemoteEntry> entries) {
+        Map<String, List<DlcRemoteEntry>> grouped = new java.util.TreeMap<>();
+        for (DlcRemoteEntry entry : entries) {
+            grouped.computeIfAbsent(resolveGroupLabel(entry), key -> new ArrayList<>()).add(entry);
+        }
+        return grouped;
+    }
+
+    private String resolveGroupLabel(DlcRemoteEntry entry) {
+        try {
+            Path config = entry.getConfigPath();
+            Path remoteRoot = entry.getDlcRoot() == null ? null : entry.getDlcRoot().resolve("remote");
+            String relative = null;
+            if (config != null && remoteRoot != null && config.startsWith(remoteRoot)) {
+                relative = remoteRoot.relativize(config).toString().replace('\\', '/');
+            }
+            if (relative == null) {
+                Path baseDir = entry.getBaseDir();
+                if (baseDir != null && remoteRoot != null && baseDir.startsWith(remoteRoot)) {
+                    relative = remoteRoot.relativize(baseDir).toString().replace('\\', '/');
+                    return relative.isBlank() ? "__root__" : relative;
+                }
+            }
+            if (relative == null || relative.isBlank()) {
+                return "__root__";
+            }
+            int lastSlash = relative.lastIndexOf('/');
+            if (lastSlash <= 0) {
+                return "__root__";
+            }
+            return relative.substring(0, lastSlash);
+        } catch (Exception ignored) {
+            return "__root__";
+        }
+    }
+
+    private String resolvePathLabel(String raw) {
+        if ("__root__".equals(raw)) {
+            return DlcFxI18n.tr("dlc_manager.group.root");
+        }
+        return raw;
+    }
+
+    private String folderKey(String raw) {
+        return raw == null ? "__root__" : raw;
+    }
+
+    private void refreshTypeFilterItems() {
+        DlcType selected = currentTypeFilter;
+        typeFilter.getItems().clear();
+        typeFilter.getItems().add(DlcTypeOption.all());
+        for (DlcType type : visibleRemoteTypes()) {
+            typeFilter.getItems().add(DlcTypeOption.of(type));
+        }
+        boolean keepSelected = selected != null && visibleRemoteTypes().contains(selected);
+        typeFilter.setValue(keepSelected ? DlcTypeOption.of(selected) : DlcTypeOption.all());
+    }
+
+    private Set<DlcType> visibleRemoteTypes() {
+        Set<DlcType> types = new LinkedHashSet<>();
+        for (DlcType type : DlcType.values()) {
+            if (hasVisibleEntryOfType(type) || allEntries.isEmpty()) {
+                types.add(type);
+            }
+        }
+        return types;
+    }
+
+    private boolean hasVisibleEntryOfType(DlcType type) {
+        for (DlcRemoteEntry entry : allEntries) {
+            if (isVisibleRemoteEntry(entry) && entry.getType() == type) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String safeName(DlcRemoteEntry entry) {
@@ -631,9 +870,16 @@ public final class DlcFxLocalRemoteDownloadTab {
         private final HBox progressPane = new HBox(6, rowProgressLabel, rowProgress);
         private final GridPane itemGrid = new GridPane();
         private final HBox itemRow = new HBox(0, itemGrid);
-        private final HBox groupRow = new HBox(8, groupLabel);
+        private final Button collapseButton = new Button();
+        private final SVGPath collapseIcon = new SVGPath();
+        private final StackPane collapseIconBox = new StackPane(collapseIcon);
+        private final BorderPane groupRow = new BorderPane();
         private final StackPane itemPane = new StackPane(itemRow);
         private final Rectangle clip = new Rectangle();
+        private Timeline rowTimeline;
+        private RotateTransition collapseTransition;
+        private RemoteRow animatedRow;
+        private Boolean animatedExpansion;
 
         RemoteEntryCell() {
             DlcFxStyle.title(nameLabel);
@@ -641,9 +887,18 @@ public final class DlcFxLocalRemoteDownloadTab {
             statusTag.setStyle("-fx-text-fill: white;");
             DlcFxStyle.add(groupLabel, "dlc-dlc-group-header");
             DlcFxStyle.add(itemRow, "dlc-dlc-row");
-            DlcFxStyle.add(itemPane, "dlc-dlc-row");
+            DlcFxStyle.add(groupRow, "dlc-dlc-path-row");
+            DlcFxStyle.add(collapseButton, "dlc-folder-collapse-button");
+            DlcFxStyle.add(collapseIconBox, "dlc-folder-collapse-icon-box");
+            DlcFxStyle.add(collapseIcon, "dlc-folder-collapse-icon");
             DlcFxStyle.add(downloadButton, "dlc-neutral-button");
             DlcFxStyle.muted(rowProgressLabel);
+            collapseIcon.setContent("M 3 10 L 8 5 L 13 10");
+            collapseIcon.setFill(Color.TRANSPARENT);
+            collapseIcon.setStroke(Color.web("#475467"));
+            collapseIcon.setStrokeWidth(1.8);
+            collapseIcon.setStrokeLineCap(StrokeLineCap.ROUND);
+            collapseIcon.setStrokeLineJoin(StrokeLineJoin.ROUND);
             downloadButton.setMinWidth(LIST_DOWNLOAD_WIDTH);
             downloadButton.setPrefWidth(LIST_DOWNLOAD_WIDTH);
             downloadButton.setMaxWidth(LIST_DOWNLOAD_WIDTH);
@@ -690,12 +945,36 @@ public final class DlcFxLocalRemoteDownloadTab {
             clip.widthProperty().bind(itemPane.widthProperty());
             clip.heightProperty().bind(itemPane.heightProperty());
             itemPane.setClip(clip);
-            groupRow.setAlignment(Pos.CENTER_LEFT);
+            groupRow.setCenter(groupLabel);
+            groupRow.setRight(collapseButton);
+            BorderPane.setAlignment(groupLabel, Pos.CENTER_LEFT);
+            BorderPane.setAlignment(collapseButton, Pos.CENTER_RIGHT);
+            groupLabel.setMaxWidth(Double.MAX_VALUE);
             groupRow.setMinWidth(LIST_GROUP_CONTENT_MIN_WIDTH);
             groupRow.prefWidthProperty().bind(Bindings.max(widthProperty().subtract(LIST_ROW_WIDTH_RESERVED), LIST_GROUP_CONTENT_MIN_WIDTH));
+            collapseButton.setMinWidth(28);
+            collapseButton.setPrefWidth(28);
+            collapseButton.setMaxWidth(28);
+            collapseButton.setText(null);
+            collapseButton.setGraphic(collapseIconBox);
+            collapseButton.setOnAction(event -> {
+                RemoteRow current = getItem();
+                if (current != null && current.type == RemoteRowType.GROUP && !isFolderAnimating(current.groupKey)) {
+                    boolean targetCollapsed = !current.collapsed;
+                    if (setFolderCollapsed(current, targetCollapsed)) {
+                        collapseButton.setDisable(true);
+                        animateCollapseButton(targetCollapsed);
+                    }
+                }
+                event.consume();
+            });
             downloadButton.setOnAction(e -> {
                 RemoteRow row = getItem();
                 if (row != null && row.type == RemoteRowType.ITEM && row.entry != null) {
+                    if (isFolderAnimating(row.groupKey)) {
+                        e.consume();
+                        return;
+                    }
                     String key = progressKey(row.entry);
                     if (activeSingleDownloads.contains(key)) {
                         cancelSingleDownload(key);
@@ -715,7 +994,13 @@ public final class DlcFxLocalRemoteDownloadTab {
                     e.consume();
                     return;
                 }
+                if (isFolderAnimating(row.groupKey)) {
+                    selectBox.setSelected(isEntrySelected(row.entry));
+                    e.consume();
+                    return;
+                }
                 setSelected(row.entry, selectBox.isSelected());
+                syncVisibleItemCells();
                 updateActionButtons();
                 e.consume();
             });
@@ -725,13 +1010,14 @@ public final class DlcFxLocalRemoteDownloadTab {
                 }
             });
             groupRow.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                if (!isInside(event.getTarget(), collapseButton)) {
+                    event.consume();
+                }
                 if (event.getButton() == MouseButton.PRIMARY) {
-                    RemoteRow row = getItem();
-                    if (row != null && row.type == RemoteRowType.GROUP && row.groupKey != null) {
-                        toggleGroup(row.groupKey);
+                    if (listView != null) {
+                        listView.getSelectionModel().clearSelection();
                     }
                 }
-                event.consume();
             });
         }
 
@@ -749,9 +1035,11 @@ public final class DlcFxLocalRemoteDownloadTab {
             }
             if (row.type == RemoteRowType.GROUP) {
                 resetRowAnimation();
+                setMouseTransparent(false);
                 activeGroupCells.add(this);
                 getStyleClass().add("dlc-row-group");
-                groupLabel.setText(DlcFxI18n.tr(row.groupType.getDisplayKey()));
+                groupLabel.setText(row.groupLabel);
+                syncGroupState(row.groupKey);
                 setGraphic(groupRow);
                 setText(null);
                 return;
@@ -759,6 +1047,7 @@ public final class DlcFxLocalRemoteDownloadTab {
             resetRowAnimation();
             activeItemCells.add(this);
             getStyleClass().add("dlc-row-item");
+            setMouseTransparent(false);
             DlcRemoteEntry entry = row.entry;
             boolean missing = DlcRemoteService.isMissing(entry);
             selectBox.setVisible(true);
@@ -805,6 +1094,7 @@ public final class DlcFxLocalRemoteDownloadTab {
             }
             setTooltip(DlcFxRichTextRenderer.formattedTooltip(buildTooltip(entry)));
             setGraphic(itemPane);
+            startRowAnimationIfNeeded(row);
         }
 
         private void syncItemState() {
@@ -846,6 +1136,119 @@ public final class DlcFxLocalRemoteDownloadTab {
                 rowProgress.setProgress(0);
             }
             statusTag.setStyle("-fx-text-fill: white;");
+            boolean folderAnimating = isFolderAnimating(row.groupKey);
+            itemRow.setMouseTransparent(folderAnimating);
+            selectBox.setDisable(folderAnimating || !missing || downloading);
+            downloadButton.setDisable(folderAnimating);
+        }
+
+        private void syncGroupState(String folderKey) {
+            RemoteRow row = getItem();
+            if (row == null || row.type != RemoteRowType.GROUP) {
+                return;
+            }
+            if (folderKey == null || folderKey.equals(row.groupKey)) {
+                collapseIcon.setRotate(row.collapsed ? 180 : 0);
+                collapseButton.setDisable(isFolderAnimating(row.groupKey));
+            }
+        }
+
+        private void startAnimationForFolder(String folderKey) {
+            RemoteRow row = getItem();
+            if (row == null || row.type != RemoteRowType.ITEM || !folderKey.equals(row.groupKey)) {
+                return;
+            }
+            syncItemState();
+            startRowAnimationIfNeeded(row);
+        }
+
+        private void animateCollapseButton(boolean collapsing) {
+            if (collapseTransition != null) {
+                collapseTransition.stop();
+            }
+            collapseIcon.setRotate(collapsing ? 0 : 180);
+            collapseTransition = new RotateTransition(Duration.millis(180), collapseIcon);
+            collapseTransition.setInterpolator(Interpolator.EASE_BOTH);
+            collapseTransition.setToAngle(collapsing ? 180 : 0);
+            collapseTransition.play();
+        }
+
+        private void startRowAnimationIfNeeded(RemoteRow row) {
+            if (row == null) {
+                resetRowAnimation();
+                return;
+            }
+            if (row.collapsing && !isCurrentAnimation(row, false)) {
+                animateRow(row, false, Math.max(getCurrentAnimatedHeight(), 42), 0, 1, 0, null);
+                return;
+            }
+            if (row.expanding && !isCurrentAnimation(row, true)) {
+                animateRow(row, true, 0, 42, 0, 1, () -> {
+                    if (getItem() == row && row.expanding && !row.collapsing) {
+                        row.expanding = false;
+                        resetRowAnimation();
+                    }
+                });
+                return;
+            }
+            if (!row.expanding && !row.collapsing) {
+                resetRowAnimation();
+            }
+        }
+
+        private boolean isCurrentAnimation(RemoteRow row, boolean expandingAnimation) {
+            return rowTimeline != null && animatedRow == row && animatedExpansion != null && animatedExpansion == expandingAnimation;
+        }
+
+        private void animateRow(RemoteRow row, boolean expandingAnimation, double fromHeight, double toHeight,
+                                double fromOpacity, double toOpacity, Runnable afterFinished) {
+            if (rowTimeline != null) {
+                rowTimeline.stop();
+            }
+            animatedRow = row;
+            animatedExpansion = expandingAnimation;
+            itemPane.setClip(clip);
+            itemPane.setMinHeight(fromHeight);
+            itemPane.setPrefHeight(fromHeight);
+            itemPane.setMaxHeight(fromHeight);
+            itemPane.setOpacity(fromOpacity);
+            rowTimeline = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                    new KeyValue(itemPane.minHeightProperty(), fromHeight),
+                    new KeyValue(itemPane.prefHeightProperty(), fromHeight),
+                    new KeyValue(itemPane.maxHeightProperty(), fromHeight),
+                    new KeyValue(itemPane.opacityProperty(), fromOpacity)
+                ),
+                new KeyFrame(Duration.millis(240),
+                    new KeyValue(itemPane.minHeightProperty(), toHeight, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0)),
+                    new KeyValue(itemPane.prefHeightProperty(), toHeight, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0)),
+                    new KeyValue(itemPane.maxHeightProperty(), toHeight, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0)),
+                    new KeyValue(itemPane.opacityProperty(), toOpacity, Interpolator.SPLINE(0.2, 0.0, 0.0, 1.0))
+                )
+            );
+            rowTimeline.setOnFinished(event -> {
+                if (getItem() != row || row.expanding != expandingAnimation || row.collapsing == expandingAnimation) {
+                    return;
+                }
+                rowTimeline = null;
+                animatedRow = null;
+                animatedExpansion = null;
+                if (afterFinished != null) {
+                    afterFinished.run();
+                }
+            });
+            rowTimeline.play();
+        }
+
+        private double getCurrentAnimatedHeight() {
+            double height = itemPane.getHeight();
+            if (Double.isNaN(height) || height <= 0) {
+                height = itemPane.getPrefHeight();
+            }
+            if (Double.isNaN(height) || height <= 0 || height == Region.USE_COMPUTED_SIZE || height == Region.USE_PREF_SIZE) {
+                return 42;
+            }
+            return height;
         }
 
         private void configureDownloadButton(boolean singleDownloading, boolean batchDownloading) {
@@ -871,11 +1274,21 @@ public final class DlcFxLocalRemoteDownloadTab {
         }
 
         private void resetRowAnimation() {
+            if (rowTimeline != null) {
+                rowTimeline.stop();
+                rowTimeline = null;
+            }
+            animatedRow = null;
+            animatedExpansion = null;
+            setMinHeight(Region.USE_PREF_SIZE);
+            setPrefHeight(Region.USE_COMPUTED_SIZE);
+            setMaxHeight(Region.USE_COMPUTED_SIZE);
+            setOpacity(1);
             itemPane.setMinHeight(Region.USE_PREF_SIZE);
             itemPane.setPrefHeight(Region.USE_COMPUTED_SIZE);
             itemPane.setMaxHeight(Region.USE_COMPUTED_SIZE);
             itemPane.setOpacity(1);
-            itemPane.setClip(clip);
+            itemPane.setClip(null);
         }
     }
 
@@ -977,6 +1390,61 @@ public final class DlcFxLocalRemoteDownloadTab {
         return false;
     }
 
+    private static DlcType typeOf(DlcTypeOption option) {
+        return option == null || option.all ? null : option.type;
+    }
+
+    private static String typeText(DlcTypeOption option) {
+        DlcType type = typeOf(option);
+        return type == null ? DlcFxI18n.tr("dlc_manager.local.all_types") : DlcFxI18n.tr(type.getDisplayKey());
+    }
+
+    private static final class DlcTypeButtonCell extends ListCell<DlcTypeOption> {
+        private final ComboBox<DlcTypeOption> owner;
+
+        private DlcTypeButtonCell(ComboBox<DlcTypeOption> owner) {
+            this.owner = owner;
+        }
+
+        @Override
+        protected void updateItem(DlcTypeOption item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(typeText(owner == null ? item : owner.getValue()));
+        }
+    }
+
+    private static final class DlcTypePopupCell extends ListCell<DlcTypeOption> {
+        @Override
+        protected void updateItem(DlcTypeOption item, boolean empty) {
+            super.updateItem(item, empty);
+            setText(empty || item == null ? "" : typeText(item));
+        }
+    }
+
+    private static final class DlcTypeOption {
+        private static final DlcTypeOption ALL = new DlcTypeOption(true, null);
+        private final boolean all;
+        private final DlcType type;
+
+        private DlcTypeOption(boolean all, DlcType type) {
+            this.all = all;
+            this.type = type;
+        }
+
+        private static DlcTypeOption all() {
+            return ALL;
+        }
+
+        private static DlcTypeOption of(DlcType type) {
+            return type == null ? all() : new DlcTypeOption(false, type);
+        }
+
+        @Override
+        public String toString() {
+            return typeText(this);
+        }
+    }
+
     private enum RemoteRowType {
         GROUP,
         ITEM
@@ -985,22 +1453,29 @@ public final class DlcFxLocalRemoteDownloadTab {
     private static final class RemoteRow {
         private final RemoteRowType type;
         private final String groupKey;
-        private final DlcType groupType;
+        private final String groupLabel;
+        private final String folderRaw;
         private final DlcRemoteEntry entry;
+        private boolean collapsed;
+        private boolean expanding;
+        private boolean collapsing;
 
-        private RemoteRow(RemoteRowType type, String groupKey, DlcType groupType, DlcRemoteEntry entry) {
+        private RemoteRow(RemoteRowType type, String groupKey, String groupLabel, String folderRaw,
+                          DlcRemoteEntry entry, boolean collapsed) {
             this.type = type;
             this.groupKey = groupKey;
-            this.groupType = groupType;
+            this.groupLabel = groupLabel;
+            this.folderRaw = folderRaw;
             this.entry = entry;
+            this.collapsed = collapsed;
         }
 
-        private static RemoteRow group(String groupKey, DlcType type) {
-            return new RemoteRow(RemoteRowType.GROUP, groupKey, type, null);
+        private static RemoteRow group(String groupKey, String label, String folderRaw, boolean collapsed) {
+            return new RemoteRow(RemoteRowType.GROUP, groupKey, label, folderRaw, null, collapsed);
         }
 
         private static RemoteRow item(DlcRemoteEntry entry, String groupKey) {
-            return new RemoteRow(RemoteRowType.ITEM, groupKey, null, entry);
+            return new RemoteRow(RemoteRowType.ITEM, groupKey, null, null, entry, false);
         }
     }
 }
