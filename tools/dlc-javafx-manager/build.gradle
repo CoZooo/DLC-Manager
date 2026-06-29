@@ -3,16 +3,24 @@ plugins {
     id 'org.openjfx.javafxplugin' version '0.1.0'
 }
 
-def fileOpsHelperVersion = findProperty('file_ops_helper_version')
-if (fileOpsHelperVersion == null) {
+def rootGradleProperty = { String key ->
+    def value = findProperty(key)
+    if (value != null) {
+        return value
+    }
     def rootPropsFile = file('../../gradle.properties')
     if (rootPropsFile.exists()) {
         def rootProps = new Properties()
         rootPropsFile.withInputStream { rootProps.load(it) }
-        fileOpsHelperVersion = rootProps.getProperty('file_ops_helper_version')
+        return rootProps.getProperty(key)
     }
+    return null
 }
+
+def fileOpsHelperVersion = (rootGradleProperty('file_ops_helper_version') ?: '').toString()
+def appVersion = (rootGradleProperty('mod_version') ?: '0.0.0').toString()
 fileOpsHelperVersion = (fileOpsHelperVersion ?: '').toString()
+version = appVersion
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
@@ -212,6 +220,7 @@ tasks.register('jpackageImage') {
             args '--input', "${appDir}/lib".toString()
             args '--main-jar', "${project.name}.jar".toString()
             args '--main-class', application.mainClass.get()
+            args '--app-version', appVersion
             args '--type', 'app-image'
             args '--dest', outputDir.absolutePath
             def osName = System.getProperty('os.name', '').toLowerCase(Locale.ROOT)
