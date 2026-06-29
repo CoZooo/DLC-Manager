@@ -214,10 +214,10 @@ public final class DlcFxLocalDlcManagementTab {
         DlcFxStyle.primary(applyBtn);
 
         enableSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.local.enable_selected"));
-        enableSelectedBtn.setOnAction(e -> handleBatchEnable(selectedItemsToEnable(), true));
+        enableSelectedBtn.setOnAction(e -> handleBatchEnable(selectedItems(), true));
         DlcFxStyle.primary(enableSelectedBtn);
         disableSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.local.disable_selected"));
-        disableSelectedBtn.setOnAction(e -> disableItemsWithDependents(selectedItemsToDisable()));
+        disableSelectedBtn.setOnAction(e -> disableItemsWithDependents(selectedItems()));
 
         Region topSpacer2 = new Region();
         HBox.setHgrow(topSpacer2, Priority.ALWAYS);
@@ -584,6 +584,7 @@ public final class DlcFxLocalDlcManagementTab {
             item.setEnabled(enabled);
             DlcRuntimeState.setOverride(item.getId(), enabled);
         }
+        selectedItemIds.clear();
         refreshRowsAfterStateChange();
     }
 
@@ -1174,12 +1175,12 @@ public final class DlcFxLocalDlcManagementTab {
         if (enableSelectedBtn != null) {
             enableSelectedBtn.setVisible(hasSelection);
             enableSelectedBtn.setManaged(hasSelection);
-            enableSelectedBtn.setDisable(selectedItemsToEnable().isEmpty() || progressBar.isVisible());
+            enableSelectedBtn.setDisable(!hasSelection || progressBar.isVisible());
         }
         if (disableSelectedBtn != null) {
             disableSelectedBtn.setVisible(hasSelection);
             disableSelectedBtn.setManaged(hasSelection);
-            disableSelectedBtn.setDisable(selectedItemsToDisable().isEmpty() || progressBar.isVisible());
+            disableSelectedBtn.setDisable(!hasSelection || progressBar.isVisible());
         }
     }
 
