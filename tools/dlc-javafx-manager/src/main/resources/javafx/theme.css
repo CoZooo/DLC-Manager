@@ -426,11 +426,70 @@
 }
 
 .dlc-dlc-scrollbar-slot {
-    -fx-background-color: transparent;
     -fx-min-width: 12px;
     -fx-pref-width: 12px;
     -fx-max-width: 12px;
+}
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical {
+    -fx-pref-width: 12px;
+    -fx-min-width: 12px;
+    -fx-max-width: 12px;
     -fx-padding: 2 1 2 1;
+}
+
+.scroll-bar:horizontal {
+    -fx-pref-height: 10px;
+    -fx-min-height: 10px;
+    -fx-max-height: 10px;
+    -fx-padding: 1 4 1 4;
+}
+
+.scroll-bar .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: rgba(71, 84, 103, 0.26);
+    -fx-background-radius: 999;
+    -fx-background-insets: 2;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: rgba(71, 84, 103, 0.42);
+}
+
+.scroll-bar:disabled .thumb {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-pref-height: 0;
+    -fx-max-width: 0;
+    -fx-max-height: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.dlc-dlc-list .scroll-bar:vertical {
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+    -fx-max-width: 0;
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-mouse-transparent: true;
 }
 
 .list-cell {
@@ -447,98 +506,6 @@
     -fx-background-insets: 0;
     -fx-border-insets: 0;
     -fx-effect: null;
-}
-
-.dlc-dlc-list .scroll-bar:vertical {
-    -fx-background-color: transparent;
-    -fx-pref-width: 0;
-    -fx-min-width: 0;
-    -fx-max-width: 0;
-    -fx-opacity: 0;
-    -fx-padding: 0;
-    -fx-mouse-transparent: true;
-}
-
-.dlc-dlc-list .scroll-bar:horizontal {
-    -fx-background-color: transparent;
-    -fx-pref-height: 10px;
-    -fx-min-height: 10px;
-    -fx-max-height: 10px;
-    -fx-padding: 1 4 1 4;
-}
-
-.dlc-dlc-list .scroll-bar:horizontal .track {
-    -fx-background-color: transparent;
-}
-
-.dlc-dlc-list .scroll-bar:horizontal .thumb {
-    -fx-background-color: rgba(71, 84, 103, 0.24);
-    -fx-background-radius: 999;
-    -fx-background-insets: 2;
-}
-
-.dlc-dlc-list .scroll-bar:horizontal .thumb:hover {
-    -fx-background-color: rgba(71, 84, 103, 0.40);
-}
-
-.dlc-dlc-scrollbar-slot .track {
-    -fx-background-color: transparent;
-}
-
-.dlc-dlc-scrollbar-slot .thumb {
-    -fx-background-color: rgba(71, 84, 103, 0.26);
-    -fx-background-radius: 999;
-    -fx-background-insets: 2;
-}
-
-.dlc-dlc-scrollbar-slot .thumb:hover {
-    -fx-background-color: rgba(71, 84, 103, 0.42);
-}
-
-.dlc-dlc-scrollbar-slot:disabled .thumb {
-    -fx-background-color: transparent;
-}
-
-.dlc-dlc-scrollbar-slot .increment-button,
-.dlc-dlc-scrollbar-slot .decrement-button {
-    -fx-opacity: 0;
-    -fx-padding: 0;
-    -fx-pref-height: 0;
-    -fx-max-height: 0;
-}
-
-.dlc-dlc-scrollbar-slot .increment-arrow,
-.dlc-dlc-scrollbar-slot .decrement-arrow {
-    -fx-opacity: 0;
-    -fx-padding: 0;
-}
-
-.dlc-dlc-list .scroll-bar:vertical .increment-button,
-.dlc-dlc-list .scroll-bar:vertical .decrement-button {
-    -fx-opacity: 0;
-    -fx-padding: 0;
-    -fx-pref-height: 0;
-    -fx-max-height: 0;
-}
-
-.dlc-dlc-list .scroll-bar:vertical .increment-arrow,
-.dlc-dlc-list .scroll-bar:vertical .decrement-arrow {
-    -fx-opacity: 0;
-    -fx-padding: 0;
-}
-
-.dlc-dlc-list .scroll-bar:horizontal .increment-button,
-.dlc-dlc-list .scroll-bar:horizontal .decrement-button {
-    -fx-opacity: 0;
-    -fx-padding: 0;
-    -fx-pref-width: 0;
-    -fx-max-width: 0;
-}
-
-.dlc-dlc-list .scroll-bar:horizontal .increment-arrow,
-.dlc-dlc-list .scroll-bar:horizontal .decrement-arrow {
-    -fx-opacity: 0;
-    -fx-padding: 0;
 }
 
 .list-cell:filled:hover {
@@ -568,9 +535,25 @@
     -fx-background-color: #f1f5fb;
 }
 
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-row-selected {
+    -fx-background-color: #eef0f3;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-row-selected:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-row-selected .status-chip {
+    -fx-text-fill: white;
+}
+
 .dlc-dlc-list .list-cell:filled:selected .label,
 .dlc-dlc-list .list-cell:filled:selected:hover .label {
     -fx-text-fill: -dlc-text;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item .check-box:disabled {
+    -fx-opacity: 0;
 }
 
 .dlc-dlc-list .list-cell.dlc-row-group:filled:hover,
@@ -780,17 +763,23 @@
 }
 
 .progress-bar {
-    -fx-pref-height: 8px;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-pref-height: 12px;
 }
 
 .progress-bar > .track {
-    -fx-background-color: #e2e8f0;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
     -fx-background-radius: 999;
+    -fx-border-color: transparent;
 }
 
 .progress-bar > .bar {
     -fx-background-color: -dlc-accent;
     -fx-background-radius: 999;
+    -fx-background-insets: 0;
 }
 
 .status-chip {
