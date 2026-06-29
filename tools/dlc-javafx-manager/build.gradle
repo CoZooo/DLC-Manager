@@ -166,8 +166,16 @@ tasks.named('jar') {
     exclude('rebel.xml')
 }
 
+def appJvmArgs = [
+    '-Dfile.encoding=UTF-8'
+]
+if (Runtime.version().feature() >= 24) {
+    appJvmArgs += '--enable-native-access=javafx.graphics'
+    appJvmArgs += '--sun-misc-unsafe-memory-access=allow'
+}
+
 tasks.named('run') {
-    jvmArgs('-Dfile.encoding=UTF-8')
+    jvmArgs(appJvmArgs)
 }
 
 def jpackageBin() {
@@ -219,7 +227,9 @@ tasks.register('jpackageImage') {
             }
             args '--module-path', "${appDir}/lib".toString()
             args '--add-modules', 'javafx.controls,javafx.fxml,javafx.graphics,java.desktop'
-            args '--java-options', '-Dfile.encoding=UTF-8'
+            appJvmArgs.each { option ->
+                args '--java-options', option
+            }
             if (isMacOs) {
                 args '--mac-package-identifier', appIdentifier
                 args '--mac-package-name', appDisplayName
