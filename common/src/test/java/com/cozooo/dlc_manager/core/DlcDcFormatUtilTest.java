@@ -25,6 +25,7 @@ class DlcDcFormatUtilTest {
         assertEquals("example", DlcDcFormatUtil.stripConfigExtension("example"));
         assertEquals("", DlcDcFormatUtil.stripConfigExtension(null));
         assertEquals(Path.of("folder", "example.json.dc"), DlcDcFormatUtil.toDcPath(Path.of("folder", "example.json")));
+        assertEquals(Path.of("folder", "example.DC"), DlcDcFormatUtil.toDcPath(Path.of("folder", "example.DC")));
         assertEquals(Path.of("folder", "version.dc"), DlcDcFormatUtil.resolveConfigPath(Path.of("folder"), "version"));
         assertNull(DlcDcFormatUtil.resolveConfigPath(null, "version"));
     }

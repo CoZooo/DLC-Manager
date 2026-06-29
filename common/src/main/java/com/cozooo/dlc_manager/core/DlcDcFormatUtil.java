@@ -36,6 +36,9 @@ public final class DlcDcFormatUtil {
             return null;
         }
         String fileName = path.getFileName() == null ? path.toString() : path.getFileName().toString();
+        if (isDcName(fileName)) {
+            return path;
+        }
         String base = stripConfigExtension(fileName);
         Path parent = path.getParent();
         if (parent == null) {

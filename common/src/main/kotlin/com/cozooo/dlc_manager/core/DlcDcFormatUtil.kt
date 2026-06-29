@@ -27,6 +27,9 @@ object DlcDcFormatUtil {
             return null
         }
         val fileName = path.fileName?.toString() ?: path.toString()
+        if (isDcName(fileName)) {
+            return path
+        }
         val base = stripConfigExtension(fileName)
         val parent = path.parent
         return if (parent == null) Path.of(base + DC_EXTENSION) else parent.resolve(base + DC_EXTENSION)
