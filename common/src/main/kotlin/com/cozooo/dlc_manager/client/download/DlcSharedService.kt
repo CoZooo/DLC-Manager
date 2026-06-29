@@ -10,6 +10,8 @@ import java.nio.file.StandardCopyOption
 import java.util.Locale
 import java.util.concurrent.ExecutorCompletionService
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
 
 object DlcSharedService {
     fun interface ProgressListener {
@@ -148,8 +150,9 @@ object DlcSharedService {
         }
         val executor = Executors.newFixedThreadPool(maxConcurrentDownloads)
         val completion = ExecutorCompletionService<DownloadResult<T>>(executor)
+        val futures = ArrayList<Future<DownloadResult<T>>>()
         for (entry in pending) {
-            completion.submit {
+            futures.add(completion.submit {
                 listener?.onEntryStart(entry, completed.get(), total)
                 try {
                     val fileName = downloader.downloadOne(entry, BatchEntryProgress(listener, entry, completed, total), cancelChecker, switchChecker)
@@ -161,20 +164,28 @@ object DlcSharedService {
                 } finally {
                     listener?.onEntryComplete(entry)
                 }
-            }
+            })
         }
         var success = 0
         try {
-            for (i in pending.indices) {
+            while (success + failed.size < pending.size) {
                 if (isCanceled(cancelChecker)) {
+                    cancelPending(futures)
                     break
                 }
+                val future = try {
+                    completion.poll(100, TimeUnit.MILLISECONDS)
+                } catch (_: InterruptedException) {
+                    cancelPending(futures)
+                    throw InterruptedException("interrupted")
+                } ?: continue
                 val result = try {
-                    completion.take().get()
+                    future.get()
                 } catch (e: Exception) {
-                    DownloadResult(pending[minOf(i, pending.size - 1)], null, e, false)
+                    DownloadResult(null, null, e, false)
                 }
                 if (result.canceled) {
+                    cancelPending(futures)
                     break
                 } else if (result.error == null) {
                     val done = completed.incrementAndGet()
@@ -187,6 +198,7 @@ object DlcSharedService {
                 }
             }
         } finally {
+            cancelPending(futures)
             executor.shutdownNow()
         }
         return BatchRunResult(failed, errors, success)
@@ -368,4 +380,10 @@ object DlcSharedService {
         val error: Throwable?,
         val canceled: Boolean,
     )
+
+    private fun <T> cancelPending(futures: List<Future<DownloadResult<T>>>) {
+        for (future in futures) {
+            future.cancel(true)
+        }
+    }
 }
