@@ -95,6 +95,10 @@ public final class DlcFxLocalDlcManagementTab {
     private Label pendingWarningLabel;
     private boolean gameDirSelected;
     private boolean loadedForCurrentGameDir;
+    private Runnable capturePresetSnapshot = () -> {};
+    private Runnable restorePresetSnapshot = () -> {};
+    private Runnable resetPresetSnapshot = () -> {};
+    private Runnable applyPresetOwnedDlcOverrides = () -> {};
 
     public DlcFxLocalDlcManagementTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
@@ -104,6 +108,16 @@ public final class DlcFxLocalDlcManagementTab {
 
     public void setGameDirSelected(boolean selected) {
         this.gameDirSelected = selected;
+    }
+
+    public void setPresetSnapshotActions(Runnable capturePresetSnapshot,
+                                         Runnable restorePresetSnapshot,
+                                         Runnable resetPresetSnapshot,
+                                         Runnable applyPresetOwnedDlcOverrides) {
+        this.capturePresetSnapshot = capturePresetSnapshot == null ? () -> {} : capturePresetSnapshot;
+        this.restorePresetSnapshot = restorePresetSnapshot == null ? () -> {} : restorePresetSnapshot;
+        this.resetPresetSnapshot = resetPresetSnapshot == null ? () -> {} : resetPresetSnapshot;
+        this.applyPresetOwnedDlcOverrides = applyPresetOwnedDlcOverrides == null ? () -> {} : applyPresetOwnedDlcOverrides;
     }
 
     public Tab build() {
@@ -254,7 +268,12 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     public void onTabSelected() {
-        if (!gameDirSelected || loadedForCurrentGameDir) {
+        if (!gameDirSelected) {
+            return;
+        }
+        if (loadedForCurrentGameDir) {
+            syncPresetOverridesIntoItems();
+            refreshRowsAfterStateChange();
             return;
         }
         scanAsync();
@@ -443,6 +462,7 @@ public final class DlcFxLocalDlcManagementTab {
                 DlcStateConfig.save();
                 if (DlcConfig.isPresetFuncOn()) {
                     DlcPresetRuntimeState.syncStatusFromRuntime();
+                    resetPresetSnapshot.run();
                 }
                 for (DlcItem item : allItems) {
                     if (item == null) {
@@ -504,6 +524,7 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     private void resetChanges() {
+        restorePresetSnapshot.run();
         for (DlcItem item : allItems) {
             if (item == null) {
                 continue;
@@ -513,18 +534,18 @@ public final class DlcFxLocalDlcManagementTab {
             item.setEnabled(enabled);
         }
         DlcRuntimeState.clearOverrides();
-        if (DlcConfig.isPresetFuncOn()) {
-            DlcPresetRuntimeState.applyOverridesToRuntime();
-        }
+        syncPresetStatusesFromCurrentItems();
         rebuildRows();
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.cancel_done"));
         updateActionState();
     }
 
     public void cancelPendingChanges() {
-        if (hasPendingChanges()) {
-            resetChanges();
-        }
+        resetChanges();
+    }
+
+    public List<DlcItem> currentItemsSnapshot() {
+        return List.copyOf(allItems);
     }
 
     private DlcType currentTypeFilter;
@@ -1022,9 +1043,7 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     private void refreshRowsAfterStateChange() {
-        if (DlcConfig.isPresetFuncOn()) {
-            DlcPresetRuntimeState.applyOverridesToRuntime();
-        }
+        capturePresetSnapshot.run();
         for (DlcItem item : allItems) {
             if (item != null) {
                 item.setDirty(isDirty(item));
@@ -1032,6 +1051,30 @@ public final class DlcFxLocalDlcManagementTab {
         }
         syncVisibleItemCells();
         updateActionState();
+    }
+
+    private void syncPresetOverridesIntoItems() {
+        if (!DlcConfig.isPresetFuncOn()) {
+            return;
+        }
+        capturePresetSnapshot.run();
+        DlcPresetRuntimeState.applyOverridesToRuntime();
+        applyPresetOwnedDlcOverrides.run();
+        for (DlcItem item : allItems) {
+            if (item == null || item.getId() == null || item.getId().isBlank()) {
+                continue;
+            }
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            if (override != null) {
+                item.setEnabled(override);
+            }
+        }
+    }
+
+    private void syncPresetStatusesFromCurrentItems() {
+        if (DlcConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.syncStatusFromRuntime();
+        }
     }
 
     private void syncVisibleItemCells() {
@@ -1183,6 +1226,13 @@ public final class DlcFxLocalDlcManagementTab {
         return DlcFxI18n.tr("dlc_manager.pending.apply");
     }
 
+    private String presetDisabledSuffix(DlcItem item) {
+        if (item == null || !DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier())) {
+            return "";
+        }
+        return DlcFxI18n.tr("dlc_manager.preset.disabled_by_preset");
+    }
+
     private String toggleLabel(DlcItem item) {
         return item != null && item.isEnabled()
             ? DlcFxI18n.tr("dlc_manager.toggle.on")
@@ -1195,9 +1245,10 @@ public final class DlcFxLocalDlcManagementTab {
         private final Label typeLabel = new Label();
         private final Label nameLabel = new Label();
         private final Label pendingLabel = new Label();
+        private final Label presetDisabledLabel = new Label();
         private final Button toggleButton = new Button();
         private final GridPane itemGrid = new GridPane();
-        private final HBox nameBox = new HBox(8, selectBox, accent, nameLabel, pendingLabel);
+        private final HBox nameBox = new HBox(8, selectBox, accent, nameLabel, pendingLabel, presetDisabledLabel);
         private final HBox itemRow = new HBox(0, itemGrid);
         private final StackPane itemAnimationPane = new StackPane(itemRow);
         private final Label groupLabel = new Label();
@@ -1216,6 +1267,7 @@ public final class DlcFxLocalDlcManagementTab {
             DlcFxStyle.title(nameLabel);
             DlcFxStyle.muted(pathLabel);
             DlcFxStyle.add(pendingLabel, "dlc-pending-badge");
+            DlcFxStyle.add(presetDisabledLabel, "dlc-preset-disabled-badge");
             DlcFxStyle.add(accent, "dlc-row-accent");
             DlcFxStyle.add(itemRow, "dlc-dlc-row");
             DlcFxStyle.add(typeLabel, "dlc-dlc-type-label");
@@ -1237,6 +1289,10 @@ public final class DlcFxLocalDlcManagementTab {
             pendingLabel.setPrefWidth(64);
             pendingLabel.setMaxWidth(64);
             pendingLabel.setOpacity(0);
+            presetDisabledLabel.setMinWidth(88);
+            presetDisabledLabel.setPrefWidth(88);
+            presetDisabledLabel.setMaxWidth(88);
+            presetDisabledLabel.setOpacity(0);
             toggleButton.setMinWidth(96);
             toggleButton.setPrefWidth(96);
             toggleButton.setMaxWidth(96);
@@ -1408,11 +1464,15 @@ public final class DlcFxLocalDlcManagementTab {
             pendingLabel.setManaged(true);
             pendingLabel.setVisible(true);
             pendingLabel.setOpacity(dirty ? 1 : 0);
+            boolean blocked = DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier());
+            presetDisabledLabel.setText(presetDisabledSuffix(item));
+            presetDisabledLabel.setManaged(blocked);
+            presetDisabledLabel.setVisible(blocked);
+            presetDisabledLabel.setOpacity(blocked ? 1 : 0);
             toggleButton.setText(toggleLabel(item));
             toggleButton.getStyleClass().removeAll("dlc-toggle-on", "dlc-toggle-off", "dlc-toggle-pending");
             toggleButton.getStyleClass().add(dirty ? "dlc-toggle-pending" : item.isEnabled() ? "dlc-toggle-on" : "dlc-toggle-off");
             boolean missing = DlcRuntimeState.hasMissingDependencies(item);
-            boolean blocked = DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier());
             DlcRow row = super.getItem();
             boolean folderAnimating = row != null && isFolderAnimating(row.itemFolderKey);
             itemRow.setMouseTransparent(folderAnimating);
@@ -1644,9 +1704,11 @@ public final class DlcFxLocalDlcManagementTab {
         if (item.getAppliedTargetRaw() != null && !item.getAppliedTargetRaw().isBlank()) {
             tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(item.getAppliedTargetRaw());
         }
-        if (!DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(),
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode()).isEmpty()) {
-            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.preset_blocked"));
+        List<String> blockers = DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(),
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+        if (!blockers.isEmpty()) {
+            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.preset_blocked"))
+                .append(String.join(", ", blockers));
         }
         java.util.Set<String> missing = DlcRuntimeState.collectMissingDependencyIdentifiers(item);
         if (!missing.isEmpty()) {

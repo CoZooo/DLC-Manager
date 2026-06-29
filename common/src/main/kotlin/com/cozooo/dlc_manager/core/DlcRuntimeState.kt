@@ -177,6 +177,9 @@ object DlcRuntimeState {
     }
 
     @JvmStatic
+    fun getIndexedItems(): Collection<DlcItem> = ArrayList(itemsByIdentifier.values)
+
+    @JvmStatic
     fun getDependents(identifier: String?): List<DlcItem> {
         if (identifier == null) {
             return emptyList()

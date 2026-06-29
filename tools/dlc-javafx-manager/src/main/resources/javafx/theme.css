@@ -567,12 +567,6 @@
     -fx-background-color: #f1f5fb;
 }
 
-.dlc-preset-list .list-cell .status-chip,
-.dlc-preset-list .list-cell:filled:selected .status-chip,
-.dlc-preset-list .list-cell:filled:selected:hover .status-chip {
-    -fx-text-fill: white;
-}
-
 .dlc-dlc-list .list-cell.dlc-row-item .check-box:disabled {
     -fx-opacity: 0;
 }
@@ -749,6 +743,18 @@
     -fx-padding: 2 6;
     -fx-font-size: 11px;
     -fx-text-fill: #8a5700;
+    -fx-alignment: center;
+}
+
+.dlc-preset-disabled-badge {
+    -fx-background-color: rgba(208, 68, 68, 0.12);
+    -fx-border-color: #d04444;
+    -fx-border-width: 1;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-padding: 2 6;
+    -fx-font-size: 11px;
+    -fx-text-fill: #9f2f2f;
     -fx-alignment: center;
 }
 

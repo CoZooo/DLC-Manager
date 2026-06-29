@@ -185,6 +185,10 @@ public final class DlcRuntimeState {
         return ITEMS_BY_IDENTIFIER.get(identifier);
     }
 
+    public static java.util.Collection<DlcItem> getIndexedItems() {
+        return java.util.List.copyOf(ITEMS_BY_IDENTIFIER.values());
+    }
+
     public static java.util.List<DlcItem> getDependents(String identifier) {
         if (identifier == null) {
             return java.util.List.of();

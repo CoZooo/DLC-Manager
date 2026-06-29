@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.local.DlcFxLocalDlcManagementTab;
@@ -57,7 +58,11 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.imageio.ImageIO;
 
 public final class DlcFxManagerApp extends Application {
@@ -92,6 +97,9 @@ public final class DlcFxManagerApp extends Application {
     private Tab localPackTabNode;
     private Tab localUpdateTabNode;
     private boolean suppressLocalTabChangePrompt;
+    private final Set<String> localPresetSnapshot = new LinkedHashSet<>();
+    private final Set<String> localPresetOwnedDlcIds = new LinkedHashSet<>();
+    private boolean localPresetSnapshotCaptured;
 
     @Override
     public void init() {
@@ -332,10 +340,17 @@ public final class DlcFxManagerApp extends Application {
     private Tab localDlcManagementTab() {
         localDlcManagementTab = new DlcFxLocalDlcManagementTab(PROVIDER);
         localDlcManagementTab.setGameDirSelected(localGameDirSelected);
+        localDlcManagementTab.setPresetSnapshotActions(
+            this::captureLocalPresetSnapshot,
+            this::restoreLocalPresetSnapshot,
+            this::resetLocalPresetSnapshot,
+            this::applyLocalPresetOwnedDlcOverrides
+        );
         return localDlcManagementTab.build();
     }
 
     private void onLocalGameDirChanged() {
+        clearLocalPresetTracking();
         if (localDlcManagementTab != null) {
             localDlcManagementTab.onGameDirChanged();
         }
@@ -371,7 +386,150 @@ public final class DlcFxManagerApp extends Application {
 
     private Tab localPresetTab() {
         localPresetTabPage = new DlcFxLocalPresetTab(PROVIDER);
+        localPresetTabPage.setPresetStateActions(
+            this::captureLocalPresetSnapshot,
+            this::snapshotLocalDlcEffectiveState,
+            this::syncLocalPresetOwnedDlcChanges
+        );
         return localPresetTabPage.build();
+    }
+
+    private void captureLocalPresetSnapshot() {
+        if (localPresetSnapshotCaptured || !DlcConfig.isPresetFuncOn()) {
+            return;
+        }
+        localPresetSnapshot.clear();
+        localPresetSnapshot.addAll(DlcPresetRuntimeState.getEnabledPresetIds());
+        localPresetSnapshotCaptured = true;
+    }
+
+    private void restoreLocalPresetSnapshot() {
+        if (!DlcConfig.isPresetFuncOn()) {
+            return;
+        }
+        if (!localPresetSnapshotCaptured) {
+            captureLocalPresetSnapshot();
+        }
+        DlcPresetRuntimeState.restoreEnabledPresets(localPresetSnapshot);
+        localPresetOwnedDlcIds.clear();
+    }
+
+    private void resetLocalPresetSnapshot() {
+        localPresetSnapshot.clear();
+        localPresetSnapshotCaptured = false;
+    }
+
+    private void clearLocalPresetTracking() {
+        resetLocalPresetSnapshot();
+        localPresetOwnedDlcIds.clear();
+    }
+
+    Map<String, Boolean> snapshotLocalDlcEffectiveState() {
+        Map<String, Boolean> state = new LinkedHashMap<>();
+        for (DlcItem item : currentLocalDlcItems()) {
+            if (item == null || item.getId() == null || item.getId().isBlank()) {
+                continue;
+            }
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            state.put(item.getId(), override != null ? override : item.isEnabled());
+        }
+        return state;
+    }
+
+    boolean syncLocalPresetOwnedDlcChanges(Map<String, Boolean> beforeState) {
+        if (beforeState == null) {
+            beforeState = Map.of();
+        }
+        Set<String> desiredIdentifiers = currentLocalPresetDesiredDlcIdentifiers();
+        boolean pending = false;
+        for (DlcItem item : currentLocalDlcItems()) {
+            if (item == null || item.getId() == null || item.getId().isBlank()) {
+                continue;
+            }
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            if (override != null) {
+                item.setEnabled(override);
+            }
+            boolean before = beforeState.getOrDefault(item.getId(), item.isEnabled());
+            if (!before && item.isEnabled() && desiredIdentifiers.contains(item.getIdentifier())) {
+                localPresetOwnedDlcIds.add(item.getId());
+            }
+        }
+        applyLocalPresetOwnedDlcOverrides();
+        for (DlcItem item : currentLocalDlcItems()) {
+            if (item != null && DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
+                pending = true;
+            }
+        }
+        return pending;
+    }
+
+    void applyLocalPresetOwnedDlcOverrides() {
+        if (localPresetOwnedDlcIds.isEmpty()) {
+            return;
+        }
+        Set<String> desiredIdentifiers = currentLocalPresetDesiredDlcIdentifiers();
+        for (DlcItem item : currentLocalDlcItems()) {
+            if (item == null || item.getId() == null || item.getId().isBlank()) {
+                continue;
+            }
+            if (!localPresetOwnedDlcIds.contains(item.getId())) {
+                continue;
+            }
+            if (desiredIdentifiers.contains(item.getIdentifier())) {
+                continue;
+            }
+            DlcRuntimeState.setOverride(item.getId(), false);
+            item.setEnabled(false);
+        }
+        localPresetOwnedDlcIds.removeIf(id -> {
+            DlcItem item = indexedItemById(id);
+            return item == null || !desiredIdentifiers.contains(item.getIdentifier());
+        });
+    }
+
+    void rememberLocalPresetOwnedDlcForTest(String id) {
+        if (id != null && !id.isBlank()) {
+            localPresetOwnedDlcIds.add(id);
+        }
+    }
+
+    boolean hasLocalPresetOwnedDlcForTest(String id) {
+        return id != null && localPresetOwnedDlcIds.contains(id);
+    }
+
+    void restoreLocalPresetSnapshotForTest() {
+        restoreLocalPresetSnapshot();
+    }
+
+    private Set<String> currentLocalPresetDesiredDlcIdentifiers() {
+        Set<String> identifiers = new LinkedHashSet<>();
+        for (String presetId : DlcPresetRuntimeState.getEnabledPresetIds()) {
+            identifiers.addAll(DlcPresetRuntimeState.resolveEffectiveEnableIdentifiers(presetId));
+        }
+        return identifiers;
+    }
+
+    private DlcItem indexedItemById(String id) {
+        if (id == null || id.isBlank()) {
+            return null;
+        }
+        for (DlcItem item : currentLocalDlcItems()) {
+            if (item != null && id.equals(item.getId())) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private List<DlcItem> currentLocalDlcItems() {
+        if (localDlcManagementTab != null) {
+            List<DlcItem> items = localDlcManagementTab.currentItemsSnapshot();
+            if (!items.isEmpty()) {
+                return items;
+            }
+        }
+        return List.copyOf(DlcRuntimeState.getIndexedItems());
     }
 
     private Tab localPackTab() {
