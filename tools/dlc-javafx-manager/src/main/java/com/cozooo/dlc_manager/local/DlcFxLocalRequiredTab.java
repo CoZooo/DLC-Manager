@@ -425,6 +425,10 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void updateTotalProgress(List<DlcRequiredEntry> targets, long token) {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(() -> updateTotalProgress(targets, token));
+            return;
+        }
         if (!isCurrentGeneration(token) || targets == null || targets.size() <= 1) {
             return;
         }
@@ -548,6 +552,10 @@ public final class DlcFxLocalRequiredTab {
     }
 
     private void syncVisibleItemCells() {
+        if (!Platform.isFxApplicationThread()) {
+            Platform.runLater(this::syncVisibleItemCells);
+            return;
+        }
         for (RequiredEntryCell cell : new ArrayList<>(activeItemCells)) {
             if (cell != null) {
                 cell.syncItemState();
