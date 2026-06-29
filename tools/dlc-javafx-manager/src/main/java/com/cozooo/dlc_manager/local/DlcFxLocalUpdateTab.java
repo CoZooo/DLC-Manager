@@ -29,6 +29,7 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
+import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -128,8 +129,7 @@ public final class DlcFxLocalUpdateTab {
 
         Label historyHeader = new Label(DlcFxI18n.tr("dlc_manager.update.version_list_header"));
         DlcFxStyle.title(historyHeader);
-        VBox leftBox = new VBox(4, historyHeader, historyView);
-        VBox.setVgrow(historyView, Priority.ALWAYS);
+        VBox leftBox = new VBox(4, historyHeader, DlcFxListViewSupport.wrap(historyView));
         leftBox.setPadding(new Insets(0, 4, 0, 0));
 
         Label changelogHeader = new Label(DlcFxI18n.tr("dlc_manager.update.changelog_header"));

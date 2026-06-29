@@ -16,6 +16,7 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
@@ -149,7 +150,7 @@ public final class DlcFxLocalPackTab {
 
         listView.setCellFactory(param -> new PackGroupCell());
         listView.getSelectionModel().selectedIndexProperty().addListener((obs, oldValue, newValue) -> selectedIndex = newValue == null ? -1 : newValue.intValue());
-        VBox listBox = new VBox(8, listView);
+        VBox listBox = new VBox(8, DlcFxListViewSupport.wrap(listView));
         VBox.setVgrow(listView, Priority.ALWAYS);
         listBox.setPadding(new Insets(14, 16, 12, 16));
         DlcFxStyle.section(listBox);

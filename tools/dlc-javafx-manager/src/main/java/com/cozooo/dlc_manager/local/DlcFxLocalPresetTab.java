@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
@@ -86,7 +87,7 @@ public final class DlcFxLocalPresetTab {
         ListView<DlcPresetEntry> listView = new ListView<>(entries);
         listView.setCellFactory(param -> new PresetCell());
         VBox.setVgrow(listView, Priority.ALWAYS);
-        VBox center = new VBox(listView);
+        VBox center = new VBox(DlcFxListViewSupport.wrap(listView));
         center.setPadding(new Insets(14, 16, 14, 16));
         DlcFxStyle.section(center);
         root.setCenter(center);

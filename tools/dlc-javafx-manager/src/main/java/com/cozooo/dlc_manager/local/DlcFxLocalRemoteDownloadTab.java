@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteService;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
@@ -23,7 +24,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.ScrollBar;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.control.Tooltip;
@@ -42,8 +42,6 @@ import javafx.scene.shape.Rectangle;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +50,6 @@ import java.util.WeakHashMap;
 
 public final class DlcFxLocalRemoteDownloadTab {
 
-    private static final double LIST_SCROLLBAR_SLOT_WIDTH = 12;
     private static final double LIST_ROW_WIDTH_RESERVED = 34;
     private static final double LIST_ITEM_CONTENT_MIN_WIDTH = 620;
     private static final double LIST_GROUP_CONTENT_MIN_WIDTH = 260;
@@ -67,7 +64,6 @@ public final class DlcFxLocalRemoteDownloadTab {
     private final Set<String> collapsedGroups = new LinkedHashSet<>();
     private final Set<String> animatingGroups = new LinkedHashSet<>();
     private final Set<String> activeSingleDownloads = new LinkedHashSet<>();
-    private final Set<ScrollBar> linkedVerticalScrollbars = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
     private final Set<RemoteEntryCell> activeItemCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Set<RemoteEntryCell> activeGroupCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Map<String, Float> progressByKey = new java.util.concurrent.ConcurrentHashMap<>();
@@ -137,21 +133,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         DlcFxStyle.add(listView, "dlc-dlc-list");
         listView.setCellFactory(param -> new RemoteEntryCell());
         listView.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
-        VBox.setVgrow(listView, Priority.ALWAYS);
-        HBox.setHgrow(listView, Priority.ALWAYS);
-        ScrollBar externalVerticalScrollbar = new ScrollBar();
-        externalVerticalScrollbar.setOrientation(javafx.geometry.Orientation.VERTICAL);
-        DlcFxStyle.add(externalVerticalScrollbar, "dlc-dlc-scrollbar-slot");
-        externalVerticalScrollbar.setMinWidth(LIST_SCROLLBAR_SLOT_WIDTH);
-        externalVerticalScrollbar.setPrefWidth(LIST_SCROLLBAR_SLOT_WIDTH);
-        externalVerticalScrollbar.setMaxWidth(LIST_SCROLLBAR_SLOT_WIDTH);
-        externalVerticalScrollbar.setDisable(true);
-        externalVerticalScrollbar.setMouseTransparent(true);
-        listView.skinProperty().addListener((obs, oldSkin, newSkin) -> Platform.runLater(() -> linkExternalVerticalScrollbar(externalVerticalScrollbar)));
-        listView.sceneProperty().addListener((obs, oldScene, newScene) -> Platform.runLater(() -> linkExternalVerticalScrollbar(externalVerticalScrollbar)));
-        Platform.runLater(() -> linkExternalVerticalScrollbar(externalVerticalScrollbar));
-        HBox listBox = new HBox(0, listView, externalVerticalScrollbar);
-        DlcFxStyle.add(listBox, "dlc-dlc-list-frame");
+        HBox listBox = DlcFxListViewSupport.wrap(listView);
         VBox.setVgrow(listBox, Priority.ALWAYS);
 
         VBox centerBox = new VBox(10, listBox);
@@ -469,39 +451,6 @@ public final class DlcFxLocalRemoteDownloadTab {
             return false;
         }
         return true;
-    }
-
-    private void linkExternalVerticalScrollbar(ScrollBar external) {
-        if (listView == null || external == null || listView.getScene() == null) {
-            return;
-        }
-        listView.applyCss();
-        Set<Node> nodes = new HashSet<>(listView.lookupAll(".scroll-bar"));
-        for (Node node : nodes) {
-            if (node instanceof ScrollBar internal && internal.getOrientation() == javafx.geometry.Orientation.VERTICAL) {
-                if (linkedVerticalScrollbars.add(internal)) {
-                    external.minProperty().bind(internal.minProperty());
-                    external.maxProperty().bind(internal.maxProperty());
-                    external.valueProperty().bindBidirectional(internal.valueProperty());
-                    external.visibleAmountProperty().bind(internal.visibleAmountProperty());
-                    internal.visibleProperty().addListener((obs, oldValue, newValue) -> updateExternalVerticalScrollbar(external, internal));
-                    internal.visibleAmountProperty().addListener((obs, oldValue, newValue) -> updateExternalVerticalScrollbar(external, internal));
-                    internal.maxProperty().addListener((obs, oldValue, newValue) -> updateExternalVerticalScrollbar(external, internal));
-                }
-                updateExternalVerticalScrollbar(external, internal);
-                return;
-            }
-        }
-        Platform.runLater(() -> linkExternalVerticalScrollbar(external));
-    }
-
-    private void updateExternalVerticalScrollbar(ScrollBar external, ScrollBar internal) {
-        boolean scrollable = internal != null
-            && internal.isVisible()
-            && internal.getMax() > internal.getMin();
-        external.setDisable(!scrollable);
-        external.setMouseTransparent(!scrollable);
-        external.setOpacity(scrollable ? 1 : 0);
     }
 
     private void rebuildRows() {

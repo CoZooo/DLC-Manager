@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
+import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
 
@@ -100,7 +101,7 @@ public final class DlcFxLocalRequiredTab {
         listView.setCellFactory(param -> new RequiredEntryCell());
         listView.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         VBox.setVgrow(listView, Priority.ALWAYS);
-        VBox centerBox = new VBox(listView);
+        VBox centerBox = new VBox(DlcFxListViewSupport.wrap(listView));
         centerBox.setPadding(new Insets(14, 16, 12, 16));
         DlcFxStyle.section(centerBox);
         root.setCenter(centerBox);
