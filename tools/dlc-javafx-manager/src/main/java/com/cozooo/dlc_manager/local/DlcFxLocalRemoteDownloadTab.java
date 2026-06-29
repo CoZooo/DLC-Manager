@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class DlcFxLocalRemoteDownloadTab {
 
@@ -69,6 +70,7 @@ public final class DlcFxLocalRemoteDownloadTab {
     private final Set<String> activeBatchDownloads = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
     private final Map<String, AtomicBoolean> singleCancelRequests = new java.util.concurrent.ConcurrentHashMap<>();
     private final AtomicBoolean batchCancelRequested = new AtomicBoolean(false);
+    private final AtomicLong batchProgressGeneration = new AtomicLong(0L);
     private final Set<RemoteEntryCell> activeItemCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Set<RemoteEntryCell> activeGroupCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Map<String, Float> progressByKey = new java.util.concurrent.ConcurrentHashMap<>();
@@ -356,6 +358,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         }
         downloading = true;
         batchCancelRequested.set(false);
+        long batchToken = batchProgressGeneration.incrementAndGet();
         refreshBtn.setDisable(true);
         updateActionButtons();
         progressBar.setVisible(true);
@@ -369,20 +372,30 @@ public final class DlcFxLocalRemoteDownloadTab {
                 result = DlcRemoteService.downloadAll(toDownload, new DlcRemoteService.BatchProgressListener() {
                     @Override
                     public void onEntryStart(DlcRemoteEntry entry, int index, int total) {
-                        Platform.runLater(() -> markDownloading(entry, 0f));
+                        Platform.runLater(() -> {
+                            if (isCurrentBatch(batchToken)) {
+                                markDownloading(entry, 0f);
+                            }
+                        });
                     }
 
                     @Override
                     public void onEntryAttemptStart(DlcRemoteEntry entry, int attemptId, int index, int total) {
-                        Platform.runLater(() -> markDownloading(entry, 0f));
+                        Platform.runLater(() -> {
+                            if (isCurrentBatch(batchToken)) {
+                                markDownloading(entry, 0f);
+                            }
+                        });
                     }
 
                     @Override
                     public void onEntryProgress(DlcRemoteEntry entry, long downloadedBytes, long totalBytes) {
                         if (totalBytes > 0) {
                             Platform.runLater(() -> {
-                                markDownloading(entry, Math.min(1f, downloadedBytes / (float) totalBytes));
-                                updateBatchProgress(toDownload.size());
+                                if (isCurrentBatch(batchToken)) {
+                                    markDownloading(entry, Math.min(1f, downloadedBytes / (float) totalBytes));
+                                    updateBatchProgress(toDownload.size());
+                                }
                             });
                         }
                     }
@@ -390,18 +403,22 @@ public final class DlcFxLocalRemoteDownloadTab {
                     @Override
                     public void onEntrySuccess(DlcRemoteEntry entry, String fileName, int completed, int total) {
                         Platform.runLater(() -> {
-                            markDownloading(entry, 1f);
-                            updateBatchProgress(total);
-                            totalProgressLabel.setText(DlcFxI18n.tr("dlc_manager.remote.downloading_total", completed, total));
+                            if (isCurrentBatch(batchToken)) {
+                                markDownloading(entry, 1f);
+                                updateBatchProgress(total);
+                                totalProgressLabel.setText(DlcFxI18n.tr("dlc_manager.remote.downloading_total", completed, total));
+                            }
                         });
                     }
 
                     @Override
                     public void onEntryFailure(DlcRemoteEntry entry, Throwable error, int completed, int total) {
                         Platform.runLater(() -> {
-                            markDownloading(entry, 1f);
-                            updateBatchProgress(total);
-                            totalProgressLabel.setText(DlcFxI18n.tr("dlc_manager.remote.downloading_total", completed, total));
+                            if (isCurrentBatch(batchToken)) {
+                                markDownloading(entry, 1f);
+                                updateBatchProgress(total);
+                                totalProgressLabel.setText(DlcFxI18n.tr("dlc_manager.remote.downloading_total", completed, total));
+                            }
                         });
                     }
                 }, () -> batchCancelRequested.get());
@@ -411,6 +428,7 @@ public final class DlcFxLocalRemoteDownloadTab {
                     List.of(new DlcRemoteService.EntryError(null, ex)));
             }
             DlcRemoteService.BatchResult finalResult = result;
+            batchProgressGeneration.incrementAndGet();
             Platform.runLater(() -> {
                 boolean canceled = batchCancelRequested.get();
                 downloading = false;
@@ -436,6 +454,10 @@ public final class DlcFxLocalRemoteDownloadTab {
         }, "dlc-remote-download");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private boolean isCurrentBatch(long batchToken) {
+        return batchProgressGeneration.get() == batchToken;
     }
 
     private void refreshMissingStatusAfterBatch() {
