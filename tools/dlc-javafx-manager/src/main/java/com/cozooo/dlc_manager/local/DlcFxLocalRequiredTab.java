@@ -57,7 +57,7 @@ public final class DlcFxLocalRequiredTab {
     private static final double LIST_ROW_WIDTH_RESERVED = 34;
     private static final double LIST_ITEM_CONTENT_MIN_WIDTH = 620;
     private static final double LIST_GROUP_CONTENT_MIN_WIDTH = 260;
-    private static final double LIST_STATUS_WIDTH = 110;
+    private static final double LIST_STATUS_WIDTH = 54;
     private static final double LIST_PROGRESS_TEXT_WIDTH = 40;
     private static final double LIST_PROGRESS_WIDTH = 140;
     private static final double LIST_ACTION_WIDTH = 82;
@@ -729,11 +729,11 @@ public final class DlcFxLocalRequiredTab {
             trailingSpacer.setPrefWidth(0);
             trailingSpacer.setMaxWidth(Double.MAX_VALUE);
             itemGrid.setAlignment(Pos.CENTER_LEFT);
-            itemGrid.setHgap(10);
+            itemGrid.setHgap(8);
             itemGrid.setMaxWidth(Double.MAX_VALUE);
             itemGrid.add(selectBox, 0, 0);
-            itemGrid.add(nameLabel, 1, 0);
-            itemGrid.add(statusTag, 2, 0);
+            itemGrid.add(statusTag, 1, 0);
+            itemGrid.add(nameLabel, 2, 0);
             itemGrid.add(trailingSpacer, 3, 0);
             itemGrid.add(progressBox, 4, 0);
             itemGrid.add(actionSpacer, 5, 0);
@@ -745,8 +745,8 @@ public final class DlcFxLocalRequiredTab {
             GridPane.setHgrow(progressBox, Priority.NEVER);
             itemGrid.getColumnConstraints().addAll(
                     column(28, 28, Priority.NEVER),
+                    column(LIST_STATUS_WIDTH, LIST_STATUS_WIDTH, Priority.NEVER),
                     column(340, 540, Priority.ALWAYS),
-                    column(110, 110, Priority.NEVER),
                     column(0, 0, Priority.ALWAYS),
                     column(LIST_PROGRESS_WIDTH, LIST_PROGRESS_WIDTH, Priority.NEVER),
                     column(0, 0, Priority.ALWAYS),

@@ -71,6 +71,7 @@ public final class DlcFxLocalRemoteDownloadTab {
     private static final double LIST_PROGRESS_TEXT_WIDTH = 40;
     private static final double LIST_PROGRESS_WIDTH = 140;
     private static final double LIST_DOWNLOAD_WIDTH = 82;
+    private static final double LIST_STATUS_WIDTH = 54;
 
     private final ObservableList<DlcRemoteEntry> allEntries = FXCollections.observableArrayList();
     private final ObservableList<RemoteRow> visibleRows = FXCollections.observableArrayList();
@@ -917,11 +918,11 @@ public final class DlcFxLocalRemoteDownloadTab {
             rowProgress.setProgress(0);
             progressPane.setAlignment(Pos.CENTER_RIGHT);
             itemGrid.setAlignment(Pos.CENTER_LEFT);
-            itemGrid.setHgap(10);
+            itemGrid.setHgap(8);
             itemGrid.setMaxWidth(Double.MAX_VALUE);
             itemGrid.add(selectBox, 0, 0);
-            itemGrid.add(nameLabel, 1, 0);
-            itemGrid.add(statusTag, 2, 0);
+            itemGrid.add(statusTag, 1, 0);
+            itemGrid.add(nameLabel, 2, 0);
             itemGrid.add(trailingSpacer, 3, 0);
             itemGrid.add(progressPane, 4, 0);
             itemGrid.add(downloadButton, 5, 0);
@@ -932,8 +933,8 @@ public final class DlcFxLocalRemoteDownloadTab {
             HBox.setHgrow(progressPane, Priority.NEVER);
             itemGrid.getColumnConstraints().addAll(
                 column(28, 28, Priority.NEVER),
+                column(LIST_STATUS_WIDTH, LIST_STATUS_WIDTH, Priority.NEVER),
                 column(340, 540, Priority.ALWAYS),
-                column(104, 124, Priority.NEVER),
                 column(0, 0, Priority.ALWAYS),
                 column(LIST_PROGRESS_WIDTH, LIST_PROGRESS_WIDTH, Priority.NEVER),
                 column(LIST_DOWNLOAD_WIDTH, LIST_DOWNLOAD_WIDTH, Priority.NEVER)
