@@ -52,7 +52,6 @@ build/
 **/run/
 **/runs/
 .idea/*
-!.idea/compiler.xml
 !.idea/gradle.xml
 !.idea/vcs.xml
 output/
