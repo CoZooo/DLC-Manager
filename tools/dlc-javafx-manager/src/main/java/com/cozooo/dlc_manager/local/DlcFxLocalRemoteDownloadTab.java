@@ -816,30 +816,27 @@ public final class DlcFxLocalRemoteDownloadTab {
         return name == null ? DlcFxI18n.tr("dlc_manager.status.unnamed") : name;
     }
 
-    private static String buildTooltip(DlcRemoteEntry entry) {
+    private String buildTooltip(DlcRemoteEntry entry) {
         if (entry == null) {
             return "";
         }
-        StringBuilder tip = new StringBuilder();
-        String name = safeName(entry);
-        if (name != null && !name.isBlank()) {
-            tip.append(name);
+        return resolveRemoteTip(entry);
+    }
+
+    private static String resolveRemoteTip(DlcRemoteEntry entry) {
+        if (entry == null || entry.getTips().isEmpty()) {
+            return "";
         }
-        Path target = entry.getTargetPath();
-        if (target != null) {
-            if (tip.length() > 0) {
-                tip.append('\n');
-            }
-            tip.append(target);
+        String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+        String value = entry.getTips().get(lang);
+        if (value == null || value.isBlank()) {
+            value = entry.getTips().get("en_us");
         }
-        String url = entry.getDirectUrl();
-        if (url != null && !url.isBlank()) {
-            if (tip.length() > 0) {
-                tip.append('\n');
-            }
-            tip.append(url);
+        if (value == null || value.isBlank()) {
+            value = entry.getTips().values().stream().findFirst().orElse("");
         }
-        return tip.toString();
+        return value == null ? "" : value;
     }
 
     private static String safeMessage(Throwable t) {
