@@ -279,6 +279,10 @@ public final class DlcFxLocalDlcManagementTab {
         scanAsync();
     }
 
+    public void scanSelectedGameDir() {
+        scanAsync();
+    }
+
     private void openDlcDirectory() {
         List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
         if (roots.isEmpty()) {

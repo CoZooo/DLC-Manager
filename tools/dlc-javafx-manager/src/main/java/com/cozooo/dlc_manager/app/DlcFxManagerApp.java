@@ -38,6 +38,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.Tooltip;
 import javafx.scene.text.Font;
 import javafx.scene.image.Image;
 import javafx.scene.input.Dragboard;
@@ -55,6 +56,7 @@ import java.awt.GraphicsEnvironment;
 import java.awt.Taskbar;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -79,10 +81,12 @@ public final class DlcFxManagerApp extends Application {
     private DlcFxLocalUpdateTab localUpdateTab;
 
     private Label localGameDirLabel;
-    private Label footerRemoteStatusLabel;
+    private Label remoteGameDirLabel;
+    private Button remoteReadLocalButton;
     private boolean localGameDirSelected;
 
     private DlcFxRemoteConnection remoteConnection;
+    private DlcFxRemoteServerConnectionTab remoteServerConnectionTab;
     private StackPane shell;
     private BorderPane shellContent;
     private Node homeView;
@@ -143,9 +147,11 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private void loadBundledFont(String path) {
-        URL font = DlcFxManagerApp.class.getResource(path);
-        if (font != null) {
-            Font.loadFont(font.toExternalForm(), 13);
+        try (InputStream font = DlcFxManagerApp.class.getResourceAsStream(path)) {
+            if (font != null) {
+                Font.loadFont(font, 13);
+            }
+        } catch (IOException ignored) {
         }
     }
 
@@ -245,6 +251,10 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private Node workspaceHeader(String titleText, Runnable backAction) {
+        return workspaceHeader(titleText, backAction, null);
+    }
+
+    private Node workspaceHeader(String titleText, Runnable backAction, Node extraRight) {
         Button back = new Button(DlcFxI18n.tr("dlc_manager.workspace.back"));
         DlcFxStyle.primary(back);
         back.setOnAction(e -> backAction.run());
@@ -255,7 +265,11 @@ public final class DlcFxManagerApp extends Application {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox header = new HBox(12, back, title, spacer, languagePicker());
+        HBox header = new HBox(12, back, title, spacer);
+        if (extraRight != null) {
+            header.getChildren().add(extraRight);
+        }
+        header.getChildren().add(languagePicker());
         header.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(header);
         return header;
@@ -283,7 +297,8 @@ public final class DlcFxManagerApp extends Application {
     private TabPane buildRemoteTabs() {
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        tabPane.getTabs().add(new DlcFxRemoteServerConnectionTab(remoteConnection).build());
+        remoteServerConnectionTab = new DlcFxRemoteServerConnectionTab(remoteConnection, primaryStage);
+        tabPane.getTabs().add(remoteServerConnectionTab.build());
         tabPane.getTabs().add(new DlcFxRemoteDlcManagementTab(remoteConnection).build());
         tabPane.getTabs().add(new DlcFxRemoteRemoteRequiredTab(remoteConnection).build());
         tabPane.getTabs().add(new DlcFxRemoteHotUpdateTab(remoteConnection).build());
@@ -309,9 +324,13 @@ public final class DlcFxManagerApp extends Application {
 
     private Node buildRemoteWorkspace() {
         BorderPane root = new BorderPane();
-        root.setTop(workspaceHeader(
-                DlcFxI18n.tr("dlc_manager.workspace.remote_title"),
-                this::showHome));
+        VBox top = new VBox(
+                workspaceHeader(
+                        DlcFxI18n.tr("dlc_manager.workspace.remote_title"),
+                        this::showHome,
+                        remoteConnectionStatusBadge()),
+                remoteLocalContextBar());
+        root.setTop(top);
         root.setCenter(buildRemoteTabs());
         DlcFxStyle.add(root, "dlc-workspace-root");
         return root;
@@ -320,13 +339,11 @@ public final class DlcFxManagerApp extends Application {
     private void showHome() {
         currentView = ViewMode.HOME;
         shellContent.setCenter(homeView);
-        updateFooterRemoteStatusVisibility();
     }
 
     private void showLocalWorkspace() {
         currentView = ViewMode.LOCAL;
         shellContent.setCenter(localView);
-        updateFooterRemoteStatusVisibility();
         onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         promptMissingRequiredResources();
     }
@@ -334,7 +351,6 @@ public final class DlcFxManagerApp extends Application {
     private void showRemoteWorkspace() {
         currentView = ViewMode.REMOTE;
         shellContent.setCenter(remoteView);
-        updateFooterRemoteStatusVisibility();
     }
 
     private Tab localDlcManagementTab() {
@@ -657,6 +673,83 @@ public final class DlcFxManagerApp extends Application {
         return bar;
     }
 
+    private Node remoteLocalContextBar() {
+        Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));
+        chooseDirBtn.setOnAction(e -> chooseLocalGameDirectory());
+        DlcFxStyle.primary(chooseDirBtn);
+
+        remoteReadLocalButton = new Button(DlcFxI18n.tr("dlc_manager.remote.read_local_files"));
+        remoteReadLocalButton.setOnAction(e -> scanLocalFilesFromRemoteWorkspace());
+        remoteReadLocalButton.setDisable(!localGameDirSelected);
+
+        remoteGameDirLabel = new Label(localGameDirSelected
+                ? PROVIDER.gameDir().toString()
+                : DlcFxI18n.tr("dlc_manager.local.no_game_dir"));
+        DlcFxStyle.muted(remoteGameDirLabel);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox bar = new HBox(10,
+                new Label(DlcFxI18n.tr("dlc_manager.remote.local_source")),
+                remoteGameDirLabel,
+                spacer,
+                chooseDirBtn,
+                remoteReadLocalButton);
+        bar.setAlignment(Pos.CENTER_LEFT);
+        DlcFxStyle.filterBar(bar);
+        DlcFxStyle.add(bar, "dlc-local-context-bar");
+        return bar;
+    }
+
+    private Node remoteConnectionStatusBadge() {
+        Label badge = new Label();
+        badge.textProperty().bind(remoteConnection.statusTextProperty());
+        Tooltip tooltip = new Tooltip();
+        tooltip.textProperty().bind(remoteConnection.statusTextProperty());
+        badge.setTooltip(tooltip);
+        updateRemoteConnectionBadgeStyle(badge, remoteConnection.connectionStateProperty().get());
+        remoteConnection.connectionStateProperty().addListener((obs, oldValue, newValue) ->
+                updateRemoteConnectionBadgeStyle(badge, newValue));
+        return badge;
+    }
+
+    private void updateRemoteConnectionBadgeStyle(Label badge, DlcFxRemoteConnection.ConnectionState state) {
+        if (badge == null) {
+            return;
+        }
+        badge.getStyleClass().removeAll(
+                DlcFxStyle.CHIP,
+                DlcFxStyle.CHIP_OK,
+                DlcFxStyle.CHIP_WARN,
+                DlcFxStyle.CHIP_ERROR,
+                DlcFxStyle.CHIP_NEUTRAL,
+                "dlc-remote-connection-badge");
+        String chipState = switch (state == null ? DlcFxRemoteConnection.ConnectionState.DISCONNECTED : state) {
+            case CONNECTED -> DlcFxStyle.CHIP_OK;
+            case CONNECTING -> DlcFxStyle.CHIP_WARN;
+            case FAILED -> DlcFxStyle.CHIP_ERROR;
+            case DISCONNECTED -> DlcFxStyle.CHIP_NEUTRAL;
+        };
+        DlcFxStyle.chip(badge, chipState);
+        DlcFxStyle.add(badge, "dlc-remote-connection-badge");
+    }
+
+    private void scanLocalFilesFromRemoteWorkspace() {
+        if (!localGameDirSelected) {
+            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            return;
+        }
+        if (localDlcManagementTab == null) {
+            localDlcManagementTab();
+        }
+        if (localDlcManagementTab != null) {
+            localDlcManagementTab.setGameDirSelected(true);
+            localDlcManagementTab.scanSelectedGameDir();
+            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.remote.read_local_started"));
+        }
+    }
+
     private void chooseLocalGameDirectory() {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle(DlcFxI18n.tr("dlc_manager.local.choose_game_dir_title"));
@@ -746,12 +839,21 @@ public final class DlcFxManagerApp extends Application {
         if (localGameDirLabel != null) {
             localGameDirLabel.setText(gameDir.toString());
         }
+        if (remoteGameDirLabel != null) {
+            remoteGameDirLabel.setText(gameDir.toString());
+        }
+        if (remoteReadLocalButton != null) {
+            remoteReadLocalButton.setDisable(false);
+        }
 
         DlcConfig.load();
         DlcStateConfig.load();
         DlcRuntimeState.clearOverrides();
         DlcPresetRuntimeState.clearAll();
         onLocalGameDirChanged();
+        if (remoteServerConnectionTab != null) {
+            remoteServerConnectionTab.onStorageContextChanged();
+        }
         if (promptMissingRequired) {
             promptMissingRequiredResources();
         }
@@ -770,28 +872,14 @@ public final class DlcFxManagerApp extends Application {
         DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.ready"));
         Label localStatus = new Label();
         localStatus.textProperty().bind(DlcFxStyle.statusTextProperty());
-        Label remoteStatus = new Label();
-        footerRemoteStatusLabel = remoteStatus;
-        remoteStatus.textProperty().bind(
-                remoteConnection != null ? remoteConnection.statusTextProperty() : new javafx.beans.property.SimpleStringProperty(""));
-        remoteStatus.managedProperty().bind(remoteStatus.visibleProperty());
 
-        javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(8, localStatus, remoteStatus);
+        javafx.scene.layout.HBox bar = new javafx.scene.layout.HBox(8, localStatus);
         javafx.scene.layout.HBox.setHgrow(localStatus, javafx.scene.layout.Priority.ALWAYS);
         bar.setPadding(new Insets(4, 8, 4, 8));
         bar.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.add(bar, "dlc-status-root");
         DlcFxStyle.muted(localStatus);
-        DlcFxStyle.muted(remoteStatus);
-        updateFooterRemoteStatusVisibility();
         return bar;
-    }
-
-    private void updateFooterRemoteStatusVisibility() {
-        if (footerRemoteStatusLabel == null) {
-            return;
-        }
-        footerRemoteStatusLabel.setVisible(currentView == ViewMode.REMOTE);
     }
 
     private Node languagePicker() {
@@ -845,6 +933,7 @@ public final class DlcFxManagerApp extends Application {
         localUpdateTabNode = null;
         localPackTab = null;
         localUpdateTab = null;
+        remoteServerConnectionTab = null;
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
         remoteView = buildRemoteWorkspace();
