@@ -143,6 +143,10 @@
     -fx-border-width: 0 0 1 0;
 }
 
+.dlc-update-header {
+    -fx-padding: 10 16 10 16;
+}
+
 .dlc-language-picker {
     -fx-padding: 0;
 }
@@ -1008,6 +1012,34 @@
 
 .status-chip.neutral {
     -fx-background-color: -dlc-neutral;
+}
+
+.dlc-update-list .list-cell {
+    -fx-padding: 4 6;
+}
+
+.dlc-update-list .list-cell:filled:hover {
+    -fx-background-color: #f4f8ff;
+}
+
+.dlc-update-list .list-cell:filled:selected,
+.dlc-update-list .list-cell:filled:focused {
+    -fx-background-color: transparent;
+}
+
+.dlc-update-row {
+    -fx-padding: 6 4;
+    -fx-alignment: center-left;
+}
+
+.dlc-update-row .button {
+    -fx-min-width: 82px;
+}
+
+.dlc-update-warning {
+    -fx-text-fill: #9a6700;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 12px;
 }
 
 .dlc-pending-warning {
