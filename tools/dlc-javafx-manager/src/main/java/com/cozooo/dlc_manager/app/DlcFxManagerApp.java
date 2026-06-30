@@ -339,11 +339,13 @@ public final class DlcFxManagerApp extends Application {
     private void showHome() {
         currentView = ViewMode.HOME;
         shellContent.setCenter(homeView);
+        refreshStatusForCurrentView();
     }
 
     private void showLocalWorkspace() {
         currentView = ViewMode.LOCAL;
         shellContent.setCenter(localView);
+        refreshStatusForCurrentView();
         onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         promptMissingRequiredResources();
     }
@@ -351,6 +353,7 @@ public final class DlcFxManagerApp extends Application {
     private void showRemoteWorkspace() {
         currentView = ViewMode.REMOTE;
         shellContent.setCenter(remoteView);
+        refreshStatusForCurrentView();
     }
 
     private Tab localDlcManagementTab() {
@@ -388,6 +391,7 @@ public final class DlcFxManagerApp extends Application {
         if (currentView == ViewMode.LOCAL) {
             onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         }
+        refreshStatusForCurrentView();
     }
 
     private Tab localRemoteDownloadTab() {
@@ -737,7 +741,7 @@ public final class DlcFxManagerApp extends Application {
 
     private void scanLocalFilesFromRemoteWorkspace() {
         if (!localGameDirSelected) {
-            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            refreshStatusForCurrentView();
             return;
         }
         if (localDlcManagementTab == null) {
@@ -869,7 +873,7 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private javafx.scene.Node statusBar() {
-        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.ready"));
+        refreshStatusForCurrentView();
         Label localStatus = new Label();
         localStatus.textProperty().bind(DlcFxStyle.statusTextProperty());
 
@@ -880,6 +884,14 @@ public final class DlcFxManagerApp extends Application {
         DlcFxStyle.add(bar, "dlc-status-root");
         DlcFxStyle.muted(localStatus);
         return bar;
+    }
+
+    private void refreshStatusForCurrentView() {
+        if (currentView == ViewMode.LOCAL && !localGameDirSelected) {
+            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            return;
+        }
+        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.ready"));
     }
 
     private Node languagePicker() {
