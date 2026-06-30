@@ -49,6 +49,20 @@ public final class DlcFxModalOverlay {
         String confirmText,
         Runnable cancelAction,
         String cancelText,
+        Runnable secondaryAction,
+        String secondaryText
+    ) {
+        showAndGetOverlay(scene, title, contentNode, confirmAction, confirmText, cancelAction, cancelText, null, secondaryAction, secondaryText);
+    }
+
+    public static void show(
+        Scene scene,
+        String title,
+        Node contentNode,
+        Runnable confirmAction,
+        String confirmText,
+        Runnable cancelAction,
+        String cancelText,
         Consumer<Button> confirmButtonConfigurer
     ) {
         showAndGetOverlay(scene, title, contentNode, confirmAction, confirmText, cancelAction, cancelText, confirmButtonConfigurer);
@@ -63,6 +77,21 @@ public final class DlcFxModalOverlay {
         Runnable cancelAction,
         String cancelText,
         Consumer<Button> confirmButtonConfigurer
+    ) {
+        return showAndGetOverlay(scene, title, contentNode, confirmAction, confirmText, cancelAction, cancelText, confirmButtonConfigurer, null, null);
+    }
+
+    public static StackPane showAndGetOverlay(
+        Scene scene,
+        String title,
+        Node contentNode,
+        Runnable confirmAction,
+        String confirmText,
+        Runnable cancelAction,
+        String cancelText,
+        Consumer<Button> confirmButtonConfigurer,
+        Runnable secondaryAction,
+        String secondaryText
     ) {
         if (scene == null) {
             if (confirmAction != null) {
@@ -119,6 +148,14 @@ public final class DlcFxModalOverlay {
                 cancelAction.run();
             });
             footer.getChildren().add(cancel);
+        }
+        if (secondaryAction != null && secondaryText != null && !secondaryText.isBlank()) {
+            Button secondary = new Button(secondaryText);
+            secondary.setOnAction(e -> {
+                root.getChildren().remove(overlay);
+                secondaryAction.run();
+            });
+            footer.getChildren().add(secondary);
         }
         footer.getChildren().add(confirm);
         footer.setAlignment(Pos.CENTER_RIGHT);

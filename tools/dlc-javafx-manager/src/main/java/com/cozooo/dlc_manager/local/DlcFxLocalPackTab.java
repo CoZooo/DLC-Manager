@@ -38,6 +38,8 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -1209,6 +1211,7 @@ public final class DlcFxLocalPackTab {
     }
 
     private void showExternalOpenConfirm(String title, String message, Runnable onConfirm) {
+        String url = extractLastUrlLine(message);
         DlcFxModalOverlay.show(
             scene(),
             title,
@@ -1216,8 +1219,36 @@ public final class DlcFxLocalPackTab {
             onConfirm,
             DlcFxI18n.tr("dlc_manager.common.confirm"),
             () -> {},
-            DlcFxI18n.tr("dlc_manager.common.cancel")
+            DlcFxI18n.tr("dlc_manager.common.cancel"),
+            url == null ? null : () -> {
+                copyLink(url);
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.redirect.copied"));
+            },
+            url == null ? null : DlcFxI18n.tr("dlc_manager.redirect.copy")
         );
+    }
+
+    private static String extractLastUrlLine(String message) {
+        if (message == null || message.isBlank()) {
+            return null;
+        }
+        String[] lines = message.split("\\R");
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String line = lines[i] == null ? "" : lines[i].trim();
+            if (line.startsWith("http://") || line.startsWith("https://")) {
+                return line;
+            }
+        }
+        return null;
+    }
+
+    private static void copyLink(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        ClipboardContent content = new ClipboardContent();
+        content.putString(url);
+        Clipboard.getSystemClipboard().setContent(content);
     }
 
     private void finishBusy(String message) {

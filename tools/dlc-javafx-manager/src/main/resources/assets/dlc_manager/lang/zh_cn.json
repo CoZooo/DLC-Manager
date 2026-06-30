@@ -799,8 +799,11 @@
   "dlc_manager.local.config": "配置",
   "dlc_manager.config.local_save": "保存",
   "dlc_manager.config.local_cancel": "取消",
+  "dlc_manager.redirect.copy": "复制链接",
+  "dlc_manager.redirect.copied": "已复制链接",
+  "dlc_manager.redirect.header": "打开链接",
   "dlc_manager.redirect.open": "打开",
-  "dlc_manager.redirect.prompt": "即将在浏览器中打开链接，是否继续？",
-  "dlc_manager.redirect.title": "打开链接",
+  "dlc_manager.redirect.prompt": "即将跳转浏览器打开链接，是否继续？",
+  "dlc_manager.redirect.title": "跳转",
   "dlc_manager.tooltip.double_click_redirect": "可双击打开链接"
 }

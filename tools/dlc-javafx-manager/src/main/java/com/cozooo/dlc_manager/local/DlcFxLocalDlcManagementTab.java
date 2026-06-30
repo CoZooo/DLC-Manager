@@ -9,6 +9,8 @@ import com.cozooo.dlc_manager.ui.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader;
 import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcApplyMode;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -41,6 +43,8 @@ import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.Node;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
@@ -70,15 +74,18 @@ public final class DlcFxLocalDlcManagementTab {
     private static final double LIST_ROW_WIDTH_RESERVED = 34;
     private static final double LIST_ITEM_CONTENT_MIN_WIDTH = 652;
     private static final double LIST_PATH_CONTENT_MIN_WIDTH = 360;
+    private static final String REDIRECT_FOLDER_KEY = "redirect:__links__";
 
     private final DlcFxPlatformProvider provider;
 
     private final ObservableList<DlcItem> allItems = FXCollections.observableArrayList();
+    private final ObservableList<DlcRedirectEntry> redirectEntries = FXCollections.observableArrayList();
     private final ObservableList<DlcRow> visibleRows = FXCollections.observableArrayList();
     private final Set<String> selectedItemIds = new LinkedHashSet<>();
     private final Set<String> collapsedFolders = new LinkedHashSet<>();
     private final Set<String> animatingFolders = new LinkedHashSet<>();
     private final Set<DlcItemCell> activeItemCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
+    private final Set<DlcItemCell> activeAnimatedCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Set<DlcItemCell> activePathCells = java.util.Collections.newSetFromMap(new WeakHashMap<>());
     private final Label countLabel = new Label("");
     private final ProgressBar progressBar = new ProgressBar(0);
@@ -257,6 +264,7 @@ public final class DlcFxLocalDlcManagementTab {
             applyBtn.setDisable(true);
         }
         allItems.clear();
+        redirectEntries.clear();
         visibleRows.clear();
         selectedItemIds.clear();
         collapsedFolders.clear();
@@ -385,6 +393,7 @@ public final class DlcFxLocalDlcManagementTab {
                 DlcScanner scanner = new DlcScanner();
                 Map<DlcType, List<DlcItem>> scanned = scanner.scan(true);
                 List<DlcItem> flat = new ArrayList<>();
+                List<DlcRedirectEntry> redirects = loadVisibleRedirectEntries(roots);
                 for (DlcType type : DlcType.values()) {
                     if (!isVisibleDlcType(type)) {
                         continue;
@@ -426,6 +435,7 @@ public final class DlcFxLocalDlcManagementTab {
                 System.out.println("[DLC-Scan-Debug]\n" + diagText + "total=" + total);
                 Platform.runLater(() -> {
                     allItems.setAll(flat);
+                    redirectEntries.setAll(redirects);
                     selectedItemIds.removeIf(id -> flat.stream().noneMatch(item -> id.equals(selectionId(item))));
                     rebuildRows();
                     countLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", total));
@@ -781,6 +791,22 @@ public final class DlcFxLocalDlcManagementTab {
             && (type != DlcType.TACZ_PACK || provider.hasTaczSupportJar());
     }
 
+    private List<DlcRedirectEntry> loadVisibleRedirectEntries(List<Path> roots) {
+        if (roots == null || roots.isEmpty()) {
+            return List.of();
+        }
+        String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+        List<DlcRedirectEntry> out = new ArrayList<>();
+        for (Path root : roots) {
+            for (DlcRedirectEntry entry : DlcRedirectLoader.load(root)) {
+                if (entry != null && !entry.isHidden() && entry.isAvailableFor(lang)) {
+                    out.add(entry);
+                }
+            }
+        }
+        return out;
+    }
+
     void applyFilter(String searchText, DlcType typeFilter) {
         currentSearchText = searchText == null ? "" : searchText.toLowerCase();
         currentTypeFilter = typeFilter;
@@ -808,6 +834,7 @@ public final class DlcFxLocalDlcManagementTab {
 
     private void rebuildRows() {
         List<DlcRow> rows = new ArrayList<>();
+        appendRedirectRows(rows);
         for (DlcType type : DlcType.values()) {
             if (!isVisibleDlcType(type) || (currentTypeFilter != null && currentTypeFilter != type)) {
                 continue;
@@ -847,6 +874,20 @@ public final class DlcFxLocalDlcManagementTab {
             listView.refresh();
         }
         updateActionState();
+    }
+
+    private void appendRedirectRows(List<DlcRow> rows) {
+        if (currentTypeFilter != null || redirectEntries.isEmpty()) {
+            return;
+        }
+        boolean collapsed = collapsedFolders.contains(REDIRECT_FOLDER_KEY);
+        rows.add(DlcRow.redirectHeader(DlcFxI18n.tr("dlc_manager.redirect.header"), REDIRECT_FOLDER_KEY, collapsed));
+        if (collapsed) {
+            return;
+        }
+        for (DlcRedirectEntry entry : redirectEntries) {
+            rows.add(DlcRow.redirectItem(entry, REDIRECT_FOLDER_KEY));
+        }
     }
 
     private Map<String, List<DlcItem>> groupByRelativeFolder(List<DlcItem> items) {
@@ -950,7 +991,7 @@ public final class DlcFxLocalDlcManagementTab {
         animatingFolders.add(row.folderKey);
         collapsedFolders.remove(row.folderKey);
         row.collapsed = false;
-        List<DlcRow> rows = itemRowsForFolder(row.folderType, row.folderRaw);
+        List<DlcRow> rows = itemRowsForFolder(row);
         if (rows.isEmpty()) {
             finishFolderAnimation(row.folderKey);
             return;
@@ -987,6 +1028,11 @@ public final class DlcFxLocalDlcManagementTab {
                 cell.startAnimationForFolder(folderKey);
             }
         }
+        for (DlcItemCell cell : new ArrayList<>(activeAnimatedCells)) {
+            if (cell != null) {
+                cell.startAnimationForFolder(folderKey);
+            }
+        }
     }
 
     private void syncVisibleFolderHeaders(String folderKey) {
@@ -1005,7 +1051,7 @@ public final class DlcFxLocalDlcManagementTab {
         List<DlcRow> out = new ArrayList<>();
         for (int i = headerIndex + 1; i < visibleRows.size(); i++) {
             DlcRow row = visibleRows.get(i);
-            if (row.type != DlcRowType.ITEM) {
+            if (row.type != DlcRowType.ITEM && row.type != DlcRowType.REDIRECT_ITEM) {
                 break;
             }
             out.add(row);
@@ -1013,7 +1059,19 @@ public final class DlcFxLocalDlcManagementTab {
         return out;
     }
 
-    private List<DlcRow> itemRowsForFolder(DlcType type, String rawFolder) {
+    private List<DlcRow> itemRowsForFolder(DlcRow folderRow) {
+        if (folderRow == null) {
+            return List.of();
+        }
+        if (folderRow.type == DlcRowType.REDIRECT_HEADER) {
+            List<DlcRow> out = new ArrayList<>();
+            for (DlcRedirectEntry entry : redirectEntries) {
+                out.add(DlcRow.redirectItem(entry, REDIRECT_FOLDER_KEY));
+            }
+            return out;
+        }
+        DlcType type = folderRow.folderType;
+        String rawFolder = folderRow.folderRaw;
         if (type == null) {
             return List.of();
         }
@@ -1247,15 +1305,46 @@ public final class DlcFxLocalDlcManagementTab {
         if (item == null || item.getRedirectUrl() == null || item.getRedirectUrl().isBlank()) {
             return;
         }
+        confirmOpenRedirect(item.getRedirectUrl(), "");
+    }
+
+    private void confirmOpenRedirect(DlcRedirectEntry entry) {
+        if (entry == null || entry.getRedirectUrl() == null || entry.getRedirectUrl().isBlank()) {
+            return;
+        }
+        String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+        confirmOpenRedirect(entry.getRedirectUrl(), entry.resolveNotice(lang));
+    }
+
+    private void confirmOpenRedirect(String url, String notice) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        String message = DlcFxI18n.tr("dlc_manager.redirect.prompt") + "\n" + url;
+        if (notice != null && !notice.isBlank()) {
+            message += "\n\n" + notice;
+        }
         DlcFxModalOverlay.show(
             listView == null ? null : listView.getScene(),
             DlcFxI18n.tr("dlc_manager.redirect.title"),
-            DlcFxRichTextRenderer.formatted(DlcFxI18n.tr("dlc_manager.redirect.prompt") + "\n" + item.getRedirectUrl()),
-            () -> openLink(item.getRedirectUrl()),
+            DlcFxRichTextRenderer.formatted(message),
+            () -> openLink(url),
             DlcFxI18n.tr("dlc_manager.redirect.open"),
             () -> {},
-            DlcFxI18n.tr("dlc_manager.common.cancel")
+            DlcFxI18n.tr("dlc_manager.common.cancel"),
+            () -> copyLink(url),
+            DlcFxI18n.tr("dlc_manager.redirect.copy")
         );
+    }
+
+    private void copyLink(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        ClipboardContent content = new ClipboardContent();
+        content.putString(url);
+        Clipboard.getSystemClipboard().setContent(content);
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.redirect.copied"));
     }
 
     private void openLink(String url) {
@@ -1274,12 +1363,16 @@ public final class DlcFxLocalDlcManagementTab {
         private final Region accent = new Region();
         private final Label typeLabel = new Label();
         private final Label nameLabel = new Label();
+        private final Label redirectLabel = new Label();
         private final Label pendingLabel = new Label();
         private final Label presetDisabledLabel = new Label();
         private final Button toggleButton = new Button();
+        private final Button redirectButton = new Button();
         private final GridPane itemGrid = new GridPane();
+        private final GridPane redirectGrid = new GridPane();
         private final HBox nameBox = new HBox(8, selectBox, accent, nameLabel, pendingLabel, presetDisabledLabel);
         private final HBox itemRow = new HBox(0, itemGrid);
+        private final HBox redirectRow = new HBox(0, redirectGrid);
         private final StackPane itemAnimationPane = new StackPane(itemRow);
         private final Label groupLabel = new Label();
         private final Label pathLabel = new Label();
@@ -1296,13 +1389,16 @@ public final class DlcFxLocalDlcManagementTab {
 
         DlcItemCell() {
             DlcFxStyle.title(nameLabel);
+            DlcFxStyle.title(redirectLabel);
             DlcFxStyle.muted(pathLabel);
             DlcFxStyle.add(pendingLabel, "dlc-pending-badge");
             DlcFxStyle.add(presetDisabledLabel, "dlc-preset-disabled-badge");
             DlcFxStyle.add(accent, "dlc-row-accent");
             DlcFxStyle.add(itemRow, "dlc-dlc-row");
+            DlcFxStyle.add(redirectRow, "dlc-dlc-row");
             DlcFxStyle.add(typeLabel, "dlc-dlc-type-label");
             DlcFxStyle.add(groupLabel, "dlc-dlc-group-header");
+            DlcFxStyle.add(redirectButton, "dlc-redirect-open-button");
             DlcFxStyle.add(pathLabel, "dlc-dlc-path-header");
             DlcFxStyle.add(pathRow, "dlc-dlc-path-row");
             DlcFxStyle.add(collapseButton, "dlc-folder-collapse-button");
@@ -1327,6 +1423,9 @@ public final class DlcFxLocalDlcManagementTab {
             toggleButton.setMinWidth(96);
             toggleButton.setPrefWidth(96);
             toggleButton.setMaxWidth(96);
+            redirectButton.setMinWidth(96);
+            redirectButton.setPrefWidth(96);
+            redirectButton.setMaxWidth(96);
             nameBox.setAlignment(Pos.CENTER_LEFT);
             itemGrid.setAlignment(Pos.CENTER_LEFT);
             itemGrid.setHgap(12);
@@ -1341,9 +1440,23 @@ public final class DlcFxLocalDlcManagementTab {
             );
             itemGrid.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
             itemGrid.prefWidthProperty().bind(Bindings.max(widthProperty().subtract(LIST_ROW_WIDTH_RESERVED), LIST_ITEM_CONTENT_MIN_WIDTH));
+            redirectGrid.setAlignment(Pos.CENTER_LEFT);
+            redirectGrid.setHgap(12);
+            redirectGrid.add(redirectLabel, 0, 0);
+            redirectGrid.add(redirectButton, 1, 0);
+            GridPane.setHgrow(redirectLabel, Priority.ALWAYS);
+            redirectGrid.getColumnConstraints().addAll(
+                column(540, 640, Priority.ALWAYS),
+                column(96, 96, Priority.NEVER)
+            );
+            redirectGrid.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
+            redirectGrid.prefWidthProperty().bind(Bindings.max(widthProperty().subtract(LIST_ROW_WIDTH_RESERVED), LIST_ITEM_CONTENT_MIN_WIDTH));
             HBox.setHgrow(itemGrid, Priority.ALWAYS);
+            HBox.setHgrow(redirectGrid, Priority.ALWAYS);
             itemRow.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
             itemRow.setAlignment(Pos.CENTER_LEFT);
+            redirectRow.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
+            redirectRow.setAlignment(Pos.CENTER_LEFT);
             itemAnimationPane.setAlignment(Pos.CENTER_LEFT);
             itemAnimationPane.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
             itemAnimationPane.prefWidthProperty().bind(itemGrid.prefWidthProperty());
@@ -1363,6 +1476,12 @@ public final class DlcFxLocalDlcManagementTab {
                 event.consume();
             });
             itemRow.setOnMouseClicked(event -> event.consume());
+            redirectRow.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+                if (!isInside(event.getTarget(), redirectButton)) {
+                    event.consume();
+                }
+            });
+            redirectRow.setOnMouseClicked(event -> event.consume());
             HBox.setHgrow(pathLabel, Priority.ALWAYS);
             pathRow.setCenter(pathLabel);
             pathRow.setRight(collapseButton);
@@ -1425,12 +1544,21 @@ public final class DlcFxLocalDlcManagementTab {
                     }
                 }
             });
+            redirectButton.setText(DlcFxI18n.tr("dlc_manager.redirect.open"));
+            redirectButton.setOnAction(event -> {
+                DlcRow row = super.getItem();
+                if (row != null && row.type == DlcRowType.REDIRECT_ITEM) {
+                    confirmOpenRedirect(row.redirectEntry);
+                }
+                event.consume();
+            });
         }
 
         @Override
         protected void updateItem(DlcRow row, boolean empty) {
             super.updateItem(row, empty);
             activeItemCells.remove(this);
+            activeAnimatedCells.remove(this);
             activePathCells.remove(this);
             getStyleClass().removeAll("dlc-row-group", "dlc-row-path", "dlc-row-item");
             getStyleClass().removeAll("dlc-dlc-selected");
@@ -1451,6 +1579,32 @@ public final class DlcFxLocalDlcManagementTab {
                 setText(null);
                 return;
             }
+            if (row.type == DlcRowType.REDIRECT_HEADER) {
+                resetCellAnimation();
+                setMouseTransparent(false);
+                activePathCells.add(this);
+                getStyleClass().add("dlc-row-path");
+                pathLabel.setText(row.label);
+                syncPathState(row.folderKey);
+                setGraphic(pathRow);
+                setText(null);
+                return;
+            }
+            if (row.type == DlcRowType.REDIRECT_ITEM) {
+                resetCellAnimation();
+                setMouseTransparent(false);
+                activeAnimatedCells.add(this);
+                getStyleClass().add("dlc-row-item");
+                String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+                DlcFxRichTextRenderer.setFormatted(redirectLabel, row.redirectEntry == null ? "" : row.redirectEntry.resolveDisplayName(lang));
+                String tip = row.redirectEntry == null ? "" : row.redirectEntry.resolveTip(lang);
+                rowTooltip = tip == null || tip.isBlank() ? null : DlcFxRichTextRenderer.formattedTooltip(tip);
+                itemAnimationPane.getChildren().setAll(redirectRow);
+                setGraphic(itemAnimationPane);
+                setText(null);
+                startRowAnimationIfNeeded(row);
+                return;
+            }
             if (row.type == DlcRowType.PATH_HEADER) {
                 resetCellAnimation();
                 setMouseTransparent(false);
@@ -1464,6 +1618,7 @@ public final class DlcFxLocalDlcManagementTab {
             }
             DlcItem item = row.item;
             activeItemCells.add(this);
+            activeAnimatedCells.add(this);
             getStyleClass().add("dlc-row-item");
             setMouseTransparent(false);
             typeLabel.getStyleClass().removeAll("type-mod", "type-resource", "type-data", "type-tacz", "type-unknown");
@@ -1472,6 +1627,7 @@ public final class DlcFxLocalDlcManagementTab {
             DlcFxRichTextRenderer.setFormatted(nameLabel, displayName(item));
             rowTooltip = DlcFxRichTextRenderer.formattedTooltip(buildTooltip(item));
             setText(null);
+            itemAnimationPane.getChildren().setAll(itemRow);
             setGraphic(itemAnimationPane);
             syncItemState();
             startRowAnimationIfNeeded(row);
@@ -1479,7 +1635,7 @@ public final class DlcFxLocalDlcManagementTab {
 
         private void syncPathState(String folderKey) {
             DlcRow row = super.getItem();
-            if (row == null || row.type != DlcRowType.PATH_HEADER) {
+            if (row == null || (row.type != DlcRowType.PATH_HEADER && row.type != DlcRowType.REDIRECT_HEADER)) {
                 return;
             }
             if (folderKey == null || folderKey.equals(row.folderKey)) {
@@ -1529,10 +1685,13 @@ public final class DlcFxLocalDlcManagementTab {
 
         private void startAnimationForFolder(String folderKey) {
             DlcRow row = super.getItem();
-            if (row == null || row.type != DlcRowType.ITEM || !folderKey.equals(row.itemFolderKey)) {
+            if (row == null || !folderKey.equals(row.itemFolderKey)
+                || (row.type != DlcRowType.ITEM && row.type != DlcRowType.REDIRECT_ITEM)) {
                 return;
             }
-            syncItemState();
+            if (row.type == DlcRowType.ITEM) {
+                syncItemState();
+            }
             startRowAnimationIfNeeded(row);
         }
 
@@ -1867,7 +2026,9 @@ public final class DlcFxLocalDlcManagementTab {
     private enum DlcRowType {
         GROUP_HEADER,
         PATH_HEADER,
-        ITEM
+        ITEM,
+        REDIRECT_HEADER,
+        REDIRECT_ITEM
     }
 
     private static final class DlcRow {
@@ -1875,6 +2036,7 @@ public final class DlcFxLocalDlcManagementTab {
         private final String label;
         private final DlcType groupType;
         private final DlcItem item;
+        private final DlcRedirectEntry redirectEntry;
         private final String itemFolderKey;
         private final String folderKey;
         private final DlcType folderType;
@@ -1883,12 +2045,13 @@ public final class DlcFxLocalDlcManagementTab {
         private boolean expanding;
         private boolean collapsing;
 
-        private DlcRow(DlcRowType type, String label, DlcType groupType, DlcItem item, String itemFolderKey,
+        private DlcRow(DlcRowType type, String label, DlcType groupType, DlcItem item, DlcRedirectEntry redirectEntry, String itemFolderKey,
                        String folderKey, DlcType folderType, String folderRaw, boolean collapsed) {
             this.type = type;
             this.label = label;
             this.groupType = groupType;
             this.item = item;
+            this.redirectEntry = redirectEntry;
             this.itemFolderKey = itemFolderKey;
             this.folderKey = folderKey;
             this.folderType = folderType;
@@ -1897,15 +2060,23 @@ public final class DlcFxLocalDlcManagementTab {
         }
 
         private static DlcRow groupHeader(DlcType type) {
-            return new DlcRow(DlcRowType.GROUP_HEADER, null, type, null, null, null, null, null, false);
+            return new DlcRow(DlcRowType.GROUP_HEADER, null, type, null, null, null, null, null, null, false);
         }
 
         private static DlcRow pathHeader(String label, String folderKey, DlcType folderType, String folderRaw, boolean collapsed) {
-            return new DlcRow(DlcRowType.PATH_HEADER, label, null, null, null, folderKey, folderType, folderRaw, collapsed);
+            return new DlcRow(DlcRowType.PATH_HEADER, label, null, null, null, null, folderKey, folderType, folderRaw, collapsed);
         }
 
         private static DlcRow item(DlcItem item, String itemFolderKey) {
-            return new DlcRow(DlcRowType.ITEM, null, null, item, itemFolderKey, null, null, null, false);
+            return new DlcRow(DlcRowType.ITEM, null, null, item, null, itemFolderKey, null, null, null, false);
+        }
+
+        private static DlcRow redirectHeader(String label, String folderKey, boolean collapsed) {
+            return new DlcRow(DlcRowType.REDIRECT_HEADER, label, null, null, null, null, folderKey, null, null, collapsed);
+        }
+
+        private static DlcRow redirectItem(DlcRedirectEntry entry, String itemFolderKey) {
+            return new DlcRow(DlcRowType.REDIRECT_ITEM, null, null, null, entry, itemFolderKey, null, null, null, false);
         }
     }
 

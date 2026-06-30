@@ -1138,6 +1138,12 @@
     -fx-background-color: #fff8e8;
 }
 
+.button.dlc-redirect-open-button {
+    -fx-text-fill: -dlc-neutral;
+    -fx-border-color: -dlc-border-strong;
+    -fx-background-color: #ffffff;
+}
+
 .dlc-action-panel .button {
     -fx-min-height: 32px;
 }
