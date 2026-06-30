@@ -12,6 +12,7 @@ import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
@@ -28,7 +29,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
-import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.ColumnConstraints;
@@ -704,6 +704,7 @@ public final class DlcFxLocalRequiredTab {
         private final HBox itemRow = new HBox(0, itemGrid);
         private final StackPane itemPane = new StackPane(itemRow);
         private final Rectangle clip = new Rectangle();
+        private javafx.scene.control.Tooltip rowTooltip;
 
         RequiredEntryCell() {
             DlcFxStyle.title(nameLabel);
@@ -791,6 +792,7 @@ public final class DlcFxLocalRequiredTab {
                 }
                 e.consume();
             });
+            DlcFxTooltips.followMouse(this, () -> rowTooltip);
         }
 
         @Override
@@ -799,6 +801,7 @@ public final class DlcFxLocalRequiredTab {
             activeItemCells.remove(this);
             if (empty || entry == null) {
                 getStyleClass().remove("dlc-row-item");
+                rowTooltip = null;
                 resetRow();
                 setGraphic(null);
                 setText(null);
@@ -868,32 +871,12 @@ public final class DlcFxLocalRequiredTab {
             if (selectBox.isSelected()) {
                 getStyleClass().add("dlc-row-selected");
             }
-            setTooltip(DlcFxRichTextRenderer.formattedTooltip(buildTooltip(entry)));
+            rowTooltip = DlcFxRichTextRenderer.formattedTooltip(buildTooltip(entry));
             setGraphic(itemPane);
         }
 
         private String buildTooltip(DlcRequiredEntry entry) {
-            if (entry == null) {
-                return "";
-            }
-            StringBuilder tip = new StringBuilder();
-            tip.append(DlcFxI18n.tr("dlc_manager.tooltip.identifier")).append(entry.getIdentifier() == null ? "" : entry.getIdentifier());
-            Path requiredDir = entry.getRequiredDir();
-            if (requiredDir != null) {
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.directory")).append(requiredDir);
-            }
-            if (!entry.getDirectUrls().isEmpty()) {
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.direct_url")).append(entry.getDirectUrls().get(0));
-            }
-            String applied = entry.getAppliedTargetRaw();
-            if (applied != null && !applied.isBlank()) {
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(applied);
-            }
-            String entryTip = resolveTip(entry);
-            if (entryTip != null && !entryTip.isBlank()) {
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.description")).append(entryTip);
-            }
-            return tip.toString();
+            return resolveTip(entry);
         }
 
         private void syncItemState() {

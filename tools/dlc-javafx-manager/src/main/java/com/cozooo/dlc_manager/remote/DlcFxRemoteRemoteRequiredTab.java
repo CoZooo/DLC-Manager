@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.remote;
 
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -15,7 +16,6 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -234,7 +234,7 @@ public final class DlcFxRemoteRemoteRequiredTab {
                 DlcFxStyle.chip(tag, item.tagState);
                 subtitle.setText(item.subtitle);
                 if (item.detail != null && !item.detail.isBlank()) {
-                    setTooltip(new Tooltip(item.detail));
+                    setTooltip(DlcFxTooltips.plain(item.detail));
                 } else {
                     setTooltip(null);
                 }

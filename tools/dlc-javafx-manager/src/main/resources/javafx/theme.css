@@ -206,10 +206,49 @@
 }
 
 .tooltip {
-    -fx-background-color: #172033;
-    -fx-text-fill: #ffffff;
-    -fx-background-radius: 6;
-    -fx-padding: 8 10;
+    -fx-background-color: rgba(17, 24, 39, 0.96);
+    -fx-text-fill: #f8fafc;
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.12);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 10 12;
+    -fx-font-size: 12px;
+    -fx-font-family: "Noto Sans SC Regular";
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 24, 0.22, 0, 8);
+}
+
+.dlc-tooltip .dlc-rich-text {
+    -fx-line-spacing: 3px;
+}
+
+.dlc-tooltip .dlc-rich-text-run {
+    -fx-fill: #f8fafc;
+    -fx-font-size: 12px;
+}
+
+.dlc-floating-tooltip {
+    -fx-background-color: rgba(17, 24, 39, 0.96);
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.12);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 10 12;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 24, 0.22, 0, 8);
+}
+
+.dlc-floating-tooltip .label {
+    -fx-text-fill: #f8fafc;
+    -fx-font-size: 12px;
+    -fx-font-family: "Noto Sans SC Regular";
+}
+
+.dlc-floating-tooltip .dlc-rich-text {
+    -fx-line-spacing: 3px;
+}
+
+.dlc-floating-tooltip .dlc-rich-text-run {
+    -fx-fill: #f8fafc;
     -fx-font-size: 12px;
 }
 

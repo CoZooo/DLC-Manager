@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.remote;
 
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 
 import com.cozooo.dlc_manager.tools.externalsync.ApplyOutcome;
 import com.cozooo.dlc_manager.tools.externalsync.SyncModels;
@@ -16,7 +17,6 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TitledPane;
-import javafx.scene.control.Tooltip;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -153,7 +153,7 @@ public final class DlcFxRemoteDlcManagementTab {
                 tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.id);
                 if (item.identifier != null) tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.identifier")).append(item.identifier);
                 if (item.path != null) tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.path")).append(item.path);
-                setTooltip(new Tooltip(tip.toString()));
+                setTooltip(DlcFxTooltips.plain(tip.toString()));
                 setGraphic(row);
             }
         }

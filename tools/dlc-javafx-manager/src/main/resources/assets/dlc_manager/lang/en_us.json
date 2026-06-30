@@ -694,7 +694,7 @@
   "dlc_manager.config.download.min_segment_bytes": "Min segment size (bytes)",
   "dlc_manager.config.download.taskTimeoutSeconds": "Single download timeout (s)",
   "dlc_manager.config.download.task_timeout": "Single download timeout (s)",
-  "dlc_manager.config.local_desc": "Edit DLC Manager settings for the current game directory. Saving writes to config/dlc_manager/config.dc.",
+  "dlc_manager.config.local_desc": "Edit DLC Manager settings for the current game directory.",
   "dlc_manager.config.menu.config": "Config Settings",
   "dlc_manager.config.menu.paths": "Path Settings",
   "dlc_manager.config.menu.title": "DLC Manager Settings",
@@ -798,5 +798,6 @@
   "dlc_manager.config.ui.titleUpdateOffsetY": "Update Button Offset Y",
   "dlc_manager.local.config": "Config",
   "dlc_manager.config.local_save": "Save",
-  "dlc_manager.config.local_cancel": "Cancel"
+  "dlc_manager.config.local_cancel": "Cancel",
+  "dlc_manager.tooltip.double_click_redirect": "Double-click to open link"
 }

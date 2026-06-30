@@ -78,23 +78,11 @@ public final class DlcFxRichTextRenderer {
     }
 
     public static Tooltip formattedTooltip(String text) {
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-        Tooltip tooltip = new Tooltip();
-        tooltip.setText(null);
-        tooltip.setGraphic(formatted(text));
-        return tooltip;
+        return DlcFxTooltips.formatted(text);
     }
 
     public static Tooltip markdownTooltip(String text) {
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-        Tooltip tooltip = new Tooltip();
-        tooltip.setText(null);
-        tooltip.setGraphic(markdown(text));
-        return tooltip;
+        return DlcFxTooltips.markdown(text);
     }
 
     private static TextFlow flow() {

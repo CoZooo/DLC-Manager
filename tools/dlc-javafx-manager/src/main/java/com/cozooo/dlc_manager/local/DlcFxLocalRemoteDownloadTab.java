@@ -12,6 +12,7 @@ import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -881,6 +882,7 @@ public final class DlcFxLocalRemoteDownloadTab {
         private RotateTransition collapseTransition;
         private RemoteRow animatedRow;
         private Boolean animatedExpansion;
+        private Tooltip rowTooltip;
 
         RemoteEntryCell() {
             DlcFxStyle.title(nameLabel);
@@ -1020,6 +1022,7 @@ public final class DlcFxLocalRemoteDownloadTab {
                     }
                 }
             });
+            DlcFxTooltips.followMouse(this, () -> rowTooltip);
         }
 
         @Override
@@ -1028,6 +1031,7 @@ public final class DlcFxLocalRemoteDownloadTab {
             activeItemCells.remove(this);
             activeGroupCells.remove(this);
             getStyleClass().removeAll("dlc-row-group", "dlc-row-path", "dlc-row-item");
+            rowTooltip = null;
             if (empty || row == null) {
                 resetRowAnimation();
                 setGraphic(null);
@@ -1093,7 +1097,7 @@ public final class DlcFxLocalRemoteDownloadTab {
             if (selectBox.isSelected()) {
                 getStyleClass().add("dlc-row-selected");
             }
-            setTooltip(DlcFxRichTextRenderer.formattedTooltip(buildTooltip(entry)));
+            rowTooltip = DlcFxRichTextRenderer.formattedTooltip(buildTooltip(entry));
             setGraphic(itemPane);
             startRowAnimationIfNeeded(row);
         }

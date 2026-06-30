@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -153,20 +154,12 @@ public final class DlcFxLocalConfigOverlay {
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("dlc-config-option-row");
         Tooltip rowTooltip = tooltip(option.comment());
-        if (rowTooltip != null) {
-            Tooltip.install(row, rowTooltip);
-        }
+        DlcFxTooltips.install(row, rowTooltip);
         return row;
     }
 
     private Tooltip tooltip(String text) {
-        if (text == null || text.isBlank()) {
-            return null;
-        }
-        Tooltip tooltip = new Tooltip(text);
-        tooltip.setWrapText(true);
-        tooltip.setMaxWidth(420);
-        return tooltip;
+        return DlcFxTooltips.plain(text);
     }
 
     private Node editorFor(DlcFxLocalConfigModel.Option option, Button resetButton) {

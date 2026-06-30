@@ -694,7 +694,7 @@
   "dlc_manager.config.download.min_segment_bytes": "最小分段大小（字节）",
   "dlc_manager.config.download.taskTimeoutSeconds": "单次下载超时（秒）",
   "dlc_manager.config.download.task_timeout": "单次下载超时（秒）",
-  "dlc_manager.config.local_desc": "可视化编辑当前游戏目录下的 DLC 管理器配置。保存后将写入 config/dlc_manager/config.dc。",
+  "dlc_manager.config.local_desc": "编辑当前游戏目录下的 DLC 管理器配置。",
   "dlc_manager.config.menu.config": "配置参数",
   "dlc_manager.config.menu.paths": "路径设置",
   "dlc_manager.config.menu.title": "DLC 管理器设置",
@@ -798,5 +798,6 @@
   "dlc_manager.config.ui.titleUpdateOffsetY": "主菜单更新按钮偏移 Y",
   "dlc_manager.local.config": "配置",
   "dlc_manager.config.local_save": "保存",
-  "dlc_manager.config.local_cancel": "取消"
+  "dlc_manager.config.local_cancel": "取消",
+  "dlc_manager.tooltip.double_click_redirect": "可双击打开链接"
 }

@@ -5,6 +5,7 @@ import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -24,7 +25,6 @@ import javafx.scene.control.ButtonBase;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
-import javafx.scene.control.Tooltip;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -445,6 +445,7 @@ public final class DlcFxLocalPresetTab {
         private final Button toggleButton = new Button();
         private final Region spacer = new Region();
         private final HBox row = new HBox(10, statusLabel, nameLabel, pendingLabel, spacer, toggleButton);
+        private javafx.scene.control.Tooltip rowTooltip;
 
         PresetCell() {
             DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
@@ -484,7 +485,7 @@ public final class DlcFxLocalPresetTab {
                             String msg = DlcFxI18n.tr("dlc_manager.preset.blocked_by", String.join(", ", blockers));
                             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.blocked"));
                             statusLabel.setStyle("-fx-text-fill: white;");
-                            setTooltip(DlcFxRichTextRenderer.formattedTooltip(msg));
+                            rowTooltip = DlcFxRichTextRenderer.formattedTooltip(msg);
                             return;
                         }
                     }
@@ -497,35 +498,38 @@ public final class DlcFxLocalPresetTab {
                     DlcFxLocalPresetTab.this.statusLabel.setText(DlcFxI18n.tr("dlc_manager.pending.apply"));
                 }
             });
+            DlcFxTooltips.followMouse(this, () -> rowTooltip);
         }
 
         @Override
         protected void updateItem(DlcPresetEntry item, boolean empty) {
             super.updateItem(item, empty);
             if (empty || item == null) {
+                rowTooltip = null;
                 setGraphic(null);
                 setText(null);
             } else {
                 updateStatusDisplay(item);
                 String lang = currentLang();
                 DlcFxRichTextRenderer.setFormatted(nameLabel, item.resolveDisplayName(lang));
-                StringBuilder tip = new StringBuilder();
-                tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.file")).append(item.getFileName());
-                if (!item.getEnable().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.enable")).append(String.join(", ", item.getEnable()));
-                }
-                if (!item.getConflicts().isEmpty()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
-                }
-                if (item.isAlarm()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.preset.alarm_tag"));
-                }
                 String tipText = item.resolveTip(lang);
+                StringBuilder tip = new StringBuilder();
                 if (tipText != null && !tipText.isBlank()) {
-                    tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.description")).append(tipText);
+                    tip.append(tipText);
                 }
-                setTooltip(DlcFxRichTextRenderer.formattedTooltip(tip.toString()));
+                List<String> blockers = DlcPresetRuntimeState.getPresetBlockerNames(item.getId(), lang);
+                if (!blockers.isEmpty()) {
+                    if (tip.length() > 0) {
+                        tip.append("\n\n");
+                    }
+                    for (String blocker : blockers) {
+                        if (tip.length() > 0 && tip.charAt(tip.length() - 1) != '\n') {
+                            tip.append('\n');
+                        }
+                        tip.append("§4").append(DlcFxI18n.tr("dlc_manager.preset.conflict", blocker)).append("§r");
+                    }
+                }
+                rowTooltip = DlcFxRichTextRenderer.formattedTooltip(tip.toString());
                 setGraphic(row);
             }
         }

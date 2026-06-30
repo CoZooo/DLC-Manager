@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.core.DlcApplier;
@@ -39,7 +40,6 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
 import javafx.scene.Node;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
@@ -435,10 +435,10 @@ public final class DlcFxLocalDlcManagementTab {
                             ? DlcFxI18n.tr("dlc_manager.local.no_dlc_items")
                             : DlcFxI18n.tr("dlc_manager.local.no_dlc_dir");
                         statusLabel.setText(msg);
-                        statusLabel.setTooltip(new Tooltip(diagText));
+                        statusLabel.setTooltip(DlcFxTooltips.plain(diagText));
                     } else {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_done"));
-                        statusLabel.setTooltip(new Tooltip(diagText));
+                        statusLabel.setTooltip(DlcFxTooltips.plain(diagText));
                     }
                     updateActionState();
                 });
@@ -1260,6 +1260,7 @@ public final class DlcFxLocalDlcManagementTab {
         private final Button collapseButton = new Button();
         private final SVGPath collapseIcon = new SVGPath();
         private final StackPane collapseIconBox = new StackPane(collapseIcon);
+        private javafx.scene.control.Tooltip rowTooltip;
         private final BorderPane pathRow = new BorderPane();
         private final Rectangle rowClip = new Rectangle();
         private Timeline rowTimeline;
@@ -1376,6 +1377,7 @@ public final class DlcFxLocalDlcManagementTab {
                 updateActionState();
                 event.consume();
             });
+            DlcFxTooltips.followMouse(this, () -> rowTooltip);
             toggleButton.setOnAction(e -> {
                 DlcItem item = currentItem();
                 DlcRow row = super.getItem();
@@ -1396,7 +1398,7 @@ public final class DlcFxLocalDlcManagementTab {
             activePathCells.remove(this);
             getStyleClass().removeAll("dlc-row-group", "dlc-row-path", "dlc-row-item");
             getStyleClass().removeAll("dlc-dlc-selected");
-            setTooltip(null);
+            rowTooltip = null;
             if (empty || row == null) {
                 resetCellAnimation();
                 setMouseTransparent(false);
@@ -1432,7 +1434,7 @@ public final class DlcFxLocalDlcManagementTab {
             typeLabel.getStyleClass().add(typeStyleClass(item.getType()));
             typeLabel.setText(DlcFxI18n.tr(item.getType().getDisplayKey()));
             DlcFxRichTextRenderer.setFormatted(nameLabel, displayName(item));
-            setTooltip(DlcFxRichTextRenderer.formattedTooltip(buildTooltip(item)));
+            rowTooltip = DlcFxRichTextRenderer.formattedTooltip(buildTooltip(item));
             setText(null);
             setGraphic(itemAnimationPane);
             syncItemState();
@@ -1700,31 +1702,130 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     private String buildTooltip(DlcItem item) {
-        StringBuilder tip = new StringBuilder();
-        tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.getId());
-        if (item.getSourcePath() != null) {
-            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.source")).append(item.getSourcePath());
+        if (item == null) {
+            return "";
         }
-        if (item.getAppliedTargetRaw() != null && !item.getAppliedTargetRaw().isBlank()) {
-            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.target")).append(item.getAppliedTargetRaw());
+        StringBuilder tip = new StringBuilder();
+        appendBlock(tip, resolveTooltipText(item));
+        String redirectUrl = item.getRedirectUrl();
+        if (redirectUrl != null && !redirectUrl.isBlank()) {
+            appendBlock(tip, "§b" + DlcFxI18n.tr("dlc_manager.tooltip.double_click_redirect") + "§r");
         }
         List<String> blockers = DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(),
                 com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
         if (!blockers.isEmpty()) {
-            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.preset_blocked"))
-                .append(String.join(", ", blockers));
+            for (String blocker : blockers) {
+                appendBlock(tip, "§4" + DlcFxI18n.tr("dlc_manager.preset.conflict", blocker) + "§r");
+            }
         }
         java.util.Set<String> missing = DlcRuntimeState.collectMissingDependencyIdentifiers(item);
         if (!missing.isEmpty()) {
-            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.missing_dependencies")).append(String.join(", ", missing));
+            appendBlock(tip, "§c" + DlcFxI18n.tr("dlc_manager.tooltip.missing_dependencies") + ":§r");
+            for (String dep : missing) {
+                appendLine(tip, resolveDisplayName(dep));
+            }
         }
-        if (!item.getDependencies().isEmpty()) {
-            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.dependencies")).append(String.join(", ", item.getDependencies()));
+        List<String> deps = collectDependencyNamesRecursive(item);
+        if (!deps.isEmpty()) {
+            appendBlock(tip, "§6" + DlcFxI18n.tr("dlc_manager.tooltip.dependencies") + ":§r");
+            for (String dep : deps) {
+                appendLine(tip, resolveDisplayName(dep));
+            }
         }
         if (!item.getConflicts().isEmpty()) {
-            tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.conflicts")).append(String.join(", ", item.getConflicts()));
+            appendBlock(tip, "§4" + DlcFxI18n.tr("dlc_manager.tooltip.conflicts") + ":§r");
+            for (String conflict : item.getConflicts()) {
+                appendLine(tip, resolveDisplayName(conflict));
+            }
         }
         return tip.toString();
+    }
+
+    private static String resolveTooltipText(DlcItem item) {
+        if (item == null || item.getTooltips().isEmpty()) {
+            return "";
+        }
+        String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+        String value = item.getTooltips().get(lang);
+        if (value == null || value.isBlank()) {
+            value = item.getTooltips().get("en_us");
+        }
+        if (value == null || value.isBlank()) {
+            value = item.getTooltips().values().stream().findFirst().orElse("");
+        }
+        return value == null ? "" : value;
+    }
+
+    private static String resolveDisplayName(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return "";
+        }
+        DlcItem item = DlcRuntimeState.getItemByIdentifier(identifier);
+        if (item == null || item.getDisplayNames().isEmpty()) {
+            return identifier;
+        }
+        String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
+                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+        String value = item.getDisplayNames().get(lang);
+        if (value == null || value.isBlank()) {
+            value = item.getDisplayNames().get("en_us");
+        }
+        if (value == null || value.isBlank()) {
+            value = item.getDisplayNames().values().stream().findFirst().orElse(identifier);
+        }
+        return value == null || value.isBlank() ? identifier : value;
+    }
+
+    private static List<String> collectDependencyNamesRecursive(DlcItem item) {
+        if (item == null) {
+            return List.of();
+        }
+        LinkedHashSet<String> result = new LinkedHashSet<>();
+        java.util.ArrayDeque<String> queue = new java.util.ArrayDeque<>();
+        addDependencyNames(item.getDependencies(), result, queue);
+        while (!queue.isEmpty()) {
+            String name = queue.poll();
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+            DlcItem depItem = DlcRuntimeState.getItemByIdentifier(name);
+            if (depItem != null) {
+                addDependencyNames(depItem.getDependencies(), result, queue);
+            }
+        }
+        return new ArrayList<>(result);
+    }
+
+    private static void addDependencyNames(List<String> names, Set<String> result, java.util.ArrayDeque<String> queue) {
+        if (names == null || names.isEmpty()) {
+            return;
+        }
+        for (String name : names) {
+            if (name != null && !name.isBlank() && result.add(name)) {
+                queue.add(name);
+            }
+        }
+    }
+
+    private static void appendBlock(StringBuilder builder, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        if (builder.length() > 0) {
+            builder.append("\n\n");
+        }
+        builder.append(value);
+    }
+
+    private static void appendLine(StringBuilder builder, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        if (builder.length() > 0) {
+            builder.append('\n');
+        }
+        builder.append(value);
     }
 
     private enum DlcRowType {

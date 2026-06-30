@@ -28,6 +28,7 @@ import com.cozooo.dlc_manager.remote.DlcFxRemoteServerConfigTab;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteServerConnectionTab;
 import com.cozooo.dlc_manager.ui.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.DlcFxTooltips;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -39,7 +40,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-import javafx.scene.control.Tooltip;
 import javafx.scene.text.Font;
 import javafx.scene.image.Image;
 import javafx.scene.input.Dragboard;
@@ -729,7 +729,7 @@ public final class DlcFxManagerApp extends Application {
     private Node remoteConnectionStatusBadge() {
         Label badge = new Label();
         badge.textProperty().bind(remoteConnection.statusTextProperty());
-        Tooltip tooltip = new Tooltip();
+        javafx.scene.control.Tooltip tooltip = DlcFxTooltips.plainAllowEmpty();
         tooltip.textProperty().bind(remoteConnection.statusTextProperty());
         badge.setTooltip(tooltip);
         updateRemoteConnectionBadgeStyle(badge, remoteConnection.connectionStateProperty().get());
