@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.local.DlcFxLocalDlcManagementTab;
+import com.cozooo.dlc_manager.local.DlcFxLocalConfigOverlay;
 import com.cozooo.dlc_manager.local.DlcFxLocalPackTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalPresetTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRemoteDownloadTab;
@@ -82,6 +83,7 @@ public final class DlcFxManagerApp extends Application {
 
     private Label localGameDirLabel;
     private Label remoteGameDirLabel;
+    private Button localConfigButton;
     private Button remoteReadLocalButton;
     private boolean localGameDirSelected;
 
@@ -654,6 +656,10 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private Node localDirectoryBar() {
+        localConfigButton = new Button(DlcFxI18n.tr("dlc_manager.local.config"));
+        localConfigButton.setDisable(!localGameDirSelected);
+        localConfigButton.setOnAction(e -> showLocalConfigOverlay());
+
         Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));
         chooseDirBtn.setOnAction(e -> chooseLocalGameDirectory());
         DlcFxStyle.primary(chooseDirBtn);
@@ -670,11 +676,25 @@ public final class DlcFxManagerApp extends Application {
                 new Label(DlcFxI18n.tr("dlc_manager.local.game_dir")),
                 localGameDirLabel,
                 spacer,
+                localConfigButton,
                 chooseDirBtn);
         bar.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.filterBar(bar);
         DlcFxStyle.add(bar, "dlc-local-context-bar");
         return bar;
+    }
+
+    private void showLocalConfigOverlay() {
+        if (!localGameDirSelected) {
+            refreshStatusForCurrentView();
+            return;
+        }
+        new DlcFxLocalConfigOverlay(scene(), () -> {
+            onLocalGameDirChanged();
+            if (remoteServerConnectionTab != null) {
+                remoteServerConnectionTab.onStorageContextChanged();
+            }
+        }).show();
     }
 
     private Node remoteLocalContextBar() {
@@ -848,6 +868,9 @@ public final class DlcFxManagerApp extends Application {
         }
         if (remoteReadLocalButton != null) {
             remoteReadLocalButton.setDisable(false);
+        }
+        if (localConfigButton != null) {
+            localConfigButton.setDisable(false);
         }
 
         DlcConfig.load();

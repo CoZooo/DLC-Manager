@@ -205,6 +205,117 @@
     -fx-min-width: 76px;
 }
 
+.tooltip {
+    -fx-background-color: #172033;
+    -fx-text-fill: #ffffff;
+    -fx-background-radius: 6;
+    -fx-padding: 8 10;
+    -fx-font-size: 12px;
+}
+
+.dlc-config-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-background-radius: 10;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 34, 0.22, 0, 12);
+}
+
+.dlc-config-header {
+    -fx-padding: 20 22 16 22;
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f8fafc);
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-background-radius: 10 10 0 0;
+}
+
+.dlc-config-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-size: 18px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-config-tabs {
+    -fx-padding: 16 12 16 16;
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 0 1 0 0;
+    -fx-min-width: 160px;
+    -fx-pref-width: 160px;
+}
+
+.button.dlc-config-tab-button {
+    -fx-alignment: center-left;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.button.dlc-config-tab-button:hover {
+    -fx-background-color: #edf4ff;
+    -fx-border-color: transparent;
+}
+
+.button.dlc-config-tab-button.selected {
+    -fx-background-color: #e8f0ff;
+    -fx-text-fill: -dlc-text;
+}
+
+.dlc-config-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-padding: 0;
+}
+
+.dlc-config-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.dlc-config-option-list {
+    -fx-padding: 14 18 18 18;
+    -fx-background-color: -dlc-panel;
+}
+
+.dlc-config-option-row {
+    -fx-padding: 10 12 10 12;
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.dlc-config-option-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-config-option-controls {
+    -fx-min-width: 456px;
+    -fx-pref-width: 456px;
+    -fx-max-width: 456px;
+}
+
+.button.dlc-config-reset-button {
+    -fx-min-width: 78px;
+    -fx-pref-width: 78px;
+    -fx-max-width: 78px;
+}
+
+.dlc-config-number-field {
+    -fx-alignment: center-left;
+}
+
+.dlc-config-footer {
+    -fx-padding: 12 16 14 16;
+    -fx-background-color: #f8fafc;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1 0 0 0;
+    -fx-background-radius: 0 0 10 10;
+}
+
 .muted {
     -fx-text-fill: -dlc-text-muted;
 }
@@ -283,6 +394,38 @@
     -fx-faint-focus-color: transparent;
     -fx-min-height: 32px;
     -fx-pref-height: 32px;
+}
+
+.spinner {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+}
+
+.spinner .text-field {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border-strong;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+}
+
+.spinner .increment-arrow-button,
+.spinner .decrement-arrow-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+    -fx-max-width: 0;
+}
+
+.spinner .increment-arrow,
+.spinner .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
 }
 
 .code-editor {
