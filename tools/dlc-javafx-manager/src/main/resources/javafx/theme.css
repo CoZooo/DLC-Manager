@@ -558,6 +558,182 @@
     -fx-text-fill: -dlc-text;
 }
 
+.dlc-pack-list {
+    -fx-fixed-cell-size: -1;
+}
+
+.dlc-pack-list .list-cell {
+    -fx-padding: 6 8;
+}
+
+.dlc-pack-list .list-cell:filled:selected,
+.dlc-pack-list .list-cell:filled:selected:focused {
+    -fx-background-color: transparent;
+}
+
+.dlc-pack-list .list-cell:filled:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.dlc-pack-row {
+    -fx-min-height: 112px;
+}
+
+.dlc-pack-order-buttons {
+    -fx-min-width: 30px;
+    -fx-pref-width: 30px;
+    -fx-max-width: 30px;
+}
+
+.dlc-pack-order-buttons .button {
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 24px;
+    -fx-pref-height: 24px;
+    -fx-padding: 0;
+}
+
+.dlc-pack-icon {
+    -fx-min-width: 64px;
+    -fx-pref-width: 64px;
+    -fx-max-width: 64px;
+    -fx-min-height: 64px;
+    -fx-pref-height: 64px;
+    -fx-max-height: 64px;
+    -fx-background-color: #eef2f7;
+    -fx-background-radius: 12px;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 12px;
+}
+
+.dlc-pack-icon-initial {
+    -fx-font-size: 22px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-text-fill: #475467;
+}
+
+.dlc-pack-text {
+    -fx-min-width: 0;
+}
+
+.dlc-pack-homepage-hint {
+    -fx-font-size: 11px;
+    -fx-text-fill: #5f7fb4;
+}
+
+.dlc-pack-version-prefix {
+    -fx-text-fill: #5f7fb4;
+}
+
+.dlc-pack-version-line {
+    -fx-min-height: 32px;
+    -fx-alignment: center-left;
+}
+
+.dlc-pack-version-button {
+    -fx-pref-height: 30px;
+    -fx-min-height: 30px;
+    -fx-max-height: 30px;
+    -fx-min-width: 136px;
+    -fx-pref-width: 150px;
+    -fx-background-color: #f7faff;
+    -fx-border-color: #c8d7f0;
+    -fx-border-radius: 999px;
+    -fx-background-radius: 999px;
+    -fx-padding: 0 10 0 10;
+    -fx-text-fill: #355f9c;
+    -fx-alignment: center;
+}
+
+.dlc-pack-version-button:disabled {
+    -fx-opacity: 1.0;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: #355f9c;
+}
+
+.dlc-pack-version-button:hover,
+.dlc-pack-version-button:showing {
+    -fx-background-color: #eef5ff;
+    -fx-border-color: #91b5e8;
+}
+
+.dlc-pack-version-button .label {
+    -fx-text-fill: #355f9c;
+}
+
+.dlc-pack-version-button:disabled .label {
+    -fx-text-fill: #355f9c;
+    -fx-opacity: 1.0;
+}
+
+.dlc-pack-version-button:disabled .arrow-button {
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+    -fx-max-width: 0;
+    -fx-opacity: 0;
+}
+
+.dlc-pack-version-button:disabled .arrow {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.dlc-pack-version-button .arrow-button {
+    -fx-padding: 0 0 0 8;
+}
+
+.dlc-pack-version-button .arrow {
+    -fx-background-color: #355f9c;
+}
+
+.context-menu {
+    -fx-background-color: white;
+    -fx-background-radius: 10px;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 10px;
+    -fx-padding: 6px;
+}
+
+.menu-item {
+    -fx-background-radius: 7px;
+    -fx-padding: 6 12;
+}
+
+.menu-item:focused {
+    -fx-background-color: #eef5ff;
+}
+
+.menu-item:focused .label {
+    -fx-text-fill: -dlc-text;
+}
+
+.menu-item.selected {
+    -fx-background-color: #e7f0ff;
+}
+
+.menu-item.selected .label {
+    -fx-text-fill: #355f9c;
+}
+
+.menu-item.selected:focused {
+    -fx-background-color: #dbeafe;
+}
+
+.dlc-pack-actions {
+    -fx-min-width: 214px;
+    -fx-pref-width: 214px;
+    -fx-max-width: 214px;
+}
+
+.dlc-pack-actions .button {
+    -fx-min-width: 100px;
+    -fx-pref-width: 100px;
+    -fx-max-width: 100px;
+}
+
 .dlc-preset-list .list-cell:filled:selected,
 .dlc-preset-list .list-cell:filled:selected:focused {
     -fx-background-color: transparent;

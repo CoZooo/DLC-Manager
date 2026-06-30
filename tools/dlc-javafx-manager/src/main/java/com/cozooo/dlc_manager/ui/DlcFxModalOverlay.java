@@ -51,17 +51,30 @@ public final class DlcFxModalOverlay {
         String cancelText,
         Consumer<Button> confirmButtonConfigurer
     ) {
+        showAndGetOverlay(scene, title, contentNode, confirmAction, confirmText, cancelAction, cancelText, confirmButtonConfigurer);
+    }
+
+    public static StackPane showAndGetOverlay(
+        Scene scene,
+        String title,
+        Node contentNode,
+        Runnable confirmAction,
+        String confirmText,
+        Runnable cancelAction,
+        String cancelText,
+        Consumer<Button> confirmButtonConfigurer
+    ) {
         if (scene == null) {
             if (confirmAction != null) {
                 confirmAction.run();
             }
-            return;
+            return null;
         }
         if (!(scene.getRoot() instanceof StackPane root)) {
             if (confirmAction != null) {
                 confirmAction.run();
             }
-            return;
+            return null;
         }
 
         StackPane overlay = new StackPane();
@@ -117,6 +130,7 @@ public final class DlcFxModalOverlay {
         overlay.setOnMouseClicked(e -> e.consume());
         panel.setOnMouseClicked(e -> e.consume());
         root.getChildren().add(overlay);
+        return overlay;
     }
 
     private static double preferredDialogWidth(Scene scene) {
