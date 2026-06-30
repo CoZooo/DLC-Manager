@@ -799,5 +799,8 @@
   "dlc_manager.local.config": "Config",
   "dlc_manager.config.local_save": "Save",
   "dlc_manager.config.local_cancel": "Cancel",
+  "dlc_manager.redirect.open": "Open",
+  "dlc_manager.redirect.prompt": "Open the link in your browser. Continue?",
+  "dlc_manager.redirect.title": "Open Link",
   "dlc_manager.tooltip.double_click_redirect": "Double-click to open link"
 }

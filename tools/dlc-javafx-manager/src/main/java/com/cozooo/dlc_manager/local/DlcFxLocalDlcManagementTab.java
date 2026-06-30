@@ -1243,6 +1243,32 @@ public final class DlcFxLocalDlcManagementTab {
             : DlcFxI18n.tr("dlc_manager.toggle.off");
     }
 
+    private void confirmOpenItemRedirect(DlcItem item) {
+        if (item == null || item.getRedirectUrl() == null || item.getRedirectUrl().isBlank()) {
+            return;
+        }
+        DlcFxModalOverlay.show(
+            listView == null ? null : listView.getScene(),
+            DlcFxI18n.tr("dlc_manager.redirect.title"),
+            DlcFxRichTextRenderer.formatted(DlcFxI18n.tr("dlc_manager.redirect.prompt") + "\n" + item.getRedirectUrl()),
+            () -> openLink(item.getRedirectUrl()),
+            DlcFxI18n.tr("dlc_manager.redirect.open"),
+            () -> {},
+            DlcFxI18n.tr("dlc_manager.common.cancel")
+        );
+    }
+
+    private void openLink(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        try {
+            java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
+        } catch (Exception ex) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.open_failed", safeMessage(ex)));
+        }
+    }
+
     private final class DlcItemCell extends ListCell<DlcRow> {
         private final CheckBox selectBox = new CheckBox();
         private final Region accent = new Region();
@@ -1322,9 +1348,19 @@ public final class DlcFxLocalDlcManagementTab {
             itemAnimationPane.setMinWidth(LIST_ITEM_CONTENT_MIN_WIDTH);
             itemAnimationPane.prefWidthProperty().bind(itemGrid.prefWidthProperty());
             itemRow.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
-                if (!isInside(event.getTarget(), selectBox) && !isInside(event.getTarget(), toggleButton)) {
-                    event.consume();
+                if (isInside(event.getTarget(), selectBox) || isInside(event.getTarget(), toggleButton)) {
+                    return;
                 }
+                DlcRow row = super.getItem();
+                if (event.getButton() == MouseButton.PRIMARY
+                    && event.getClickCount() >= 2
+                    && row != null
+                    && row.type == DlcRowType.ITEM
+                    && row.item != null
+                    && !isFolderAnimating(row.itemFolderKey)) {
+                    confirmOpenItemRedirect(row.item);
+                }
+                event.consume();
             });
             itemRow.setOnMouseClicked(event -> event.consume());
             HBox.setHgrow(pathLabel, Priority.ALWAYS);
