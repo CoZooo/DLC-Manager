@@ -625,8 +625,8 @@ public final class DlcFxLocalDlcManagementTab {
                     }
                 },
                 DlcFxI18n.tr("dlc_manager.batch.conflicts_skip_enable"),
-                null,
-                null
+                () -> {},
+                DlcFxI18n.tr("dlc_manager.common.cancel")
         );
     }
 
@@ -658,8 +658,8 @@ public final class DlcFxLocalDlcManagementTab {
                     continueBatchEnable(planned);
                 },
                 DlcFxI18n.tr("dlc_manager.batch.enable_deps", DlcFxI18n.tr("dlc_manager.scope.group")),
-                null,
-                null
+                () -> {},
+                DlcFxI18n.tr("dlc_manager.common.cancel")
         );
     }
 
@@ -670,8 +670,8 @@ public final class DlcFxLocalDlcManagementTab {
                 DlcFxRichTextRenderer.formatted(buildAlarmTip(items)),
                 () -> applyBatchEnable(items, true),
                 DlcFxI18n.tr("dlc_manager.confirm_yes"),
-                null,
-                null
+                () -> {},
+                DlcFxI18n.tr("dlc_manager.confirm_no")
         );
     }
 
