@@ -37,6 +37,8 @@ def reusedCommonJavaFiles = [
     'com/cozooo/dlc_manager/client/download/DlcModrinthClient.java',
     'com/cozooo/dlc_manager/client/download/DlcSharedService.java',
     'com/cozooo/dlc_manager/client/helper/DlcFileOpsHelperClient.java',
+    'com/cozooo/dlc_manager/client/notice/DlcNoticeConfig.java',
+    'com/cozooo/dlc_manager/client/notice/DlcNoticeRuntime.java',
     'com/cozooo/dlc_manager/client/pack/DlcPackArchive.java',
     'com/cozooo/dlc_manager/client/pack/DlcPackCFResolver.java',
     'com/cozooo/dlc_manager/client/pack/DlcPackDcFiles.java',

@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.app;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig;
+import com.cozooo.dlc_manager.client.notice.DlcNoticeRuntime;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -10,6 +12,7 @@ import com.cozooo.dlc_manager.core.DlcStateConfig;
 import com.cozooo.dlc_manager.local.DlcFxLocalDlcManagementTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalConfigOverlay;
 import com.cozooo.dlc_manager.local.DlcFxLocalPackTab;
+import com.cozooo.dlc_manager.local.DlcFxNoticeOverlay;
 import com.cozooo.dlc_manager.local.DlcFxLocalPresetTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRemoteDownloadTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRequiredTab;
@@ -84,6 +87,7 @@ public final class DlcFxManagerApp extends Application {
     private Label localGameDirLabel;
     private Label remoteGameDirLabel;
     private Button localConfigButton;
+    private Button localNoticeButton;
     private Button remoteReadLocalButton;
     private boolean localGameDirSelected;
 
@@ -350,6 +354,7 @@ public final class DlcFxManagerApp extends Application {
         refreshStatusForCurrentView();
         onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         promptMissingRequiredResources();
+        tryShowManagerNotice();
     }
 
     private void showRemoteWorkspace() {
@@ -390,6 +395,7 @@ public final class DlcFxManagerApp extends Application {
         if (localPackTab != null) {
             localPackTab.onGameDirChanged();
         }
+        updateLocalNoticeButton();
         if (currentView == ViewMode.LOCAL) {
             onLocalTabSelected(localTabPane == null ? null : localTabPane.getSelectionModel().getSelectedItem());
         }
@@ -660,6 +666,10 @@ public final class DlcFxManagerApp extends Application {
         localConfigButton.setDisable(!localGameDirSelected);
         localConfigButton.setOnAction(e -> showLocalConfigOverlay());
 
+        localNoticeButton = new Button(DlcFxI18n.tr("dlc_manager.notice"));
+        localNoticeButton.setOnAction(e -> forceShowNotice());
+        updateLocalNoticeButton();
+
         Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));
         chooseDirBtn.setOnAction(e -> chooseLocalGameDirectory());
         DlcFxStyle.primary(chooseDirBtn);
@@ -676,6 +686,7 @@ public final class DlcFxManagerApp extends Application {
                 new Label(DlcFxI18n.tr("dlc_manager.local.game_dir")),
                 localGameDirLabel,
                 spacer,
+                localNoticeButton,
                 localConfigButton,
                 chooseDirBtn);
         bar.setAlignment(Pos.CENTER_LEFT);
@@ -691,10 +702,45 @@ public final class DlcFxManagerApp extends Application {
         }
         new DlcFxLocalConfigOverlay(scene(), () -> {
             onLocalGameDirChanged();
+            updateLocalNoticeButton();
             if (remoteServerConnectionTab != null) {
                 remoteServerConnectionTab.onStorageContextChanged();
             }
         }).show();
+    }
+
+    private void tryShowManagerNotice() {
+        if (!localGameDirSelected || !DlcConfig.isNoticeDisplayModeManagerButton() || DlcFxModalOverlay.isShowing(scene())) {
+            return;
+        }
+        showNotice(DlcNoticeRuntime.consumeManagerNoticeConfig());
+    }
+
+    private void forceShowNotice() {
+        if (!localGameDirSelected) {
+            refreshStatusForCurrentView();
+            return;
+        }
+        showNotice(DlcNoticeRuntime.forceNoticeConfig());
+    }
+
+    private void showNotice(DlcNoticeConfig config) {
+        if (config == null) {
+            return;
+        }
+        new DlcFxNoticeOverlay(scene(), config).show();
+    }
+
+    private void updateLocalNoticeButton() {
+        if (localNoticeButton == null) {
+            return;
+        }
+        boolean visible = localGameDirSelected
+            && DlcConfig.isNoticeDisplayModeManagerButton()
+            && DlcNoticeRuntime.isNoticeEnabled();
+        localNoticeButton.setVisible(visible);
+        localNoticeButton.setManaged(visible);
+        localNoticeButton.setDisable(!visible);
     }
 
     private Node remoteLocalContextBar() {
@@ -872,12 +918,16 @@ public final class DlcFxManagerApp extends Application {
         if (localConfigButton != null) {
             localConfigButton.setDisable(false);
         }
+        if (localNoticeButton != null) {
+            localNoticeButton.setDisable(false);
+        }
 
         DlcConfig.load();
         DlcStateConfig.load();
         DlcRuntimeState.clearOverrides();
         DlcPresetRuntimeState.clearAll();
         onLocalGameDirChanged();
+        updateLocalNoticeButton();
         if (remoteServerConnectionTab != null) {
             remoteServerConnectionTab.onStorageContextChanged();
         }
