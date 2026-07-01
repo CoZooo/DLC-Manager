@@ -31,10 +31,16 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.prefs.Preferences;
 
 public final class DlcFxRemoteServerConnectionTab {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Preferences PREFS = Preferences.userNodeForPackage(DlcFxRemoteServerConnectionTab.class);
+    private static final String PREF_NAME = "remote.server.name";
+    private static final String PREF_HOST = "remote.server.host";
+    private static final String PREF_PORT = "remote.server.port";
+    private static final String PREF_PASSWORD = "remote.server.password";
 
     private final DlcFxRemoteConnection conn;
     private final Stage primaryStage;
@@ -47,6 +53,7 @@ public final class DlcFxRemoteServerConnectionTab {
     private final ComboBox<ServerPresetOption> presetBox = new ComboBox<>();
     private final ObservableList<ServerPresetOption> presetOptions = FXCollections.observableArrayList();
     private boolean applyingPreset;
+    private boolean loadingConnectionState;
 
     public DlcFxRemoteServerConnectionTab(DlcFxRemoteConnection conn, Stage primaryStage) {
         this.conn = conn;
@@ -56,6 +63,11 @@ public final class DlcFxRemoteServerConnectionTab {
         portField.setPrefColumnCount(6);
         passwordField.setPrefColumnCount(20);
         infoLabel.textProperty().bind(conn.serverInfoTextProperty());
+        nameField.textProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
+        hostField.textProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
+        portField.textProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
+        passwordField.textProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
+        presetBox.valueProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
     }
 
     public Tab build() {
@@ -66,6 +78,7 @@ public final class DlcFxRemoteServerConnectionTab {
         presetBox.setPromptText(DlcFxI18n.tr("dlc_manager.server_preset.select"));
         presetBox.setOnAction(e -> applySelectedPreset());
         loadPresets();
+        loadConnectionState();
 
         Button connectBtn = new Button(DlcFxI18n.tr("dlc_manager.server.connect"));
         connectBtn.setOnAction(e -> connectCurrent());
@@ -128,6 +141,7 @@ public final class DlcFxRemoteServerConnectionTab {
         String host = hostField.getText().trim();
         int port = parsePort(portField.getText(), 29690);
         String password = passwordField.getText();
+        saveConnectionState();
         conn.connectAsync(host, port, password, 10000, err -> {
             if (err == null) {
                 DlcServerList.load();
@@ -178,6 +192,7 @@ public final class DlcFxRemoteServerConnectionTab {
         DlcServerList.setLastSelectedKey(option.entry().getKey());
         DlcServerList.save();
         presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.loaded", option.entry().getDisplayName()));
+        saveConnectionState();
     }
 
     private void fillFields(DlcServerEntry entry) {
@@ -199,6 +214,7 @@ public final class DlcFxRemoteServerConnectionTab {
         DlcServerList.save();
         refreshPresetOptions(entry.getKey());
         presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.saved", entry.getDisplayName()));
+        saveConnectionState();
     }
 
     private void deleteSelectedPreset() {
@@ -215,6 +231,7 @@ public final class DlcFxRemoteServerConnectionTab {
         DlcServerList.save();
         refreshPresetOptions(null);
         presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.deleted", option.entry().getDisplayName()));
+        saveConnectionState();
     }
 
     private void importPresets() {
@@ -237,6 +254,7 @@ public final class DlcFxRemoteServerConnectionTab {
             DlcServerList.save();
             refreshPresetOptions(selected);
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.imported", imported.servers == null ? 0 : imported.servers.size()));
+            saveConnectionState();
         } catch (Throwable t) {
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.import_failed", DlcFxRemoteConnection.safeMessage(t)));
         }
@@ -259,6 +277,7 @@ public final class DlcFxRemoteServerConnectionTab {
             JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
             DlcDcConfigIO.write(file.toPath(), root, DlcDcConfigIO.Layout.GENERIC);
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.exported", data.servers.size()));
+            saveConnectionState();
         } catch (Throwable t) {
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.export_failed", DlcFxRemoteConnection.safeMessage(t)));
         }
@@ -311,6 +330,32 @@ public final class DlcFxRemoteServerConnectionTab {
             return port <= 0 ? fallback : port;
         } catch (NumberFormatException ex) {
             return fallback;
+        }
+    }
+
+    private void loadConnectionState() {
+        loadingConnectionState = true;
+        try {
+            nameField.setText(PREFS.get(PREF_NAME, nameField.getText()));
+            hostField.setText(PREFS.get(PREF_HOST, hostField.getText()));
+            portField.setText(PREFS.get(PREF_PORT, portField.getText()));
+            passwordField.setText(PREFS.get(PREF_PASSWORD, passwordField.getText()));
+        } finally {
+            loadingConnectionState = false;
+        }
+    }
+
+    private void saveConnectionState() {
+        if (loadingConnectionState) {
+            return;
+        }
+        try {
+            PREFS.put(PREF_NAME, nameField.getText() == null ? "" : nameField.getText());
+            PREFS.put(PREF_HOST, hostField.getText() == null ? "" : hostField.getText());
+            PREFS.put(PREF_PORT, portField.getText() == null ? "" : portField.getText());
+            PREFS.put(PREF_PASSWORD, passwordField.getText() == null ? "" : passwordField.getText());
+            PREFS.flush();
+        } catch (Throwable ignored) {
         }
     }
 

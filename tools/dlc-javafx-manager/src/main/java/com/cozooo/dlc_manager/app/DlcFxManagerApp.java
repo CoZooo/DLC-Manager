@@ -868,12 +868,7 @@ public final class DlcFxManagerApp extends Application {
     private void initializeCurrentDirectoryGameDir() {
         Path current = Path.of("").toAbsolutePath().normalize();
         if (isGameDirectory(current)) {
-            PROVIDER.setGameDir(current);
-            localGameDirSelected = true;
-            DlcConfig.load();
-            DlcStateConfig.load();
-            DlcRuntimeState.clearOverrides();
-            DlcPresetRuntimeState.clearAll();
+            setLocalGameDirectory(current, false, false);
         }
     }
 
@@ -919,8 +914,7 @@ public final class DlcFxManagerApp extends Application {
             return false;
         }
         return Files.isDirectory(path.resolve("mods"))
-            || Files.isDirectory(path.resolve("config"))
-            || Files.isRegularFile(path.resolve("options.txt"));
+            && Files.isDirectory(path.resolve("config"));
     }
 
     private void setLocalGameDirectory(Path gameDir, boolean promptMissingRequired, boolean showInvalidDialog) {
