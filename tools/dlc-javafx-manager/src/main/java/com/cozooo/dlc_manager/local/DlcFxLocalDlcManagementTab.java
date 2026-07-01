@@ -322,72 +322,10 @@ public final class DlcFxLocalDlcManagementTab {
         Thread thread = new Thread(() -> {
             try {
                 List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
-                StringBuilder diag = new StringBuilder();
-                diag.append(DlcFxI18n.tr("dlc_manager.local.diag.game_dir", provider.gameDir())).append('\n');
-                diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dlc_root_raw", DlcConfig.getDlcRootRaw())).append('\n');
                 boolean[] anyRootExists = {false};
                 for (java.nio.file.Path root : roots) {
                     boolean exists = java.nio.file.Files.exists(root);
                     if (exists) anyRootExists[0] = true;
-                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dlc_root", root, exists)).append('\n');
-                    java.nio.file.Path infoDir = root.resolve("info");
-                    boolean infoExists = java.nio.file.Files.isDirectory(infoDir);
-                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_dir", infoDir, infoExists)).append('\n');
-                    if (infoExists) {
-                        try (var stream = java.nio.file.Files.list(infoDir)) {
-                            var items = stream.toList();
-                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_file_count", items.size())).append('\n');
-                            int dcCount = 0;
-                            int otherCount = 0;
-                            for (var item : items) {
-                                String fn = item.getFileName().toString();
-                                if (fn.toLowerCase().endsWith(".dc")) {
-                                    dcCount++;
-                                    try {
-                                        var obj = com.cozooo.dlc_manager.core.DlcDcConfigIO.read(item,
-                                            com.cozooo.dlc_manager.core.DlcDcConfigIO.Layout.DLC_STRUCTURED);
-                                        if (obj != null) {
-                                            String fName = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "fileName");
-                                            String fType = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "type");
-                                            String fTarget = com.cozooo.dlc_manager.core.DlcDcConfigIO.getStringIgnoreCase(obj, "appliedTarget");
-                                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_summary", fn, fName, fType, fTarget)).append('\n');
-                                        } else {
-                                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_parse_failed", fn)).append('\n');
-                                        }
-                                    } catch (Exception ex) {
-                                        diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_read_failed", fn, ex.getMessage())).append('\n');
-                                    }
-                                } else {
-                                    otherCount++;
-                                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.non_dc_file", fn)).append('\n');
-                                }
-                            }
-                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.dc_config_count", dcCount)).append('\n');
-                            if (otherCount > 0) {
-                                diag.append(DlcFxI18n.tr("dlc_manager.local.diag.other_file_count", otherCount)).append('\n');
-                            }
-                        } catch (Exception ex) {
-                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.info_read_failed", ex.getMessage())).append('\n');
-                        }
-                    }
-                    if (exists) {
-                        try (var stream = java.nio.file.Files.walk(root)) {
-                            var allFiles = stream.toList();
-                            long jars = allFiles.stream().filter(p -> p.toString().toLowerCase().endsWith(".jar")).count();
-                            long zips = allFiles.stream().filter(p -> p.toString().toLowerCase().endsWith(".zip")).count();
-                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.jar_count", jars)).append('\n');
-                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.zip_count", zips)).append('\n');
-                            java.nio.file.Path infoDir0 = root.resolve("info");
-                            for (var p : allFiles) {
-                                if (java.nio.file.Files.isRegularFile(p) && !p.startsWith(infoDir0)) {
-                                    String rel = root.relativize(p).toString().replace('\\', '/');
-                                    diag.append(DlcFxI18n.tr("dlc_manager.local.diag.file", rel)).append('\n');
-                                }
-                            }
-                        } catch (Exception ex) {
-                            diag.append(DlcFxI18n.tr("dlc_manager.local.diag.walk_failed", ex.getMessage())).append('\n');
-                        }
-                    }
                 }
 
                 DlcScanner scanner = new DlcScanner();
@@ -431,8 +369,6 @@ public final class DlcFxLocalDlcManagementTab {
                     }
                 }
                 final int total = flat.size();
-                final String diagText = diag.toString();
-                System.out.println("[DLC-Scan-Debug]\n" + diagText + "total=" + total);
                 Platform.runLater(() -> {
                     allItems.setAll(flat);
                     redirectEntries.setAll(redirects);
@@ -445,10 +381,8 @@ public final class DlcFxLocalDlcManagementTab {
                             ? DlcFxI18n.tr("dlc_manager.local.no_dlc_items")
                             : DlcFxI18n.tr("dlc_manager.local.no_dlc_dir");
                         statusLabel.setText(msg);
-                        statusLabel.setTooltip(DlcFxTooltips.plain(diagText));
                     } else {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_done"));
-                        statusLabel.setTooltip(DlcFxTooltips.plain(diagText));
                     }
                     updateActionState();
                 });
