@@ -1,7 +1,13 @@
 package com.cozooo.dlc_manager.remote;
 
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxActionPanel;
+import com.cozooo.dlc_manager.ui.common.DlcFxConfirmDialogs;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxListViewSupport;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
 
 import com.cozooo.dlc_manager.tools.externalsync.SyncModels;
 import javafx.application.Platform;
@@ -10,17 +16,13 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
-import javafx.scene.control.ButtonBar.ButtonData;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -41,20 +43,19 @@ public final class DlcFxRemoteFileManagerTab {
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label pathLabel = new Label("/");
     private String currentPath = "";
+    private boolean loadedForCurrentConnection;
+    private DlcFxRemoteSyncTab syncTab;
 
     private final Stage primaryStage;
 
     public DlcFxRemoteFileManagerTab(DlcFxRemoteConnection conn, Stage primaryStage) {
         this.conn = conn;
         this.primaryStage = primaryStage;
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_files"));
-        tab.setClosable(false);
-
-        BorderPane root = new BorderPane();
-        DlcFxStyle.view(root);
+        DlcFxTabPage page = new DlcFxTabPage(DlcFxI18n.tr("dlc_manager.status.disconnected"));
 
         TextField pathField = new TextField("/");
         pathField.setPrefColumnCount(30);
@@ -70,17 +71,14 @@ public final class DlcFxRemoteFileManagerTab {
             }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        HBox topBox = new HBox(8, new Label(DlcFxI18n.tr("dlc_manager.server.files_path")), pathField, listBtn, pathLabel, statusLabel);
-        topBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.toolbar(topBox);
-        root.setTop(topBox);
+        HBox topBox = DlcFxToolbar.create(new Label(DlcFxI18n.tr("dlc_manager.server.files_path")), pathField, listBtn, pathLabel, statusLabel);
+        page.setTop(topBox);
 
         ListView<String> listView = new ListView<>(entries);
-        VBox.setVgrow(listView, Priority.ALWAYS);
-        VBox center = new VBox(listView);
-        center.setPadding(new Insets(14, 16, 12, 16));
-        DlcFxStyle.section(center);
-        root.setCenter(center);
+        HBox listFrame = DlcFxListViewSupport.wrap(listView);
+        VBox.setVgrow(listFrame, Priority.ALWAYS);
+        VBox center = new VBox(listFrame);
+        page.setCenter(page.section(center));
 
         Button uploadBtn = new Button(DlcFxI18n.tr("dlc_manager.files.upload_file"));
         Button downloadBtn = new Button(DlcFxI18n.tr("dlc_manager.files.download_file"));
@@ -217,12 +215,31 @@ public final class DlcFxRemoteFileManagerTab {
             }
         });
 
-        VBox actionPanel = new VBox(8, modeBar, inspector);
-        DlcFxStyle.actionPanel(actionPanel);
-        root.setBottom(actionPanel);
+        VBox actionPanel = DlcFxActionPanel.panel(modeBar, inspector);
+        page.setBottom(actionPanel);
+        DlcFxStyle.routeStatus(statusLabel);
 
-        tab.setContent(root);
-        return tab;
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_files"), page.root());
+    }
+
+    public Tab buildSyncTab(java.util.function.Supplier<String> gameDirTextSupplier,
+                            java.util.function.BooleanSupplier gameDirSelectedSupplier,
+                            Runnable chooseGameDirAction,
+                            Runnable readLocalFilesAction) {
+        syncTab = new DlcFxRemoteSyncTab(gameDirTextSupplier, gameDirSelectedSupplier, chooseGameDirAction, readLocalFilesAction);
+        return syncTab.build();
+    }
+
+    public void onTabSelected() {
+        if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
+            loadedForCurrentConnection = true;
+        }
+    }
+
+    public void onStorageContextChanged() {
+        if (syncTab != null) {
+            syncTab.onStorageContextChanged();
+        }
     }
 
     private static ToggleButton modeButton(String text, ToggleGroup group, boolean selected) {
@@ -329,11 +346,6 @@ public final class DlcFxRemoteFileManagerTab {
     }
 
     private static boolean confirm(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
+        return DlcFxConfirmDialogs.confirm(title, message);
     }
 }

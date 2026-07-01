@@ -3,22 +3,23 @@ package com.cozooo.dlc_manager.remote;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -58,11 +59,7 @@ public final class DlcFxRemoteServerConnectionTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_connection"));
-        tab.setClosable(false);
-
-        BorderPane root = new BorderPane();
-        DlcFxStyle.view(root);
+        DlcFxTabPage page = new DlcFxTabPage("");
 
         presetBox.setItems(presetOptions);
         presetBox.setPrefWidth(220);
@@ -109,21 +106,18 @@ public final class DlcFxRemoteServerConnectionTab {
                 connectBtn, disconnectBtn);
         formBox.setAlignment(Pos.CENTER_LEFT);
 
-        VBox top = new VBox(8, presetBoxRow, formBox);
-        DlcFxStyle.toolbar(top);
-        root.setTop(top);
+        page.setTop(DlcFxToolbar.vertical(presetBoxRow, formBox));
 
         Label infoTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.server_info"));
         DlcFxStyle.title(infoTitle);
         DlcFxStyle.muted(infoLabel);
         DlcFxStyle.muted(presetStatusLabel);
         VBox center = new VBox(8, infoTitle, infoLabel);
-        center.setPadding(new Insets(18, 16, 16, 16));
-        DlcFxStyle.section(center);
-        root.setCenter(center);
+        page.setCenter(page.section(center));
+        DlcFxStyle.routeStatus(infoLabel);
+        DlcFxStyle.routeStatus(presetStatusLabel);
 
-        tab.setContent(root);
-        return tab;
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_connection"), page.root());
     }
 
     public void onStorageContextChanged() {

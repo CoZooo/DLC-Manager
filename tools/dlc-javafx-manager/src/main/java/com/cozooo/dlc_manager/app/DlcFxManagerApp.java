@@ -19,19 +19,19 @@ import com.cozooo.dlc_manager.local.DlcFxLocalRequiredTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalUpdateTab;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
-import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteConnection;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteDlcManagementTab;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteFileManagerTab;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteHotUpdateTab;
 import com.cozooo.dlc_manager.remote.DlcFxRemotePackTab;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteRconTab;
-import com.cozooo.dlc_manager.remote.DlcFxRemoteRemoteRequiredTab;
-import com.cozooo.dlc_manager.remote.DlcFxRemoteServerConfigTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteDownloadTab;
+import com.cozooo.dlc_manager.remote.DlcFxRemoteRequiredTab;
 import com.cozooo.dlc_manager.remote.DlcFxRemoteServerConnectionTab;
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
-import com.cozooo.dlc_manager.ui.DlcFxTooltips;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxTooltips;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -85,14 +85,20 @@ public final class DlcFxManagerApp extends Application {
     private DlcFxLocalUpdateTab localUpdateTab;
 
     private Label localGameDirLabel;
-    private Label remoteGameDirLabel;
     private Button localConfigButton;
     private Button localNoticeButton;
-    private Button remoteReadLocalButton;
     private boolean localGameDirSelected;
 
     private DlcFxRemoteConnection remoteConnection;
     private DlcFxRemoteServerConnectionTab remoteServerConnectionTab;
+    private DlcFxRemoteDlcManagementTab remoteDlcManagementTab;
+    private DlcFxRemoteDownloadTab remoteDownloadTab;
+    private DlcFxRemoteRequiredTab remoteRequiredTab;
+    private DlcFxRemoteHotUpdateTab remoteHotUpdateTab;
+    private DlcFxRemotePackTab remotePackTab;
+    private DlcFxRemoteRconTab remoteRconTab;
+    private DlcFxRemoteFileManagerTab remoteFileManagerTab;
+    private Tab remoteSyncTabNode;
     private StackPane shell;
     private BorderPane shellContent;
     private Node homeView;
@@ -100,12 +106,20 @@ public final class DlcFxManagerApp extends Application {
     private Node remoteView;
     private ViewMode currentView = ViewMode.HOME;
     private TabPane localTabPane;
+    private TabPane remoteTabPane;
     private Tab localRequiredTabNode;
     private Tab localDlcTabNode;
     private Tab localRemoteTabNode;
     private Tab localPresetTabNode;
     private Tab localPackTabNode;
     private Tab localUpdateTabNode;
+    private Tab remoteDlcTabNode;
+    private Tab remoteDownloadTabNode;
+    private Tab remoteRequiredTabNode;
+    private Tab remoteHotUpdateTabNode;
+    private Tab remotePackTabNode;
+    private Tab remoteRconTabNode;
+    private Tab remoteFileManagerTabNode;
     private boolean suppressLocalTabChangePrompt;
     private final Set<String> localPresetSnapshot = new LinkedHashSet<>();
     private final Set<String> localPresetOwnedDlcIds = new LinkedHashSet<>();
@@ -301,18 +315,40 @@ public final class DlcFxManagerApp extends Application {
     }
 
     private TabPane buildRemoteTabs() {
-        TabPane tabPane = new TabPane();
-        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        remoteTabPane = new TabPane();
+        remoteTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         remoteServerConnectionTab = new DlcFxRemoteServerConnectionTab(remoteConnection, primaryStage);
-        tabPane.getTabs().add(remoteServerConnectionTab.build());
-        tabPane.getTabs().add(new DlcFxRemoteDlcManagementTab(remoteConnection).build());
-        tabPane.getTabs().add(new DlcFxRemoteRemoteRequiredTab(remoteConnection).build());
-        tabPane.getTabs().add(new DlcFxRemoteHotUpdateTab(remoteConnection).build());
-        tabPane.getTabs().add(new DlcFxRemotePackTab(remoteConnection).build());
-        tabPane.getTabs().add(new DlcFxRemoteRconTab(remoteConnection).build());
-        tabPane.getTabs().add(new DlcFxRemoteFileManagerTab(remoteConnection, primaryStage).build());
-        tabPane.getTabs().add(new DlcFxRemoteServerConfigTab(remoteConnection).build());
-        return tabPane;
+        remoteTabPane.getTabs().add(remoteServerConnectionTab.build());
+        remoteDlcManagementTab = new DlcFxRemoteDlcManagementTab(remoteConnection);
+        remoteDlcTabNode = remoteDlcManagementTab.build();
+        remoteTabPane.getTabs().add(remoteDlcTabNode);
+        remoteDownloadTab = new DlcFxRemoteDownloadTab(remoteConnection);
+        remoteDownloadTabNode = remoteDownloadTab.build();
+        remoteTabPane.getTabs().add(remoteDownloadTabNode);
+        remoteRequiredTab = new DlcFxRemoteRequiredTab(remoteConnection);
+        remoteRequiredTabNode = remoteRequiredTab.build();
+        remoteTabPane.getTabs().add(remoteRequiredTabNode);
+        remoteHotUpdateTab = new DlcFxRemoteHotUpdateTab(remoteConnection);
+        remoteHotUpdateTabNode = remoteHotUpdateTab.build();
+        remoteTabPane.getTabs().add(remoteHotUpdateTabNode);
+        remotePackTab = new DlcFxRemotePackTab(remoteConnection);
+        remotePackTabNode = remotePackTab.build();
+        remoteTabPane.getTabs().add(remotePackTabNode);
+        remoteRconTab = new DlcFxRemoteRconTab(remoteConnection);
+        remoteRconTabNode = remoteRconTab.build();
+        remoteTabPane.getTabs().add(remoteRconTabNode);
+        remoteFileManagerTab = new DlcFxRemoteFileManagerTab(remoteConnection, primaryStage);
+        remoteFileManagerTabNode = remoteFileManagerTab.build();
+        remoteTabPane.getTabs().add(remoteFileManagerTabNode);
+        remoteSyncTabNode = remoteFileManagerTab.buildSyncTab(
+                () -> localGameDirLabel == null ? "" : localGameDirLabel.getText(),
+                () -> localGameDirSelected,
+                this::chooseLocalGameDirectory,
+                this::scanLocalFilesFromRemoteWorkspace
+        );
+        remoteTabPane.getTabs().add(remoteSyncTabNode);
+        remoteTabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> onRemoteTabSelected(newTab));
+        return remoteTabPane;
     }
 
     private Node buildLocalWorkspace() {
@@ -334,8 +370,7 @@ public final class DlcFxManagerApp extends Application {
                 workspaceHeader(
                         DlcFxI18n.tr("dlc_manager.workspace.remote_title"),
                         this::showHome,
-                        remoteConnectionStatusBadge()),
-                remoteLocalContextBar());
+                        remoteConnectionStatusBadge()));
         root.setTop(top);
         root.setCenter(buildRemoteTabs());
         DlcFxStyle.add(root, "dlc-workspace-root");
@@ -361,6 +396,7 @@ public final class DlcFxManagerApp extends Application {
         currentView = ViewMode.REMOTE;
         shellContent.setCenter(remoteView);
         refreshStatusForCurrentView();
+        onRemoteTabSelected(remoteTabPane == null ? null : remoteTabPane.getSelectionModel().getSelectedItem());
     }
 
     private Tab localDlcManagementTab() {
@@ -589,6 +625,29 @@ public final class DlcFxManagerApp extends Application {
         }
     }
 
+    private void onRemoteTabSelected(Tab selected) {
+        if (selected == null) {
+            return;
+        }
+        if (selected == remoteDlcTabNode && remoteDlcManagementTab != null) {
+            remoteDlcManagementTab.onTabSelected();
+        } else if (selected == remoteDownloadTabNode && remoteDownloadTab != null) {
+            remoteDownloadTab.onTabSelected();
+        } else if (selected == remoteRequiredTabNode && remoteRequiredTab != null) {
+            remoteRequiredTab.onTabSelected();
+        } else if (selected == remoteHotUpdateTabNode && remoteHotUpdateTab != null) {
+            remoteHotUpdateTab.onTabSelected();
+        } else if (selected == remotePackTabNode && remotePackTab != null) {
+            remotePackTab.onTabSelected();
+        } else if (selected == remoteRconTabNode && remoteRconTab != null) {
+            remoteRconTab.onTabSelected();
+        } else if (selected == remoteFileManagerTabNode && remoteFileManagerTab != null) {
+            remoteFileManagerTab.onTabSelected();
+        } else if (selected == remoteSyncTabNode && remoteFileManagerTab != null) {
+            remoteFileManagerTab.onTabSelected();
+        }
+    }
+
     private void onLocalTabChanging(Tab oldTab, Tab newTab) {
         if (suppressLocalTabChangePrompt || oldTab == null || newTab == null || oldTab == newTab) {
             onLocalTabSelected(newTab);
@@ -743,35 +802,6 @@ public final class DlcFxManagerApp extends Application {
         localNoticeButton.setDisable(!visible);
     }
 
-    private Node remoteLocalContextBar() {
-        Button chooseDirBtn = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));
-        chooseDirBtn.setOnAction(e -> chooseLocalGameDirectory());
-        DlcFxStyle.primary(chooseDirBtn);
-
-        remoteReadLocalButton = new Button(DlcFxI18n.tr("dlc_manager.remote.read_local_files"));
-        remoteReadLocalButton.setOnAction(e -> scanLocalFilesFromRemoteWorkspace());
-        remoteReadLocalButton.setDisable(!localGameDirSelected);
-
-        remoteGameDirLabel = new Label(localGameDirSelected
-                ? PROVIDER.gameDir().toString()
-                : DlcFxI18n.tr("dlc_manager.local.no_game_dir"));
-        DlcFxStyle.muted(remoteGameDirLabel);
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox bar = new HBox(10,
-                new Label(DlcFxI18n.tr("dlc_manager.remote.local_source")),
-                remoteGameDirLabel,
-                spacer,
-                chooseDirBtn,
-                remoteReadLocalButton);
-        bar.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.filterBar(bar);
-        DlcFxStyle.add(bar, "dlc-local-context-bar");
-        return bar;
-    }
-
     private Node remoteConnectionStatusBadge() {
         Label badge = new Label();
         badge.textProperty().bind(remoteConnection.statusTextProperty());
@@ -909,12 +939,6 @@ public final class DlcFxManagerApp extends Application {
         if (localGameDirLabel != null) {
             localGameDirLabel.setText(gameDir.toString());
         }
-        if (remoteGameDirLabel != null) {
-            remoteGameDirLabel.setText(gameDir.toString());
-        }
-        if (remoteReadLocalButton != null) {
-            remoteReadLocalButton.setDisable(false);
-        }
         if (localConfigButton != null) {
             localConfigButton.setDisable(false);
         }
@@ -930,6 +954,9 @@ public final class DlcFxManagerApp extends Application {
         updateLocalNoticeButton();
         if (remoteServerConnectionTab != null) {
             remoteServerConnectionTab.onStorageContextChanged();
+        }
+        if (remoteFileManagerTab != null) {
+            remoteFileManagerTab.onStorageContextChanged();
         }
         if (promptMissingRequired) {
             promptMissingRequiredResources();
@@ -1016,9 +1043,25 @@ public final class DlcFxManagerApp extends Application {
         localPresetTabNode = null;
         localPackTabNode = null;
         localUpdateTabNode = null;
+        remoteTabPane = null;
+        remoteDlcTabNode = null;
+        remoteDownloadTabNode = null;
+        remoteRequiredTabNode = null;
+        remoteHotUpdateTabNode = null;
+        remotePackTabNode = null;
+        remoteRconTabNode = null;
+        remoteFileManagerTabNode = null;
         localPackTab = null;
         localUpdateTab = null;
         remoteServerConnectionTab = null;
+        remoteDlcManagementTab = null;
+        remoteDownloadTab = null;
+        remoteRequiredTab = null;
+        remoteHotUpdateTab = null;
+        remotePackTab = null;
+        remoteRconTab = null;
+        remoteFileManagerTab = null;
+        remoteSyncTabNode = null;
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
         remoteView = buildRemoteWorkspace();

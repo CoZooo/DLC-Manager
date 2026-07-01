@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.ui;
+package com.cozooo.dlc_manager.ui.common;
 
 import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.beans.property.ReadOnlyStringWrapper;

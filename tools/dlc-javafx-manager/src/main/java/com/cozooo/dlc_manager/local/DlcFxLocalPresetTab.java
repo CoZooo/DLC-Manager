@@ -1,11 +1,16 @@
 package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
-import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
-import com.cozooo.dlc_manager.ui.DlcFxTooltips;
+import com.cozooo.dlc_manager.ui.common.DlcFxActionPanel;
+import com.cozooo.dlc_manager.ui.common.DlcFxListViewSupport;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxRichTextRenderer;
+import com.cozooo.dlc_manager.ui.common.DlcFxStatusChip;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxTooltips;
+import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
@@ -17,7 +22,6 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
@@ -26,12 +30,11 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
 import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
-import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -78,11 +81,7 @@ public final class DlcFxLocalPresetTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_preset"));
-        tab.setClosable(false);
-
-        BorderPane root = new BorderPane();
-        DlcFxStyle.view(root);
+        DlcFxTabPage page = new DlcFxTabPage(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
 
         refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.preset.refresh"));
         refreshBtn.setDisable(true);
@@ -111,17 +110,14 @@ public final class DlcFxLocalPresetTab {
 
         HBox topBox = new HBox(8, refreshBtn, countLabel, topSpacer, selectionActions);
         topBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.toolbar(topBox);
-        root.setTop(topBox);
+        page.setTop(DlcFxToolbar.vertical(topBox));
 
         listView = new ListView<>(entries);
         DlcFxStyle.add(listView, "dlc-preset-list");
         listView.setCellFactory(param -> new PresetCell());
         VBox.setVgrow(listView, Priority.ALWAYS);
         VBox center = new VBox(DlcFxListViewSupport.wrap(listView));
-        center.setPadding(new Insets(14, 16, 14, 16));
-        DlcFxStyle.section(center);
-        root.setCenter(center);
+        page.setCenter(page.section(center));
 
         disableAllBtn.setOnAction(e -> setAllPresetEnabled(false));
 
@@ -133,13 +129,11 @@ public final class DlcFxLocalPresetTab {
         pendingWarningLabel.setManaged(false);
         HBox actionRow = new HBox(18, applyActions, pendingWarningLabel, statusLabel);
         actionRow.setAlignment(Pos.CENTER_LEFT);
-        VBox actionPanel = new VBox(actionRow);
-        DlcFxStyle.actionPanel(actionPanel);
+        VBox actionPanel = DlcFxActionPanel.panel(actionRow);
         DlcFxStyle.routeStatus(statusLabel);
-        root.setBottom(actionPanel);
+        page.setBottom(actionPanel);
 
-        tab.setContent(root);
-        return tab;
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.local_preset"), page.root());
     }
 
     public void onGameDirChanged() {
@@ -448,8 +442,7 @@ public final class DlcFxLocalPresetTab {
         private javafx.scene.control.Tooltip rowTooltip;
 
         PresetCell() {
-            DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
-            statusLabel.setStyle("-fx-text-fill: white;");
+            DlcFxStatusChip.apply(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
             DlcFxStyle.title(nameLabel);
             DlcFxStyle.add(pendingLabel, "dlc-pending-badge");
             DlcFxStyle.add(toggleButton, "dlc-toggle-off");
@@ -484,7 +477,7 @@ public final class DlcFxLocalPresetTab {
                         if (!blockers.isEmpty()) {
                             String msg = DlcFxI18n.tr("dlc_manager.preset.blocked_by", String.join(", ", blockers));
                             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.blocked"));
-                            statusLabel.setStyle("-fx-text-fill: white;");
+                            DlcFxStatusChip.apply(statusLabel, DlcFxStyle.CHIP_ERROR);
                             rowTooltip = DlcFxRichTextRenderer.formattedTooltip(msg);
                             return;
                         }
@@ -539,18 +532,15 @@ public final class DlcFxLocalPresetTab {
             switch (status) {
                 case ON -> {
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.preset.status_on"));
-                    DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_OK);
-                    statusLabel.setStyle("-fx-text-fill: white;");
+                    DlcFxStatusChip.apply(statusLabel, DlcFxStyle.CHIP_OK);
                 }
                 case PART -> {
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.preset.status_part"));
-                    DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_WARN);
-                    statusLabel.setStyle("-fx-text-fill: white;");
+                    DlcFxStatusChip.apply(statusLabel, DlcFxStyle.CHIP_WARN);
                 }
                 case OFF -> {
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.preset.status_off"));
-                    DlcFxStyle.chip(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
-                    statusLabel.setStyle("-fx-text-fill: white;");
+                    DlcFxStatusChip.apply(statusLabel, DlcFxStyle.CHIP_NEUTRAL);
                 }
             }
             boolean pending = isPending(item);

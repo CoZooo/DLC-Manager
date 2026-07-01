@@ -1,4 +1,5 @@
-package com.cozooo.dlc_manager.ui;
+package com.cozooo.dlc_manager.ui.common;
+import com.cozooo.dlc_manager.ui.common.DlcFxRichTextRenderer;
 
 import javafx.geometry.Bounds;
 import javafx.scene.Node;

@@ -2,10 +2,10 @@ package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
-import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.common.DlcFxRichTextRenderer;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Node;

@@ -1,7 +1,12 @@
 package com.cozooo.dlc_manager.remote;
 
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxConfirmDialogs;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxListViewSupport;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -11,14 +16,10 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
-import javafx.scene.control.Alert;
-import javafx.scene.control.ButtonBar.ButtonData;
-import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -29,17 +30,15 @@ public final class DlcFxRemoteRconTab {
     private final ObservableList<String> log = FXCollections.observableArrayList();
     private final Label infoLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final TextField cmdField = new TextField();
+    private boolean loadedForCurrentConnection;
 
     public DlcFxRemoteRconTab(DlcFxRemoteConnection conn) {
         this.conn = conn;
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.remote_rcon"));
-        tab.setClosable(false);
-
-        BorderPane root = new BorderPane();
-        DlcFxStyle.view(root);
+        DlcFxTabPage page = new DlcFxTabPage(DlcFxI18n.tr("dlc_manager.status.disconnected"));
 
         Button infoBtn = new Button(DlcFxI18n.tr("dlc_manager.rcon.query_info"));
         Button getBtn = new Button(DlcFxI18n.tr("dlc_manager.rcon.get_config"));
@@ -81,11 +80,9 @@ public final class DlcFxRemoteRconTab {
             }, err -> appendLog(DlcFxI18n.tr("dlc_manager.rcon.set_failed", DlcFxRemoteConnection.safeMessage(err))));
         });
 
-        HBox topBox = new HBox(8, infoBtn, getBtn, infoLabel,
+        HBox topBox = DlcFxToolbar.create(infoBtn, getBtn, infoLabel,
                 new Label(DlcFxI18n.tr("dlc_manager.rcon.settings_label")), hostField, portField, pwField, setBtn);
-        topBox.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.toolbar(topBox);
-        root.setTop(topBox);
+        page.setTop(topBox);
 
         cmdField.setPromptText(DlcFxI18n.tr("dlc_manager.rcon.command_prompt"));
         cmdField.setPrefColumnCount(40);
@@ -120,14 +117,19 @@ public final class DlcFxRemoteRconTab {
         quickBox.setPadding(new Insets(0, 8, 4, 8));
 
         ListView<String> logView = new ListView<>(log);
-        VBox.setVgrow(logView, Priority.ALWAYS);
-        VBox center = new VBox(4, cmdBox, quickBox, logView);
-        center.setPadding(new Insets(14, 16, 14, 16));
-        DlcFxStyle.section(center);
-        root.setCenter(center);
+        HBox logFrame = DlcFxListViewSupport.wrap(logView);
+        VBox.setVgrow(logFrame, Priority.ALWAYS);
+        VBox center = new VBox(4, cmdBox, quickBox, logFrame);
+        page.setCenter(page.section(center));
+        DlcFxStyle.routeStatus(infoLabel);
 
-        tab.setContent(root);
-        return tab;
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_rcon"), page.root());
+    }
+
+    public void onTabSelected() {
+        if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
+            loadedForCurrentConnection = true;
+        }
     }
 
     private void execCommand() {
@@ -172,11 +174,6 @@ public final class DlcFxRemoteRconTab {
     }
 
     private static boolean confirm(String title, String message) {
-        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message,
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_no"), ButtonData.CANCEL_CLOSE),
-                new ButtonType(DlcFxI18n.tr("dlc_manager.confirm_yes"), ButtonData.OK_DONE));
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        return alert.showAndWait().orElse(ButtonType.CANCEL).getButtonData() == ButtonData.OK_DONE;
+        return DlcFxConfirmDialogs.confirm(title, message);
     }
 }

@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.ui;
+package com.cozooo.dlc_manager.ui.common;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;

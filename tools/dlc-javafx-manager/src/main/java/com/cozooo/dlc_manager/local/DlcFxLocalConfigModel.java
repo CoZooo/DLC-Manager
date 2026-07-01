@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 
 import java.util.ArrayList;
 import java.util.EnumMap;

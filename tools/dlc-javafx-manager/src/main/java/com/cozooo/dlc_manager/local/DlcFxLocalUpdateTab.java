@@ -15,7 +15,6 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Download
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.ProgressListener;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.ReleaseStep;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Side;
-import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRuntime;
@@ -29,31 +28,25 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
-import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
-import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.common.DlcFxRichTextRenderer;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.update.DlcFxUpdateActionFlow;
+import com.cozooo.dlc_manager.ui.update.DlcFxUpdateToolbarFlow;
+import com.cozooo.dlc_manager.ui.update.DlcFxUpdateShell;
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.TextFlow;
 import javafx.stage.FileChooser;
 
 import java.io.IOException;
@@ -67,18 +60,11 @@ public final class DlcFxLocalUpdateTab {
     private static final String DEFAULT_VERSION = "1.0.0";
 
     private final DlcFxPlatformProvider provider;
-    private final Label versionLabel = new Label(DlcFxI18n.tr("dlc_manager.update.version_empty"));
-    private final Label rollbackInfoLabel = new Label();
-    private final Label updateHintLabel = new Label();
-    private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.update.check_local"));
-    private final Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.update.import_package"));
-    private final Button importUrlBtn = new Button(DlcFxI18n.tr("dlc_manager.update.import_url"));
-    private final Button checkPackUpdateBtn = new Button(DlcFxI18n.tr("dlc_manager.pack_update.check_button"));
-    private final ObservableList<DlcUpdateRowPlanner.UpdateRow> rows = FXCollections.observableArrayList();
-    private final ListView<DlcUpdateRowPlanner.UpdateRow> historyView = new ListView<>(rows);
-    private final ScrollPane changelogPane = new ScrollPane();
+    private final DlcFxUpdateActionFlow actionFlow;
+    private final DlcFxUpdateToolbarFlow toolbarFlow;
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
+    private DlcFxUpdateShell<DlcUpdateRowPlanner.UpdateRow> shell;
     private boolean busy;
 
     private volatile List<DlcUpdatePackage> lastApplyChain = List.of();
@@ -92,74 +78,28 @@ public final class DlcFxLocalUpdateTab {
 
     public DlcFxLocalUpdateTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
+        this.actionFlow = new DlcFxUpdateActionFlow(new LocalUpdateActions());
+        this.toolbarFlow = new DlcFxUpdateToolbarFlow(new LocalUpdateToolbarActions());
         progressBar.setPrefWidth(220);
         progressBar.setVisible(false);
         progressBar.managedProperty().bind(progressBar.visibleProperty());
-        changelogPane.setFitToWidth(true);
-        DlcFxStyle.add(changelogPane, "dlc-rich-text-pane");
-        setChangelogText("");
-        setOptionalHeaderText(rollbackInfoLabel, "");
-        setOptionalHeaderText(updateHintLabel, "");
     }
 
     public Tab build() {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_update"));
         tab.setClosable(false);
 
-        BorderPane root = new BorderPane();
-        DlcFxStyle.view(root);
-
-        refreshBtn.setOnAction(e -> checkLocalAsync());
-        importBtn.setOnAction(e -> importPackage());
-        importUrlBtn.setOnAction(e -> showImportUrlDialog());
-        checkPackUpdateBtn.setOnAction(e -> checkPackUpdateAsync());
-        DlcFxStyle.primary(refreshBtn);
-        DlcFxStyle.primary(checkPackUpdateBtn);
-
-        DlcFxStyle.title(versionLabel);
-        DlcFxStyle.muted(rollbackInfoLabel);
-        DlcFxStyle.muted(updateHintLabel);
-        VBox topBox = new VBox(2, versionLabel, rollbackInfoLabel, updateHintLabel);
-        DlcFxStyle.toolbar(topBox);
-        DlcFxStyle.add(topBox, "dlc-update-header");
-        root.setTop(topBox);
-
-        historyView.setCellFactory(param -> new UpdateRowCell());
-        historyView.setSelectionModel(null);
-        DlcFxStyle.add(historyView, "dlc-update-list");
-
-        Label historyHeader = new Label(DlcFxI18n.tr("dlc_manager.update.version_list_header"));
-        DlcFxStyle.title(historyHeader);
-        VBox leftBox = new VBox(6, historyHeader, DlcFxListViewSupport.wrap(historyView));
-        leftBox.setPadding(new Insets(0, 4, 0, 0));
-        leftBox.setMinWidth(0);
-        VBox.setVgrow(leftBox.getChildren().get(1), Priority.ALWAYS);
-
-        Label changelogHeader = new Label(DlcFxI18n.tr("dlc_manager.update.changelog_header"));
-        DlcFxStyle.title(changelogHeader);
-        VBox rightBox = new VBox(6, changelogHeader, changelogPane);
-        rightBox.setMinWidth(0);
-        changelogPane.setMinWidth(0);
-        VBox.setVgrow(changelogPane, Priority.ALWAYS);
-        rightBox.setPadding(new Insets(0, 0, 0, 4));
-
-        HBox centerBox = new HBox(10, leftBox, rightBox);
-        leftBox.prefWidthProperty().bind(centerBox.widthProperty().subtract(42).divide(2));
-        rightBox.prefWidthProperty().bind(centerBox.widthProperty().subtract(42).divide(2));
-        HBox.setHgrow(leftBox, Priority.ALWAYS);
-        HBox.setHgrow(rightBox, Priority.ALWAYS);
-        centerBox.setPadding(new Insets(14, 16, 12, 16));
-        DlcFxStyle.section(centerBox);
-        root.setCenter(centerBox);
-
-        HBox actionPanel = new HBox(8, refreshBtn, importBtn, importUrlBtn, checkPackUpdateBtn, progressBar, statusLabel);
-        actionPanel.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(statusLabel, Priority.ALWAYS);
-        DlcFxStyle.actionPanel(actionPanel);
-        DlcFxStyle.routeStatus(statusLabel);
-        root.setBottom(actionPanel);
-
-        tab.setContent(root);
+        shell = new DlcFxUpdateShell<>(
+            new LocalUpdateAdapter(),
+            statusLabel,
+            progressBar,
+            toolbarFlow::refresh,
+            toolbarFlow::importPackage,
+            toolbarFlow::importUrl,
+            toolbarFlow::extraAction
+        );
+        shell.setAvailable(gameDirSelected);
+        tab.setContent(shell.root());
         updateActionDisableState();
         return tab;
     }
@@ -167,11 +107,15 @@ public final class DlcFxLocalUpdateTab {
     public void onGameDirChanged() {
         gameDirSelected = true;
         loadedForCurrentGameDir = false;
-        rows.clear();
+        if (shell != null) {
+            shell.clearRows();
+        }
         setChangelogText("");
-        versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.version_empty"));
-        setOptionalHeaderText(rollbackInfoLabel, "");
-        setOptionalHeaderText(updateHintLabel, "");
+        if (shell != null) {
+            shell.setVersionText(DlcFxI18n.tr("dlc_manager.update.version_empty"));
+            shell.setRollbackInfo("");
+            shell.setUpdateHint("");
+        }
         lastApplyChain = List.of();
         setBusy(false, null);
         updateActionDisableState();
@@ -209,7 +153,9 @@ public final class DlcFxLocalUpdateTab {
                     currentVersion = snapshot.currentVersion;
                     rollbackFrom = snapshot.rollbackFrom == null ? "" : snapshot.rollbackFrom;
                     rolledBackMode = snapshot.rolledBackMode;
-                    rows.setAll(plan.rows);
+                    if (shell != null) {
+                        shell.setRows(plan.rows);
+                    }
                     renderVersionHeader(plan.hasVisibleUpdates);
                     progressBar.setVisible(false);
                     setBusy(false, null);
@@ -229,7 +175,7 @@ public final class DlcFxLocalUpdateTab {
         thread.start();
     }
 
-    private void importPackage() {
+    private void runImportPackage() {
         if (!requireGameDir()) {
             return;
         }
@@ -278,7 +224,7 @@ public final class DlcFxLocalUpdateTab {
         thread.start();
     }
 
-    private void showImportUrlDialog() {
+    private void showImportUrlDialog(DlcFxUpdateToolbarFlow.UrlImportPrompt prompt) {
         if (!requireGameDir()) {
             return;
         }
@@ -295,7 +241,7 @@ public final class DlcFxLocalUpdateTab {
                 error.setText(DlcFxI18n.tr("dlc_manager.update.url_empty"));
                 return;
             }
-            showUrlDownloadProgress(url);
+            prompt.submit(url, "");
         }, DlcFxI18n.tr("dlc_manager.update.url_download"), () -> {
         }, DlcFxI18n.tr("dlc_manager.update.cancel"), button -> {
             downloadButton[0] = button;
@@ -377,7 +323,7 @@ public final class DlcFxLocalUpdateTab {
         return DlcDownloadService.download(url, updateDir, fileName, listener, () -> downloadCanceled);
     }
 
-    private void checkPackUpdateAsync() {
+    private void runCheckPackUpdateAsync() {
         if (!requireGameDir()) {
             return;
         }
@@ -416,6 +362,48 @@ public final class DlcFxLocalUpdateTab {
         }, "dlc-pack-update-check-manual");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private final class LocalUpdateToolbarActions implements DlcFxUpdateToolbarFlow.Actions {
+        @Override
+        public boolean enabled() {
+            return requireGameDir();
+        }
+
+        @Override
+        public void disabled() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+        }
+
+        @Override
+        public void refresh() {
+            checkLocalAsync();
+        }
+
+        @Override
+        public void importPackage() {
+            runImportPackage();
+        }
+
+        @Override
+        public void promptUrlImport(DlcFxUpdateToolbarFlow.UrlImportPrompt prompt) {
+            showImportUrlDialog(prompt);
+        }
+
+        @Override
+        public void emptyUrl() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.url_empty"));
+        }
+
+        @Override
+        public void importUrl(String url, String fileName) {
+            showUrlDownloadProgress(url);
+        }
+
+        @Override
+        public void extraAction() {
+            runCheckPackUpdateAsync();
+        }
     }
 
     private void showPackUpdateDialog(CheckResult result) {
@@ -527,20 +515,6 @@ public final class DlcFxLocalUpdateTab {
         }, "dlc-pack-release-download");
         thread.setDaemon(true);
         thread.start();
-    }
-
-    private void confirmRowAction(DlcUpdateRowPlanner.UpdateRow row) {
-        if (row == null || row.action == DlcUpdateRowPlanner.Action.NONE) {
-            return;
-        }
-        switch (row.action) {
-            case MANAGER_ROLLBACK -> confirmManagerRollback(row.rollbackTarget);
-            case ROLLBACK -> confirmRollback(row.rollbackTarget);
-            case REUPDATE -> confirmReupdate(row);
-            case UPDATE -> confirmApply(row);
-            default -> {
-            }
-        }
     }
 
     private void confirmRollback(String targetVersion) {
@@ -826,39 +800,20 @@ public final class DlcFxLocalUpdateTab {
     private void renderVersionHeader(boolean hasVisibleUpdates) {
         String base = displayVersion(baseVersion);
         String dlc = displayVersion(currentVersion);
-        versionLabel.setText(DlcFxI18n.tr("dlc_manager.update.current_version", base, dlc));
-        setOptionalHeaderText(rollbackInfoLabel, rolledBackMode
+        if (shell == null) {
+            return;
+        }
+        shell.setVersionText(DlcFxI18n.tr("dlc_manager.update.current_version", base, dlc));
+        shell.setRollbackInfo(rolledBackMode
             ? DlcFxI18n.tr("dlc_manager.update.rollback_info", safe(rollbackFrom), normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion))
             : "");
-        setOptionalHeaderText(updateHintLabel, hasVisibleUpdates ? DlcFxI18n.tr("dlc_manager.update.desc") : "");
-    }
-
-    private static void setOptionalHeaderText(Label label, String text) {
-        String value = text == null ? "" : text;
-        label.setText(value);
-        boolean visible = !value.isBlank();
-        label.setVisible(visible);
-        label.setManaged(visible);
+        shell.setUpdateHint(hasVisibleUpdates ? DlcFxI18n.tr("dlc_manager.update.desc") : "");
     }
 
     private void setChangelogText(String text) {
-        String value = text == null ? "" : text;
-        if (value.isBlank()) {
-            Label prompt = new Label(DlcFxI18n.tr("dlc_manager.update.changelog_prompt"));
-            DlcFxStyle.muted(prompt);
-            bindChangelogContentWidth(prompt);
-            changelogPane.setContent(prompt);
-            return;
+        if (shell != null) {
+            shell.setChangelogText(text);
         }
-        TextFlow flow = DlcFxRichTextRenderer.markdown(value);
-        bindChangelogContentWidth(flow);
-        changelogPane.setContent(flow);
-    }
-
-    private void bindChangelogContentWidth(Region content) {
-        content.minWidthProperty().bind(changelogPane.viewportBoundsProperty().map(bounds -> bounds.getWidth()));
-        content.prefWidthProperty().bind(changelogPane.viewportBoundsProperty().map(bounds -> bounds.getWidth()));
-        content.maxWidthProperty().bind(changelogPane.viewportBoundsProperty().map(bounds -> bounds.getWidth()));
     }
 
     private String describeApply(UpdateApplyResult result) {
@@ -1037,22 +992,17 @@ public final class DlcFxLocalUpdateTab {
 
     private void setBusy(boolean value, String status) {
         busy = value;
-        updateActionDisableState();
-        historyView.refresh();
-        if (value) {
-            progressBar.setVisible(true);
-            if (status != null) {
-                statusLabel.setText(status);
-            }
+        if (shell != null) {
+            shell.setBusy(value, status);
+            shell.updateActionDisableState(hasPackUpdateRepoConfigured());
         }
     }
 
     private void updateActionDisableState() {
-        boolean disabled = busy || !gameDirSelected;
-        refreshBtn.setDisable(disabled);
-        importBtn.setDisable(disabled);
-        importUrlBtn.setDisable(disabled);
-        checkPackUpdateBtn.setDisable(disabled || !hasPackUpdateRepoConfigured());
+        if (shell != null) {
+            shell.setAvailable(gameDirSelected);
+            shell.updateActionDisableState(hasPackUpdateRepoConfigured());
+        }
     }
 
     private boolean hasPackUpdateRepoConfigured() {
@@ -1075,11 +1025,11 @@ public final class DlcFxLocalUpdateTab {
     }
 
     private Scene scene() {
-        return versionLabel.getScene();
+        return shell == null ? null : shell.root().getScene();
     }
 
     private javafx.stage.Stage primaryStage() {
-        return (javafx.stage.Stage) versionLabel.getScene().getWindow();
+        return (javafx.stage.Stage) scene().getWindow();
     }
 
     private static void removeOverlay(StackPane overlay) {
@@ -1112,116 +1062,57 @@ public final class DlcFxLocalUpdateTab {
     private record TargetVersion(String base, String dlc) {
     }
 
-    private final class UpdateRowCell extends javafx.scene.control.ListCell<DlcUpdateRowPlanner.UpdateRow> {
-        private final Label transitionLabel = new Label();
-        private final Label tagLabel = new Label();
-        private final Button actionButton = new Button();
-        private final HBox row = new HBox(10);
-
-        UpdateRowCell() {
-            DlcFxStyle.title(transitionLabel);
-            transitionLabel.setMaxWidth(Double.MAX_VALUE);
-            HBox.setHgrow(transitionLabel, Priority.ALWAYS);
-            actionButton.setOnAction(e -> {
-                DlcUpdateRowPlanner.UpdateRow item = getItem();
-                if (item != null) {
-                    confirmRowAction(item);
-                }
-            });
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.getChildren().setAll(tagLabel, transitionLabel, actionButton);
-            DlcFxStyle.add(row, "dlc-update-row");
-            setOnMouseEntered(e -> {
-                DlcUpdateRowPlanner.UpdateRow item = getItem();
-                setChangelogText(item == null || item.meta == null ? "" : item.meta.resolveChangelog(currentLang()));
-            });
+    private final class LocalUpdateActions implements DlcFxUpdateActionFlow.Actions {
+        @Override
+        public void targetMissing() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_target_missing"));
         }
 
         @Override
-        protected void updateItem(DlcUpdateRowPlanner.UpdateRow item, boolean empty) {
-            super.updateItem(item, empty);
-            if (empty || item == null) {
-                setGraphic(null);
-                setText(null);
-                return;
-            }
-            transitionLabel.setText(describeTransition(item));
-            configureTag(item);
-            configureAction(item);
-            setGraphic(row);
-            setText(null);
+        public void managerRollback(String targetVersion) {
+            confirmManagerRollback(targetVersion);
         }
 
-        private void configureTag(DlcUpdateRowPlanner.UpdateRow item) {
-            if (item.type == DlcUpdateRowPlanner.Type.MANAGER) {
-                tagLabel.setText(DlcFxI18n.tr("dlc_manager.update.tag_manager"));
-                DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_NEUTRAL);
-            } else if (item.action == DlcUpdateRowPlanner.Action.UPDATE) {
-                tagLabel.setText(DlcFxI18n.tr("dlc_manager.update.tag_available"));
-                DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_OK);
-            } else if (item.action == DlcUpdateRowPlanner.Action.REUPDATE) {
-                tagLabel.setText(DlcFxI18n.tr("dlc_manager.update.tag_rolled_back"));
-                DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_WARN);
-            } else {
-                tagLabel.setText(DlcFxI18n.tr("dlc_manager.update.tag_history"));
-                DlcFxStyle.chip(tagLabel, DlcFxStyle.CHIP_NEUTRAL);
-            }
+        @Override
+        public void rollback(String targetVersion) {
+            confirmRollback(targetVersion);
         }
 
-        private void configureAction(DlcUpdateRowPlanner.UpdateRow item) {
-            actionButton.getStyleClass().remove(DlcFxStyle.PRIMARY);
-            actionButton.getStyleClass().remove(DlcFxStyle.DANGER);
-            switch (item.action) {
-                case UPDATE -> {
-                    actionButton.setText(DlcFxI18n.tr("dlc_manager.update.apply"));
-                    DlcFxStyle.primary(actionButton);
-                    actionButton.setVisible(true);
-                    actionButton.setManaged(true);
-                }
-                case REUPDATE -> {
-                    actionButton.setText(DlcFxI18n.tr("dlc_manager.update.reapply"));
-                    DlcFxStyle.primary(actionButton);
-                    actionButton.setVisible(true);
-                    actionButton.setManaged(true);
-                }
-                case ROLLBACK, MANAGER_ROLLBACK -> {
-                    actionButton.setText(DlcFxI18n.tr("dlc_manager.update.rollback"));
-                    DlcFxStyle.danger(actionButton);
-                    actionButton.setVisible(true);
-                    actionButton.setManaged(true);
-                }
-                default -> {
-                    actionButton.setVisible(false);
-                    actionButton.setManaged(false);
-                }
-            }
-                    actionButton.setDisable(busy);
+        @Override
+        public void reapply(DlcUpdateRowPlanner.UpdateRow row) {
+            confirmReupdate(row);
         }
 
-        private String describeTransition(DlcUpdateRowPlanner.UpdateRow item) {
-            String label = safe(item.displayOldVersion) + " -> " + safe(item.displayNewVersion);
-            if (item.type == DlcUpdateRowPlanner.Type.MANAGER) {
-                return DlcFxI18n.tr("dlc_manager.update.manager_prefix") + label;
-            }
-            DlcUpdateMeta meta = item.meta;
-            String sourceBase = meta == null ? null : meta.getBaseOld();
-            String sourceDlc = meta == null ? null : meta.getDlcOld();
-            String targetBase = meta == null ? null : meta.getBaseNew();
-            String targetDlc = meta == null ? null : meta.getDlcNew();
-            if (targetBase == null || targetBase.isBlank()) {
-                targetBase = sourceBase;
-            }
-            if (targetDlc == null || targetDlc.isBlank()) {
-                targetDlc = sourceDlc;
-            }
-            boolean baseChanged = !normalizeVersion(sourceBase).equals(normalizeVersion(targetBase));
-            boolean dlcChanged = !normalizeVersion(sourceDlc).equals(normalizeVersion(targetDlc));
-            if (baseChanged && !dlcChanged) {
-                label = DlcFxI18n.tr("dlc_manager.update.base_prefix") + normalizeVersion(sourceBase) + " -> " + normalizeVersion(targetBase);
-            } else if (!baseChanged && dlcChanged) {
-                label = DlcFxI18n.tr("dlc_manager.update.dlc_prefix") + normalizeVersion(sourceDlc) + " -> " + normalizeVersion(targetDlc);
-            }
-            return label;
+        @Override
+        public void apply(DlcUpdateRowPlanner.UpdateRow row) {
+            confirmApply(row);
+        }
+    }
+
+    private final class LocalUpdateAdapter implements DlcFxUpdateShell.Adapter<DlcUpdateRowPlanner.UpdateRow> {
+        @Override
+        public String transitionText(DlcUpdateRowPlanner.UpdateRow row) {
+            return DlcFxUpdateShell.describeTransition(row);
+        }
+
+        @Override
+        public String changelog(DlcUpdateRowPlanner.UpdateRow row) {
+            return row == null || row.meta == null ? "" : row.meta.resolveChangelog(currentLang());
+        }
+
+        @Override
+        public DlcFxUpdateShell.Tag tag(DlcUpdateRowPlanner.UpdateRow row) {
+            return DlcFxUpdateShell.tagFor(row);
+        }
+
+        @Override
+        public DlcFxUpdateShell.Action action(DlcUpdateRowPlanner.UpdateRow row) {
+            return DlcFxUpdateShell.actionFor(row);
+        }
+
+        @Override
+        public void performAction(DlcUpdateRowPlanner.UpdateRow row) {
+            actionFlow.perform(row);
         }
     }
 }

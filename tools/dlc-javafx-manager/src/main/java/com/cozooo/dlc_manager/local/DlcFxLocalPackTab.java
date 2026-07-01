@@ -16,48 +16,49 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
-import com.cozooo.dlc_manager.ui.DlcFxListViewSupport;
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
-import com.cozooo.dlc_manager.ui.DlcFxModalOverlay;
-import com.cozooo.dlc_manager.ui.DlcFxRichTextRenderer;
-import com.cozooo.dlc_manager.ui.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackActionState;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackApplyFlow;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackDeletePlan;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackDeleteFlow;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackDialogs;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackGroupCell;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackImportFlow;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackLinkActions;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackOrderFlow;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackPendingActionModel;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackReplacementConfirmModel;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackRowState;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackRowView;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackShell;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackToggleFlow;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackVersionFlow;
+import com.cozooo.dlc_manager.ui.packs.DlcFxPackVersionSelectionModel;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
-import javafx.scene.control.MenuButton;
-import javafx.scene.control.MenuItem;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.image.Image;
-import javafx.scene.input.Clipboard;
-import javafx.scene.input.ClipboardContent;
-import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseButton;
-import javafx.scene.input.MouseEvent;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.TextFlow;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
-import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -81,12 +82,22 @@ public final class DlcFxLocalPackTab {
     private List<PackArchiveGroup> archiveGroups = List.of();
     private final Map<String, DlcPackMeta> installedByIdentifier = new HashMap<>();
     private final Map<String, String> selectedVersionByIdentifier = new LinkedHashMap<>();
-    private final Map<String, PackArchiveEntry> pendingInstalls = new LinkedHashMap<>();
-    private final Set<String> pendingUninstalls = new LinkedHashSet<>();
+    private final DlcFxPackPendingActionModel<PackArchiveEntry> pendingModel =
+        new DlcFxPackPendingActionModel<>(entry -> entry.metadata.identifier, entry -> entry.metadata.version);
+    private final DlcFxPackVersionSelectionModel<PackArchiveEntry> versionSelectionModel =
+        new DlcFxPackVersionSelectionModel<>(selectedVersionByIdentifier, pendingModel, entry -> entry.metadata.identifier, PackArchiveEntry::key);
+    private final DlcFxPackApplyFlow applyFlow;
+    private final DlcFxPackDeleteFlow<PackArchiveGroup> deleteFlow;
+    private final DlcFxPackToggleFlow<PackArchiveGroup, PackArchiveEntry> toggleFlow;
+    private final DlcFxPackVersionFlow<PackArchiveGroup, PackArchiveEntry> versionFlow;
+    private final DlcFxPackOrderFlow<PackArchiveGroup> orderFlow;
+    private final DlcFxPackImportFlow importFlow;
+    private final Map<String, PackArchiveEntry> pendingInstalls = pendingModel.pendingInstalls();
+    private final Set<String> pendingUninstalls = pendingModel.pendingUninstallIds();
     private final Label countLabel = new Label("");
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
     private final ProgressBar progressBar = new ProgressBar(0);
-    private final ListView<PackArchiveGroup> listView = new ListView<>(groups);
+    private ListView<PackArchiveGroup> listView;
     private final Button refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.refresh"));
     private final Button importBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.import"));
     private final Button importUrlBtn = new Button(DlcFxI18n.tr("dlc_manager.pack.import_url"));
@@ -108,7 +119,7 @@ public final class DlcFxLocalPackTab {
     private final Set<String> pausedReinstallIdentifiers = new LinkedHashSet<>();
     private float operationProgress = -1f;
     private Label operationStatusLabel;
-    private Label operationDetailLabel;
+    private DlcFxPackShell<PackArchiveGroup> shell;
     private StackPane urlDownloadOverlay;
     private ProgressBar urlDownloadProgressBar;
     private Label urlDownloadStatusLabel;
@@ -118,6 +129,12 @@ public final class DlcFxLocalPackTab {
 
     public DlcFxLocalPackTab(DlcFxPlatformProvider provider) {
         this.provider = provider;
+        this.applyFlow = new DlcFxPackApplyFlow(new LocalPackApplyActions());
+        this.deleteFlow = new DlcFxPackDeleteFlow<>(new LocalPackDeleteActions());
+        this.toggleFlow = new DlcFxPackToggleFlow<>(new LocalPackToggleActions());
+        this.versionFlow = new DlcFxPackVersionFlow<>(new LocalPackVersionActions());
+        this.orderFlow = new DlcFxPackOrderFlow<>(new LocalPackOrderActions());
+        this.importFlow = new DlcFxPackImportFlow(new LocalPackImportActions());
         progressBar.setVisible(false);
         progressBar.setPrefWidth(220);
     }
@@ -126,20 +143,13 @@ public final class DlcFxLocalPackTab {
         Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_pack"));
         tab.setClosable(false);
 
-        BorderPane root = new BorderPane();
-        DlcFxStyle.view(root);
-
         refreshBtn.setDisable(true);
         importBtn.setDisable(true);
         importUrlBtn.setDisable(true);
         applyBtn.setDisable(true);
-        refreshBtn.setOnAction(e -> {
-            if (gameDirSelected) {
-                refreshAsync(true);
-            }
-        });
-        importBtn.setOnAction(e -> importPackArchive());
-        importUrlBtn.setOnAction(e -> importPackFromUrl());
+        refreshBtn.setOnAction(e -> importFlow.refresh());
+        importBtn.setOnAction(e -> importFlow.importArchive());
+        importUrlBtn.setOnAction(e -> importFlow.importUrl());
         applyBtn.setOnAction(e -> {
             if (busy && paused && busyOperation == BusyOperation.APPLY) {
                 resumePausedApply();
@@ -150,41 +160,26 @@ public final class DlcFxLocalPackTab {
             }
         });
         cancelBtn.setOnAction(e -> onBackOrCancel());
-        DlcFxStyle.primary(refreshBtn);
-        DlcFxStyle.primary(applyBtn);
         cancelBtn.setVisible(false);
         cancelBtn.setManaged(false);
 
-        HBox topRow = new HBox(8, refreshBtn, importBtn, importUrlBtn, countLabel);
-        topRow.setAlignment(Pos.CENTER_LEFT);
-        HBox topBar = new HBox(8, topRow);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.toolbar(topBar);
-
-        listView.setCellFactory(param -> new PackGroupCell());
-        DlcFxStyle.add(listView, "dlc-pack-list");
-        HBox listFrame = DlcFxListViewSupport.wrap(listView);
-        VBox listBox = new VBox(8, listFrame);
-        VBox.setVgrow(listView, Priority.ALWAYS);
-        VBox.setVgrow(listFrame, Priority.ALWAYS);
-        listView.setMaxHeight(Double.MAX_VALUE);
-        listBox.setPadding(new Insets(14, 16, 12, 16));
-        DlcFxStyle.section(listBox);
-
         operationStatusLabel = new Label("");
-        operationDetailLabel = new Label("");
-        DlcFxStyle.routeStatus(statusLabel);
-        DlcFxStyle.muted(operationStatusLabel);
-        DlcFxStyle.muted(operationDetailLabel);
-        HBox actionRow = new HBox(8, applyBtn, cancelBtn, progressBar, operationStatusLabel, operationDetailLabel, statusLabel);
-        actionRow.setAlignment(Pos.CENTER_LEFT);
-        DlcFxStyle.actionPanel(actionRow);
+        shell = new DlcFxPackShell<>(
+            groups,
+            countLabel,
+            statusLabel,
+            operationStatusLabel,
+            progressBar,
+            refreshBtn,
+            importBtn,
+            importUrlBtn,
+            applyBtn,
+            cancelBtn
+        );
+        listView = shell.listView();
+        listView.setCellFactory(param -> new DlcFxPackGroupCell<>(new PackCellAdapter()));
 
-        root.setTop(topBar);
-        root.setCenter(listBox);
-        root.setBottom(actionRow);
-
-        tab.setContent(root);
+        tab.setContent(shell.root());
         updateActionButtons();
         return tab;
     }
@@ -246,8 +241,6 @@ public final class DlcFxLocalPackTab {
             cancelBtn.setVisible(false);
             cancelBtn.setManaged(false);
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.disabled"));
-            operationStatusLabel.setText("");
-            operationDetailLabel.setText("");
             return;
         }
         refreshBtn.setDisable(true);
@@ -500,31 +493,7 @@ public final class DlcFxLocalPackTab {
     }
 
     private void applyPendingChanges() {
-        if (busy || !DlcConfig.isPackFuncOn() || !hasPendingChanges()) {
-            if (!DlcConfig.isPackFuncOn()) {
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.disabled"));
-            }
-            return;
-        }
-        if (!hasPackOperationChanges()) {
-            commitCurrentOrderWithoutRestart();
-            return;
-        }
-        String replacementConfirm = buildReplacementConfirmText();
-        if (replacementConfirm != null && !replacementConfirm.isBlank()) {
-            showPackConfirm(DlcFxI18n.tr("dlc_manager.pack.apply_confirm_title"), replacementConfirm, this::continueApplyAfterReplacementConfirm);
-            return;
-        }
-        continueApplyAfterReplacementConfirm();
-    }
-
-    private void continueApplyAfterReplacementConfirm() {
-        String runtimeConfirm = buildRuntimeConfirmText();
-        if (runtimeConfirm != null && !runtimeConfirm.isBlank()) {
-            showPackConfirm(DlcFxI18n.tr("dlc_manager.pack.runtime_confirm_title"), runtimeConfirm, () -> startApplyPendingChanges(true));
-            return;
-        }
-        startApplyPendingChanges(false);
+        applyFlow.start();
     }
 
     private void startApplyPendingChanges(boolean allowRuntimeChanges) {
@@ -554,26 +523,29 @@ public final class DlcFxLocalPackTab {
     }
 
     private String buildReplacementConfirmText() {
-        List<String> lines = new ArrayList<>();
+        return DlcFxPackReplacementConfirmModel.message(
+            DlcFxPackReplacementConfirmModel.lines(
+                displayEntries(),
+                entry -> Objects.equals(pendingInstalls.get(entry.metadata.identifier), entry),
+                entry -> {
+                    DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
+                    return installed == null ? null : installed.version;
+                },
+                entry -> entry.metadata.version,
+                entry -> entry.displayName
+            ),
+            DlcFxI18n::tr
+        );
+    }
+
+    private List<PackArchiveEntry> displayEntries() {
+        List<PackArchiveEntry> out = new ArrayList<>();
         for (PackArchiveGroup group : allGroups()) {
-            PackArchiveEntry entry = group.displayEntry();
-            if (!Objects.equals(pendingInstalls.get(entry.metadata.identifier), entry)) {
-                continue;
-            }
-            DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
-            if (installed == null) {
-                continue;
-            }
-            int compare = DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
-            if (compare > 0) {
-                lines.add(DlcFxI18n.tr("dlc_manager.pack.apply_confirm_upgrade", entry.displayName, installed.version, entry.metadata.version));
-            } else if (compare < 0) {
-                lines.add(DlcFxI18n.tr("dlc_manager.pack.apply_confirm_downgrade", entry.displayName, installed.version, entry.metadata.version));
-            } else {
-                lines.add(DlcFxI18n.tr("dlc_manager.pack.apply_confirm_replace", entry.displayName, installed.version));
+            if (group != null && group.displayEntry() != null) {
+                out.add(group.displayEntry());
             }
         }
-        return lines.isEmpty() ? null : String.join("\n", lines);
+        return out;
     }
 
     private void applyOrderedChanges(DlcPackInstaller installer, boolean allowRuntimeChanges) throws IOException {
@@ -832,40 +804,11 @@ public final class DlcFxLocalPackTab {
     }
 
     private void toggleInstall(PackArchiveGroup group) {
-        if (!DlcConfig.isPackFuncOn()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.disabled"));
-            return;
-        }
-        PackArchiveEntry entry = group.displayEntry();
-        String identifier = entry.metadata.identifier;
-        if (pendingUninstalls.remove(identifier)) {
-            pendingInstalls.remove(identifier);
-        } else if (isEntryCurrentlyInstalled(entry)) {
-            pendingUninstalls.add(identifier);
-            pendingInstalls.remove(identifier);
-        } else if (Objects.equals(pendingInstalls.get(identifier), entry)) {
-            pendingInstalls.remove(identifier);
-        } else {
-            DlcPackMeta installed = installedByIdentifier.get(identifier);
-            if (installed != null && entry.metadata.version.equals(installed.version)) {
-                pendingUninstalls.add(identifier);
-                pendingInstalls.remove(identifier);
-            } else {
-                pendingInstalls.put(identifier, entry);
-            }
-        }
-        rebuildPackWidgets();
+        toggleFlow.toggle(group);
     }
 
     private void selectPackVersion(PackArchiveGroup group, PackArchiveEntry selected) {
-        if (group == null || selected == null) {
-            return;
-        }
-        selectedVersionByIdentifier.put(group.identifier(), selected.key());
-        pendingInstalls.remove(group.identifier());
-        pendingUninstalls.remove(group.identifier());
-        updateArchiveGroup(group.identifier(), selected.key());
-        rebuildPackWidgets();
+        versionFlow.select(group, selected);
     }
 
     private void updateArchiveGroup(String identifier, String selectedVersionKey) {
@@ -877,44 +820,23 @@ public final class DlcFxLocalPackTab {
     }
 
     private void moveGroup(PackArchiveGroup group, int direction) {
-        int index = archiveGroups.indexOf(group);
-        int target = index + direction;
-        if (index < 0 || target < 0 || target >= archiveGroups.size()) {
-            return;
-        }
-        List<PackArchiveGroup> reordered = new ArrayList<>(archiveGroups);
-        PackArchiveGroup moved = reordered.remove(index);
-        reordered.add(target, moved);
-        currentArchiveOrder = collectArchiveKeys(reordered);
-        DlcPackOrder.save(packOrderPath(), currentArchiveOrder);
-        archiveGroups = reordered;
-        groups.setAll(archiveGroups);
-        selectedIndex = Math.max(0, groups.indexOf(moved));
-        updateActionButtons();
+        orderFlow.move(group, direction);
     }
 
     private void confirmDeleteArchive(PackArchiveGroup group) {
-        if (!DlcConfig.isPackFuncOn()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.disabled"));
-            return;
-        }
-        PackArchiveEntry entry = group.displayEntry();
-        boolean uninstallFirst = isEntryCurrentlyInstalled(entry);
-        showPackConfirm(DlcFxI18n.tr("dlc_manager.pack.delete_archive_title"), uninstallFirst
-            ? DlcFxI18n.tr("dlc_manager.pack.delete_confirm_uninstall", entry.displayName)
-            : DlcFxI18n.tr("dlc_manager.pack.delete_confirm", entry.displayName), () -> startDeleteArchive(group, uninstallFirst));
+        deleteFlow.confirmDelete(group);
     }
 
-    private void startDeleteArchive(PackArchiveGroup group, boolean uninstallFirst) {
+    private void startDeleteArchive(PackArchiveGroup group, DlcFxPackDeletePlan plan) {
         PackArchiveEntry entry = group.displayEntry();
-        if (uninstallFirst) {
-            setBusyStatus(DlcFxI18n.tr("dlc_manager.pack.operation_uninstalling"), DlcFxI18n.tr("dlc_manager.pack.operation_uninstalling"), null, BusyOperation.DELETE);
+        if (plan.uninstallFirst()) {
+            setBusyStatus(plan.busyStatus(), plan.busyStatus(), null, BusyOperation.DELETE);
             Thread thread = new Thread(() -> {
                 try {
                     DlcPackInstaller installer = new DlcPackInstaller(DlcPaths.gameDir(), DlcPaths.dlcRoot());
                     installer.uninstall(entry.metadata.identifier);
                     deleteArchiveFile(group);
-                    finishBusy(DlcFxI18n.tr("dlc_manager.pack.delete_uninstalled_success", entry.displayName), true);
+                    finishBusy(plan.successMessage(), true);
                 } catch (Exception ex) {
                     finishBusy(DlcFxI18n.tr("dlc_manager.pack.delete_failed", describeFailure(ex)));
                 }
@@ -925,7 +847,7 @@ public final class DlcFxLocalPackTab {
         }
         try {
             deleteArchiveFile(group);
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_success", entry.displayName));
+            statusLabel.setText(plan.successMessage());
             refreshAsync(false);
         } catch (Exception ex) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", describeFailure(ex)));
@@ -969,14 +891,7 @@ public final class DlcFxLocalPackTab {
         if (url == null || url.isBlank()) {
             return;
         }
-        showExternalOpenConfirm(DlcFxI18n.tr("dlc_manager.pack.open_link_title"), DlcFxI18n.tr("dlc_manager.pack.open_link_prompt", url), () -> openLink(url));
-    }
-
-    private void openLink(String url) {
-        try {
-            Desktop.getDesktop().browse(URI.create(url));
-        } catch (Exception ignored) {
-        }
+        DlcFxPackLinkActions.showOpenLinkConfirm(scene(), url, statusLabel::setText);
     }
 
     private void importPackArchive() {
@@ -1048,6 +963,32 @@ public final class DlcFxLocalPackTab {
         });
     }
 
+    private void showImportUrlDialog(DlcFxPackImportFlow.UrlImportPrompt prompt) {
+        TextField urlField = new TextField();
+        urlField.setPromptText(DlcFxI18n.tr("dlc_manager.common.url"));
+        Scene currentScene = scene();
+        double dialogWidth = currentScene == null || currentScene.getWidth() <= 0
+            ? 520
+            : Math.max(420, Math.min(620, currentScene.getWidth() - 96));
+        urlField.setPrefWidth(dialogWidth);
+        Label promptLabel = new Label(DlcFxI18n.tr("dlc_manager.pack.url_prompt"));
+        DlcFxStyle.muted(promptLabel);
+        VBox content = new VBox(8, promptLabel, urlField);
+        DlcFxModalOverlay.show(scene(), DlcFxI18n.tr("dlc_manager.pack.import_url_title"), content, () -> {
+            String url = urlField.getText() == null ? "" : urlField.getText().trim();
+            if (url.isBlank()) {
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.url_empty"));
+                return;
+            }
+            prompt.submit(url, "");
+        }, DlcFxI18n.tr("dlc_manager.update.url_download"), () -> {
+        }, DlcFxI18n.tr("dlc_manager.common.cancel"), confirm -> {
+            confirm.setDisable(true);
+            urlField.textProperty().addListener((obs, oldValue, newValue) ->
+                confirm.setDisable(newValue == null || newValue.trim().isEmpty()));
+        });
+    }
+
     private void startDownloadPackFromUrl(String url) {
         setBusyStatus(DlcFxI18n.tr("dlc_manager.pack.url_downloading"), DlcFxI18n.tr("dlc_manager.pack.url_downloading"), null, BusyOperation.IMPORT);
         showUrlDownloadProgressDialog();
@@ -1079,6 +1020,43 @@ public final class DlcFxLocalPackTab {
         }, "dlc-fx-pack-url-download");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private final class LocalPackImportActions implements DlcFxPackImportFlow.Actions {
+        @Override
+        public boolean enabled() {
+            return gameDirSelected;
+        }
+
+        @Override
+        public void disabled() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+        }
+
+        @Override
+        public void refresh() {
+            refreshAsync(true);
+        }
+
+        @Override
+        public void importArchive() {
+            importPackArchive();
+        }
+
+        @Override
+        public void promptUrlImport(DlcFxPackImportFlow.UrlImportPrompt prompt) {
+            showImportUrlDialog(prompt);
+        }
+
+        @Override
+        public void emptyUrl() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.url_empty"));
+        }
+
+        @Override
+        public void importUrl(String url, String fileName) {
+            startDownloadPackFromUrl(url);
+        }
     }
 
     private void showUrlDownloadProgressDialog() {
@@ -1199,56 +1177,11 @@ public final class DlcFxLocalPackTab {
     }
 
     private void showPackConfirm(String title, String message, Runnable onConfirm) {
-        DlcFxModalOverlay.show(
-            scene(),
-            title,
-            DlcFxRichTextRenderer.formatted(message),
-            onConfirm,
-            DlcFxI18n.tr("dlc_manager.common.confirm"),
-            () -> {},
-            DlcFxI18n.tr("dlc_manager.common.cancel")
-        );
+        DlcFxPackDialogs.confirm(scene(), title, message, onConfirm);
     }
 
     private void showExternalOpenConfirm(String title, String message, Runnable onConfirm) {
-        String url = extractLastUrlLine(message);
-        DlcFxModalOverlay.show(
-            scene(),
-            title,
-            DlcFxRichTextRenderer.formatted(message),
-            onConfirm,
-            DlcFxI18n.tr("dlc_manager.common.confirm"),
-            () -> {},
-            DlcFxI18n.tr("dlc_manager.common.cancel"),
-            url == null ? null : () -> {
-                copyLink(url);
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.redirect.copied"));
-            },
-            url == null ? null : DlcFxI18n.tr("dlc_manager.redirect.copy")
-        );
-    }
-
-    private static String extractLastUrlLine(String message) {
-        if (message == null || message.isBlank()) {
-            return null;
-        }
-        String[] lines = message.split("\\R");
-        for (int i = lines.length - 1; i >= 0; i--) {
-            String line = lines[i] == null ? "" : lines[i].trim();
-            if (line.startsWith("http://") || line.startsWith("https://")) {
-                return line;
-            }
-        }
-        return null;
-    }
-
-    private static void copyLink(String url) {
-        if (url == null || url.isBlank()) {
-            return;
-        }
-        ClipboardContent content = new ClipboardContent();
-        content.putString(url);
-        Clipboard.getSystemClipboard().setContent(content);
+        DlcFxPackLinkActions.showExternalOpenConfirm(scene(), title, message, onConfirm, statusLabel::setText);
     }
 
     private void finishBusy(String message) {
@@ -1273,7 +1206,6 @@ public final class DlcFxLocalPackTab {
             cancelBtn.setDisable(false);
             cancelBtn.setText(DlcFxI18n.tr("dlc_manager.pack.cancel_changes"));
             operationStatusLabel.setText("");
-            operationDetailLabel.setText("");
             if (refreshAfter || forceRefreshAfterBusy) {
                 forceRefreshAfterBusy = false;
                 refreshAsync(false);
@@ -1299,7 +1231,11 @@ public final class DlcFxLocalPackTab {
             progressBar.setVisible(true);
             progressBar.setProgress(-1);
             operationStatusLabel.setText(operationStatus);
-            operationDetailLabel.setText(detail == null ? "" : detail);
+            if (detail != null && !detail.isBlank()) {
+                statusLabel.setText(operationStatus == null || operationStatus.isBlank()
+                        ? statusLabel.getText() + " " + detail
+                        : statusLabel.getText() + " " + detail);
+            }
             updateBusyButtons();
         });
     }
@@ -1307,7 +1243,9 @@ public final class DlcFxLocalPackTab {
     private void updateOperationProgress(String status, float progress, String detail) {
         Platform.runLater(() -> {
             operationStatusLabel.setText(status);
-            operationDetailLabel.setText(detail == null ? "" : detail);
+            if (detail != null && !detail.isBlank()) {
+                statusLabel.setText(status + " " + detail);
+            }
             if (progress >= 0f) {
                 progressBar.setProgress(progress);
             }
@@ -1399,8 +1337,6 @@ public final class DlcFxLocalPackTab {
             busyOperation = BusyOperation.APPLY;
             operationProgress = -1f;
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.paused"));
-            operationStatusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.paused"));
-            operationDetailLabel.setText("");
             pausedReinstallIdentifiers.clear();
             pausedReinstallIdentifiers.addAll(activeReinstallIdentifiers);
             refreshInstalledPacks();
@@ -1450,29 +1386,11 @@ public final class DlcFxLocalPackTab {
 
     private void updateBusyButtons() {
         if (!busy) {
-            applyBtn.setDisable(false);
-            applyBtn.setText(DlcFxI18n.tr("dlc_manager.pack.apply"));
-            cancelBtn.setDisable(false);
-            cancelBtn.setText(DlcFxI18n.tr("dlc_manager.pack.cancel_changes"));
+            applyPackActionState(DlcFxPackActionState.compute(gameDirSelected, false, hasPendingChanges(), false));
             return;
         }
         boolean applying = busyOperation == BusyOperation.APPLY;
-        applyBtn.setDisable(!applying || (!paused && cancelApplyRequested));
-        if (paused && applying) {
-            applyBtn.setText(DlcFxI18n.tr("dlc_manager.pack.continue_install"));
-        } else if (applying && cancelRequested && !cancelApplyRequested) {
-            applyBtn.setText(DlcFxI18n.tr("dlc_manager.pack.pausing"));
-        } else if (applying) {
-            applyBtn.setText(DlcFxI18n.tr("dlc_manager.pack.pause_install"));
-        } else {
-            applyBtn.setText(DlcFxI18n.tr("dlc_manager.pack.apply"));
-        }
-        cancelBtn.setDisable(busyOperation == BusyOperation.DELETE || (cancelRequested && !applying));
-        cancelBtn.setText(applying
-            ? DlcFxI18n.tr("dlc_manager.pack.cancel_install")
-            : cancelRequested ? DlcFxI18n.tr("dlc_manager.pack.canceling") : DlcFxI18n.tr("dlc_manager.pack.cancel"));
-        cancelBtn.setVisible(true);
-        cancelBtn.setManaged(true);
+        applyPackActionState(DlcFxPackActionState.computeBusy(applying, paused, cancelRequested, cancelApplyRequested, busyOperation == BusyOperation.DELETE));
     }
 
     private void updateActionButtons() {
@@ -1481,12 +1399,24 @@ public final class DlcFxLocalPackTab {
             return;
         }
         boolean hasChanges = hasPendingChanges();
-        applyBtn.setDisable(!hasChanges);
-        applyBtn.setText(DlcFxI18n.tr("dlc_manager.pack.apply"));
-        cancelBtn.setDisable(false);
-        cancelBtn.setText(DlcFxI18n.tr("dlc_manager.pack.cancel_changes"));
-        cancelBtn.setVisible(hasChanges);
-        cancelBtn.setManaged(hasChanges);
+        DlcFxPackActionState state = DlcFxPackActionState.compute(gameDirSelected, false, hasChanges, false);
+        applyPackActionState(state);
+    }
+
+    private void applyPackActionState(DlcFxPackActionState state) {
+        if (shell != null) {
+            shell.applyActionState(state);
+        } else {
+            refreshBtn.setDisable(state.refreshDisabled());
+            importBtn.setDisable(state.importDisabled());
+            importUrlBtn.setDisable(state.importUrlDisabled());
+            applyBtn.setDisable(state.applyDisabled());
+            cancelBtn.setDisable(state.cancelDisabled());
+            cancelBtn.setVisible(state.cancelVisible());
+            cancelBtn.setManaged(state.cancelVisible());
+        }
+        applyBtn.setText(DlcFxI18n.tr(state.applyTextKey()));
+        cancelBtn.setText(DlcFxI18n.tr(state.cancelTextKey()));
     }
 
     private void rebuildPackWidgets() {
@@ -1664,220 +1594,305 @@ public final class DlcFxLocalPackTab {
         return scene() == null ? null : (Stage) scene().getWindow();
     }
 
-    private final class PackGroupCell extends ListCell<PackArchiveGroup> {
-        private PackGroupCell() {
-            addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
-                if (event.getButton() != MouseButton.PRIMARY || isEmpty() || isInsideButton(event.getTarget())) {
-                    return;
-                }
-                selectedIndex = getIndex();
-                PackArchiveEntry clicked = getItem() == null ? null : getItem().displayEntry();
-                if (event.getClickCount() >= 2 && clicked != null) {
-                    confirmOpenLink(clicked, "homepage");
-                }
-                event.consume();
-            });
+    private final class LocalPackApplyActions implements DlcFxPackApplyFlow.Actions {
+        @Override
+        public boolean enabled() {
+            return DlcConfig.isPackFuncOn();
         }
 
         @Override
-        protected void updateItem(PackArchiveGroup group, boolean empty) {
-            super.updateItem(group, empty);
-            if (empty || group == null) {
-                setText(null);
-                setGraphic(null);
-                return;
-            }
-
-            PackArchiveEntry entry = group.displayEntry();
-            Node title = DlcFxRichTextRenderer.formatted(entry.displayName);
-            DlcFxStyle.add(title, "row-title");
-            allowWrap(title);
-            Node author = DlcFxRichTextRenderer.formatted(DlcFxI18n.tr("dlc_manager.pack.author_prefix", entry.author));
-            DlcFxStyle.add(author, "muted");
-            allowWrap(author);
-            Node versionLine = versionLine(group);
-            Node description = DlcFxRichTextRenderer.markdown(entry.description == null || entry.description.isBlank() ? entry.metadata.identifier : entry.description);
-            DlcFxStyle.add(description, "muted");
-            allowWrap(description);
-
-            Label homepageHint = new Label(DlcFxI18n.tr("dlc_manager.pack.double_click_homepage"));
-            DlcFxStyle.add(homepageHint, "dlc-pack-homepage-hint");
-            homepageHint.setVisible(hasLink(entry, "homepage"));
-            homepageHint.setManaged(hasLink(entry, "homepage"));
-
-            HBox titleRow = new HBox(10, title, homepageHint);
-            titleRow.setAlignment(Pos.CENTER_LEFT);
-            titleRow.setMinWidth(0);
-            titleRow.setPrefWidth(0);
-            HBox.setHgrow(title, Priority.ALWAYS);
-
-            VBox textBox = new VBox(4, titleRow, author, versionLine, description);
-            DlcFxStyle.add(textBox, "dlc-pack-text");
-            textBox.setMinWidth(0);
-            textBox.setPrefWidth(0);
-            textBox.setMaxWidth(Double.MAX_VALUE);
-            HBox.setHgrow(textBox, Priority.ALWAYS);
-
-            Button up = new Button("▲");
-            up.setOnAction(event -> moveGroup(group, -1));
-            Button down = new Button("▼");
-            down.setOnAction(event -> moveGroup(group, 1));
-            setReservedVisible(up, getIndex() > 0);
-            setReservedVisible(down, getIndex() >= 0 && getIndex() < getListView().getItems().size() - 1);
-            VBox orderButtons = new VBox(6, up, down);
-            orderButtons.setAlignment(Pos.CENTER);
-            DlcFxStyle.add(orderButtons, "dlc-pack-order-buttons");
-
-            Button install = new Button(actionText(group));
-            install.setOnAction(event -> toggleInstall(group));
-            Button delete = new Button(DlcFxI18n.tr("dlc_manager.common.delete"));
-            delete.setOnAction(event -> confirmDeleteArchive(group));
-            DlcFxStyle.danger(delete);
-            Button issue = new Button(DlcFxI18n.tr("dlc_manager.pack.feedback"));
-            issue.setOnAction(event -> confirmOpenLink(entry, "issue"));
-            Button sponsor = new Button(DlcFxI18n.tr("dlc_manager.pack.support_author"));
-            sponsor.setOnAction(event -> confirmOpenLink(entry, "sponsor"));
-            HBox firstActions = new HBox(6, install, delete);
-            HBox secondActions = new HBox(6);
-            if (hasLink(entry, "issue")) {
-                secondActions.getChildren().add(issue);
-            }
-            if (hasLink(entry, "sponsor")) {
-                secondActions.getChildren().add(sponsor);
-            }
-            VBox actions = new VBox(6, firstActions, secondActions);
-            actions.setAlignment(Pos.CENTER_RIGHT);
-            firstActions.setAlignment(Pos.CENTER_RIGHT);
-            secondActions.setAlignment(Pos.CENTER_RIGHT);
-            DlcFxStyle.add(actions, "dlc-pack-actions");
-
-            Node icon = packIcon(entry);
-
-            HBox row = new HBox(12, orderButtons, icon, textBox, actions);
-            DlcFxStyle.add(row, "dlc-pack-row");
-            row.setAlignment(Pos.CENTER_LEFT);
-            row.setPadding(new Insets(10, 12, 10, 12));
-            setText(null);
-            setGraphic(row);
+        public boolean busy() {
+            return busy;
         }
 
-        private Node versionLine(PackArchiveGroup group) {
-            Label prefix = new Label(DlcFxI18n.tr("dlc_manager.pack.version_prefix"));
-            DlcFxStyle.add(prefix, "dlc-pack-version-prefix");
+        @Override
+        public boolean hasPendingChanges() {
+            return DlcFxLocalPackTab.this.hasPendingChanges();
+        }
 
-            MenuButton versionButton = new MenuButton(versionOptionText(group.displayEntry()));
-            DlcFxStyle.add(versionButton, "dlc-pack-version-button");
-            versionButton.setDisable(group.versions().size() <= 1);
+        @Override
+        public boolean hasOperationChanges() {
+            return hasPackOperationChanges();
+        }
+
+        @Override
+        public String replacementConfirmText() {
+            return shouldBuildConfirmText() ? buildReplacementConfirmText() : null;
+        }
+
+        @Override
+        public String runtimeConfirmText() {
+            return shouldBuildConfirmText() ? buildRuntimeConfirmText() : null;
+        }
+
+        @Override
+        public void disabled() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.disabled"));
+        }
+
+        @Override
+        public void commitOrderOnly() {
+            commitCurrentOrderWithoutRestart();
+        }
+
+        @Override
+        public void confirmReplacement(String message, Runnable confirm) {
+            showPackConfirm(
+                DlcFxI18n.tr("dlc_manager.pack.apply_confirm_title"),
+                message,
+                confirm
+            );
+        }
+
+        @Override
+        public void confirmRuntime(String message, boolean allowRuntimeChanges, Runnable confirm) {
+            showPackConfirm(
+                DlcFxI18n.tr("dlc_manager.pack.runtime_confirm_title"),
+                message,
+                confirm
+            );
+        }
+
+        @Override
+        public void startApply(boolean allowRuntimeChanges) {
+            startApplyPendingChanges(allowRuntimeChanges);
+        }
+
+        private boolean shouldBuildConfirmText() {
+            return enabled() && !busy() && hasPendingChanges() && hasOperationChanges();
+        }
+    }
+
+    private final class LocalPackDeleteActions implements DlcFxPackDeleteFlow.Actions<PackArchiveGroup> {
+        @Override
+        public boolean enabled() {
+            return DlcConfig.isPackFuncOn();
+        }
+
+        @Override
+        public String displayName(PackArchiveGroup group) {
+            PackArchiveEntry entry = group == null ? null : group.displayEntry();
+            return entry == null ? "" : entry.displayName;
+        }
+
+        @Override
+        public boolean installed(PackArchiveGroup group) {
+            PackArchiveEntry entry = group == null ? null : group.displayEntry();
+            return entry != null && isEntryCurrentlyInstalled(entry);
+        }
+
+        @Override
+        public void disabled() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.disabled"));
+        }
+
+        @Override
+        public void confirm(DlcFxPackDeletePlan plan, Runnable onConfirm) {
+            showPackConfirm(plan.title(), plan.confirmMessage(), onConfirm);
+        }
+
+        @Override
+        public void delete(PackArchiveGroup group, DlcFxPackDeletePlan plan) {
+            startDeleteArchive(group, plan);
+        }
+    }
+
+    private final class LocalPackToggleActions implements DlcFxPackToggleFlow.Actions<PackArchiveGroup, PackArchiveEntry> {
+        @Override
+        public boolean enabled() {
+            return DlcConfig.isPackFuncOn();
+        }
+
+        @Override
+        public PackArchiveEntry displayEntry(PackArchiveGroup group) {
+            return group == null ? null : group.displayEntry();
+        }
+
+        @Override
+        public void disabled() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.disabled"));
+        }
+
+        @Override
+        public void toggle(PackArchiveGroup group, PackArchiveEntry entry) {
+            String identifier = entry.metadata.identifier;
+            DlcPackMeta installed = installedByIdentifier.get(identifier);
+            pendingModel.toggleWithInstalledVersion(entry, installed == null ? null : installed.version);
+        }
+
+        @Override
+        public void refresh() {
+            rebuildPackWidgets();
+        }
+    }
+
+    private final class LocalPackVersionActions implements DlcFxPackVersionFlow.Actions<PackArchiveGroup, PackArchiveEntry> {
+        @Override
+        public String groupIdentifier(PackArchiveGroup group) {
+            return group.identifier();
+        }
+
+        @Override
+        public String entryKey(PackArchiveEntry entry) {
+            return entry.key();
+        }
+
+        @Override
+        public void select(PackArchiveEntry entry) {
+            versionSelectionModel.select(entry);
+        }
+
+        @Override
+        public void updateGroup(String identifier, String selectedVersionKey) {
+            updateArchiveGroup(identifier, selectedVersionKey);
+        }
+
+        @Override
+        public void refresh() {
+            rebuildPackWidgets();
+        }
+    }
+
+    private final class LocalPackOrderActions implements DlcFxPackOrderFlow.Actions<PackArchiveGroup> {
+        @Override
+        public List<PackArchiveGroup> items() {
+            return archiveGroups;
+        }
+
+        @Override
+        public List<String> collectOrder(List<PackArchiveGroup> reordered) {
+            return collectArchiveKeys(reordered);
+        }
+
+        @Override
+        public void apply(List<PackArchiveGroup> reordered, PackArchiveGroup moved, List<String> order) {
+            currentArchiveOrder = List.copyOf(order);
+            DlcPackOrder.save(packOrderPath(), currentArchiveOrder);
+            archiveGroups = new ArrayList<>(reordered);
+            groups.setAll(archiveGroups);
+            selectedIndex = Math.max(0, groups.indexOf(moved));
+            updateActionButtons();
+        }
+    }
+
+    private final class PackCellAdapter implements DlcFxPackGroupCell.Adapter<PackArchiveGroup, PackArchiveEntry> {
+        @Override
+        public PackArchiveEntry displayEntry(PackArchiveGroup group) {
+            return group == null ? null : group.displayEntry();
+        }
+
+        @Override
+        public DlcFxPackRowState rowState(PackArchiveGroup group, PackArchiveEntry entry, int rowIndex, int rowCount) {
+            return DlcFxPackRowState.of(
+                rowIndex,
+                rowCount,
+                group.versions().size(),
+                entry.metadata.links,
+                isEntryCurrentlyInstalled(entry)
+            );
+        }
+
+        @Override
+        public Node versionLine(PackArchiveGroup group) {
+            DlcFxPackRowState rowState = rowState(group, group.displayEntry(), 0, 0);
+            List<DlcFxPackRowView.VersionOption> options = new ArrayList<>();
             for (PackArchiveEntry option : group.versions()) {
-                MenuItem item = new MenuItem(versionOptionText(option));
-                if (option.key().equals(group.displayEntry().key())) {
-                    item.getStyleClass().add("selected");
-                }
-                item.setOnAction(event -> {
-                    if (!option.key().equals(group.displayEntry().key())) {
-                        selectPackVersion(group, option);
-                    }
-                });
-                versionButton.getItems().add(item);
+                options.add(new DlcFxPackRowView.VersionOption(
+                    option.key(),
+                    versionOptionText(option),
+                    option.key().equals(group.displayEntry().key())
+                ));
             }
-
-            HBox line = new HBox(6, prefix, versionButton);
-            DlcFxStyle.add(line, "dlc-pack-version-line");
-            line.setAlignment(Pos.CENTER_LEFT);
-            return line;
+            return DlcFxPackRowView.versionLine(
+                versionOptionText(group.displayEntry()),
+                rowState.canSwitchVersion(),
+                options,
+                selected -> selectPackVersion(group, entryByKey(group, selected.key()))
+            );
         }
 
-        private void setReservedVisible(Button button, boolean visible) {
-            button.setVisible(visible);
-            button.setManaged(true);
-            button.setMouseTransparent(!visible);
-            button.setDisable(!visible);
+        @Override
+        public String title(PackArchiveEntry entry) {
+            return entry.displayName;
         }
 
-        private void allowWrap(Node node) {
-            if (node instanceof Region region) {
-                region.setMinWidth(0);
-                region.setPrefWidth(0);
-                region.setMaxWidth(Double.MAX_VALUE);
-            }
+        @Override
+        public String author(PackArchiveEntry entry) {
+            return DlcFxI18n.tr("dlc_manager.pack.author_prefix", entry.author);
         }
 
-        private boolean isInsideButton(Object target) {
-            if (!(target instanceof Node node)) {
-                return false;
-            }
-            for (Node current = node; current != null; current = current.getParent()) {
-                if (current instanceof Button || current instanceof MenuButton) {
-                    return true;
-                }
-                if (current == this) {
-                    return false;
-                }
-            }
-            return false;
+        @Override
+        public String description(PackArchiveEntry entry) {
+            return entry.description == null || entry.description.isBlank() ? entry.metadata.identifier : entry.description;
         }
 
-        private Node packIcon(PackArchiveEntry entry) {
-            StackPane box = new StackPane();
-            DlcFxStyle.add(box, "dlc-pack-icon");
-            if (entry.icon != null) {
-                ImageView view = new ImageView(entry.icon);
-                view.setFitWidth(58);
-                view.setFitHeight(58);
-                view.setPreserveRatio(true);
-                view.setSmooth(true);
-                box.getChildren().add(view);
-            } else {
-                Label initial = new Label(packInitial(entry.displayName));
-                DlcFxStyle.add(initial, "dlc-pack-icon-initial");
-                box.getChildren().add(initial);
-            }
-            return box;
+        @Override
+        public Image icon(PackArchiveEntry entry) {
+            return entry.icon;
         }
 
-        private String packInitial(String name) {
-            if (name == null || name.isBlank()) {
-                return "P";
-            }
-            return name.substring(0, 1).toUpperCase(Locale.ROOT);
+        @Override
+        public String iconFallback(PackArchiveEntry entry) {
+            return entry.displayName;
         }
 
-        private boolean hasLink(PackArchiveEntry entry, String key) {
-            String value = entry.metadata.links.get(key);
-            return value != null && !value.isBlank();
-        }
-
-        private String actionText(PackArchiveGroup group) {
+        @Override
+        public String actionText(PackArchiveGroup group) {
             PackArchiveEntry entry = group.displayEntry();
             DlcPackMeta installed = installedByIdentifier.get(entry.metadata.identifier);
-            int compare = installed == null ? 0 : DlcPackMetadata.compareVersionStrings(entry.metadata.version, installed.version);
-            if (Objects.equals(pendingInstalls.get(entry.metadata.identifier), entry)) {
-                if (installed == null) {
-                    return DlcFxI18n.tr("dlc_manager.pack.pending_install");
-                }
-                if (compare > 0) {
-                    return DlcFxI18n.tr("dlc_manager.pack.pending_upgrade");
-                }
-                if (compare < 0) {
-                    return DlcFxI18n.tr("dlc_manager.pack.pending_downgrade");
-                }
-                return DlcFxI18n.tr("dlc_manager.pack.pending_install");
-            }
-            if (pendingUninstalls.contains(entry.metadata.identifier)) {
-                return DlcFxI18n.tr("dlc_manager.pack.pending_uninstall");
-            }
-            if (installed != null && compare == 0) {
-                return DlcFxI18n.tr("dlc_manager.pack.uninstall");
-            }
-            if (installed != null) {
-                return compare > 0 ? DlcFxI18n.tr("dlc_manager.pack.upgrade") : DlcFxI18n.tr("dlc_manager.pack.downgrade");
-            }
-            return DlcFxI18n.tr("dlc_manager.pack.install");
+            DlcFxPackPendingActionModel.Action action = pendingModel.actionWithInstalledVersion(entry, installed == null ? null : installed.version);
+            return DlcFxI18n.tr(DlcFxPackPendingActionModel.translationKey(action));
         }
 
-        private String versionText(PackArchiveGroup group) {
-            PackArchiveEntry entry = group.displayEntry();
-            return versionOptionText(entry);
+        @Override
+        public void onPrimaryPress(PackArchiveGroup group, PackArchiveEntry entry, int rowIndex) {
+            selectedIndex = rowIndex;
+        }
+
+        @Override
+        public void openHomepage(PackArchiveEntry entry) {
+            confirmOpenLink(entry, "homepage");
+        }
+
+        @Override
+        public void moveUp(PackArchiveGroup group) {
+            moveGroup(group, -1);
+        }
+
+        @Override
+        public void moveDown(PackArchiveGroup group) {
+            moveGroup(group, 1);
+        }
+
+        @Override
+        public void toggleInstall(PackArchiveGroup group) {
+            DlcFxLocalPackTab.this.toggleInstall(group);
+        }
+
+        @Override
+        public void deleteArchive(PackArchiveGroup group) {
+            confirmDeleteArchive(group);
+        }
+
+        @Override
+        public void openIssue(PackArchiveEntry entry) {
+            confirmOpenLink(entry, "issue");
+        }
+
+        @Override
+        public void openSponsor(PackArchiveEntry entry) {
+            confirmOpenLink(entry, "sponsor");
+        }
+
+        private PackArchiveEntry entryByKey(PackArchiveGroup group, String key) {
+            if (group != null) {
+                for (PackArchiveEntry entry : group.versions()) {
+                    if (entry != null && entry.key().equals(key)) {
+                        return entry;
+                    }
+                }
+            }
+            return group == null ? null : group.displayEntry();
         }
 
         private String versionOptionText(PackArchiveEntry entry) {

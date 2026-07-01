@@ -1,4 +1,6 @@
-package com.cozooo.dlc_manager.ui;
+package com.cozooo.dlc_manager.ui.common;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxTooltips;
 
 import javafx.scene.input.MouseButton;
 import javafx.scene.Node;

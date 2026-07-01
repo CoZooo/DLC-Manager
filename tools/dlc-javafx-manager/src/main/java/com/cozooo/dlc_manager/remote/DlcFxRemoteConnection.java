@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.remote;
 
-import com.cozooo.dlc_manager.ui.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 
 import com.cozooo.dlc_manager.tools.externalsync.DlcTcpFacade;
 import com.cozooo.dlc_manager.tools.externalsync.ExternalSyncException;
@@ -67,7 +67,7 @@ public final class DlcFxRemoteConnection {
                 Platform.runLater(() -> {
                     connected.set(true);
                     connectionState.set(ConnectionState.CONNECTED);
-                    statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, port));
+                    statusText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
                     serverInfoText.set(DlcFxI18n.tr("dlc_manager.remote.server_info_value",
                             info.baseVersion, info.dlcVersion, info.remoteMissing, info.requiredMissing));
                     onDone.accept(null);
@@ -105,7 +105,7 @@ public final class DlcFxRemoteConnection {
         ConnectionState state = connectionState.get();
         if (state == ConnectionState.CONNECTED) {
             String host = connectedHost == null ? "" : connectedHost;
-            statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, connectedPort));
+            statusText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
             SyncModels.ServerInfo info = lastServerInfo;
             if (info != null) {
                 serverInfoText.set(DlcFxI18n.tr("dlc_manager.remote.server_info_value",
