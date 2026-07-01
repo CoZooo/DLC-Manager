@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
@@ -27,10 +27,10 @@ import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class DlcFxRemoteHotUpdateTab {
+public final class DlcFxServerUpdateTab {
     private static final Gson GSON = new Gson();
 
-    private final DlcFxRemoteConnection conn;
+    private final DlcFxServerConnection conn;
     private final DlcFxUpdateActionFlow actionFlow;
     private final DlcFxUpdateToolbarFlow toolbarFlow;
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
@@ -38,7 +38,7 @@ public final class DlcFxRemoteHotUpdateTab {
     private DlcFxUpdateShell<DlcUpdateRowPlanner.UpdateRow> shell;
     private boolean loadedForCurrentConnection;
 
-    public DlcFxRemoteHotUpdateTab(DlcFxRemoteConnection conn) {
+    public DlcFxServerUpdateTab(DlcFxServerConnection conn) {
         this.conn = conn;
         this.actionFlow = new DlcFxUpdateActionFlow(new RemoteUpdateActions());
         this.toolbarFlow = new DlcFxUpdateToolbarFlow(new RemoteUpdateToolbarActions());
@@ -93,7 +93,7 @@ public final class DlcFxRemoteHotUpdateTab {
             setBusy(false, null);
             loadedForCurrentConnection = true;
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);
         });
     }
@@ -112,7 +112,7 @@ public final class DlcFxRemoteHotUpdateTab {
             setBusy(false, null);
             refreshState();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);
         });
     }
@@ -146,7 +146,7 @@ public final class DlcFxRemoteHotUpdateTab {
             setBusy(false, null);
             refreshState();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);
         });
     }
@@ -182,7 +182,7 @@ public final class DlcFxRemoteHotUpdateTab {
             setBusy(false, null);
             refreshState();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);
         });
     }
@@ -224,7 +224,7 @@ public final class DlcFxRemoteHotUpdateTab {
             setBusy(false, null);
             refreshState();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);
         });
     }

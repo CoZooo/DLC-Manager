@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
@@ -33,16 +33,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
-public final class DlcFxRemoteServerConnectionTab {
+public final class DlcFxServerConnectionTab {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Preferences PREFS = Preferences.userNodeForPackage(DlcFxRemoteServerConnectionTab.class);
+    private static final Preferences PREFS = Preferences.userNodeForPackage(DlcFxServerConnectionTab.class);
     private static final String PREF_NAME = "remote.server.name";
     private static final String PREF_HOST = "remote.server.host";
     private static final String PREF_PORT = "remote.server.port";
     private static final String PREF_PASSWORD = "remote.server.password";
 
-    private final DlcFxRemoteConnection conn;
+    private final DlcFxServerConnection conn;
     private final Stage primaryStage;
     private final TextField nameField = new TextField();
     private final TextField hostField = new TextField("127.0.0.1");
@@ -55,7 +55,7 @@ public final class DlcFxRemoteServerConnectionTab {
     private boolean applyingPreset;
     private boolean loadingConnectionState;
 
-    public DlcFxRemoteServerConnectionTab(DlcFxRemoteConnection conn, Stage primaryStage) {
+    public DlcFxServerConnectionTab(DlcFxServerConnection conn, Stage primaryStage) {
         this.conn = conn;
         this.primaryStage = primaryStage;
         nameField.setPrefColumnCount(14);
@@ -256,7 +256,7 @@ public final class DlcFxRemoteServerConnectionTab {
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.imported", imported.servers == null ? 0 : imported.servers.size()));
             saveConnectionState();
         } catch (Throwable t) {
-            presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.import_failed", DlcFxRemoteConnection.safeMessage(t)));
+            presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.import_failed", DlcFxServerConnection.safeMessage(t)));
         }
     }
 
@@ -279,7 +279,7 @@ public final class DlcFxRemoteServerConnectionTab {
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.exported", data.servers.size()));
             saveConnectionState();
         } catch (Throwable t) {
-            presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.export_failed", DlcFxRemoteConnection.safeMessage(t)));
+            presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.export_failed", DlcFxServerConnection.safeMessage(t)));
         }
     }
 

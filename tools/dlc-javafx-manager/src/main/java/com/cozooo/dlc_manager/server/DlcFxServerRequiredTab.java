@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.required.DlcFxRequiredActionFlow;
@@ -23,8 +23,8 @@ import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class DlcFxRemoteRequiredTab {
-    private final DlcFxRemoteConnection conn;
+public final class DlcFxServerRequiredTab {
+    private final DlcFxServerConnection conn;
     private final ObservableList<Row> rows = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label countLabel = new Label("");
@@ -38,7 +38,7 @@ public final class DlcFxRemoteRequiredTab {
     private DlcFxRequiredListShell<Row> shell;
     private boolean loadedForCurrentConnection;
 
-    public DlcFxRemoteRequiredTab(DlcFxRemoteConnection conn) {
+    public DlcFxServerRequiredTab(DlcFxServerConnection conn) {
         this.conn = conn;
         conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
     }
@@ -96,7 +96,7 @@ public final class DlcFxRemoteRequiredTab {
             setBusy(false);
             loadedForCurrentConnection = true;
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false);
         });
     }
@@ -107,12 +107,12 @@ public final class DlcFxRemoteRequiredTab {
         beginOperation(ids);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.starting_download"));
         conn.runAsync(f -> f.requiredDownloadStart(ids), response -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_started", DlcFxRemoteDownloadTab.summarizeStatus(response)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_started", DlcFxServerDownloadTab.summarizeStatus(response)));
             shell.clearSelection();
             applyDownloadStatus(response);
             pollDownloadStatus();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             operationModel.reset();
             setBusy(false);
             shell.setCancelVisible(false);
@@ -131,12 +131,12 @@ public final class DlcFxRemoteRequiredTab {
         setBusy(true);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
         conn.runAsync(f -> f.requiredApply(ids), response -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applied_value", DlcFxRemoteDownloadTab.summarizeStatus(response)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applied_value", DlcFxServerDownloadTab.summarizeStatus(response)));
             shell.clearSelection();
             setBusy(false);
             refresh();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false);
         });
     }
@@ -145,12 +145,12 @@ public final class DlcFxRemoteRequiredTab {
         setBusy(true);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.uninstalling"));
         conn.runAsync(f -> f.requiredUninstall(ids), response -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.uninstalled_value", DlcFxRemoteDownloadTab.summarizeStatus(response)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.uninstalled_value", DlcFxServerDownloadTab.summarizeStatus(response)));
             shell.clearSelection();
             setBusy(false);
             refresh();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false);
         });
     }
@@ -159,14 +159,14 @@ public final class DlcFxRemoteRequiredTab {
         operationModel.requestCancelAll();
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.canceling"));
         conn.runAsync(f -> f.requiredDownloadCancel(), response -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.canceled_value", DlcFxRemoteDownloadTab.summarizeStatus(response)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.canceled_value", DlcFxServerDownloadTab.summarizeStatus(response)));
             pollingDownloadStatus = false;
             operationModel.reset();
             shell.setCancelVisible(false);
             setBusy(false);
             refresh();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false);
             shell.setCancelVisible(false);
         });
@@ -214,7 +214,7 @@ public final class DlcFxRemoteRequiredTab {
                     break;
                 } catch (Throwable t) {
                     javafx.application.Platform.runLater(() -> {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(t)));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(t)));
                         operationModel.reset();
                         shell.setCancelVisible(false);
                         setBusy(false);
@@ -269,7 +269,7 @@ public final class DlcFxRemoteRequiredTab {
             progressBar.setProgress(-1);
             totalProgressLabel.setText(total > 0 ? completed + "/" + total : "");
         }
-        statusLabel.setText(DlcFxRemoteDownloadTab.summarizeStatus(response));
+        statusLabel.setText(DlcFxServerDownloadTab.summarizeStatus(response));
         shell.refreshRows();
     }
 
@@ -422,7 +422,7 @@ public final class DlcFxRemoteRequiredTab {
         @Override
         public void uninstall(Row row) {
             if (row != null && row.id != null && !row.id.isBlank()) {
-                DlcFxRemoteRequiredTab.this.uninstall(List.of(row.id));
+                DlcFxServerRequiredTab.this.uninstall(List.of(row.id));
             }
         }
 

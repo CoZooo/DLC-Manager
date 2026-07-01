@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 
@@ -15,7 +15,7 @@ import javafx.beans.property.StringProperty;
 
 import java.util.function.Consumer;
 
-public final class DlcFxRemoteConnection {
+public final class DlcFxServerConnection {
 
     public enum ConnectionState {
         DISCONNECTED,
@@ -24,7 +24,7 @@ public final class DlcFxRemoteConnection {
         FAILED
     }
 
-    public DlcFxRemoteConnection() {
+    public DlcFxServerConnection() {
     }
 
     private final BooleanProperty connected = new SimpleBooleanProperty(false);

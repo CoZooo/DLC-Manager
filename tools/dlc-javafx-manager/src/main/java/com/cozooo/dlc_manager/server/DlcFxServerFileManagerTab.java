@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.ui.common.DlcFxActionPanel;
 import com.cozooo.dlc_manager.ui.common.DlcFxConfirmDialogs;
@@ -36,19 +36,19 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
-public final class DlcFxRemoteFileManagerTab {
+public final class DlcFxServerFileManagerTab {
 
-    private final DlcFxRemoteConnection conn;
+    private final DlcFxServerConnection conn;
     private final ObservableList<String> entries = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label pathLabel = new Label("/");
     private String currentPath = "";
     private boolean loadedForCurrentConnection;
-    private DlcFxRemoteSyncTab syncTab;
+    private DlcFxServerSyncTab syncTab;
 
     private final Stage primaryStage;
 
-    public DlcFxRemoteFileManagerTab(DlcFxRemoteConnection conn, Stage primaryStage) {
+    public DlcFxServerFileManagerTab(DlcFxServerConnection conn, Stage primaryStage) {
         this.conn = conn;
         this.primaryStage = primaryStage;
         conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
@@ -68,7 +68,7 @@ public final class DlcFxRemoteFileManagerTab {
             conn.runAsync(f -> f.listFiles(currentPath), list -> {
                 entries.setAll(formatEntries(list));
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", list.size()));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err))));
         });
 
         HBox topBox = DlcFxToolbar.create(new Label(DlcFxI18n.tr("dlc_manager.server.files_path")), pathField, listBtn, pathLabel, statusLabel);
@@ -122,7 +122,7 @@ public final class DlcFxRemoteFileManagerTab {
                 conn.runAsync(c -> c.listFiles(currentPath), list -> {
                     entries.setAll(formatEntries(list));
                 }, err -> {});
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.upload_failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.upload_failed", DlcFxServerConnection.safeMessage(err))));
         });
 
         downloadBtn.setOnAction(e -> {
@@ -142,7 +142,7 @@ public final class DlcFxRemoteFileManagerTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.downloading_short"));
             conn.runAsync(client -> client.downloadFile(remotePath, dir.toPath()), saved -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.download_done", saved));
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_failed", DlcFxServerConnection.safeMessage(err))));
         });
 
         deleteBtn.setOnAction(e -> {
@@ -162,7 +162,7 @@ public final class DlcFxRemoteFileManagerTab {
             conn.runAsync(client -> { client.deleteFile(remotePath); return true; }, ok -> {
                 statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.deleted", remotePath));
                 conn.runAsync(c -> c.listFiles(currentPath), list -> entries.setAll(formatEntries(list)), err -> {});
-            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", DlcFxServerConnection.safeMessage(err))));
         });
 
         pushBtn.setOnAction(e -> {
@@ -177,7 +177,7 @@ public final class DlcFxRemoteFileManagerTab {
             conn.runAsync(client -> {
                 pushDirectory(client, dir.toPath());
                 return true;
-            }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.push_failed", DlcFxRemoteConnection.safeMessage(err))));
+            }, ok -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.push_done")), err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.files.push_failed", DlcFxServerConnection.safeMessage(err))));
         });
 
         ToggleGroup actionGroup = new ToggleGroup();
@@ -226,7 +226,7 @@ public final class DlcFxRemoteFileManagerTab {
                             java.util.function.BooleanSupplier gameDirSelectedSupplier,
                             Runnable chooseGameDirAction,
                             Runnable readLocalFilesAction) {
-        syncTab = new DlcFxRemoteSyncTab(gameDirTextSupplier, gameDirSelectedSupplier, chooseGameDirAction, readLocalFilesAction);
+        syncTab = new DlcFxServerSyncTab(gameDirTextSupplier, gameDirSelectedSupplier, chooseGameDirAction, readLocalFilesAction);
         return syncTab.build();
     }
 
@@ -266,7 +266,7 @@ public final class DlcFxRemoteFileManagerTab {
         }
     }
 
-    private void pushDirectory(DlcFxRemoteConnection conn2, Path dir) {
+    private void pushDirectory(DlcFxServerConnection conn2, Path dir) {
     }
 
     private void pushDirectory(com.cozooo.dlc_manager.tools.externalsync.DlcTcpFacade facade, Path dir) throws Exception {

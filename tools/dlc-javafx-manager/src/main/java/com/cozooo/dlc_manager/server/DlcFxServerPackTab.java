@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
@@ -52,10 +52,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class DlcFxRemotePackTab {
+public final class DlcFxServerPackTab {
     private static final Gson GSON = new Gson();
 
-    private final DlcFxRemoteConnection conn;
+    private final DlcFxServerConnection conn;
     private final ObservableList<DlcFxServerPackListModel.Group> groups = FXCollections.observableArrayList();
     private final Map<String, String> selectedVersionByIdentifier = new LinkedHashMap<>();
     private final DlcFxPackPendingActionModel<DlcFxServerPackListModel.Entry> pendingModel =
@@ -86,7 +86,7 @@ public final class DlcFxRemotePackTab {
     private boolean paused;
     private boolean loadedForCurrentConnection;
 
-    public DlcFxRemotePackTab(DlcFxRemoteConnection conn) {
+    public DlcFxServerPackTab(DlcFxServerConnection conn) {
         this.conn = conn;
         this.applyFlow = new DlcFxPackApplyFlow(new RemotePackApplyActions());
         this.deleteFlow = new DlcFxPackDeleteFlow<>(new RemotePackDeleteActions());
@@ -152,7 +152,7 @@ public final class DlcFxRemotePackTab {
             setBusy(false, null);
             loadedForCurrentConnection = true;
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err)));
             setBusy(false, null);
         });
     }
@@ -217,7 +217,7 @@ public final class DlcFxRemotePackTab {
             setBusy(false, null);
             refreshList();
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", DlcFxServerConnection.safeMessage(err)));
             setBusy(false, null);
         });
     }
@@ -235,7 +235,7 @@ public final class DlcFxRemotePackTab {
             refreshRows();
             updateActionButtons();
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.apply_failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.apply_failed", DlcFxServerConnection.safeMessage(err)));
             setBusy(false, null);
         });
     }
@@ -248,7 +248,7 @@ public final class DlcFxRemotePackTab {
             applyStatus(parseStatus(response));
             pollApplyStatus();
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.apply_failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.apply_failed", DlcFxServerConnection.safeMessage(err)));
             setBusy(false, null);
         });
     }
@@ -293,7 +293,7 @@ public final class DlcFxRemotePackTab {
                     break;
                 } catch (Throwable t) {
                     Platform.runLater(() -> {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.apply_failed", DlcFxRemoteConnection.safeMessage(t)));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.apply_failed", DlcFxServerConnection.safeMessage(t)));
                         setBusy(false, null);
                     });
                     break;
@@ -323,14 +323,14 @@ public final class DlcFxRemotePackTab {
     private void pauseApply() {
         paused = true;
         conn.runAsync(f -> f.packApplyPause(), this::applyStatusResponse, err ->
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err))));
         updateBusyButtons();
     }
 
     private void resumeApply() {
         paused = false;
         conn.runAsync(f -> f.packApplyResume(), this::applyStatusResponse, err ->
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err))));
         updateBusyButtons();
     }
 
@@ -342,7 +342,7 @@ public final class DlcFxRemotePackTab {
         if (busy) {
             cancelRequested = true;
             conn.runAsync(f -> f.packApplyCancel(), this::applyStatusResponse, err ->
-                statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err))));
+                statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err))));
             updateBusyButtons();
             return;
         }
@@ -381,7 +381,7 @@ public final class DlcFxRemotePackTab {
             setBusy(false, null);
             refreshList();
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err)));
             setBusy(false, null);
         });
     }
@@ -417,7 +417,7 @@ public final class DlcFxRemotePackTab {
             setBusy(false, null);
             refreshList();
         }, err -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err)));
             setBusy(false, null);
         });
     }
@@ -651,7 +651,7 @@ public final class DlcFxRemotePackTab {
 
         @Override
         public boolean hasPendingChanges() {
-            return DlcFxRemotePackTab.this.hasPendingChanges();
+            return DlcFxServerPackTab.this.hasPendingChanges();
         }
 
         @Override
@@ -718,7 +718,7 @@ public final class DlcFxRemotePackTab {
         @Override
         public String displayName(DlcFxServerPackListModel.Group group) {
             DlcFxServerPackListModel.Entry entry = group == null ? null : group.displayEntry();
-            return DlcFxRemotePackTab.this.displayName(entry);
+            return DlcFxServerPackTab.this.displayName(entry);
         }
 
         @Override
@@ -893,7 +893,7 @@ public final class DlcFxRemotePackTab {
 
         @Override
         public String actionText(DlcFxServerPackListModel.Group group) {
-            return DlcFxRemotePackTab.this.actionText(group);
+            return DlcFxServerPackTab.this.actionText(group);
         }
 
         @Override
@@ -913,7 +913,7 @@ public final class DlcFxRemotePackTab {
 
         @Override
         public void toggleInstall(DlcFxServerPackListModel.Group group) {
-            DlcFxRemotePackTab.this.toggleInstall(group);
+            DlcFxServerPackTab.this.toggleInstall(group);
         }
 
         @Override

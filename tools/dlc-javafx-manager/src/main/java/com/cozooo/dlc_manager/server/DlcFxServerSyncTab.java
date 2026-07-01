@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
@@ -15,7 +15,7 @@ import javafx.scene.layout.VBox;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
-public final class DlcFxRemoteSyncTab {
+public final class DlcFxServerSyncTab {
 
     private final Supplier<String> gameDirTextSupplier;
     private final BooleanSupplier gameDirSelectedSupplier;
@@ -25,7 +25,7 @@ public final class DlcFxRemoteSyncTab {
     private final Button readLocalButton = new Button(DlcFxI18n.tr("dlc_manager.remote.read_local_files"));
     private final Button chooseDirButton = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));
 
-    public DlcFxRemoteSyncTab(Supplier<String> gameDirTextSupplier,
+    public DlcFxServerSyncTab(Supplier<String> gameDirTextSupplier,
                               BooleanSupplier gameDirSelectedSupplier,
                               Runnable chooseGameDirAction,
                               Runnable readLocalFilesAction) {

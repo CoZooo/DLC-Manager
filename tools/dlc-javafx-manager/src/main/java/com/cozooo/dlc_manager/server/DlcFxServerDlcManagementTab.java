@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.tools.externalsync.ApplyOutcome;
@@ -34,9 +34,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public final class DlcFxRemoteDlcManagementTab {
+public final class DlcFxServerDlcManagementTab {
 
-    private final DlcFxRemoteConnection conn;
+    private final DlcFxServerConnection conn;
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final ProgressBar progressBar = new ProgressBar(0);
     private final Button refreshBtn = DlcFxPageActions.primary(DlcFxI18n.tr("dlc_manager.local.scan_dlc"), null);
@@ -45,7 +45,7 @@ public final class DlcFxRemoteDlcManagementTab {
     private DlcFxDlcManagementFlow<SyncModels.ServerItem> flow;
     private boolean loadedForCurrentConnection;
 
-    public DlcFxRemoteDlcManagementTab(DlcFxRemoteConnection conn) {
+    public DlcFxServerDlcManagementTab(DlcFxServerConnection conn) {
         this.conn = conn;
         conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
     }
@@ -100,7 +100,7 @@ public final class DlcFxRemoteDlcManagementTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", info.items.size()));
         }, err -> {
             shell.setBusy(false);
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", DlcFxServerConnection.safeMessage(err)));
         });
     }
 
@@ -125,7 +125,7 @@ public final class DlcFxRemoteDlcManagementTab {
                     : DlcFxI18n.tr("dlc_manager.remote.applied"));
         }, err -> {
             shell.setBusy(false);
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", DlcFxRemoteConnection.safeMessage(err)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", DlcFxServerConnection.safeMessage(err)));
         });
     }
 
@@ -385,8 +385,8 @@ public final class DlcFxRemoteDlcManagementTab {
                         right,
                         conflict.leftId(),
                         conflict.rightId(),
-                        DlcFxRemoteDlcManagementTab.this.displayName(conflict.leftId()),
-                        DlcFxRemoteDlcManagementTab.this.displayName(conflict.rightId())
+                        DlcFxServerDlcManagementTab.this.displayName(conflict.leftId()),
+                        DlcFxServerDlcManagementTab.this.displayName(conflict.rightId())
                 ));
             }
             return new DlcFxDlcManagementFlow.ConflictBatch<>(lines);
@@ -408,8 +408,8 @@ public final class DlcFxRemoteDlcManagementTab {
                 lines.add(new DlcFxDlcManagementFlow.DependencyLine<>(
                         itemById(dependency.itemId()),
                         itemById(dependency.dependencyId()),
-                        DlcFxRemoteDlcManagementTab.this.displayName(dependency.itemId()),
-                        DlcFxRemoteDlcManagementTab.this.displayName(dependency.dependencyId())
+                        DlcFxServerDlcManagementTab.this.displayName(dependency.itemId()),
+                        DlcFxServerDlcManagementTab.this.displayName(dependency.dependencyId())
                 ));
             }
             return new DlcFxDlcManagementFlow.DependencyBatch<>(lines, itemsByIds(new ArrayList<>(dependencyIds)));

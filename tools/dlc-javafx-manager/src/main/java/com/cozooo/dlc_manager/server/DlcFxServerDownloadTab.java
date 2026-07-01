@@ -1,4 +1,4 @@
-package com.cozooo.dlc_manager.remote;
+package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
@@ -24,8 +24,8 @@ import javafx.scene.layout.VBox;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class DlcFxRemoteDownloadTab {
-    private final DlcFxRemoteConnection conn;
+public final class DlcFxServerDownloadTab {
+    private final DlcFxServerConnection conn;
     private final ObservableList<Row> rows = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label countLabel = new Label("");
@@ -38,7 +38,7 @@ public final class DlcFxRemoteDownloadTab {
     private DlcFxRemoteDownloadShell<Row> shell;
     private boolean loadedForCurrentConnection;
 
-    public DlcFxRemoteDownloadTab(DlcFxRemoteConnection conn) {
+    public DlcFxServerDownloadTab(DlcFxServerConnection conn) {
         this.conn = conn;
         conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
     }
@@ -89,7 +89,7 @@ public final class DlcFxRemoteDownloadTab {
             setBusy(false);
             loadedForCurrentConnection = true;
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false);
         });
     }
@@ -104,7 +104,7 @@ public final class DlcFxRemoteDownloadTab {
             shell.clearSelection();
             pollDownloadStatus();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             operationModel.reset();
             shell.setCancelVisible(false);
             setBusy(false);
@@ -134,7 +134,7 @@ public final class DlcFxRemoteDownloadTab {
             setBusy(false);
             refresh();
         }, error -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(error)));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             shell.setCancelVisible(false);
             setBusy(false);
         });
@@ -161,7 +161,7 @@ public final class DlcFxRemoteDownloadTab {
                     break;
                 } catch (Throwable t) {
                     javafx.application.Platform.runLater(() -> {
-                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxRemoteConnection.safeMessage(t)));
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(t)));
                         setBusy(false);
                     });
                     break;
@@ -371,7 +371,7 @@ public final class DlcFxRemoteDownloadTab {
                     .map(row -> row.id)
                     .filter(id -> id != null && !id.isBlank())
                     .toList();
-            DlcFxRemoteDownloadTab.this.startDownload(ids);
+            DlcFxServerDownloadTab.this.startDownload(ids);
         }
 
         @Override
