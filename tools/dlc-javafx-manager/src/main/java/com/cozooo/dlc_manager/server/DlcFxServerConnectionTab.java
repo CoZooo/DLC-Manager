@@ -1,7 +1,6 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
-import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
@@ -144,22 +143,19 @@ public final class DlcFxServerConnectionTab {
         saveConnectionState();
         conn.connectAsync(host, port, password, 10000, err -> {
             if (err == null) {
-                DlcServerList.load();
-                DlcServerList.setLastSelectedKey(serverKey(host, port));
-                DlcServerList.save();
+                DlcFxServerPresetStore.setLastSelectedKey(serverKey(host, port));
             }
         });
     }
 
     private void loadPresets() {
-        DlcServerList.load();
-        refreshPresetOptions(DlcServerList.getLastSelectedKey());
+        refreshPresetOptions(DlcFxServerPresetStore.getLastSelectedKey());
     }
 
     private void refreshPresetOptions(String selectedKey) {
         applyingPreset = true;
         try {
-            presetOptions.setAll(DlcServerList.getEntries().stream()
+            presetOptions.setAll(DlcFxServerPresetStore.getEntries().stream()
                     .map(ServerPresetOption::new)
                     .toList());
             ServerPresetOption selected = null;
@@ -189,8 +185,7 @@ public final class DlcFxServerConnectionTab {
             return;
         }
         fillFields(option.entry());
-        DlcServerList.setLastSelectedKey(option.entry().getKey());
-        DlcServerList.save();
+        DlcFxServerPresetStore.setLastSelectedKey(option.entry().getKey());
         presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.loaded", option.entry().getDisplayName()));
         saveConnectionState();
     }
@@ -207,11 +202,9 @@ public final class DlcFxServerConnectionTab {
 
     private void saveCurrentPreset() {
         DlcServerEntry entry = currentEntry();
-        DlcServerList.load();
-        List<DlcServerEntry> merged = upsertByKey(DlcServerList.getEntries(), List.of(entry));
-        DlcServerList.setEntries(merged);
-        DlcServerList.setLastSelectedKey(entry.getKey());
-        DlcServerList.save();
+        List<DlcServerEntry> merged = upsertByKey(DlcFxServerPresetStore.getEntries(), List.of(entry));
+        DlcFxServerPresetStore.setEntries(merged);
+        DlcFxServerPresetStore.setLastSelectedKey(entry.getKey());
         refreshPresetOptions(entry.getKey());
         presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.saved", entry.getDisplayName()));
         saveConnectionState();
@@ -223,12 +216,10 @@ public final class DlcFxServerConnectionTab {
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.select_first"));
             return;
         }
-        DlcServerList.load();
-        DlcServerList.removeEntry(option.entry().getKey());
-        if (option.entry().getKey().equals(DlcServerList.getLastSelectedKey())) {
-            DlcServerList.setLastSelectedKey(null);
+        DlcFxServerPresetStore.removeEntry(option.entry().getKey());
+        if (option.entry().getKey().equals(DlcFxServerPresetStore.getLastSelectedKey())) {
+            DlcFxServerPresetStore.setLastSelectedKey(null);
         }
-        DlcServerList.save();
         refreshPresetOptions(null);
         presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.deleted", option.entry().getDisplayName()));
         saveConnectionState();
@@ -244,14 +235,12 @@ public final class DlcFxServerConnectionTab {
         }
         try {
             ServerPresetData imported = readPresetData(file.toPath());
-            DlcServerList.load();
-            List<DlcServerEntry> merged = upsertByKey(DlcServerList.getEntries(), imported.servers == null ? List.of() : imported.servers);
-            DlcServerList.setEntries(merged);
+            List<DlcServerEntry> merged = upsertByKey(DlcFxServerPresetStore.getEntries(), imported.servers == null ? List.of() : imported.servers);
+            DlcFxServerPresetStore.setEntries(merged);
             String selected = imported.lastSelected == null || imported.lastSelected.isBlank()
-                    ? DlcServerList.getLastSelectedKey()
+                    ? DlcFxServerPresetStore.getLastSelectedKey()
                     : imported.lastSelected;
-            DlcServerList.setLastSelectedKey(selected);
-            DlcServerList.save();
+            DlcFxServerPresetStore.setLastSelectedKey(selected);
             refreshPresetOptions(selected);
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.imported", imported.servers == null ? 0 : imported.servers.size()));
             saveConnectionState();
@@ -270,10 +259,9 @@ public final class DlcFxServerConnectionTab {
             return;
         }
         try {
-            DlcServerList.load();
             ServerPresetData data = new ServerPresetData();
-            data.servers = new ArrayList<>(DlcServerList.getEntries());
-            data.lastSelected = DlcServerList.getLastSelectedKey();
+            data.servers = new ArrayList<>(DlcFxServerPresetStore.getEntries());
+            data.lastSelected = DlcFxServerPresetStore.getLastSelectedKey();
             JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
             DlcDcConfigIO.write(file.toPath(), root, DlcDcConfigIO.Layout.GENERIC);
             presetStatusLabel.setText(DlcFxI18n.tr("dlc_manager.server_preset.exported", data.servers.size()));

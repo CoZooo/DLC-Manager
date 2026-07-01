@@ -171,7 +171,6 @@
   "dlc_manager.remote.restart_required_tag": "[需要重启服务器]",
   "dlc_manager.remote.selected_present": "所选条目均已存在",
   "dlc_manager.remote.server_info": "服务器信息",
-  "dlc_manager.remote.server_info_value": "base=%s  dlc=%s  缺失：remote=%d required=%d",
   "dlc_manager.remote_required.apply_required": "应用必要资源",
   "dlc_manager.remote_required.download_all": "下载全部缺失",
   "dlc_manager.remote_required.download_status": "显示下载状态",

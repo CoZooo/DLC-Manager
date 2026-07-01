@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 
 import com.cozooo.dlc_manager.tools.externalsync.DlcTcpFacade;
 import com.cozooo.dlc_manager.tools.externalsync.ExternalSyncException;
@@ -67,9 +68,8 @@ public final class DlcFxServerConnection {
                 Platform.runLater(() -> {
                     connected.set(true);
                     connectionState.set(ConnectionState.CONNECTED);
-                    statusText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
-                    serverInfoText.set(DlcFxI18n.tr("dlc_manager.remote.server_info_value",
-                            info.baseVersion, info.dlcVersion, info.remoteMissing, info.requiredMissing));
+                    statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, port));
+                    serverInfoText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
                     onDone.accept(null);
                 });
             } catch (Throwable t) {
@@ -105,12 +105,9 @@ public final class DlcFxServerConnection {
         ConnectionState state = connectionState.get();
         if (state == ConnectionState.CONNECTED) {
             String host = connectedHost == null ? "" : connectedHost;
-            statusText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
-            SyncModels.ServerInfo info = lastServerInfo;
-            if (info != null) {
-                serverInfoText.set(DlcFxI18n.tr("dlc_manager.remote.server_info_value",
-                        info.baseVersion, info.dlcVersion, info.remoteMissing, info.requiredMissing));
-            }
+            int port = connectedPort;
+            statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, port));
+            serverInfoText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
         } else if (state == ConnectionState.CONNECTING) {
             statusText.set(DlcFxI18n.tr("dlc_manager.server.connecting"));
             serverInfoText.set("");

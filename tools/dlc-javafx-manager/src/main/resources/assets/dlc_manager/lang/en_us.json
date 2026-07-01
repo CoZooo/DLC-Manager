@@ -171,7 +171,6 @@
   "dlc_manager.remote.restart_required_tag": "[Server restart required]",
   "dlc_manager.remote.selected_present": "Selected items already exist",
   "dlc_manager.remote.server_info": "Server Info",
-  "dlc_manager.remote.server_info_value": "base=%s  dlc=%s  missing: remote=%d required=%d",
   "dlc_manager.remote_required.apply_required": "Apply Required Resources",
   "dlc_manager.remote_required.download_all": "Download All Missing",
   "dlc_manager.remote_required.download_status": "Show Download Status",

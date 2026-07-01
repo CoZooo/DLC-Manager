@@ -78,7 +78,6 @@ def reusedCommonJavaFiles = [
     'com/cozooo/dlc_manager/client/server/DlcServerFileEntry.java',
     'com/cozooo/dlc_manager/client/server/DlcServerInfo.java',
     'com/cozooo/dlc_manager/client/server/DlcServerItem.java',
-    'com/cozooo/dlc_manager/client/server/DlcServerList.java',
     'com/cozooo/dlc_manager/client/server/DlcServerPackApplyStatus.java',
     'com/cozooo/dlc_manager/client/server/DlcServerPackInfo.java',
     'com/cozooo/dlc_manager/client/server/DlcServerRconConfig.java',
