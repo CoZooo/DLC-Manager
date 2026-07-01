@@ -231,6 +231,8 @@ public class DlcServerService {
                     handleRemoteDownloadStart(request, writer, clientLang);
                 } else if ("remote_download_status".equals(type)) {
                     handleRemoteDownloadStatus(writer, clientLang);
+                } else if ("remote_download_cancel".equals(type)) {
+                    handleRemoteDownloadCancel(writer);
                 } else if ("remote_download".equals(type)) {
                     handleRemoteDownload(writer);
                 } else if ("required_list".equals(type)) {
@@ -514,6 +516,15 @@ public class DlcServerService {
         response.addProperty("type", "remote_download_status");
         response.addProperty("ok", true);
         response.add("status", GSON.toJsonTree(status));
+        writeLine(writer, response);
+    }
+
+    private static void handleRemoteDownloadCancel(BufferedWriter writer) throws IOException {
+        boolean canceled = DlcServerDownloadService.cancelRemoteDownload();
+        JsonObject response = new JsonObject();
+        response.addProperty("type", "remote_download_cancel");
+        response.addProperty("ok", true);
+        response.addProperty("canceled", canceled);
         writeLine(writer, response);
     }
 

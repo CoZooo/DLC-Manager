@@ -89,6 +89,10 @@ class ExternalSyncCliTest {
             try (DlcTcpClient client = DlcTcpClient.connect(config)) {
                 SyncModels.ServerInfo info = client.fetchList();
                 assertEquals("dlc-test", info.dlcVersion);
+                assertEquals(List.of("beta"), info.items.get(0).dependencies);
+                assertEquals(List.of("old-alpha"), info.items.get(0).conflicts);
+                assertTrue(info.items.get(0).alarm);
+                assertFalse(info.items.get(0).allowEnableByAll);
                 assertEquals("existing.jar", client.listFiles("mods").get(0).name);
                 client.uploadFile("mods/upload.jar", upload);
                 assertFalse(client.apply());
@@ -107,7 +111,7 @@ class ExternalSyncCliTest {
             writeJson(writer, "{\"type\":\"hello\",\"ok\":true}");
 
             assertEquals("list", readJson(reader).get("type").getAsString());
-            writeJson(writer, "{\"type\":\"list\",\"base\":\"base-test\",\"dlc\":\"dlc-test\",\"items\":[]}");
+            writeJson(writer, "{\"type\":\"list\",\"base\":\"base-test\",\"dlc\":\"dlc-test\",\"items\":[{\"id\":\"alpha\",\"dependencies\":[\"beta\"],\"conflicts\":[\"old-alpha\"],\"alarm\":true,\"allowEnableByAll\":false}]}");
 
             JsonObject fileList = readJson(reader);
             assertEquals("file_list", fileList.get("type").getAsString());

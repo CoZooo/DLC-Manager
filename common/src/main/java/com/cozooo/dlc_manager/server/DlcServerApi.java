@@ -206,6 +206,10 @@ public final class DlcServerApi {
                     handleRemoteDownloadStatus(exchange);
                     return;
                 }
+                if ("POST".equals(method) && "/api/remote/download/cancel".equals(path)) {
+                    handleRemoteDownloadCancel(exchange);
+                    return;
+                }
                 if ("GET".equals(method) && "/api/required/list".equals(path)) {
                     handleRequiredList(exchange);
                     return;
@@ -770,6 +774,12 @@ public final class DlcServerApi {
         DlcServerRemoteStatus status = DlcServerDownloadService.getRemoteDownloadStatus(lang);
         JsonObject data = new JsonObject();
         data.add("status", GSON.toJsonTree(status));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRemoteDownloadCancel(HttpExchange exchange) throws IOException {
+        JsonObject data = new JsonObject();
+        data.addProperty("canceled", DlcServerDownloadService.cancelRemoteDownload());
         sendOk(exchange, data);
     }
 

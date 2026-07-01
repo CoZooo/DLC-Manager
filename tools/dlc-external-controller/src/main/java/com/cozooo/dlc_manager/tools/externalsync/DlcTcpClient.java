@@ -79,6 +79,10 @@ final class DlcTcpClient implements AutoCloseable {
                 item.path = string(object, "path");
                 item.type = string(object, "type");
                 item.enabled = booleanOrNull(object, "enabled");
+                item.dependencies = stringList(object, "dependencies");
+                item.conflicts = stringList(object, "conflicts");
+                item.allowEnableByAll = !object.has("allowEnableByAll") || bool(object, "allowEnableByAll");
+                item.alarm = bool(object, "alarm");
                 info.items.add(item);
             }
         }
@@ -246,6 +250,10 @@ final class DlcTcpClient implements AutoCloseable {
 
     JsonObject remoteDownloadStatus() throws ExternalSyncException {
         return simpleRequest("remote_download_status");
+    }
+
+    JsonObject remoteDownloadCancel() throws ExternalSyncException {
+        return simpleRequest("remote_download_cancel");
     }
 
     // ───────────────────────────────────────────────────────────────
@@ -443,8 +451,16 @@ final class DlcTcpClient implements AutoCloseable {
         return response;
     }
 
-    JsonObject packApplyStart() throws ExternalSyncException {
-        return simpleRequest("pack_apply_start");
+    JsonObject packApplyStart(List<String> order, List<String> uninstallIdentifiers, List<String> installArchives) throws ExternalSyncException {
+        JsonObject request = new JsonObject();
+        request.addProperty("type", "pack_apply_start");
+        request.add("order", GSON.toJsonTree(order == null ? List.of() : order));
+        request.add("uninstallIdentifiers", GSON.toJsonTree(uninstallIdentifiers == null ? List.of() : uninstallIdentifiers));
+        request.add("installArchives", GSON.toJsonTree(installArchives == null ? List.of() : installArchives));
+        send(request);
+        JsonObject response = read();
+        requireOk(response, "pack_apply_start");
+        return response;
     }
 
     JsonObject packApplyStatus() throws ExternalSyncException {
@@ -684,6 +700,23 @@ final class DlcTcpClient implements AutoCloseable {
     private static JsonArray array(JsonObject object, String key) {
         JsonElement element = object == null ? null : object.get(key);
         return element != null && element.isJsonArray() ? element.getAsJsonArray() : null;
+    }
+
+    private static List<String> stringList(JsonObject object, String key) {
+        JsonArray array = array(object, key);
+        if (array == null) {
+            return new ArrayList<>();
+        }
+        List<String> out = new ArrayList<>();
+        for (JsonElement element : array) {
+            if (element != null && element.isJsonPrimitive()) {
+                String value = element.getAsString();
+                if (value != null && !value.isBlank()) {
+                    out.add(value);
+                }
+            }
+        }
+        return out;
     }
 
     private static String string(JsonObject object, String key) {

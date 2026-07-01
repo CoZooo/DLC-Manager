@@ -54,6 +54,10 @@ public final class SyncModels {
         public String path;
         public String type;
         public Boolean enabled;
+        public List<String> dependencies = new ArrayList<>();
+        public List<String> conflicts = new ArrayList<>();
+        public boolean allowEnableByAll = true;
+        public boolean alarm;
     }
 
     public static final class ServerInfo {

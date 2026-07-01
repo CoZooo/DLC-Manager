@@ -70,6 +70,7 @@ public final class DlcTcpFacade implements AutoCloseable {
     public JsonObject remoteList() throws ExternalSyncException { return client.remoteList(); }
     public JsonObject remoteDownloadStart(List<String> keys) throws ExternalSyncException { return client.remoteDownloadStart(keys); }
     public JsonObject remoteDownloadStatus() throws ExternalSyncException { return client.remoteDownloadStatus(); }
+    public JsonObject remoteDownloadCancel() throws ExternalSyncException { return client.remoteDownloadCancel(); }
 
     // ── Required ──────────────────────────────────────────────────
     public JsonObject requiredList() throws ExternalSyncException { return client.requiredList(); }
@@ -95,7 +96,10 @@ public final class DlcTcpFacade implements AutoCloseable {
     public JsonObject packImport(String path) throws ExternalSyncException { return client.packImport(path); }
     public JsonObject packImportUrl(String url, String fileName) throws ExternalSyncException { return client.packImportUrl(url, fileName); }
     public JsonObject packOrder(List<String> order) throws ExternalSyncException { return client.packOrder(order); }
-    public JsonObject packApplyStart() throws ExternalSyncException { return client.packApplyStart(); }
+    public JsonObject packApplyStart() throws ExternalSyncException { return client.packApplyStart(null, null, null); }
+    public JsonObject packApplyStart(List<String> order, List<String> uninstallIdentifiers, List<String> installArchives) throws ExternalSyncException {
+        return client.packApplyStart(order, uninstallIdentifiers, installArchives);
+    }
     public JsonObject packApplyStatus() throws ExternalSyncException { return client.packApplyStatus(); }
     public JsonObject packApplyPause() throws ExternalSyncException { return client.packApplyPause(); }
     public JsonObject packApplyResume() throws ExternalSyncException { return client.packApplyResume(); }

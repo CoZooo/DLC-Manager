@@ -130,6 +130,7 @@ public final class DlcServerDownloadService {
         private final AtomicLong totalBytes = new AtomicLong(0L);
         private final AtomicLong downloadedBytes = new AtomicLong(0L);
         private final Map<String, RemoteItemState> itemByKey = new ConcurrentHashMap<>();
+        private final AtomicBoolean cancelRequested = new AtomicBoolean(false);
         private volatile String statusKey;
         private volatile String error;
 
@@ -144,11 +145,12 @@ public final class DlcServerDownloadService {
             if (!running.compareAndSet(false, true)) {
                 return;
             }
+            cancelRequested.set(false);
             int maxConcurrent = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
             ExecutorService executor = Executors.newFixedThreadPool(maxConcurrent);
             for (RemoteItemState item : items) {
                 executor.submit(() -> {
-                    if (!running.get()) {
+                    if (!running.get() || cancelRequested.get()) {
                         return;
                     }
                     downloadOne(dlcRoot, item);
@@ -174,6 +176,12 @@ public final class DlcServerDownloadService {
                 return;
             }
             try {
+                if (cancelRequested.get()) {
+                    markDone(item, false, "canceled");
+                    success.set(false);
+                    error = "canceled";
+                    return;
+                }
                 String fileName = downloadRemoteEntryWithProgress(item.entry, item, new ProgressListener() {
                     @Override
                     public void onProgress(long downloadedBytes, long totalBytes) {
@@ -185,11 +193,15 @@ public final class DlcServerDownloadService {
                     public void onStatusKey(String statusKey) {
                         RemoteDownloadSession.this.statusKey = statusKey;
                     }
-                });
+                }, cancelRequested::get);
                 if (fileName != null) {
                     updateRemoteFileNameKey(item.entry, fileName);
                 }
                 markDone(item, true, null);
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                markDone(item, false, "canceled");
+                success.set(false);
+                error = "canceled";
             } catch (Exception ex) {
                 markDone(item, false, ex.getMessage());
                 success.set(false);
@@ -242,6 +254,8 @@ public final class DlcServerDownloadService {
                 DlcServerRemoteItem view = new DlcServerRemoteItem();
                 view.key = item.key;
                 view.name = resolveDisplayName(item.entry, lang);
+                view.type = resolveRemoteType(item.entry);
+                view.folder = resolveRemoteFolder(item.entry);
                 view.displayNames = resolveDisplayNames(item.entry, view.name);
                 view.totalBytes = item.totalBytes;
                 view.downloadedBytes = item.downloaded.get();
@@ -251,6 +265,12 @@ public final class DlcServerDownloadService {
                 status.items.add(view);
             }
             return status;
+        }
+
+        private void requestCancel() {
+            cancelRequested.set(true);
+            success.set(false);
+            error = "canceled";
         }
     }
 
@@ -468,6 +488,8 @@ public final class DlcServerDownloadService {
             DlcServerRemoteItem item = new DlcServerRemoteItem();
             item.key = selectionKey(entry);
             item.name = resolveDisplayName(entry, lang);
+            item.type = resolveRemoteType(entry);
+            item.folder = resolveRemoteFolder(entry);
             item.displayNames = resolveDisplayNames(entry, item.name);
             list.add(item);
         }
@@ -644,6 +666,16 @@ public final class DlcServerDownloadService {
         }
     }
 
+    public static boolean cancelRemoteDownload() {
+        synchronized (REMOTE_LOCK) {
+            if (remoteSession == null || !remoteSession.running.get()) {
+                return false;
+            }
+            remoteSession.requestCancel();
+            return true;
+        }
+    }
+
     public static List<DlcRemoteEntry> collectMissingRemote(Path dlcRoot) {
         List<DlcRemoteEntry> missing = new ArrayList<>();
         if (dlcRoot == null) {
@@ -699,6 +731,44 @@ public final class DlcServerDownloadService {
             key = entry.getFileNameHint();
         }
         return key == null || key.isBlank() ? "unknown" : key;
+    }
+
+    private static String resolveRemoteType(DlcRemoteEntry entry) {
+        if (entry == null || entry.getType() == null) {
+            return "";
+        }
+        return entry.getType().name();
+    }
+
+    private static String resolveRemoteFolder(DlcRemoteEntry entry) {
+        if (entry == null) {
+            return "__root__";
+        }
+        try {
+            Path config = entry.getConfigPath();
+            Path remoteRoot = entry.getDlcRoot() == null ? null : entry.getDlcRoot().resolve("remote");
+            String relative = null;
+            if (config != null && remoteRoot != null && config.startsWith(remoteRoot)) {
+                relative = remoteRoot.relativize(config).toString().replace('\\', '/');
+            }
+            if (relative == null) {
+                Path baseDir = entry.getBaseDir();
+                if (baseDir != null && remoteRoot != null && baseDir.startsWith(remoteRoot)) {
+                    relative = remoteRoot.relativize(baseDir).toString().replace('\\', '/');
+                    return relative.isBlank() ? "__root__" : relative;
+                }
+            }
+            if (relative == null || relative.isBlank()) {
+                return "__root__";
+            }
+            int lastSlash = relative.lastIndexOf('/');
+            if (lastSlash <= 0) {
+                return "__root__";
+            }
+            return relative.substring(0, lastSlash);
+        } catch (Exception ignored) {
+            return "__root__";
+        }
     }
 
     private static String resolveDisplayName(DlcRemoteEntry entry) {
@@ -1417,15 +1487,22 @@ public final class DlcServerDownloadService {
     }
 
     private static String downloadRemoteEntry(DlcRemoteEntry entry) throws IOException, InterruptedException {
-        return downloadRemoteEntryWithProgress(entry, null, null);
+        return downloadRemoteEntryWithProgress(entry, null, null, null);
     }
 
     private static String downloadRemoteEntryWithProgress(DlcRemoteEntry entry, RemoteItemState state, ProgressListener listener)
+        throws IOException, InterruptedException {
+        return downloadRemoteEntryWithProgress(entry, state, listener, null);
+    }
+
+    private static String downloadRemoteEntryWithProgress(DlcRemoteEntry entry, RemoteItemState state, ProgressListener listener,
+                                                          DlcDownloadService.CancelChecker cancelChecker)
         throws IOException, InterruptedException {
         if (entry == null) {
             return null;
         }
         DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
+        DlcDownloadService.checkCanceled(cancelChecker);
         precheckDownloadSources(entry, listener);
         IOException lastError = null;
         List<DlcDownloadCandidate> candidates;
@@ -1433,6 +1510,7 @@ public final class DlcServerDownloadService {
             for (DlcDownloadCandidate candidate : candidates) {
                 for (int attempt = 1; attempt <= DlcConfig.getMaxRetryCount(); attempt++) {
                     try {
+                        DlcDownloadService.checkCanceled(cancelChecker);
                         String fileName = candidate.fileNameOverride;
                         boolean fileNameExplicit = entry.isFileNameExplicit()
                             && fileName != null && !fileName.isBlank();
@@ -1465,8 +1543,8 @@ public final class DlcServerDownloadService {
                         }
                         DlcDownloadService.ProgressListener downloadListener = progressListener(listener);
                         Path downloaded = candidate.direct
-                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName, downloadListener, null)
-                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize, downloadListener, null);
+                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName, downloadListener, cancelChecker)
+                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize, downloadListener, cancelChecker);
                         verifyDownloadedFile(downloaded, candidate);
                         String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
                         entry.setFileNameHint(actualName);
