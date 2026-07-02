@@ -339,12 +339,12 @@ public final class DlcFxManagerApp extends Application {
         remotePresetTab = new DlcFxServerPresetTab(remoteConnection, () -> remoteDlcManagementTab, () -> localGameDirSelected);
         remotePresetTabNode = remotePresetTab.build();
         remoteTabPane.getTabs().add(remotePresetTabNode);
-        remoteUpdateTab = new DlcFxServerUpdateTab(remoteConnection);
-        remoteUpdateTabNode = remoteUpdateTab.build();
-        remoteTabPane.getTabs().add(remoteUpdateTabNode);
         remotePackTab = new DlcFxServerPackTab(remoteConnection);
         remotePackTabNode = remotePackTab.build();
         remoteTabPane.getTabs().add(remotePackTabNode);
+        remoteUpdateTab = new DlcFxServerUpdateTab(remoteConnection);
+        remoteUpdateTabNode = remoteUpdateTab.build();
+        remoteTabPane.getTabs().add(remoteUpdateTabNode);
         remoteRconTab = new DlcFxServerRconTab(remoteConnection);
         remoteRconTabNode = remoteRconTab.build();
         remoteTabPane.getTabs().add(remoteRconTabNode);
