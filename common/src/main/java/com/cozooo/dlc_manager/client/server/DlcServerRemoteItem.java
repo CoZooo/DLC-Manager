@@ -6,6 +6,7 @@ public class DlcServerRemoteItem {
     public String type;
     public String folder;
     public java.util.Map<String, String> displayNames = java.util.Collections.emptyMap();
+    public java.util.Map<String, String> tips = java.util.Collections.emptyMap();
     public long totalBytes;
     public long downloadedBytes;
     public boolean done;

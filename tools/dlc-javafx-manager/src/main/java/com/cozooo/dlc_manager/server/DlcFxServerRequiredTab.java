@@ -9,6 +9,7 @@ import com.cozooo.dlc_manager.ui.required.DlcFxRequiredSelectionModel;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxTooltipText;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -20,7 +21,9 @@ import javafx.scene.control.Tab;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class DlcFxServerRequiredTab {
     private final DlcFxServerConnection conn;
@@ -287,12 +290,8 @@ public final class DlcFxServerRequiredTab {
             boolean hasFile = bool(obj, "hasFile");
             boolean needsApply = bool(obj, "needsApply");
             boolean applied = bool(obj, "applied");
-            String fileName = str(obj, "fileName");
             List<String> dependencies = stringArray(obj, "dependencies");
-            String detail = id == null ? "" : DlcFxI18n.tr("dlc_manager.tooltip.id") + id;
-            if (fileName != null && !fileName.isBlank()) {
-                detail = detail + (detail.isBlank() ? "" : "\n") + DlcFxI18n.tr("dlc_manager.tooltip.file") + fileName;
-            }
+            String detail = DlcFxTooltipText.resolveLocalized(stringMap(obj, "tips"));
             out.add(new Row(id, title, detail, dependencies, hasFile, needsApply, applied));
         }
         return out;
@@ -362,6 +361,21 @@ public final class DlcFxServerRequiredTab {
             }
         }
         return out;
+    }
+
+    private static Map<String, String> stringMap(JsonObject obj, String key) {
+        JsonElement element = obj == null ? null : obj.get(key);
+        if (element == null || !element.isJsonObject()) {
+            return Map.of();
+        }
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value != null && value.isJsonPrimitive()) {
+                values.put(entry.getKey(), value.getAsString());
+            }
+        }
+        return values;
     }
 
     private record Row(String id, String title, String detail, List<String> dependencies, boolean hasFile, boolean needsApply, boolean installed) {

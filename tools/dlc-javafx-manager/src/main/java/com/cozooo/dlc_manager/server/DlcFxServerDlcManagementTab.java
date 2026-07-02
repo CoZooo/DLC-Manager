@@ -15,6 +15,7 @@ import com.cozooo.dlc_manager.ui.common.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxTooltipText;
 import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
 import com.cozooo.dlc_manager.ui.preset.DlcFxPresetResolver;
 
@@ -28,6 +29,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -411,7 +413,7 @@ public final class DlcFxServerDlcManagementTab {
         return String.join("\n\n", lines);
     }
 
-    private static final class RemoteDlcAdapter implements DlcFxDlcManagementShell.Adapter<DlcServerItem> {
+    private final class RemoteDlcAdapter implements DlcFxDlcManagementShell.Adapter<DlcServerItem> {
         private final Map<String, Boolean> baseline = new LinkedHashMap<>();
 
         void resetBaseline(List<DlcServerItem> items) {
@@ -504,14 +506,73 @@ public final class DlcFxServerDlcManagementTab {
                 return "";
             }
             StringBuilder tip = new StringBuilder();
-            tip.append(DlcFxI18n.tr("dlc_manager.tooltip.id")).append(item.id);
-            if (item.identifier != null) {
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.identifier")).append(item.identifier);
+            DlcFxTooltipText.appendBlock(tip, DlcFxTooltipText.resolveLocalized(item.tips));
+            List<String> missing = missingDependencyIdentifiers(item);
+            if (!missing.isEmpty()) {
+                DlcFxTooltipText.appendBlock(tip, "§c" + DlcFxI18n.tr("dlc_manager.tooltip.missing_dependencies") + ":§r");
+                for (String dependency : missing) {
+                    DlcFxTooltipText.appendLine(tip, dependencyDisplayName(dependency));
+                }
             }
-            if (item.path != null) {
-                tip.append('\n').append(DlcFxI18n.tr("dlc_manager.tooltip.path")).append(item.path);
+            List<String> dependencies = dependencyIdentifiersRecursive(item);
+            if (!dependencies.isEmpty()) {
+                DlcFxTooltipText.appendBlock(tip, "§6" + DlcFxI18n.tr("dlc_manager.tooltip.dependencies") + ":§r");
+                for (String dependency : dependencies) {
+                    DlcFxTooltipText.appendLine(tip, dependencyDisplayName(dependency));
+                }
+            }
+            if (item.conflicts != null && !item.conflicts.isEmpty()) {
+                DlcFxTooltipText.appendBlock(tip, "§4" + DlcFxI18n.tr("dlc_manager.tooltip.conflicts") + ":§r");
+                for (String conflict : item.conflicts) {
+                    DlcFxTooltipText.appendLine(tip, dependencyDisplayName(conflict));
+                }
             }
             return tip.toString();
+        }
+
+        @Override
+        public boolean missingDependencies(DlcServerItem item) {
+            return !missingDependencyIdentifiers(item).isEmpty();
+        }
+
+        private List<String> missingDependencyIdentifiers(DlcServerItem item) {
+            if (item == null || item.dependencies == null || item.dependencies.isEmpty()) {
+                return List.of();
+            }
+            List<String> missing = new ArrayList<>();
+            for (String dependency : dependencyIdentifiersRecursive(item)) {
+                if (itemByIdentifier(dependency) == null) {
+                    missing.add(dependency);
+                }
+            }
+            return missing;
+        }
+
+        private List<String> dependencyIdentifiersRecursive(DlcServerItem item) {
+            if (item == null || item.dependencies == null || item.dependencies.isEmpty()) {
+                return List.of();
+            }
+            LinkedHashSet<String> result = new LinkedHashSet<>();
+            ArrayDeque<String> queue = new ArrayDeque<>(item.dependencies);
+            while (!queue.isEmpty()) {
+                String identifier = queue.poll();
+                if (identifier == null || identifier.isBlank() || !result.add(identifier)) {
+                    continue;
+                }
+                DlcServerItem dependency = itemByIdentifier(identifier);
+                if (dependency != null && dependency.dependencies != null && !dependency.dependencies.isEmpty()) {
+                    queue.addAll(dependency.dependencies);
+                }
+            }
+            return new ArrayList<>(result);
+        }
+
+        private String dependencyDisplayName(String identifier) {
+            DlcServerItem item = itemByIdentifier(identifier);
+            if (item == null) {
+                return identifier == null ? "" : identifier;
+            }
+            return displayName(item);
         }
     }
 

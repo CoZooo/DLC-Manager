@@ -257,6 +257,7 @@ public final class DlcServerDownloadService {
                 view.type = resolveRemoteType(item.entry);
                 view.folder = resolveRemoteFolder(item.entry);
                 view.displayNames = resolveDisplayNames(item.entry, view.name);
+                view.tips = resolveTips(item.entry);
                 view.totalBytes = item.totalBytes;
                 view.downloadedBytes = item.downloaded.get();
                 view.done = item.done;
@@ -491,6 +492,7 @@ public final class DlcServerDownloadService {
             item.type = resolveRemoteType(entry);
             item.folder = resolveRemoteFolder(entry);
             item.displayNames = resolveDisplayNames(entry, item.name);
+            item.tips = resolveTips(entry);
             list.add(item);
         }
         return list;

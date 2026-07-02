@@ -10,6 +10,7 @@ import com.cozooo.dlc_manager.ui.remote.DlcFxResourceOperationModel;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxTooltipText;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -21,7 +22,9 @@ import javafx.scene.control.Tab;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class DlcFxServerDownloadTab {
     private final DlcFxServerConnection conn;
@@ -253,14 +256,30 @@ public final class DlcFxServerDownloadTab {
                 tag = DlcFxI18n.tr("dlc_manager.status.missing");
                 tagStyle = DlcFxStyle.CHIP_ERROR;
             }
-            String detail = key == null ? "" : DlcFxI18n.tr("dlc_manager.tooltip.key") + key;
+            StringBuilder detail = new StringBuilder();
+            DlcFxTooltipText.appendBlock(detail, DlcFxTooltipText.resolveLocalized(stringMap(obj, "tips")));
             if (error != null && !error.isBlank()) {
-                detail = detail + (detail.isBlank() ? "" : "\n") + DlcFxI18n.tr("dlc_manager.tooltip.error") + error;
+                DlcFxTooltipText.appendBlock(detail, "§c" + DlcFxI18n.tr("dlc_manager.tooltip.error") + error + "§r");
             }
             out.add(new Row(firstNonBlank(key, name), firstNonBlank(name, key, DlcFxI18n.tr("dlc_manager.status.unnamed")),
-                    firstNonBlank(type), firstNonBlank(folder, "__root__"), detail, tag, tagStyle, missing));
+                    firstNonBlank(type), firstNonBlank(folder, "__root__"), detail.toString(), tag, tagStyle, missing));
         }
         return out;
+    }
+
+    private static Map<String, String> stringMap(JsonObject obj, String key) {
+        JsonElement element = obj == null ? null : obj.get(key);
+        if (element == null || !element.isJsonObject()) {
+            return Map.of();
+        }
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value != null && value.isJsonPrimitive()) {
+                values.put(entry.getKey(), value.getAsString());
+            }
+        }
+        return values;
     }
 
     private static JsonArray itemsArray(JsonObject response) {
