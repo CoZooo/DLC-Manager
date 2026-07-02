@@ -2,8 +2,10 @@ package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
+import com.cozooo.dlc_manager.client.server.DlcServerRedirectItem;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementFlow;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementListModel;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementShell;
@@ -24,6 +26,8 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -69,6 +73,7 @@ public final class DlcFxServerDlcManagementTab {
                 items -> flow.disable(new ArrayList<>(items))
         );
         shell.setAvailable(conn.connectedProperty().get());
+        shell.setRedirectOpenHandler(this::confirmOpenRedirect);
         conn.connectedProperty().addListener((obs, oldValue, connected) -> shell.setAvailable(connected));
 
         refreshBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -192,8 +197,10 @@ public final class DlcFxServerDlcManagementTab {
         conn.runAsync(f -> f.fetchList(), info -> {
             shell.setBusy(false);
             loadedForCurrentConnection = true;
+            conn.rememberServerInfo(info);
             adapter.resetBaseline(info.items);
             shell.setItems(info.items);
+            shell.setRedirectEntries(toRedirectEntries(info.redirects));
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", info.items.size()));
         }, err -> {
             shell.setBusy(false);
@@ -212,6 +219,7 @@ public final class DlcFxServerDlcManagementTab {
         if (info != null && info.items != null && !info.items.isEmpty()) {
             adapter.resetBaseline(info.items);
             shell.setItems(info.items);
+            shell.setRedirectEntries(toRedirectEntries(info.redirects));
             loadedForCurrentConnection = true;
         }
         return List.copyOf(shell.items());
@@ -348,7 +356,7 @@ public final class DlcFxServerDlcManagementTab {
                     item.conflicts,
                     item.allowEnableByAll,
                     item.alarm,
-                    false));
+                    item.hidden));
         }
         return out;
     }
@@ -383,10 +391,9 @@ public final class DlcFxServerDlcManagementTab {
     }
 
     private String displayName(String id) {
-        for (DlcServerItem item : shell.items()) {
-            if (item != null && id != null && id.equals(item.id)) {
-                return item.name == null || item.name.isBlank() ? id : item.name;
-            }
+        DlcServerItem item = itemByIdOrIdentifier(id);
+        if (item != null) {
+            return serverDisplayName(item);
         }
         return id == null ? "" : id;
     }
@@ -401,6 +408,121 @@ public final class DlcFxServerDlcManagementTab {
             }
         }
         return null;
+    }
+
+    private static String identifierOrId(DlcServerItem item, String fallbackId) {
+        if (item != null && item.identifier != null && !item.identifier.isBlank()) {
+            return item.identifier;
+        }
+        return fallbackId == null ? "" : fallbackId;
+    }
+
+    private DlcServerItem itemByIdOrIdentifier(String value) {
+        if (value == null || shell == null) {
+            return null;
+        }
+        String normalized = DlcFxPresetResolver.normalizeIdentifier(value);
+        for (DlcServerItem item : shell.items()) {
+            if (item == null) {
+                continue;
+            }
+            if (value.equals(item.id)) {
+                return item;
+            }
+            if (!normalized.isBlank() && normalized.equals(DlcFxPresetResolver.normalizeIdentifier(item.identifier))) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private static String serverDisplayName(DlcServerItem item) {
+        if (item == null) {
+            return "";
+        }
+        String localized = DlcFxTooltipText.resolveLocalized(item.displayNames);
+        if (localized != null && !localized.isBlank()) {
+            return localized;
+        }
+        if (item.name != null && !item.name.isBlank()) {
+            return item.name;
+        }
+        if (item.identifier != null && !item.identifier.isBlank()) {
+            return item.identifier;
+        }
+        return item.id == null ? "" : item.id;
+    }
+
+    private static List<DlcRedirectEntry> toRedirectEntries(List<DlcServerRedirectItem> source) {
+        List<DlcRedirectEntry> out = new ArrayList<>();
+        for (DlcServerRedirectItem item : source == null ? List.<DlcServerRedirectItem>of() : source) {
+            if (item == null || item.redirectUrl == null || item.redirectUrl.isBlank()) {
+                continue;
+            }
+            DlcRedirectEntry entry = new DlcRedirectEntry();
+            entry.setRedirectUrl(item.redirectUrl);
+            entry.setFallbackName(item.fallbackName);
+            if (item.displayNames != null) {
+                entry.getDisplayNames().putAll(item.displayNames);
+            }
+            if (item.notices != null) {
+                entry.getNotices().putAll(item.notices);
+            }
+            if (item.tips != null) {
+                entry.getTips().putAll(item.tips);
+            }
+            out.add(entry);
+        }
+        return out;
+    }
+
+    private void confirmOpenRedirect(DlcRedirectEntry entry) {
+        if (entry == null || entry.getRedirectUrl() == null || entry.getRedirectUrl().isBlank()) {
+            return;
+        }
+        confirmOpenRedirect(entry.getRedirectUrl(), entry.resolveNotice(com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode()));
+    }
+
+    private void confirmOpenRedirect(String url, String notice) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        String message = DlcFxI18n.tr("dlc_manager.redirect.prompt") + "\n" + url;
+        if (notice != null && !notice.isBlank()) {
+            message += "\n\n" + notice;
+        }
+        DlcFxModalOverlay.show(
+                overlayScene(),
+                DlcFxI18n.tr("dlc_manager.redirect.title"),
+                DlcFxRichTextRenderer.formatted(message),
+                () -> openLink(url),
+                DlcFxI18n.tr("dlc_manager.redirect.open"),
+                () -> {},
+                DlcFxI18n.tr("dlc_manager.common.cancel"),
+                () -> copyLink(url),
+                DlcFxI18n.tr("dlc_manager.redirect.copy")
+        );
+    }
+
+    private void copyLink(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        ClipboardContent content = new ClipboardContent();
+        content.putString(url);
+        Clipboard.getSystemClipboard().setContent(content);
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.redirect.copied"));
+    }
+
+    private void openLink(String url) {
+        if (url == null || url.isBlank()) {
+            return;
+        }
+        try {
+            java.awt.Desktop.getDesktop().browse(java.net.URI.create(url));
+        } catch (Exception ex) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.open_failed", DlcFxServerConnection.safeMessage(ex)));
+        }
     }
 
     private String buildAlarmTip(List<DlcServerItem> items) {
@@ -423,7 +545,7 @@ public final class DlcFxServerDlcManagementTab {
             }
             for (DlcServerItem item : items) {
                 if (item != null) {
-                    baseline.put(id(item), item.enabled);
+                    baseline.put(id(item), item.baselineEnabled == null ? item.enabled : item.baselineEnabled);
                 }
             }
         }
@@ -435,6 +557,7 @@ public final class DlcFxServerDlcManagementTab {
             for (DlcServerItem item : items) {
                 if (item != null) {
                     baseline.put(id(item), item.enabled);
+                    item.baselineEnabled = item.enabled;
                 }
             }
         }
@@ -446,14 +569,15 @@ public final class DlcFxServerDlcManagementTab {
 
         @Override
         public String displayName(DlcServerItem item) {
-            if (item == null) {
-                return "";
-            }
-            return item.name == null || item.name.isBlank() ? item.id : item.name;
+            return serverDisplayName(item);
         }
 
         @Override
         public String typeText(DlcServerItem item) {
+            DlcType type = type(item);
+            if (type != null) {
+                return DlcFxI18n.tr(type.getDisplayKey());
+            }
             return item == null || item.type == null || item.type.isBlank() ? "?" : item.type;
         }
 
@@ -470,16 +594,18 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
+        public boolean visibleType(DlcType type) {
+            DlcServerInfo info = conn.lastServerInfo();
+            return type != DlcType.DLC_PACK
+                    && (type != DlcType.TACZ_PACK || (info != null && info.hasTaczMod));
+        }
+
+        @Override
         public String folder(DlcServerItem item) {
             if (item == null || item.path == null || item.path.isBlank()) {
                 return DlcFxDlcManagementListModel.ROOT_GROUP;
             }
-            String normalized = item.path.replace('\\', '/');
-            int slash = normalized.lastIndexOf('/');
-            if (slash <= 0) {
-                return DlcFxDlcManagementListModel.ROOT_GROUP;
-            }
-            return normalized.substring(0, slash);
+            return item.path.replace('\\', '/');
         }
 
         @Override
@@ -507,6 +633,12 @@ public final class DlcFxServerDlcManagementTab {
             }
             StringBuilder tip = new StringBuilder();
             DlcFxTooltipText.appendBlock(tip, DlcFxTooltipText.resolveLocalized(item.tips));
+            if (item.redirectUrl != null && !item.redirectUrl.isBlank()) {
+                DlcFxTooltipText.appendBlock(tip, "§b" + DlcFxI18n.tr("dlc_manager.tooltip.double_click_redirect") + "§r");
+            }
+            for (String blocker : item.presetBlockers == null ? List.<String>of() : item.presetBlockers) {
+                DlcFxTooltipText.appendBlock(tip, "§4" + DlcFxI18n.tr("dlc_manager.preset.conflict", blocker) + "§r");
+            }
             List<String> missing = missingDependencyIdentifiers(item);
             if (!missing.isEmpty()) {
                 DlcFxTooltipText.appendBlock(tip, "§c" + DlcFxI18n.tr("dlc_manager.tooltip.missing_dependencies") + ":§r");
@@ -533,6 +665,28 @@ public final class DlcFxServerDlcManagementTab {
         @Override
         public boolean missingDependencies(DlcServerItem item) {
             return !missingDependencyIdentifiers(item).isEmpty();
+        }
+
+        @Override
+        public boolean canEnable(DlcServerItem item) {
+            return item != null && item.allowEnableByAll && !missingDependencies(item) && !blocked(item);
+        }
+
+        @Override
+        public boolean blocked(DlcServerItem item) {
+            return item != null && item.presetBlocked;
+        }
+
+        @Override
+        public String blockedText(DlcServerItem item) {
+            return item != null && item.presetBlocked ? DlcFxI18n.tr("dlc_manager.preset.disabled_by_preset") : "";
+        }
+
+        @Override
+        public void openRedirect(DlcServerItem item) {
+            if (item != null && item.redirectUrl != null && !item.redirectUrl.isBlank()) {
+                confirmOpenRedirect(item.redirectUrl, "");
+            }
         }
 
         private List<String> missingDependencyIdentifiers(DlcServerItem item) {
@@ -568,7 +722,7 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         private String dependencyDisplayName(String identifier) {
-            DlcServerItem item = itemByIdentifier(identifier);
+            DlcServerItem item = itemByIdOrIdentifier(identifier);
             if (item == null) {
                 return identifier == null ? "" : identifier;
             }
@@ -618,8 +772,8 @@ public final class DlcFxServerDlcManagementTab {
                 lines.add(new DlcFxDlcManagementFlow.ConflictLine<>(
                         left,
                         right,
-                        conflict.leftId(),
-                        conflict.rightId(),
+                        identifierOrId(left, conflict.leftId()),
+                        identifierOrId(right, conflict.rightId()),
                         DlcFxServerDlcManagementTab.this.displayName(conflict.leftId()),
                         DlcFxServerDlcManagementTab.this.displayName(conflict.rightId())
                 ));
@@ -664,7 +818,7 @@ public final class DlcFxServerDlcManagementTab {
 
         @Override
         public String conflictFilterKey(DlcServerItem item) {
-            return id(item);
+            return identifierOrId(item, id(item));
         }
 
         @Override

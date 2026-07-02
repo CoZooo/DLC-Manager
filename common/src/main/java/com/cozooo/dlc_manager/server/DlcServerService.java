@@ -3,10 +3,14 @@ package com.cozooo.dlc_manager.server;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
+import com.cozooo.dlc_manager.client.server.DlcServerRedirectItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
+import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
@@ -23,6 +27,7 @@ import com.cozooo.dlc_manager.core.DlcApplier;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
+import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
@@ -224,7 +229,7 @@ public class DlcServerService {
                     continue;
                 }
                 if ("list".equals(type)) {
-                    writeList(writer);
+                    writeList(writer, clientLang);
                 } else if ("remote_list".equals(type)) {
                     handleRemoteList(writer, clientLang);
                 } else if ("remote_download_start".equals(type)) {
@@ -393,30 +398,12 @@ public class DlcServerService {
         return server.getPlayerList().isOp(player.getGameProfile()) || player.hasPermissions(4);
     }
 
-    private static void writeList(BufferedWriter writer) throws IOException {
+    private static void writeList(BufferedWriter writer, String lang) throws IOException {
         List<DlcServerItem> items = new ArrayList<>();
-        Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
-        for (List<DlcItem> group : grouped.values()) {
-            if (group == null) {
-                continue;
-            }
-            for (DlcItem item : group) {
-                if (item == null) {
-                    continue;
-                }
-                DlcServerItem serverItem = new DlcServerItem();
-                serverItem.id = item.getId();
-                serverItem.identifier = item.getIdentifier();
-                serverItem.name = item.getName();
-                serverItem.displayNames = item.getDisplayNames();
-                serverItem.tips = item.getTooltips();
-                serverItem.type = item.getType().name();
-                serverItem.enabled = item.isEnabled();
-                serverItem.dependencies = item.getDependencies();
-                serverItem.conflicts = item.getConflicts();
-                serverItem.allowEnableByAll = item.AllowEnableByAll();
-                serverItem.alarm = item.isAlarm();
-                serverItem.path = resolveGroupLabel(item);
+        String effectiveLang = lang == null || lang.isBlank() ? CrossPlatformRuntime.languageCode() : lang;
+        for (DlcItem item : scanDlcItemsForServer(true)) {
+            DlcServerItem serverItem = toServerItem(item, effectiveLang);
+            if (serverItem != null) {
                 items.add(serverItem);
             }
         }
@@ -434,8 +421,102 @@ public class DlcServerService {
         response.addProperty("hasTaczMod", CrossPlatformRuntime.isModLoaded("tacz"));
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
         response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl());
+        response.add("redirects", GSON.toJsonTree(loadVisibleRedirectItems(dlcRoot, effectiveLang)));
         response.add("items", GSON.toJsonTree(items));
         writeLine(writer, response);
+    }
+
+    private static List<DlcItem> scanDlcItemsForServer(boolean detectInstalledState) {
+        Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan(detectInstalledState);
+        List<DlcItem> items = new ArrayList<>();
+        for (List<DlcItem> group : grouped.values()) {
+            if (group == null) {
+                continue;
+            }
+            for (DlcItem item : group) {
+                if (item == null) {
+                    continue;
+                }
+                items.add(item);
+            }
+        }
+        if (DlcConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.reload();
+        } else {
+            DlcPresetRuntimeState.clearAll();
+        }
+        for (DlcItem item : items) {
+            if (item == null) {
+                continue;
+            }
+            DlcRuntimeState.ensureBaseline(item.getId(), item.isEnabled());
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            if (override != null) {
+                item.setEnabled(override);
+            }
+        }
+        DlcRuntimeState.updateItemIndex(items);
+        if (DlcConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.applyOverridesToRuntime();
+        }
+        for (DlcItem item : items) {
+            if (item == null || item.getId() == null || item.getId().isBlank()) {
+                continue;
+            }
+            Boolean override = DlcRuntimeState.getOverride(item.getId());
+            if (override != null) {
+                item.setEnabled(override);
+            }
+        }
+        return items;
+    }
+
+    private static DlcServerItem toServerItem(DlcItem item, String lang) {
+        if (item == null) {
+            return null;
+        }
+        DlcServerItem serverItem = new DlcServerItem();
+        serverItem.id = item.getId();
+        serverItem.identifier = item.getIdentifier();
+        serverItem.name = item.getName();
+        serverItem.displayNames = item.getDisplayNames();
+        serverItem.tips = item.getTooltips();
+        serverItem.type = item.getType() == null ? null : item.getType().name();
+        serverItem.enabled = item.isEnabled();
+        Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());
+        serverItem.baselineEnabled = baseline == null ? item.isEnabled() : baseline;
+        serverItem.dependencies = item.getDependencies();
+        serverItem.conflicts = item.getConflicts();
+        serverItem.allowEnableByAll = item.AllowEnableByAll();
+        serverItem.alarm = item.isAlarm();
+        serverItem.hidden = item.isHidden();
+        serverItem.configType = item.isConfigType();
+        serverItem.appliedTargetRaw = item.getAppliedTargetRaw();
+        serverItem.redirectUrl = item.getRedirectUrl();
+        serverItem.presetBlocked = DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier());
+        serverItem.presetBlockers = DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(), lang);
+        serverItem.path = resolveGroupLabel(item);
+        return serverItem;
+    }
+
+    private static List<DlcServerRedirectItem> loadVisibleRedirectItems(Path dlcRoot, String lang) {
+        if (dlcRoot == null) {
+            return List.of();
+        }
+        List<DlcServerRedirectItem> out = new ArrayList<>();
+        for (DlcRedirectEntry entry : DlcRedirectLoader.load(dlcRoot)) {
+            if (entry == null || entry.isHidden() || !entry.isAvailableFor(lang)) {
+                continue;
+            }
+            DlcServerRedirectItem item = new DlcServerRedirectItem();
+            item.redirectUrl = entry.getRedirectUrl();
+            item.fallbackName = entry.getFallbackName();
+            item.displayNames = entry.getDisplayNames();
+            item.notices = entry.getNotices();
+            item.tips = entry.getTips();
+            out.add(item);
+        }
+        return out;
     }
 
     private static void handleRemoteDownload(BufferedWriter writer) throws IOException {
@@ -619,13 +700,7 @@ public class DlcServerService {
     }
 
     private static void handleApply(Map<String, Boolean> overrides, BufferedWriter writer) throws IOException {
-        Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
-        List<DlcItem> items = new ArrayList<>();
-        for (List<DlcItem> group : grouped.values()) {
-            if (group != null) {
-                items.addAll(group);
-            }
-        }
+        List<DlcItem> items = scanDlcItemsForServer(true);
         for (DlcItem item : items) {
             if (item == null) {
                 continue;
@@ -636,6 +711,13 @@ public class DlcServerService {
             }
         }
         DlcApplier.ApplyResult result = DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY);
+        for (DlcItem item : items) {
+            if (item == null || item.getId() == null) {
+                continue;
+            }
+            DlcRuntimeState.updateBaseline(item.getId(), item.isEnabled());
+            DlcRuntimeState.clearOverride(item.getId());
+        }
         JsonObject response = new JsonObject();
         response.addProperty("type", "apply");
         response.addProperty("ok", true);

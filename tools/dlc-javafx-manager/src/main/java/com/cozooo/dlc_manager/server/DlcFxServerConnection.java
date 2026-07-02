@@ -49,6 +49,7 @@ public final class DlcFxServerConnection {
     boolean isConnected() { return connected.get(); }
     DlcServerSession facade() { return session; }
     DlcServerInfo lastServerInfo() { return lastServerInfo; }
+    void rememberServerInfo(DlcServerInfo info) { lastServerInfo = info; }
 
     void connectAsync(String host, int port, String password, int timeoutMs, Consumer<Throwable> onDone) {
         DlcServerSession previous = session;

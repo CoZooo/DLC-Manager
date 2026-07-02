@@ -52,6 +52,8 @@ open class DlcRedirectEntry {
         this.fallbackName = fallbackName
     }
 
+    fun getFallbackName(): String? = fallbackName
+
     fun getDisplayNames(): MutableMap<String, String> = displayNames
 
     fun getNotices(): MutableMap<String, String> = notices

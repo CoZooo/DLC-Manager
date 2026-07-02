@@ -48,6 +48,13 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
             }
         }
         info.items = items
+        val redirects = ArrayList<DlcServerRedirectItem>()
+        array(response, "redirects")?.forEach { element ->
+            if (element != null && element.isJsonObject) {
+                GSON.fromJson(element, DlcServerRedirectItem::class.java)?.let(redirects::add)
+            }
+        }
+        info.redirects = redirects
         return info
     }
 

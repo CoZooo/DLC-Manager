@@ -412,18 +412,16 @@ class DlcServerListEntry(
                 if (itemKey.isBlank() || !visited.add(itemKey)) {
                     continue
                 }
-                if (item.dependencies != null) {
-                    for (depId in item.dependencies) {
-                        if (depId.isNullOrBlank()) {
-                            continue
-                        }
-                        val dep = screen.getItemByIdentifier(depId)
-                        val depIdentifier = dep?.identifier
-                        if (!depIdentifier.isNullOrBlank()) {
-                            val depKey = normalizeIdentifier(depIdentifier)
-                            if (depKey.isNotBlank() && plannedIds.add(depKey)) {
-                                queue.add(dep)
-                            }
+                for (depId in item.dependencies) {
+                    if (depId.isNullOrBlank()) {
+                        continue
+                    }
+                    val dep = screen.getItemByIdentifier(depId)
+                    val depIdentifier = dep?.identifier
+                    if (!depIdentifier.isNullOrBlank()) {
+                        val depKey = normalizeIdentifier(depIdentifier)
+                        if (depKey.isNotBlank() && plannedIds.add(depKey)) {
+                            queue.add(dep)
                         }
                     }
                 }

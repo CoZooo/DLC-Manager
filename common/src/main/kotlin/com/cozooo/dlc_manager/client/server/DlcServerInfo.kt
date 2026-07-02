@@ -4,6 +4,7 @@ class DlcServerInfo {
     @JvmField var baseVersion: String? = null
     @JvmField var dlcVersion: String? = null
     @JvmField var items: List<DlcServerItem> = emptyList()
+    @JvmField var redirects: List<DlcServerRedirectItem> = emptyList()
     @JvmField var remoteMissing: Int = 0
     @JvmField var requiredMissing: Int = 0
     @JvmField var hasRequired: Boolean = false
