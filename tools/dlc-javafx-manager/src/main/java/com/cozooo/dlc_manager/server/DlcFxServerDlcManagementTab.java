@@ -1,7 +1,9 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
+import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementFlow;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementListModel;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementShell;
@@ -14,6 +16,7 @@ import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
 import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
+import com.cozooo.dlc_manager.ui.preset.DlcFxPresetResolver;
 
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -43,6 +46,7 @@ public final class DlcFxServerDlcManagementTab {
     private DlcFxDlcManagementShell<DlcServerItem> shell;
     private DlcFxDlcManagementFlow<DlcServerItem> flow;
     private boolean loadedForCurrentConnection;
+    private final Set<String> presetAppliedIdentifiers = new LinkedHashSet<>();
 
     public DlcFxServerDlcManagementTab(DlcFxServerConnection conn) {
         this.conn = conn;
@@ -88,6 +92,98 @@ public final class DlcFxServerDlcManagementTab {
         }
     }
 
+    public boolean hasPendingChanges() {
+        return shell != null && shell.hasPendingChanges();
+    }
+
+    public void applyPendingChanges() {
+        applyChanges();
+    }
+
+    public void cancelPendingChanges() {
+        cancelChanges();
+    }
+
+    public List<DlcServerItem> currentItemsSnapshot() {
+        return List.copyOf(ensureItemsLoadedFromConnectionSnapshot());
+    }
+
+    public DlcServerItem itemByIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return null;
+        }
+        String key = DlcFxPresetResolver.normalizeIdentifier(identifier);
+        for (DlcServerItem item : ensureItemsLoadedFromConnectionSnapshot()) {
+            if (item == null || item.identifier == null) {
+                continue;
+            }
+            if (key.equals(DlcFxPresetResolver.normalizeIdentifier(item.identifier))) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    public boolean applyPresetOverrides(List<DlcPresetEntry> presets, Set<String> enabledPresetIds) {
+        if (shell == null || !conn.connectedProperty().get()) {
+            return false;
+        }
+        List<DlcServerItem> current = ensureItemsLoadedFromConnectionSnapshot();
+        if (current.isEmpty()) {
+            return false;
+        }
+        Map<String, DlcPresetEntry> presetsById = DlcFxPresetResolver.byId(presets);
+        Set<String> desiredEnable = new LinkedHashSet<>();
+        Set<String> desiredDisable = new LinkedHashSet<>();
+        for (String presetId : enabledPresetIds == null ? Set.<String>of() : enabledPresetIds) {
+            if (presetId == null || presetId.isBlank() || !presetsById.containsKey(presetId)) {
+                continue;
+            }
+            desiredEnable.addAll(DlcFxPresetResolver.resolveEnableIdentifiers(
+                    presetId,
+                    presetsById,
+                    identifier -> itemByIdentifier(identifier) != null
+            ));
+            desiredDisable.addAll(DlcFxPresetResolver.resolveConflictIdentifiers(
+                    presetId,
+                    presetsById,
+                    identifier -> itemByIdentifier(identifier) != null
+            ));
+        }
+        desiredDisable.addAll(collectInfoConflictIdentifiers(desiredEnable));
+        desiredDisable = expandDisabledByDependents(desiredDisable);
+        desiredEnable.removeAll(desiredDisable);
+
+        Set<String> desiredAll = new LinkedHashSet<>(desiredEnable);
+        desiredAll.addAll(desiredDisable);
+        Set<String> toRestore = new LinkedHashSet<>(presetAppliedIdentifiers);
+        toRestore.removeAll(desiredAll);
+
+        for (String identifier : desiredEnable) {
+            DlcServerItem item = itemByIdentifier(identifier);
+            if (item != null) {
+                item.enabled = true;
+            }
+        }
+        for (String identifier : desiredDisable) {
+            DlcServerItem item = itemByIdentifier(identifier);
+            if (item != null) {
+                item.enabled = false;
+            }
+        }
+        for (String identifier : toRestore) {
+            DlcServerItem item = itemByIdentifier(identifier);
+            if (item != null) {
+                item.enabled = adapter.baselineEnabled(item);
+            }
+        }
+        presetAppliedIdentifiers.clear();
+        presetAppliedIdentifiers.addAll(desiredAll);
+        shell.refreshRows();
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.pending.apply"));
+        return shell.hasPendingChanges();
+    }
+
     private void refreshList() {
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
         shell.setBusy(true);
@@ -101,6 +197,85 @@ public final class DlcFxServerDlcManagementTab {
             shell.setBusy(false);
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.load_failed", DlcFxServerConnection.safeMessage(err)));
         });
+    }
+
+    private List<DlcServerItem> ensureItemsLoadedFromConnectionSnapshot() {
+        if (shell == null) {
+            return List.of();
+        }
+        if (!shell.items().isEmpty()) {
+            return List.copyOf(shell.items());
+        }
+        DlcServerInfo info = conn.lastServerInfo();
+        if (info != null && info.items != null && !info.items.isEmpty()) {
+            adapter.resetBaseline(info.items);
+            shell.setItems(info.items);
+            loadedForCurrentConnection = true;
+        }
+        return List.copyOf(shell.items());
+    }
+
+    private Set<String> collectInfoConflictIdentifiers(Set<String> enabledIdentifiers) {
+        Set<String> result = new LinkedHashSet<>();
+        for (String identifier : enabledIdentifiers == null ? Set.<String>of() : enabledIdentifiers) {
+            DlcServerItem item = itemByIdentifier(identifier);
+            if (item == null || item.conflicts == null || item.conflicts.isEmpty()) {
+                continue;
+            }
+            for (String conflict : item.conflicts) {
+                String key = DlcFxPresetResolver.normalizeIdentifier(conflict);
+                if (!key.isBlank() && !containsIdentifier(enabledIdentifiers, key)) {
+                    result.add(conflict);
+                }
+            }
+        }
+        return result;
+    }
+
+    private Set<String> expandDisabledByDependents(Set<String> disabledIdentifiers) {
+        Set<String> expanded = new LinkedHashSet<>();
+        List<DlcServerItem> queue = new ArrayList<>();
+        for (String identifier : disabledIdentifiers == null ? Set.<String>of() : disabledIdentifiers) {
+            DlcServerItem item = itemByIdentifier(identifier);
+            if (item != null && item.identifier != null && expanded.add(item.identifier)) {
+                queue.add(item);
+            }
+        }
+        for (int index = 0; index < queue.size(); index++) {
+            DlcServerItem current = queue.get(index);
+            String currentId = DlcFxPresetResolver.normalizeIdentifier(current.identifier);
+            if (currentId.isBlank()) {
+                continue;
+            }
+            for (DlcServerItem candidate : ensureItemsLoadedFromConnectionSnapshot()) {
+                if (candidate == null || candidate.dependencies == null || candidate.identifier == null) {
+                    continue;
+                }
+                boolean dependsOnCurrent = false;
+                for (String dependency : candidate.dependencies) {
+                    if (currentId.equals(DlcFxPresetResolver.normalizeIdentifier(dependency))) {
+                        dependsOnCurrent = true;
+                        break;
+                    }
+                }
+                if (dependsOnCurrent && expanded.add(candidate.identifier)) {
+                    queue.add(candidate);
+                }
+            }
+        }
+        return expanded;
+    }
+
+    private boolean containsIdentifier(Set<String> identifiers, String normalized) {
+        if (identifiers == null || normalized == null || normalized.isBlank()) {
+            return false;
+        }
+        for (String identifier : identifiers) {
+            if (normalized.equals(DlcFxPresetResolver.normalizeIdentifier(identifier))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void applyChanges() {

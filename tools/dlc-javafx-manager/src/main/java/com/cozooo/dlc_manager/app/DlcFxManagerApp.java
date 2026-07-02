@@ -25,6 +25,7 @@ import com.cozooo.dlc_manager.server.DlcFxServerDlcManagementTab;
 import com.cozooo.dlc_manager.server.DlcFxServerFileManagerTab;
 import com.cozooo.dlc_manager.server.DlcFxServerUpdateTab;
 import com.cozooo.dlc_manager.server.DlcFxServerPackTab;
+import com.cozooo.dlc_manager.server.DlcFxServerPresetTab;
 import com.cozooo.dlc_manager.server.DlcFxServerRconTab;
 import com.cozooo.dlc_manager.server.DlcFxServerDownloadTab;
 import com.cozooo.dlc_manager.server.DlcFxServerRequiredTab;
@@ -94,6 +95,7 @@ public final class DlcFxManagerApp extends Application {
     private DlcFxServerDlcManagementTab remoteDlcManagementTab;
     private DlcFxServerDownloadTab remoteDownloadTab;
     private DlcFxServerRequiredTab remoteRequiredTab;
+    private DlcFxServerPresetTab remotePresetTab;
     private DlcFxServerUpdateTab remoteUpdateTab;
     private DlcFxServerPackTab remotePackTab;
     private DlcFxServerRconTab remoteRconTab;
@@ -116,6 +118,7 @@ public final class DlcFxManagerApp extends Application {
     private Tab remoteDlcTabNode;
     private Tab remoteDownloadTabNode;
     private Tab remoteRequiredTabNode;
+    private Tab remotePresetTabNode;
     private Tab remoteUpdateTabNode;
     private Tab remotePackTabNode;
     private Tab remoteRconTabNode;
@@ -328,6 +331,9 @@ public final class DlcFxManagerApp extends Application {
         remoteRequiredTab = new DlcFxServerRequiredTab(remoteConnection);
         remoteRequiredTabNode = remoteRequiredTab.build();
         remoteTabPane.getTabs().add(remoteRequiredTabNode);
+        remotePresetTab = new DlcFxServerPresetTab(remoteConnection, () -> remoteDlcManagementTab, () -> localGameDirSelected);
+        remotePresetTabNode = remotePresetTab.build();
+        remoteTabPane.getTabs().add(remotePresetTabNode);
         remoteUpdateTab = new DlcFxServerUpdateTab(remoteConnection);
         remoteUpdateTabNode = remoteUpdateTab.build();
         remoteTabPane.getTabs().add(remoteUpdateTabNode);
@@ -430,6 +436,9 @@ public final class DlcFxManagerApp extends Application {
         }
         if (localPackTab != null) {
             localPackTab.onGameDirChanged();
+        }
+        if (remotePresetTab != null) {
+            remotePresetTab.onLocalGameDirChanged();
         }
         updateLocalNoticeButton();
         if (currentView == ViewMode.LOCAL) {
@@ -635,6 +644,8 @@ public final class DlcFxManagerApp extends Application {
             remoteDownloadTab.onTabSelected();
         } else if (selected == remoteRequiredTabNode && remoteRequiredTab != null) {
             remoteRequiredTab.onTabSelected();
+        } else if (selected == remotePresetTabNode && remotePresetTab != null) {
+            remotePresetTab.onTabSelected();
         } else if (selected == remoteUpdateTabNode && remoteUpdateTab != null) {
             remoteUpdateTab.onTabSelected();
         } else if (selected == remotePackTabNode && remotePackTab != null) {
@@ -1041,6 +1052,7 @@ public final class DlcFxManagerApp extends Application {
         remoteDlcTabNode = null;
         remoteDownloadTabNode = null;
         remoteRequiredTabNode = null;
+        remotePresetTabNode = null;
         remoteUpdateTabNode = null;
         remotePackTabNode = null;
         remoteRconTabNode = null;
@@ -1051,6 +1063,7 @@ public final class DlcFxManagerApp extends Application {
         remoteDlcManagementTab = null;
         remoteDownloadTab = null;
         remoteRequiredTab = null;
+        remotePresetTab = null;
         remoteUpdateTab = null;
         remotePackTab = null;
         remoteRconTab = null;
@@ -1081,6 +1094,13 @@ public final class DlcFxManagerApp extends Application {
         showLocalWorkspace();
         if (localDlcTabNode != null) {
             selectLocalTabWithoutPrompt(localDlcTabNode);
+        }
+    }
+
+    public void showServerDlcManagementTab() {
+        showRemoteWorkspace();
+        if (remoteTabPane != null && remoteDlcTabNode != null) {
+            remoteTabPane.getSelectionModel().select(remoteDlcTabNode);
         }
     }
 
