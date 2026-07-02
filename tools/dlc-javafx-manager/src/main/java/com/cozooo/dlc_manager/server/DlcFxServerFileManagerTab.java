@@ -220,7 +220,7 @@ public final class DlcFxServerFileManagerTab {
         page.setBottom(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
 
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_files"), page.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.files"), page.root());
     }
 
     public Tab buildSyncTab(java.util.function.Supplier<String> gameDirTextSupplier,

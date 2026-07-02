@@ -53,10 +53,10 @@ public final class DlcFxServerUpdateTab {
             new RemoteUpdateAdapter(),
             statusLabel,
             progressBar,
-            DlcFxI18n.tr("dlc_manager.remote_update.query_state"),
+            DlcFxI18n.tr("dlc_manager.update.query_state"),
             DlcFxI18n.tr("dlc_manager.update.import_package"),
-            DlcFxI18n.tr("dlc_manager.remote_update.import_url"),
-            DlcFxI18n.tr("dlc_manager.remote_update.apply_all"),
+            DlcFxI18n.tr("dlc_manager.update.import_url_server"),
+            DlcFxI18n.tr("dlc_manager.update.apply_all"),
             toolbarFlow::refresh,
             toolbarFlow::importPackage,
             toolbarFlow::importUrl,
@@ -64,7 +64,7 @@ public final class DlcFxServerUpdateTab {
         );
         shell.bindAvailable(conn.connectedProperty());
         DlcFxStyle.routeStatus(statusLabel);
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_update"), shell.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.update"), shell.root());
     }
 
     public void onTabSelected() {
@@ -88,7 +88,7 @@ public final class DlcFxServerUpdateTab {
             shell.setUpdateHint(plan.hasVisibleUpdates
                 ? DlcFxI18n.tr("dlc_manager.update.desc")
                 : "");
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.update_count",
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.update_count",
                 visibleUpdateCount(plan.rows)));
             setBusy(false, null);
             loadedForCurrentConnection = true;
@@ -99,7 +99,7 @@ public final class DlcFxServerUpdateTab {
     }
 
     private void confirmApplyAll() {
-        if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.apply_title"), DlcFxI18n.tr("dlc_manager.remote_update.apply_confirm"))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.update.apply_all_title"), DlcFxI18n.tr("dlc_manager.update.apply_all_confirm"))) {
             return;
         }
         apply(null, null, null, null);
@@ -118,8 +118,8 @@ public final class DlcFxServerUpdateTab {
     }
 
     private void confirmApplyByVersion(DlcUpdateRowPlanner.UpdateRow row) {
-        if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.apply_by_version_title"),
-            DlcFxI18n.tr("dlc_manager.remote_update.apply_by_version_confirm"))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.update.apply_by_version_title"),
+            DlcFxI18n.tr("dlc_manager.update.apply_by_version_confirm"))) {
             return;
         }
         DlcUpdateMeta meta = row == null ? null : row.meta;
@@ -133,16 +133,16 @@ public final class DlcFxServerUpdateTab {
 
     private void confirmRollback(String target) {
         if (target == null || target.isBlank()) {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.rollback_target_required"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_target_required"));
             return;
         }
-        if (!confirm(DlcFxI18n.tr("dlc_manager.remote_update.rollback_title"),
-            DlcFxI18n.tr("dlc_manager.remote_update.rollback_confirm", target))) {
+        if (!confirm(DlcFxI18n.tr("dlc_manager.update.server_rollback_title"),
+            DlcFxI18n.tr("dlc_manager.update.server_rollback_confirm", target))) {
             return;
         }
         setBusy(true, DlcFxI18n.tr("dlc_manager.update.rolling_back"));
         conn.runAsync(f -> f.updateRollback(target), response -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.rollback_result", response.toString()));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_result", response.toString()));
             setBusy(false, null);
             refreshState();
         }, error -> {
@@ -153,18 +153,18 @@ public final class DlcFxServerUpdateTab {
 
     private void runImportDialog() {
         TextField pathField = new TextField();
-        pathField.setPromptText(DlcFxI18n.tr("dlc_manager.remote_update.server_package_path"));
+        pathField.setPromptText(DlcFxI18n.tr("dlc_manager.update.server_package_path"));
         pathField.setPrefWidth(460);
         Label error = new Label();
         DlcFxStyle.muted(error);
         VBox content = new VBox(10, pathField, error);
         DlcFxModalOverlay.show(shell.root().getScene(),
-            DlcFxI18n.tr("dlc_manager.remote_update.import_title"),
+            DlcFxI18n.tr("dlc_manager.update.import_title"),
             content,
             () -> {
                 String path = pathField.getText() == null ? "" : pathField.getText().trim();
                 if (path.isBlank()) {
-                    error.setText(DlcFxI18n.tr("dlc_manager.remote_update.server_package_path_required"));
+                    error.setText(DlcFxI18n.tr("dlc_manager.update.server_package_path_required"));
                     return;
                 }
                 runImportPackage(path);
@@ -178,7 +178,7 @@ public final class DlcFxServerUpdateTab {
     private void runImportPackage(String path) {
         setBusy(true, DlcFxI18n.tr("dlc_manager.update.importing"));
         conn.runAsync(f -> f.updateImport(path), response -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.import_result", response.toString()));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_result", response.toString()));
             setBusy(false, null);
             refreshState();
         }, error -> {
@@ -199,7 +199,7 @@ public final class DlcFxServerUpdateTab {
         fields.setAlignment(Pos.CENTER_LEFT);
         VBox content = new VBox(10, fields, error);
         DlcFxModalOverlay.show(shell.root().getScene(),
-            DlcFxI18n.tr("dlc_manager.remote_update.import_url_title"),
+            DlcFxI18n.tr("dlc_manager.update.import_url_server_title"),
             content,
             () -> {
                 String url = urlField.getText() == null ? "" : urlField.getText().trim();
@@ -217,10 +217,10 @@ public final class DlcFxServerUpdateTab {
     }
 
     private void runImportUrl(String url, String name) {
-        setBusy(true, DlcFxI18n.tr("dlc_manager.remote_update.downloading_importing"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.downloading_importing"));
         progressBar.setProgress(-1);
         conn.runAsync(f -> f.updateImportUrl(url, name), response -> {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.import_result", response.toString()));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_result", response.toString()));
             setBusy(false, null);
             refreshState();
         }, error -> {
@@ -382,7 +382,7 @@ public final class DlcFxServerUpdateTab {
     private final class RemoteUpdateActions implements DlcFxUpdateActionFlow.Actions {
         @Override
         public void targetMissing() {
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.remote_update.rollback_target_required"));
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_target_required"));
         }
 
         @Override

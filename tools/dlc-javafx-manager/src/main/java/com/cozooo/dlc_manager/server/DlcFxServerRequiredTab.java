@@ -71,7 +71,7 @@ public final class DlcFxServerRequiredTab {
         VBox.setVgrow(shell.listFrame(), Priority.ALWAYS);
         root.setCenter(center);
         root.setBottom(shell.bottomBar());
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_required"), root);
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.required.title"), root);
     }
 
     public void onTabSelected() {

@@ -78,7 +78,7 @@ public final class DlcFxRemoteDownloadShell<T> {
         default boolean itemActionVisible(T item) { return missing(item); }
         default boolean itemActionDisabled(T item) { return false; }
         default boolean itemActionDanger(T item) { return false; }
-        default String itemActionText(T item) { return DlcFxI18n.tr("dlc_manager.remote.download"); }
+        default String itemActionText(T item) { return DlcFxI18n.tr("dlc_manager.server.download"); }
         default double progress(T item) { return Double.NaN; }
         default String progressText(T item) { return ""; }
     }
@@ -133,8 +133,8 @@ public final class DlcFxRemoteDownloadShell<T> {
         this.selectionModel = new DlcFxSelectionModel<>(adapter::id);
         this.listFrame = DlcFxListViewSupport.wrap(listView);
 
-        this.refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.remote.refresh_download_list"));
-        this.downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.remote.download_missing"));
+        this.refreshBtn = new Button(DlcFxI18n.tr("dlc_manager.server.refresh_download_list"));
+        this.downloadMissingBtn = new Button(DlcFxI18n.tr("dlc_manager.server.download_missing"));
         this.downloadSelectedBtn = new Button(DlcFxI18n.tr("dlc_manager.common.download_selected"));
         this.cancelBtn = new Button(DlcFxI18n.tr("dlc_manager.common.cancel"));
 
@@ -490,7 +490,7 @@ public final class DlcFxRemoteDownloadShell<T> {
         private final Label groupLabel = new Label();
         private final Label progressText = new Label();
         private final ProgressBar rowProgress = new ProgressBar(0);
-        private final Button actionButton = new Button(DlcFxI18n.tr("dlc_manager.remote.download"));
+        private final Button actionButton = new Button(DlcFxI18n.tr("dlc_manager.server.download"));
         private final Button collapseButton = new Button();
         private final SVGPath collapseIcon = new SVGPath();
         private final StackPane collapseIconBox = new StackPane(collapseIcon);

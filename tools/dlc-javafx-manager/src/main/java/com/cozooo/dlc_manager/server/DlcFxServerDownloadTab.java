@@ -67,7 +67,7 @@ public final class DlcFxServerDownloadTab {
         VBox.setVgrow(shell.listFrame(), Priority.ALWAYS);
         root.setCenter(center);
         root.setBottom(shell.bottomBar());
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_remote"), root);
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote"), root);
     }
 
     public void onTabSelected() {
@@ -84,8 +84,8 @@ public final class DlcFxServerDownloadTab {
             rows.setAll(parseRows(response));
             shell.setItems(rows);
             int missing = (int) rows.stream().filter(row -> row.missing).count();
-            countLabel.setText(DlcFxI18n.tr("dlc_manager.remote.count", rows.size(), missing));
-            statusLabel.setText(missing == 0 ? DlcFxI18n.tr("dlc_manager.status.no_missing") : DlcFxI18n.tr("dlc_manager.remote.has_missing"));
+            countLabel.setText(DlcFxI18n.tr("dlc_manager.server.count", rows.size(), missing));
+            statusLabel.setText(missing == 0 ? DlcFxI18n.tr("dlc_manager.status.no_missing") : DlcFxI18n.tr("dlc_manager.server.has_missing"));
             setBusy(false);
             loadedForCurrentConnection = true;
         }, error -> {

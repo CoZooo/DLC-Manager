@@ -846,7 +846,7 @@ public final class DlcFxManagerApp extends Application {
         if (localDlcManagementTab != null) {
             localDlcManagementTab.setGameDirSelected(true);
             localDlcManagementTab.scanSelectedGameDir();
-            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.remote.read_local_started"));
+            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.server.read_local_started"));
         }
     }
 

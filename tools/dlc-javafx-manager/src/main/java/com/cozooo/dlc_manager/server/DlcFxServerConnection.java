@@ -77,7 +77,7 @@ public final class DlcFxServerConnection {
                 Platform.runLater(() -> {
                     connected.set(true);
                     connectionState.set(ConnectionState.CONNECTED);
-                    statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, port));
+                    statusText.set(DlcFxI18n.tr("dlc_manager.server.connected_to", host, port));
                     serverInfoText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
                     onDone.accept(null);
                 });
@@ -115,7 +115,7 @@ public final class DlcFxServerConnection {
         if (state == ConnectionState.CONNECTED) {
             String host = connectedHost == null ? "" : connectedHost;
             int port = connectedPort;
-            statusText.set(DlcFxI18n.tr("dlc_manager.remote.connected_to", host, port));
+            statusText.set(DlcFxI18n.tr("dlc_manager.server.connected_to", host, port));
             serverInfoText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
         } else if (state == ConnectionState.CONNECTING) {
             statusText.set(DlcFxI18n.tr("dlc_manager.server.connecting"));
@@ -137,7 +137,7 @@ public final class DlcFxServerConnection {
                       Consumer<T> onSuccess, Consumer<Throwable> onError) {
         DlcServerSession f = session;
         if (f == null) {
-            Platform.runLater(() -> onError.accept(new IllegalStateException(DlcFxI18n.tr("dlc_manager.remote.not_connected"))));
+            Platform.runLater(() -> onError.accept(new IllegalStateException(DlcFxI18n.tr("dlc_manager.server.not_connected"))));
             return;
         }
         Thread thread = new Thread(() -> {

@@ -22,7 +22,7 @@ public final class DlcFxServerSyncTab {
     private final Runnable chooseGameDirAction;
     private final Runnable readLocalFilesAction;
     private final Label gameDirLabel = new Label();
-    private final Button readLocalButton = new Button(DlcFxI18n.tr("dlc_manager.remote.read_local_files"));
+    private final Button readLocalButton = new Button(DlcFxI18n.tr("dlc_manager.server.read_local_files"));
     private final Button chooseDirButton = new Button(DlcFxI18n.tr("dlc_manager.local.choose_game_dir"));
 
     public DlcFxServerSyncTab(Supplier<String> gameDirTextSupplier,
@@ -45,7 +45,7 @@ public final class DlcFxServerSyncTab {
         refreshState();
 
         Node top = DlcFxToolbar.create(
-                new Label(DlcFxI18n.tr("dlc_manager.remote.local_source")),
+                new Label(DlcFxI18n.tr("dlc_manager.server.local_source")),
                 gameDirLabel,
                 DlcFxToolbar.spacer(),
                 chooseDirButton,
@@ -53,13 +53,13 @@ public final class DlcFxServerSyncTab {
         );
         page.setTop(top);
 
-        Label hint = new Label(DlcFxI18n.tr("dlc_manager.remote.sync_hint"));
+        Label hint = new Label(DlcFxI18n.tr("dlc_manager.server.sync_hint"));
         DlcFxStyle.muted(hint);
         VBox center = new VBox(10, hint);
         center.setAlignment(Pos.TOP_LEFT);
         page.setCenter(page.section(center));
 
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_sync"), page.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.sync"), page.root());
     }
 
     public void onStorageContextChanged() {

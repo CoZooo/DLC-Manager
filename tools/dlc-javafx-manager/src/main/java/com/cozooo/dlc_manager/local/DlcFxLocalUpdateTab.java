@@ -86,7 +86,7 @@ public final class DlcFxLocalUpdateTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_update"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.update"));
         tab.setClosable(false);
 
         shell = new DlcFxUpdateShell<>(

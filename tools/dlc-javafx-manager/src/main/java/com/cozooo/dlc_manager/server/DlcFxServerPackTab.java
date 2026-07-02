@@ -129,7 +129,7 @@ public final class DlcFxServerPackTab {
         listView.setCellFactory(param -> new DlcFxPackGroupCell<>(new PackCellAdapter()));
         conn.connectedProperty().addListener((obs, oldValue, connected) -> updateActionButtons());
         updateActionButtons();
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_pack"), shell.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.pack"), shell.root());
     }
 
     public void onTabSelected() {
@@ -410,7 +410,7 @@ public final class DlcFxServerPackTab {
     }
 
     private void importUrl(String url, String name) {
-        setBusy(true, DlcFxI18n.tr("dlc_manager.remote_update.downloading_importing"));
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.downloading_importing"));
         progressBar.setProgress(-1);
         conn.runAsync(f -> f.packImportUrl(url, name), response -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.result_value", response.toString()));

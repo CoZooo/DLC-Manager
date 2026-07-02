@@ -82,7 +82,7 @@ public final class DlcFxServerConnectionTab {
         Button connectBtn = new Button(DlcFxI18n.tr("dlc_manager.server.connect"));
         connectBtn.setOnAction(e -> connectCurrent());
 
-        Button disconnectBtn = new Button(DlcFxI18n.tr("dlc_manager.remote.disconnect"));
+        Button disconnectBtn = new Button(DlcFxI18n.tr("dlc_manager.server.disconnect"));
         disconnectBtn.disableProperty().bind(conn.connectedProperty().not());
         disconnectBtn.setOnAction(e -> conn.disconnect());
         DlcFxStyle.primary(connectBtn);
@@ -112,15 +112,15 @@ public final class DlcFxServerConnectionTab {
 
         HBox formBox = new HBox(8,
                 new Label(DlcFxI18n.tr("dlc_manager.server_preset.name")), nameField,
-                new Label(DlcFxI18n.tr("dlc_manager.remote.host")), hostField,
-                new Label(DlcFxI18n.tr("dlc_manager.remote.port")), portField,
-                new Label(DlcFxI18n.tr("dlc_manager.remote.password")), passwordField,
+                new Label(DlcFxI18n.tr("dlc_manager.server.host")), hostField,
+                new Label(DlcFxI18n.tr("dlc_manager.server.port")), portField,
+                new Label(DlcFxI18n.tr("dlc_manager.server.password")), passwordField,
                 connectBtn, disconnectBtn);
         formBox.setAlignment(Pos.CENTER_LEFT);
 
         page.setTop(DlcFxToolbar.vertical(presetBoxRow, formBox));
 
-        Label infoTitle = new Label(DlcFxI18n.tr("dlc_manager.remote.server_info"));
+        Label infoTitle = new Label(DlcFxI18n.tr("dlc_manager.server.server_info"));
         DlcFxStyle.title(infoTitle);
         DlcFxStyle.muted(infoLabel);
         DlcFxStyle.muted(presetStatusLabel);
@@ -129,7 +129,7 @@ public final class DlcFxServerConnectionTab {
         DlcFxStyle.routeStatus(infoLabel);
         DlcFxStyle.routeStatus(presetStatusLabel);
 
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_connection"), page.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.connection"), page.root());
     }
 
     public void onStorageContextChanged() {

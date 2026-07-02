@@ -133,7 +133,7 @@ public final class DlcFxLocalPresetTab {
         DlcFxStyle.routeStatus(statusLabel);
         page.setBottom(actionPanel);
 
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.local_preset"), page.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.preset"), page.root());
     }
 
     public void onGameDirChanged() {

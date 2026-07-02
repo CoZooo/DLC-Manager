@@ -140,7 +140,7 @@ public final class DlcFxLocalPackTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_pack"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.pack"));
         tab.setClosable(false);
 
         refreshBtn.setDisable(true);

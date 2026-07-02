@@ -132,7 +132,7 @@ public final class DlcFxLocalDlcManagementTab {
         page.setBottom(shell.bottomPanel());
 
         updateActionState();
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.local_dlc"), page.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.dlc"), page.root());
     }
 
     public void onGameDirChanged() {

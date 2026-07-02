@@ -79,7 +79,7 @@ public final class DlcFxServerDlcManagementTab {
         VBox center = new VBox(10, shell.filterBar(), shell.listFrame());
         page.setCenter(page.section(center));
         page.setBottom(shell.bottomPanel());
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_dlc"), page.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.dlc"), page.root());
     }
 
     public void onTabSelected() {
@@ -120,8 +120,8 @@ public final class DlcFxServerDlcManagementTab {
             adapter.commitBaseline(changed);
             shell.commitCurrentState();
             statusLabel.setText(outcome.requiresRestart
-                    ? DlcFxI18n.tr("dlc_manager.remote.applied_restart")
-                    : DlcFxI18n.tr("dlc_manager.remote.applied"));
+                    ? DlcFxI18n.tr("dlc_manager.server.applied_restart")
+                    : DlcFxI18n.tr("dlc_manager.server.applied"));
         }, err -> {
             shell.setBusy(false);
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.apply_failed", DlcFxServerConnection.safeMessage(err)));

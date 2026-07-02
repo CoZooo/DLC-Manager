@@ -64,7 +64,7 @@ public final class DlcFxLocalRequiredTab {
     }
 
     public Tab build() {
-        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.local_required"));
+        Tab tab = new Tab(DlcFxI18n.tr("dlc_manager.tab.required"));
         tab.setClosable(false);
 
         BorderPane root = new BorderPane();

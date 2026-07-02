@@ -61,10 +61,10 @@ public final class DlcFxServerRconTab {
         hostField.setPromptText(DlcFxI18n.tr("dlc_manager.rcon.host_prompt"));
         hostField.setPrefColumnCount(14);
         TextField portField = new TextField();
-        portField.setPromptText(DlcFxI18n.tr("dlc_manager.remote.port_plain"));
+        portField.setPromptText(DlcFxI18n.tr("dlc_manager.server.port_plain"));
         portField.setPrefColumnCount(6);
         TextField pwField = new TextField();
-        pwField.setPromptText(DlcFxI18n.tr("dlc_manager.remote.password_plain"));
+        pwField.setPromptText(DlcFxI18n.tr("dlc_manager.server.password_plain"));
         pwField.setPrefColumnCount(14);
         Button setBtn = new Button(DlcFxI18n.tr("dlc_manager.config.save"));
         setBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -123,7 +123,7 @@ public final class DlcFxServerRconTab {
         page.setCenter(page.section(center));
         DlcFxStyle.routeStatus(infoLabel);
 
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote_rcon"), page.root());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.rcon"), page.root());
     }
 
     public void onTabSelected() {
