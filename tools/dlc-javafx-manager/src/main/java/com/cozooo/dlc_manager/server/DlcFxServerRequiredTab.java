@@ -189,7 +189,7 @@ public final class DlcFxServerRequiredTab {
 
         @Override
         public void refresh() {
-            refresh();
+            DlcFxServerRequiredTab.this.refresh();
         }
     }
 
