@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.ui.required.DlcFxRequiredRefreshFlow;
 import com.cozooo.dlc_manager.ui.required.DlcFxRequiredSelectionModel;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -16,8 +17,6 @@ import javafx.collections.ObservableList;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.Tab;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
@@ -63,15 +62,14 @@ public final class DlcFxServerRequiredTab {
         shell.bindAvailable(conn.connectedProperty());
         DlcFxStyle.muted(countLabel);
 
-        BorderPane root = new BorderPane();
-        DlcFxStyle.view(root);
-        root.setTop(shell.topBar(countLabel));
+        DlcFxTabPage page = new DlcFxTabPage(DlcFxI18n.tr("dlc_manager.status.disconnected"));
+        page.setTop(shell.topBar(countLabel));
         VBox center = new VBox(shell.listFrame());
-        DlcFxStyle.section(center);
-        VBox.setVgrow(shell.listFrame(), Priority.ALWAYS);
-        root.setCenter(center);
-        root.setBottom(shell.bottomBar());
-        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.required.title"), root);
+        DlcFxTabPage.grow(shell.listFrame());
+        DlcFxTabPage.grow(center);
+        page.setCenter(page.section(center));
+        page.setBottom(shell.bottomBar());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.required.title"), page.root());
     }
 
     public void onTabSelected() {
