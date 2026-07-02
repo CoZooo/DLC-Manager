@@ -86,10 +86,10 @@ public final class DlcFxNoticeOverlay {
         subheadLabel = new Label();
         subheadLabel.getStyleClass().add("dlc-notice-subhead");
         subheadLabel.setWrapText(true);
-        subheadLabel.setAlignment(Pos.CENTER_RIGHT);
+        subheadLabel.setAlignment(Pos.BOTTOM_RIGHT);
         HBox.setHgrow(titleLabel, Priority.ALWAYS);
         HBox header = new HBox(18, titleLabel, subheadLabel);
-        header.setAlignment(Pos.TOP_LEFT);
+        header.setAlignment(Pos.BOTTOM_LEFT);
         header.getStyleClass().add("dlc-notice-header");
         return header;
     }
