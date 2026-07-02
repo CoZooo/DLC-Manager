@@ -87,6 +87,7 @@ def reusedCommonJavaFiles = [
     'com/cozooo/dlc_manager/client/server/DlcServerRequiredItem.java',
     'com/cozooo/dlc_manager/client/server/DlcServerRequiredProgressItem.java',
     'com/cozooo/dlc_manager/client/server/DlcServerRequiredStatus.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerSession.java',
     'com/cozooo/dlc_manager/client/server/DlcServerUpdateInfo.java',
     'com/cozooo/dlc_manager/client/server/DlcServerUpdateState.java',
     'com/cozooo/dlc_manager/client/server/DlcServerVersionUtil.java',
@@ -122,13 +123,11 @@ def reusedCommonJavaFiles = [
 sourceSets {
     main {
         java {
-            srcDirs += ['../dlc-external-controller/src/main/java']
             exclude reusedCommonJavaFiles
         }
     }
     test {
         java {
-            srcDirs += ['../dlc-external-controller/src/test/java']
         }
     }
 }

@@ -9,7 +9,8 @@ import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
 import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
 
-import com.cozooo.dlc_manager.tools.externalsync.SyncModels;
+import com.cozooo.dlc_manager.client.server.DlcServerFileEntry;
+import com.cozooo.dlc_manager.client.server.DlcServerSession;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -266,10 +267,7 @@ public final class DlcFxServerFileManagerTab {
         }
     }
 
-    private void pushDirectory(DlcFxServerConnection conn2, Path dir) {
-    }
-
-    private void pushDirectory(com.cozooo.dlc_manager.tools.externalsync.DlcTcpFacade facade, Path dir) throws Exception {
+    private void pushDirectory(DlcServerSession facade, Path dir) throws Exception {
         String id = UUID.randomUUID().toString();
         facade.pushInit(id, "overwrite", java.util.List.of("all"), null);
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
@@ -297,9 +295,9 @@ public final class DlcFxServerFileManagerTab {
         facade.pushFinish();
     }
 
-    private static List<String> formatEntries(List<SyncModels.FileEntry> list) {
+    private static List<String> formatEntries(List<DlcServerFileEntry> list) {
         java.util.List<String> rows = new java.util.ArrayList<>();
-        for (SyncModels.FileEntry e : list) {
+        for (DlcServerFileEntry e : list) {
             if (e.dir) {
                 rows.add(dirPrefix() + e.name);
             } else {

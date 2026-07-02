@@ -3,9 +3,9 @@ package com.cozooo.dlc_manager.server;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 
-import com.cozooo.dlc_manager.tools.externalsync.DlcTcpFacade;
-import com.cozooo.dlc_manager.tools.externalsync.ExternalSyncException;
-import com.cozooo.dlc_manager.tools.externalsync.SyncModels;
+import com.cozooo.dlc_manager.client.server.DlcServerInfo;
+import com.cozooo.dlc_manager.client.server.DlcServerSession;
+import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
@@ -17,6 +17,8 @@ import javafx.beans.property.StringProperty;
 import java.util.function.Consumer;
 
 public final class DlcFxServerConnection {
+    private static final String PLAYER_NAME = "DLC JavaFX Manager";
+    private static final String PLAYER_UUID = "dlc-javafx-manager";
 
     public enum ConnectionState {
         DISCONNECTED,
@@ -34,8 +36,8 @@ public final class DlcFxServerConnection {
     private final StringProperty statusText = new SimpleStringProperty(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final StringProperty serverInfoText = new SimpleStringProperty("");
 
-    private volatile DlcTcpFacade facade;
-    private volatile SyncModels.ServerInfo lastServerInfo;
+    private volatile DlcServerSession session;
+    private volatile DlcServerInfo lastServerInfo;
     private volatile String connectedHost;
     private volatile int connectedPort;
 
@@ -45,12 +47,12 @@ public final class DlcFxServerConnection {
     StringProperty serverInfoTextProperty() { return serverInfoText; }
 
     boolean isConnected() { return connected.get(); }
-    DlcTcpFacade facade() { return facade; }
-    SyncModels.ServerInfo lastServerInfo() { return lastServerInfo; }
+    DlcServerSession facade() { return session; }
+    DlcServerInfo lastServerInfo() { return lastServerInfo; }
 
     void connectAsync(String host, int port, String password, int timeoutMs, Consumer<Throwable> onDone) {
-        DlcTcpFacade previous = facade;
-        facade = null;
+        DlcServerSession previous = session;
+        session = null;
         if (previous != null) {
             try { previous.close(); } catch (Exception ignored) {}
         }
@@ -59,9 +61,16 @@ public final class DlcFxServerConnection {
         statusText.set(DlcFxI18n.tr("dlc_manager.server.connecting"));
         Thread thread = new Thread(() -> {
             try {
-                DlcTcpFacade f = DlcTcpFacade.connect(host, port, password, timeoutMs);
-                SyncModels.ServerInfo info = f.fetchList();
-                facade = f;
+                DlcServerSession created = DlcServerSession.connect(
+                        host,
+                        port,
+                        password,
+                        timeoutMs,
+                        CrossPlatformRuntime.languageCode(),
+                        PLAYER_NAME,
+                        PLAYER_UUID);
+                DlcServerInfo info = created.fetchList();
+                session = created;
                 lastServerInfo = info;
                 connectedHost = host;
                 connectedPort = port;
@@ -87,8 +96,8 @@ public final class DlcFxServerConnection {
     }
 
     void disconnect() {
-        DlcTcpFacade f = facade;
-        facade = null;
+        DlcServerSession f = session;
+        session = null;
         lastServerInfo = null;
         connectedHost = null;
         connectedPort = 0;
@@ -126,7 +135,7 @@ public final class DlcFxServerConnection {
     /** Runs blocking protocol work off the UI thread and returns callbacks on the FX thread. */
     <T> void runAsync(AsyncAction<T> action,
                       Consumer<T> onSuccess, Consumer<Throwable> onError) {
-        DlcTcpFacade f = facade;
+        DlcServerSession f = session;
         if (f == null) {
             Platform.runLater(() -> onError.accept(new IllegalStateException(DlcFxI18n.tr("dlc_manager.remote.not_connected"))));
             return;
@@ -145,13 +154,10 @@ public final class DlcFxServerConnection {
 
     @FunctionalInterface
     interface AsyncAction<T> {
-        T apply(DlcTcpFacade facade) throws Exception;
+        T apply(DlcServerSession facade) throws Exception;
     }
 
     static String safeMessage(Throwable t) {
-        if (t instanceof ExternalSyncException) {
-            return t.getMessage();
-        }
         String msg = t.getMessage();
         return msg == null ? t.getClass().getSimpleName() : msg;
     }

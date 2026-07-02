@@ -8,21 +8,11 @@ import com.cozooo.dlc_manager.core.DlcTmpPaths
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import java.io.BufferedReader
-import java.io.BufferedWriter
 import java.io.IOException
 import java.io.InputStream
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.InetSocketAddress
-import java.net.Socket
-import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.util.Base64
 import java.util.UUID
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -34,6 +24,7 @@ object DlcServerConnection {
     class ApplyResponse {
         @JvmField var ok: Boolean = false
         @JvmField var requiresRestart: Boolean = false
+        @JvmField var messages: List<String> = listOf()
     }
 
     class UpdateResponse {
@@ -57,37 +48,10 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchServerInfo(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerInfo? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val listReq = JsonObject()
-            listReq.addProperty("type", "list")
-            writeLine(writer, listReq)
-            val response = readObject(reader) ?: return null
-            if (!response.has("type") || response["type"].asString != "list") return null
-            val info = DlcServerInfo()
-            info.baseVersion = getString(response, "base")
-            info.dlcVersion = getString(response, "dlc")
-            info.remoteMissing = getInt(response, "remoteMissing")
-            info.requiredMissing = getInt(response, "requiredMissing")
-            info.hasRequired = response.has("hasRequired") && response["hasRequired"].asBoolean
-            info.hasTaczMod = response.has("hasTaczMod") && response["hasTaczMod"].asBoolean
-            info.modpackUrl = getString(response, "modpackUrl")
-            info.updateGitRepo = getString(response, "updateGitRepo") ?: getString(response, "updateGithubRepo")
-            if (!info.hasRequired && info.requiredMissing > 0) {
-                info.hasRequired = true
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                session.fetchList()
             }
-            val items = ArrayList<DlcServerItem>()
-            if (response.has("items") && response["items"].isJsonArray) {
-                response.getAsJsonArray("items").forEach { element ->
-                    if (element.isJsonObject) {
-                        GSON.fromJson(element, DlcServerItem::class.java)?.let(items::add)
-                    }
-                }
-            }
-            info.items = items
-            return info
         }
     }
 
@@ -100,40 +64,30 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun downloadMissingRemote(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): Boolean {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val request = JsonObject()
-            request.addProperty("type", "remote_download")
-            writeLine(writer, request)
-            val response = readObject(reader) ?: return false
-            return response.has("ok") && response["ok"].asBoolean
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                isOk(session.remoteDownload())
+            }
         }
     }
 
     @JvmStatic
     @Throws(IOException::class)
     fun fetchRemoteMissingList(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): List<DlcServerRemoteItem>? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val request = JsonObject()
-            request.addProperty("type", "remote_list")
-            addLang(request)
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "remote_list") return null
-            val items = ArrayList<DlcServerRemoteItem>()
-            if (response.has("items") && response["items"].isJsonArray) {
-                response.getAsJsonArray("items").forEach { element ->
-                    if (element.isJsonObject) {
-                        GSON.fromJson(element, DlcServerRemoteItem::class.java)?.let(items::add)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.remoteList()
+                if (!hasType(response, "remote_list")) return@nullOnIo null
+                val items = ArrayList<DlcServerRemoteItem>()
+                if (response.has("items") && response["items"].isJsonArray) {
+                    response.getAsJsonArray("items").forEach { element ->
+                        if (element.isJsonObject) {
+                            GSON.fromJson(element, DlcServerRemoteItem::class.java)?.let(items::add)
+                        }
                     }
                 }
+                items
             }
-            return items
         }
     }
 
@@ -146,21 +100,15 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun startRemoteDownload(entry: DlcServerEntry?, timeoutMs: Int, keys: List<String>?, playerName: String?, playerUuid: String?): DlcServerRemoteStatus? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val request = JsonObject()
-            request.addProperty("type", "remote_download_start")
-            addLang(request)
-            addStringArray(request, "keys", keys)
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "remote_download_start") return null
-            return if (response.has("status") && response["status"].isJsonObject) {
-                GSON.fromJson(response["status"], DlcServerRemoteStatus::class.java)
-            } else {
-                null
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.remoteDownloadStart(keys)
+                if (!hasType(response, "remote_download_start")) return@nullOnIo null
+                if (response.has("status") && response["status"].isJsonObject) {
+                    GSON.fromJson(response["status"], DlcServerRemoteStatus::class.java)
+                } else {
+                    null
+                }
             }
         }
     }
@@ -174,20 +122,15 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchRemoteDownloadStatus(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerRemoteStatus? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val request = JsonObject()
-            request.addProperty("type", "remote_download_status")
-            addLang(request)
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "remote_download_status") return null
-            return if (response.has("status") && response["status"].isJsonObject) {
-                GSON.fromJson(response["status"], DlcServerRemoteStatus::class.java)
-            } else {
-                null
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.remoteDownloadStatus()
+                if (!hasType(response, "remote_download_status")) return@nullOnIo null
+                if (response.has("status") && response["status"].isJsonObject) {
+                    GSON.fromJson(response["status"], DlcServerRemoteStatus::class.java)
+                } else {
+                    null
+                }
             }
         }
     }
@@ -201,25 +144,20 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchRequiredList(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): List<DlcServerRequiredItem>? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val request = JsonObject()
-            request.addProperty("type", "required_list")
-            addLang(request)
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "required_list") return null
-            val items = ArrayList<DlcServerRequiredItem>()
-            if (response.has("items") && response["items"].isJsonArray) {
-                response.getAsJsonArray("items").forEach { element ->
-                    if (element.isJsonObject) {
-                        GSON.fromJson(element, DlcServerRequiredItem::class.java)?.let(items::add)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.requiredList()
+                if (!hasType(response, "required_list")) return@nullOnIo null
+                val items = ArrayList<DlcServerRequiredItem>()
+                if (response.has("items") && response["items"].isJsonArray) {
+                    response.getAsJsonArray("items").forEach { element ->
+                        if (element.isJsonObject) {
+                            GSON.fromJson(element, DlcServerRequiredItem::class.java)?.let(items::add)
+                        }
                     }
                 }
+                items
             }
-            return items
         }
     }
 
@@ -232,21 +170,15 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun startRequiredDownload(entry: DlcServerEntry?, timeoutMs: Int, ids: List<String>?, playerName: String?, playerUuid: String?): DlcServerRequiredStatus? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val request = JsonObject()
-            request.addProperty("type", "required_download_start")
-            addLang(request)
-            addStringArray(request, "ids", ids)
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "required_download_start") return null
-            return if (response.has("status") && response["status"].isJsonObject) {
-                GSON.fromJson(response["status"], DlcServerRequiredStatus::class.java)
-            } else {
-                null
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.requiredDownloadStart(ids)
+                if (!hasType(response, "required_download_start")) return@nullOnIo null
+                if (response.has("status") && response["status"].isJsonObject) {
+                    GSON.fromJson(response["status"], DlcServerRequiredStatus::class.java)
+                } else {
+                    null
+                }
             }
         }
     }
@@ -260,20 +192,15 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchRequiredDownloadStatus(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerRequiredStatus? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val request = JsonObject()
-            request.addProperty("type", "required_download_status")
-            addLang(request)
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "required_download_status") return null
-            return if (response.has("status") && response["status"].isJsonObject) {
-                GSON.fromJson(response["status"], DlcServerRequiredStatus::class.java)
-            } else {
-                null
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.requiredDownloadStatus()
+                if (!hasType(response, "required_download_status")) return@nullOnIo null
+                if (response.has("status") && response["status"].isJsonObject) {
+                    GSON.fromJson(response["status"], DlcServerRequiredStatus::class.java)
+                } else {
+                    null
+                }
             }
         }
     }
@@ -287,16 +214,12 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun cancelRequiredDownload(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): Boolean {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val request = JsonObject()
-            request.addProperty("type", "required_download_cancel")
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "required_download_cancel") return false
-            return response.has("canceled") && response["canceled"].asBoolean
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.requiredDownloadCancel()
+                if (!hasType(response, "required_download_cancel")) return@falseOnIo false
+                response.has("canceled") && response["canceled"].asBoolean
+            }
         }
     }
 
@@ -309,7 +232,12 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun uninstallRequired(entry: DlcServerEntry?, timeoutMs: Int, ids: List<String>?, playerName: String?, playerUuid: String?): Boolean {
-        return requestIdsBoolean(entry, timeoutMs, "required_uninstall", ids, playerName, playerUuid)
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.requiredUninstall(ids)
+                hasType(response, "required_uninstall") && isOk(response)
+            }
+        }
     }
 
     @JvmStatic
@@ -321,7 +249,12 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun applyRequired(entry: DlcServerEntry?, timeoutMs: Int, ids: List<String>?, playerName: String?, playerUuid: String?): Boolean {
-        return requestIdsBoolean(entry, timeoutMs, "required_apply", ids, playerName, playerUuid)
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.requiredApply(ids)
+                hasType(response, "required_apply") && isOk(response)
+            }
+        }
     }
 
     @JvmStatic
@@ -347,26 +280,13 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun applyChangesWithResponse(entry: DlcServerEntry?, timeoutMs: Int, items: List<DlcServerItem>?, playerName: String?, playerUuid: String?): ApplyResponse? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            items?.forEach { item ->
-                val setReq = JsonObject()
-                setReq.addProperty("type", "set")
-                setReq.addProperty("id", item.id)
-                setReq.addProperty("enabled", item.enabled)
-                writeLine(writer, setReq)
-                readObject(reader) ?: return null
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                items?.forEach { item ->
+                    session.setEnabled(item.id, item.enabled)
+                }
+                session.applyWithMessages()
             }
-            val applyReq = JsonObject()
-            applyReq.addProperty("type", "apply")
-            writeLine(writer, applyReq)
-            val applyResp = readObject(reader) ?: return null
-            val response = ApplyResponse()
-            response.ok = applyResp.has("ok") && applyResp["ok"].asBoolean
-            response.requiresRestart = applyResp.has("requiresRestart") && applyResp["requiresRestart"].asBoolean
-            return response
         }
     }
 
@@ -379,7 +299,12 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun restartServer(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): Boolean {
-        return simpleOkRequest(entry, timeoutMs, "server_restart", playerName, playerUuid)
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                session.serverRestart()
+                true
+            }
+        }
     }
 
     @JvmStatic
@@ -391,51 +316,10 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun downloadFile(entry: DlcServerEntry?, timeoutMs: Int, path: String?, target: Path, playerName: String?, playerUuid: String?): Boolean {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val request = JsonObject()
-            request.addProperty("type", "file_download_init")
-            request.addProperty("path", path ?: "")
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "file_download_init") return false
-            if (!response.has("ok") || !response["ok"].asBoolean) return false
-            target.parent?.let(Files::createDirectories)
-            val temp = target.resolveSibling(target.fileName.toString() + ".part")
-            var ok = false
-            try {
-                Files.newOutputStream(temp).use { out ->
-                    while (true) {
-                        val chunk = readObject(reader)
-                        if (chunk == null || !chunk.has("type")) break
-                        when (chunk["type"].asString) {
-                            "file_download_chunk" -> {
-                                val data = if (chunk.has("data")) chunk["data"].asString else ""
-                                if (data.isNotBlank()) {
-                                    out.write(Base64.getDecoder().decode(data))
-                                }
-                            }
-                            "file_download_finish" -> {
-                                ok = chunk.has("ok") && chunk["ok"].asBoolean
-                                break
-                            }
-                        }
-                    }
-                }
-            } catch (_: IOException) {
-                ok = false
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                session.downloadFileTo(path, target)
             }
-            if (ok) {
-                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
-                return true
-            }
-            try {
-                Files.deleteIfExists(temp)
-            } catch (_: IOException) {
-            }
-            return false
         }
     }
 
@@ -454,64 +338,56 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchUpdates(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): List<DlcServerUpdateInfo>? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val listReq = JsonObject()
-            listReq.addProperty("type", "update_list")
-            writeLine(writer, listReq)
-            val response = readObject(reader) ?: return null
-            if (!response.has("type") || response["type"].asString != "update_list") return null
-            val updates = ArrayList<DlcServerUpdateInfo>()
-            if (response.has("updates") && response["updates"].isJsonArray) {
-                response.getAsJsonArray("updates").forEach { element ->
-                    if (element.isJsonObject) {
-                        GSON.fromJson(element, DlcServerUpdateInfo::class.java)?.let(updates::add)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.updateList()
+                if (!hasType(response, "update_list")) return@nullOnIo null
+                val updates = ArrayList<DlcServerUpdateInfo>()
+                if (response.has("updates") && response["updates"].isJsonArray) {
+                    response.getAsJsonArray("updates").forEach { element ->
+                        if (element.isJsonObject) {
+                            GSON.fromJson(element, DlcServerUpdateInfo::class.java)?.let(updates::add)
+                        }
                     }
                 }
+                updates
             }
-            return updates
         }
     }
 
     @JvmStatic
     @Throws(IOException::class)
     fun fetchUpdateState(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerUpdateState? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "update_state")
-            writeLine(writer, req)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "update_state") return null
-            val state = DlcServerUpdateState()
-            state.baseVersion = getString(response, "base")
-            state.dlcVersion = getString(response, "dlc")
-            state.rollbackFrom = getString(response, "rollbackFrom")
-            state.modpackUrl = getString(response, "modpackUrl")
-            state.updateGitRepo = getString(response, "updateGitRepo") ?: getString(response, "updateGithubRepo")
-            val history = ArrayList<DlcUpdateMeta?>()
-            if (response.has("history") && response["history"].isJsonArray) {
-                response.getAsJsonArray("history").forEach { element ->
-                    if (element.isJsonObject) {
-                        GSON.fromJson(element, DlcUpdateMeta::class.java)?.let(history::add)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.updateState()
+                if (!hasType(response, "update_state")) return@nullOnIo null
+                val state = DlcServerUpdateState()
+                state.baseVersion = getString(response, "base")
+                state.dlcVersion = getString(response, "dlc")
+                state.rollbackFrom = getString(response, "rollbackFrom")
+                state.modpackUrl = getString(response, "modpackUrl")
+                state.updateGitRepo = getString(response, "updateGitRepo") ?: getString(response, "updateGithubRepo")
+                val history = ArrayList<DlcUpdateMeta?>()
+                if (response.has("history") && response["history"].isJsonArray) {
+                    response.getAsJsonArray("history").forEach { element ->
+                        if (element.isJsonObject) {
+                            GSON.fromJson(element, DlcUpdateMeta::class.java)?.let(history::add)
+                        }
                     }
                 }
-            }
-            state.history = history
-            val updates = ArrayList<DlcServerUpdateInfo?>()
-            if (response.has("updates") && response["updates"].isJsonArray) {
-                response.getAsJsonArray("updates").forEach { element ->
-                    if (element.isJsonObject) {
-                        GSON.fromJson(element, DlcServerUpdateInfo::class.java)?.let(updates::add)
+                state.history = history
+                val updates = ArrayList<DlcServerUpdateInfo?>()
+                if (response.has("updates") && response["updates"].isJsonArray) {
+                    response.getAsJsonArray("updates").forEach { element ->
+                        if (element.isJsonObject) {
+                            GSON.fromJson(element, DlcServerUpdateInfo::class.java)?.let(updates::add)
+                        }
                     }
                 }
+                state.updates = updates
+                state
             }
-            state.updates = updates
-            return state
         }
     }
 
@@ -533,32 +409,10 @@ object DlcServerConnection {
         playerName: String?,
         playerUuid: String?,
     ): UpdateResponse? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val applyReq = JsonObject()
-            applyReq.addProperty("type", "update_apply")
-            if (!baseOld.isNullOrBlank()) applyReq.addProperty("baseOld", baseOld)
-            if (!dlcOld.isNullOrBlank()) applyReq.addProperty("dlcOld", dlcOld)
-            if (!baseNew.isNullOrBlank()) applyReq.addProperty("baseNew", baseNew)
-            if (!dlcNew.isNullOrBlank()) applyReq.addProperty("dlcNew", dlcNew)
-            writeLine(writer, applyReq)
-            val response = readObject(reader) ?: return null
-            val result = UpdateResponse()
-            result.ok = response.has("ok") && response["ok"].asBoolean
-            result.missing = response.has("missing") && response["missing"].asBoolean
-            result.message = getString(response, "message")
-            if (response.has("missing") && response["missing"].isJsonArray) {
-                val missing = ArrayList<String>()
-                response.getAsJsonArray("missing").forEach { element ->
-                    if (element.isJsonPrimitive) {
-                        missing.add(element.asString)
-                    }
-                }
-                result.missingPaths = missing
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                readUpdateResponse(session.updateApply(baseOld, dlcOld, baseNew, dlcNew))
             }
-            return result
         }
     }
 
@@ -571,19 +425,12 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun rollbackUpdate(entry: DlcServerEntry?, timeoutMs: Int, targetVersion: String?, playerName: String?, playerUuid: String?): UpdateResponse? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "update_rollback")
-            req.addProperty("target", targetVersion ?: "")
-            writeLine(writer, req)
-            val resp = readObject(reader) ?: return null
-            val result = UpdateResponse()
-            result.ok = resp.has("ok") && resp["ok"].asBoolean
-            result.message = getString(resp, "message")
-            return result
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val payload = JsonObject()
+                payload.addProperty("target", targetVersion ?: "")
+                readUpdateResponse(session.rawRequest("update_rollback", payload))
+            }
         }
     }
 
@@ -597,27 +444,23 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun importUpdatePackage(entry: DlcServerEntry?, timeoutMs: Int, source: Path?, playerName: String?, playerUuid: String?): Boolean {
         if (source == null || !Files.exists(source)) return false
-        val config = fetchServerConfig(entry, timeoutMs, playerName, playerUuid)
-        var dlcRoot = getDlcRootFromConfig(config)
-        if (dlcRoot.isNullOrBlank()) {
-            dlcRoot = "DLC"
-        }
-        var normalizedRoot = dlcRoot.replace("\\", "/")
-        if (!normalizedRoot.endsWith("/")) {
-            normalizedRoot += "/"
-        }
-        val targetPath = normalizedRoot + "update/" + source.fileName
-        if (!uploadFile(entry, timeoutMs, targetPath, source, playerName, playerUuid)) return false
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val req = JsonObject()
-            req.addProperty("type", "update_import")
-            req.addProperty("path", targetPath)
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            return resp != null && resp.has("ok") && resp["ok"].asBoolean
+        return falseOnIo {
+            val config = fetchServerConfig(entry, timeoutMs, playerName, playerUuid)
+            var dlcRoot = getDlcRootFromConfig(config)
+            if (dlcRoot.isNullOrBlank()) {
+                dlcRoot = "DLC"
+            }
+            var normalizedRoot = dlcRoot.replace("\\", "/")
+            if (!normalizedRoot.endsWith("/")) {
+                normalizedRoot += "/"
+            }
+            val targetPath = normalizedRoot + "update/" + source.fileName
+            if (!uploadFile(entry, timeoutMs, targetPath, source, playerName, playerUuid)) return@falseOnIo false
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val payload = JsonObject()
+                payload.addProperty("path", targetPath)
+                isOk(session.rawRequest("update_import", payload))
+            }
         }
     }
 
@@ -648,35 +491,31 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchPackList(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): PackListResponse? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "pack_list")
-            writeLine(writer, req)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != "pack_list") return null
-            val packs = ArrayList<DlcServerPackInfo>()
-            if (response.has("packs") && response["packs"].isJsonArray) {
-                response.getAsJsonArray("packs").forEach { element ->
-                    if (element.isJsonObject) {
-                        GSON.fromJson(element, DlcServerPackInfo::class.java)?.let(packs::add)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val response = session.packList()
+                if (!hasType(response, "pack_list")) return@nullOnIo null
+                val packs = ArrayList<DlcServerPackInfo>()
+                if (response.has("packs") && response["packs"].isJsonArray) {
+                    response.getAsJsonArray("packs").forEach { element ->
+                        if (element.isJsonObject) {
+                            GSON.fromJson(element, DlcServerPackInfo::class.java)?.let(packs::add)
+                        }
                     }
                 }
-            }
-            val order = ArrayList<String>()
-            if (response.has("order") && response["order"].isJsonArray) {
-                response.getAsJsonArray("order").forEach { element ->
-                    if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
-                        order.add(element.asString)
+                val order = ArrayList<String>()
+                if (response.has("order") && response["order"].isJsonArray) {
+                    response.getAsJsonArray("order").forEach { element ->
+                        if (element.isJsonPrimitive && element.asJsonPrimitive.isString) {
+                            order.add(element.asString)
+                        }
                     }
                 }
+                val result = PackListResponse()
+                result.packs = packs
+                result.order = order
+                result
             }
-            val result = PackListResponse()
-            result.packs = packs
-            result.order = order
-            return result
         }
     }
 
@@ -689,21 +528,10 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun savePackOrder(entry: DlcServerEntry?, timeoutMs: Int, order: List<String>?, playerName: String?, playerUuid: String?): UpdateResponse? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "pack_order")
-            val array = JsonArray()
-            order?.forEach { array.add(it) }
-            req.add("order", array)
-            writeLine(writer, req)
-            val response = readObject(reader) ?: return null
-            val result = UpdateResponse()
-            result.ok = response.has("ok") && response["ok"].asBoolean
-            result.message = getString(response, "message")
-            return result
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                readUpdateResponse(session.packOrder(order))
+            }
         }
     }
 
@@ -730,18 +558,10 @@ object DlcServerConnection {
         playerName: String?,
         playerUuid: String?,
     ): DlcServerPackApplyStatus? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "pack_apply_start")
-            req.add("order", GSON.toJsonTree(order ?: emptyList<String>()))
-            req.add("uninstallIdentifiers", GSON.toJsonTree(uninstallIdentifiers ?: emptyList<String>()))
-            req.add("installArchives", GSON.toJsonTree(installArchives ?: emptyList<String>()))
-            writeLine(writer, req)
-            val response = readObject(reader) ?: return null
-            return readPackApplyStatus(response)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                readPackApplyStatus(session.packApplyStart(order, uninstallIdentifiers, installArchives))
+            }
         }
     }
 
@@ -754,15 +574,10 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchPackApplyStatus(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerPackApplyStatus? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "pack_apply_status")
-            writeLine(writer, req)
-            val response = readObject(reader) ?: return null
-            return readPackApplyStatus(response)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                readPackApplyStatus(session.packApplyStatus())
+            }
         }
     }
 
@@ -804,15 +619,10 @@ object DlcServerConnection {
 
     @Throws(IOException::class)
     private fun controlPackApply(entry: DlcServerEntry?, timeoutMs: Int, type: String, playerName: String?, playerUuid: String?): DlcServerPackApplyStatus? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", type)
-            writeLine(writer, req)
-            val response = readObject(reader) ?: return null
-            return readPackApplyStatus(response)
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                readPackApplyStatus(session.rawRequest(type, null))
+            }
         }
     }
 
@@ -838,20 +648,13 @@ object DlcServerConnection {
         playerName: String?,
         playerUuid: String?,
     ): UpdateResponse? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", type)
-            if (!archivePath.isNullOrBlank()) req.addProperty("archivePath", archivePath)
-            if (!identifier.isNullOrBlank()) req.addProperty("identifier", identifier)
-            writeLine(writer, req)
-            val response = readObject(reader) ?: return null
-            val result = UpdateResponse()
-            result.ok = response.has("ok") && response["ok"].asBoolean
-            result.message = getString(response, "message")
-            return result
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val req = JsonObject()
+                if (!archivePath.isNullOrBlank()) req.addProperty("archivePath", archivePath)
+                if (!identifier.isNullOrBlank()) req.addProperty("identifier", identifier)
+                readUpdateResponse(session.rawRequest(type, req))
+            }
         }
     }
 
@@ -869,22 +672,24 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun importPackPackage(entry: DlcServerEntry?, timeoutMs: Int, source: Path?, playerName: String?, playerUuid: String?): Boolean {
         if (source == null || !Files.exists(source)) return false
-        val config = fetchServerConfig(entry, timeoutMs, playerName, playerUuid)
-        var dlcRoot = getDlcRootFromConfig(config)
-        if (dlcRoot.isNullOrBlank()) {
-            dlcRoot = "DLC"
+        return falseOnIo {
+            val config = fetchServerConfig(entry, timeoutMs, playerName, playerUuid)
+            var dlcRoot = getDlcRootFromConfig(config)
+            if (dlcRoot.isNullOrBlank()) {
+                dlcRoot = "DLC"
+            }
+            var normalizedRoot = dlcRoot.replace("\\", "/")
+            if (!normalizedRoot.endsWith("/")) {
+                normalizedRoot += "/"
+            }
+            var name = source.fileName?.toString() ?: "pack.zip"
+            if (!name.lowercase(java.util.Locale.ROOT).endsWith(".zip")) {
+                name += ".zip"
+            }
+            val targetPath = normalizedRoot + "pack/" + name
+            if (!uploadFile(entry, timeoutMs, targetPath, source, playerName, playerUuid)) return@falseOnIo false
+            importPackPackagePath(entry, timeoutMs, targetPath, playerName, playerUuid)
         }
-        var normalizedRoot = dlcRoot.replace("\\", "/")
-        if (!normalizedRoot.endsWith("/")) {
-            normalizedRoot += "/"
-        }
-        var name = source.fileName?.toString() ?: "pack.zip"
-        if (!name.lowercase(java.util.Locale.ROOT).endsWith(".zip")) {
-            name += ".zip"
-        }
-        val targetPath = normalizedRoot + "pack/" + name
-        if (!uploadFile(entry, timeoutMs, targetPath, source, playerName, playerUuid)) return false
-        return importPackPackagePath(entry, timeoutMs, targetPath, playerName, playerUuid)
     }
 
     @JvmStatic
@@ -895,16 +700,12 @@ object DlcServerConnection {
 
     @Throws(IOException::class)
     private fun importPackPackagePath(entry: DlcServerEntry?, timeoutMs: Int, targetPath: String, playerName: String?, playerUuid: String?): Boolean {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val req = JsonObject()
-            req.addProperty("type", "pack_import")
-            req.addProperty("path", targetPath)
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            return resp != null && resp.has("ok") && resp["ok"].asBoolean
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val req = JsonObject()
+                req.addProperty("path", targetPath)
+                isOk(session.rawRequest("pack_import", req))
+            }
         }
     }
 
@@ -918,19 +719,15 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun importPackPackageFromUrl(entry: DlcServerEntry?, timeoutMs: Int, url: String?, fileName: String?, playerName: String?, playerUuid: String?): Boolean {
         if (url.isNullOrBlank()) return false
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val req = JsonObject()
-            req.addProperty("type", "pack_import_url")
-            req.addProperty("url", url)
-            if (!fileName.isNullOrBlank()) {
-                req.addProperty("fileName", fileName)
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val req = JsonObject()
+                req.addProperty("url", url)
+                if (!fileName.isNullOrBlank()) {
+                    req.addProperty("fileName", fileName)
+                }
+                isOk(session.rawRequest("pack_import_url", req))
             }
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            return resp != null && resp.has("ok") && resp["ok"].asBoolean
         }
     }
 
@@ -938,19 +735,15 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun importUpdatePackageFromUrl(entry: DlcServerEntry?, timeoutMs: Int, url: String?, fileName: String?, playerName: String?, playerUuid: String?): Boolean {
         if (url.isNullOrBlank()) return false
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val req = JsonObject()
-            req.addProperty("type", "update_import_url")
-            req.addProperty("url", url)
-            if (!fileName.isNullOrBlank()) {
-                req.addProperty("fileName", fileName)
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val req = JsonObject()
+                req.addProperty("url", url)
+                if (!fileName.isNullOrBlank()) {
+                    req.addProperty("fileName", fileName)
+                }
+                isOk(session.rawRequest("update_import_url", req))
             }
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            return resp != null && resp.has("ok") && resp["ok"].asBoolean
         }
     }
 
@@ -969,7 +762,11 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun applyUpdates(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): Boolean {
-        return simpleOkRequest(entry, timeoutMs, "update_apply", playerName, playerUuid)
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                isOk(session.rawRequest("update_apply", null))
+            }
+        }
     }
 
     @JvmStatic
@@ -990,41 +787,10 @@ object DlcServerConnection {
         val zipPath = buildPushZip(targets, files) ?: return false
         val transferId = UUID.randomUUID().toString()
         try {
-            openSocket(entry, timeoutMs).use { socket ->
-                val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-                val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-                if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-                val init = JsonObject()
-                init.addProperty("type", "push_init")
-                init.addProperty("id", transferId)
-                init.addProperty("mode", mode)
-                init.add("targets", GSON.toJsonTree(targets))
-                if (!files.isNullOrEmpty()) {
-                    init.add("paths", GSON.toJsonTree(files))
+            return falseOnIo {
+                openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                    session.pushZip(transferId, mode, targets, files, zipPath)
                 }
-                init.addProperty("size", Files.size(zipPath))
-                writeLine(writer, init)
-                val initResp = readObject(reader)
-                if (initResp == null || !initResp.has("ok") || !initResp["ok"].asBoolean) return false
-                Files.newInputStream(zipPath).use { input ->
-                    val buffer = ByteArray(CHUNK_SIZE)
-                    while (true) {
-                        val len = input.read(buffer)
-                        if (len <= 0) break
-                        val data = Base64.getEncoder().encodeToString(copyOf(buffer, len))
-                        val chunk = JsonObject()
-                        chunk.addProperty("type", "push_chunk")
-                        chunk.addProperty("id", transferId)
-                        chunk.addProperty("data", data)
-                        writeLine(writer, chunk)
-                    }
-                }
-                val finish = JsonObject()
-                finish.addProperty("type", "push_finish")
-                finish.addProperty("id", transferId)
-                writeLine(writer, finish)
-                val finishResp = readObject(reader)
-                return finishResp != null && finishResp.has("ok") && finishResp["ok"].asBoolean
             }
         } finally {
             try {
@@ -1043,31 +809,10 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun listFiles(entry: DlcServerEntry?, timeoutMs: Int, path: String?, playerName: String?, playerUuid: String?): List<DlcServerFileEntry>? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "file_list")
-            req.addProperty("path", path ?: "")
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            if (resp == null || !resp.has("ok") || !resp["ok"].asBoolean) return null
-            val entries = ArrayList<DlcServerFileEntry>()
-            if (resp.has("entries") && resp["entries"].isJsonArray) {
-                resp.getAsJsonArray("entries").forEach { element ->
-                    if (element.isJsonObject) {
-                        val obj = element.asJsonObject
-                        val entryObj = DlcServerFileEntry()
-                        entryObj.name = if (obj.has("name") && !obj["name"].isJsonNull) obj["name"].asString else ""
-                        entryObj.dir = obj.has("dir") && !obj["dir"].isJsonNull && obj["dir"].asBoolean
-                        entryObj.size = if (obj.has("size") && !obj["size"].isJsonNull) obj["size"].asLong else 0L
-                        entryObj.modified = if (obj.has("modified") && !obj["modified"].isJsonNull) obj["modified"].asLong else 0L
-                        entries.add(entryObj)
-                    }
-                }
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                session.listFiles(path)
             }
-            return entries
         }
     }
 
@@ -1080,16 +825,11 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun deleteFile(entry: DlcServerEntry?, timeoutMs: Int, path: String?, playerName: String?, playerUuid: String?): Boolean {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val req = JsonObject()
-            req.addProperty("type", "file_delete")
-            req.addProperty("path", path ?: "")
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            return resp != null && resp.has("ok") && resp["ok"].asBoolean
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                session.deleteFile(path)
+                true
+            }
         }
     }
 
@@ -1103,38 +843,11 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun uploadFile(entry: DlcServerEntry?, timeoutMs: Int, targetPath: String?, source: Path?, playerName: String?, playerUuid: String?): Boolean {
         if (source == null || !Files.exists(source)) return false
-        val transferId = UUID.randomUUID().toString()
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val init = JsonObject()
-            init.addProperty("type", "file_upload_init")
-            init.addProperty("id", transferId)
-            init.addProperty("path", targetPath ?: "")
-            init.addProperty("size", Files.size(source))
-            writeLine(writer, init)
-            val initResp = readObject(reader)
-            if (initResp == null || !initResp.has("ok") || !initResp["ok"].asBoolean) return false
-            Files.newInputStream(source).use { input ->
-                val buffer = ByteArray(CHUNK_SIZE)
-                while (true) {
-                    val len = input.read(buffer)
-                    if (len <= 0) break
-                    val data = Base64.getEncoder().encodeToString(copyOf(buffer, len))
-                    val chunk = JsonObject()
-                    chunk.addProperty("type", "file_upload_chunk")
-                    chunk.addProperty("id", transferId)
-                    chunk.addProperty("data", data)
-                    writeLine(writer, chunk)
-                }
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                session.uploadFile(targetPath, source)
+                true
             }
-            val finish = JsonObject()
-            finish.addProperty("type", "file_upload_finish")
-            finish.addProperty("id", transferId)
-            writeLine(writer, finish)
-            val finishResp = readObject(reader)
-            return finishResp != null && finishResp.has("ok") && finishResp["ok"].asBoolean
         }
     }
 
@@ -1147,20 +860,16 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchRconConfig(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerRconConfig? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "rcon_get")
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            if (resp == null || !resp.has("ok") || !resp["ok"].asBoolean) return null
-            val config = DlcServerRconConfig()
-            config.host = getString(resp, "host")
-            config.port = if (resp.has("port")) resp["port"].asInt else 0
-            config.password = getString(resp, "password")
-            return config
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val resp = session.rconGet()
+                if (!isOk(resp)) return@nullOnIo null
+                val config = DlcServerRconConfig()
+                config.host = getString(resp, "host")
+                config.port = if (resp.has("port")) resp["port"].asInt else 0
+                config.password = getString(resp, "password")
+                config
+            }
         }
     }
 
@@ -1173,20 +882,16 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchRconInfo(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerRconInfo? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "rcon_info")
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            if (resp == null || !resp.has("ok") || !resp["ok"].asBoolean) return null
-            val info = DlcServerRconInfo()
-            info.enabled = resp.has("enabled") && resp["enabled"].asBoolean
-            info.port = if (resp.has("port")) resp["port"].asInt else 25575
-            info.passwordSet = resp.has("passwordSet") && resp["passwordSet"].asBoolean
-            return info
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val resp = session.rconInfo()
+                if (!isOk(resp)) return@nullOnIo null
+                val info = DlcServerRconInfo()
+                info.enabled = resp.has("enabled") && resp["enabled"].asBoolean
+                info.port = if (resp.has("port")) resp["port"].asInt else 25575
+                info.passwordSet = resp.has("passwordSet") && resp["passwordSet"].asBoolean
+                info
+            }
         }
     }
 
@@ -1200,18 +905,10 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun saveRconConfig(entry: DlcServerEntry?, timeoutMs: Int, config: DlcServerRconConfig?, playerName: String?, playerUuid: String?): Boolean {
         if (config == null) return false
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val req = JsonObject()
-            req.addProperty("type", "rcon_set")
-            req.addProperty("host", config.host ?: "")
-            req.addProperty("port", config.port)
-            req.addProperty("password", config.password ?: "")
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            return resp != null && resp.has("ok") && resp["ok"].asBoolean
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                isOk(session.rconSet(config.host ?: "", config.port, config.password ?: ""))
+            }
         }
     }
 
@@ -1224,19 +921,17 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun execRcon(entry: DlcServerEntry?, timeoutMs: Int, command: String?, playerName: String?, playerUuid: String?): String? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "rcon_exec")
-            req.addProperty("command", command ?: "")
-            writeLine(writer, req)
-            val resp = readObject(reader) ?: return null
-            if (resp.has("message")) {
-                return resp["message"].asString
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val resp = session.rconExec(command ?: "")
+                if (resp.has("message")) {
+                    resp["message"].asString
+                } else if (resp.has("ok") && resp["ok"].asBoolean) {
+                    "ok"
+                } else {
+                    null
+                }
             }
-            return if (resp.has("ok") && resp["ok"].asBoolean) "ok" else null
         }
     }
 
@@ -1249,19 +944,14 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun fetchServerConfig(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): JsonObject? {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return null
-            val req = JsonObject()
-            req.addProperty("type", "config_get")
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            if (resp == null || !resp.has("ok") || !resp["ok"].asBoolean) return null
-            return if (resp.has("config") && resp["config"].isJsonObject) {
-                resp.getAsJsonObject("config")
-            } else {
-                null
+        return nullOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                val resp = session.configGet()
+                if (resp.has("config") && resp["config"].isJsonObject) {
+                    resp.getAsJsonObject("config")
+                } else {
+                    null
+                }
             }
         }
     }
@@ -1276,16 +966,11 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun saveServerConfig(entry: DlcServerEntry?, timeoutMs: Int, config: JsonObject?, playerName: String?, playerUuid: String?): Boolean {
         if (config == null) return false
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val req = JsonObject()
-            req.addProperty("type", "config_set")
-            req.add("config", config)
-            writeLine(writer, req)
-            val resp = readObject(reader)
-            return resp != null && resp.has("ok") && resp["ok"].asBoolean
+        return falseOnIo {
+            openSession(entry, timeoutMs, playerName, playerUuid).use { session ->
+                session.configSet(config)
+                true
+            }
         }
     }
 
@@ -1296,89 +981,59 @@ object DlcServerConnection {
     }
 
     @Throws(IOException::class)
-    private fun requestIdsBoolean(entry: DlcServerEntry?, timeoutMs: Int, type: String, ids: List<String>?, playerName: String?, playerUuid: String?): Boolean {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val request = JsonObject()
-            request.addProperty("type", type)
-            addStringArray(request, "ids", ids)
-            writeLine(writer, request)
-            val response = readObject(reader)
-            if (response == null || !response.has("type") || response["type"].asString != type) return false
-            return response.has("ok") && response["ok"].asBoolean
+    private fun openSession(entry: DlcServerEntry?, timeoutMs: Int, playerName: String?, playerUuid: String?): DlcServerSession {
+        val actualEntry = entry ?: throw IOException("missing server entry")
+        return DlcServerSession.connect(
+            actualEntry.host,
+            actualEntry.port,
+            actualEntry.password,
+            timeoutMs,
+            CrossPlatformRuntime.languageCode(),
+            playerName,
+            playerUuid,
+        )
+    }
+
+    private inline fun <T> nullOnIo(block: () -> T): T? {
+        return try {
+            block()
+        } catch (_: IOException) {
+            null
         }
     }
 
-    @Throws(IOException::class)
-    private fun simpleOkRequest(entry: DlcServerEntry?, timeoutMs: Int, type: String, playerName: String?, playerUuid: String?): Boolean {
-        openSocket(entry, timeoutMs).use { socket ->
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-            val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
-            if (!sendHello(entry, reader, writer, playerName, playerUuid)) return false
-            val request = JsonObject()
-            request.addProperty("type", type)
-            writeLine(writer, request)
-            val response = readObject(reader) ?: return false
-            return response.has("ok") && response["ok"].asBoolean
+    private inline fun falseOnIo(block: () -> Boolean): Boolean {
+        return try {
+            block()
+        } catch (_: IOException) {
+            false
         }
     }
 
-    private fun addStringArray(request: JsonObject, key: String, values: List<String>?) {
-        if (values.isNullOrEmpty()) return
-        val arr = JsonArray()
-        values.forEach { value ->
-            if (value.isNotBlank()) {
-                arr.add(value)
+    private fun hasType(response: JsonObject?, type: String): Boolean {
+        return response != null && response.has("type") && response["type"].asString == type
+    }
+
+    private fun isOk(response: JsonObject?): Boolean {
+        return response != null && response.has("ok") && response["ok"].asBoolean
+    }
+
+    private fun readUpdateResponse(response: JsonObject?): UpdateResponse? {
+        if (response == null) return null
+        val result = UpdateResponse()
+        result.ok = isOk(response)
+        result.missing = response.has("missing") && response["missing"].isJsonPrimitive && response["missing"].asBoolean
+        result.message = getString(response, "message")
+        if (response.has("missing") && response["missing"].isJsonArray) {
+            val missing = ArrayList<String>()
+            response.getAsJsonArray("missing").forEach { element ->
+                if (element.isJsonPrimitive) {
+                    missing.add(element.asString)
+                }
             }
+            result.missingPaths = missing
         }
-        request.add(key, arr)
-    }
-
-    @Throws(IOException::class)
-    private fun openSocket(entry: DlcServerEntry?, timeoutMs: Int): Socket {
-        val actualEntry = entry ?: throw NullPointerException("entry")
-        val host = actualEntry.host ?: ""
-        val socket = Socket()
-        socket.connect(InetSocketAddress(host, actualEntry.port), timeoutMs)
-        socket.soTimeout = timeoutMs
-        return socket
-    }
-
-    @Throws(IOException::class)
-    private fun sendHello(entry: DlcServerEntry?, reader: BufferedReader, writer: BufferedWriter, playerName: String?, playerUuid: String?): Boolean {
-        val hello = JsonObject()
-        hello.addProperty("type", "hello")
-        val actualEntry = entry ?: throw NullPointerException("entry")
-        val password = actualEntry.password ?: ""
-        hello.addProperty("password", password)
-        addLang(hello)
-        if (!playerName.isNullOrBlank()) {
-            hello.addProperty("player", playerName)
-        }
-        if (!playerUuid.isNullOrBlank()) {
-            hello.addProperty("uuid", playerUuid)
-        }
-        writeLine(writer, hello)
-        val response = readObject(reader) ?: throw IOException("no response")
-        if (!response.has("type") || response["type"].asString != "hello") {
-            throw IOException("invalid response")
-        }
-        val ok = response.has("ok") && response["ok"].asBoolean
-        if (!ok) {
-            val reason = if (response.has("reason")) response["reason"].asString else "unauthorized"
-            throw IOException("auth_failed:$reason")
-        }
-        return true
-    }
-
-    private fun addLang(obj: JsonObject?) {
-        if (obj == null) return
-        val lang = CrossPlatformRuntime.languageCode()
-        if (!lang.isNullOrBlank()) {
-            obj.addProperty("lang", lang)
-        }
+        return result
     }
 
     private fun currentPlayerName(): String? {
@@ -1387,20 +1042,6 @@ object DlcServerConnection {
 
     private fun currentPlayerUuid(): String? {
         return CrossPlatformRuntime.playerUuid()
-    }
-
-    @Throws(IOException::class)
-    private fun readObject(reader: BufferedReader): JsonObject? {
-        val line = reader.readLine()
-        if (line.isNullOrBlank()) return null
-        return GSON.fromJson(line, JsonObject::class.java)
-    }
-
-    @Throws(IOException::class)
-    private fun writeLine(writer: BufferedWriter, obj: JsonObject) {
-        writer.write(GSON.toJson(obj))
-        writer.newLine()
-        writer.flush()
     }
 
     private fun getString(obj: JsonObject?, key: String?): String? {

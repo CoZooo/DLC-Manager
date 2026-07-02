@@ -1,8 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.tools.externalsync.ApplyOutcome;
-import com.cozooo.dlc_manager.tools.externalsync.SyncModels;
+import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementFlow;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementListModel;
 import com.cozooo.dlc_manager.ui.management.DlcFxDlcManagementShell;
@@ -41,8 +40,8 @@ public final class DlcFxServerDlcManagementTab {
     private final ProgressBar progressBar = new ProgressBar(0);
     private final Button refreshBtn = DlcFxPageActions.primary(DlcFxI18n.tr("dlc_manager.local.scan_dlc"), null);
     private final RemoteDlcAdapter adapter = new RemoteDlcAdapter();
-    private DlcFxDlcManagementShell<SyncModels.ServerItem> shell;
-    private DlcFxDlcManagementFlow<SyncModels.ServerItem> flow;
+    private DlcFxDlcManagementShell<DlcServerItem> shell;
+    private DlcFxDlcManagementFlow<DlcServerItem> flow;
     private boolean loadedForCurrentConnection;
 
     public DlcFxServerDlcManagementTab(DlcFxServerConnection conn) {
@@ -105,22 +104,22 @@ public final class DlcFxServerDlcManagementTab {
     }
 
     private void applyChanges() {
-        List<SyncModels.ServerItem> changed = new ArrayList<>(shell.changedItems());
+        List<DlcServerItem> changed = new ArrayList<>(shell.changedItems());
         if (changed.isEmpty()) {
             return;
         }
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.applying"));
         shell.setBusy(true);
         conn.runAsync(f -> {
-            for (SyncModels.ServerItem item : changed) {
-                f.setEnabled(item.id, item.enabled != null && item.enabled);
+            for (DlcServerItem item : changed) {
+                f.setEnabled(item.id, item.enabled);
             }
             return f.applyWithMessages();
         }, outcome -> {
             shell.setBusy(false);
             adapter.commitBaseline(changed);
             shell.commitCurrentState();
-            statusLabel.setText(outcome.requiresRestart()
+            statusLabel.setText(outcome.requiresRestart
                     ? DlcFxI18n.tr("dlc_manager.remote.applied_restart")
                     : DlcFxI18n.tr("dlc_manager.remote.applied"));
         }, err -> {
@@ -134,9 +133,9 @@ public final class DlcFxServerDlcManagementTab {
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.cancel_done"));
     }
 
-    private String buildConflictMessage(List<DlcFxDlcManagementFlow.ConflictLine<SyncModels.ServerItem>> conflicts) {
+    private String buildConflictMessage(List<DlcFxDlcManagementFlow.ConflictLine<DlcServerItem>> conflicts) {
         List<String> lines = new ArrayList<>();
-        for (DlcFxDlcManagementFlow.ConflictLine<SyncModels.ServerItem> conflict : conflicts) {
+        for (DlcFxDlcManagementFlow.ConflictLine<DlcServerItem> conflict : conflicts) {
             if (conflict != null) {
                 lines.add(conflict.leftDisplayName() + " <-> " + conflict.rightDisplayName());
             }
@@ -144,9 +143,9 @@ public final class DlcFxServerDlcManagementTab {
         return String.join("\n", lines);
     }
 
-    private String buildDependencyMessage(List<DlcFxDlcManagementFlow.DependencyLine<SyncModels.ServerItem>> dependencies) {
+    private String buildDependencyMessage(List<DlcFxDlcManagementFlow.DependencyLine<DlcServerItem>> dependencies) {
         List<String> lines = new ArrayList<>();
-        for (DlcFxDlcManagementFlow.DependencyLine<SyncModels.ServerItem> dependency : dependencies) {
+        for (DlcFxDlcManagementFlow.DependencyLine<DlcServerItem> dependency : dependencies) {
             if (dependency != null) {
                 lines.add(dependency.itemDisplayName() + " -> " + dependency.dependencyDisplayName());
             }
@@ -158,16 +157,16 @@ public final class DlcFxServerDlcManagementTab {
         return shell == null || shell.listFrame() == null ? null : shell.listFrame().getScene();
     }
 
-    private List<DlcFxDlcTogglePlanner.Item> plannerItems(List<SyncModels.ServerItem> source) {
+    private List<DlcFxDlcTogglePlanner.Item> plannerItems(List<DlcServerItem> source) {
         List<DlcFxDlcTogglePlanner.Item> out = new ArrayList<>();
-        for (SyncModels.ServerItem item : source == null ? List.<SyncModels.ServerItem>of() : source) {
+        for (DlcServerItem item : source == null ? List.<DlcServerItem>of() : source) {
             if (item == null) {
                 continue;
             }
             out.add(new DlcFxDlcTogglePlanner.Item(
                     item.id,
                     item.identifier,
-                    item.enabled != null && item.enabled,
+                    item.enabled,
                     item.dependencies,
                     item.conflicts,
                     item.allowEnableByAll,
@@ -177,10 +176,10 @@ public final class DlcFxServerDlcManagementTab {
         return out;
     }
 
-    private List<String> itemIds(Iterable<SyncModels.ServerItem> items) {
+    private List<String> itemIds(Iterable<DlcServerItem> items) {
         List<String> ids = new ArrayList<>();
         if (items != null) {
-            for (SyncModels.ServerItem item : items) {
+            for (DlcServerItem item : items) {
                 if (item != null && item.id != null && !item.id.isBlank()) {
                     ids.add(item.id);
                 }
@@ -189,16 +188,16 @@ public final class DlcFxServerDlcManagementTab {
         return ids;
     }
 
-    private List<SyncModels.ServerItem> itemsByIds(List<String> ids) {
-        Map<String, SyncModels.ServerItem> byId = new LinkedHashMap<>();
-        for (SyncModels.ServerItem item : shell.items()) {
+    private List<DlcServerItem> itemsByIds(List<String> ids) {
+        Map<String, DlcServerItem> byId = new LinkedHashMap<>();
+        for (DlcServerItem item : shell.items()) {
             if (item != null && item.id != null) {
                 byId.put(item.id, item);
             }
         }
-        List<SyncModels.ServerItem> out = new ArrayList<>();
+        List<DlcServerItem> out = new ArrayList<>();
         for (String id : ids == null ? List.<String>of() : ids) {
-            SyncModels.ServerItem item = byId.get(id);
+            DlcServerItem item = byId.get(id);
             if (item != null) {
                 out.add(item);
             }
@@ -207,7 +206,7 @@ public final class DlcFxServerDlcManagementTab {
     }
 
     private String displayName(String id) {
-        for (SyncModels.ServerItem item : shell.items()) {
+        for (DlcServerItem item : shell.items()) {
             if (item != null && id != null && id.equals(item.id)) {
                 return item.name == null || item.name.isBlank() ? id : item.name;
             }
@@ -215,11 +214,11 @@ public final class DlcFxServerDlcManagementTab {
         return id == null ? "" : id;
     }
 
-    private SyncModels.ServerItem itemById(String id) {
+    private DlcServerItem itemById(String id) {
         if (id == null || shell == null) {
             return null;
         }
-        for (SyncModels.ServerItem item : shell.items()) {
+        for (DlcServerItem item : shell.items()) {
             if (item != null && id.equals(item.id)) {
                 return item;
             }
@@ -227,9 +226,9 @@ public final class DlcFxServerDlcManagementTab {
         return null;
     }
 
-    private String buildAlarmTip(List<SyncModels.ServerItem> items) {
+    private String buildAlarmTip(List<DlcServerItem> items) {
         List<String> lines = new ArrayList<>();
-        for (SyncModels.ServerItem item : items == null ? List.<SyncModels.ServerItem>of() : items) {
+        for (DlcServerItem item : items == null ? List.<DlcServerItem>of() : items) {
             if (item != null) {
                 lines.add(adapter.displayName(item));
             }
@@ -237,39 +236,39 @@ public final class DlcFxServerDlcManagementTab {
         return String.join("\n\n", lines);
     }
 
-    private static final class RemoteDlcAdapter implements DlcFxDlcManagementShell.Adapter<SyncModels.ServerItem> {
+    private static final class RemoteDlcAdapter implements DlcFxDlcManagementShell.Adapter<DlcServerItem> {
         private final Map<String, Boolean> baseline = new LinkedHashMap<>();
 
-        void resetBaseline(List<SyncModels.ServerItem> items) {
+        void resetBaseline(List<DlcServerItem> items) {
             baseline.clear();
             if (items == null) {
                 return;
             }
-            for (SyncModels.ServerItem item : items) {
+            for (DlcServerItem item : items) {
                 if (item != null) {
-                    baseline.put(id(item), item.enabled != null && item.enabled);
+                    baseline.put(id(item), item.enabled);
                 }
             }
         }
 
-        void commitBaseline(List<SyncModels.ServerItem> items) {
+        void commitBaseline(List<DlcServerItem> items) {
             if (items == null) {
                 return;
             }
-            for (SyncModels.ServerItem item : items) {
+            for (DlcServerItem item : items) {
                 if (item != null) {
-                    baseline.put(id(item), item.enabled != null && item.enabled);
+                    baseline.put(id(item), item.enabled);
                 }
             }
         }
 
         @Override
-        public String id(SyncModels.ServerItem item) {
+        public String id(DlcServerItem item) {
             return item == null || item.id == null ? "" : item.id;
         }
 
         @Override
-        public String displayName(SyncModels.ServerItem item) {
+        public String displayName(DlcServerItem item) {
             if (item == null) {
                 return "";
             }
@@ -277,12 +276,12 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
-        public String typeText(SyncModels.ServerItem item) {
+        public String typeText(DlcServerItem item) {
             return item == null || item.type == null || item.type.isBlank() ? "?" : item.type;
         }
 
         @Override
-        public DlcType type(SyncModels.ServerItem item) {
+        public DlcType type(DlcServerItem item) {
             if (item == null || item.type == null || item.type.isBlank()) {
                 return null;
             }
@@ -294,7 +293,7 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
-        public String folder(SyncModels.ServerItem item) {
+        public String folder(DlcServerItem item) {
             if (item == null || item.path == null || item.path.isBlank()) {
                 return DlcFxDlcManagementListModel.ROOT_GROUP;
             }
@@ -307,25 +306,25 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
-        public boolean baselineEnabled(SyncModels.ServerItem item) {
+        public boolean baselineEnabled(DlcServerItem item) {
             Boolean value = item == null ? null : baseline.get(id(item));
             return value != null && value;
         }
 
         @Override
-        public boolean effectiveEnabled(SyncModels.ServerItem item) {
-            return item != null && item.enabled != null && item.enabled;
+        public boolean effectiveEnabled(DlcServerItem item) {
+            return item != null && item.enabled;
         }
 
         @Override
-        public void setEffectiveEnabled(SyncModels.ServerItem item, boolean enabled) {
+        public void setEffectiveEnabled(DlcServerItem item, boolean enabled) {
             if (item != null) {
                 item.enabled = enabled;
             }
         }
 
         @Override
-        public String tooltip(SyncModels.ServerItem item) {
+        public String tooltip(DlcServerItem item) {
             if (item == null) {
                 return "";
             }
@@ -341,45 +340,45 @@ public final class DlcFxServerDlcManagementTab {
         }
     }
 
-    private final class RemoteDlcFlowAdapter implements DlcFxDlcManagementFlow.Adapter<SyncModels.ServerItem> {
+    private final class RemoteDlcFlowAdapter implements DlcFxDlcManagementFlow.Adapter<DlcServerItem> {
         @Override
-        public List<SyncModels.ServerItem> allItems() {
+        public List<DlcServerItem> allItems() {
             return shell == null ? List.of() : List.copyOf(shell.items());
         }
 
         @Override
-        public String id(SyncModels.ServerItem item) {
+        public String id(DlcServerItem item) {
             return adapter.id(item);
         }
 
         @Override
-        public String identifier(SyncModels.ServerItem item) {
+        public String identifier(DlcServerItem item) {
             return item == null || item.identifier == null ? "" : item.identifier;
         }
 
         @Override
-        public String displayName(SyncModels.ServerItem item) {
+        public String displayName(DlcServerItem item) {
             return adapter.displayName(item);
         }
 
         @Override
-        public boolean alarm(SyncModels.ServerItem item) {
+        public boolean alarm(DlcServerItem item) {
             return item != null && item.alarm;
         }
 
         @Override
-        public DlcFxDlcManagementFlow.ConflictBatch<SyncModels.ServerItem> collectConflicts(List<SyncModels.ServerItem> targets) {
+        public DlcFxDlcManagementFlow.ConflictBatch<DlcServerItem> collectConflicts(List<DlcServerItem> targets) {
             List<DlcFxDlcTogglePlanner.Conflict> conflicts = DlcFxDlcTogglePlanner.planEnable(
                     plannerItems(allItems()),
                     itemIds(targets)
             ).conflicts();
-            List<DlcFxDlcManagementFlow.ConflictLine<SyncModels.ServerItem>> lines = new ArrayList<>();
+            List<DlcFxDlcManagementFlow.ConflictLine<DlcServerItem>> lines = new ArrayList<>();
             for (DlcFxDlcTogglePlanner.Conflict conflict : conflicts) {
                 if (conflict == null) {
                     continue;
                 }
-                SyncModels.ServerItem left = itemById(conflict.leftId());
-                SyncModels.ServerItem right = itemById(conflict.rightId());
+                DlcServerItem left = itemById(conflict.leftId());
+                DlcServerItem right = itemById(conflict.rightId());
                 lines.add(new DlcFxDlcManagementFlow.ConflictLine<>(
                         left,
                         right,
@@ -393,12 +392,12 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
-        public DlcFxDlcManagementFlow.DependencyBatch<SyncModels.ServerItem> collectMissingDependencies(List<SyncModels.ServerItem> targets) {
+        public DlcFxDlcManagementFlow.DependencyBatch<DlcServerItem> collectMissingDependencies(List<DlcServerItem> targets) {
             DlcFxDlcTogglePlanner.EnablePlan plan = DlcFxDlcTogglePlanner.planEnable(
                     plannerItems(allItems()),
                     itemIds(targets)
             );
-            List<DlcFxDlcManagementFlow.DependencyLine<SyncModels.ServerItem>> lines = new ArrayList<>();
+            List<DlcFxDlcManagementFlow.DependencyLine<DlcServerItem>> lines = new ArrayList<>();
             Set<String> dependencyIds = new LinkedHashSet<>();
             for (DlcFxDlcTogglePlanner.Dependency dependency : plan.dependencies()) {
                 if (dependency == null) {
@@ -416,19 +415,19 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
-        public List<SyncModels.ServerItem> planDisable(List<SyncModels.ServerItem> targets) {
+        public List<DlcServerItem> planDisable(List<DlcServerItem> targets) {
             return itemsByIds(DlcFxDlcTogglePlanner.planDisable(plannerItems(allItems()), itemIds(targets)));
         }
 
         @Override
-        public void applyEnabled(List<SyncModels.ServerItem> items, boolean enabled) {
-            for (SyncModels.ServerItem item : items == null ? List.<SyncModels.ServerItem>of() : items) {
+        public void applyEnabled(List<DlcServerItem> items, boolean enabled) {
+            for (DlcServerItem item : items == null ? List.<DlcServerItem>of() : items) {
                 adapter.setEffectiveEnabled(item, enabled);
             }
         }
 
         @Override
-        public String conflictFilterKey(SyncModels.ServerItem item) {
+        public String conflictFilterKey(DlcServerItem item) {
             return id(item);
         }
 
@@ -447,9 +446,9 @@ public final class DlcFxServerDlcManagementTab {
         }
     }
 
-    private final class RemoteDlcPrompts implements DlcFxDlcManagementFlow.Prompts<SyncModels.ServerItem> {
+    private final class RemoteDlcPrompts implements DlcFxDlcManagementFlow.Prompts<DlcServerItem> {
         @Override
-        public void showConflict(List<DlcFxDlcManagementFlow.ConflictLine<SyncModels.ServerItem>> lines, Runnable skipConflictingTargets) {
+        public void showConflict(List<DlcFxDlcManagementFlow.ConflictLine<DlcServerItem>> lines, Runnable skipConflictingTargets) {
             DlcFxModalOverlay.show(
                     overlayScene(),
                     DlcFxI18n.tr("dlc_manager.batch.conflicts_title"),
@@ -462,7 +461,7 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
-        public void showDependencies(List<DlcFxDlcManagementFlow.DependencyLine<SyncModels.ServerItem>> lines, Runnable enableDependencies) {
+        public void showDependencies(List<DlcFxDlcManagementFlow.DependencyLine<DlcServerItem>> lines, Runnable enableDependencies) {
             DlcFxModalOverlay.show(
                     overlayScene(),
                     DlcFxI18n.tr("dlc_manager.batch.dependencies_title"),
@@ -475,7 +474,7 @@ public final class DlcFxServerDlcManagementTab {
         }
 
         @Override
-        public void showAlarm(List<SyncModels.ServerItem> items, Runnable confirm) {
+        public void showAlarm(List<DlcServerItem> items, Runnable confirm) {
             DlcFxModalOverlay.show(
                     overlayScene(),
                     DlcFxI18n.tr("dlc_manager.alarm.title"),
