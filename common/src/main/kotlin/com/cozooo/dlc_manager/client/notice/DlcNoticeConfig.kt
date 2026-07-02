@@ -230,8 +230,20 @@ class DlcNoticeConfig {
                 config.exists = false
                 return config
             }
+            return load(config.path)
+        }
+
+        @JvmStatic
+        fun load(path: Path?): DlcNoticeConfig {
+            val config = DlcNoticeConfig()
+            config.path = path
+            if (path == null || !Files.exists(path)) {
+                config.noticeEnabled = false
+                config.exists = false
+                return config
+            }
             config.exists = true
-            val obj = DlcDcConfigIO.read(noticePath, DlcDcConfigIO.Layout.GENERIC)
+            val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
             if (obj == null) {
                 config.noticeEnabled = false
                 return config

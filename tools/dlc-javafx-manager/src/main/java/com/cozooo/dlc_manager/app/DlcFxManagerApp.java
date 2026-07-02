@@ -33,6 +33,9 @@ import com.cozooo.dlc_manager.server.DlcFxServerConnectionTab;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.common.DlcFxTooltips;
+import com.cozooo.dlc_manager.ui.config.DlcFxConfigModel;
+import com.cozooo.dlc_manager.ui.config.DlcFxConfigOverlay;
+import com.google.gson.JsonObject;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -88,6 +91,8 @@ public final class DlcFxManagerApp extends Application {
     private Label localGameDirLabel;
     private Button localConfigButton;
     private Button localNoticeButton;
+    private Button remoteConfigButton;
+    private Button remoteNoticeButton;
     private boolean localGameDirSelected;
 
     private DlcFxServerConnection remoteConnection;
@@ -319,6 +324,7 @@ public final class DlcFxManagerApp extends Application {
 
     private TabPane buildRemoteTabs() {
         remoteTabPane = new TabPane();
+        remoteTabPane.getStyleClass().add("dlc-tab-pane-with-actions");
         remoteTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         remoteServerConnectionTab = new DlcFxServerConnectionTab(remoteConnection, primaryStage);
         remoteTabPane.getTabs().add(remoteServerConnectionTab.build());
@@ -357,6 +363,27 @@ public final class DlcFxManagerApp extends Application {
         return remoteTabPane;
     }
 
+    private Node buildRemoteTabsArea() {
+        TabPane tabs = buildRemoteTabs();
+        remoteNoticeButton = new Button(DlcFxI18n.tr("dlc_manager.notice"));
+        remoteNoticeButton.setOnAction(event -> showServerNoticeOverlay());
+        remoteConfigButton = new Button(DlcFxI18n.tr("dlc_manager.config"));
+        remoteConfigButton.setOnAction(event -> showServerConfigOverlay());
+        updateRemoteActionButtons(remoteConnection.connectionStateProperty().get());
+        remoteConnection.connectionStateProperty().addListener((obs, oldValue, newValue) -> updateRemoteActionButtons(newValue));
+
+        HBox actions = new HBox(8, remoteNoticeButton, remoteConfigButton);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+        actions.getStyleClass().add("dlc-tab-trailing-actions");
+        actions.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        actions.setPickOnBounds(false);
+
+        StackPane area = new StackPane(tabs, actions);
+        StackPane.setAlignment(actions, Pos.TOP_RIGHT);
+        StackPane.setMargin(actions, new Insets(10, 14, 0, 0));
+        return area;
+    }
+
     private Node buildLocalWorkspace() {
         BorderPane root = new BorderPane();
         VBox top = new VBox(
@@ -378,7 +405,7 @@ public final class DlcFxManagerApp extends Application {
                         this::showHome,
                         remoteConnectionStatusBadge()));
         root.setTop(top);
-        root.setCenter(buildRemoteTabs());
+        root.setCenter(buildRemoteTabsArea());
         DlcFxStyle.add(root, "dlc-workspace-root");
         return root;
     }
@@ -813,6 +840,132 @@ public final class DlcFxManagerApp extends Application {
         localNoticeButton.setDisable(!visible);
     }
 
+    private void updateRemoteActionButtons(DlcFxServerConnection.ConnectionState state) {
+        boolean connected = state == DlcFxServerConnection.ConnectionState.CONNECTED;
+        if (remoteConfigButton != null) {
+            remoteConfigButton.setDisable(!connected);
+        }
+        if (remoteNoticeButton != null) {
+            remoteNoticeButton.setDisable(!connected);
+        }
+    }
+
+    private void showServerConfigOverlay() {
+        if (remoteConnection == null || remoteConnection.connectionStateProperty().get() != DlcFxServerConnection.ConnectionState.CONNECTED) {
+            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.server.not_connected"));
+            return;
+        }
+        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.config.loading"));
+        remoteConnection.runAsync(session -> session.configGet(), response -> {
+            JsonObject config = object(response, "config");
+            if (config == null) {
+                DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.config.load_missing_config"));
+                return;
+            }
+            DlcFxConfigModel model = new DlcFxConfigModel(DlcFxConfigModel.serverSource(config, next -> {
+                DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.config.saving"));
+                remoteConnection.runAsync(session -> session.configSet(next), saved -> {
+                    DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.config.saved"));
+                }, err -> DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.failed", safeMessage(err))));
+            }));
+            new DlcFxConfigOverlay(
+                    scene(),
+                    model,
+                    "dlc_manager.config.server_desc",
+                    "dlc_manager.config.save",
+                    "dlc_manager.config.cancel",
+                    ignored -> {}).show();
+        }, err -> DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.config.load_failed", safeMessage(err))));
+    }
+
+    private void showServerNoticeOverlay() {
+        if (remoteConnection == null || remoteConnection.connectionStateProperty().get() != DlcFxServerConnection.ConnectionState.CONNECTED) {
+            DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.server.not_connected"));
+            return;
+        }
+        DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.notice.loading"));
+        remoteConnection.runAsync(session -> {
+            JsonObject response = session.configGet();
+            JsonObject config = object(response, "config");
+            String remotePath = serverNoticePath(config);
+            Path temp = Files.createTempFile("dlc-server-notice-", ".dc");
+            temp.toFile().deleteOnExit();
+            if (!session.downloadFileTo(remotePath, temp)) {
+                Files.deleteIfExists(temp);
+                throw new IOException(DlcFxI18n.tr("dlc_manager.notice.unavailable"));
+            }
+            return new ServerNoticeFile(remotePath, temp);
+        }, file -> {
+            DlcNoticeConfig config = DlcNoticeConfig.load(file.localPath());
+            if (!config.isNoticeEnabled()) {
+                deleteQuietly(file.localPath());
+                DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.notice.unavailable"));
+                return;
+            }
+            new com.cozooo.dlc_manager.ui.notice.DlcFxNoticeOverlay(scene(), config, () -> {
+                DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.config.saving"));
+                remoteConnection.runAsync(session -> {
+                    session.uploadFile(file.remotePath(), file.localPath());
+                    deleteQuietly(file.localPath());
+                    return true;
+                }, ok -> DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.config.saved")),
+                        err -> DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.failed", safeMessage(err))));
+            }).show();
+        }, err -> DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.failed", safeMessage(err))));
+    }
+
+    private static String safeMessage(Throwable error) {
+        if (error == null) {
+            return "";
+        }
+        String message = error.getMessage();
+        return message == null || message.isBlank() ? error.getClass().getSimpleName() : message;
+    }
+
+    private static JsonObject object(JsonObject parent, String key) {
+        if (parent == null || key == null) {
+            return null;
+        }
+        var element = parent.get(key);
+        return element != null && element.isJsonObject() ? element.getAsJsonObject() : null;
+    }
+
+    private static String serverNoticePath(JsonObject config) {
+        String dlcRoot = DlcConfig.DEFAULT_DLC_ROOT;
+        JsonObject paths = object(config, "paths");
+        if (paths != null && paths.has("dlcRoot") && paths.get("dlcRoot").isJsonPrimitive()) {
+            String raw = paths.get("dlcRoot").getAsString();
+            if (raw != null && !raw.isBlank()) {
+                dlcRoot = raw.trim();
+            }
+        }
+        return joinRemotePath(dlcRoot, "info/notice.dc");
+    }
+
+    private static String joinRemotePath(String left, String right) {
+        String a = left == null ? "" : left.trim().replace('\\', '/');
+        String b = right == null ? "" : right.trim().replace('\\', '/');
+        while (a.endsWith("/")) {
+            a = a.substring(0, a.length() - 1);
+        }
+        while (b.startsWith("/")) {
+            b = b.substring(1);
+        }
+        return a.isBlank() ? b : a + "/" + b;
+    }
+
+    private static void deleteQuietly(Path path) {
+        if (path == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException ignored) {
+        }
+    }
+
+    private record ServerNoticeFile(String remotePath, Path localPath) {}
+
     private Node remoteConnectionStatusBadge() {
         Label badge = new Label();
         badge.textProperty().bind(remoteConnection.statusTextProperty());
@@ -1069,6 +1222,8 @@ public final class DlcFxManagerApp extends Application {
         remoteRconTab = null;
         remoteFileManagerTab = null;
         remoteSyncTabNode = null;
+        remoteConfigButton = null;
+        remoteNoticeButton = null;
         homeView = buildHomeView();
         localView = buildLocalWorkspace();
         remoteView = buildRemoteWorkspace();

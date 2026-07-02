@@ -2,6 +2,8 @@ package com.cozooo.dlc_manager.local;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.ui.config.DlcFxConfigModel;
+import com.google.gson.JsonObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,19 +32,19 @@ final class DlcFxLocalConfigModelTest {
 
     @Test
     void exposesSameConfigGroupsAsMainClientConfigScreen() {
-        DlcFxLocalConfigModel model = new DlcFxLocalConfigModel();
+        DlcFxConfigModel model = new DlcFxConfigModel();
 
-        assertEquals(4, model.options(DlcFxLocalConfigModel.Tab.PATHS).size());
-        assertEquals(4, model.options(DlcFxLocalConfigModel.Tab.SERVER).size());
-        assertEquals(25, model.options(DlcFxLocalConfigModel.Tab.UI).size());
-        assertEquals(3, model.options(DlcFxLocalConfigModel.Tab.MODPACK).size());
-        assertEquals(9, model.options(DlcFxLocalConfigModel.Tab.DOWNLOADS).size());
+        assertEquals(4, model.options(DlcFxConfigModel.Tab.PATHS).size());
+        assertEquals(4, model.options(DlcFxConfigModel.Tab.SERVER).size());
+        assertEquals(25, model.options(DlcFxConfigModel.Tab.UI).size());
+        assertEquals(3, model.options(DlcFxConfigModel.Tab.MODPACK).size());
+        assertEquals(9, model.options(DlcFxConfigModel.Tab.DOWNLOADS).size());
     }
 
     @Test
     void downloadMirrorModeChoicesMatchMainClientValues() {
-        DlcFxLocalConfigModel model = new DlcFxLocalConfigModel();
-        DlcFxLocalConfigModel.Option option = model.find("downloadMirrorMode");
+        DlcFxConfigModel model = new DlcFxConfigModel();
+        DlcFxConfigModel.Option option = model.find("downloadMirrorMode");
 
         assertEquals(List.of(
                 DlcConfig.DOWNLOAD_MIRROR_SMART_OFFICIAL,
@@ -57,7 +59,7 @@ final class DlcFxLocalConfigModelTest {
 
     @Test
     void applyingModelWritesBackThroughDlcConfig() {
-        DlcFxLocalConfigModel model = new DlcFxLocalConfigModel();
+        DlcFxConfigModel model = new DlcFxConfigModel();
         model.loadFromConfig();
         assertTrue(model.find("dlcRoot").setValueFromString("CustomDLC"));
         assertTrue(model.find("noticeDisplayMode").setValueFromString("main_menu_panel"));
@@ -72,14 +74,32 @@ final class DlcFxLocalConfigModelTest {
 
     @Test
     void optionTracksWhetherValueEqualsDefault() {
-        DlcFxLocalConfigModel model = new DlcFxLocalConfigModel();
+        DlcFxConfigModel model = new DlcFxConfigModel();
         model.loadFromConfig();
-        DlcFxLocalConfigModel.Option option = model.find("apiPort");
+        DlcFxConfigModel.Option option = model.find("apiPort");
 
         assertTrue(option.isDefaultValue());
         assertTrue(option.setValueFromString("10087"));
 
         org.junit.jupiter.api.Assertions.assertFalse(option.isDefaultValue());
+    }
+
+    @Test
+    void serverSourceEditsServerConfigJsonWithoutUsingLocalDlcConfig() {
+        JsonObject root = DlcConfig.buildServerConfigJson();
+        JsonObject[] saved = new JsonObject[1];
+        DlcFxConfigModel model = new DlcFxConfigModel(DlcFxConfigModel.serverSource(root, json -> saved[0] = json));
+        model.loadFromConfig();
+
+        assertEquals(10, model.options(DlcFxConfigModel.Tab.SERVER).size());
+        assertTrue(model.find("serverPort").setValueFromString("28888"));
+        assertTrue(model.find("rconHost").setValueFromString("127.0.0.1"));
+        model.applyToConfig();
+
+        JsonObject server = saved[0].getAsJsonObject("server");
+        assertEquals(28888, server.get("serverPort").getAsInt());
+        assertEquals("127.0.0.1", server.get("rconHost").getAsString());
+        assertEquals(28888, model.snapshot().getAsJsonObject("server").get("serverPort").getAsInt());
     }
 
     private record TestProvider(Path gameDir, Path configDir) implements PlatformServices.Provider {

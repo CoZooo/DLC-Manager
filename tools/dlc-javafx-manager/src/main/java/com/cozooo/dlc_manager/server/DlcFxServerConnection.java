@@ -133,8 +133,8 @@ public final class DlcFxServerConnection {
     }
 
     /** Runs blocking protocol work off the UI thread and returns callbacks on the FX thread. */
-    <T> void runAsync(AsyncAction<T> action,
-                      Consumer<T> onSuccess, Consumer<Throwable> onError) {
+    public <T> void runAsync(AsyncAction<T> action,
+                             Consumer<T> onSuccess, Consumer<Throwable> onError) {
         DlcServerSession f = session;
         if (f == null) {
             Platform.runLater(() -> onError.accept(new IllegalStateException(DlcFxI18n.tr("dlc_manager.server.not_connected"))));
@@ -153,7 +153,7 @@ public final class DlcFxServerConnection {
     }
 
     @FunctionalInterface
-    interface AsyncAction<T> {
+    public interface AsyncAction<T> {
         T apply(DlcServerSession facade) throws Exception;
     }
 

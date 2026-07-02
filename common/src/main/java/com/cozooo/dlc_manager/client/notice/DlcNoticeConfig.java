@@ -105,6 +105,17 @@ public class DlcNoticeConfig {
             config.exists = false;
             return config;
         }
+        return load(config.path);
+    }
+
+    public static DlcNoticeConfig load(Path path) {
+        DlcNoticeConfig config = new DlcNoticeConfig();
+        config.path = path;
+        if (path == null || !Files.exists(path)) {
+            config.noticeEnabled = false;
+            config.exists = false;
+            return config;
+        }
         config.exists = true;
         JsonObject obj = DlcDcConfigIO.read(config.path, DlcDcConfigIO.Layout.GENERIC);
         if (obj == null) {
