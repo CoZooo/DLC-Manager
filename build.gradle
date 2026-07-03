@@ -134,18 +134,6 @@ tasks.register('helperPublish', GradleBuild) {
     tasks = ['publish']
 }
 
-tasks.register('externalControllerBuild') {
-    group = 'build'
-    description = 'Build the Java DLC external controller.'
-    dependsOn(gradle.includedBuild('dlcExternalController').task(':build'))
-}
-
-tasks.register('externalControllerTest') {
-    group = 'verification'
-    description = 'Run Java DLC external controller tests.'
-    dependsOn(gradle.includedBuild('dlcExternalController').task(':test'))
-}
-
 tasks.register('javafxManagerBuild') {
     group = 'build'
     description = 'Build the JavaFX DLC Manager desktop application.'
