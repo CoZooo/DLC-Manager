@@ -273,6 +273,10 @@ public final class DlcPresetRuntimeState {
     }
 
     public static void syncStatusFromExternal(Map<String, DlcPresetStatus> statuses) {
+        syncStatusFromExternal(statuses, true);
+    }
+
+    public static void syncStatusFromExternal(Map<String, DlcPresetStatus> statuses, boolean persist) {
         if (PRESETS_BY_ID.isEmpty()) {
             return;
         }
@@ -292,7 +296,9 @@ public final class DlcPresetRuntimeState {
                 ENABLED_PRESETS.add(entry.getId());
             }
         }
-        DlcPresetStateStore.savePresetStatus(normalized);
+        if (persist) {
+            DlcPresetStateStore.savePresetStatus(normalized);
+        }
         presetDirty = false;
         rebuildBlocks();
     }

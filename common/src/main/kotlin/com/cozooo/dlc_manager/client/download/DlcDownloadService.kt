@@ -233,6 +233,14 @@ object DlcDownloadService {
         }
     }
 
+    @JvmStatic
+    @Throws(DownloadCanceledException::class)
+    fun checkCanceled(cancelChecker: CancelChecker?) {
+        if (cancelChecker?.isCanceled() == true) {
+            throw DownloadCanceledException("canceled")
+        }
+    }
+
     private fun mirrorPlan(url: String, fileName: String?, totalBytes: Long): MirrorPlan? {
         if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
             return null

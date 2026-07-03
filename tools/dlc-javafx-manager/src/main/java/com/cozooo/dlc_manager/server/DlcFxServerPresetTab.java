@@ -241,7 +241,7 @@ public final class DlcFxServerPresetTab {
             conn.rememberServerInfo(info);
             List<DlcPresetEntry> loaded = toPresetEntries(info == null ? null : info.presets);
             DlcPresetRuntimeState.loadExternal(loaded);
-            DlcPresetRuntimeState.syncStatusFromExternal(computeStatuses(loaded));
+            DlcPresetRuntimeState.syncStatusFromExternal(computeStatuses(loaded), false);
             return DlcPresetRuntimeState.getPresets();
         }
 

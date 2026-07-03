@@ -8,7 +8,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -1246,7 +1245,7 @@ public final class DlcPackReleaseUpdateService {
         }
         try {
             JsonReader jsonReader = new JsonReader(new StringReader(text));
-            jsonReader.setStrictness(Strictness.LENIENT);
+            jsonReader.setLenient(true);
             JsonElement element = JsonParser.parseReader(jsonReader);
             if (element == null || element.isJsonNull()) {
                 return new JsonArray();

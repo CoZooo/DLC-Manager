@@ -7,7 +7,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
 import java.io.IOException;
 import java.io.Reader;
@@ -55,7 +54,7 @@ public class DlcUpdateManifest {
         if (obj == null) {
             try (Reader reader = Files.newBufferedReader(updateJson)) {
                 JsonReader jsonReader = new JsonReader(reader);
-                jsonReader.setStrictness(Strictness.LENIENT);
+                jsonReader.setLenient(true);
                 obj = GSON.fromJson(jsonReader, JsonObject.class);
             } catch (IOException ignored) {
                 return null;

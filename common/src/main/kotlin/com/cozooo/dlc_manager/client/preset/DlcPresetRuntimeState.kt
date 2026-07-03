@@ -283,6 +283,11 @@ object DlcPresetRuntimeState {
 
     @JvmStatic
     fun syncStatusFromExternal(statusesInput: Map<String, DlcPresetStatus>?) {
+        syncStatusFromExternal(statusesInput, true)
+    }
+
+    @JvmStatic
+    fun syncStatusFromExternal(statusesInput: Map<String, DlcPresetStatus>?, persist: Boolean) {
         if (PRESETS_BY_ID.isEmpty()) {
             return
         }
@@ -300,7 +305,9 @@ object DlcPresetRuntimeState {
                 ENABLED_PRESETS.add(id)
             }
         }
-        DlcPresetStateStore.savePresetStatus(normalized)
+        if (persist) {
+            DlcPresetStateStore.savePresetStatus(normalized)
+        }
         presetDirty = false
         rebuildBlocks()
     }
