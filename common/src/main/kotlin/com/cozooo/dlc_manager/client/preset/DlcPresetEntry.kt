@@ -27,6 +27,10 @@ class DlcPresetEntry(
 
     fun getSourcePath(): Path? = sourcePath
 
+    fun getDisplayNames(): Map<String, String> = displayName
+
+    fun getTips(): Map<String, String> = tip
+
     fun getEnable(): MutableList<String> = enable
 
     fun getConflicts(): MutableList<String> = conflicts

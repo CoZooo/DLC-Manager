@@ -7,6 +7,7 @@ public class DlcServerInfo {
     public String baseVersion;
     public String dlcVersion;
     public List<DlcServerItem> items;
+    public List<DlcServerPresetItem> presets = new ArrayList<>();
     public List<DlcServerRedirectItem> redirects = new ArrayList<>();
     public int remoteMissing;
     public int requiredMissing;

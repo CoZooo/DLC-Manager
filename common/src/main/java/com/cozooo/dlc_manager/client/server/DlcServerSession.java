@@ -95,6 +95,19 @@ public final class DlcServerSession implements AutoCloseable {
             }
         }
         info.redirects = redirects;
+        List<DlcServerPresetItem> presets = new ArrayList<>();
+        JsonArray presetArray = array(response, "presets");
+        if (presetArray != null) {
+            for (JsonElement element : presetArray) {
+                if (element != null && element.isJsonObject()) {
+                    DlcServerPresetItem item = GSON.fromJson(element, DlcServerPresetItem.class);
+                    if (item != null) {
+                        presets.add(item);
+                    }
+                }
+            }
+        }
+        info.presets = presets;
         List<DlcServerItem> items = new ArrayList<>();
         JsonArray array = array(response, "items");
         if (array != null) {

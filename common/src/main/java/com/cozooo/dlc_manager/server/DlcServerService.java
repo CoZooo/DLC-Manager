@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.server;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
+import com.cozooo.dlc_manager.client.server.DlcServerPresetItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRedirectItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
@@ -422,8 +423,19 @@ public class DlcServerService {
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
         response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl());
         response.add("redirects", GSON.toJsonTree(loadVisibleRedirectItems(dlcRoot, effectiveLang)));
+        response.add("presets", GSON.toJsonTree(toServerPresetItems()));
         response.add("items", GSON.toJsonTree(items));
         writeLine(writer, response);
+    }
+
+    private static List<DlcServerPresetItem> toServerPresetItems() {
+        List<DlcServerPresetItem> out = new ArrayList<>();
+        for (var preset : DlcPresetRuntimeState.getPresets()) {
+            if (preset != null) {
+                out.add(DlcServerPresetItem.fromPreset(preset));
+            }
+        }
+        return out;
     }
 
     private static List<DlcItem> scanDlcItemsForServer(boolean detectInstalledState) {

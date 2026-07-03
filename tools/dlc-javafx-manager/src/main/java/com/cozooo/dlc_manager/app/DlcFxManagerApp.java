@@ -336,7 +336,7 @@ public final class DlcFxManagerApp extends Application {
         remoteRequiredTab = new DlcFxServerRequiredTab(remoteConnection);
         remoteRequiredTabNode = remoteRequiredTab.build();
         remoteTabPane.getTabs().add(remoteRequiredTabNode);
-        remotePresetTab = new DlcFxServerPresetTab(remoteConnection, () -> remoteDlcManagementTab, () -> localGameDirSelected);
+        remotePresetTab = new DlcFxServerPresetTab(remoteConnection, () -> remoteDlcManagementTab);
         remotePresetTabNode = remotePresetTab.build();
         remoteTabPane.getTabs().add(remotePresetTabNode);
         remotePackTab = new DlcFxServerPackTab(remoteConnection);
@@ -462,9 +462,6 @@ public final class DlcFxManagerApp extends Application {
         }
         if (localPackTab != null) {
             localPackTab.onGameDirChanged();
-        }
-        if (remotePresetTab != null) {
-            remotePresetTab.onLocalGameDirChanged();
         }
         updateLocalNoticeButton();
         if (currentView == ViewMode.LOCAL) {

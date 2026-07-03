@@ -228,6 +228,31 @@ public final class DlcPresetRuntimeState {
         baselineDisabledRelativePathsInitialized = false;
     }
 
+    public static void loadExternal(List<DlcPresetEntry> entries) {
+        rollbackLastAppliedToBaseline();
+        PRESETS_BY_ID.clear();
+        ENABLED_PRESETS.clear();
+        LAST_APPLIED_IDENTIFIERS.clear();
+        BASELINE_DISABLED_RELATIVE_PATHS.clear();
+        APPLIED_DISABLED_RELATIVE_PATHS.clear();
+        BLOCKED_DLC = new LinkedHashMap<>();
+        BLOCKED_PRESET = new LinkedHashMap<>();
+        if (entries != null) {
+            for (DlcPresetEntry entry : entries) {
+                if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
+                    continue;
+                }
+                PRESETS_BY_ID.put(entry.getId(), entry);
+                if (entry.getStatus().isEnabled()) {
+                    ENABLED_PRESETS.add(entry.getId());
+                }
+            }
+        }
+        presetDirty = false;
+        baselineDisabledRelativePathsInitialized = true;
+        rebuildBlocks();
+    }
+
     public static void syncStatusFromRuntime() {
         if (PRESETS_BY_ID.isEmpty()) {
             return;

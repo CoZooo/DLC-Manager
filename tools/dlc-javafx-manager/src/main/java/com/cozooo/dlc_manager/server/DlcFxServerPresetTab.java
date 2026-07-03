@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
-import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.client.server.DlcServerPresetItem;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
@@ -25,16 +25,13 @@ import java.util.function.Supplier;
 public final class DlcFxServerPresetTab {
     private final DlcFxServerConnection conn;
     private final Supplier<DlcFxServerDlcManagementTab> dlcManagementTab;
-    private final Supplier<Boolean> localGameDirSelected;
     private final ServerPresetAdapter adapter = new ServerPresetAdapter();
     private final DlcFxPresetShell<DlcPresetEntry> shell;
 
     public DlcFxServerPresetTab(DlcFxServerConnection conn,
-                                Supplier<DlcFxServerDlcManagementTab> dlcManagementTab,
-                                Supplier<Boolean> localGameDirSelected) {
+                                Supplier<DlcFxServerDlcManagementTab> dlcManagementTab) {
         this.conn = conn;
         this.dlcManagementTab = dlcManagementTab == null ? () -> null : dlcManagementTab;
-        this.localGameDirSelected = localGameDirSelected == null ? () -> false : localGameDirSelected;
         this.shell = new DlcFxPresetShell<>(adapter);
         if (conn != null) {
             conn.connectedProperty().addListener((obs, oldValue, newValue) ->
@@ -50,10 +47,6 @@ public final class DlcFxServerPresetTab {
 
     public void onTabSelected() {
         shell.onTabSelected();
-    }
-
-    public void onLocalGameDirChanged() {
-        shell.onContextChanged(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
     }
 
     private DlcPresetStatus displayStatus(DlcPresetEntry entry, DlcFxPresetFlow<DlcPresetEntry> flow) {
@@ -136,6 +129,16 @@ public final class DlcFxServerPresetTab {
     private List<DlcServerItem> serverInfoItems() {
         DlcServerInfo info = conn.lastServerInfo();
         return info == null || info.items == null ? List.of() : info.items;
+    }
+
+    private static List<DlcPresetEntry> toPresetEntries(List<DlcServerPresetItem> presets) {
+        List<DlcPresetEntry> out = new ArrayList<>();
+        for (DlcServerPresetItem item : presets == null ? List.<DlcServerPresetItem>of() : presets) {
+            if (item != null) {
+                out.add(item.toPresetEntry());
+            }
+        }
+        return out;
     }
 
     private static DlcServerItem itemByIdentifier(List<DlcServerItem> items, String identifier) {
@@ -221,24 +224,23 @@ public final class DlcFxServerPresetTab {
     private final class ServerPresetAdapter implements DlcFxPresetShell.Adapter<DlcPresetEntry> {
         @Override
         public boolean available() {
-            return conn != null && conn.connectedProperty().get() && localGameDirSelected.get();
+            return conn != null && conn.connectedProperty().get();
         }
 
         @Override
         public String unavailableStatusText() {
-            return conn != null && conn.connectedProperty().get()
-                    ? DlcFxI18n.tr("dlc_manager.status.select_game_dir")
-                    : DlcFxI18n.tr("dlc_manager.status.disconnected");
+            return DlcFxI18n.tr("dlc_manager.status.disconnected");
         }
 
         @Override
-        public List<DlcPresetEntry> load() {
-            if (!DlcConfig.isPresetFuncOn()) {
-                DlcPresetRuntimeState.clearAll();
-                return List.of();
+        public List<DlcPresetEntry> load() throws Exception {
+            if (conn == null || conn.facade() == null) {
+                throw new IllegalStateException(DlcFxI18n.tr("dlc_manager.server.not_connected"));
             }
-            DlcPresetRuntimeState.reload();
-            List<DlcPresetEntry> loaded = DlcPresetRuntimeState.getPresets();
+            DlcServerInfo info = conn.facade().fetchList();
+            conn.rememberServerInfo(info);
+            List<DlcPresetEntry> loaded = toPresetEntries(info == null ? null : info.presets);
+            DlcPresetRuntimeState.loadExternal(loaded);
             DlcPresetRuntimeState.syncStatusFromExternal(computeStatuses(loaded));
             return DlcPresetRuntimeState.getPresets();
         }
