@@ -2,7 +2,6 @@ package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.app.DlcFxManagerApp;
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
-import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
@@ -27,6 +26,8 @@ public final class DlcFxServerPresetTab {
     private final Supplier<DlcFxServerDlcManagementTab> dlcManagementTab;
     private final ServerPresetAdapter adapter = new ServerPresetAdapter();
     private final DlcFxPresetShell<DlcPresetEntry> shell;
+    private final List<DlcPresetEntry> serverPresets = new ArrayList<>();
+    private final Set<String> serverEnabledPresetIds = new LinkedHashSet<>();
 
     public DlcFxServerPresetTab(DlcFxServerConnection conn,
                                 Supplier<DlcFxServerDlcManagementTab> dlcManagementTab) {
@@ -35,8 +36,8 @@ public final class DlcFxServerPresetTab {
         this.shell = new DlcFxPresetShell<>(adapter);
         if (conn != null) {
             conn.connectedProperty().addListener((obs, oldValue, newValue) -> {
-                DlcPresetRuntimeState.loadExternal(List.of());
-                DlcPresetRuntimeState.syncStatusFromExternal(Map.of(), false);
+                serverPresets.clear();
+                serverEnabledPresetIds.clear();
                 shell.onContextChanged(newValue
                         ? DlcFxI18n.tr("dlc_manager.server.connect_success")
                         : DlcFxI18n.tr("dlc_manager.status.disconnected"));
@@ -56,7 +57,7 @@ public final class DlcFxServerPresetTab {
         if (entry == null || !flow.effectiveEnabled(entry)) {
             return DlcPresetStatus.OFF;
         }
-        Map<String, DlcPresetEntry> byId = DlcFxPresetResolver.byId(List.copyOf(DlcPresetRuntimeState.getPresets()));
+        Map<String, DlcPresetEntry> byId = DlcFxPresetResolver.byId(List.copyOf(serverPresets));
         Set<String> identifiers = DlcFxPresetResolver.resolveEnableIdentifiers(
                 entry.getId(),
                 byId,
@@ -161,14 +162,13 @@ public final class DlcFxServerPresetTab {
     }
 
     private Map<String, DlcPresetStatus> computeStatuses(List<DlcPresetEntry> entries) {
-        Set<String> enabledPresetIds = DlcPresetRuntimeState.getEnabledPresetIds();
         Map<String, DlcPresetEntry> byId = DlcFxPresetResolver.byId(entries);
         java.util.LinkedHashMap<String, DlcPresetStatus> statuses = new java.util.LinkedHashMap<>();
         for (DlcPresetEntry entry : entries == null ? List.<DlcPresetEntry>of() : entries) {
             if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
                 continue;
             }
-            if (!enabledPresetIds.contains(entry.getId())) {
+            if (!serverEnabledPresetIds.contains(entry.getId())) {
                 statuses.put(entry.getId(), DlcPresetStatus.OFF);
                 continue;
             }
@@ -188,6 +188,30 @@ public final class DlcFxServerPresetTab {
             statuses.put(entry.getId(), allEnabled ? DlcPresetStatus.ON : DlcPresetStatus.PART);
         }
         return statuses;
+    }
+
+    private void rememberLoadedPresets(List<DlcPresetEntry> loaded) {
+        serverPresets.clear();
+        serverEnabledPresetIds.clear();
+        for (DlcPresetEntry entry : loaded == null ? List.<DlcPresetEntry>of() : loaded) {
+            if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
+                continue;
+            }
+            serverPresets.add(entry);
+            if (entry.getStatus().isEnabled()) {
+                serverEnabledPresetIds.add(entry.getId());
+            }
+        }
+        applyStatuses(serverPresets, computeStatuses(serverPresets));
+    }
+
+    private static void applyStatuses(List<DlcPresetEntry> entries, Map<String, DlcPresetStatus> statuses) {
+        for (DlcPresetEntry entry : entries == null ? List.<DlcPresetEntry>of() : entries) {
+            if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
+                continue;
+            }
+            entry.setStatus(statuses == null ? DlcPresetStatus.OFF : statuses.getOrDefault(entry.getId(), DlcPresetStatus.OFF));
+        }
     }
 
     private void showGoToDlcManagementPrompt(javafx.scene.Scene scene) {
@@ -243,18 +267,25 @@ public final class DlcFxServerPresetTab {
             DlcServerInfo info = conn.facade().fetchList();
             conn.rememberServerInfo(info);
             List<DlcPresetEntry> loaded = toPresetEntries(info == null ? null : info.presets);
-            DlcPresetRuntimeState.loadExternal(loaded);
-            DlcPresetRuntimeState.syncStatusFromExternal(computeStatuses(loaded), false);
-            return DlcPresetRuntimeState.getPresets();
+            rememberLoadedPresets(loaded);
+            return new ArrayList<>(serverPresets);
         }
 
         @Override
         public DlcFxPresetShell.ApplyResult<DlcPresetEntry> apply(Map<String, Boolean> pending) {
             for (Map.Entry<String, Boolean> entry : pending.entrySet()) {
-                DlcPresetRuntimeState.setPresetEnabled(entry.getKey(), entry.getValue());
+                if (entry.getKey() == null || entry.getKey().isBlank()) {
+                    continue;
+                }
+                if (Boolean.TRUE.equals(entry.getValue())) {
+                    serverEnabledPresetIds.add(entry.getKey());
+                } else {
+                    serverEnabledPresetIds.remove(entry.getKey());
+                }
             }
+            applyStatuses(serverPresets, computeStatuses(serverPresets));
             return new DlcFxPresetShell.ApplyResult<>(
-                    DlcPresetRuntimeState.getPresets(),
+                    new ArrayList<>(serverPresets),
                     !pending.isEmpty(),
                     DlcFxI18n.tr("dlc_manager.status.apply_done")
             );
@@ -304,7 +335,7 @@ public final class DlcFxServerPresetTab {
             if (tab == null || result == null || !result.dlcChanged()) {
                 return;
             }
-            boolean changed = tab.applyPresetOverrides(result.entries(), new LinkedHashSet<>(DlcPresetRuntimeState.getEnabledPresetIds()));
+            boolean changed = tab.applyPresetOverrides(result.entries(), new LinkedHashSet<>(serverEnabledPresetIds));
             if (changed) {
                 showGoToDlcManagementPrompt(scene);
             }

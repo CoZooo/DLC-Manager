@@ -42,6 +42,7 @@ public final class DlcFxRequiredListShell<T> {
         default String actionText(T item) { return ""; }
         default boolean actionDanger(T item) { return false; }
         default boolean actionDisabled(T item) { return false; }
+        default boolean actionAllowedWhileBusy(T item) { return false; }
         default double progress(T item) { return Double.NaN; }
         default String progressText(T item) { return ""; }
     }
@@ -362,7 +363,7 @@ public final class DlcFxRequiredListShell<T> {
             boolean actionVisible = adapter.actionVisible(item);
             actionButton.setVisible(actionVisible);
             actionButton.setManaged(actionVisible);
-            actionButton.setDisable(adapter.actionDisabled(item) || busy);
+            actionButton.setDisable(adapter.actionDisabled(item) || (busy && !adapter.actionAllowedWhileBusy(item)));
             actionButton.setText(adapter.actionText(item));
             actionButton.getStyleClass().removeAll("danger", "dlc-neutral-button");
             if (adapter.actionDanger(item)) {

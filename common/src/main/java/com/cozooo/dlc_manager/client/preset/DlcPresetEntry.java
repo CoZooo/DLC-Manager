@@ -73,7 +73,7 @@ public final class DlcPresetEntry {
         return alarm;
     }
 
-    void setStatus(DlcPresetStatus status) {
+    public void setStatus(DlcPresetStatus status) {
         this.status = status == null ? DlcPresetStatus.OFF : status;
     }
 

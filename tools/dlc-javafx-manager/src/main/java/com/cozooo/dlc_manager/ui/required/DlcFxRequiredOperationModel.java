@@ -2,6 +2,7 @@ package com.cozooo.dlc_manager.ui.required;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -10,21 +11,44 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class DlcFxRequiredOperationModel {
     private final Set<String> active = ConcurrentHashMap.newKeySet();
     private final Set<String> installing = ConcurrentHashMap.newKeySet();
+    private final Set<String> activeSingles = ConcurrentHashMap.newKeySet();
+    private final Set<String> activeBatch = ConcurrentHashMap.newKeySet();
     private final Map<String, AtomicBoolean> cancelRequests = new ConcurrentHashMap<>();
     private final Map<String, Float> progressByKey = new ConcurrentHashMap<>();
+    private final AtomicBoolean batchCancelRequested = new AtomicBoolean(false);
 
     public void reset() {
         active.clear();
         installing.clear();
+        activeSingles.clear();
+        activeBatch.clear();
         cancelRequests.clear();
         progressByKey.clear();
+        batchCancelRequested.set(false);
     }
 
     public void beginBatch(Collection<String> keys) {
         reset();
         for (String key : keys == null ? Set.<String>of() : keys) {
-            begin(key);
+            if (valid(key)) {
+                active.add(key);
+                activeBatch.add(key);
+                cancelRequests.put(key, new AtomicBoolean(false));
+                progressByKey.put(key, 0f);
+            }
         }
+    }
+
+    public void beginSingle(String key) {
+        reset();
+        if (!valid(key)) {
+            return;
+        }
+        active.add(key);
+        activeSingles.add(key);
+        installing.remove(key);
+        cancelRequests.put(key, new AtomicBoolean(false));
+        progressByKey.put(key, 0f);
     }
 
     public void begin(String key) {
@@ -76,6 +100,8 @@ public final class DlcFxRequiredOperationModel {
     public void finish(String key) {
         active.remove(key);
         installing.remove(key);
+        activeSingles.remove(key);
+        activeBatch.remove(key);
         cancelRequests.remove(key);
         progressByKey.remove(key);
     }
@@ -86,8 +112,11 @@ public final class DlcFxRequiredOperationModel {
         }
         active.clear();
         installing.clear();
+        activeSingles.clear();
+        activeBatch.clear();
         cancelRequests.clear();
         progressByKey.clear();
+        batchCancelRequested.set(false);
     }
 
     public void requestCancel(String key) {
@@ -98,9 +127,21 @@ public final class DlcFxRequiredOperationModel {
     }
 
     public void requestCancelAll() {
+        batchCancelRequested.set(true);
         for (AtomicBoolean cancel : cancelRequests.values()) {
             cancel.set(true);
         }
+    }
+
+    public void requestBatchCancel() {
+        batchCancelRequested.set(true);
+        for (String key : activeBatch) {
+            requestCancel(key);
+        }
+    }
+
+    public boolean isBatchCancelRequested() {
+        return batchCancelRequested.get();
     }
 
     public boolean isCancelRequested(String key) {
@@ -116,6 +157,18 @@ public final class DlcFxRequiredOperationModel {
         return installing.contains(key);
     }
 
+    public boolean isSingleActive(String key) {
+        return activeSingles.contains(key);
+    }
+
+    public boolean isBatchActive(String key) {
+        return activeBatch.contains(key);
+    }
+
+    public Set<String> activeBatchKeys() {
+        return new LinkedHashSet<>(activeBatch);
+    }
+
     public float progress(String key) {
         Float value = progressByKey.get(key);
         return value == null ? Float.NaN : value;
@@ -127,12 +180,14 @@ public final class DlcFxRequiredOperationModel {
     }
 
     public float batchProgress() {
-        if (progressByKey.isEmpty()) {
+        Collection<String> keys = activeBatch.isEmpty() ? progressByKey.keySet() : activeBatch;
+        if (keys.isEmpty()) {
             return 0f;
         }
         float total = 0f;
         int count = 0;
-        for (Float value : progressByKey.values()) {
+        for (String key : keys) {
+            Float value = progressByKey.get(key);
             if (value != null) {
                 total += Math.max(0f, Math.min(1f, value));
             }
@@ -145,7 +200,7 @@ public final class DlcFxRequiredOperationModel {
         return !active.isEmpty();
     }
 
-    private void setProgress(String key, float progress) {
+    public void setProgress(String key, float progress) {
         if (valid(key)) {
             progressByKey.put(key, Math.max(0f, Math.min(1f, progress)));
         }

@@ -880,16 +880,6 @@ public final class DlcPackReleaseUpdateService {
         return new ArrayList<>(names);
     }
 
-    private static int assetPriority(String assetName) {
-        if (assetName == null || assetName.isBlank()) {
-            return 0;
-        }
-        if (assetName.regionMatches(true, 0, UNIVERSAL_PREFIX, 0, UNIVERSAL_PREFIX.length())) {
-            return 2;
-        }
-        return 1;
-    }
-
     private static String findAssetUrl(JsonObject release, String expectedName) {
         if (release == null || expectedName == null || expectedName.isBlank()) {
             return "";
