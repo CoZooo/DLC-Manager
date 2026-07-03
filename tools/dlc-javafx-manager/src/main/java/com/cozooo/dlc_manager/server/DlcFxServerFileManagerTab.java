@@ -43,6 +43,7 @@ public final class DlcFxServerFileManagerTab {
     private final ObservableList<String> entries = FXCollections.observableArrayList();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label pathLabel = new Label("/");
+    private TextField pathField;
     private String currentPath = "";
     private boolean loadedForCurrentConnection;
     private DlcFxServerSyncTab syncTab;
@@ -52,13 +53,13 @@ public final class DlcFxServerFileManagerTab {
     public DlcFxServerFileManagerTab(DlcFxServerConnection conn, Stage primaryStage) {
         this.conn = conn;
         this.primaryStage = primaryStage;
-        conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> clearConnectionState(newValue));
     }
 
     public Tab build() {
         DlcFxTabPage page = new DlcFxTabPage(DlcFxI18n.tr("dlc_manager.status.disconnected"));
 
-        TextField pathField = new TextField("/");
+        pathField = new TextField("/");
         pathField.setPrefColumnCount(30);
         Button listBtn = new Button(DlcFxI18n.tr("dlc_manager.files.list"));
         listBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -235,6 +236,19 @@ public final class DlcFxServerFileManagerTab {
         if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
             loadedForCurrentConnection = true;
         }
+    }
+
+    private void clearConnectionState(boolean connected) {
+        loadedForCurrentConnection = false;
+        entries.clear();
+        currentPath = "";
+        pathLabel.setText("/");
+        if (pathField != null) {
+            pathField.setText("/");
+        }
+        statusLabel.setText(connected
+                ? DlcFxI18n.tr("dlc_manager.status.no_data")
+                : DlcFxI18n.tr("dlc_manager.status.disconnected"));
     }
 
     public void onStorageContextChanged() {

@@ -34,10 +34,13 @@ public final class DlcFxServerPresetTab {
         this.dlcManagementTab = dlcManagementTab == null ? () -> null : dlcManagementTab;
         this.shell = new DlcFxPresetShell<>(adapter);
         if (conn != null) {
-            conn.connectedProperty().addListener((obs, oldValue, newValue) ->
-                    shell.onContextChanged(newValue
-                            ? DlcFxI18n.tr("dlc_manager.server.connect_success")
-                            : DlcFxI18n.tr("dlc_manager.status.disconnected")));
+            conn.connectedProperty().addListener((obs, oldValue, newValue) -> {
+                DlcPresetRuntimeState.loadExternal(List.of());
+                DlcPresetRuntimeState.syncStatusFromExternal(Map.of(), false);
+                shell.onContextChanged(newValue
+                        ? DlcFxI18n.tr("dlc_manager.server.connect_success")
+                        : DlcFxI18n.tr("dlc_manager.status.disconnected"));
+            });
         }
     }
 

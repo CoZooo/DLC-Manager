@@ -56,7 +56,7 @@ public final class DlcFxServerDlcManagementTab {
 
     public DlcFxServerDlcManagementTab(DlcFxServerConnection conn) {
         this.conn = conn;
-        conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> clearConnectionState(newValue));
     }
 
     public Tab build() {
@@ -96,6 +96,23 @@ public final class DlcFxServerDlcManagementTab {
     public void onTabSelected() {
         if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
             refreshList();
+        }
+    }
+
+    private void clearConnectionState(boolean connected) {
+        loadedForCurrentConnection = false;
+        presetAppliedIdentifiers.clear();
+        adapter.resetBaseline(List.of());
+        statusLabel.setText(connected
+                ? DlcFxI18n.tr("dlc_manager.status.no_data")
+                : DlcFxI18n.tr("dlc_manager.status.disconnected"));
+        progressBar.setProgress(0);
+        progressBar.setVisible(false);
+        if (shell != null) {
+            shell.setItems(List.of());
+            shell.setRedirectEntries(List.of());
+            shell.setBusy(false);
+            shell.setAvailable(connected);
         }
     }
 

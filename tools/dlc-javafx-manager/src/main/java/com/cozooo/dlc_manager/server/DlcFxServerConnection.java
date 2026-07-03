@@ -70,6 +70,7 @@ public final class DlcFxServerConnection {
         if (previous != null) {
             try { previous.close(); } catch (Exception ignored) {}
         }
+        lastServerInfo = null;
         connectionState.set(ConnectionState.CONNECTING);
         connected.set(false);
         connectedHost = null;

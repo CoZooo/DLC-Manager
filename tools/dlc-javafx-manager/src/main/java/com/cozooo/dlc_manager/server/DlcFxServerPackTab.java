@@ -96,7 +96,7 @@ public final class DlcFxServerPackTab {
         this.importFlow = new DlcFxPackImportFlow(new RemotePackImportActions());
         progressBar.setVisible(false);
         progressBar.setPrefWidth(220);
-        conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> clearConnectionState(newValue));
     }
 
     public Tab build() {
@@ -136,6 +136,26 @@ public final class DlcFxServerPackTab {
         if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
             refreshList();
         }
+    }
+
+    private void clearConnectionState(boolean connected) {
+        loadedForCurrentConnection = false;
+        busy = false;
+        cancelRequested = true;
+        paused = false;
+        groups.clear();
+        selectedVersionByIdentifier.clear();
+        pendingModel.clear();
+        orderModel.reset(List.of());
+        countLabel.setText("");
+        operationStatusLabel.setText("");
+        progressBar.setProgress(0);
+        progressBar.setVisible(false);
+        statusLabel.setText(connected
+                ? DlcFxI18n.tr("dlc_manager.status.no_data")
+                : DlcFxI18n.tr("dlc_manager.status.disconnected"));
+        refreshRows();
+        updateActionButtons();
     }
 
     private void refreshList() {

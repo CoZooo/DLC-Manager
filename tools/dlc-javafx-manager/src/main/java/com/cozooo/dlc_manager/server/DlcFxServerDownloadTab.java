@@ -42,7 +42,7 @@ public final class DlcFxServerDownloadTab {
 
     public DlcFxServerDownloadTab(DlcFxServerConnection conn) {
         this.conn = conn;
-        conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> clearConnectionState(newValue));
     }
 
     public Tab build() {
@@ -74,6 +74,26 @@ public final class DlcFxServerDownloadTab {
     public void onTabSelected() {
         if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
             refresh();
+        }
+    }
+
+    private void clearConnectionState(boolean connected) {
+        loadedForCurrentConnection = false;
+        pollingDownloadStatus = false;
+        rows.clear();
+        operationModel.reset();
+        progressBar.setProgress(0);
+        progressBar.setVisible(false);
+        totalProgressLabel.setText("");
+        countLabel.setText("");
+        statusLabel.setText(connected
+                ? DlcFxI18n.tr("dlc_manager.status.no_data")
+                : DlcFxI18n.tr("dlc_manager.status.disconnected"));
+        if (shell != null) {
+            shell.setItems(List.of());
+            shell.clearSelection();
+            shell.setCancelVisible(false);
+            shell.setBusy(false);
         }
     }
 
