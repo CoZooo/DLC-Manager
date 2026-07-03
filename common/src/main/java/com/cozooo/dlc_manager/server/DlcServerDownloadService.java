@@ -251,13 +251,7 @@ public final class DlcServerDownloadService {
             status.statusKey = statusKey;
             status.error = error;
             for (RemoteItemState item : items) {
-                DlcServerRemoteItem view = new DlcServerRemoteItem();
-                view.key = item.key;
-                view.name = resolveDisplayName(item.entry, lang);
-                view.type = resolveRemoteType(item.entry);
-                view.folder = resolveRemoteFolder(item.entry);
-                view.displayNames = resolveDisplayNames(item.entry, view.name);
-                view.tips = resolveTips(item.entry);
+                DlcServerRemoteItem view = toRemoteItem(item.entry, lang);
                 view.totalBytes = item.totalBytes;
                 view.downloadedBytes = item.downloaded.get();
                 view.done = item.done;
@@ -486,13 +480,31 @@ public final class DlcServerDownloadService {
     public static List<DlcServerRemoteItem> collectMissingRemoteItems(Path dlcRoot, String lang) {
         List<DlcServerRemoteItem> list = new ArrayList<>();
         for (DlcRemoteEntry entry : collectMissingRemote(dlcRoot)) {
-            DlcServerRemoteItem item = new DlcServerRemoteItem();
-            item.key = selectionKey(entry);
-            item.name = resolveDisplayName(entry, lang);
-            item.type = resolveRemoteType(entry);
-            item.folder = resolveRemoteFolder(entry);
-            item.displayNames = resolveDisplayNames(entry, item.name);
-            item.tips = resolveTips(entry);
+            list.add(toRemoteItem(entry, lang));
+        }
+        return list;
+    }
+
+    public static List<DlcServerRemoteItem> collectRemoteItems(Path dlcRoot) {
+        return collectRemoteItems(dlcRoot, null);
+    }
+
+    public static List<DlcServerRemoteItem> collectRemoteItems(Path dlcRoot, String lang) {
+        List<DlcServerRemoteItem> list = new ArrayList<>();
+        if (dlcRoot == null) {
+            return list;
+        }
+        for (DlcRemoteEntry entry : DlcRemoteLoader.load(dlcRoot)) {
+            if (entry == null) {
+                continue;
+            }
+            if (entry.isHidden() && entry.getType() != DlcType.DLC_PACK) {
+                continue;
+            }
+            DlcServerRemoteItem item = toRemoteItem(entry, lang);
+            boolean missing = isRemoteMissing(entry, false);
+            item.done = !missing;
+            item.success = !missing;
             list.add(item);
         }
         return list;
@@ -771,6 +783,18 @@ public final class DlcServerDownloadService {
         } catch (Exception ignored) {
             return "__root__";
         }
+    }
+
+    private static DlcServerRemoteItem toRemoteItem(DlcRemoteEntry entry, String lang) {
+        DlcServerRemoteItem item = new DlcServerRemoteItem();
+        item.key = selectionKey(entry);
+        item.name = resolveDisplayName(entry, lang);
+        item.type = resolveRemoteType(entry);
+        item.folder = resolveRemoteFolder(entry);
+        item.hidden = entry != null && entry.isHidden();
+        item.displayNames = resolveDisplayNames(entry, item.name);
+        item.tips = resolveTips(entry);
+        return item;
     }
 
     private static String resolveDisplayName(DlcRemoteEntry entry) {

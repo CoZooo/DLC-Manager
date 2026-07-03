@@ -746,7 +746,7 @@ public final class DlcServerApi {
     private static void handleRemoteList(HttpExchange exchange) throws IOException {
         String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
         JsonObject data = new JsonObject();
-        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)));
+        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectRemoteItems(DlcConfig.getDlcRoot(), lang)));
         sendOk(exchange, data);
     }
 

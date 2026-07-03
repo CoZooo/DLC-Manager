@@ -210,7 +210,7 @@ object DlcServerApi {
     private fun handleRemoteList(exchange: HttpExchange) {
         val lang = blank(exchange.requestHeaders.getFirst("X-Dlc-Lang"))
         val data = JsonObject()
-        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)))
+        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectRemoteItems(DlcConfig.getDlcRoot(), lang)))
         sendOk(exchange, data)
     }
 

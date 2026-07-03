@@ -205,10 +205,7 @@ object DlcServerDownloadService {
             status.statusKey = statusKey
             status.error = error
             for (item in items) {
-                val view = DlcServerRemoteItem()
-                view.key = item.key
-                view.name = resolveDisplayName(item.entry, lang)
-                view.displayNames = resolveDisplayNames(item.entry, view.name)
+                val view = toRemoteItem(item.entry, lang)
                 view.totalBytes = item.totalBytes
                 view.downloadedBytes = item.downloaded.get()
                 view.done = item.done
@@ -422,10 +419,26 @@ object DlcServerDownloadService {
     fun collectMissingRemoteItems(dlcRoot: Path?, lang: String?): List<DlcServerRemoteItem> {
         val list = ArrayList<DlcServerRemoteItem>()
         for (entry in collectMissingRemote(dlcRoot)) {
-            val item = DlcServerRemoteItem()
-            item.key = selectionKey(entry)
-            item.name = resolveDisplayName(entry, lang)
-            item.displayNames = resolveDisplayNames(entry, item.name)
+            list.add(toRemoteItem(entry, lang))
+        }
+        return list
+    }
+
+    @JvmStatic
+    fun collectRemoteItems(dlcRoot: Path?): List<DlcServerRemoteItem> = collectRemoteItems(dlcRoot, null)
+
+    @JvmStatic
+    fun collectRemoteItems(dlcRoot: Path?, lang: String?): List<DlcServerRemoteItem> {
+        val list = ArrayList<DlcServerRemoteItem>()
+        if (dlcRoot == null) {
+            return list
+        }
+        for (entry in DlcRemoteLoader.load(dlcRoot)) {
+            if (entry.isHidden() && entry.getType() != DlcType.DLC_PACK) continue
+            val item = toRemoteItem(entry, lang)
+            val missing = isRemoteMissing(entry, false)
+            item.done = !missing
+            item.success = !missing
             list.add(item)
         }
         return list
@@ -641,6 +654,49 @@ object DlcServerDownloadService {
             key = entry.getFileNameHint()
         }
         return if (key.isNullOrBlank()) "unknown" else key
+    }
+
+    private fun resolveRemoteType(entry: DlcRemoteEntry?): String {
+        val type = entry?.getType() ?: return ""
+        return type.name
+    }
+
+    private fun resolveRemoteFolder(entry: DlcRemoteEntry?): String {
+        if (entry == null) return "__root__"
+        return try {
+            val config = entry.getConfigPath()
+            val remoteRoot = entry.getDlcRoot()?.resolve("remote")
+            var relative: String? = null
+            if (config != null && remoteRoot != null && config.startsWith(remoteRoot)) {
+                relative = remoteRoot.relativize(config).toString().replace('\\', '/')
+            }
+            if (relative == null) {
+                val baseDir = entry.getBaseDir()
+                if (baseDir != null && remoteRoot != null && baseDir.startsWith(remoteRoot)) {
+                    relative = remoteRoot.relativize(baseDir).toString().replace('\\', '/')
+                    return if (relative.isBlank()) "__root__" else relative
+                }
+            }
+            if (relative.isNullOrBlank()) {
+                return "__root__"
+            }
+            val lastSlash = relative.lastIndexOf('/')
+            if (lastSlash <= 0) "__root__" else relative.substring(0, lastSlash)
+        } catch (_: Exception) {
+            "__root__"
+        }
+    }
+
+    private fun toRemoteItem(entry: DlcRemoteEntry?, lang: String?): DlcServerRemoteItem {
+        val item = DlcServerRemoteItem()
+        item.key = selectionKey(entry)
+        item.name = resolveDisplayName(entry, lang)
+        item.type = resolveRemoteType(entry)
+        item.folder = resolveRemoteFolder(entry)
+        item.hidden = entry?.isHidden() == true
+        item.displayNames = resolveDisplayNames(entry, item.name)
+        item.tips = resolveTips(entry)
+        return item
     }
 
     private fun resolveDisplayName(entry: DlcRemoteEntry?): String = resolveDisplayName(entry, null)

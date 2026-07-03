@@ -240,6 +240,7 @@ public final class DlcFxServerDownloadTab {
             String name = str(obj, "name");
             String type = str(obj, "type");
             String folder = str(obj, "folder");
+            boolean hidden = bool(obj, "hidden");
             boolean done = bool(obj, "done");
             boolean success = bool(obj, "success");
             String error = str(obj, "error");
@@ -262,7 +263,7 @@ public final class DlcFxServerDownloadTab {
                 DlcFxTooltipText.appendBlock(detail, "§c" + DlcFxI18n.tr("dlc_manager.tooltip.error") + error + "§r");
             }
             out.add(new Row(firstNonBlank(key, name), firstNonBlank(name, key, DlcFxI18n.tr("dlc_manager.status.unnamed")),
-                    firstNonBlank(type), firstNonBlank(folder, "__root__"), detail.toString(), tag, tagStyle, missing));
+                    firstNonBlank(type), firstNonBlank(folder, "__root__"), detail.toString(), tag, tagStyle, missing, hidden));
         }
         return out;
     }
@@ -356,7 +357,7 @@ public final class DlcFxServerDownloadTab {
         }
     }
 
-    private record Row(String id, String title, String type, String folder, String detail, String tag, String tagStyle, boolean missing) {
+    private record Row(String id, String title, String type, String folder, String detail, String tag, String tagStyle, boolean missing, boolean hidden) {
         private DlcType dlcType() {
             return typeOf(type);
         }
@@ -415,6 +416,7 @@ public final class DlcFxServerDownloadTab {
         @Override public String folder(Row item) { return item.groupFolder(); }
         @Override public String tooltip(Row item) { return item.detail; }
         @Override public boolean missing(Row item) { return item.missing; }
+        @Override public boolean hidden(Row item) { return item.hidden; }
         @Override public boolean itemActionVisible(Row item) { return item.missing && !operationModel.isBatchActive(item.id); }
         @Override public double progress(Row item) { return operationModel.progress(item.id); }
         @Override public String progressText(Row item) {

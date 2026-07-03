@@ -82,7 +82,9 @@ object DlcServerConnection {
                 if (response.has("items") && response["items"].isJsonArray) {
                     response.getAsJsonArray("items").forEach { element ->
                         if (element.isJsonObject) {
-                            GSON.fromJson(element, DlcServerRemoteItem::class.java)?.let(items::add)
+                            GSON.fromJson(element, DlcServerRemoteItem::class.java)
+                                ?.takeUnless(::isRemotePresent)
+                                ?.let(items::add)
                         }
                     }
                 }
@@ -95,6 +97,10 @@ object DlcServerConnection {
     @Throws(IOException::class)
     fun fetchRemoteMissingList(entry: DlcServerEntry?, timeoutMs: Int): List<DlcServerRemoteItem>? {
         return fetchRemoteMissingList(entry, timeoutMs, currentPlayerName(), currentPlayerUuid())
+    }
+
+    private fun isRemotePresent(item: DlcServerRemoteItem?): Boolean {
+        return item != null && item.done && item.success
     }
 
     @JvmStatic

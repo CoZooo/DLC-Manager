@@ -476,7 +476,7 @@ object DlcServerService {
         val response = JsonObject()
         response.addProperty("type", "remote_list")
         response.addProperty("ok", true)
-        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)))
+        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectRemoteItems(DlcConfig.getDlcRoot(), lang)))
         writeLine(writer, response)
     }
 

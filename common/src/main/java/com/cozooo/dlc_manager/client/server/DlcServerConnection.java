@@ -77,7 +77,7 @@ public class DlcServerConnection {
                     response.getAsJsonArray("items").forEach(element -> {
                         if (element.isJsonObject()) {
                             DlcServerRemoteItem item = GSON.fromJson(element, DlcServerRemoteItem.class);
-                            if (item != null) {
+                            if (item != null && !isRemotePresent(item)) {
                                 items.add(item);
                             }
                         }
@@ -90,6 +90,10 @@ public class DlcServerConnection {
 
     public static List<DlcServerRemoteItem> fetchRemoteMissingList(DlcServerEntry entry, int timeoutMs) throws IOException {
         return fetchRemoteMissingList(entry, timeoutMs, currentPlayerName(), currentPlayerUuid());
+    }
+
+    private static boolean isRemotePresent(DlcServerRemoteItem item) {
+        return item != null && item.done && item.success;
     }
 
     public static DlcServerRemoteStatus startRemoteDownload(DlcServerEntry entry, int timeoutMs, List<String> keys, String playerName, String playerUuid)
