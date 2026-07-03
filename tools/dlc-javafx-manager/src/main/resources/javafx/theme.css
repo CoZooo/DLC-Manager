@@ -721,7 +721,7 @@
     -fx-padding: 0;
 }
 
-.dlc-dlc-list .scroll-bar:vertical {
+.list-view.dlc-list-with-external-scroll .scroll-bar:vertical {
     -fx-pref-width: 0;
     -fx-min-width: 0;
     -fx-max-width: 0;
@@ -756,6 +756,157 @@
 
 .list-cell:filled:selected .label {
     -fx-text-fill: -dlc-text;
+}
+
+.dlc-file-top {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f8fbff);
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 12 14 10 14;
+}
+
+.dlc-file-path-bar .label {
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.dlc-file-path-bar .dlc-route-status {
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.dlc-file-list {
+    -fx-padding: 6;
+}
+
+.dlc-file-list .list-cell {
+    -fx-padding: 6 8;
+}
+
+.dlc-file-list .list-cell:filled:selected,
+.dlc-file-list .list-cell:filled:selected:focused {
+    -fx-background-color: #eaf2ff;
+}
+
+.dlc-file-list .list-cell:filled.dlc-file-selected {
+    -fx-background-color: #eef1f5;
+}
+
+.dlc-file-list .list-cell:filled:hover {
+    -fx-background-color: #f4f8ff;
+}
+
+.dlc-file-row {
+    -fx-min-height: 36px;
+    -fx-padding: 0 4;
+}
+
+.dlc-file-icon {
+    -fx-min-width: 22px;
+    -fx-pref-width: 22px;
+    -fx-max-width: 22px;
+    -fx-min-height: 22px;
+    -fx-pref-height: 22px;
+    -fx-max-height: 22px;
+    -fx-alignment: center;
+}
+
+.dlc-file-icon-body {
+    -fx-min-width: 18px;
+    -fx-pref-width: 18px;
+    -fx-max-width: 18px;
+    -fx-min-height: 14px;
+    -fx-pref-height: 14px;
+    -fx-max-height: 14px;
+    -fx-background-color: #8bb6f4;
+    -fx-border-color: #5e8fe0;
+    -fx-border-width: 1;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-translate-y: 2;
+}
+
+.dlc-file-folder-tab {
+    -fx-min-width: 10px;
+    -fx-pref-width: 10px;
+    -fx-max-width: 10px;
+    -fx-min-height: 5px;
+    -fx-pref-height: 5px;
+    -fx-max-height: 5px;
+    -fx-background-color: #b8d2f8;
+    -fx-border-color: #5e8fe0;
+    -fx-border-width: 1 1 0 1;
+    -fx-border-radius: 3 3 0 0;
+    -fx-background-radius: 3 3 0 0;
+    -fx-translate-x: -4;
+    -fx-translate-y: -5;
+}
+
+.dlc-file-icon.file .dlc-file-icon-body {
+    -fx-min-width: 15px;
+    -fx-pref-width: 15px;
+    -fx-max-width: 15px;
+    -fx-min-height: 18px;
+    -fx-pref-height: 18px;
+    -fx-max-height: 18px;
+    -fx-background-color: #ffffff;
+    -fx-border-color: #9aa6ba;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-translate-y: 0;
+}
+
+.dlc-file-corner {
+    -fx-min-width: 6px;
+    -fx-pref-width: 6px;
+    -fx-max-width: 6px;
+    -fx-min-height: 6px;
+    -fx-pref-height: 6px;
+    -fx-max-height: 6px;
+    -fx-background-color: #e7edf7;
+    -fx-border-color: #9aa6ba;
+    -fx-border-width: 0 0 1 1;
+    -fx-translate-x: 5;
+    -fx-translate-y: -6;
+}
+
+.dlc-file-name {
+    -fx-text-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-file-kind {
+    -fx-background-color: #eef4ff;
+    -fx-border-color: #b8c9e8;
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-padding: 3 10;
+    -fx-text-fill: #315a9c;
+    -fx-font-size: 12px;
+}
+
+.dlc-file-kind-column {
+    -fx-min-width: 92px;
+    -fx-pref-width: 92px;
+    -fx-max-width: 92px;
+    -fx-alignment: center;
+}
+
+.list-cell.file .dlc-file-kind {
+    -fx-background-color: #f2f4f7;
+    -fx-border-color: #c7ced8;
+    -fx-text-fill: #596579;
+}
+
+.dlc-file-size-column {
+    -fx-min-width: 88px;
+    -fx-pref-width: 88px;
+    -fx-max-width: 88px;
+    -fx-alignment: center-right;
+}
+
+.dlc-file-size {
+    -fx-alignment: center-right;
+    -fx-text-fill: -dlc-text-muted;
 }
 
 .dlc-dlc-list .list-cell:filled:selected,
