@@ -26,7 +26,6 @@ import com.cozooo.dlc_manager.server.DlcFxServerFileManagerTab;
 import com.cozooo.dlc_manager.server.DlcFxServerUpdateTab;
 import com.cozooo.dlc_manager.server.DlcFxServerPackTab;
 import com.cozooo.dlc_manager.server.DlcFxServerPresetTab;
-import com.cozooo.dlc_manager.server.DlcFxServerRconTab;
 import com.cozooo.dlc_manager.server.DlcFxServerDownloadTab;
 import com.cozooo.dlc_manager.server.DlcFxServerRequiredTab;
 import com.cozooo.dlc_manager.server.DlcFxServerConnectionTab;
@@ -102,7 +101,6 @@ public final class DlcFxManagerApp extends Application {
     private DlcFxServerPresetTab remotePresetTab;
     private DlcFxServerUpdateTab remoteUpdateTab;
     private DlcFxServerPackTab remotePackTab;
-    private DlcFxServerRconTab remoteRconTab;
     private DlcFxServerFileManagerTab remoteFileManagerTab;
     private Tab remoteSyncTabNode;
     private StackPane shell;
@@ -125,7 +123,6 @@ public final class DlcFxManagerApp extends Application {
     private Tab remotePresetTabNode;
     private Tab remoteUpdateTabNode;
     private Tab remotePackTabNode;
-    private Tab remoteRconTabNode;
     private Tab remoteFileManagerTabNode;
     private boolean suppressLocalTabChangePrompt;
     private final Set<String> localPresetSnapshot = new LinkedHashSet<>();
@@ -325,7 +322,7 @@ public final class DlcFxManagerApp extends Application {
         remoteTabPane = new TabPane();
         remoteTabPane.getStyleClass().add("dlc-tab-pane-with-actions");
         remoteTabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        remoteServerConnectionTab = new DlcFxServerConnectionTab(remoteConnection, primaryStage);
+        remoteServerConnectionTab = new DlcFxServerConnectionTab(remoteConnection);
         remoteTabPane.getTabs().add(remoteServerConnectionTab.build());
         remoteDlcManagementTab = new DlcFxServerDlcManagementTab(remoteConnection);
         remoteDlcTabNode = remoteDlcManagementTab.build();
@@ -345,9 +342,6 @@ public final class DlcFxManagerApp extends Application {
         remoteUpdateTab = new DlcFxServerUpdateTab(remoteConnection);
         remoteUpdateTabNode = remoteUpdateTab.build();
         remoteTabPane.getTabs().add(remoteUpdateTabNode);
-        remoteRconTab = new DlcFxServerRconTab(remoteConnection);
-        remoteRconTabNode = remoteRconTab.build();
-        remoteTabPane.getTabs().add(remoteRconTabNode);
         remoteFileManagerTab = new DlcFxServerFileManagerTab(remoteConnection, primaryStage);
         remoteFileManagerTabNode = remoteFileManagerTab.build();
         remoteTabPane.getTabs().add(remoteFileManagerTabNode);
@@ -673,8 +667,6 @@ public final class DlcFxManagerApp extends Application {
             remoteUpdateTab.onTabSelected();
         } else if (selected == remotePackTabNode && remotePackTab != null) {
             remotePackTab.onTabSelected();
-        } else if (selected == remoteRconTabNode && remoteRconTab != null) {
-            remoteRconTab.onTabSelected();
         } else if (selected == remoteFileManagerTabNode && remoteFileManagerTab != null) {
             remoteFileManagerTab.onTabSelected();
         } else if (selected == remoteSyncTabNode && remoteFileManagerTab != null) {
@@ -796,9 +788,6 @@ public final class DlcFxManagerApp extends Application {
         new DlcFxLocalConfigOverlay(scene(), () -> {
             onLocalGameDirChanged();
             updateLocalNoticeButton();
-            if (remoteServerConnectionTab != null) {
-                remoteServerConnectionTab.onStorageContextChanged();
-            }
         }).show();
     }
 
@@ -1103,9 +1092,6 @@ public final class DlcFxManagerApp extends Application {
         DlcPresetRuntimeState.clearAll();
         onLocalGameDirChanged();
         updateLocalNoticeButton();
-        if (remoteServerConnectionTab != null) {
-            remoteServerConnectionTab.onStorageContextChanged();
-        }
         if (remoteFileManagerTab != null) {
             remoteFileManagerTab.onStorageContextChanged();
         }
@@ -1201,7 +1187,6 @@ public final class DlcFxManagerApp extends Application {
         remotePresetTabNode = null;
         remoteUpdateTabNode = null;
         remotePackTabNode = null;
-        remoteRconTabNode = null;
         remoteFileManagerTabNode = null;
         localPackTab = null;
         localUpdateTab = null;
@@ -1212,7 +1197,6 @@ public final class DlcFxManagerApp extends Application {
         remotePresetTab = null;
         remoteUpdateTab = null;
         remotePackTab = null;
-        remoteRconTab = null;
         remoteFileManagerTab = null;
         remoteSyncTabNode = null;
         remoteConfigButton = null;
