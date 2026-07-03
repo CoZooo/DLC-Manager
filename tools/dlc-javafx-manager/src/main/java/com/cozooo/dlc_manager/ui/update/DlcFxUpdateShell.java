@@ -145,6 +145,8 @@ public final class DlcFxUpdateShell<T> {
             if (status != null) {
                 statusLabel.setText(status);
             }
+        } else {
+            progressBar.setVisible(false);
         }
     }
 
@@ -270,9 +272,12 @@ public final class DlcFxUpdateShell<T> {
         checkPackUpdateBtn.setOnAction(e -> run(checkPackUpdateAction));
         DlcFxStyle.primary(refreshBtn);
         DlcFxStyle.primary(checkPackUpdateBtn);
-        HBox actionPanel = new HBox(8, refreshBtn, importBtn, importUrlBtn, checkPackUpdateBtn, progressBar, statusLabel);
+        HBox actions = new HBox(8, refreshBtn, importBtn, importUrlBtn, checkPackUpdateBtn);
+        actions.setAlignment(Pos.CENTER_LEFT);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox actionPanel = new HBox(8, actions, spacer, progressBar);
         actionPanel.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(statusLabel, Priority.ALWAYS);
         DlcFxStyle.actionPanel(actionPanel);
         DlcFxStyle.routeStatus(statusLabel);
         root.setBottom(actionPanel);

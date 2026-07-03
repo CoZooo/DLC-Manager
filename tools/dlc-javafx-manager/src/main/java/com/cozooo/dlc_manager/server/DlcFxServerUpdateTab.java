@@ -1,6 +1,11 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.DownloadResult;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.ProgressListener;
+import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.ReleaseStep;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
@@ -8,6 +13,7 @@ import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
 import com.cozooo.dlc_manager.ui.common.DlcFxConfirmDialogs;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
+import com.cozooo.dlc_manager.ui.common.DlcFxRichTextRenderer;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
 import com.cozooo.dlc_manager.ui.update.DlcFxUpdateActionFlow;
@@ -16,12 +22,15 @@ import com.cozooo.dlc_manager.ui.update.DlcFxUpdateShell;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
@@ -29,6 +38,7 @@ import java.util.List;
 
 public final class DlcFxServerUpdateTab {
     private static final Gson GSON = new Gson();
+    private static final String DEFAULT_VERSION = "1.0.0";
 
     private final DlcFxServerConnection conn;
     private final DlcFxUpdateActionFlow actionFlow;
@@ -37,6 +47,11 @@ public final class DlcFxServerUpdateTab {
     private final ProgressBar progressBar = new ProgressBar(0);
     private DlcFxUpdateShell<DlcUpdateRowPlanner.UpdateRow> shell;
     private boolean loadedForCurrentConnection;
+    private String baseVersion = "";
+    private String currentVersion = "";
+    private String packModpackUrl = "";
+    private String packUpdateRepoUrl = "";
+    private volatile boolean downloadCanceled;
 
     public DlcFxServerUpdateTab(DlcFxServerConnection conn) {
         this.conn = conn;
@@ -45,7 +60,7 @@ public final class DlcFxServerUpdateTab {
         progressBar.setPrefWidth(220);
         progressBar.setVisible(false);
         progressBar.managedProperty().bind(progressBar.visibleProperty());
-        conn.connectedProperty().addListener((obs, oldValue, newValue) -> loadedForCurrentConnection = false);
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> clearConnectionState(newValue));
     }
 
     public Tab build() {
@@ -56,7 +71,7 @@ public final class DlcFxServerUpdateTab {
             DlcFxI18n.tr("dlc_manager.update.query_state"),
             DlcFxI18n.tr("dlc_manager.update.import_package"),
             DlcFxI18n.tr("dlc_manager.update.import_url_server"),
-            DlcFxI18n.tr("dlc_manager.update.apply_all"),
+            DlcFxI18n.tr("dlc_manager.pack_update.check_button"),
             toolbarFlow::refresh,
             toolbarFlow::importPackage,
             toolbarFlow::importUrl,
@@ -73,11 +88,38 @@ public final class DlcFxServerUpdateTab {
         }
     }
 
+    private void clearConnectionState(boolean connected) {
+        loadedForCurrentConnection = false;
+        downloadCanceled = true;
+        baseVersion = "";
+        currentVersion = "";
+        packModpackUrl = "";
+        packUpdateRepoUrl = "";
+        progressBar.setProgress(0);
+        progressBar.setVisible(false);
+        if (shell != null) {
+            shell.clearRows();
+            shell.setVersionText(DlcFxI18n.tr("dlc_manager.update.version_empty"));
+            shell.setRollbackInfo("");
+            shell.setUpdateHint("");
+            shell.setChangelogText("");
+            shell.setPackUpdateAvailable(false);
+            shell.setProgressVisible(false);
+        }
+        statusLabel.setText(connected
+            ? DlcFxI18n.tr("dlc_manager.status.no_data")
+            : DlcFxI18n.tr("dlc_manager.status.disconnected"));
+    }
+
     private void refreshState() {
         setBusy(true, DlcFxI18n.tr("dlc_manager.status.querying"));
         conn.runAsync(f -> f.updateState(), response -> {
             String base = displayVersion(str(response, "base"));
             String dlc = displayVersion(str(response, "dlc"));
+            baseVersion = base;
+            currentVersion = dlc;
+            packModpackUrl = str(response, "modpackUrl");
+            packUpdateRepoUrl = firstNonBlank(str(response, "updateGitRepo"), str(response, "updateGithubRepo"));
             shell.setVersionText(DlcFxI18n.tr("dlc_manager.update.current_version", base, dlc));
             String rollbackFrom = str(response, "rollbackFrom");
             shell.setRollbackInfo(rollbackFrom == null || rollbackFrom.isBlank()
@@ -92,17 +134,11 @@ public final class DlcFxServerUpdateTab {
                 visibleUpdateCount(plan.rows)));
             setBusy(false, null);
             loadedForCurrentConnection = true;
+            shell.setPackUpdateAvailable(packUpdateRepoUrl != null && !packUpdateRepoUrl.isBlank());
         }, error -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);
         });
-    }
-
-    private void confirmApplyAll() {
-        if (!confirm(DlcFxI18n.tr("dlc_manager.update.apply_all_title"), DlcFxI18n.tr("dlc_manager.update.apply_all_confirm"))) {
-            return;
-        }
-        apply(null, null, null, null);
     }
 
     private void apply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
@@ -229,6 +265,161 @@ public final class DlcFxServerUpdateTab {
         });
     }
 
+    private void runCheckPackUpdateAsync() {
+        if (packUpdateRepoUrl == null || packUpdateRepoUrl.isBlank()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_repo_missing"));
+            return;
+        }
+        setBusy(true, DlcFxI18n.tr("dlc_manager.update.checking_remote"));
+        progressBar.setProgress(-1);
+        String base = normalizeVersion(baseVersion);
+        String dlc = normalizeVersion(currentVersion);
+        Thread thread = new Thread(() -> {
+            CheckResult result;
+            try {
+                result = DlcPackReleaseUpdateService.checkForUpdates(
+                    packModpackUrl,
+                    packUpdateRepoUrl,
+                    base,
+                    dlc,
+                    DlcPackReleaseUpdateService.Side.SERVER
+                );
+            } catch (Throwable t) {
+                result = new CheckResult();
+                result.error = DlcFxServerConnection.safeMessage(t);
+            }
+            CheckResult finalResult = result;
+            Platform.runLater(() -> {
+                progressBar.setVisible(false);
+                setBusy(false, null);
+                shell.setPackUpdateAvailable(packUpdateRepoUrl != null && !packUpdateRepoUrl.isBlank());
+                if (finalResult.error != null && !finalResult.error.isBlank()) {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_check_failed",
+                        DlcPackReleaseUpdateService.toCheckFailureMessage(finalResult.error)));
+                    return;
+                }
+                if (!finalResult.hasUpdate()) {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack_update.no_updates"));
+                    return;
+                }
+                showPackUpdateDialog(finalResult);
+            });
+        }, "dlc-server-pack-update-check-manual");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void showPackUpdateDialog(CheckResult result) {
+        Label base = new Label(versionTransition(DlcFxI18n.tr("dlc_manager.pack_update.base"), result.currentBase, result.targetBase));
+        Label dlc = new Label(versionTransition(DlcFxI18n.tr("dlc_manager.pack_update.dlc"), result.currentDlc, result.targetDlc));
+        DlcFxStyle.title(base);
+        DlcFxStyle.title(dlc);
+
+        ScrollPane changelog = new ScrollPane();
+        changelog.setFitToWidth(true);
+        DlcFxStyle.add(changelog, "dlc-rich-text-pane");
+        String changelogText = buildPackUpdateChangelog(result);
+        changelog.setContent(changelogText.isBlank()
+            ? new Label(DlcFxI18n.tr("dlc_manager.update.changelog_prompt"))
+            : DlcFxRichTextRenderer.markdown(changelogText));
+        changelog.setPrefViewportHeight(260);
+        changelog.setPrefWidth(560);
+
+        Label warning = new Label(packUpdateWarning(result));
+        warning.setWrapText(true);
+        DlcFxStyle.add(warning, "dlc-update-warning");
+        warning.setVisible(!warning.getText().isBlank());
+        warning.setManaged(warning.isVisible());
+
+        VBox content = new VBox(12, base, dlc, changelog, warning);
+        content.setPrefWidth(580);
+
+        DlcFxModalOverlay.showAndGetOverlay(
+            scene(),
+            DlcFxI18n.tr("dlc_manager.pack_update.title"),
+            content,
+            () -> showPackUpdateDownloadProgress(result),
+            result.hasLatestGap()
+                ? DlcFxI18n.tr("dlc_manager.pack_update.download_reachable")
+                : DlcFxI18n.tr("dlc_manager.pack_update.download"),
+            () -> downloadCanceled = true,
+            DlcFxI18n.tr("dlc_manager.update.cancel"),
+            button -> button.setDisable(!result.canDownload() || conn.currentEntry() == null)
+        );
+    }
+
+    private void showPackUpdateDownloadProgress(CheckResult result) {
+        if (result == null || !result.canDownload()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.remote_no_assets"));
+            return;
+        }
+        if (conn.currentEntry() == null) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.disconnected"));
+            return;
+        }
+        downloadCanceled = false;
+        Label progressText = new Label(DlcFxI18n.tr("dlc_manager.pack_update.downloading"));
+        DlcFxStyle.muted(progressText);
+        ProgressBar bar = new ProgressBar(0);
+        bar.setPrefWidth(360);
+        VBox content = new VBox(12, progressText, bar);
+        content.setPrefWidth(420);
+        StackPane overlay = DlcFxModalOverlay.showAndGetOverlay(
+            scene(),
+            DlcFxI18n.tr("dlc_manager.pack_update.title"),
+            content,
+            null,
+            DlcFxI18n.tr("dlc_manager.common.close"),
+            () -> downloadCanceled = true,
+            DlcFxI18n.tr("dlc_manager.common.cancel_download"),
+            button -> {
+                button.setDisable(true);
+                button.setVisible(false);
+                button.setManaged(false);
+            }
+        );
+        ProgressListener progress = (stepIndex, stepCount, fileName, downloaded, total, overall) -> Platform.runLater(() -> {
+            double value = overall < 0 ? 0 : overall;
+            bar.setProgress(value);
+            int pct = Math.round((float) Math.max(0d, Math.min(1d, value)) * 100f);
+            progressText.setText(pct + "%  " + DlcFxI18n.tr("dlc_manager.pack_update.downloading_file",
+                stepIndex + 1, stepCount, safe(fileName)));
+        });
+        Thread thread = new Thread(() -> {
+            try {
+                DownloadResult dl = DlcPackReleaseUpdateService.downloadServerPackages(
+                    result,
+                    conn.currentEntry(),
+                    600000,
+                    progress,
+                    () -> downloadCanceled
+                );
+                Platform.runLater(() -> {
+                    removeOverlay(overlay);
+                    if (dl.canceled) {
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack_update.canceled"));
+                        return;
+                    }
+                    if (!dl.success) {
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack_update.download_failed",
+                            DlcPackReleaseUpdateService.toDownloadFailureMessage(dl.message)));
+                        return;
+                    }
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack_update.download_success"));
+                    refreshState();
+                });
+            } catch (Throwable t) {
+                Platform.runLater(() -> {
+                    removeOverlay(overlay);
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack_update.download_failed",
+                        DlcFxServerConnection.safeMessage(t)));
+                });
+            }
+        }, "dlc-server-pack-release-download");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
     private final class RemoteUpdateToolbarActions implements DlcFxUpdateToolbarFlow.Actions {
         @Override
         public boolean enabled() {
@@ -267,14 +458,14 @@ public final class DlcFxServerUpdateTab {
 
         @Override
         public void extraAction() {
-            confirmApplyAll();
+            runCheckPackUpdateAsync();
         }
     }
 
     private void setBusy(boolean busy, String status) {
         if (shell != null) {
             shell.setBusy(busy, status);
-            shell.updateActionDisableState(true);
+            shell.updateActionDisableState(hasPackUpdateRepoConfigured());
         }
     }
 
@@ -288,6 +479,22 @@ public final class DlcFxServerUpdateTab {
 
     private static String displayVersion(String value) {
         return value == null || value.isBlank() ? "-" : value.trim();
+    }
+
+    private static String normalizeVersion(String value) {
+        return value == null || value.isBlank() || "-".equals(value.trim()) ? DEFAULT_VERSION : value.trim();
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        return first != null && !first.isBlank() ? first : second;
+    }
+
+    private boolean hasPackUpdateRepoConfigured() {
+        return packUpdateRepoUrl != null && !packUpdateRepoUrl.isBlank();
+    }
+
+    private static String safe(String text) {
+        return text == null ? "" : text;
     }
 
     private static boolean confirm(String title, String message) {
@@ -340,6 +547,109 @@ public final class DlcFxServerUpdateTab {
             }
         }
         return out;
+    }
+
+    private String buildPackUpdateChangelog(CheckResult result) {
+        if (result == null) {
+            return "";
+        }
+        List<ReleaseStep> steps = result.steps == null ? List.of() : result.steps;
+        StringBuilder builder = new StringBuilder();
+        appendReleaseSteps(builder, steps, currentLang());
+        List<ReleaseStep> unreachable = resolveUnreachableSteps(result, steps);
+        if (!unreachable.isEmpty()) {
+            if (!builder.isEmpty()) {
+                builder.append("\n\n");
+            }
+            builder.append(DlcFxI18n.tr("dlc_manager.pack_update.unreachable_changelog")).append("\n\n");
+            appendReleaseSteps(builder, unreachable, currentLang());
+        }
+        return builder.toString();
+    }
+
+    private static void appendReleaseSteps(StringBuilder builder, List<ReleaseStep> steps, String lang) {
+        if (steps == null || steps.isEmpty()) {
+            return;
+        }
+        for (ReleaseStep step : steps) {
+            if (step == null) {
+                continue;
+            }
+            if (!builder.isEmpty()) {
+                builder.append("\n\n");
+            }
+            builder.append(formatReleaseTransition(step));
+            String body = step.resolveChangelog(lang);
+            if (body != null && !body.isBlank()) {
+                builder.append("\n").append(body.trim());
+            }
+        }
+    }
+
+    private static List<ReleaseStep> resolveUnreachableSteps(CheckResult result, List<ReleaseStep> downloadableSteps) {
+        List<ReleaseStep> fullSteps = result.fullSteps == null ? List.of() : result.fullSteps;
+        if (fullSteps.isEmpty() || !result.hasLatestGap()) {
+            return List.of();
+        }
+        int index = 0;
+        while (index < fullSteps.size()
+            && downloadableSteps != null
+            && index < downloadableSteps.size()
+            && sameTransition(fullSteps.get(index), downloadableSteps.get(index))) {
+            index++;
+        }
+        if (index >= fullSteps.size()) {
+            return List.of();
+        }
+        return fullSteps.subList(index, fullSteps.size());
+    }
+
+    private static boolean sameTransition(ReleaseStep left, ReleaseStep right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return normalizeVersion(left.oldBase).equals(normalizeVersion(right.oldBase))
+            && normalizeVersion(left.oldDlc).equals(normalizeVersion(right.oldDlc))
+            && normalizeVersion(left.newBase).equals(normalizeVersion(right.newBase))
+            && normalizeVersion(left.newDlc).equals(normalizeVersion(right.newDlc));
+    }
+
+    private static String packUpdateWarning(CheckResult result) {
+        if (result == null) {
+            return "";
+        }
+        if (result.hasLatestGap()) {
+            return result.canDownload()
+                ? DlcFxI18n.tr("dlc_manager.pack_update.latest_unreachable",
+                    normalizeVersion(result.downloadBase), normalizeVersion(result.downloadDlc))
+                    + "\n" + DlcFxI18n.tr("dlc_manager.pack_update.partial_download_hint")
+                : DlcFxI18n.tr("dlc_manager.pack_update.latest_unreachable_no_download");
+        }
+        if (!result.canDownload()) {
+            return DlcFxI18n.tr("dlc_manager.pack_update.asset_missing");
+        }
+        return "";
+    }
+
+    private static String versionTransition(String label, String current, String target) {
+        String from = normalizeVersion(current);
+        String to = normalizeVersion(target);
+        return label + " " + (from.equals(to) ? from : from + " -> " + to);
+    }
+
+    private static String formatReleaseTransition(ReleaseStep step) {
+        return normalizeVersion(step.oldBase) + "+" + normalizeVersion(step.oldDlc)
+            + " -> " + normalizeVersion(step.newBase) + "+" + normalizeVersion(step.newDlc);
+    }
+
+    private javafx.scene.Scene scene() {
+        return shell == null ? null : shell.root().getScene();
+    }
+
+    private static void removeOverlay(StackPane overlay) {
+        if (overlay != null && overlay.getParent() instanceof StackPane root) {
+            root.getChildren().remove(overlay);
+        }
     }
 
     private static long visibleUpdateCount(List<DlcUpdateRowPlanner.UpdateRow> plannedRows) {

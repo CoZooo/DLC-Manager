@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.server;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 
+import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerSession;
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
@@ -40,6 +41,7 @@ public final class DlcFxServerConnection {
     private volatile DlcServerInfo lastServerInfo;
     private volatile String connectedHost;
     private volatile int connectedPort;
+    private volatile String connectedPassword;
 
     BooleanProperty connectedProperty() { return connected; }
     public ReadOnlyObjectProperty<ConnectionState> connectionStateProperty() { return connectionState.getReadOnlyProperty(); }
@@ -50,6 +52,17 @@ public final class DlcFxServerConnection {
     DlcServerSession facade() { return session; }
     DlcServerInfo lastServerInfo() { return lastServerInfo; }
     void rememberServerInfo(DlcServerInfo info) { lastServerInfo = info; }
+    DlcServerEntry currentEntry() {
+        if (connectedHost == null || connectedHost.isBlank() || connectedPort <= 0) {
+            return null;
+        }
+        DlcServerEntry entry = new DlcServerEntry();
+        entry.host = connectedHost;
+        entry.port = connectedPort;
+        entry.password = connectedPassword == null ? "" : connectedPassword;
+        entry.useTcp = true;
+        return entry;
+    }
 
     void connectAsync(String host, int port, String password, int timeoutMs, Consumer<Throwable> onDone) {
         DlcServerSession previous = session;
@@ -59,6 +72,9 @@ public final class DlcFxServerConnection {
         }
         connectionState.set(ConnectionState.CONNECTING);
         connected.set(false);
+        connectedHost = null;
+        connectedPort = 0;
+        connectedPassword = null;
         statusText.set(DlcFxI18n.tr("dlc_manager.server.connecting"));
         Thread thread = new Thread(() -> {
             try {
@@ -75,6 +91,7 @@ public final class DlcFxServerConnection {
                 lastServerInfo = info;
                 connectedHost = host;
                 connectedPort = port;
+                connectedPassword = password == null ? "" : password;
                 Platform.runLater(() -> {
                     connected.set(true);
                     connectionState.set(ConnectionState.CONNECTED);
@@ -102,6 +119,7 @@ public final class DlcFxServerConnection {
         lastServerInfo = null;
         connectedHost = null;
         connectedPort = 0;
+        connectedPassword = null;
         if (f != null) {
             try { f.close(); } catch (Exception ignored) {}
         }
