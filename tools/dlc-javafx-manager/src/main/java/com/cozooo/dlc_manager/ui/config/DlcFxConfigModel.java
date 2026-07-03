@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 public final class DlcFxConfigModel {
@@ -129,7 +130,7 @@ public final class DlcFxConfigModel {
             if (onApply != null) {
                 onApply.accept(json);
             }
-        });
+        }, name -> !isHiddenServerOption(name));
     }
 
     public List<Option> options(Tab tab) {
@@ -173,11 +174,23 @@ public final class DlcFxConfigModel {
     }
 
     private void register(Tab tab, Option... options) {
-        List<Option> list = new ArrayList<>(List.of(options));
+        List<Option> list = new ArrayList<>();
         groups.put(tab, list);
         for (Option option : options) {
+            if (!source.isVisible(option.name())) {
+                continue;
+            }
+            list.add(option);
             byName.put(option.name(), option);
         }
+    }
+
+    private static boolean isHiddenServerOption(String name) {
+        return Objects.equals(name, "serverSupport")
+                || Objects.equals(name, "serverRuntimeSupport")
+                || Objects.equals(name, "rconHost")
+                || Objects.equals(name, "rconPort")
+                || Objects.equals(name, "rconPassword");
     }
 
     private Option string(String name, String section, String key, String labelKey, String commentKey, String defaultValue) {
@@ -241,6 +254,9 @@ public final class DlcFxConfigModel {
         String get(String section, String key, String fallback);
         void set(String section, String key, String value, OptionType type);
         boolean hasSection(String section);
+        default boolean isVisible(String name) {
+            return true;
+        }
         void reload();
         void apply();
         JsonObject snapshot();
@@ -249,11 +265,17 @@ public final class DlcFxConfigModel {
     private static final class JsonConfigSource implements ConfigSource {
         private final Supplier<JsonObject> loader;
         private final Consumer<JsonObject> applier;
+        private final Predicate<String> visibleOption;
         private JsonObject config = new JsonObject();
 
         private JsonConfigSource(Supplier<JsonObject> loader, Consumer<JsonObject> applier) {
+            this(loader, applier, name -> true);
+        }
+
+        private JsonConfigSource(Supplier<JsonObject> loader, Consumer<JsonObject> applier, Predicate<String> visibleOption) {
             this.loader = loader;
             this.applier = applier;
+            this.visibleOption = visibleOption == null ? name -> true : visibleOption;
             reload();
         }
 
@@ -288,6 +310,11 @@ public final class DlcFxConfigModel {
         @Override
         public boolean hasSection(String section) {
             return DlcDcConfigIO.getObjectIgnoreCase(config, section) != null;
+        }
+
+        @Override
+        public boolean isVisible(String name) {
+            return visibleOption.test(name);
         }
 
         @Override

@@ -21,6 +21,7 @@ import javafx.util.Duration;
 import java.util.function.Supplier;
 
 public final class DlcFxTooltips {
+    private static final String FLOATING_TOOLTIP_CLASS = "dlc-floating-tooltip";
     private static final double MAX_WIDTH = 420;
     private static final double RICH_MAX_WIDTH = 340;
     private static final double OFFSET_X = 14;
@@ -105,10 +106,13 @@ public final class DlcFxTooltips {
         if (root == null) {
             return;
         }
+        hideAllExcept(state);
+        removeFloatingPanels(root, state.panel);
         if (state.tooltip != tooltip || state.panel == null) {
             hide(state);
             state.tooltip = tooltip;
             state.panel = panelFor(tooltip);
+            removeFloatingPanels(root, state.panel);
             root.getChildren().add(state.panel);
             measure(state);
         }
@@ -125,7 +129,7 @@ public final class DlcFxTooltips {
 
     private static StackPane panelFor(Tooltip tooltip) {
         StackPane panel = new StackPane();
-        panel.getStyleClass().add("dlc-floating-tooltip");
+        panel.getStyleClass().add(FLOATING_TOOLTIP_CLASS);
         panel.setMouseTransparent(true);
         panel.setPickOnBounds(false);
         panel.setManaged(false);
@@ -278,13 +282,22 @@ public final class DlcFxTooltips {
         scene.addEventFilter(MouseEvent.MOUSE_MOVED, event -> {
             if (shouldSuppressForEvent(scene, event)) {
                 hideAll();
+                removeFloatingPanels(root(scene), null);
             }
         });
         scene.addEventFilter(MouseEvent.MOUSE_ENTERED_TARGET, event -> {
             if (shouldSuppressForEvent(scene, event)) {
                 hideAll();
+                removeFloatingPanels(root(scene), null);
             }
         });
+    }
+
+    private static StackPane root(Scene scene) {
+        if (scene != null && scene.getRoot() instanceof StackPane root) {
+            return root;
+        }
+        return null;
     }
 
     private static boolean shouldSuppressForEvent(Scene scene, MouseEvent event) {
@@ -296,6 +309,22 @@ public final class DlcFxTooltips {
         for (FloatingTooltipState state : java.util.List.copyOf(ACTIVE_STATES)) {
             hide(state);
         }
+    }
+
+    private static void hideAllExcept(FloatingTooltipState activeState) {
+        for (FloatingTooltipState state : java.util.List.copyOf(ACTIVE_STATES)) {
+            if (state != activeState) {
+                hide(state);
+            }
+        }
+    }
+
+    private static void removeFloatingPanels(StackPane root, StackPane keep) {
+        if (root == null) {
+            return;
+        }
+        root.getChildren().removeIf(node ->
+            node != keep && node.getStyleClass().contains(FLOATING_TOOLTIP_CLASS));
     }
 
     private static final class FloatingTooltipState {

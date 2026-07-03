@@ -1,10 +1,14 @@
-package com.cozooo.dlc_manager.ui;
+package com.cozooo.dlc_manager.ui.common;
 
 import javafx.scene.control.Tooltip;
 import javafx.application.Platform;
 import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.Scene;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.text.TextFlow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -71,5 +75,94 @@ final class DlcFxTooltipsTest {
 
         assertTrue(DlcFxTooltips.isInteractiveNodeAt(row, 30, 10));
         assertFalse(DlcFxTooltips.isInteractiveNodeAt(row, 150, 10));
+    }
+
+    @Test
+    void showingAnotherFloatingTooltipHidesPreviousOne() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        final AssertionError[] failure = new AssertionError[1];
+        Platform.runLater(() -> {
+            try {
+                StackPane root = new StackPane();
+                HBox first = new HBox();
+                HBox second = new HBox();
+                root.getChildren().addAll(first, second);
+                new Scene(root, 400, 240);
+                DlcFxTooltips.install(first, DlcFxTooltips.plain("first"));
+                DlcFxTooltips.install(second, DlcFxTooltips.plain("second"));
+
+                first.fireEvent(mouseMoved(20, 20));
+                assertEquals(1, floatingTooltipCount(root));
+                second.fireEvent(mouseMoved(120, 20));
+
+                assertEquals(1, floatingTooltipCount(root));
+            } catch (AssertionError error) {
+                failure[0] = error;
+            } finally {
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        if (failure[0] != null) {
+            throw failure[0];
+        }
+    }
+
+    @Test
+    void movingTooltipPrunesOrphanFloatingPanels() throws Exception {
+        CountDownLatch latch = new CountDownLatch(1);
+        final AssertionError[] failure = new AssertionError[1];
+        Platform.runLater(() -> {
+            try {
+                StackPane root = new StackPane();
+                HBox row = new HBox();
+                StackPane orphan = new StackPane();
+                orphan.getStyleClass().add("dlc-floating-tooltip");
+                root.getChildren().addAll(row, orphan);
+                new Scene(root, 400, 240);
+                DlcFxTooltips.install(row, DlcFxTooltips.plain("current"));
+
+                row.fireEvent(mouseMoved(20, 20));
+
+                assertEquals(1, floatingTooltipCount(root));
+            } catch (AssertionError error) {
+                failure[0] = error;
+            } finally {
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        if (failure[0] != null) {
+            throw failure[0];
+        }
+    }
+
+    private static MouseEvent mouseMoved(double sceneX, double sceneY) {
+        return new MouseEvent(
+            MouseEvent.MOUSE_MOVED,
+            sceneX,
+            sceneY,
+            sceneX,
+            sceneY,
+            MouseButton.NONE,
+            0,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            null
+        );
+    }
+
+    private static long floatingTooltipCount(StackPane root) {
+        return root.getChildren().stream()
+            .filter(node -> node.getStyleClass().contains("dlc-floating-tooltip"))
+            .count();
     }
 }
