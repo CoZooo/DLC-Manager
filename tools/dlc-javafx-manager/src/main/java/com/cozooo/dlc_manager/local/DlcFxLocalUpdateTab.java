@@ -119,7 +119,9 @@ public final class DlcFxLocalUpdateTab {
         lastApplyChain = List.of();
         setBusy(false, null);
         updateActionDisableState();
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.game_dir_changed"));
+        if (shell != null) {
+            checkLocalAsync();
+        }
     }
 
     public void onTabSelected() {
@@ -209,7 +211,6 @@ public final class DlcFxLocalUpdateTab {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_invalid"));
                         return;
                     }
-                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.import_done"));
                     checkLocalAsync();
                 });
             } catch (Throwable t) {

@@ -198,8 +198,9 @@ public final class DlcFxLocalPackTab {
         groups.clear();
         archiveGroups = List.of();
         countLabel.setText("");
-        statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.game_dir_changed"));
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_data"));
         updateActionButtons();
+        refreshAsync(false);
     }
 
     public void onTabSelected() {

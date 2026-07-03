@@ -56,6 +56,7 @@ public final class DlcFxLocalPresetTab {
     public void onGameDirChanged() {
         gameDirSelected = true;
         shell.onContextChanged(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
+        shell.refreshAsync();
     }
 
     public void onTabSelected() {

@@ -154,6 +154,9 @@ public final class DlcFxLocalDlcManagementTab {
         countLabel.setText("");
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.game_dir_changed"));
         updateActionState();
+        if (shell != null) {
+            scanAsync();
+        }
     }
 
     public void onTabSelected() {
