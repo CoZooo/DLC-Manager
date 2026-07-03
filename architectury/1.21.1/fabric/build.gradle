@@ -126,8 +126,8 @@ processResources {
         pack_format: rootProject.pack_format
     ])
 
-    filesMatching('fabric.mod.json') {
-        expand([
+    doLast { task ->
+        rootProject.expandProcessedFabricModJson(task, [
             mod_id: rootProject.mod_id,
             mod_name: rootProject.mod_name,
             mod_version: rootProject.mod_version,
@@ -139,18 +139,8 @@ processResources {
             fabric_api_version_range: '0.100.0+1.21',
             malilib_version: rootProject.malilib_version,
             pack_format: rootProject.pack_format
-        ])
-        if (kotlinEnabled) {
-            filter { line ->
-                line.contains('"architectury": "*"')
-                    ? line + "\n    \"fabric-language-kotlin\": \">=${rootProject.fabric_language_kotlin_version}\","
-                    : line
-            }
-        }
-    }
-
-    filesMatching('pack.mcmeta') {
-        expand([pack_format: rootProject.pack_format])
+        ], kotlinEnabled, rootProject.fabric_language_kotlin_version)
+        rootProject.expandProcessedResource(task, 'pack.mcmeta', [pack_format: rootProject.pack_format])
     }
 }
 

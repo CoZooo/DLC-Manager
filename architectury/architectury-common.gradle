@@ -11,6 +11,30 @@ ext.architecturyBooleanProperty = { Project targetProject, String propertyName, 
     return value == null ? fallback : value.toString().toBoolean()
 }
 
+ext.expandProcessedResource = { Task task, String relativePath, Map values ->
+    def outputFile = new File(task.destinationDir, relativePath)
+    if (!outputFile.exists()) {
+        throw new GradleException("Processed resource not found: ${outputFile}")
+    }
+    def text = outputFile.getText('UTF-8')
+    values.each { key, value ->
+        text = text.replace('${' + key + '}', value == null ? '' : value.toString())
+    }
+    outputFile.setText(text, 'UTF-8')
+}
+
+ext.expandProcessedFabricModJson = { Task task, Map values, boolean includeKotlinDependency, Object fabricLanguageKotlinVersion ->
+    rootProject.expandProcessedResource(task, 'fabric.mod.json', values)
+    if (!includeKotlinDependency) {
+        return
+    }
+
+    def outputFile = new File(task.destinationDir, 'fabric.mod.json')
+    def json = new groovy.json.JsonSlurper().parse(outputFile)
+    json.depends['fabric-language-kotlin'] = ">=${fabricLanguageKotlinVersion}".toString()
+    outputFile.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json)) + '\n', 'UTF-8')
+}
+
 ext.configureArchitecturyShared = { int defaultJavaVersion ->
     allprojects {
         group = mod_group

@@ -165,8 +165,8 @@ side="BOTH"
         pack_format: rootProject.pack_format
     ])
 
-    filesMatching('META-INF/mods.toml') {
-        expand([
+    doLast { task ->
+        rootProject.expandProcessedResource(task, 'META-INF/mods.toml', [
             mod_id: rootProject.mod_id,
             mod_name: rootProject.mod_name,
             mod_version: rootProject.mod_version,
@@ -177,10 +177,7 @@ side="BOTH"
             kotlin_for_forge_dependency: kotlinForForgeDependency,
             mafglib_version_range: '[0.1.14,)'
         ])
-    }
-
-    filesMatching('pack.mcmeta') {
-        expand([pack_format: rootProject.pack_format])
+        rootProject.expandProcessedResource(task, 'pack.mcmeta', [pack_format: rootProject.pack_format])
     }
 }
 
