@@ -37,6 +37,9 @@ public final class DlcFxServerDownloadTab {
     private final DlcFxResourceDownloadActionFlow<Row> actionFlow =
             new DlcFxResourceDownloadActionFlow<>(new RemoteDownloadActions());
     private volatile boolean pollingDownloadStatus;
+    private boolean downloading;
+    private boolean singleDownload;
+    private String singleDownloadId = "";
     private DlcFxRemoteDownloadShell<Row> shell;
     private boolean loadedForCurrentConnection;
 
@@ -56,7 +59,18 @@ public final class DlcFxServerDownloadTab {
                 actionFlow::downloadMissing,
                 actionFlow::downloadSelected,
                 this::cancelDownload,
-                row -> row.missing && !operationModel.isBatchActive(row.id) ? () -> actionFlow.downloadOne(row) : null
+                row -> {
+                    if (row == null || !row.missing) {
+                        return null;
+                    }
+                    if (operationModel.isSingleActive(row.id)) {
+                        return this::cancelDownload;
+                    }
+                    if (!operationModel.isBatchActive(row.id)) {
+                        return () -> actionFlow.downloadOne(row);
+                    }
+                    return null;
+                }
         );
         shell.bindAvailable(conn.connectedProperty());
         DlcFxStyle.muted(countLabel);
@@ -84,7 +98,11 @@ public final class DlcFxServerDownloadTab {
         operationModel.reset();
         progressBar.setProgress(0);
         progressBar.setVisible(false);
+        progressBar.setManaged(false);
         totalProgressLabel.setText("");
+        downloading = false;
+        singleDownload = false;
+        singleDownloadId = "";
         countLabel.setText("");
         statusLabel.setText(connected
                 ? DlcFxI18n.tr("dlc_manager.status.no_data")
@@ -115,10 +133,25 @@ public final class DlcFxServerDownloadTab {
         });
     }
 
-    private void startDownload(List<String> ids) {
+    private void startDownload(List<Row> items) {
+        List<Row> targets = items == null || items.isEmpty()
+                ? rows.stream().filter(row -> row.missing).toList()
+                : items.stream().filter(row -> row != null && row.missing).toList();
+        List<String> ids = targets.stream()
+                .map(row -> row.id)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+        if (ids.isEmpty()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
+            return;
+        }
+        downloading = true;
+        singleDownload = ids.size() == 1;
+        singleDownloadId = singleDownload ? ids.getFirst() : "";
         setBusy(true);
-        shell.setCancelVisible(true);
+        shell.setCancelVisible(!singleDownload);
         beginOperation(ids);
+        updateTotalProgress(0d);
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.starting_download"));
         conn.runAsync(f -> f.remoteDownloadStart(ids), response -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_started", summarizeStatus(response)));
@@ -128,6 +161,10 @@ public final class DlcFxServerDownloadTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             operationModel.reset();
             shell.setCancelVisible(false);
+            downloading = false;
+            singleDownload = false;
+            singleDownloadId = "";
+            updateTotalProgress(0d);
             setBusy(false);
         });
     }
@@ -136,27 +173,38 @@ public final class DlcFxServerDownloadTab {
         List<String> targets = ids == null || ids.isEmpty()
                 ? rows.stream().filter(row -> row.missing).map(row -> row.id).filter(id -> id != null && !id.isBlank()).toList()
                 : ids;
-        operationModel.beginBatch(targets);
+        if (singleDownload && !targets.isEmpty()) {
+            operationModel.beginSingle(targets.getFirst());
+        } else {
+            operationModel.beginBatch(targets);
+        }
         shell.refreshRows();
     }
 
     private void setBusy(boolean busy) {
         shell.setBusy(busy);
+        if (!busy || singleDownload) {
+            progressBar.setVisible(false);
+            progressBar.setManaged(false);
+            if (!busy) {
+                progressBar.setProgress(0);
+            }
+        }
     }
 
     private void cancelDownload() {
         operationModel.requestBatchCancel();
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.canceling"));
         conn.runAsync(f -> f.remoteDownloadCancel(), response -> {
-            pollingDownloadStatus = false;
-            operationModel.reset();
-            shell.setCancelVisible(false);
-            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.canceled_value", summarizeStatus(response)));
-            setBusy(false);
-            refresh();
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.canceling"));
+            shell.refreshRows();
         }, error -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             shell.setCancelVisible(false);
+            downloading = false;
+            singleDownload = false;
+            singleDownloadId = "";
+            operationModel.reset();
             setBusy(false);
         });
     }
@@ -190,10 +238,23 @@ public final class DlcFxServerDownloadTab {
             }
             pollingDownloadStatus = false;
             javafx.application.Platform.runLater(() -> {
+                boolean canceled = operationModel.isBatchCancelRequested();
+                downloading = false;
                 operationModel.finishBatch();
+                if (singleDownload) {
+                    operationModel.finishSingle(singleDownloadId);
+                }
                 shell.setCancelVisible(false);
+                singleDownload = false;
+                singleDownloadId = "";
+                totalProgressLabel.setText("");
                 setBusy(false);
-                refresh();
+                if (canceled) {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_canceled"));
+                    shell.refreshRows();
+                } else {
+                    refresh();
+                }
             });
         }, "dlc-remote-download-status");
         thread.setDaemon(true);
@@ -213,23 +274,40 @@ public final class DlcFxServerDownloadTab {
         if (hasItemProgress) {
             DlcFxRemoteDownloadProgressModel.applyItemProgress(status, operationModel);
         }
-        if (totalBytes > 0) {
+        if (hasItemProgress) {
+            updateTotalProgress(operationModel.batchProgress());
+        } else if (totalBytes > 0) {
             double progress = Math.max(0d, Math.min(1d, downloadedBytes / (double) totalBytes));
-            if (!hasItemProgress) {
-                updateActiveProgress((float) progress);
-            }
-            progressBar.setVisible(true);
-            progressBar.setManaged(true);
-            progressBar.setProgress(progress);
-            totalProgressLabel.setText(Math.max(0, Math.min(100, Math.round((float) (progress * 100d)))) + "%");
+            updateActiveProgress((float) progress);
+            updateTotalProgress(progress);
         } else {
-            progressBar.setVisible(true);
-            progressBar.setManaged(true);
-            progressBar.setProgress(-1);
-            totalProgressLabel.setText(total > 0 ? completed + "/" + total : "");
+            if (singleDownload) {
+                progressBar.setVisible(false);
+                progressBar.setManaged(false);
+                totalProgressLabel.setText("");
+            } else {
+                progressBar.setVisible(true);
+                progressBar.setManaged(true);
+                progressBar.setProgress(-1);
+                totalProgressLabel.setText(total > 0 ? completed + "/" + total : "");
+            }
         }
         statusLabel.setText(summarizeStatus(response));
         shell.refreshRows();
+    }
+
+    private void updateTotalProgress(double progress) {
+        if (singleDownload) {
+            progressBar.setVisible(false);
+            progressBar.setManaged(false);
+            totalProgressLabel.setText("");
+            return;
+        }
+        progressBar.setVisible(true);
+        progressBar.setManaged(true);
+        double clamped = Math.max(0d, Math.min(1d, progress));
+        progressBar.setProgress(clamped);
+        totalProgressLabel.setText(Math.max(0, Math.min(100, Math.round((float) (clamped * 100d)))) + "%");
     }
 
     private static boolean hasItemProgress(JsonObject status) {
@@ -405,11 +483,7 @@ public final class DlcFxServerDownloadTab {
 
         @Override
         public void startDownload(List<Row> items) {
-            List<String> ids = items == null ? List.of() : items.stream()
-                    .map(row -> row.id)
-                    .filter(id -> id != null && !id.isBlank())
-                    .toList();
-            DlcFxServerDownloadTab.this.startDownload(ids);
+            DlcFxServerDownloadTab.this.startDownload(items);
         }
 
         @Override
@@ -437,7 +511,15 @@ public final class DlcFxServerDownloadTab {
         @Override public String tooltip(Row item) { return item.detail; }
         @Override public boolean missing(Row item) { return item.missing; }
         @Override public boolean hidden(Row item) { return item.hidden; }
-        @Override public boolean itemActionVisible(Row item) { return item.missing && !operationModel.isBatchActive(item.id); }
+        @Override public boolean itemActionVisible(Row item) {
+            return item.missing && (!operationModel.isBatchActive(item.id) || operationModel.isSingleActive(item.id));
+        }
+        @Override public boolean itemActionDanger(Row item) { return operationModel.isSingleActive(item.id); }
+        @Override public String itemActionText(Row item) {
+            return operationModel.isSingleActive(item.id)
+                    ? DlcFxI18n.tr("dlc_manager.common.cancel")
+                    : DlcFxI18n.tr("dlc_manager.server.download");
+        }
         @Override public double progress(Row item) { return operationModel.progress(item.id); }
         @Override public String progressText(Row item) {
             float progress = operationModel.progress(item.id);

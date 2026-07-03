@@ -105,6 +105,7 @@ object DlcServerDownloadService {
         private val totalBytes = AtomicLong(0L)
         private val downloadedBytes = AtomicLong(0L)
         private val itemByKey: MutableMap<String, RemoteItemState> = ConcurrentHashMap()
+        val cancelRequested = AtomicBoolean(false)
         @Volatile private var statusKey: String? = null
         @Volatile private var error: String? = null
 
@@ -118,11 +119,12 @@ object DlcServerDownloadService {
             if (!running.compareAndSet(false, true)) {
                 return
             }
+            cancelRequested.set(false)
             val maxConcurrent = maxOf(1, DlcConfig.getMaxConcurrentDownloads())
             val executor = Executors.newFixedThreadPool(maxConcurrent)
             for (item in items) {
                 executor.submit {
-                    if (!running.get()) return@submit
+                    if (!running.get() || cancelRequested.get()) return@submit
                     downloadOne(dlcRoot, item)
                 }
             }
@@ -146,6 +148,12 @@ object DlcServerDownloadService {
                 return
             }
             try {
+                if (cancelRequested.get()) {
+                    markDone(item, false, "canceled")
+                    success.set(false)
+                    error = "canceled"
+                    return
+                }
                 val fileName = downloadRemoteEntryWithProgress(item.entry, item, object : ProgressListener {
                     override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
                         this@RemoteDownloadSession.statusKey = null
@@ -155,11 +163,15 @@ object DlcServerDownloadService {
                     override fun onStatusKey(statusKey: String) {
                         this@RemoteDownloadSession.statusKey = statusKey
                     }
-                })
+                }, cancelRequested::get)
                 if (fileName != null) {
                     updateRemoteFileNameKey(item.entry, fileName)
                 }
                 markDone(item, true, null)
+            } catch (ex: DlcDownloadService.DownloadCanceledException) {
+                markDone(item, false, "canceled")
+                success.set(false)
+                error = "canceled"
             } catch (ex: Exception) {
                 markDone(item, false, ex.message)
                 success.set(false)
@@ -214,6 +226,12 @@ object DlcServerDownloadService {
                 status.items.add(view)
             }
             return status
+        }
+
+        fun requestCancel() {
+            cancelRequested.set(true)
+            success.set(false)
+            error = "canceled"
         }
     }
 
@@ -603,6 +621,18 @@ object DlcServerDownloadService {
                 }
             }
             return session.toStatus(lang)
+        }
+    }
+
+    @JvmStatic
+    fun cancelRemoteDownload(): Boolean {
+        synchronized(REMOTE_LOCK) {
+            val session = remoteSession
+            if (session == null || !session.running.get()) {
+                return false
+            }
+            session.requestCancel()
+            return true
         }
     }
 
@@ -1290,16 +1320,25 @@ object DlcServerDownloadService {
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun downloadRemoteEntry(entry: DlcRemoteEntry?): String? = downloadRemoteEntryWithProgress(entry, null, null)
+    private fun downloadRemoteEntry(entry: DlcRemoteEntry?): String? = downloadRemoteEntryWithProgress(entry, null, null, null)
 
     @Throws(IOException::class, InterruptedException::class)
     private fun downloadRemoteEntryWithProgress(
         entry: DlcRemoteEntry?,
         state: RemoteItemState?,
         listener: ProgressListener?,
+    ): String? = downloadRemoteEntryWithProgress(entry, state, listener, null)
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun downloadRemoteEntryWithProgress(
+        entry: DlcRemoteEntry?,
+        state: RemoteItemState?,
+        listener: ProgressListener?,
+        cancelChecker: DlcDownloadService.CancelChecker?,
     ): String? {
         if (entry == null) return null
         val resolver = DlcDownloadCandidate.resolver(entry)
+        DlcDownloadService.checkCanceled(cancelChecker)
         precheckDownloadSources(entry, listener)
         var lastError: IOException? = null
         while (true) {
@@ -1308,6 +1347,7 @@ object DlcServerDownloadService {
             for (candidate in candidates) {
                 for (attempt in 1..DlcConfig.getMaxRetryCount()) {
                     try {
+                        DlcDownloadService.checkCanceled(cancelChecker)
                         var fileName = candidate.fileNameOverride
                         val fileNameExplicit = entry.isFileNameExplicit() && !fileName.isNullOrBlank()
                         if (fileName.isNullOrBlank()) {
@@ -1336,9 +1376,9 @@ object DlcServerDownloadService {
                         }
                         val downloadListener = progressListener(listener)
                         val downloaded = if (candidate.direct) {
-                            DlcDownloadService.download(candidate.url, target.parent, fileName, downloadListener, null)
+                            DlcDownloadService.download(candidate.url, target.parent, fileName, downloadListener, cancelChecker)
                         } else {
-                            DlcDownloadService.downloadKnown(candidate.url, target.parent, fileName, candidate.expectedSize, downloadListener, null)
+                            DlcDownloadService.downloadKnown(candidate.url, target.parent, fileName, candidate.expectedSize, downloadListener, cancelChecker)
                         }
                         verifyDownloadedFile(downloaded, candidate)
                         val actualName = downloaded.fileName?.toString() ?: fileName

@@ -227,6 +227,7 @@ object DlcServerService {
                                 "remote_list" -> handleRemoteList(writer, clientLang)
                                 "remote_download_start" -> handleRemoteDownloadStart(request, writer, clientLang)
                                 "remote_download_status" -> handleRemoteDownloadStatus(writer, clientLang)
+                                "remote_download_cancel" -> handleRemoteDownloadCancel(writer)
                                 "remote_download" -> handleRemoteDownload(writer)
                                 "required_list" -> handleRequiredList(writer, clientLang)
                                 "required_download_start" -> handleRequiredDownloadStart(request, writer, clientLang)
@@ -528,6 +529,16 @@ object DlcServerService {
         response.addProperty("type", "remote_download_status")
         response.addProperty("ok", true)
         response.add("status", GSON.toJsonTree(status))
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handleRemoteDownloadCancel(writer: BufferedWriter) {
+        val canceled = DlcServerDownloadService.cancelRemoteDownload()
+        val response = JsonObject()
+        response.addProperty("type", "remote_download_cancel")
+        response.addProperty("ok", true)
+        response.addProperty("canceled", canceled)
         writeLine(writer, response)
     }
 
