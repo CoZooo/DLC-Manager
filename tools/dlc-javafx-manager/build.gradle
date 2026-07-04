@@ -139,6 +139,23 @@ javafx {
     modules = ['javafx.controls', 'javafx.fxml', 'javafx.graphics']
 }
 
+def javafxRuntimeVersion = '21'
+def javafxRuntimeModules = ['javafx-base', 'javafx-graphics', 'javafx-controls', 'javafx-fxml']
+def javafxFatJarPlatforms = [
+    win        : [javafxClassifier: 'win', archiveClassifier: 'windows', label: 'Windows'],
+    linux      : [javafxClassifier: 'linux', archiveClassifier: 'linux', label: 'Linux x64'],
+    linuxAarch64: [javafxClassifier: 'linux-aarch64', archiveClassifier: 'linux-aarch64', label: 'Linux aarch64'],
+    macX64     : [javafxClassifier: 'mac', archiveClassifier: 'mac-x64', label: 'macOS x64'],
+    macAarch64 : [javafxClassifier: 'mac-aarch64', archiveClassifier: 'mac-aarch64', label: 'macOS aarch64']
+]
+
+javafxFatJarPlatforms.each { platformName, platform ->
+    configurations.create("javafx${platformName.capitalize()}Runtime") {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'org.commonmark:commonmark:0.21.0'
@@ -147,6 +164,14 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    javafxFatJarPlatforms.each { platformName, platform ->
+        javafxRuntimeModules.each { moduleName ->
+            add("javafx${platformName.capitalize()}Runtime", "org.openjfx:${moduleName}:${javafxRuntimeVersion}:${platform.javafxClassifier}") {
+                transitive = false
+            }
+        }
+    }
 }
 
 application {
@@ -177,6 +202,42 @@ tasks.named('jar') {
     exclude('rebel.xml')
 }
 
+def nonJavaFxRuntimeClasspath = {
+    configurations.runtimeClasspath.findAll { file ->
+        !file.name.startsWith('javafx-')
+    }
+}
+
+def registerPlatformFatJar = { String taskName, String classifier, String label, Configuration javafxRuntime ->
+    tasks.register(taskName, Jar) {
+        group = 'distribution'
+        description = "Build a runnable fat jar for ${label}."
+        dependsOn tasks.named('classes')
+        archiveBaseName = 'DLC-Manager'
+        archiveVersion = appVersion
+        archiveClassifier = classifier
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        zip64 = true
+
+        manifest {
+            attributes(
+                'Main-Class': application.mainClass.get(),
+                'Implementation-Title': 'DLC Manager',
+                'Implementation-Version': appVersion
+            )
+        }
+
+        from sourceSets.main.output
+        from {
+            (nonJavaFxRuntimeClasspath() + javafxRuntime.files).collect { file ->
+                file.isDirectory() ? file : zipTree(file)
+            }
+        }
+        exclude('rebel.xml')
+        exclude('META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+    }
+}
+
 def appJvmArgs = [
     '-Dfile.encoding=UTF-8'
 ]
@@ -204,6 +265,23 @@ def appIconIcoFile = file('src/main/resources/assets/dlc_manager/textures/gui/ic
 def appDisplayName = 'DLC Manager'
 def appIdentifier = 'com.cozooo.dlcmanager'
 
+javafxFatJarPlatforms.each { platformName, platform ->
+    registerPlatformFatJar(
+        "jar${platformName.capitalize()}",
+        platform.archiveClassifier.toString(),
+        platform.label.toString(),
+        configurations.named("javafx${platformName.capitalize()}Runtime").get()
+    )
+}
+
+tasks.register('jarAll') {
+    group = 'distribution'
+    description = 'Build runnable fat jars for all supported JavaFX platforms.'
+    dependsOn javafxFatJarPlatforms.keySet().collect { platformName ->
+        tasks.named("jar${platformName.capitalize()}")
+    }
+}
+
 tasks.register('jpackageImage') {
     group = 'distribution'
     description = 'Build a native application image with bundled JRE.'
@@ -217,11 +295,12 @@ tasks.register('jpackageImage') {
             throw new GradleException("jpackage not found. Set JAVA_HOME to JDK 17+.")
         }
         def appDir = file("${buildDir}/install/${project.name}")
+        def mainJarName = tasks.named('jar', Jar).get().archiveFileName.get()
         exec {
             executable cmd.absolutePath
             args '--name', appDisplayName
             args '--input', "${appDir}/lib".toString()
-            args '--main-jar', "${project.name}.jar".toString()
+            args '--main-jar', mainJarName
             args '--main-class', application.mainClass.get()
             args '--app-version', appVersion
             args '--type', 'app-image'
