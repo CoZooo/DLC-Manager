@@ -164,6 +164,20 @@
     -fx-padding: 0;
 }
 
+.button.dlc-manager-settings-button {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border-strong;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 0;
+    -fx-content-display: graphic-only;
+}
+
+.button.dlc-manager-settings-button:hover {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #aab6c8;
+}
+
 .dlc-filter-bar {
     -fx-background-color: -dlc-panel-muted;
     -fx-border-color: -dlc-border;
@@ -311,6 +325,15 @@
     -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 34, 0.22, 0, 12);
 }
 
+.dlc-manager-settings-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-background-radius: 10;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 34, 0.22, 0, 12);
+}
+
 .dlc-config-header {
     -fx-padding: 20 22 16 22;
     -fx-background-color: linear-gradient(to bottom, #ffffff, #f8fafc);
@@ -322,6 +345,24 @@
 .dlc-config-title {
     -fx-text-fill: -dlc-text;
     -fx-font-size: 18px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-manager-settings-content {
+    -fx-padding: 22 24 24 24;
+}
+
+.dlc-manager-settings-row {
+    -fx-padding: 16 18 16 18;
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.dlc-config-option-name {
+    -fx-text-fill: -dlc-text;
     -fx-font-family: "Noto Sans SC SemiBold";
 }
 

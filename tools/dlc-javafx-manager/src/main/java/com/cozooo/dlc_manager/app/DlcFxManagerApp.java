@@ -33,6 +33,7 @@ import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.ui.config.DlcFxConfigModel;
 import com.cozooo.dlc_manager.ui.config.DlcFxConfigOverlay;
+import com.cozooo.dlc_manager.ui.settings.DlcFxManagerSettingsOverlay;
 import com.google.gson.JsonObject;
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -42,7 +43,6 @@ import javafx.scene.Node;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.Tab;
@@ -212,7 +212,7 @@ public final class DlcFxManagerApp extends Application {
         root.setPadding(new Insets(28, 28, 30, 28));
         DlcFxStyle.view(root);
 
-        HBox topBar = new HBox(languagePicker());
+        HBox topBar = new HBox(managerSettingsButton());
         topBar.setAlignment(Pos.CENTER_RIGHT);
 
         Label title = new Label(DlcFxI18n.tr("dlc_manager.home.title"));
@@ -353,7 +353,7 @@ public final class DlcFxManagerApp extends Application {
         if (extraRight != null) {
             header.getChildren().add(extraRight);
         }
-        header.getChildren().add(languagePicker());
+        header.getChildren().add(managerSettingsButton());
         header.setAlignment(Pos.CENTER_LEFT);
         DlcFxStyle.toolbar(header);
         return header;
@@ -1169,6 +1169,17 @@ public final class DlcFxManagerApp extends Application {
                 DlcFxI18n.tr("dlc_manager.confirm_yes"));
     }
 
+    private Button managerSettingsButton() {
+        Button button = new Button();
+        button.setGraphic(DlcFxManagerSettingsOverlay.gearIcon());
+        button.setMinSize(36, 36);
+        button.setPrefSize(36, 36);
+        button.setMaxSize(36, 36);
+        button.setOnAction(event -> new DlcFxManagerSettingsOverlay(scene(), PROVIDER, this::rebuildForLanguageChange).show());
+        DlcFxStyle.add(button, "dlc-manager-settings-button");
+        return button;
+    }
+
     private javafx.scene.Node statusBar() {
         refreshStatusForCurrentView();
         Label localStatus = new Label();
@@ -1189,39 +1200,6 @@ public final class DlcFxManagerApp extends Application {
             return;
         }
         DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.status.ready"));
-    }
-
-    private Node languagePicker() {
-        ComboBox<LanguageOption> languageBox = new ComboBox<>();
-        languageBox.getItems().addAll(
-                new LanguageOption("en_us", DlcFxI18n.tr("dlc_manager.language.en_us")),
-                new LanguageOption("zh_cn", DlcFxI18n.tr("dlc_manager.language.zh_cn")));
-        languageBox.setValue(optionForCurrentLanguage(languageBox));
-        languageBox.setOnAction(event -> {
-            LanguageOption option = languageBox.getValue();
-            if (option != null && !option.code().equalsIgnoreCase(PROVIDER.languageCode())) {
-                PROVIDER.setLanguageOverride(option.code());
-                rebuildForLanguageChange();
-            }
-        });
-
-        Label label = new Label(DlcFxI18n.tr("dlc_manager.language.label"));
-        DlcFxStyle.muted(label);
-        HBox picker = new HBox(8, label, languageBox);
-        languageBox.setPrefWidth(150);
-        picker.setAlignment(Pos.CENTER_RIGHT);
-        DlcFxStyle.add(picker, "dlc-language-picker");
-        return picker;
-    }
-
-    private LanguageOption optionForCurrentLanguage(ComboBox<LanguageOption> languageBox) {
-        String current = PROVIDER.languageCode();
-        for (LanguageOption option : languageBox.getItems()) {
-            if (option.code().equalsIgnoreCase(current)) {
-                return option;
-            }
-        }
-        return languageBox.getItems().isEmpty() ? null : languageBox.getItems().get(0);
     }
 
     private void rebuildForLanguageChange() {
@@ -1338,13 +1316,6 @@ public final class DlcFxManagerApp extends Application {
         HOME,
         LOCAL,
         REMOTE
-    }
-
-    private record LanguageOption(String code, String displayName) {
-        @Override
-        public String toString() {
-            return displayName;
-        }
     }
 
     public static void main(String[] args) {
