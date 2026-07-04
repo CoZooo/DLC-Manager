@@ -377,7 +377,7 @@
   "dlc_manager.home.title": "DLC管理器",
   "dlc_manager.home.subtitle": "选择一个工作区继续。",
   "dlc_manager.home.local_title": "本地管理器",
-  "dlc_manager.home.local_desc": "面向本地游戏目录：DLC 管理、下载、预设、热更新和拓展包。",
+  "dlc_manager.home.local_desc": "面向本地游戏管理。",
   "dlc_manager.home.enter_local": "进入本地管理器",
   "dlc_manager.home.remote_title": "远程管理器",
   "dlc_manager.home.remote_desc": "连接到运行中的服务器，进行远程管理。",

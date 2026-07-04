@@ -377,7 +377,7 @@
   "dlc_manager.home.title": "DLC Manager",
   "dlc_manager.home.subtitle": "Choose a workspace to continue.",
   "dlc_manager.home.local_title": "Local Manager",
-  "dlc_manager.home.local_desc": "Operate on a local game directory: DLC management, downloads, presets, hot updates, and DLC packs.",
+  "dlc_manager.home.local_desc": "Operate on a local game directory.",
   "dlc_manager.home.enter_local": "Enter Local Manager",
   "dlc_manager.home.remote_title": "Remote Manager",
   "dlc_manager.home.remote_desc": "Connect to a running server for remote management.",
