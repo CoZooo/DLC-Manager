@@ -416,6 +416,8 @@ public class DlcServerService {
         response.addProperty("type", "list");
         response.addProperty("base", version.getBase());
         response.addProperty("dlc", version.getDlc());
+        response.addProperty("mcVersion", CrossPlatformRuntime.mcVersion());
+        response.addProperty("loaderName", CrossPlatformRuntime.loaderName());
         response.addProperty("remoteMissing", remoteMissing);
         response.addProperty("requiredMissing", requiredMissing);
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot));

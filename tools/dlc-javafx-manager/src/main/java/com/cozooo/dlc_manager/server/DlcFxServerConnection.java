@@ -51,7 +51,16 @@ public final class DlcFxServerConnection {
     boolean isConnected() { return connected.get(); }
     DlcServerSession facade() { return session; }
     DlcServerInfo lastServerInfo() { return lastServerInfo; }
-    void rememberServerInfo(DlcServerInfo info) { lastServerInfo = info; }
+    void rememberServerInfo(DlcServerInfo info) {
+        lastServerInfo = info;
+        if (connectionState.get() == ConnectionState.CONNECTED) {
+            if (Platform.isFxApplicationThread()) {
+                refreshServerInfoText();
+            } else {
+                Platform.runLater(this::refreshServerInfoText);
+            }
+        }
+    }
     DlcServerEntry currentEntry() {
         if (connectedHost == null || connectedHost.isBlank() || connectedPort <= 0) {
             return null;
@@ -97,7 +106,8 @@ public final class DlcFxServerConnection {
                     connected.set(true);
                     connectionState.set(ConnectionState.CONNECTED);
                     statusText.set(DlcFxI18n.tr("dlc_manager.server.connected_to", host, port));
-                    serverInfoText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
+                    DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.server.connect_success"));
+                    refreshServerInfoText();
                     onDone.accept(null);
                 });
             } catch (Throwable t) {
@@ -136,7 +146,7 @@ public final class DlcFxServerConnection {
             String host = connectedHost == null ? "" : connectedHost;
             int port = connectedPort;
             statusText.set(DlcFxI18n.tr("dlc_manager.server.connected_to", host, port));
-            serverInfoText.set(DlcFxI18n.tr("dlc_manager.server.connect_success"));
+            refreshServerInfoText();
         } else if (state == ConnectionState.CONNECTING) {
             statusText.set(DlcFxI18n.tr("dlc_manager.server.connecting"));
             serverInfoText.set("");
@@ -180,5 +190,17 @@ public final class DlcFxServerConnection {
     static String safeMessage(Throwable t) {
         String msg = t.getMessage();
         return msg == null ? t.getClass().getSimpleName() : msg;
+    }
+
+    private void refreshServerInfoText() {
+        DlcServerInfo info = lastServerInfo;
+        serverInfoText.set(DlcFxI18n.tr(
+                "dlc_manager.server.info_runtime",
+                displayValue(info == null ? null : info.mcVersion),
+                displayValue(info == null ? null : info.loaderName)));
+    }
+
+    private static String displayValue(String value) {
+        return value == null || value.isBlank() ? "-" : value;
     }
 }

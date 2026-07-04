@@ -150,6 +150,7 @@
   "dlc_manager.server.game_dir_changed": "游戏目录已更新，点击「刷新远程列表」",
   "dlc_manager.server.has_missing": "存在缺失项，可点击「下载全部缺失项」",
   "dlc_manager.server.host": "地址：",
+  "dlc_manager.server.info_runtime": "MC版本：%s\n加载器：%s",
   "dlc_manager.server.name": "名称：",
   "dlc_manager.server.loading": "加载远程 DLC 列表...",
   "dlc_manager.server.not_connected": "未连接到服务器",

@@ -3,6 +3,8 @@ package com.cozooo.dlc_manager.client.server
 class DlcServerInfo {
     @JvmField var baseVersion: String? = null
     @JvmField var dlcVersion: String? = null
+    @JvmField var mcVersion: String? = null
+    @JvmField var loaderName: String? = null
     @JvmField var items: List<DlcServerItem> = emptyList()
     @JvmField var presets: List<DlcServerPresetItem> = emptyList()
     @JvmField var redirects: List<DlcServerRedirectItem> = emptyList()

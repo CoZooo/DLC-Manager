@@ -150,6 +150,7 @@
   "dlc_manager.server.game_dir_changed": "Game directory changed. Click Refresh Remote List.",
   "dlc_manager.server.has_missing": "Missing items exist. Click Download All Missing.",
   "dlc_manager.server.host": "Host:",
+  "dlc_manager.server.info_runtime": "MC Version: %s\nLoader: %s",
   "dlc_manager.server.name": "Name:",
   "dlc_manager.server.loading": "Loading remote DLC list...",
   "dlc_manager.server.not_connected": "Not connected to server",

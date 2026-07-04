@@ -73,6 +73,8 @@ public final class DlcServerSession implements AutoCloseable {
         DlcServerInfo info = new DlcServerInfo();
         info.baseVersion = string(response, "base");
         info.dlcVersion = string(response, "dlc");
+        info.mcVersion = string(response, "mcVersion");
+        info.loaderName = string(response, "loaderName");
         info.remoteMissing = intValue(response, "remoteMissing");
         info.requiredMissing = intValue(response, "requiredMissing");
         info.hasRequired = bool(response, "hasRequired");

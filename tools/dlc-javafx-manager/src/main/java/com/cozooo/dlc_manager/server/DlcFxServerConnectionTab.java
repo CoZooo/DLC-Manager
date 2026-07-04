@@ -84,7 +84,6 @@ public final class DlcFxServerConnectionTab {
         DlcFxStyle.muted(infoLabel);
         VBox center = new VBox(8, infoTitle, infoLabel);
         page.setCenter(page.section(center));
-        DlcFxStyle.routeStatus(infoLabel);
 
         return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.connection"), page.root());
     }

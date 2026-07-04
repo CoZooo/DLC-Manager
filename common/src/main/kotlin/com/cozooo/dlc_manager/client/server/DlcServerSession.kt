@@ -32,6 +32,8 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         val info = DlcServerInfo()
         info.baseVersion = string(response, "base")
         info.dlcVersion = string(response, "dlc")
+        info.mcVersion = string(response, "mcVersion")
+        info.loaderName = string(response, "loaderName")
         info.remoteMissing = intValue(response, "remoteMissing")
         info.requiredMissing = intValue(response, "requiredMissing")
         info.hasRequired = bool(response, "hasRequired")
