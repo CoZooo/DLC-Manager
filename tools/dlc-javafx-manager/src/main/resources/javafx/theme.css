@@ -34,6 +34,10 @@
     -fx-background-radius: 8;
 }
 
+.dlc-home-mode-icon {
+    -fx-background-color: transparent;
+}
+
 .dlc-mode-title,
 .dlc-hero-title,
 .dlc-workspace-title {

@@ -39,12 +39,15 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.Node;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.image.Image;
 import javafx.scene.input.Dragboard;
@@ -221,11 +224,13 @@ public final class DlcFxManagerApp extends Application {
                 DlcFxI18n.tr("dlc_manager.home.local_title"),
                 DlcFxI18n.tr("dlc_manager.home.local_desc"),
                 DlcFxI18n.tr("dlc_manager.home.enter_local"),
+                "local",
                 this::showLocalWorkspace);
         Node remoteChoice = modeChoice(
                 DlcFxI18n.tr("dlc_manager.home.remote_title"),
                 DlcFxI18n.tr("dlc_manager.home.remote_desc"),
                 DlcFxI18n.tr("dlc_manager.home.enter_remote"),
+                "server",
                 this::showRemoteWorkspace);
         VBox choices = new VBox(16, localChoice, remoteChoice);
         VBox.setVgrow(localChoice, Priority.ALWAYS);
@@ -238,8 +243,8 @@ public final class DlcFxManagerApp extends Application {
         return root;
     }
 
-    private Node modeChoice(String titleText, String descText, String actionText, Runnable action) {
-        HBox box = new HBox(12);
+    private Node modeChoice(String titleText, String descText, String actionText, String iconStyle, Runnable action) {
+        HBox box = new HBox(16);
         box.getStyleClass().add("dlc-mode-panel");
         box.setPadding(new Insets(18, 18, 18, 18));
         box.setMinHeight(160);
@@ -270,8 +275,63 @@ public final class DlcFxManagerApp extends Application {
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        box.getChildren().addAll(textBox, spacer, enter);
+        box.getChildren().addAll(modeIcon(iconStyle), textBox, spacer, enter);
         return box;
+    }
+
+    private Node modeIcon(String style) {
+        StackPane icon = new StackPane();
+        icon.getStyleClass().addAll("dlc-home-mode-icon", "dlc-home-mode-icon-" + style);
+        icon.setMinSize(58, 58);
+        icon.setPrefSize(58, 58);
+        icon.setMaxSize(58, 58);
+        if ("server".equals(style)) {
+            icon.getChildren().add(serverModeCanvas());
+        } else {
+            icon.getChildren().add(localModeCanvas());
+        }
+        return icon;
+    }
+
+    private Canvas localModeCanvas() {
+        Canvas canvas = new Canvas(58, 58);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#effaf3"));
+        g.fillRoundRect(1, 1, 56, 56, 18, 18);
+        g.setStroke(Color.web("#c7e4d2"));
+        g.setLineWidth(1.2);
+        g.strokeRoundRect(1.5, 1.5, 55, 55, 18, 18);
+
+        g.setFill(Color.web("#dff4e7"));
+        g.fillRoundRect(13, 15, 32, 24, 7, 7);
+        g.setStroke(Color.web("#249663"));
+        g.setLineWidth(2.2);
+        g.strokeRoundRect(13, 15, 32, 24, 7, 7);
+        g.strokeLine(21, 43, 37, 43);
+        g.strokeLine(29, 39, 29, 43);
+        return canvas;
+    }
+
+    private Canvas serverModeCanvas() {
+        Canvas canvas = new Canvas(58, 58);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.setFill(Color.web("#f0f5ff"));
+        g.fillRoundRect(1, 1, 56, 56, 18, 18);
+        g.setStroke(Color.web("#cbd8f2"));
+        g.setLineWidth(1.2);
+        g.strokeRoundRect(1.5, 1.5, 55, 55, 18, 18);
+
+        for (int i = 0; i < 3; i++) {
+            double y = 15 + i * 11;
+            g.setFill(Color.web("#ffffff"));
+            g.fillRoundRect(14, y, 30, 8, 5, 5);
+            g.setStroke(Color.web("#2d62c7"));
+            g.setLineWidth(2.0);
+            g.strokeRoundRect(14, y, 30, 8, 5, 5);
+            g.setFill(Color.web("#2d62c7"));
+            g.fillOval(36, y + 2.5, 3.4, 3.4);
+        }
+        return canvas;
     }
 
     private Node workspaceHeader(String titleText, Runnable backAction) {
