@@ -7,7 +7,15 @@ pluginManagement {
         }
         maven { url = 'https://maven.minecraftforge.net' }
         maven { url = 'https://maven.neoforged.net/releases' }
+        maven { url = 'https://maven.architectury.dev/' }
         maven { url = 'https://maven.fabricmc.net' }
+        maven { url = 'https://maven.cozozjw.cn/repository/maven-public/' }
+    }
+    plugins {
+        id('architectury-plugin') version '3.5.168'
+        id('dev.architectury.loom') version '1.17.487'
+        id('com.gradleup.shadow') version '8.3.11'
+        id('org.jetbrains.kotlin.jvm') version '2.2.20'
     }
 }
 
@@ -19,26 +27,110 @@ rootProject.name = 'DLC-Manager'
 
 stonecutter {
     kotlinController = false
-    centralScript = 'stonecutter.gradle'
+    centralScript = 'build.gradle'
 
-    create('stonecutter') {
-        version '1.20.1', '1.20.1'
-        version '1.21.1', '1.21.1'
+    create('') {
+        branch('common') {
+            version('1.20.1', '1.20.1').buildscript('../stonecutter-node.gradle')
+            version('1.21.1', '1.21.1').buildscript('../stonecutter-node.gradle')
+        }
+        branch('fabric') {
+            version('1.20.1', '1.20.1').buildscript('../stonecutter-node.gradle')
+            version('1.21.1', '1.21.1').buildscript('../stonecutter-node.gradle')
+        }
+        branch('forge') {
+            version('1.20.1', '1.20.1').buildscript('../stonecutter-node.gradle')
+        }
+        branch('neoforge') {
+            version('1.21.1', '1.21.1').buildscript('../stonecutter-node.gradle')
+        }
         vcsVersion = '1.21.1'
-        mapBuilds { branch, node -> 'stonecutter-node.gradle' }
     }
-}
-
-include ':common'
-
-includeBuild('architectury/1.20.1') {
-    name = 'arch1201'
-}
-
-includeBuild('architectury/1.21.1') {
-    name = 'arch1211'
 }
 
 includeBuild('tools/dlc-javafx-manager') {
     name = 'dlcJavafxManager'
+}
+
+gradle.rootProject { root ->
+    root.tasks.register('stoneCheck') {
+        group = 'verification'
+        description = 'Run Architectury checks through Stonecutter version nodes.'
+        dependsOn(
+            ':common:1.20.1:check',
+            ':fabric:1.20.1:check',
+            ':forge:1.20.1:check',
+            ':common:1.21.1:check',
+            ':fabric:1.21.1:check',
+            ':neoforge:1.21.1:check'
+        )
+    }
+
+    root.tasks.register('stoneTest') {
+        group = 'verification'
+        description = 'Run Architectury tests through Stonecutter version nodes.'
+        dependsOn(
+            ':common:1.20.1:test',
+            ':fabric:1.20.1:test',
+            ':forge:1.20.1:test',
+            ':common:1.21.1:test',
+            ':fabric:1.21.1:test',
+            ':neoforge:1.21.1:test'
+        )
+    }
+
+    root.tasks.register('stoneBuild') {
+        group = 'build'
+        description = 'Build Architectury jars through Stonecutter version nodes.'
+        dependsOn(
+            ':fabric:1.20.1:remapJar',
+            ':forge:1.20.1:remapJar',
+            ':fabric:1.21.1:remapJar',
+            ':neoforge:1.21.1:remapJar'
+        )
+    }
+
+    root.tasks.register('archCheck') {
+        group = 'verification'
+        description = 'Compatibility alias for stoneCheck.'
+        dependsOn(root.tasks.named('stoneCheck'))
+    }
+
+    root.tasks.register('archTest') {
+        group = 'verification'
+        description = 'Compatibility alias for stoneTest.'
+        dependsOn(root.tasks.named('stoneTest'))
+    }
+
+    root.tasks.register('archBuild') {
+        group = 'build'
+        description = 'Compatibility alias for stoneBuild.'
+        dependsOn(root.tasks.named('stoneBuild'))
+    }
+
+    def rootCheck = root.tasks.findByName('check') != null
+        ? root.tasks.named('check')
+        : root.tasks.register('check') {
+            group = 'verification'
+            description = 'Run all checks.'
+        }
+    rootCheck.configure {
+        dependsOn(root.tasks.named('stoneCheck'))
+    }
+
+    root.tasks.register('test') {
+        group = 'verification'
+        description = 'Run all tests.'
+        dependsOn(root.tasks.named('stoneTest'))
+    }
+
+    def rootBuild = root.tasks.findByName('build') != null
+        ? root.tasks.named('build')
+        : root.tasks.register('build') {
+            group = 'build'
+            description = 'Assemble and test this project.'
+        }
+    rootBuild.configure {
+        dependsOn(root.tasks.named('stoneBuild'))
+    }
 }

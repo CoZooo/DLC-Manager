@@ -268,7 +268,7 @@ ext.configureReplacementClassSync = { Project targetProject, boolean kotlinEnabl
         }
     }
 
-    targetProject.tasks.matching { it.name == 'classes' || it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+    targetProject.tasks.matching { it.name == 'jar' || it.name == 'runClient' || it.name == 'runServer' }.configureEach {
         dependsOn syncTask
     }
 }
@@ -320,14 +320,15 @@ ext.configureLocalDevMods = { Project targetProject ->
     }
 }
 
-ext.configureServerRunClientOnlyModExcludes = { Project targetProject ->
+ext.configureServerRunClientOnlyModExcludes = { Project targetProject, String commonProjectPath = ':common' ->
+    def commonProject = targetProject.project(commonProjectPath)
     def serverRunCommonJar = targetProject.tasks.register('prepareServerRunCommonJar', Jar) {
-        dependsOn(targetProject.project(':common').tasks.named('jar'))
+        dependsOn(commonProject.tasks.named('jar'))
         archiveBaseName.set('common')
         archiveClassifier.set('server-run')
         destinationDirectory.set(targetProject.layout.buildDirectory.dir('serverRun'))
         from({
-            targetProject.zipTree(targetProject.project(':common').tasks.named('jar').get().archiveFile.get().asFile)
+            targetProject.zipTree(commonProject.tasks.named('jar').get().archiveFile.get().asFile)
         }) {
             exclude 'com/cozooo/dlc_manager/client/screen/**'
         }

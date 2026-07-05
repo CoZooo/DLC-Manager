@@ -3,26 +3,25 @@ plugins {
 }
 
 def kotlinEnabled = (findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+def versionProjects = ['1.20.1', '1.21.1']
 
 tasks.register('compileKotlin') {
     group = 'build'
-    description = 'Compile common Kotlin sources for all Architectury versions.'
+    description = 'Compile common Kotlin sources for all Stonecutter versions.'
     if (kotlinEnabled) {
-        dependsOn(gradle.includedBuild('arch1201').task(':common:compileKotlin'))
-        dependsOn(gradle.includedBuild('arch1211').task(':common:compileKotlin'))
+        dependsOn(versionProjects.collect { ":common:${it}:compileKotlin" })
     }
 }
 
 tasks.register('compileJava') {
     group = 'build'
-    description = 'Compile common Java sources for all Architectury versions.'
-    dependsOn(gradle.includedBuild('arch1201').task(':common:compileJava'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:compileJava'))
+    description = 'Compile common Java sources for all Stonecutter versions.'
+    dependsOn(versionProjects.collect { ":common:${it}:compileJava" })
 }
 
 tasks.register('classes') {
     group = 'build'
-    description = 'Assemble common classes for all Architectury versions.'
+    description = 'Assemble common classes for all Stonecutter versions.'
     if (kotlinEnabled) {
         dependsOn(tasks.named('compileKotlin'))
     }
@@ -31,16 +30,14 @@ tasks.register('classes') {
 
 tasks.register('test') {
     group = 'verification'
-    description = 'Run common tests for all Architectury versions.'
-    dependsOn(gradle.includedBuild('arch1201').task(':common:test'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:test'))
+    description = 'Run common tests for all Stonecutter versions.'
+    dependsOn(versionProjects.collect { ":common:${it}:test" })
 }
 
 tasks.named('check') {
     group = 'verification'
-    description = 'Run common checks for all Architectury versions.'
-    dependsOn(gradle.includedBuild('arch1201').task(':common:check'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:check'))
+    description = 'Run common checks for all Stonecutter versions.'
+    dependsOn(versionProjects.collect { ":common:${it}:check" })
 }
 
 tasks.named('assemble') {

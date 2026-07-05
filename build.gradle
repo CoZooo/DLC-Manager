@@ -1,10 +1,312 @@
-plugins {
-    id 'base'
+if (!plugins.hasPlugin('base') && tasks.findByName('check') == null) {
+    plugins.apply('base')
+}
+if (!plugins.hasPlugin('dev.kikugie.stonecutter') && extensions.findByName('stonecutter') == null) {
+    plugins.apply('dev.kikugie.stonecutter')
 }
 
 repositories {
     mavenCentral()
 }
+
+apply from: file('architectury/architectury-common.gradle')
+
+ext.stonecutterMcVersions = ['1.20.1', '1.21.1']
+ext.stonecutterPlatformProjects = [
+    '1.20.1': ['fabric', 'forge'],
+    '1.21.1': ['fabric', 'neoforge']
+]
+
+ext.loadStonecutterVersionProperties = { String minecraftVersion ->
+    def propertiesFile = rootProject.file("versions/dependencies/${minecraftVersion}.properties")
+    if (!propertiesFile.isFile()) {
+        throw new GradleException("Missing Stonecutter dependency properties: ${propertiesFile}")
+    }
+
+    def properties = new Properties()
+    propertiesFile.withInputStream { stream ->
+        properties.load(stream)
+    }
+    properties.collectEntries { key, value -> [(key.toString()): value.toString()] }
+}
+
+ext.stonecutterVersionProperties = rootProject.stonecutterMcVersions.collectEntries { minecraftVersion ->
+    [(minecraftVersion): rootProject.loadStonecutterVersionProperties(minecraftVersion)]
+}
+
+ext.configureStonecutterVersionProperties = { Project targetProject ->
+    def versionProps = rootProject.stonecutterVersionProperties[targetProject.name]
+    if (versionProps == null) {
+        throw new GradleException("Missing Stonecutter version properties for ${targetProject.path}")
+    }
+    versionProps.each { key, value ->
+        targetProject.ext.set(key, value)
+    }
+}
+
+ext.dlcProjectProperty = { Project targetProject, String propertyName ->
+    if (targetProject.extensions.extraProperties.has(propertyName)) {
+        return targetProject.extensions.extraProperties.get(propertyName)
+    }
+    rootProject.findProperty(propertyName)
+}
+
+ext.configureDlcStonecutterBase = { Project targetProject ->
+    rootProject.configureStonecutterVersionProperties(targetProject)
+
+    targetProject.group = rootProject.mod_group
+    targetProject.version = rootProject.mod_version
+
+    targetProject.repositories {
+        maven {
+            name = 'Minecraft Libraries'
+            url = 'https://libraries.minecraft.net'
+            content {
+                includeGroup 'org.lwjgl'
+            }
+        }
+        maven { url = uri('https://maven.cozozjw.cn/repository/maven-public/') }
+        maven {
+            name = 'ParchmentMC'
+            url = 'https://maven.parchmentmc.org'
+        }
+        maven { url = 'https://maven.architectury.dev/' }
+        maven { url = 'https://maven.fabricmc.net/' }
+        maven { url = 'https://maven.minecraftforge.net/' }
+        maven { url = 'https://maven.neoforged.net/releases/' }
+        if (rootProject.architecturyBooleanProperty(targetProject, 'enable_kotlin', false)) {
+            maven {
+                name = 'Kotlin for Forge'
+                url = 'https://thedarkcolour.github.io/KotlinForForge/'
+            }
+        }
+        maven { url = 'https://api.modrinth.com/maven' }
+        maven { url = 'https://maven.terraformersmc.com' }
+        maven { url = 'https://cursemaven.com' }
+        mavenCentral()
+    }
+
+    def javaVersion = (targetProject.findProperty('java_version') ?: '17') as int
+    targetProject.java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(javaVersion)
+        }
+    }
+    targetProject.tasks.withType(JavaCompile).configureEach {
+        options.release = javaVersion
+    }
+    targetProject.tasks.withType(Jar).configureEach {
+        exclude('rebel.xml')
+    }
+
+    def kotlinEnabled = rootProject.architecturyBooleanProperty(targetProject, 'enable_kotlin', false)
+    if (kotlinEnabled) {
+        targetProject.apply plugin: 'org.jetbrains.kotlin.jvm'
+        targetProject.kotlin {
+            jvmToolchain(javaVersion)
+        }
+    }
+
+    targetProject.loom {
+        silentMojangMappingsLicense()
+        runs {
+            client {
+                runDir('run/client')
+            }
+            server {
+                runDir('run/server')
+            }
+        }
+    }
+
+    targetProject.dependencies {
+        minecraft "com.mojang:minecraft:${targetProject.minecraft_version}"
+        def useParchment = (targetProject.findProperty('use_parchment') ?: 'false').toString().toBoolean()
+        def parchmentVersion = (targetProject.findProperty('parchment_mappings_version') ?: '').toString().trim()
+        if (useParchment && !parchmentVersion.isEmpty()) {
+            mappings targetProject.loom.layered {
+                officialMojangMappings()
+                parchment("org.parchmentmc.data:parchment-${targetProject.minecraft_version}:${parchmentVersion}@zip")
+            }
+        } else {
+            mappings targetProject.loom.officialMojangMappings()
+        }
+        testImplementation "org.junit.jupiter:junit-jupiter:${rootProject.junit_jupiter_version}"
+        testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${rootProject.junit_jupiter_version}"
+        testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    }
+
+    targetProject.tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
+
+    targetProject.publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                def javaComponent = targetProject.components.findByName('java')
+                if (javaComponent != null) {
+                    from javaComponent
+                }
+
+                groupId = rootProject.mod_group
+                artifactId = "${targetProject.parent.name}-${targetProject.minecraft_version}"
+                version = rootProject.mod_version
+            }
+        }
+
+        repositories {
+            def mavenUsername = targetProject.findProperty('mavenUsername') ?: System.getenv('MAVEN_USERNAME')
+            def mavenPassword = targetProject.findProperty('mavenPassword') ?: System.getenv('MAVEN_PASSWORD')
+            if (mavenUsername && mavenPassword) {
+                maven {
+                    name = 'CozoooNexus'
+                    url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
+                    credentials {
+                        username = mavenUsername
+                        password = mavenPassword
+                    }
+                }
+            }
+            def ghRepo = System.getenv('GITHUB_REPOSITORY')
+            def ghUser = System.getenv('USERNAME')
+            def ghToken = System.getenv('TOKEN')
+            if (ghRepo && ghUser && ghToken) {
+                maven {
+                    name = 'GitHubPackages'
+                    url = uri("https://maven.pkg.github.com/${ghRepo}")
+                    credentials {
+                        username = ghUser
+                        password = ghToken
+                    }
+                }
+            }
+        }
+    }
+}
+
+ext.configureDlcStonecutterSources = { Project targetProject, boolean includeCommonResources = false ->
+    def kotlinEnabled = rootProject.architecturyBooleanProperty(targetProject, 'enable_kotlin', false)
+    def kotlinSourcesEnabled = kotlinEnabled && targetProject.plugins.hasPlugin('org.jetbrains.kotlin.jvm')
+    def kotlinExcludeJavaCompile = kotlinSourcesEnabled && rootProject.architecturyBooleanProperty(targetProject, 'kotlin_exclude_java_compile', false)
+    def branchDir = targetProject.parent.projectDir
+    def replacementKotlinDirs = [
+        new File(branchDir, 'src/main/kotlin').path,
+        new File(targetProject.projectDir, 'src/main/kotlin').path
+    ]
+    def generatedMainDir = targetProject.layout.buildDirectory.dir('generated/stonecutter/main').get().asFile
+    def generatedTestDir = targetProject.layout.buildDirectory.dir('generated/stonecutter/test').get().asFile
+    def kotlinMainDirs = [
+        new File(generatedMainDir, 'kotlin').path,
+        new File(targetProject.projectDir, 'src/main/kotlin').path
+    ]
+    def javaMainDirs = [
+        new File(generatedMainDir, 'java').path,
+        new File(targetProject.projectDir, 'src/main/java').path
+    ]
+    def resourceDirs = [
+        new File(generatedMainDir, 'resources').path,
+        new File(targetProject.projectDir, 'src/main/resources').path
+    ]
+    if (includeCommonResources) {
+        resourceDirs.add(rootProject.file('common/src/main/resources').path)
+    }
+    def moduleProject = targetProject
+
+    def configureSourceSetDirs = {
+        targetProject.sourceSets {
+            main {
+                java.srcDirs = kotlinExcludeJavaCompile ? [] : javaMainDirs
+                if (kotlinSourcesEnabled) {
+                    kotlin.srcDirs = kotlinMainDirs
+                    if (!kotlinExcludeJavaCompile) {
+                        java.exclude rootProject.javaSourcesReplacedByKotlin(targetProject, replacementKotlinDirs)
+                    }
+                }
+                resources.srcDirs = resourceDirs
+            }
+            test {
+                java.srcDirs = [
+                    new File(generatedTestDir, 'java').path,
+                    new File(targetProject.projectDir, 'src/test/java').path
+                ]
+                resources.srcDirs = [
+                    new File(generatedTestDir, 'resources').path,
+                    new File(targetProject.projectDir, 'src/test/resources').path
+                ]
+            }
+        }
+    }
+    configureSourceSetDirs()
+    targetProject.afterEvaluate {
+        configureSourceSetDirs()
+    }
+
+    targetProject.tasks.matching {
+        it.name in ['compileJava', 'compileKotlin', 'processResources']
+    }.configureEach {
+        dependsOn targetProject.tasks.named('stonecutterGenerate')
+    }
+    targetProject.tasks.matching {
+        it.name in ['compileTestJava', 'compileTestKotlin', 'processTestResources']
+    }.configureEach {
+        dependsOn targetProject.tasks.named('stonecutterGenerateTest')
+    }
+
+    if (kotlinSourcesEnabled) {
+        targetProject.tasks.named('compileKotlin').configure {
+            if (!kotlinExcludeJavaCompile) {
+                source(targetProject.sourceSets.main.java)
+            }
+        }
+        if (kotlinExcludeJavaCompile) {
+            targetProject.tasks.named('compileJava').configure {
+                enabled = false
+                setDependsOn([])
+            }
+            targetProject.afterEvaluate {
+                targetProject.tasks.named('compileJava').configure {
+                    setDependsOn([])
+                }
+            }
+            targetProject.tasks.named('jar').configure {
+                doFirst {
+                    rootProject.clearMainJavaClasses(moduleProject)
+                }
+            }
+        } else {
+            targetProject.tasks.named('compileJava').configure {
+                doFirst {
+                    rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, replacementKotlinDirs, destinationDirectory.get().asFile)
+                }
+            }
+            targetProject.tasks.named('jar').configure {
+                doFirst {
+                    rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, replacementKotlinDirs, targetProject.tasks.named('compileJava').get().destinationDirectory.get().asFile)
+                }
+            }
+        }
+    } else {
+        targetProject.tasks.named('compileJava').configure {
+            doFirst {
+                rootProject.deleteKotlinClassesReplacedByJava(moduleProject, replacementKotlinDirs, targetProject.layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+            }
+        }
+        targetProject.tasks.named('jar').configure {
+            doFirst {
+                rootProject.deleteKotlinClassesReplacedByJava(moduleProject, replacementKotlinDirs, targetProject.layout.buildDirectory.dir('classes/kotlin/main').get().asFile)
+            }
+        }
+    }
+
+    if (!kotlinExcludeJavaCompile) {
+        rootProject.configureReplacementClassSync(moduleProject, kotlinSourcesEnabled, replacementKotlinDirs, false)
+    }
+}
+
+if (extensions.extraProperties.has('dlcRootBuildTasksConfigured')) {
+    return
+}
+extensions.extraProperties.set('dlcRootBuildTasksConfigured', true)
 
 configurations {
     yguardTool
@@ -106,26 +408,10 @@ tasks.register('exportObfClasspathAll') {
     group = 'build'
     description = 'Export obfuscation classpath jars for all Architectury targets.'
 
-    dependsOn(gradle.includedBuild('arch1201').task(':exportObfClasspathAll'))
-    dependsOn(gradle.includedBuild('arch1211').task(':exportObfClasspathAll'))
-}
-
-tasks.register('stoneCheck') {
-    group = 'verification'
-    description = 'Run Architectury checks through Stonecutter version nodes.'
-    dependsOn(':stonecutter:stoneCheck')
-}
-
-tasks.register('stoneBuild') {
-    group = 'build'
-    description = 'Build Architectury jars through Stonecutter version nodes.'
-    dependsOn(':stonecutter:stoneBuild')
-}
-
-tasks.register('stoneTest') {
-    group = 'verification'
-    description = 'Run Architectury tests through Stonecutter version nodes.'
-    dependsOn(':stonecutter:stoneTest')
+    dependsOn(':fabric:1.20.1:exportObfClasspath')
+    dependsOn(':forge:1.20.1:exportObfClasspath')
+    dependsOn(':fabric:1.21.1:exportObfClasspath')
+    dependsOn(':neoforge:1.21.1:exportObfClasspath')
 }
 
 tasks.register('stonecutterArchCheck') {
@@ -231,7 +517,7 @@ tasks.register('javafxManagerJarAll') {
 tasks.register('obfuscateForge1201Yguard') {
     group = 'build'
     description = 'Obfuscate Forge 1.20.1 output jar with yGuard.'
-    dependsOn(gradle.includedBuild('arch1201').task(':forge:exportObfClasspath'))
+    dependsOn(':forge:1.20.1:exportObfClasspath')
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(
@@ -245,7 +531,7 @@ tasks.register('obfuscateForge1201Yguard') {
 tasks.register('obfuscateFabric1201Yguard') {
     group = 'build'
     description = 'Obfuscate Fabric 1.20.1 output jar with yGuard.'
-    dependsOn(gradle.includedBuild('arch1201').task(':fabric:exportObfClasspath'))
+    dependsOn(':fabric:1.20.1:exportObfClasspath')
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(
@@ -259,7 +545,7 @@ tasks.register('obfuscateFabric1201Yguard') {
 tasks.register('obfuscateFabric1211Yguard') {
     group = 'build'
     description = 'Obfuscate Fabric 1.21.1 output jar with yGuard.'
-    dependsOn(gradle.includedBuild('arch1211').task(':fabric:exportObfClasspath'))
+    dependsOn(':fabric:1.21.1:exportObfClasspath')
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(
@@ -273,7 +559,7 @@ tasks.register('obfuscateFabric1211Yguard') {
 tasks.register('obfuscateNeoForge1211Yguard') {
     group = 'build'
     description = 'Obfuscate NeoForge 1.21.1 output jar with yGuard.'
-    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:exportObfClasspath'))
+    dependsOn(':neoforge:1.21.1:exportObfClasspath')
     dependsOn(tasks.named('archBuild'))
     doLast {
         runYGuardObfuscation(
@@ -295,60 +581,28 @@ tasks.register('obfuscateAllYguard') {
     )
 }
 
-tasks.register('archCheck') {
-    group = 'verification'
-    description = 'Compatibility alias for stoneCheck.'
-    dependsOn(tasks.named('stoneCheck'))
-}
-
-tasks.register('archTest') {
-    group = 'verification'
-    description = 'Compatibility alias for stoneTest.'
-    dependsOn(tasks.named('stoneTest'))
-}
-
-tasks.register('archBuild') {
-    group = 'build'
-    description = 'Compatibility alias for stoneBuild.'
-    dependsOn(tasks.named('stoneBuild'))
-}
-
 tasks.register('archPublish') {
     group = 'publishing'
     description = 'Publish all Architectury artifacts for 1.20.1 and 1.21.1.'
 
-    dependsOn(gradle.includedBuild('arch1201').task(':common:publish'))
-    dependsOn(gradle.includedBuild('arch1201').task(':fabric:publish'))
-    dependsOn(gradle.includedBuild('arch1201').task(':forge:publish'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:publish'))
-    dependsOn(gradle.includedBuild('arch1211').task(':fabric:publish'))
-    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:publish'))
+    dependsOn(':common:1.20.1:publish')
+    dependsOn(':fabric:1.20.1:publish')
+    dependsOn(':forge:1.20.1:publish')
+    dependsOn(':common:1.21.1:publish')
+    dependsOn(':fabric:1.21.1:publish')
+    dependsOn(':neoforge:1.21.1:publish')
 }
 
 tasks.register('archPublishMaven') {
     group = 'publishing'
     description = 'Publish all Architectury artifacts to Cozooo Nexus.'
 
-    dependsOn(gradle.includedBuild('arch1201').task(':common:publishMavenJavaPublicationToCozoooNexusRepository'))
-    dependsOn(gradle.includedBuild('arch1201').task(':fabric:publishMavenJavaPublicationToCozoooNexusRepository'))
-    dependsOn(gradle.includedBuild('arch1201').task(':forge:publishMavenJavaPublicationToCozoooNexusRepository'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:publishMavenJavaPublicationToCozoooNexusRepository'))
-    dependsOn(gradle.includedBuild('arch1211').task(':fabric:publishMavenJavaPublicationToCozoooNexusRepository'))
-    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:publishMavenJavaPublicationToCozoooNexusRepository'))
-}
-
-tasks.named('check') {
-    dependsOn(tasks.named('archCheck'))
-}
-
-tasks.register('test') {
-    group = 'verification'
-    description = 'Run all tests.'
-    dependsOn(tasks.named('archTest'))
-}
-
-tasks.named('build') {
-    dependsOn(tasks.named('archBuild'))
+    dependsOn(':common:1.20.1:publishMavenJavaPublicationToCozoooNexusRepository')
+    dependsOn(':fabric:1.20.1:publishMavenJavaPublicationToCozoooNexusRepository')
+    dependsOn(':forge:1.20.1:publishMavenJavaPublicationToCozoooNexusRepository')
+    dependsOn(':common:1.21.1:publishMavenJavaPublicationToCozoooNexusRepository')
+    dependsOn(':fabric:1.21.1:publishMavenJavaPublicationToCozoooNexusRepository')
+    dependsOn(':neoforge:1.21.1:publishMavenJavaPublicationToCozoooNexusRepository')
 }
 
 tasks.register('publish') {
