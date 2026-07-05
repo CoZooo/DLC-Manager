@@ -1,13 +1,10 @@
 package com.cozooo.dlc_manager.client.pack
 
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
-import net.minecraft.network.chat.Component
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
@@ -36,14 +33,6 @@ class DlcPackMetadata(
 
     fun resolveDescription(lang: String?): String {
         return resolveLocalized(descriptions, lang, "")
-    }
-
-    fun displayNameComponent(lang: String?): Component {
-        return DlcTextFormatter.parse(resolveDisplayName(lang))
-    }
-
-    fun descriptionComponent(lang: String?): Component {
-        return DlcMarkdownRenderer.renderMarkdownComponent(resolveDescription(lang))
     }
 
     companion object {

@@ -4,10 +4,15 @@ plugins {
     id 'com.gradleup.shadow'
 }
 
-def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+def kotlinEnabled = rootProject.architecturyBooleanProperty(project, 'enable_kotlin', false)
+def kotlinExcludeJavaCompile = kotlinEnabled && rootProject.architecturyBooleanProperty(project, 'kotlin_exclude_java_compile', false)
 def kotlinMainDirs = [
     '../../../fabric/src/main/kotlin',
     '../../../fabric/1.21.1/src/main/kotlin'
+]
+def javaMainDirs = [
+    '../../../fabric/src/main/java',
+    '../../../fabric/1.21.1/src/main/java'
 ]
 def moduleProject = project
 
@@ -18,13 +23,12 @@ architectury {
 
 sourceSets {
     main {
-        java.srcDirs = [
-            '../../../fabric/src/main/java',
-            '../../../fabric/1.21.1/src/main/java'
-        ]
+        java.srcDirs = kotlinExcludeJavaCompile ? [] : javaMainDirs
         if (kotlinEnabled) {
             kotlin.srcDirs = kotlinMainDirs
-            java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
+            if (!kotlinExcludeJavaCompile) {
+                java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
+            }
         }
         resources.srcDir '../../../common/src/main/resources'
         resources.srcDir '../../../fabric/1.21.1/src/main/resources'
@@ -33,16 +37,29 @@ sourceSets {
 
 if (kotlinEnabled) {
     tasks.named('compileKotlin').configure {
-        source(sourceSets.main.java)
-    }
-    tasks.named('compileJava').configure {
-        doFirst {
-            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, destinationDirectory.get().asFile)
+        if (!kotlinExcludeJavaCompile) {
+            source(sourceSets.main.java)
         }
     }
-    tasks.named('jar').configure {
-        doFirst {
-            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+    if (kotlinExcludeJavaCompile) {
+        tasks.named('compileJava').configure {
+            enabled = false
+        }
+        tasks.named('jar').configure {
+            doFirst {
+                rootProject.clearMainJavaClasses(moduleProject)
+            }
+        }
+    } else {
+        tasks.named('compileJava').configure {
+            doFirst {
+                rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, destinationDirectory.get().asFile)
+            }
+        }
+        tasks.named('jar').configure {
+            doFirst {
+                rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+            }
         }
     }
 } else {
@@ -58,7 +75,7 @@ if (kotlinEnabled) {
     }
 }
 
-rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs)
+rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs, kotlinExcludeJavaCompile)
 rootProject.configureLocalDevMods(moduleProject)
 rootProject.configureServerRunClientOnlyModExcludes(moduleProject)
 
@@ -109,8 +126,8 @@ processResources {
         pack_format: rootProject.pack_format
     ])
 
-    filesMatching('fabric.mod.json') {
-        expand([
+    doLast { task ->
+        rootProject.expandProcessedFabricModJson(task, [
             mod_id: rootProject.mod_id,
             mod_name: rootProject.mod_name,
             mod_version: rootProject.mod_version,
@@ -122,18 +139,8 @@ processResources {
             fabric_api_version_range: '0.100.0+1.21',
             malilib_version: rootProject.malilib_version,
             pack_format: rootProject.pack_format
-        ])
-        if (kotlinEnabled) {
-            filter { line ->
-                line.contains('"architectury": "*"')
-                    ? line + "\n    \"fabric-language-kotlin\": \">=${rootProject.fabric_language_kotlin_version}\","
-                    : line
-            }
-        }
-    }
-
-    filesMatching('pack.mcmeta') {
-        expand([pack_format: rootProject.pack_format])
+        ], kotlinEnabled, rootProject.fabric_language_kotlin_version)
+        rootProject.expandProcessedResource(task, 'pack.mcmeta', [pack_format: rootProject.pack_format])
     }
 }
 

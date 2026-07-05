@@ -258,6 +258,7 @@ jobs:
           echo "Zip path: ${{ steps.generate.outputs.zip_path }}"
           echo "Added files: ${{ steps.generate.outputs.add_count }}"
           echo "Deleted files: ${{ steps.generate.outputs.del_count }}"
+          echo "Manual operation deletes: ${{ steps.generate.outputs.manual_operation_count }}"
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4

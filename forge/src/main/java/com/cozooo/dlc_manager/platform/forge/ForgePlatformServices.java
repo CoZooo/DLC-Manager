@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.platform.forge;
 
 import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.client.DlcMinecraftSupport;
 import java.nio.file.Path;
 import java.util.Optional;
 import net.minecraft.SharedConstants;
@@ -100,6 +101,11 @@ public final class ForgePlatformServices implements PlatformServices.Provider {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    @Override
+    public boolean isResourcePackSelected(String fileName) {
+        return DlcMinecraftSupport.isResourcePackSelected(fileName);
     }
 
     @Override

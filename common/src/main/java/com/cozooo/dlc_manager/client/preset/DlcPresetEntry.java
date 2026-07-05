@@ -17,15 +17,15 @@ public final class DlcPresetEntry {
     private final boolean alarm;
     private DlcPresetStatus status;
 
-    DlcPresetEntry(String id,
-                   String fileName,
-                   Path sourcePath,
-                   Map<String, String> displayName,
-                   Map<String, String> tip,
-                   List<String> enable,
-                   List<String> conflicts,
-                   boolean alarm,
-                   DlcPresetStatus status) {
+    public DlcPresetEntry(String id,
+                          String fileName,
+                          Path sourcePath,
+                          Map<String, String> displayName,
+                          Map<String, String> tip,
+                          List<String> enable,
+                          List<String> conflicts,
+                          boolean alarm,
+                          DlcPresetStatus status) {
         this.id = id;
         this.fileName = fileName;
         this.sourcePath = sourcePath;
@@ -49,6 +49,14 @@ public final class DlcPresetEntry {
         return sourcePath;
     }
 
+    public Map<String, String> getDisplayNames() {
+        return displayName;
+    }
+
+    public Map<String, String> getTips() {
+        return tip;
+    }
+
     public List<String> getEnable() {
         return enable;
     }
@@ -65,7 +73,7 @@ public final class DlcPresetEntry {
         return alarm;
     }
 
-    void setStatus(DlcPresetStatus status) {
+    public void setStatus(DlcPresetStatus status) {
         this.status = status == null ? DlcPresetStatus.OFF : status;
     }
 

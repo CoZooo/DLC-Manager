@@ -130,6 +130,7 @@ public final class DlcServerDownloadService {
         private final AtomicLong totalBytes = new AtomicLong(0L);
         private final AtomicLong downloadedBytes = new AtomicLong(0L);
         private final Map<String, RemoteItemState> itemByKey = new ConcurrentHashMap<>();
+        private final AtomicBoolean cancelRequested = new AtomicBoolean(false);
         private volatile String statusKey;
         private volatile String error;
 
@@ -144,11 +145,12 @@ public final class DlcServerDownloadService {
             if (!running.compareAndSet(false, true)) {
                 return;
             }
+            cancelRequested.set(false);
             int maxConcurrent = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
             ExecutorService executor = Executors.newFixedThreadPool(maxConcurrent);
             for (RemoteItemState item : items) {
                 executor.submit(() -> {
-                    if (!running.get()) {
+                    if (!running.get() || cancelRequested.get()) {
                         return;
                     }
                     downloadOne(dlcRoot, item);
@@ -174,6 +176,12 @@ public final class DlcServerDownloadService {
                 return;
             }
             try {
+                if (cancelRequested.get()) {
+                    markDone(item, false, "canceled");
+                    success.set(false);
+                    error = "canceled";
+                    return;
+                }
                 String fileName = downloadRemoteEntryWithProgress(item.entry, item, new ProgressListener() {
                     @Override
                     public void onProgress(long downloadedBytes, long totalBytes) {
@@ -185,11 +193,15 @@ public final class DlcServerDownloadService {
                     public void onStatusKey(String statusKey) {
                         RemoteDownloadSession.this.statusKey = statusKey;
                     }
-                });
+                }, cancelRequested::get);
                 if (fileName != null) {
                     updateRemoteFileNameKey(item.entry, fileName);
                 }
                 markDone(item, true, null);
+            } catch (DlcDownloadService.DownloadCanceledException ex) {
+                markDone(item, false, "canceled");
+                success.set(false);
+                error = "canceled";
             } catch (Exception ex) {
                 markDone(item, false, ex.getMessage());
                 success.set(false);
@@ -239,10 +251,7 @@ public final class DlcServerDownloadService {
             status.statusKey = statusKey;
             status.error = error;
             for (RemoteItemState item : items) {
-                DlcServerRemoteItem view = new DlcServerRemoteItem();
-                view.key = item.key;
-                view.name = resolveDisplayName(item.entry, lang);
-                view.displayNames = resolveDisplayNames(item.entry, view.name);
+                DlcServerRemoteItem view = toRemoteItem(item.entry, lang);
                 view.totalBytes = item.totalBytes;
                 view.downloadedBytes = item.downloaded.get();
                 view.done = item.done;
@@ -251,6 +260,12 @@ public final class DlcServerDownloadService {
                 status.items.add(view);
             }
             return status;
+        }
+
+        private void requestCancel() {
+            cancelRequested.set(true);
+            success.set(false);
+            error = "canceled";
         }
     }
 
@@ -465,10 +480,31 @@ public final class DlcServerDownloadService {
     public static List<DlcServerRemoteItem> collectMissingRemoteItems(Path dlcRoot, String lang) {
         List<DlcServerRemoteItem> list = new ArrayList<>();
         for (DlcRemoteEntry entry : collectMissingRemote(dlcRoot)) {
-            DlcServerRemoteItem item = new DlcServerRemoteItem();
-            item.key = selectionKey(entry);
-            item.name = resolveDisplayName(entry, lang);
-            item.displayNames = resolveDisplayNames(entry, item.name);
+            list.add(toRemoteItem(entry, lang));
+        }
+        return list;
+    }
+
+    public static List<DlcServerRemoteItem> collectRemoteItems(Path dlcRoot) {
+        return collectRemoteItems(dlcRoot, null);
+    }
+
+    public static List<DlcServerRemoteItem> collectRemoteItems(Path dlcRoot, String lang) {
+        List<DlcServerRemoteItem> list = new ArrayList<>();
+        if (dlcRoot == null) {
+            return list;
+        }
+        for (DlcRemoteEntry entry : DlcRemoteLoader.load(dlcRoot)) {
+            if (entry == null) {
+                continue;
+            }
+            if (entry.isHidden() && entry.getType() != DlcType.DLC_PACK) {
+                continue;
+            }
+            DlcServerRemoteItem item = toRemoteItem(entry, lang);
+            boolean missing = isRemoteMissing(entry, false);
+            item.done = !missing;
+            item.success = !missing;
             list.add(item);
         }
         return list;
@@ -482,7 +518,7 @@ public final class DlcServerDownloadService {
         List<DlcServerRequiredItem> items = new ArrayList<>();
         List<DlcRequiredEntry> entries = loadAllRequiredEntries(dlcRoot);
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isHidden()) {
+            if (entry == null || entry.isHidden()) {
                 continue;
             }
             if (entry.isUserRemoved()) {
@@ -504,7 +540,6 @@ public final class DlcServerDownloadService {
                     item.dependencies.add(dep.getIdentifier());
                 }
             }
-            item.inList = entry.isInList();
             item.hidden = entry.isHidden();
             item.userRemoved = entry.isUserRemoved();
             item.hasFile = hasFile;
@@ -580,7 +615,7 @@ public final class DlcServerDownloadService {
             }
             List<RequiredItemState> items = new ArrayList<>();
             for (DlcRequiredEntry entry : targets) {
-                if (entry == null || !entry.isInList() || entry.isHidden()) {
+                if (entry == null || entry.isHidden()) {
                     continue;
                 }
                 if (entry.isUserRemoved()) {
@@ -645,6 +680,16 @@ public final class DlcServerDownloadService {
         }
     }
 
+    public static boolean cancelRemoteDownload() {
+        synchronized (REMOTE_LOCK) {
+            if (remoteSession == null || !remoteSession.running.get()) {
+                return false;
+            }
+            remoteSession.requestCancel();
+            return true;
+        }
+    }
+
     public static List<DlcRemoteEntry> collectMissingRemote(Path dlcRoot) {
         List<DlcRemoteEntry> missing = new ArrayList<>();
         if (dlcRoot == null) {
@@ -681,9 +726,6 @@ public final class DlcServerDownloadService {
         if (entry == null) {
             return false;
         }
-        if (!forceInclude && !entry.isInList() && !entry.isHidden()) {
-            return false;
-        }
         Path target = entry.getTargetPath();
         return target == null || !Files.exists(target);
     }
@@ -703,6 +745,56 @@ public final class DlcServerDownloadService {
             key = entry.getFileNameHint();
         }
         return key == null || key.isBlank() ? "unknown" : key;
+    }
+
+    private static String resolveRemoteType(DlcRemoteEntry entry) {
+        if (entry == null || entry.getType() == null) {
+            return "";
+        }
+        return entry.getType().name();
+    }
+
+    private static String resolveRemoteFolder(DlcRemoteEntry entry) {
+        if (entry == null) {
+            return "__root__";
+        }
+        try {
+            Path config = entry.getConfigPath();
+            Path remoteRoot = entry.getDlcRoot() == null ? null : entry.getDlcRoot().resolve("remote");
+            String relative = null;
+            if (config != null && remoteRoot != null && config.startsWith(remoteRoot)) {
+                relative = remoteRoot.relativize(config).toString().replace('\\', '/');
+            }
+            if (relative == null) {
+                Path baseDir = entry.getBaseDir();
+                if (baseDir != null && remoteRoot != null && baseDir.startsWith(remoteRoot)) {
+                    relative = remoteRoot.relativize(baseDir).toString().replace('\\', '/');
+                    return relative.isBlank() ? "__root__" : relative;
+                }
+            }
+            if (relative == null || relative.isBlank()) {
+                return "__root__";
+            }
+            int lastSlash = relative.lastIndexOf('/');
+            if (lastSlash <= 0) {
+                return "__root__";
+            }
+            return relative.substring(0, lastSlash);
+        } catch (Exception ignored) {
+            return "__root__";
+        }
+    }
+
+    private static DlcServerRemoteItem toRemoteItem(DlcRemoteEntry entry, String lang) {
+        DlcServerRemoteItem item = new DlcServerRemoteItem();
+        item.key = selectionKey(entry);
+        item.name = resolveDisplayName(entry, lang);
+        item.type = resolveRemoteType(entry);
+        item.folder = resolveRemoteFolder(entry);
+        item.hidden = entry != null && entry.isHidden();
+        item.displayNames = resolveDisplayNames(entry, item.name);
+        item.tips = resolveTips(entry);
+        return item;
     }
 
     private static String resolveDisplayName(DlcRemoteEntry entry) {
@@ -771,7 +863,7 @@ public final class DlcServerDownloadService {
         }
         List<DlcRequiredEntry> entries = loadRequiredEntries(dlcRoot);
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue;
             }
             String fileName = resolveExistingFileName(entry);
@@ -833,7 +925,7 @@ public final class DlcServerDownloadService {
             return result;
         }
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue;
             }
             String fileName = resolveExistingFileName(entry);
@@ -1056,7 +1148,7 @@ public final class DlcServerDownloadService {
                     continue;
                 }
                 DlcRequiredEntry depEntry = dep.getEntry();
-                if (depEntry != null && depEntry.isInList()) {
+                if (depEntry != null) {
                     depEntry.setIdentifier(id);
                     index.put(id, depEntry);
                     entries.add(depEntry);
@@ -1421,15 +1513,22 @@ public final class DlcServerDownloadService {
     }
 
     private static String downloadRemoteEntry(DlcRemoteEntry entry) throws IOException, InterruptedException {
-        return downloadRemoteEntryWithProgress(entry, null, null);
+        return downloadRemoteEntryWithProgress(entry, null, null, null);
     }
 
     private static String downloadRemoteEntryWithProgress(DlcRemoteEntry entry, RemoteItemState state, ProgressListener listener)
+        throws IOException, InterruptedException {
+        return downloadRemoteEntryWithProgress(entry, state, listener, null);
+    }
+
+    private static String downloadRemoteEntryWithProgress(DlcRemoteEntry entry, RemoteItemState state, ProgressListener listener,
+                                                          DlcDownloadService.CancelChecker cancelChecker)
         throws IOException, InterruptedException {
         if (entry == null) {
             return null;
         }
         DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
+        DlcDownloadService.checkCanceled(cancelChecker);
         precheckDownloadSources(entry, listener);
         IOException lastError = null;
         List<DlcDownloadCandidate> candidates;
@@ -1437,6 +1536,7 @@ public final class DlcServerDownloadService {
             for (DlcDownloadCandidate candidate : candidates) {
                 for (int attempt = 1; attempt <= DlcConfig.getMaxRetryCount(); attempt++) {
                     try {
+                        DlcDownloadService.checkCanceled(cancelChecker);
                         String fileName = candidate.fileNameOverride;
                         boolean fileNameExplicit = entry.isFileNameExplicit()
                             && fileName != null && !fileName.isBlank();
@@ -1469,8 +1569,8 @@ public final class DlcServerDownloadService {
                         }
                         DlcDownloadService.ProgressListener downloadListener = progressListener(listener);
                         Path downloaded = candidate.direct
-                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName, downloadListener, null)
-                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize, downloadListener, null);
+                            ? DlcDownloadService.download(candidate.url, target.getParent(), fileName, downloadListener, cancelChecker)
+                            : DlcDownloadService.downloadKnown(candidate.url, target.getParent(), fileName, candidate.expectedSize, downloadListener, cancelChecker);
                         verifyDownloadedFile(downloaded, candidate);
                         String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
                         entry.setFileNameHint(actualName);
@@ -1699,7 +1799,6 @@ public final class DlcServerDownloadService {
         } else {
             ordered.addProperty("file_name", "");
         }
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true));
         JsonElement deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
@@ -1812,7 +1911,6 @@ public final class DlcServerDownloadService {
             ordered.addProperty("file_name", "");
         }
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"));
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         boolean userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false);
         if (userRemoved) {

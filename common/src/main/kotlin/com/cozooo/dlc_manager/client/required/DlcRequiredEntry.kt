@@ -23,7 +23,6 @@ class DlcRequiredEntry(
     private var modrinthVersionId: String? = null
     private var curseforgeProjectId: String? = null
     private var curseforgeFileId: String? = null
-    private var inList = true
     private var hidden = false
     private var userRemoved = false
     private var appliedTargetRaw: String? = null
@@ -161,12 +160,6 @@ class DlcRequiredEntry(
 
     fun getDownloadPriorityList(): List<String> {
         return parsePriority(downloadPriority)
-    }
-
-    fun isInList(): Boolean = inList
-
-    fun setInList(inList: Boolean) {
-        this.inList = inList
     }
 
     fun isHidden(): Boolean = hidden

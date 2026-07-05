@@ -20,20 +20,41 @@ class DlcServerItem {
     var enabled: Boolean = false
 
     @JvmField
-    var displayNames: Map<String, String>? = null
+    var baselineEnabled: Boolean? = null
 
     @JvmField
-    var tips: Map<String, String>? = null
+    var displayNames: Map<String, String> = emptyMap()
 
     @JvmField
-    var dependencies: List<String>? = null
+    var tips: Map<String, String> = emptyMap()
 
     @JvmField
-    var conflicts: List<String>? = null
+    var dependencies: List<String> = emptyList()
 
     @JvmField
-    var allowEnableByAll: Boolean = false
+    var conflicts: List<String> = emptyList()
+
+    @JvmField
+    var allowEnableByAll: Boolean = true
 
     @JvmField
     var alarm: Boolean = false
+
+    @JvmField
+    var hidden: Boolean = false
+
+    @JvmField
+    var configType: Boolean = false
+
+    @JvmField
+    var appliedTargetRaw: String? = null
+
+    @JvmField
+    var redirectUrl: String? = null
+
+    @JvmField
+    var presetBlocked: Boolean = false
+
+    @JvmField
+    var presetBlockers: List<String> = emptyList()
 }

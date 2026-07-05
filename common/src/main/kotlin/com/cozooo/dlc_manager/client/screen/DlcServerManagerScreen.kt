@@ -714,7 +714,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         for (item in items) {
             val identifier = item.identifier
             val dependencies = item.dependencies
-            if (identifier == null || dependencies == null || dependencies.isEmpty()) {
+            if (identifier == null || dependencies.isEmpty()) {
                 continue
             }
             for (dep in dependencies) {
@@ -901,7 +901,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
             return ""
         }
         val displayNames = item.displayNames
-        if (displayNames == null || displayNames.isEmpty()) {
+        if (displayNames.isEmpty()) {
             return item.name ?: ""
         }
         val lang = CrossPlatformRuntime.languageCode()
@@ -915,13 +915,13 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     }
 
     private fun renderItemTooltip(guiGraphics: GuiGraphics, item: DlcServerItem?) {
-        if (item == null || item.tips == null || item.tips!!.isEmpty()) {
+        if (item == null || item.tips.isEmpty()) {
             return
         }
         val lang = CrossPlatformRuntime.languageCode()
-        var tip = item.tips!![lang]
+        var tip = item.tips[lang]
         if (tip.isNullOrBlank()) {
-            tip = item.tips!!.getOrDefault("en_us", "")
+            tip = item.tips.getOrDefault("en_us", "")
         }
         if (tip.isNullOrBlank()) {
             return

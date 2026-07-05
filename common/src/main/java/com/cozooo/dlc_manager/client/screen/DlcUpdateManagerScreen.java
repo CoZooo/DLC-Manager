@@ -20,6 +20,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -542,7 +543,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
             return;
         }
         if (result == null || !result.isSuccess()) {
-            Component component = DlcUpdateService.toFailureComponent(result);
+            Component component = DlcMessageAdapter.toFailureComponent(result);
             Minecraft.getInstance().setScreen(new DlcUpdateResultScreen(this, false, component));
             return;
         }
@@ -643,7 +644,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
         DlcUpdateService.ImportValidationResult validation = DlcUpdateService.validateImportPackage(picked);
         if (!validation.isValid()) {
             showToast(Component.translatable("dlc_manager.update.manager_title"),
-                DlcUpdateService.toImportValidationComponent(validation));
+                DlcMessageAdapter.toImportValidationComponent(validation));
             return;
         }
         if (!DlcUpdateService.importUpdatePackage(picked)) {
@@ -699,7 +700,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
                 }
                 if (finalResult != null && finalResult.error != null && !finalResult.error.isBlank()) {
                     showToast(Component.translatable("dlc_manager.update.manager_title"),
-                        DlcPackReleaseUpdateService.toCheckFailureComponent(finalResult.error));
+                        DlcMessageAdapter.toCheckFailureComponent(finalResult.error));
                     return;
                 }
                 showToast(Component.translatable("dlc_manager.update.manager_title"),

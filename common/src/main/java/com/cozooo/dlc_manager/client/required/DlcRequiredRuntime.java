@@ -127,7 +127,7 @@ public final class DlcRequiredRuntime {
                     continue;
                 }
                 DlcRequiredEntry depEntry = dep.getEntry();
-                if (depEntry != null && depEntry.isInList()) {
+                if (depEntry != null) {
                     depEntry.setIdentifier(id);
                     index.put(id, depEntry);
                     entries.add(depEntry);
@@ -232,7 +232,7 @@ public final class DlcRequiredRuntime {
     public static boolean hasMissingDownloads() {
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -261,7 +261,7 @@ public final class DlcRequiredRuntime {
     public static boolean hasMissingDownloadsForPrompt() {
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -290,7 +290,7 @@ public final class DlcRequiredRuntime {
     public static boolean hasMissingOrApply() {
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -317,7 +317,7 @@ public final class DlcRequiredRuntime {
         List<DlcRequiredEntry> missing = new ArrayList<>();
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -349,7 +349,7 @@ public final class DlcRequiredRuntime {
         List<DlcRequiredEntry> missing = new ArrayList<>();
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList() || entry.isUserRemoved()) {
+            if (entry == null || entry.isUserRemoved()) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -381,7 +381,7 @@ public final class DlcRequiredRuntime {
         List<DlcRequiredEntry> list = new ArrayList<>();
         List<DlcRequiredEntry> entries = loadAllEntries();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = normalizeFileName(entry.getRequiredFileName());
@@ -417,7 +417,7 @@ public final class DlcRequiredRuntime {
     }
 
     public static boolean entryNeedsApply(DlcRequiredEntry entry) {
-        if (entry == null || !entry.isInList()) {
+        if (entry == null) {
             return false;
         }
         String fileName = normalizeFileName(entry.getResolvedFileName());
@@ -662,7 +662,6 @@ public final class DlcRequiredRuntime {
         String applied = getString(obj, "appliedTarget");
         ordered.addProperty("appliedTarget", applied == null ? "" : applied);
 
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
         boolean userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false);
         if (userRemoved) {

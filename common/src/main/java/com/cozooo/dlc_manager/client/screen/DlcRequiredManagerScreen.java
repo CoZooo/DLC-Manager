@@ -1,11 +1,9 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
-import com.cozooo.dlc_manager.client.download.DlcDownloadService;
-import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.required.DlcRequiredDependency;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
+import com.cozooo.dlc_manager.client.required.DlcRequiredService;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
@@ -31,7 +29,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.nio.file.StandardCopyOption;
 
 public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
     private static final ExecutorService INSTALL_EXECUTOR = Executors.newFixedThreadPool(3, r -> {
@@ -212,7 +209,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
         dependents = DlcRequiredManager.buildDependents(allEntries);
         visibleEntries.clear();
         for (DlcRequiredEntry entry : allEntries) {
-            if (entry == null || entry.isHidden() || !entry.isInList()) {
+            if (entry == null || entry.isHidden()) {
                 continue;
             }
             visibleEntries.add(entry);
@@ -222,7 +219,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
 
     private void autoCleanupHidden() {
         for (DlcRequiredEntry entry : allEntries) {
-            if (entry == null || !entry.isHidden() || !entry.isInList()) {
+            if (entry == null || !entry.isHidden()) {
                 continue;
             }
             String id = entry.getIdentifier();
@@ -734,7 +731,7 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
         List<DlcRequiredEntry> unique = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || !entry.isInList()) {
+            if (entry == null) {
                 continue;
             }
             String id = entry.getIdentifier();
@@ -751,25 +748,12 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
             boolean applied = isApplied(entry);
             DlcRequiredRuntimeState.getBaseline(id, applied);
             updateProgress(state, index, 0f, total);
-            String fileName = resolveExistingFileName(entry);
-            if (fileName == null || fileName.isBlank()) {
-                fileName = resolveFileName(entry);
-            }
-            if (fileName == null || fileName.isBlank()) {
+            if (!DlcRequiredService.isDownloaded(entry)) {
                 downloadEntry(entry, state, index, total);
-                fileName = entry.getResolvedFileName();
-            } else {
-                entry.setResolvedFileName(fileName);
-                Path required = entry.resolveRequiredPath(fileName);
-                if (required == null || !Files.exists(required)) {
-                    downloadEntry(entry, state, index, total);
-                }
             }
-            if (applyEntry(entry)) {
+            if (DlcRequiredService.installOne(entry)) {
                 didApply = true;
             }
-            DlcRequiredManager.updateUserRemoved(entry, false);
-            DlcRequiredRuntimeState.setOverride(id, true);
             index++;
             updateProgress(state, index, 0f, total);
         }
@@ -781,111 +765,13 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
         if (entry == null) {
             return;
         }
-        DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
-        IOException lastError = null;
-        List<DlcDownloadCandidate> candidates;
-        while (!(candidates = resolver.next()).isEmpty()) {
-            for (DlcDownloadCandidate candidate : candidates) {
-            try {
-                String fileName = DlcDownloadUtil.sanitizeFileName(entry.getResolvedFileName());
-                if (fileName == null && candidate.fileNameOverride != null) {
-                    fileName = DlcDownloadUtil.sanitizeFileName(candidate.fileNameOverride);
-                }
-                if (fileName == null && candidate.direct) {
-                    try {
-                        fileName = DlcDownloadService.suggestFileName(candidate.url);
-                    } catch (IOException ignored) {
-                    }
-                }
-                if (fileName == null) {
-                    fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
-                }
-                Path target = entry.resolveRequiredPath(fileName);
-                if (target == null) {
-                    throw new IOException("invalid target path");
-                }
-                Files.createDirectories(target.getParent());
-                if (Files.exists(target)) {
-                    entry.setResolvedFileName(fileName);
-                    DlcRequiredManager.ensureFileNameKey(entry, fileName);
-                    return;
-                }
-                Path downloaded = candidate.direct
-                    ? DlcDownloadService.download(
-                        candidate.url,
-                        target.getParent(),
-                        fileName,
-                        (done, total) -> {
-                            if (total > 0) {
-                                float fraction = Math.min(1f, (float) done / (float) total);
-                                updateProgress(state, stepIndex, fraction, totalSteps);
-                            }
-                        },
-                        null
-                    )
-                    : DlcDownloadService.downloadKnown(
-                        candidate.url,
-                        target.getParent(),
-                        fileName,
-                        candidate.expectedSize,
-                        (done, total) -> {
-                            if (total > 0) {
-                                float fraction = Math.min(1f, (float) done / (float) total);
-                                updateProgress(state, stepIndex, fraction, totalSteps);
-                            }
-                        },
-                        null
-                    );
-                String actualName = downloaded.getFileName() == null ? fileName : downloaded.getFileName().toString();
-                entry.setResolvedFileName(actualName);
-                DlcRequiredManager.updateFileNameKey(entry, actualName);
-                updateProgress(state, stepIndex + 1, 0f, totalSteps);
-                return;
-            } catch (IOException ex) {
-                lastError = ex;
+        DlcRequiredService.downloadOne(entry, (done, total) -> {
+            if (total > 0) {
+                float fraction = Math.min(1f, (float) done / (float) total);
+                updateProgress(state, stepIndex, fraction, totalSteps);
             }
-            }
-        }
-        if (lastError == null) {
-            lastError = resolver.lastError();
-        }
-        if (lastError != null) {
-            throw lastError;
-        }
-        throw new IOException("missing download url");
-    }
-
-    private boolean applyEntry(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return false;
-        }
-        String fileName = entry.getResolvedFileName();
-        if (fileName == null || fileName.isBlank()) {
-            return false;
-        }
-        Path source = entry.resolveRequiredPath(fileName);
-        if (source == null || !Files.exists(source)) {
-            return false;
-        }
-        boolean applied = false;
-        if (entry.resolveAppliedTargets().isEmpty()) {
-            return true;
-        }
-        for (Path targetDir : entry.resolveAppliedTargets()) {
-            Path target = resolveTarget(targetDir, fileName);
-            if (target == null) {
-                continue;
-            }
-            try {
-                Files.createDirectories(target.getParent());
-                if (!Files.exists(target)) {
-                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-                    applied = true;
-                }
-            } catch (IOException ignored) {
-            }
-        }
-        return applied;
+        }, null);
+        updateProgress(state, stepIndex + 1, 0f, totalSteps);
     }
 
     private void updateProgress(InstallState state, int stepIndex, float fraction, int totalSteps) {
@@ -894,33 +780,6 @@ public class DlcRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
         }
         float progress = (stepIndex + Math.max(0f, Math.min(1f, fraction))) / (float) totalSteps;
         state.progress = Math.max(0f, Math.min(1f, progress));
-    }
-
-    private String resolveFileName(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return null;
-        }
-        DlcDownloadCandidate.Resolver resolver = DlcDownloadCandidate.resolver(entry);
-        try {
-            List<DlcDownloadCandidate> candidates;
-            while (!(candidates = resolver.next()).isEmpty()) {
-                for (DlcDownloadCandidate candidate : candidates) {
-                    String name = candidate.fileNameOverride;
-                    if (!DlcDownloadUtil.isLikelyFileName(name) && candidate.direct) {
-                        name = DlcDownloadUtil.extractFileNameFromUrl(candidate.url);
-                    }
-                    name = DlcDownloadUtil.sanitizeFileName(name);
-                    if (DlcDownloadUtil.isLikelyFileName(name)) {
-                        return name;
-                    }
-                }
-            }
-        } catch (IOException | InterruptedException ignored) {
-            if (Thread.currentThread().isInterrupted()) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        return null;
     }
 
     private void renderTooltip(GuiGraphics guiGraphics, DlcRequiredEntry entry, int mouseX, int mouseY) {

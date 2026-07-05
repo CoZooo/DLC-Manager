@@ -364,7 +364,7 @@
   "dlc_manager.update.restart": "请重启游戏以应用更新。",
   "dlc_manager.server.update.restart": "请重启服务器以应用更新。",
   "dlc_manager.update.missing_title": "文件缺失",
-  "dlc_manager.update.missing_desc": "部分需要修改的文件不存在。\n请先进入一次世界，或强制更新继续。",
+  "dlc_manager.update.missing_desc": "部分需要修改的文件不存在。\n请手动检查文件，或强制继续更新。",
   "dlc_manager.update.force": "强制更新",
   "dlc_manager.update.manager_title": "更新管理器",
   "dlc_manager.update.import": "导入更新包",

@@ -7,22 +7,26 @@ architectury {
     common(rootProject.enabled_platforms.split(','))
 }
 
-def kotlinEnabled = (rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()
+def kotlinEnabled = rootProject.architecturyBooleanProperty(project, 'enable_kotlin', false)
+def kotlinExcludeJavaCompile = kotlinEnabled && rootProject.architecturyBooleanProperty(project, 'kotlin_exclude_java_compile', false)
 def kotlinMainDirs = [
     '../../../common/src/main/kotlin',
     '../../../common/1.20.1/src/main/kotlin'
+]
+def javaMainDirs = [
+    '../../../common/src/main/java',
+    '../../../common/1.20.1/src/main/java'
 ]
 def moduleProject = project
 
 sourceSets {
     main {
-        java.srcDirs = [
-            '../../../common/src/main/java',
-            '../../../common/1.20.1/src/main/java'
-        ]
+        java.srcDirs = kotlinExcludeJavaCompile ? [] : javaMainDirs
         if (kotlinEnabled) {
             kotlin.srcDirs = kotlinMainDirs
-            java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
+            if (!kotlinExcludeJavaCompile) {
+                java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
+            }
         }
         resources.srcDirs = [
             '../../../common/src/main/resources',
@@ -43,16 +47,29 @@ sourceSets {
 
 if (kotlinEnabled) {
     tasks.named('compileKotlin').configure {
-        source(sourceSets.main.java)
-    }
-    tasks.named('compileJava').configure {
-        doFirst {
-            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, destinationDirectory.get().asFile)
+        if (!kotlinExcludeJavaCompile) {
+            source(sourceSets.main.java)
         }
     }
-    tasks.named('jar').configure {
-        doFirst {
-            rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+    if (kotlinExcludeJavaCompile) {
+        tasks.named('compileJava').configure {
+            enabled = false
+        }
+        tasks.named('jar').configure {
+            doFirst {
+                rootProject.clearMainJavaClasses(moduleProject)
+            }
+        }
+    } else {
+        tasks.named('compileJava').configure {
+            doFirst {
+                rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, destinationDirectory.get().asFile)
+            }
+        }
+        tasks.named('jar').configure {
+            doFirst {
+                rootProject.deleteJavaClassesReplacedByKotlin(moduleProject, kotlinMainDirs, tasks.named('compileJava').get().destinationDirectory.get().asFile)
+            }
         }
     }
 } else {
@@ -68,14 +85,14 @@ if (kotlinEnabled) {
     }
 }
 
-rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs)
+rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs, kotlinExcludeJavaCompile)
 
 dependencies {
     modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
     modImplementation "dev.architectury:architectury:${rootProject.architectury_api_version}"
     modImplementation "maven.modrinth:malilib:${rootProject.malilib_version}"
 
-    implementation "com.google.code.gson:gson:2.10.1"
+    implementation "com.google.code.gson:gson:2.10"
     implementation "org.commonmark:commonmark:0.21.0"
     implementation "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
     implementation "com.cozooo.dlc_manager:dlc-fileops-helper:${file_ops_helper_version}"

@@ -226,6 +226,12 @@ public final class DlcDownloadService {
         }
     }
 
+    public static void checkCanceled(CancelChecker cancelChecker) throws DownloadCanceledException {
+        if (cancelChecker != null && cancelChecker.isCanceled()) {
+            throw new DownloadCanceledException("canceled");
+        }
+    }
+
     private static MirrorPlan mirrorPlan(String url, String fileName, long totalBytes) {
         if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
             return null;

@@ -29,7 +29,7 @@ public class DlcConfig {
     public static final boolean DEFAULT_CONFIG_BUTTON_SHOWN = false;
     public static final boolean DEFAULT_U_BUTTON_SHOWN = true;
     public static final boolean DEFAULT_UPDATE_MANAGER_ON = true;
-    public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = true;
+    public static final boolean DEFAULT_SELF_UPDATE_AUTO_CHECK_ON = false;
     public static final boolean DEFAULT_PRESET_FUNC_ON = true;
     public static final boolean DEFAULT_PACK_FUNC_ON = true;
     public static final boolean DEFAULT_P_BUTTON_SHOWN = true;
@@ -1433,9 +1433,6 @@ public class DlcConfig {
                 if (key == null || key.isBlank()) {
                     continue;
                 }
-                if ("isShownInList".equalsIgnoreCase(key) || "isInList".equalsIgnoreCase(key)) {
-                    continue;
-                }
                 out.add(key, entry.getValue());
             }
         }
@@ -1456,12 +1453,6 @@ public class DlcConfig {
 
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) {
             out.addProperty("type", "others");
-        }
-        if (!DlcDcConfigIO.hasIgnoreCase(out, "isEnabled")) {
-            boolean legacyEnabled = DlcDcConfigIO.hasIgnoreCase(input, "isInList")
-                ? DlcDcConfigIO.getBooleanIgnoreCase(input, "isInList", true)
-                : DlcDcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true);
-            out.addProperty("isEnabled", legacyEnabled);
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) {
             out.addProperty("isHidden", false);

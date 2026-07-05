@@ -4,6 +4,7 @@ import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
@@ -157,7 +158,7 @@ class DlcUpdateMissingScreen(
 
     private fun handleResult(result: UpdateApplyResult?) {
         if (result?.isSuccess != true) {
-            val component = DlcUpdateService.toFailureComponent(result)
+            val component = DlcMessageAdapter.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, component))
             return
         }

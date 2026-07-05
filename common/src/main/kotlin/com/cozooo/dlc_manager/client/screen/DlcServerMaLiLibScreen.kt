@@ -795,13 +795,11 @@ class DlcServerMaLiLibScreen(
             }
             plannedIds.add(currentId)
             val dependencies = current.dependencies
-            if (dependencies != null) {
-                for (depId in dependencies) {
-                    if (depId.isNullOrBlank()) continue
-                    val dep = resolveDependencyItem(depId)
-                    if (dep != null) {
-                        queue.add(dep)
-                    }
+            for (depId in dependencies) {
+                if (depId.isNullOrBlank()) continue
+                val dep = resolveDependencyItem(depId)
+                if (dep != null) {
+                    queue.add(dep)
                 }
             }
         }

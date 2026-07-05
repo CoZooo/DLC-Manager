@@ -11,9 +11,10 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class DlcFileOpsHelperClient {
-    static {
-        FileOpsHelperBootstrap.initialize(DlcPaths.gameDir(), DlcPaths.tmpRoot());
-    }
+    private static final Object INIT_LOCK = new Object();
+    private static volatile boolean initialized;
+    private static volatile Path initializedGameDir;
+    private static volatile Path initializedTmpRoot;
 
     private DlcFileOpsHelperClient() {
     }
@@ -42,7 +43,7 @@ public final class DlcFileOpsHelperClient {
         if (!shouldUseHelper()) {
             return HelperState.NOT_REQUIRED;
         }
-        return isApiSupported() ? HelperState.READY : HelperState.UNSUPPORTED;
+        return ensureInitialized() && isApiSupported() ? HelperState.READY : HelperState.UNSUPPORTED;
     }
 
     public static FileOpResult scheduleDelete(Path path) {
@@ -172,10 +173,58 @@ public final class DlcFileOpsHelperClient {
     }
 
     private static boolean isApiSupported() {
+        if (!ensureInitialized()) {
+            return false;
+        }
         try {
             return FileOpsHelperApi.isSupported();
         } catch (Throwable ignored) {
             return false;
+        }
+    }
+
+    private static boolean ensureInitialized() {
+        Path gameDir;
+        Path tmpRoot;
+        try {
+            gameDir = DlcPaths.gameDir();
+            tmpRoot = DlcPaths.tmpRoot();
+        } catch (Throwable throwable) {
+            return false;
+        }
+        if (initialized && samePath(initializedGameDir, gameDir) && samePath(initializedTmpRoot, tmpRoot)) {
+            return true;
+        }
+        synchronized (INIT_LOCK) {
+            if (initialized && samePath(initializedGameDir, gameDir) && samePath(initializedTmpRoot, tmpRoot)) {
+                return true;
+            }
+            try {
+                FileOpsHelperBootstrap.initialize(gameDir, tmpRoot);
+                initialized = true;
+                initializedGameDir = gameDir;
+                initializedTmpRoot = tmpRoot;
+                return true;
+            } catch (Throwable throwable) {
+                initialized = false;
+                initializedGameDir = gameDir;
+                initializedTmpRoot = tmpRoot;
+                return false;
+            }
+        }
+    }
+
+    private static boolean samePath(Path first, Path second) {
+        if (first == second) {
+            return true;
+        }
+        if (first == null || second == null) {
+            return false;
+        }
+        try {
+            return first.toAbsolutePath().normalize().equals(second.toAbsolutePath().normalize());
+        } catch (Throwable ignored) {
+            return first.equals(second);
         }
     }
 

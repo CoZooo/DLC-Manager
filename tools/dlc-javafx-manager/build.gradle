@@ -1,0 +1,340 @@
+plugins {
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+def rootGradleProperty = { String key ->
+    def value = findProperty(key)
+    if (value != null) {
+        return value
+    }
+    def rootPropsFile = file('../../gradle.properties')
+    if (rootPropsFile.exists()) {
+        def rootProps = new Properties()
+        rootPropsFile.withInputStream { rootProps.load(it) }
+        return rootProps.getProperty(key)
+    }
+    return null
+}
+
+def fileOpsHelperVersion = (rootGradleProperty('file_ops_helper_version') ?: '').toString()
+def appVersion = (rootGradleProperty('mod_version') ?: '0.0.0').toString()
+fileOpsHelperVersion = (fileOpsHelperVersion ?: '').toString()
+version = appVersion
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+def reusedCommonJavaFiles = [
+    'com/cozooo/dlc_manager/client/core/DlcZipUtil.java',
+    'com/cozooo/dlc_manager/client/download/DlcCurseForgeClient.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadCandidate.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadHeaderUtil.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadService.java',
+    'com/cozooo/dlc_manager/client/download/DlcDownloadUtil.java',
+    'com/cozooo/dlc_manager/client/download/DlcModrinthClient.java',
+    'com/cozooo/dlc_manager/client/download/DlcSharedService.java',
+    'com/cozooo/dlc_manager/client/helper/DlcFileOpsHelperClient.java',
+    'com/cozooo/dlc_manager/client/notice/DlcNoticeConfig.java',
+    'com/cozooo/dlc_manager/client/notice/DlcNoticeRuntime.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackArchive.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackCFResolver.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackDcFiles.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackInstallPlan.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackInstaller.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackManifest.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackMeta.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackMetadata.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackOrder.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackPackage.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackRecovery.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackTransaction.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackUpdateCoordinator.java',
+    'com/cozooo/dlc_manager/client/pack/DlcPackUpdateGuard.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetEntry.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetLoader.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetRuntimeState.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetStateStore.java',
+    'com/cozooo/dlc_manager/client/preset/DlcPresetStatus.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRedirectEntry.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRedirectLoader.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteEntry.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteService.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteLoader.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteMarker.java',
+    'com/cozooo/dlc_manager/client/remote/DlcRemoteRuntime.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredDependency.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredEntry.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredService.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredLoader.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredRuntime.java',
+    'com/cozooo/dlc_manager/client/required/DlcRequiredRuntimeState.java',
+    'com/cozooo/dlc_manager/client/selfupdate/DlcSelfUpdateService.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerCache.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerConnection.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerEntry.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerFileEntry.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerPackApplyStatus.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerPackInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerPresetItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRedirectItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRconConfig.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRconInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRemoteItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRemoteStatus.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRequiredItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRequiredProgressItem.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerRequiredStatus.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerSession.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerUpdateInfo.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerUpdateState.java',
+    'com/cozooo/dlc_manager/client/server/DlcServerVersionUtil.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateDcParser.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateManifest.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateMeta.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdatePackage.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateRowPlanner.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateRuntime.java',
+    'com/cozooo/dlc_manager/client/update/DlcPackReleaseUpdateService.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateSkipStore.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateService.java',
+    'com/cozooo/dlc_manager/client/update/DlcUpdateVersion.java',
+    'com/cozooo/dlc_manager/core/DlcApplier.java',
+    'com/cozooo/dlc_manager/core/DlcApplyMode.java',
+    'com/cozooo/dlc_manager/core/DlcConfig.java',
+    'com/cozooo/dlc_manager/core/DlcConfigTypeSupport.java',
+    'com/cozooo/dlc_manager/core/DlcDcConfigIO.java',
+    'com/cozooo/dlc_manager/core/DlcDcFormatUtil.java',
+    'com/cozooo/dlc_manager/core/DlcItem.java',
+    'com/cozooo/dlc_manager/core/DlcPathUtil.java',
+    'com/cozooo/dlc_manager/core/DlcPaths.java',
+    'com/cozooo/dlc_manager/core/DlcScanner.java',
+    'com/cozooo/dlc_manager/core/DlcRuntimeState.java',
+    'com/cozooo/dlc_manager/core/DlcStateConfig.java',
+    'com/cozooo/dlc_manager/core/DlcTmpPaths.java',
+    'com/cozooo/dlc_manager/core/DlcTooltipLoader.java',
+    'com/cozooo/dlc_manager/core/DlcType.java',
+    'com/cozooo/dlc_manager/platform/CrossPlatformRuntime.java',
+    'com/cozooo/dlc_manager/platform/PlatformServices.java'
+]
+
+sourceSets {
+    main {
+        java {
+            exclude reusedCommonJavaFiles
+        }
+    }
+    test {
+        java {
+        }
+    }
+}
+
+javafx {
+    version = '21'
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.graphics']
+}
+
+def javafxRuntimeVersion = '21'
+def javafxRuntimeModules = ['javafx-base', 'javafx-graphics', 'javafx-controls', 'javafx-fxml']
+def javafxFatJarPlatforms = [
+    win        : [javafxClassifier: 'win', archiveClassifier: 'windows', label: 'Windows'],
+    linux      : [javafxClassifier: 'linux', archiveClassifier: 'linux', label: 'Linux x64'],
+    linuxAarch64: [javafxClassifier: 'linux-aarch64', archiveClassifier: 'linux-aarch64', label: 'Linux aarch64'],
+    macX64     : [javafxClassifier: 'mac', archiveClassifier: 'mac-x64', label: 'macOS x64'],
+    macAarch64 : [javafxClassifier: 'mac-aarch64', archiveClassifier: 'mac-aarch64', label: 'macOS aarch64']
+]
+
+javafxFatJarPlatforms.each { platformName, platform ->
+    configurations.create("javafx${platformName.capitalize()}Runtime") {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'org.commonmark:commonmark:0.21.0'
+    implementation 'org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0'
+    implementation "com.cozooo.dlc_manager:dlc-fileops-helper:${fileOpsHelperVersion}"
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    javafxFatJarPlatforms.each { platformName, platform ->
+        javafxRuntimeModules.each { moduleName ->
+            add("javafx${platformName.capitalize()}Runtime", "org.openjfx:${moduleName}:${javafxRuntimeVersion}:${platform.javafxClassifier}") {
+                transitive = false
+            }
+        }
+    }
+}
+
+application {
+    mainClass = 'com.cozooo.dlc_manager.app.DlcFxLauncher'
+}
+
+distributions {
+    main {
+        contents {
+            from('README.md') {
+                into ''
+            }
+        }
+    }
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.named('compileJava', JavaCompile) {
+    source += fileTree('../../common/src/main/java') {
+        include reusedCommonJavaFiles
+    }
+}
+
+tasks.named('jar') {
+    exclude('rebel.xml')
+}
+
+def nonJavaFxRuntimeClasspath = {
+    configurations.runtimeClasspath.findAll { file ->
+        !file.name.startsWith('javafx-')
+    }
+}
+
+def registerPlatformFatJar = { String taskName, String classifier, String label, Configuration javafxRuntime ->
+    tasks.register(taskName, Jar) {
+        group = 'distribution'
+        description = "Build a runnable fat jar for ${label}."
+        dependsOn tasks.named('classes')
+        archiveBaseName = 'DLC-Manager'
+        archiveVersion = appVersion
+        archiveClassifier = classifier
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        zip64 = true
+
+        manifest {
+            attributes(
+                'Main-Class': application.mainClass.get(),
+                'Implementation-Title': 'DLC Manager',
+                'Implementation-Version': appVersion
+            )
+        }
+
+        from sourceSets.main.output
+        from {
+            (nonJavaFxRuntimeClasspath() + javafxRuntime.files).collect { file ->
+                file.isDirectory() ? file : zipTree(file)
+            }
+        }
+        exclude('rebel.xml')
+        exclude('META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+    }
+}
+
+def appJvmArgs = [
+    '-Dfile.encoding=UTF-8'
+]
+if (Runtime.version().feature() >= 24) {
+    appJvmArgs += '--enable-native-access=javafx.graphics'
+    appJvmArgs += '--sun-misc-unsafe-memory-access=allow'
+}
+
+tasks.named('run') {
+    jvmArgs(appJvmArgs)
+}
+
+def jpackageBin() {
+    def home = System.getenv('JAVA_HOME') ?: System.getProperty('java.home')
+    def cmd = file("${home}/bin/jpackage")
+    if (!cmd.exists()) {
+        cmd = file("${home}/bin/jpackage.exe")
+    }
+    return cmd
+}
+
+def appIconPngFile = file('src/main/resources/assets/dlc_manager/textures/gui/icon.png')
+def appIconIcnsFile = file('src/main/resources/assets/dlc_manager/textures/gui/icon.icns')
+def appIconIcoFile = file('src/main/resources/assets/dlc_manager/textures/gui/icon.ico')
+def appDisplayName = 'DLC Manager'
+def appIdentifier = 'com.cozooo.dlcmanager'
+
+javafxFatJarPlatforms.each { platformName, platform ->
+    registerPlatformFatJar(
+        "jar${platformName.capitalize()}",
+        platform.archiveClassifier.toString(),
+        platform.label.toString(),
+        configurations.named("javafx${platformName.capitalize()}Runtime").get()
+    )
+}
+
+tasks.register('jarAll') {
+    group = 'distribution'
+    description = 'Build runnable fat jars for all supported JavaFX platforms.'
+    dependsOn javafxFatJarPlatforms.keySet().collect { platformName ->
+        tasks.named("jar${platformName.capitalize()}")
+    }
+}
+
+tasks.register('jpackageImage') {
+    group = 'distribution'
+    description = 'Build a native application image with bundled JRE.'
+    dependsOn 'installDist'
+    def outputDir = file("${buildDir}/native-image")
+    outputs.dir outputDir
+    doLast {
+        outputDir.deleteDir()
+        def cmd = jpackageBin()
+        if (!cmd.exists()) {
+            throw new GradleException("jpackage not found. Set JAVA_HOME to JDK 17+.")
+        }
+        def appDir = file("${buildDir}/install/${project.name}")
+        def mainJarName = tasks.named('jar', Jar).get().archiveFileName.get()
+        exec {
+            executable cmd.absolutePath
+            args '--name', appDisplayName
+            args '--input', "${appDir}/lib".toString()
+            args '--main-jar', mainJarName
+            args '--main-class', application.mainClass.get()
+            args '--app-version', appVersion
+            args '--type', 'app-image'
+            args '--dest', outputDir.absolutePath
+            def osName = System.getProperty('os.name', '').toLowerCase(Locale.ROOT)
+            def isMacOs = osName.contains('mac')
+            def packageIconFile = appIconPngFile
+            if (isMacOs && appIconIcnsFile.exists()) {
+                packageIconFile = appIconIcnsFile
+            } else if (osName.contains('windows') && appIconIcoFile.exists()) {
+                packageIconFile = appIconIcoFile
+            }
+            if (packageIconFile.exists()) {
+                args '--icon', packageIconFile.absolutePath
+            }
+            args '--module-path', "${appDir}/lib".toString()
+            args '--add-modules', 'javafx.controls,javafx.fxml,javafx.graphics,java.desktop'
+            appJvmArgs.each { option ->
+                args '--java-options', option
+            }
+            if (isMacOs) {
+                args '--mac-package-identifier', appIdentifier
+                args '--mac-package-name', appDisplayName
+            }
+            args '--verbose'
+        }
+    }
+}
+
+tasks.register('jpackageZip', Zip) {
+    group = 'distribution'
+    description = 'Zip the native application image.'
+    dependsOn 'jpackageImage'
+    archiveBaseName = "${project.name}-native"
+    from "${buildDir}/native-image"
+    destinationDirectory = file("${buildDir}/native-distributions")
+}

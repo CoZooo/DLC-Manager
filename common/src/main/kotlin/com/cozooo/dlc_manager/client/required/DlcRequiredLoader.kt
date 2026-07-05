@@ -33,7 +33,7 @@ object DlcRequiredLoader {
                         continue
                     }
                     val entry = readEntry(path, requiredDir)
-                    if (entry != null && entry.isInList()) {
+                    if (entry != null) {
                         entries.add(entry)
                     }
                 }
@@ -65,11 +65,6 @@ object DlcRequiredLoader {
         }
         val obj = readConfigObject(path) ?: return null
         val normalized = normalizeRequiredObject(obj, requiredDir, path, null) ?: return null
-        if (path.fileName != null && DlcDcFormatUtil.isDcName(path.fileName.toString())) {
-            if (needsKeyMigration(obj) || needsDcLayoutMigration(path)) {
-                DlcDcFormatUtil.write(path, normalized.ordered)
-            }
-        }
         return normalized.entry
     }
 
@@ -152,10 +147,6 @@ object DlcRequiredLoader {
         val priority = DlcDownloadCandidate.readPriority(obj)
         if (priority.isNotBlank()) {
             entry.setDownloadPriority(priority)
-        }
-        val inList = getBoolean(obj, "isEnabled") ?: getBoolean(obj, "isInList")
-        if (inList != null) {
-            entry.setInList(inList)
         }
         val hidden = getBoolean(obj, "isHidden")
         if (hidden != null) {
@@ -287,9 +278,6 @@ object DlcRequiredLoader {
             identifier = resolved
         }
         var depEntry = fromJsonObject(obj, requiredDir, null, identifier)
-        if (depEntry != null && !depEntry.isInList()) {
-            depEntry = null
-        }
         var depId = depEntry?.getIdentifier()
         if (depId.isNullOrBlank()) {
             depId = identifier
@@ -368,7 +356,6 @@ object DlcRequiredLoader {
         if (!redirectUrl.isNullOrBlank()) {
             ordered.addProperty("RedirectUrl", redirectUrl)
         }
-        ordered.addProperty("isEnabled", entry.isInList())
         ordered.addProperty("isHidden", entry.isHidden())
         if (entry.isUserRemoved()) {
             ordered.addProperty("UserRemoved", true)
@@ -383,9 +370,6 @@ object DlcRequiredLoader {
             }
             if ("displayName".equals(key, ignoreCase = true) || "DisplayName".equals(key, ignoreCase = true)
                 || "tip".equals(key, ignoreCase = true)
-                || "isEnabled".equals(key, ignoreCase = true)
-                || "isInList".equals(key, ignoreCase = true)
-                || "isShownInList".equals(key, ignoreCase = true)
                 || "userRemoved".equals(key, ignoreCase = true)
             ) {
                 continue
@@ -574,30 +558,6 @@ object DlcRequiredLoader {
             }
         }
         return false
-    }
-
-    private fun needsKeyMigration(obj: JsonObject?): Boolean {
-        if (obj == null) {
-            return false
-        }
-        return DlcDcConfigIO.hasIgnoreCase(obj, "dlc_name")
-            || DlcDcConfigIO.hasIgnoreCase(obj, "dlc_identifier")
-    }
-
-    private fun needsDcLayoutMigration(path: Path?): Boolean {
-        if (path == null || path.fileName == null || !DlcDcFormatUtil.isDcName(path.fileName.toString())) {
-            return false
-        }
-        return try {
-            val text = Files.readString(path)
-            if (text == null || text.isBlank()) {
-                false
-            } else {
-                !text.contains("[basic]")
-            }
-        } catch (_: IOException) {
-            false
-        }
     }
 
     private fun isIdentifierOnlyObject(obj: JsonObject?): Boolean {

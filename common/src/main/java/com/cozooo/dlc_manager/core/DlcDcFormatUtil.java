@@ -36,6 +36,9 @@ public final class DlcDcFormatUtil {
             return null;
         }
         String fileName = path.getFileName() == null ? path.toString() : path.getFileName().toString();
+        if (isDcName(fileName)) {
+            return path;
+        }
         String base = stripConfigExtension(fileName);
         Path parent = path.getParent();
         if (parent == null) {
@@ -656,17 +659,11 @@ public final class DlcDcFormatUtil {
             "type",
             "file_name",
             "appliedTarget",
-            "isEnabled",
             "isHidden",
             "AllowEnableByAll",
             "alarm"
         };
         for (String key : keys) {
-            if ("isEnabled".equals(key) && !node.has(key) && node.has("isInList")) {
-                indentLine(out, indent);
-                out.append(formatKeyValue(key, node.get("isInList"))).append('\n');
-                continue;
-            }
             if (!node.has(key)) {
                 continue;
             }
@@ -698,8 +695,6 @@ public final class DlcDcFormatUtil {
             || "type".equals(key)
             || "file_name".equals(key)
             || "appliedTarget".equals(key)
-            || "isEnabled".equals(key)
-            || "isInList".equals(key)
             || "isHidden".equals(key)
             || "AllowEnableByAll".equals(key)
             || "alarm".equals(key);

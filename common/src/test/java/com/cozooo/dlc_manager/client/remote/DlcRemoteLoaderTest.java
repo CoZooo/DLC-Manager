@@ -31,7 +31,6 @@ class DlcRemoteLoaderTest {
             type = "mod"
             appliedTarget = "mods/main.jar"
             file_name = "main.jar"
-            isInList = true
             isHidden = false
             AllowEnableByAll = false
             dependencies = ["dep"]
@@ -116,7 +115,6 @@ class DlcRemoteLoaderTest {
             [basic]
             type = "dlcpack"
             file_name = "pack.zip"
-            isInList = true
             isHidden = false
             """);
 
@@ -124,7 +122,6 @@ class DlcRemoteLoaderTest {
 
         assertNotNull(entry);
         assertEquals(DlcType.DLC_PACK, entry.getType());
-        assertFalse(entry.isInList());
         assertTrue(entry.isHidden());
         assertEquals(Path.of("pack", "pack.zip"), tempDir.relativize(entry.getTargetPath()));
     }

@@ -13,6 +13,9 @@ public final class PlatformServices {
         String mcVersion();
         String modVersion(String modId);
         Path modFilePath(String modId);
+        default boolean isResourcePackSelected(String fileName) {
+            return false;
+        }
         String playerName();
         String playerUuid();
     }

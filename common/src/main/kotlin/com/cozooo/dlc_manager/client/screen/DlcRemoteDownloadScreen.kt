@@ -1,33 +1,17 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
-import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil
-import com.cozooo.dlc_manager.client.download.DlcDownloadService
-import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
-import com.cozooo.dlc_manager.client.download.DlcModrinthClient
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
-import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
+import com.cozooo.dlc_manager.client.remote.DlcRemoteService
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
-import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcConfig
-import com.cozooo.dlc_manager.core.DlcType
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URI
-import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorCompletionService
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 import kotlin.math.min
@@ -43,9 +27,6 @@ class DlcRemoteDownloadScreen(
     private var previewQueue: List<DlcRemoteEntry> = emptyList()
     private var downloadTargets: List<DlcRemoteEntry> = emptyList()
     private val maxConcurrentDownloads = max(1, DlcConfig.getMaxConcurrentDownloads())
-    private val maxRetry = max(1, DlcConfig.getMaxRetryCount())
-    private val connectTimeoutMs = max(1, DlcConfig.getConnectTimeoutMs())
-    private val taskTimeoutMs = max(1, DlcConfig.getTaskTimeoutMs())
     private val selectedKeys: MutableSet<String> = HashSet(setOf(ALL_MARKER))
     private val progressByKey: MutableMap<String, Float> = ConcurrentHashMap()
     private val attemptByKey: MutableMap<String, Int> = ConcurrentHashMap()
@@ -352,22 +333,7 @@ class DlcRemoteDownloadScreen(
     }
 
     private fun buildPreviewQueue() {
-        val queue: MutableList<DlcRemoteEntry> = ArrayList()
-        val work: ArrayDeque<DlcRemoteEntry> = ArrayDeque(missing)
-        val seen: MutableSet<String> = HashSet()
-        while (!work.isEmpty()) {
-            val entry = work.poll() ?: continue
-            val key = entry.getUniqueKey()
-            if (!seen.add(key)) {
-                continue
-            }
-            queue.add(entry)
-            for (dep in entry.getRemoteDependencies()) {
-                work.add(dep)
-            }
-            // Disabled: do not auto-append Modrinth required dependencies into remote queue.
-        }
-        previewQueue = queue
+        previewQueue = DlcRemoteService.expandWithDependencies(missing)
         detecting = false
         statusText = Component.translatable("dlc_manager.remote.ready").string
         scrollIndex = 0
@@ -430,7 +396,94 @@ class DlcRemoteDownloadScreen(
     private fun downloadAll(targets: List<DlcRemoteEntry>, clearSkipOnSuccess: Boolean) {
         totalCount = targets.size
         completedCount = 0
-        var failed = runDownloadBatch(targets)
+        val result = try {
+            DlcRemoteService.downloadAll(
+                targets,
+                object : DlcRemoteService.BatchProgressListener {
+                    override fun onEntryStart(entry: DlcRemoteEntry?, index: Int, total: Int) {
+                        if (maxConcurrentDownloads <= 1 && entry != null) {
+                            activeDownloadEntry = entry
+                            statusText = Component.translatable(
+                                "dlc_manager.remote.downloading",
+                                entry.resolveDisplayName(),
+                                completedCount + 1,
+                                totalCount,
+                            ).string
+                        } else {
+                            statusText = Component.translatable("dlc_manager.remote.downloading_multi").string
+                        }
+                    }
+
+                    override fun onEntryAttemptStart(entry: DlcRemoteEntry?, attemptId: Int, index: Int, total: Int) {
+                        val key = progressKey(entry)
+                        attemptByKey[key] = attemptId
+                        markDownloadStart(key)
+                        if (maxConcurrentDownloads <= 1 && entry != null) {
+                            activeDownloadEntry = entry
+                        }
+                    }
+
+                    override fun onEntryProgress(entry: DlcRemoteEntry?, downloadedBytes: Long, totalBytes: Long) {
+                        if (totalBytes > 0) {
+                            val key = progressKey(entry)
+                            val attemptId = attemptByKey[key] ?: 0
+                            setEntryProgress(key, attemptId, min(1f, downloadedBytes.toFloat() / totalBytes.toFloat()))
+                        }
+                    }
+
+                    override fun onEntrySuccess(entry: DlcRemoteEntry?, fileName: String?, completed: Int, total: Int) {
+                        completedCount = completed
+                        val key = progressKey(entry)
+                        val attemptId = attemptByKey[key] ?: 0
+                        setEntryProgress(key, attemptId, 1f)
+                    }
+
+                    override fun onEntryFailure(entry: DlcRemoteEntry?, error: Throwable?, completed: Int, total: Int) {
+                        completedCount = completed
+                        errorText = Component.translatable("dlc_manager.remote.error", error?.message ?: "").string
+                    }
+
+                    override fun onEntryStatus(entry: DlcRemoteEntry?, statusKey: String?, completed: Int, total: Int) {
+                        statusText = if (statusKey == "selecting_source") {
+                            Component.translatable("dlc_manager.remote.selecting_source").string
+                        } else if (maxConcurrentDownloads <= 1 && entry != null) {
+                            Component.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
+                        } else {
+                            Component.translatable("dlc_manager.remote.downloading_multi").string
+                        }
+                    }
+
+                    override fun onEntryComplete(entry: DlcRemoteEntry?) {
+                        val key = progressKey(entry)
+                        downloadStartByKey.remove(key)
+                        switchRequested.remove(key)
+                        if (activeDownloadEntry === entry) {
+                            activeDownloadEntry = null
+                        }
+                    }
+                },
+                { cancelRequested },
+                object : DlcRemoteService.SourceSwitchChecker {
+                    override fun isSwitchRequested(entry: DlcRemoteEntry?): Boolean {
+                        return this@DlcRemoteDownloadScreen.isSwitchRequested(progressKey(entry))
+                    }
+
+                    override fun clearSwitchRequest(entry: DlcRemoteEntry?) {
+                        this@DlcRemoteDownloadScreen.clearSwitchRequest(progressKey(entry))
+                    }
+                },
+            )
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            cancelRequested = true
+            DlcRemoteService.BatchResult(
+                targets.size,
+                0,
+                listOf(DlcRemoteService.EntryError(null, e)),
+            )
+        } finally {
+            activeDownloadEntry = null
+        }
         if (cancelRequested) {
             downloading = false
             statusText = Component.translatable("dlc_manager.remote.canceled").string
@@ -441,20 +494,7 @@ class DlcRemoteDownloadScreen(
             }
             return
         }
-        if (failed.isNotEmpty()) {
-            failed = runDownloadBatch(failed)
-        }
-        if (cancelRequested) {
-            downloading = false
-            statusText = Component.translatable("dlc_manager.remote.canceled").string
-            Minecraft.getInstance().execute {
-                updateDownloadButtonLabel(false)
-                downloadButton?.active = true
-                skipButton?.active = true
-            }
-            return
-        }
-        if (failed.isNotEmpty()) {
+        if (result.errors.isNotEmpty()) {
             downloading = false
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
@@ -474,257 +514,49 @@ class DlcRemoteDownloadScreen(
         }
     }
 
-    private fun fetchModrinthRequired(entry: DlcRemoteEntry): List<DlcRemoteEntry> {
-        val result: MutableList<DlcRemoteEntry> = ArrayList()
-        val versionId = entry.getModrinthVersionId()
-        if (versionId.isNullOrBlank()) {
-            return result
-        }
-        try {
-            val version = DlcModrinthClient.fetchVersion(versionId) ?: return result
-            for (dep in version.requiredDependencies) {
-                if (dep.versionId.isNullOrBlank()) {
-                    continue
-                }
-                val depEntry = DlcRemoteEntry(null, entry.getDlcRoot(), entry.getBaseDir(), null)
-                depEntry.setModrinthProjectId(dep.projectId ?: "")
-                depEntry.setModrinthVersionId(dep.versionId)
-                depEntry.setType(entry.getType())
-                depEntry.setInList(true)
-                depEntry.setHidden(false)
-                depEntry.setAllowEnableByAll(true)
-                try {
-                    val depVersion = DlcModrinthClient.fetchVersion(dep.versionId)
-                    if (depVersion != null && !depVersion.fileName.isNullOrBlank()) {
-                        depEntry.setFileNameHint(depVersion.fileName)
-                        if (depEntry.getDlcIdentifier().isNullOrBlank()) {
-                            depEntry.setDlcIdentifier(depVersion.fileName)
-                        }
-                    }
-                } catch (_: Exception) {
-                }
-                if (depEntry.getDlcIdentifier().isNullOrBlank() && !dep.projectId.isNullOrBlank()) {
-                    depEntry.setDlcIdentifier(dep.projectId)
-                }
-                result.add(depEntry)
-            }
-        } catch (_: Exception) {
-            return result
-        }
-        return result
-    }
-
-    @Throws(IOException::class, InterruptedException::class)
-    private fun downloadEntry(entry: DlcRemoteEntry?) {
-        if (entry == null) {
+    private fun initProgressMap(pending: List<DlcRemoteEntry>?) {
+        progressByKey.clear()
+        attemptByKey.clear()
+        downloadStartByKey.clear()
+        switchRequested.clear()
+        activeDownloadEntry = null
+        if (pending == null) {
             return
         }
-        checkCanceled()
-        currentProgress = 0f
-        val progressKey = progressKey(entry)
-        if (maxConcurrentDownloads <= 1) {
-            activeDownloadEntry = entry
-        }
-        try {
-            val resolver = DlcDownloadCandidate.resolver(entry)
-            precheckDownloadSources(entry, progressKey)
-            var lastError: IOException? = null
-            var attemptId = 0
-            var canceled = false
-            while (true) {
-                val candidates = resolver.next()
-                if (candidates.isEmpty()) {
-                    break
-                }
-                for (candidate in candidates) {
-                    for (attempt in 1..maxRetry) {
-                        try {
-                            checkCanceled()
-                            attemptId = attemptCounter.incrementAndGet()
-                            attemptByKey[progressKey] = attemptId
-                            markDownloadStart(progressKey)
-                            var downloadInfo: DownloadInfo? = null
-                            var headerName: String? = null
-                            val shouldProbe = candidate.direct || !DlcDownloadUtil.isLikelyFileName(candidate.fileNameOverride)
-                            if (shouldProbe) {
-                                downloadInfo = openDownload(candidate.url, 0)
-                                headerName = DlcDownloadUtil.sanitizeFileName(downloadInfo.fileName)
-                                closeQuietly(downloadInfo.connection)
-                            }
-                            var fileName = candidate.fileNameOverride
-                            val fileNameExplicit = entry.isFileNameExplicit() && !fileName.isNullOrBlank()
-                            if (fileName.isNullOrBlank()) {
-                                fileName = entry.getFileNameHint()
-                            }
-                            if (!fileNameExplicit) {
-                                if (candidate.direct && headerName != null) {
-                                    fileName = headerName
-                                }
-                                if (!DlcDownloadUtil.isLikelyFileName(fileName) && headerName != null) {
-                                    fileName = headerName
-                                }
-                                if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
-                                    fileName = DlcDownloadService.suggestFileName(candidate.url)
-                                }
-                            }
-                            fileName = finalizeFileName(fileName, entry, candidate.url)
-                            val target = entry.resolveTargetPath(fileName) ?: throw IOException("invalid target path")
-                            Files.createDirectories(target.parent)
-                            if (Files.exists(target)) {
-                                setEntryProgress(progressKey, attemptId, 1f)
-                                return
-                            }
-                            val currentAttemptId = attemptId
-                            val downloaded = if (shouldProbe) {
-                                DlcDownloadService.download(
-                                    candidate.url,
-                                    target.parent,
-                                    fileName,
-                                    progressListener(progressKey, currentAttemptId, entry),
-                                    { cancelRequested || isSwitchRequested(progressKey) },
-                                )
-                            } else {
-                                DlcDownloadService.downloadKnown(
-                                    candidate.url,
-                                    target.parent,
-                                    fileName,
-                                    candidate.expectedSize,
-                                    progressListener(progressKey, currentAttemptId, entry),
-                                    { cancelRequested || isSwitchRequested(progressKey) },
-                                )
-                            }
-                            val resolved = if (downloaded == target) {
-                                downloaded
-                            } else {
-                                Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING)
-                            }
-                            verifyDownloadedFile(resolved, candidate, downloadInfo)
-                            setEntryProgress(progressKey, currentAttemptId, 1f)
-                            entry.setFileNameHint(fileName)
-                            DlcRemoteManager.updateFileNameKey(entry, fileName)
-                            return
-                        } catch (ex: DlcDownloadService.DownloadCanceledException) {
-                            if (isSwitchRequested(progressKey)) {
-                                lastError = DownloadSwitchException("switch")
-                                clearSwitchRequest(progressKey)
-                                if (!canceled) {
-                                    setEntryProgress(progressKey, attemptId, 0f)
-                                }
-                                break
-                            }
-                            canceled = true
-                            throw DownloadCanceledException("canceled")
-                        } catch (ex: DownloadCanceledException) {
-                            canceled = true
-                            throw ex
-                        } catch (ex: IOException) {
-                            if (isSwitchException(ex)) {
-                                lastError = ex
-                                clearSwitchRequest(progressKey)
-                                if (!canceled) {
-                                    setEntryProgress(progressKey, attemptId, 0f)
-                                }
-                                break
-                            }
-                            if (ex.cause is DownloadCanceledException) {
-                                canceled = true
-                                throw ex.cause as DownloadCanceledException
-                            }
-                            lastError = ex
-                            if (ex is DlcDownloadService.SegmentDownloadException) {
-                                if (!canceled) {
-                                    setEntryProgress(progressKey, attemptId, 0f)
-                                }
-                                break
-                            }
-                            if (attempt >= maxRetry && !canceled) {
-                                setEntryProgress(progressKey, attemptId, 0f)
-                            }
-                        }
-                    }
-                }
-            }
-            if (cancelRequested || canceled) {
-                throw DownloadCanceledException("canceled")
-            }
-            if (attemptId > 0) {
-                setEntryProgress(progressKey, attemptId, 0f)
-            }
-            if (lastError == null) {
-                lastError = resolver.lastError()
-            }
-            if (lastError != null) {
-                throw lastError
-            }
-            throw IOException("missing download url")
-        } finally {
-            downloadStartByKey.remove(progressKey)
-            switchRequested.remove(progressKey)
-            if (activeDownloadEntry === entry) {
-                activeDownloadEntry = null
-            }
+        for (entry in pending) {
+            progressByKey[progressKey(entry)] = 0f
         }
     }
 
-    private fun precheckDownloadSources(entry: DlcRemoteEntry, progressKey: String) {
-        try {
-            val candidates = DlcDownloadCandidate.resolve(entry)
-            if (!hasMissingHostedDownloadCandidate(entry, candidates)) {
-                return
-            }
-            DlcDownloadService.precheckDownloadSources(candidates, progressListener(progressKey, 0, entry))
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun hasMissingHostedDownloadCandidate(entry: DlcRemoteEntry, candidates: List<DlcDownloadCandidate>): Boolean {
-        for (candidate in candidates) {
-            if (candidate.direct) {
-                continue
-            }
-            val fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url)
-            val target = entry.resolveTargetPath(fileName) ?: continue
-            if (!Files.exists(target)) {
-                return true
-            }
-        }
-        return false
-    }
-
-    private fun progressListener(progressKey: String, attemptId: Int, entry: DlcRemoteEntry?): DlcDownloadService.ProgressListener {
-        return object : DlcDownloadService.StatusProgressListener {
-            override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
-                if (totalBytes > 0) {
-                    setEntryProgress(progressKey, attemptId, min(1f, downloadedBytes.toFloat() / totalBytes.toFloat()))
-                }
-            }
-
-            override fun onStatusKey(statusKey: String) {
-                statusText = if (statusKey == "selecting_source") {
-                    Component.translatable("dlc_manager.remote.selecting_source").string
-                } else if (maxConcurrentDownloads <= 1 && entry != null) {
-                    Component.translatable("dlc_manager.remote.downloading", entry.resolveDisplayName(), completedCount + 1, totalCount).string
-                } else {
-                    Component.translatable("dlc_manager.remote.downloading_multi").string
-                }
-            }
-        }
-    }
-
-    private class DownloadSwitchException(message: String?) : IOException(message)
-
-    @Throws(DownloadCanceledException::class)
-    private fun checkCanceled() {
-        if (cancelRequested) {
-            throw DownloadCanceledException("canceled")
-        }
-    }
-
-    private fun markDownloadStart(key: String?) {
+    private fun setEntryProgress(key: String?, attemptId: Int, progress: Float) {
         if (key == null) {
             return
         }
-        downloadStartByKey[key] = System.currentTimeMillis()
+        val active = attemptByKey[key]
+        if (active != null && active != attemptId) {
+            return
+        }
+        progressByKey[key] = progress
+        if (maxConcurrentDownloads <= 1) {
+            currentProgress = progress
+        }
+    }
+
+    private fun getTotalProgress(): Float {
+        if (totalCount <= 0) {
+            return 0f
+        }
+        var sum = 0f
+        for (value in progressByKey.values) {
+            sum += value
+        }
+        return sum / max(1, totalCount)
+    }
+
+    private fun markDownloadStart(key: String?) {
+        if (key != null) {
+            downloadStartByKey[key] = System.currentTimeMillis()
+        }
     }
 
     private fun isSwitchRequested(key: String?): Boolean {
@@ -735,13 +567,6 @@ class DlcRemoteDownloadScreen(
         if (key != null) {
             switchRequested.remove(key)
         }
-    }
-
-    private fun isSwitchException(ex: IOException): Boolean {
-        if (ex is DownloadSwitchException) {
-            return true
-        }
-        return ex.cause is DownloadSwitchException
     }
 
     private fun hasMultipleSources(entry: DlcRemoteEntry?): Boolean {
@@ -763,10 +588,7 @@ class DlcRemoteDownloadScreen(
     }
 
     private fun shouldShowSwitch(key: String?, entry: DlcRemoteEntry?, progress: Float): Boolean {
-        if (!downloading || key == null || entry == null) {
-            return false
-        }
-        if (progress >= 1f) {
+        if (!downloading || key == null || entry == null || progress >= 1f) {
             return false
         }
         val start = downloadStartByKey[key] ?: return false
@@ -837,110 +659,6 @@ class DlcRemoteDownloadScreen(
             }
         }
         return false
-    }
-
-    private class DownloadCanceledException(message: String?) : IOException(message)
-
-    @Throws(IOException::class)
-    private fun openDownload(url: String, offset: Long): DownloadInfo {
-        val connection = URI.create(url).toURL().openConnection() as HttpURLConnection
-        connection.instanceFollowRedirects = true
-        connection.connectTimeout = connectTimeoutMs
-        connection.readTimeout = taskTimeoutMs
-        connection.setRequestProperty("User-Agent", "DLC-Manager")
-        if (offset > 0) {
-            connection.setRequestProperty("Range", "bytes=$offset-")
-        }
-        connection.connect()
-        var fileName = DlcDownloadHeaderUtil.extractFileNameFromHeaders(connection)
-        if (fileName.isNullOrBlank()) {
-            fileName = DlcDownloadUtil.extractFileNameFromUrl(connection.url.toString())
-        }
-        val responseCode = connection.responseCode
-        val contentLength = connection.contentLengthLong
-        val totalBytes = if (contentLength > 0) contentLength + max(0L, offset) else -1L
-        val contentMd5 = connection.getHeaderField("Content-MD5")
-        return DownloadInfo(connection, fileName, responseCode, totalBytes, contentMd5)
-    }
-
-    private fun finalizeFileName(fileName: String?, entry: DlcRemoteEntry, url: String?): String {
-        var name = fileName
-        if (name.isNullOrBlank()) {
-            var fallback = entry.getFileNameHint()
-            if (fallback.isNullOrBlank()) {
-                fallback = entry.getDlcIdentifier()
-            }
-            if (fallback.isNullOrBlank()) {
-                fallback = "dlc-download"
-            }
-            name = fallback
-        }
-        if (!name.contains(".")) {
-            val extension = guessExtension(entry)
-            if (extension != null) {
-                name += extension
-            }
-        }
-        return name
-    }
-
-    private fun guessExtension(entry: DlcRemoteEntry?): String? {
-        if (entry?.getType() == null) {
-            return null
-        }
-        return when (entry.getType()) {
-            DlcType.MOD -> ".jar"
-            DlcType.RESOURCE_PACK, DlcType.DATA_PACK, DlcType.TACZ_PACK, DlcType.DLC_PACK, DlcType.UNKNOWN -> ".zip"
-            null -> null
-        }
-    }
-
-    private fun closeQuietly(connection: HttpURLConnection?) {
-        if (connection != null) {
-            try {
-                connection.disconnect()
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    private fun initProgressMap(pending: List<DlcRemoteEntry>?) {
-        progressByKey.clear()
-        attemptByKey.clear()
-        downloadStartByKey.clear()
-        switchRequested.clear()
-        activeDownloadEntry = null
-        if (pending == null) {
-            return
-        }
-        for (entry in pending) {
-            progressByKey[progressKey(entry)] = 0f
-        }
-    }
-
-    private fun setEntryProgress(key: String?, attemptId: Int, progress: Float) {
-        if (key == null) {
-            return
-        }
-        val active = attemptByKey[key]
-        if (active != null && active != attemptId) {
-            return
-        }
-        progressByKey[key] = progress
-        if (maxConcurrentDownloads <= 1) {
-            currentProgress = progress
-        }
-    }
-
-    private fun getTotalProgress(): Float {
-        if (totalCount <= 0) {
-            return 0f
-        }
-        var sum = 0f
-        for (value in progressByKey.values) {
-            sum += value
-        }
-        return sum / max(1, totalCount)
     }
 
     private fun progressKey(entry: DlcRemoteEntry?): String {
@@ -1075,159 +793,6 @@ class DlcRemoteDownloadScreen(
 
     private fun isNoneSelected(): Boolean {
         return selectedKeys.contains(NONE_MARKER)
-    }
-
-    private fun runDownloadBatch(pending: List<DlcRemoteEntry>?): List<DlcRemoteEntry> {
-        val failed: MutableList<DlcRemoteEntry> = ArrayList()
-        if (pending.isNullOrEmpty()) {
-            return failed
-        }
-        if (cancelRequested) {
-            return failed
-        }
-        if (maxConcurrentDownloads <= 1) {
-            for (entry in pending) {
-                if (cancelRequested) {
-                    break
-                }
-                statusText = Component.translatable(
-                    "dlc_manager.remote.downloading",
-                    entry.resolveDisplayName(),
-                    completedCount + 1,
-                    totalCount,
-                ).string
-                try {
-                    downloadEntry(entry)
-                    completedCount++
-                    if (cancelRequested) {
-                        break
-                    }
-                } catch (e: Exception) {
-                    if (e is DownloadCanceledException) {
-                        cancelRequested = true
-                        break
-                    }
-                    failed.add(entry)
-                    errorText = Component.translatable("dlc_manager.remote.error", e.message).string
-                }
-            }
-            return failed
-        }
-        val executor = Executors.newFixedThreadPool(maxConcurrentDownloads)
-        val completion = ExecutorCompletionService<DownloadResult>(executor)
-        for (entry in pending) {
-            completion.submit { downloadEntryWithResult(entry) }
-        }
-        for (i in pending.indices) {
-            try {
-                val future: Future<DownloadResult> = completion.take()
-                val result = future.get()
-                if (result.canceled) {
-                    cancelRequested = true
-                } else if (result.success) {
-                    completedCount++
-                } else {
-                    failed.add(result.entry)
-                    if (result.error != null) {
-                        errorText = Component.translatable("dlc_manager.remote.error", result.error.message).string
-                    }
-                }
-            } catch (e: Exception) {
-                if (e is DownloadCanceledException) {
-                    cancelRequested = true
-                } else {
-                    errorText = Component.translatable("dlc_manager.remote.error", e.message).string
-                    failed.add(pending[i])
-                }
-            }
-            if (cancelRequested) {
-                break
-            }
-        }
-        executor.shutdownNow()
-        return failed
-    }
-
-    private fun downloadEntryWithResult(entry: DlcRemoteEntry): DownloadResult {
-        return try {
-            downloadEntry(entry)
-            DownloadResult(entry, true, false, null)
-        } catch (_: DownloadCanceledException) {
-            DownloadResult(entry, false, true, null)
-        } catch (e: Exception) {
-            DownloadResult(entry, false, false, e)
-        }
-    }
-
-    private class DownloadResult(
-        val entry: DlcRemoteEntry,
-        val success: Boolean,
-        val canceled: Boolean,
-        val error: Exception?,
-    )
-
-    private class DownloadInfo(
-        val connection: HttpURLConnection,
-        val fileName: String?,
-        val responseCode: Int,
-        val totalBytes: Long,
-        val contentMd5: String?,
-    )
-
-    @Throws(IOException::class)
-    private fun verifyDownloadedFile(tempFile: Path, candidate: DlcDownloadCandidate?, info: DownloadInfo?) {
-        checkCanceled()
-        val hashType = candidate?.hashType
-        val hashValue = candidate?.hashValue
-        if (hashType != null && hashValue != null && hashValue.isNotBlank()) {
-            val algorithm = mapHashAlgorithm(hashType)
-            val actual = DlcDownloadUtil.computeHashHex(tempFile, algorithm)
-            if (actual == null || !actual.equals(DlcDownloadUtil.normalizeHash(hashValue), ignoreCase = true)) {
-                Files.deleteIfExists(tempFile)
-                throw IOException("hash mismatch")
-            }
-            return
-        }
-        if (info != null && !info.contentMd5.isNullOrBlank()) {
-            val expected = DlcDownloadUtil.normalizeHash(info.contentMd5)
-            val actualHex = DlcDownloadUtil.computeHashHex(tempFile, "MD5")
-            val actualBase64 = DlcDownloadUtil.computeMd5Base64(tempFile)
-            if (actualHex == null || actualBase64 == null ||
-                (!expected.equals(actualHex, ignoreCase = true) && !expected.equals(actualBase64, ignoreCase = true))
-            ) {
-                Files.deleteIfExists(tempFile)
-                throw IOException("hash mismatch")
-            }
-            return
-        }
-        var expectedSize = candidate?.expectedSize ?: -1L
-        if (expectedSize <= 0 && info != null && info.totalBytes > 0) {
-            expectedSize = info.totalBytes
-        }
-        if (expectedSize > 0) {
-            val size = Files.size(tempFile)
-            if (size != expectedSize) {
-                Files.deleteIfExists(tempFile)
-                throw IOException("size mismatch")
-            }
-        }
-    }
-
-    private fun mapHashAlgorithm(hashType: String?): String? {
-        if (hashType == null) {
-            return null
-        }
-        return when (hashType.lowercase()) {
-            "sha1", "sha-1" -> "SHA-1"
-            "sha256", "sha-256" -> "SHA-256"
-            "sha512", "sha-512" -> "SHA-512"
-            "md5" -> "MD5"
-            else -> hashType
-        }
-    }
-
-    private fun stripJson(name: String?): String? {
-        return DlcDcFormatUtil.stripConfigExtension(name)
     }
 
     companion object {

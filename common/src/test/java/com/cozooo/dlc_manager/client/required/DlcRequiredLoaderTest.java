@@ -19,7 +19,7 @@ class DlcRequiredLoaderTest {
     Path tempDir;
 
     @Test
-    void loadReadsRequiredDcAndSkipsHiddenFromListAndNotice() throws Exception {
+    void loadReadsRequiredDcAndSkipsNotice() throws Exception {
         Path required = tempDir.resolve("required");
         Files.createDirectories(required);
         Files.writeString(required.resolve("main.dc"), """
@@ -34,7 +34,6 @@ class DlcRequiredLoaderTest {
             file_name = "main.jar"
             appliedTarget = "mods/main.jar"
             RedirectUrl = "https://example.com"
-            isInList = true
             isHidden = true
             UserRemoved = true
             dependencies = ["dep-a", "dep-b"]
@@ -44,9 +43,6 @@ class DlcRequiredLoaderTest {
 
             [tip]
             en_us = "Tip"
-            """);
-        Files.writeString(required.resolve("hidden.dc"), """
-            isInList = false
             """);
         Files.writeString(required.resolve("notice.dc"), """
             title = "Ignored"
@@ -79,7 +75,6 @@ class DlcRequiredLoaderTest {
         JsonObject child = new JsonObject();
         child.addProperty("identifier", "child");
         child.addProperty("file_name", "child.jar");
-        child.addProperty("isInList", true);
         dependencies.add(child);
         object.add("dependencies", dependencies);
 
@@ -133,5 +128,23 @@ class DlcRequiredLoaderTest {
         assertNotNull(entry);
         assertEquals("single", entry.getIdentifier());
         assertNull(DlcRequiredLoader.loadSingle(required.resolve("missing"), tempDir));
+    }
+
+    @Test
+    void loadDoesNotMigrateLegacyKeys() throws Exception {
+        Path required = tempDir.resolve("required");
+        Files.createDirectories(required);
+        Path config = required.resolve("legacy.dc");
+        Files.writeString(config, """
+            dlc_identifier = "legacy-id"
+            dlc_name = "Legacy"
+            """);
+
+        List<DlcRequiredEntry> entries = DlcRequiredLoader.load(tempDir);
+
+        assertEquals(1, entries.size());
+        assertEquals("legacy", entries.get(0).getIdentifier());
+        assertTrue(Files.readString(config).contains("dlc_identifier"));
+        assertTrue(Files.readString(config).contains("dlc_name"));
     }
 }

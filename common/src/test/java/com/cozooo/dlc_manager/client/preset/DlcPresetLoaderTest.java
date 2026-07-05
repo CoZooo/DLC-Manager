@@ -94,6 +94,42 @@ class DlcPresetLoaderTest {
     }
 
     @Test
+    void loadAllKeepsUppercaseDcPresetFileWhenMigrating() throws Exception {
+        Path preset = tempDir.resolve("preset").resolve("&IR.DC");
+        Files.createDirectories(preset.getParent());
+        Files.writeString(preset, """
+            enable = [
+              "Immersive Railroading",
+              "Track API",
+              "Universal Mod Core"
+            ]
+            conflicts = [
+              ""
+            ]
+
+            [DisplayName]
+            en_us = "§7#Γ Preset §rAll [IR]Immersive Railroading-related Mods"
+            zh_cn = "§7#Γ 预设 §r[IR]沉浸铁路 全家桶"
+
+            [tip]
+            en_us = "Enabling this preset will activate all IR-related mods."
+            zh_cn = "启用此预设，即启用所有 沉浸铁路 相关模组。"
+            """);
+
+        List<DlcPresetEntry> entries = DlcPresetLoader.loadAll(List.of(tempDir));
+
+        assertEquals(1, entries.size());
+        assertEquals("&IR", entries.get(0).getId());
+        assertTrue(Files.exists(preset));
+        String migrated = Files.readString(preset);
+        assertTrue(migrated.contains("[basic]"));
+        assertTrue(migrated.contains("identifier = \"&IR\""));
+        assertTrue(migrated.contains("[dependencies]"));
+        assertTrue(migrated.contains("\"Immersive Railroading\""));
+        assertTrue(migrated.contains("[DisplayName]"));
+    }
+
+    @Test
     void loadAllMigratesRootIdentifierAndAlarmToBasic() throws Exception {
         Path preset = tempDir.resolve("preset").resolve("file-name.dc");
         Files.createDirectories(preset.getParent());

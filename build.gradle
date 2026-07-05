@@ -134,6 +134,60 @@ tasks.register('helperPublish', GradleBuild) {
     tasks = ['publish']
 }
 
+tasks.register('javafxManagerBuild') {
+    group = 'build'
+    description = 'Build the JavaFX DLC Manager desktop application.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':build'))
+}
+
+tasks.register('javafxManagerTest') {
+    group = 'verification'
+    description = 'Run JavaFX DLC Manager tests.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':test'))
+}
+
+tasks.register('javafxManagerRun') {
+    group = 'application'
+    description = 'Run the JavaFX DLC Manager desktop application.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':run'))
+}
+
+tasks.register('javafxManagerJarWin') {
+    group = 'distribution'
+    description = 'Build the JavaFX DLC Manager runnable jar for Windows.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':jarWin'))
+}
+
+tasks.register('javafxManagerJarLinux') {
+    group = 'distribution'
+    description = 'Build the JavaFX DLC Manager runnable jar for Linux x64.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':jarLinux'))
+}
+
+tasks.register('javafxManagerJarLinuxAarch64') {
+    group = 'distribution'
+    description = 'Build the JavaFX DLC Manager runnable jar for Linux aarch64.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':jarLinuxAarch64'))
+}
+
+tasks.register('javafxManagerJarMacX64') {
+    group = 'distribution'
+    description = 'Build the JavaFX DLC Manager runnable jar for macOS x64.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':jarMacX64'))
+}
+
+tasks.register('javafxManagerJarMacAarch64') {
+    group = 'distribution'
+    description = 'Build the JavaFX DLC Manager runnable jar for macOS aarch64.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':jarMacAarch64'))
+}
+
+tasks.register('javafxManagerJarAll') {
+    group = 'distribution'
+    description = 'Build the JavaFX DLC Manager runnable jars for all supported platforms.'
+    dependsOn(gradle.includedBuild('dlcJavafxManager').task(':jarAll'))
+}
+
 tasks.register('obfuscateForge1201Yguard') {
     group = 'build'
     description = 'Obfuscate Forge 1.20.1 output jar with yGuard.'

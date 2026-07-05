@@ -135,7 +135,7 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
                 continue;
             }
             index.put(item.id, item);
-            if (item.inList && !item.hidden) {
+            if (!item.hidden) {
                 visibleItems.add(item);
             }
         }

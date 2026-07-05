@@ -14,7 +14,6 @@ const SECTION_KEYS = {
     "file_name",
     "type",
     "appliedTarget",
-    "isInList",
     "isHidden",
     "AllowEnableByAll",
     "dependencies",
@@ -66,7 +65,6 @@ const PRESET_COLORS = [
   { name: "Gray", hex: "AAAAAA" }
 ];
 const BOOL_KEYS = new Set([
-  "isInList",
   "isHidden",
   "AllowEnableByAll",
   "alarm",

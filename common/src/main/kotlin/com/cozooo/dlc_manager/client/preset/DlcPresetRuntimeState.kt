@@ -235,6 +235,33 @@ object DlcPresetRuntimeState {
     }
 
     @JvmStatic
+    fun loadExternal(entries: List<DlcPresetEntry>?) {
+        rollbackLastAppliedToBaseline()
+        PRESETS_BY_ID.clear()
+        ENABLED_PRESETS.clear()
+        LAST_APPLIED_IDENTIFIERS.clear()
+        BASELINE_DISABLED_RELATIVE_PATHS.clear()
+        APPLIED_DISABLED_RELATIVE_PATHS.clear()
+        BLOCKED_DLC = LinkedHashMap()
+        BLOCKED_PRESET = LinkedHashMap()
+        if (entries != null) {
+            for (entry in entries) {
+                val id = entry.getId()
+                if (id.isNullOrBlank()) {
+                    continue
+                }
+                PRESETS_BY_ID[id] = entry
+                if (entry.getStatus().isEnabled()) {
+                    ENABLED_PRESETS.add(id)
+                }
+            }
+        }
+        presetDirty = false
+        baselineDisabledRelativePathsInitialized = true
+        rebuildBlocks()
+    }
+
+    @JvmStatic
     fun syncStatusFromRuntime() {
         if (PRESETS_BY_ID.isEmpty()) {
             return
@@ -256,6 +283,11 @@ object DlcPresetRuntimeState {
 
     @JvmStatic
     fun syncStatusFromExternal(statusesInput: Map<String, DlcPresetStatus>?) {
+        syncStatusFromExternal(statusesInput, true)
+    }
+
+    @JvmStatic
+    fun syncStatusFromExternal(statusesInput: Map<String, DlcPresetStatus>?, persist: Boolean) {
         if (PRESETS_BY_ID.isEmpty()) {
             return
         }
@@ -273,7 +305,9 @@ object DlcPresetRuntimeState {
                 ENABLED_PRESETS.add(id)
             }
         }
-        DlcPresetStateStore.savePresetStatus(normalized)
+        if (persist) {
+            DlcPresetStateStore.savePresetStatus(normalized)
+        }
         presetDirty = false
         rebuildBlocks()
     }

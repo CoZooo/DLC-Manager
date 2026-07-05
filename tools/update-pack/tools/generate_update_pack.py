@@ -19,6 +19,7 @@ CHANGELOG_CANDIDATES = [
     "CHANGELOG.md",
     "Changelog.md",
 ]
+MANUAL_OPERATION_FILE = "Manual_Operation"
 
 
 def run(cmd: list[str], *, text: bool = True) -> subprocess.CompletedProcess:
@@ -163,6 +164,8 @@ def filter_paths(
         basename = segments[-1] if segments else low
         if low in {"changelog", "changelog.md"}:
             return False
+        if low == MANUAL_OPERATION_FILE.lower():
+            return False
         if low in {"readme", "readme.md"}:
             return False
         if basename == "version.dc":
@@ -182,6 +185,34 @@ def filter_paths(
     adds = sorted(p for p in add_or_modify if allowed(p))
     dels = sorted(p for p in deleted if allowed(p))
     return adds, dels
+
+
+def read_manual_delete_operations(ref: str) -> list[str]:
+    if not path_exists_at_ref(ref, MANUAL_OPERATION_FILE):
+        return []
+    raw = read_file_at_ref(ref, MANUAL_OPERATION_FILE)
+    text = decode_text(raw)
+    paths: list[str] = []
+    seen: set[str] = set()
+    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        path = normalize_relpath(line.strip())
+        if not path or path in seen:
+            continue
+        paths.append(path)
+        seen.add(path)
+    return paths
+
+
+def append_unique_paths(paths: list[str], extra_paths: list[str]) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for path in [*(paths or []), *(extra_paths or [])]:
+        normalized = normalize_relpath(path)
+        if not normalized or normalized in seen:
+            continue
+        merged.append(normalized)
+        seen.add(normalized)
+    return merged
 
 
 def is_mod_path(path: str) -> bool:
@@ -541,7 +572,6 @@ def parse_legacy_flat_map(text: str, path: str) -> dict[str, object]:
         "type",
         "file_name",
         "RedirectUrl",
-        "isInList",
         "isHidden",
         "AllowEnableByAll",
         "enable",
@@ -593,7 +623,6 @@ def canonicalize_config_map(raw: dict[str, object], path: str) -> dict[str, obje
         "dlc_identifier": "identifier",
         "file_name": "file_name",
         "type": "type",
-        "isinlist": "isInList",
         "ishidden": "isHidden",
         "redirecturl": "RedirectUrl",
         "allowenablebyall": "AllowEnableByAll",
@@ -871,6 +900,9 @@ def main() -> int:
     if converted_paths:
         add_paths = [p for p in add_paths if p not in converted_paths]
         del_paths = [p for p in del_paths if p not in converted_paths]
+    manual_del_paths = read_manual_delete_operations(args.to_ref)
+    if manual_del_paths:
+        del_paths = append_unique_paths(del_paths, manual_del_paths)
 
     if not add_paths and not del_paths and not remote_updates and not required_updates and not info_updates and not preset_updates:
         print("No changed files after filtering; nothing to package.", file=sys.stderr)
@@ -924,6 +956,7 @@ def main() -> int:
                 f"zip_path={zip_path.as_posix()}",
                 f"add_count={len(add_paths)}",
                 f"del_count={len(del_paths)}",
+                f"manual_operation_count={len(manual_del_paths)}",
                 f"same_mod_name_skip_count={len(same_mod_name_paths)}",
             ]
         )
@@ -942,6 +975,7 @@ def main() -> int:
     print(f"release_tag={release_tag}")
     print(f"add_count={len(add_paths)}")
     print(f"del_count={len(del_paths)}")
+    print(f"manual_operation_count={len(manual_del_paths)}")
     print(f"same_mod_name_skip_count={len(same_mod_name_paths)}")
     print(f"update_remote_count={len(remote_updates)}")
     print(f"update_required_count={len(required_updates)}")

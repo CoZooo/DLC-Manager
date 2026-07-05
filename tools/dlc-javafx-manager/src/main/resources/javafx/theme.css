@@ -1,0 +1,1512 @@
+.root {
+    -dlc-bg: #f5f7fb;
+    -dlc-panel: #ffffff;
+    -dlc-panel-muted: #f8fafc;
+    -dlc-border: #d8dee8;
+    -dlc-border-strong: #b9c3d3;
+    -dlc-text: #172033;
+    -dlc-text-muted: #667085;
+    -dlc-accent: #2563eb;
+    -dlc-accent-dark: #1d4ed8;
+    -dlc-ok: #16825d;
+    -dlc-warn: #b86b00;
+    -dlc-error: #c03434;
+    -dlc-neutral: #596579;
+    -fx-font-family: "Noto Sans SC";
+    -fx-font-size: 13px;
+    -fx-text-fill: -dlc-text;
+    -fx-background-color: -dlc-bg;
+}
+
+.dlc-app-root {
+    -fx-background-color: -dlc-bg;
+}
+
+.dlc-workspace-root {
+    -fx-background-color: -dlc-bg;
+}
+
+.dlc-mode-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.dlc-home-mode-icon {
+    -fx-background-color: transparent;
+}
+
+.dlc-mode-title,
+.dlc-hero-title,
+.dlc-workspace-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-hero-title {
+    -fx-font-size: 24px;
+}
+
+.dlc-mode-title,
+.dlc-workspace-title {
+    -fx-font-size: 18px;
+}
+
+.dlc-action-form {
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.dlc-action-panel {
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1 0 0 0;
+}
+
+.dlc-action-panel-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-size: 13px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-status-root {
+    -fx-background-color: #eef2f8;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1 0 0 0;
+}
+
+.dlc-status-root .label,
+.dlc-status-strip .label {
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.tab-pane {
+    -fx-tab-min-height: 32px;
+    -fx-background-color: -dlc-panel;
+}
+
+.tab-pane > .tab-header-area {
+    -fx-padding: 10 12 0 12;
+}
+
+.tab-pane.dlc-tab-pane-with-actions > .tab-header-area {
+    -fx-padding: 10 210 0 12;
+}
+
+.dlc-tab-trailing-actions {
+    -fx-background-color: -dlc-panel;
+    -fx-padding: 0 0 0 8;
+}
+
+.tab-pane > .tab-header-area > .tab-header-background {
+    -fx-background-color: -dlc-panel;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-color: transparent;
+    -fx-border-width: 0 0 2 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-padding: 8 14 9 14;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:selected {
+    -fx-background-color: #f8fbff;
+    -fx-border-color: transparent transparent -dlc-accent transparent;
+    -fx-border-width: 0 0 2 0;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-width: 0 0 2 0;
+    -fx-border-color: transparent transparent -dlc-accent transparent;
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab .tab-label {
+    -fx-text-fill: -dlc-text-muted;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.tab-pane > .tab-header-area > .headers-region > .tab:selected .tab-label {
+    -fx-text-fill: -dlc-text;
+}
+
+.tab-pane > .tab-content-area {
+    -fx-background-color: -dlc-panel;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1 0 0 0;
+}
+
+.dlc-view {
+    -fx-background-color: -dlc-panel;
+}
+
+.dlc-toolbar {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f9fbff);
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 0 0 1 0;
+}
+
+.dlc-update-header {
+    -fx-padding: 10 16 10 16;
+}
+
+.dlc-language-picker {
+    -fx-padding: 0;
+}
+
+.button.dlc-manager-settings-button {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border-strong;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 0;
+    -fx-content-display: graphic-only;
+}
+
+.button.dlc-manager-settings-button:hover {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #aab6c8;
+}
+
+.dlc-filter-bar {
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 6;
+    -fx-border-radius: 6;
+}
+
+.dlc-local-context-bar {
+    -fx-border-width: 0 0 1 0;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+}
+
+.dlc-section {
+    -fx-background-color: -dlc-panel;
+}
+
+.dlc-section-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-size: 13px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-modal-overlay {
+    -fx-background-color: rgba(23, 32, 51, 0.42);
+    -fx-padding: 28;
+}
+
+.dlc-modal-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-background-radius: 8;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 18 20 16 20;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.26), 28, 0.22, 0, 10);
+}
+
+.dlc-modal-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-size: 16px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-modal-content {
+    -fx-alignment: center-left;
+}
+
+.dlc-modal-panel .button {
+    -fx-min-height: 32px;
+    -fx-min-width: 76px;
+}
+
+.dlc-notice-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-background-radius: 10;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 32, 0.24, 0, 12);
+}
+
+.dlc-notice-header {
+    -fx-padding: 20 22 12 22;
+    -fx-border-color: transparent transparent -dlc-border transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.dlc-notice-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 18px;
+}
+
+.dlc-notice-subhead {
+    -fx-text-fill: -dlc-neutral;
+    -fx-font-size: 12px;
+    -fx-max-width: 320px;
+}
+
+.dlc-notice-body {
+    -fx-padding: 14 16;
+}
+
+.dlc-notice-footer {
+    -fx-padding: 12 18 16 18;
+    -fx-border-color: -dlc-border transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.tooltip {
+    -fx-background-color: rgba(17, 24, 39, 0.96);
+    -fx-text-fill: #f8fafc;
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.12);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 10 12;
+    -fx-font-size: 12px;
+    -fx-font-family: "Noto Sans SC Regular";
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 24, 0.22, 0, 8);
+}
+
+.dlc-tooltip .dlc-rich-text {
+    -fx-line-spacing: 3px;
+}
+
+.dlc-tooltip .dlc-rich-text-run {
+    -fx-fill: #f8fafc;
+    -fx-font-size: 12px;
+}
+
+.dlc-floating-tooltip {
+    -fx-background-color: rgba(17, 24, 39, 0.96);
+    -fx-background-radius: 10;
+    -fx-border-color: rgba(255, 255, 255, 0.12);
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-padding: 10 12;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 24, 0.22, 0, 8);
+}
+
+.dlc-floating-tooltip .label {
+    -fx-text-fill: #f8fafc;
+    -fx-font-size: 12px;
+    -fx-font-family: "Noto Sans SC Regular";
+}
+
+.dlc-floating-tooltip .dlc-rich-text {
+    -fx-line-spacing: 3px;
+}
+
+.dlc-floating-tooltip .dlc-rich-text-run {
+    -fx-fill: #f8fafc;
+    -fx-font-size: 12px;
+}
+
+.dlc-config-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-background-radius: 10;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 34, 0.22, 0, 12);
+}
+
+.dlc-manager-settings-panel {
+    -fx-background-color: -dlc-panel;
+    -fx-background-radius: 10;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 10;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.28), 34, 0.22, 0, 12);
+}
+
+.dlc-config-header {
+    -fx-padding: 20 22 16 22;
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f8fafc);
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-background-radius: 10 10 0 0;
+}
+
+.dlc-config-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-size: 18px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-manager-settings-content {
+    -fx-padding: 22 24 24 24;
+}
+
+.dlc-manager-settings-row {
+    -fx-padding: 16 18 16 18;
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.dlc-config-option-name {
+    -fx-text-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-config-tabs {
+    -fx-padding: 16 12 16 16;
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 0 1 0 0;
+    -fx-min-width: 160px;
+    -fx-pref-width: 160px;
+}
+
+.button.dlc-config-tab-button {
+    -fx-alignment: center-left;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.button.dlc-config-tab-button:hover {
+    -fx-background-color: #edf4ff;
+    -fx-border-color: transparent;
+}
+
+.button.dlc-config-tab-button.selected {
+    -fx-background-color: #e8f0ff;
+    -fx-text-fill: -dlc-text;
+}
+
+.dlc-config-scroll {
+    -fx-background-color: transparent;
+    -fx-background: transparent;
+    -fx-padding: 0;
+}
+
+.dlc-config-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.dlc-config-option-list {
+    -fx-padding: 14 18 18 18;
+    -fx-background-color: -dlc-panel;
+}
+
+.dlc-config-option-row {
+    -fx-padding: 10 12 10 12;
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+
+.dlc-config-option-title {
+    -fx-text-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-config-option-controls {
+    -fx-min-width: 456px;
+    -fx-pref-width: 456px;
+    -fx-max-width: 456px;
+}
+
+.button.dlc-config-reset-button {
+    -fx-min-width: 78px;
+    -fx-pref-width: 78px;
+    -fx-max-width: 78px;
+}
+
+.dlc-config-number-field {
+    -fx-alignment: center-left;
+}
+
+.dlc-config-footer {
+    -fx-padding: 12 16 14 16;
+    -fx-background-color: #f8fafc;
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 1 0 0 0;
+    -fx-background-radius: 0 0 10 10;
+}
+
+.muted {
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.muted .dlc-rich-text-run {
+    -fx-fill: -dlc-text-muted;
+}
+
+.button {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border-strong;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-padding: 7 12;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-text-fill: -dlc-text;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #f8fbff;
+    -fx-border-color: #9fb0c9;
+}
+
+.button:pressed {
+    -fx-background-color: #edf4ff;
+}
+
+.button:focused {
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-effect: null;
+}
+
+.button:disabled {
+    -fx-opacity: 0.52;
+    -fx-cursor: default;
+}
+
+.button.primary {
+    -fx-background-color: -dlc-accent;
+    -fx-border-color: -dlc-accent;
+    -fx-text-fill: white;
+}
+
+.button.primary:hover {
+    -fx-background-color: -dlc-accent-dark;
+    -fx-border-color: -dlc-accent-dark;
+}
+
+.button.danger {
+    -fx-text-fill: -dlc-error;
+    -fx-border-color: #e1a6a6;
+    -fx-background-color: #ffffff;
+}
+
+.button.danger:hover {
+    -fx-background-color: #fff5f5;
+    -fx-border-color: #d88f8f;
+}
+
+.text-field,
+.text-area,
+.combo-box-base {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border-strong;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-min-height: 32px;
+    -fx-pref-height: 32px;
+}
+
+.spinner {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+}
+
+.spinner .text-field {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border-strong;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+}
+
+.spinner .increment-arrow-button,
+.spinner .decrement-arrow-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+    -fx-max-width: 0;
+}
+
+.spinner .increment-arrow,
+.spinner .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.code-editor {
+    -fx-font-family: "JetBrains Mono";
+}
+
+.dlc-rich-text-pane {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-padding: 10;
+}
+
+.dlc-rich-text-pane > .viewport {
+    -fx-background-color: #ffffff;
+}
+
+.dlc-rich-text {
+    -fx-background-color: transparent;
+    -fx-line-spacing: 3px;
+}
+
+.dlc-rich-text-run {
+    -fx-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC";
+    -fx-font-size: 13px;
+}
+
+.dlc-rich-text-run.bold,
+.dlc-rich-text .bold {
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-rich-text-run.italic,
+.dlc-rich-text .italic {
+    -fx-font-style: italic;
+}
+
+.dlc-rich-text-run.code,
+.dlc-rich-text .code {
+    -fx-font-family: "JetBrains Mono";
+    -fx-fill: -dlc-neutral;
+}
+
+.dlc-rich-text-run.heading-1 {
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 17px;
+}
+
+.dlc-rich-text-run.heading-2 {
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 15px;
+}
+
+.dlc-rich-text-run.heading-3 {
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 14px;
+}
+
+.dlc-rich-text-run.link {
+    -fx-cursor: hand;
+    -fx-fill: -dlc-accent;
+}
+
+.text-field,
+.combo-box-base {
+    -fx-padding: 0 8;
+}
+
+.text-field:focused,
+.text-area:focused {
+    -fx-border-color: -dlc-accent;
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.16), 8, 0.2, 0, 0);
+}
+
+.combo-box-base:focused {
+    -fx-border-color: -dlc-accent;
+    -fx-effect: null;
+}
+
+.combo-box-base,
+.combo-box-base .list-cell {
+    -fx-text-fill: -dlc-text;
+}
+
+.combo-box-base > .list-cell,
+.combo-box-base:showing > .list-cell,
+.combo-box-base:focused > .list-cell {
+    -fx-background-color: transparent;
+    -fx-effect: null;
+    -fx-padding: 0 2;
+    -fx-text-fill: -dlc-text;
+}
+
+.combo-box-base .arrow-button {
+    -fx-background-color: transparent;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: -dlc-panel;
+    -fx-border-color: -dlc-border-strong;
+    -fx-effect: null;
+}
+
+.combo-box-popup .list-view .list-cell {
+    -fx-text-fill: -dlc-text;
+}
+
+.combo-box-popup .list-view .list-cell:filled:hover {
+    -fx-background-color: #eef4ff;
+    -fx-text-fill: -dlc-text;
+}
+
+.combo-box-popup .list-view .list-cell:filled:selected {
+    -fx-background-color: #dbeafe;
+    -fx-text-fill: -dlc-text;
+}
+
+.combo-box-popup .list-view .list-cell:filled:selected:hover {
+    -fx-background-color: #cfe0ff;
+    -fx-text-fill: -dlc-text;
+}
+
+.list-view {
+    -fx-background-color: -dlc-panel;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-padding: 4;
+}
+
+.list-view:focused {
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-effect: null;
+}
+
+.dlc-dlc-list {
+    -fx-padding: 4;
+}
+
+.dlc-dlc-list-frame {
+    -fx-spacing: 0;
+}
+
+.dlc-dlc-scrollbar-slot {
+    -fx-min-width: 12px;
+    -fx-pref-width: 12px;
+    -fx-max-width: 12px;
+}
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar:vertical {
+    -fx-pref-width: 12px;
+    -fx-min-width: 12px;
+    -fx-max-width: 12px;
+    -fx-padding: 2 1 2 1;
+}
+
+.scroll-bar:horizontal {
+    -fx-pref-height: 10px;
+    -fx-min-height: 10px;
+    -fx-max-height: 10px;
+    -fx-padding: 1 4 1 4;
+}
+
+.scroll-bar .track {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: rgba(71, 84, 103, 0.26);
+    -fx-background-radius: 999;
+    -fx-background-insets: 2;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: rgba(71, 84, 103, 0.42);
+}
+
+.scroll-bar:disabled .thumb {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-pref-height: 0;
+    -fx-max-width: 0;
+    -fx-max-height: 0;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.list-view.dlc-list-with-external-scroll .scroll-bar:vertical {
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+    -fx-max-width: 0;
+    -fx-opacity: 0;
+    -fx-padding: 0;
+    -fx-mouse-transparent: true;
+}
+
+.list-cell {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-padding: 8 10;
+    -fx-background-radius: 5;
+}
+
+.list-cell:focused {
+    -fx-background-insets: 0;
+    -fx-border-insets: 0;
+    -fx-effect: null;
+}
+
+.list-cell:filled:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.list-cell:filled:selected {
+    -fx-background-color: #e7f0ff;
+}
+
+.list-cell:filled:selected .label {
+    -fx-text-fill: -dlc-text;
+}
+
+.dlc-file-top {
+    -fx-background-color: linear-gradient(to bottom, #ffffff, #f8fbff);
+    -fx-border-color: -dlc-border;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 12 14 10 14;
+}
+
+.dlc-file-path-bar .label {
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.dlc-file-path-bar .dlc-route-status {
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.dlc-file-list {
+    -fx-padding: 6;
+}
+
+.dlc-file-list .list-cell {
+    -fx-padding: 6 8;
+}
+
+.dlc-file-list .list-cell:filled:selected,
+.dlc-file-list .list-cell:filled:selected:focused {
+    -fx-background-color: #eaf2ff;
+}
+
+.dlc-file-list .list-cell:filled.dlc-file-selected {
+    -fx-background-color: #eef1f5;
+}
+
+.dlc-file-list .list-cell:filled:hover {
+    -fx-background-color: #f4f8ff;
+}
+
+.dlc-file-row {
+    -fx-min-height: 36px;
+    -fx-padding: 0 4;
+}
+
+.dlc-file-icon {
+    -fx-min-width: 22px;
+    -fx-pref-width: 22px;
+    -fx-max-width: 22px;
+    -fx-min-height: 22px;
+    -fx-pref-height: 22px;
+    -fx-max-height: 22px;
+    -fx-alignment: center;
+}
+
+.dlc-file-icon-body {
+    -fx-min-width: 18px;
+    -fx-pref-width: 18px;
+    -fx-max-width: 18px;
+    -fx-min-height: 14px;
+    -fx-pref-height: 14px;
+    -fx-max-height: 14px;
+    -fx-background-color: #8bb6f4;
+    -fx-border-color: #5e8fe0;
+    -fx-border-width: 1;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-translate-y: 2;
+}
+
+.dlc-file-folder-tab {
+    -fx-min-width: 10px;
+    -fx-pref-width: 10px;
+    -fx-max-width: 10px;
+    -fx-min-height: 5px;
+    -fx-pref-height: 5px;
+    -fx-max-height: 5px;
+    -fx-background-color: #b8d2f8;
+    -fx-border-color: #5e8fe0;
+    -fx-border-width: 1 1 0 1;
+    -fx-border-radius: 3 3 0 0;
+    -fx-background-radius: 3 3 0 0;
+    -fx-translate-x: -4;
+    -fx-translate-y: -5;
+}
+
+.dlc-file-icon.file .dlc-file-icon-body {
+    -fx-min-width: 15px;
+    -fx-pref-width: 15px;
+    -fx-max-width: 15px;
+    -fx-min-height: 18px;
+    -fx-pref-height: 18px;
+    -fx-max-height: 18px;
+    -fx-background-color: #ffffff;
+    -fx-border-color: #9aa6ba;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-translate-y: 0;
+}
+
+.dlc-file-corner {
+    -fx-min-width: 6px;
+    -fx-pref-width: 6px;
+    -fx-max-width: 6px;
+    -fx-min-height: 6px;
+    -fx-pref-height: 6px;
+    -fx-max-height: 6px;
+    -fx-background-color: #e7edf7;
+    -fx-border-color: #9aa6ba;
+    -fx-border-width: 0 0 1 1;
+    -fx-translate-x: 5;
+    -fx-translate-y: -6;
+}
+
+.dlc-file-name {
+    -fx-text-fill: -dlc-text;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-file-kind {
+    -fx-background-color: #eef4ff;
+    -fx-border-color: #b8c9e8;
+    -fx-border-width: 1;
+    -fx-border-radius: 999;
+    -fx-background-radius: 999;
+    -fx-padding: 3 10;
+    -fx-text-fill: #315a9c;
+    -fx-font-size: 12px;
+}
+
+.dlc-file-kind-column {
+    -fx-min-width: 92px;
+    -fx-pref-width: 92px;
+    -fx-max-width: 92px;
+    -fx-alignment: center;
+}
+
+.list-cell.file .dlc-file-kind {
+    -fx-background-color: #f2f4f7;
+    -fx-border-color: #c7ced8;
+    -fx-text-fill: #596579;
+}
+
+.dlc-file-size-column {
+    -fx-min-width: 88px;
+    -fx-pref-width: 88px;
+    -fx-max-width: 88px;
+    -fx-alignment: center-right;
+}
+
+.dlc-file-size {
+    -fx-alignment: center-right;
+    -fx-text-fill: -dlc-text-muted;
+}
+
+.dlc-dlc-list .list-cell:filled:selected,
+.dlc-dlc-list .list-cell:filled:selected:focused {
+    -fx-background-color: transparent;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-dlc-selected {
+    -fx-background-color: #eef0f3;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item:filled:hover,
+.dlc-dlc-list .list-cell.dlc-row-item:filled:selected:hover,
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-dlc-selected:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-row-selected {
+    -fx-background-color: #eef0f3;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-row-selected:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item:filled.dlc-row-selected .status-chip {
+    -fx-text-fill: white;
+}
+
+.dlc-dlc-list .list-cell:filled:selected .label,
+.dlc-dlc-list .list-cell:filled:selected:hover .label {
+    -fx-text-fill: -dlc-text;
+}
+
+.dlc-pack-list {
+    -fx-fixed-cell-size: -1;
+}
+
+.dlc-pack-list .list-cell {
+    -fx-padding: 6 8;
+}
+
+.dlc-pack-list .list-cell:filled:selected,
+.dlc-pack-list .list-cell:filled:selected:focused {
+    -fx-background-color: transparent;
+}
+
+.dlc-pack-list .list-cell:filled:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.dlc-pack-row {
+    -fx-min-height: 112px;
+}
+
+.dlc-pack-order-buttons {
+    -fx-min-width: 30px;
+    -fx-pref-width: 30px;
+    -fx-max-width: 30px;
+}
+
+.dlc-pack-order-buttons .button {
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 24px;
+    -fx-pref-height: 24px;
+    -fx-padding: 0;
+}
+
+.dlc-pack-icon {
+    -fx-min-width: 64px;
+    -fx-pref-width: 64px;
+    -fx-max-width: 64px;
+    -fx-min-height: 64px;
+    -fx-pref-height: 64px;
+    -fx-max-height: 64px;
+    -fx-background-color: #eef2f7;
+    -fx-background-radius: 12px;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 12px;
+}
+
+.dlc-pack-icon-initial {
+    -fx-font-size: 22px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-text-fill: #475467;
+}
+
+.dlc-pack-text {
+    -fx-min-width: 0;
+}
+
+.dlc-pack-homepage-hint {
+    -fx-font-size: 11px;
+    -fx-text-fill: #5f7fb4;
+}
+
+.dlc-pack-version-prefix {
+    -fx-text-fill: #5f7fb4;
+}
+
+.dlc-pack-version-line {
+    -fx-min-height: 32px;
+    -fx-alignment: center-left;
+}
+
+.dlc-pack-version-button {
+    -fx-pref-height: 30px;
+    -fx-min-height: 30px;
+    -fx-max-height: 30px;
+    -fx-min-width: 136px;
+    -fx-pref-width: 150px;
+    -fx-background-color: #f7faff;
+    -fx-border-color: #c8d7f0;
+    -fx-border-radius: 999px;
+    -fx-background-radius: 999px;
+    -fx-padding: 0 10 0 10;
+    -fx-text-fill: #355f9c;
+    -fx-alignment: center;
+}
+
+.dlc-pack-version-button:disabled {
+    -fx-opacity: 1.0;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: #355f9c;
+}
+
+.dlc-pack-version-button:hover,
+.dlc-pack-version-button:showing {
+    -fx-background-color: #eef5ff;
+    -fx-border-color: #91b5e8;
+}
+
+.dlc-pack-version-button .label {
+    -fx-text-fill: #355f9c;
+}
+
+.dlc-pack-version-button:disabled .label {
+    -fx-text-fill: #355f9c;
+    -fx-opacity: 1.0;
+}
+
+.dlc-pack-version-button:disabled .arrow-button {
+    -fx-padding: 0;
+    -fx-pref-width: 0;
+    -fx-min-width: 0;
+    -fx-max-width: 0;
+    -fx-opacity: 0;
+}
+
+.dlc-pack-version-button:disabled .arrow {
+    -fx-opacity: 0;
+    -fx-padding: 0;
+}
+
+.dlc-pack-version-button .arrow-button {
+    -fx-padding: 0 0 0 8;
+}
+
+.dlc-pack-version-button .arrow {
+    -fx-background-color: #355f9c;
+}
+
+.context-menu {
+    -fx-background-color: white;
+    -fx-background-radius: 10px;
+    -fx-border-color: -dlc-border;
+    -fx-border-radius: 10px;
+    -fx-padding: 6px;
+}
+
+.menu-item {
+    -fx-background-radius: 7px;
+    -fx-padding: 6 12;
+}
+
+.menu-item:focused {
+    -fx-background-color: #eef5ff;
+}
+
+.menu-item:focused .label {
+    -fx-text-fill: -dlc-text;
+}
+
+.menu-item.selected {
+    -fx-background-color: #e7f0ff;
+}
+
+.menu-item.selected .label {
+    -fx-text-fill: #355f9c;
+}
+
+.menu-item.selected:focused {
+    -fx-background-color: #dbeafe;
+}
+
+.dlc-pack-actions {
+    -fx-min-width: 214px;
+    -fx-pref-width: 214px;
+    -fx-max-width: 214px;
+}
+
+.dlc-pack-actions .button {
+    -fx-min-width: 100px;
+    -fx-pref-width: 100px;
+    -fx-max-width: 100px;
+}
+
+.dlc-preset-list .list-cell:filled:selected,
+.dlc-preset-list .list-cell:filled:selected:focused {
+    -fx-background-color: transparent;
+}
+
+.dlc-preset-list .list-cell:filled:selected:hover {
+    -fx-background-color: #f1f5fb;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-item .check-box:disabled {
+    -fx-opacity: 0;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-group:filled:hover,
+.dlc-dlc-list .list-cell.dlc-row-path:filled:hover,
+.dlc-dlc-list .list-cell.dlc-row-group:filled:selected,
+.dlc-dlc-list .list-cell.dlc-row-path:filled:selected {
+    -fx-background-color: transparent;
+}
+
+.dlc-dlc-list .list-cell.dlc-row-path:filled:selected .dlc-dlc-path-header,
+.dlc-dlc-list .list-cell.dlc-row-path:filled:selected:focused .dlc-dlc-path-header,
+.dlc-dlc-list .list-cell.dlc-row-path:filled:hover .dlc-dlc-path-header {
+    -fx-text-fill: #344054;
+}
+
+.list-cell.dlc-row-group {
+    -fx-padding: 10 10 4 10;
+}
+
+.list-cell.dlc-row-path {
+    -fx-padding: 5 10 4 16;
+}
+
+.list-cell.dlc-row-item {
+    -fx-padding: 5 8;
+}
+
+.dlc-dlc-group-header {
+    -fx-text-fill: #31547f;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 13px;
+}
+
+.dlc-dlc-path-header {
+    -fx-text-fill: #475467;
+    -fx-font-size: 12px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+}
+
+.dlc-dlc-path-row {
+    -fx-alignment: center-left;
+    -fx-min-height: 28px;
+    -fx-pref-height: 28px;
+}
+
+.dlc-folder-collapse-button {
+    -fx-min-width: 28px;
+    -fx-pref-width: 28px;
+    -fx-max-width: 28px;
+    -fx-min-height: 26px;
+    -fx-pref-height: 26px;
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: #475467;
+    -fx-alignment: center;
+    -fx-content-display: graphic-only;
+}
+
+.dlc-folder-collapse-icon-box {
+    -fx-min-width: 16px;
+    -fx-pref-width: 16px;
+    -fx-max-width: 16px;
+    -fx-min-height: 16px;
+    -fx-pref-height: 16px;
+    -fx-max-height: 16px;
+    -fx-alignment: center;
+}
+
+.dlc-folder-collapse-icon {
+    -fx-stroke: #475467;
+}
+
+.dlc-folder-collapse-button:hover {
+    -fx-background-color: #eef4ff;
+    -fx-border-color: #d5e2f7;
+    -fx-text-fill: #344054;
+}
+
+.dlc-folder-collapse-button:pressed {
+    -fx-background-color: #e7f0ff;
+}
+
+.dlc-dlc-type-label {
+    -fx-background-color: #eef4ff;
+    -fx-border-color: #b8c9e8;
+    -fx-background-radius: 5;
+    -fx-border-radius: 5;
+    -fx-padding: 5 10;
+    -fx-font-size: 13px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-text-fill: #243b63;
+    -fx-min-width: 88px;
+    -fx-min-height: 28px;
+    -fx-alignment: center;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.10), 4, 0.12, 0, 1);
+}
+
+.dlc-dlc-list .list-cell .dlc-dlc-type-label {
+    -fx-background-color: #eef4ff;
+    -fx-border-color: #b8c9e8;
+    -fx-text-fill: #243b63;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.10), 4, 0.12, 0, 1);
+}
+
+.dlc-dlc-list .list-cell .dlc-dlc-type-label.type-mod {
+    -fx-background-color: #eef8f2;
+    -fx-border-color: #93cfae;
+    -fx-text-fill: #145a37;
+    -fx-effect: dropshadow(gaussian, rgba(22, 130, 93, 0.22), 5, 0.16, 0, 1);
+}
+
+.dlc-dlc-list .list-cell .dlc-dlc-type-label.type-resource {
+    -fx-background-color: #eef4ff;
+    -fx-border-color: #9db8ee;
+    -fx-text-fill: #244b8f;
+    -fx-effect: dropshadow(gaussian, rgba(37, 99, 235, 0.20), 5, 0.16, 0, 1);
+}
+
+.dlc-dlc-list .list-cell .dlc-dlc-type-label.type-data {
+    -fx-background-color: #fff4e7;
+    -fx-border-color: #e5b16e;
+    -fx-text-fill: #8a5700;
+    -fx-effect: dropshadow(gaussian, rgba(184, 107, 0, 0.20), 5, 0.16, 0, 1);
+}
+
+.dlc-dlc-list .list-cell .dlc-dlc-type-label.type-tacz {
+    -fx-background-color: #f4efff;
+    -fx-border-color: #b9a1e8;
+    -fx-text-fill: #573399;
+    -fx-effect: dropshadow(gaussian, rgba(104, 69, 170, 0.20), 5, 0.16, 0, 1);
+}
+
+.dlc-dlc-list .list-cell .dlc-dlc-type-label.type-unknown {
+    -fx-background-color: #f2f4f7;
+    -fx-border-color: #c7ced8;
+    -fx-text-fill: #4b5565;
+    -fx-effect: dropshadow(gaussian, rgba(75, 85, 101, 0.18), 5, 0.16, 0, 1);
+}
+
+.dlc-dlc-row {
+    -fx-min-height: 42px;
+    -fx-pref-height: 42px;
+}
+
+.dlc-row-accent {
+    -fx-min-width: 4px;
+    -fx-pref-width: 4px;
+    -fx-max-width: 4px;
+    -fx-min-height: 24px;
+    -fx-background-radius: 999;
+}
+
+.dlc-row-accent.enabled {
+    -fx-background-color: #4caf50;
+}
+
+.dlc-row-accent.pending {
+    -fx-background-color: #ffc24a;
+}
+
+.dlc-row-accent.off {
+    -fx-background-color: transparent;
+}
+
+.dlc-pending-badge {
+    -fx-background-color: rgba(255, 194, 74, 0.18);
+    -fx-border-color: #ffc24a;
+    -fx-border-width: 1;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-padding: 2 6;
+    -fx-font-size: 11px;
+    -fx-text-fill: #8a5700;
+    -fx-alignment: center;
+}
+
+.dlc-preset-disabled-badge {
+    -fx-background-color: rgba(208, 68, 68, 0.12);
+    -fx-border-color: #d04444;
+    -fx-border-width: 1;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-padding: 2 6;
+    -fx-font-size: 11px;
+    -fx-text-fill: #9f2f2f;
+    -fx-alignment: center;
+}
+
+.button.dlc-toggle-on {
+    -fx-text-fill: -dlc-ok;
+    -fx-border-color: #8dc7ad;
+    -fx-background-color: #f4fbf8;
+}
+
+.button.dlc-toggle-off {
+    -fx-text-fill: -dlc-neutral;
+    -fx-border-color: -dlc-border-strong;
+    -fx-background-color: #ffffff;
+}
+
+.button.dlc-toggle-pending {
+    -fx-text-fill: #8a5700;
+    -fx-border-color: #ffc24a;
+    -fx-background-color: #fff8e8;
+}
+
+.button.dlc-redirect-open-button {
+    -fx-text-fill: -dlc-neutral;
+    -fx-border-color: -dlc-border-strong;
+    -fx-background-color: #ffffff;
+}
+
+.dlc-action-panel .button {
+    -fx-min-height: 32px;
+}
+
+.dlc-toolbar .button,
+.dlc-toolbar .combo-box-base {
+    -fx-min-height: 32px;
+}
+
+.dlc-mode-panel .button {
+    -fx-min-width: 112px;
+}
+
+.progress-bar {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-pref-height: 12px;
+}
+
+.progress-bar > .track {
+    -fx-background-color: #e2e8f0;
+    -fx-background-insets: 0;
+    -fx-background-radius: 999;
+    -fx-border-color: transparent;
+}
+
+.progress-bar > .bar {
+    -fx-background-color: -dlc-accent;
+    -fx-background-radius: 999;
+    -fx-background-insets: 0;
+}
+
+.status-chip {
+    -fx-background-radius: 999;
+    -fx-padding: 2 8;
+    -fx-font-size: 11px;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-text-fill: white;
+    -fx-min-width: 54px;
+}
+
+.status-chip.ok {
+    -fx-background-color: -dlc-ok;
+}
+
+.status-chip.warn {
+    -fx-background-color: -dlc-warn;
+}
+
+.status-chip.error {
+    -fx-background-color: -dlc-error;
+}
+
+.status-chip.neutral {
+    -fx-background-color: -dlc-neutral;
+}
+
+.dlc-update-list .list-cell {
+    -fx-padding: 4 6;
+}
+
+.dlc-update-list .list-cell:filled:hover {
+    -fx-background-color: #f4f8ff;
+}
+
+.dlc-update-list .list-cell:filled:selected,
+.dlc-update-list .list-cell:filled:focused {
+    -fx-background-color: transparent;
+}
+
+.dlc-update-row {
+    -fx-padding: 6 4;
+    -fx-alignment: center-left;
+}
+
+.dlc-update-row .button {
+    -fx-min-width: 82px;
+}
+
+.dlc-update-warning {
+    -fx-text-fill: #9a6700;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 12px;
+}
+
+.dlc-pending-warning {
+    -fx-text-fill: #9a6700;
+    -fx-font-family: "Noto Sans SC SemiBold";
+    -fx-font-size: 12px;
+}
+
+.check-box > .box {
+    -fx-background-color: #ffffff;
+    -fx-border-color: -dlc-border-strong;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.check-box:selected > .box {
+    -fx-background-color: -dlc-accent;
+    -fx-border-color: -dlc-accent;
+}
+
+.check-box > .box > .mark {
+    -fx-background-color: transparent;
+    -fx-shape: "M 3.1 7.3 L 6.2 10.4 L 12.9 2.8 L 14.5 4.2 L 6.3 13.4 L 1.7 8.8 Z";
+    -fx-scale-shape: false;
+    -fx-padding: 6 7 6 7;
+}
+
+.check-box:selected > .box > .mark {
+    -fx-background-color: #ffffff;
+}
+
+.titled-pane > .title {
+    -fx-background-color: -dlc-panel-muted;
+    -fx-border-color: -dlc-border;
+}
+
+.split-pane,
+.scroll-pane {
+    -fx-background-color: -dlc-panel;
+}

@@ -10,15 +10,9 @@ import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.core.DlcApplyMode;
-import com.cozooo.dlc_manager.core.DlcApplier;
-import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DlcRuntimeState;
-import com.cozooo.dlc_manager.core.DlcScanner;
-import com.cozooo.dlc_manager.core.DlcType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -38,7 +32,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -159,23 +152,23 @@ public final class DlcServerApi {
                 String path = normalizePath(exchange.getRequestURI());
                 String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
                 if ("GET".equals(method) && "/api/ping".equals(path)) {
-                    handlePing(exchange);
+                    sendResult(exchange, DlcApiService.ping());
                     return;
                 }
                 if ("GET".equals(method) && "/api/version".equals(path)) {
-                    handleVersion(exchange);
+                    sendResult(exchange, DlcApiService.version());
                     return;
                 }
                 if ("GET".equals(method) && "/api/state".equals(path)) {
-                    handleState(exchange);
+                    sendResult(exchange, DlcApiService.state());
                     return;
                 }
                 if ("GET".equals(method) && "/api/dlc/list".equals(path)) {
-                    handleDlcList(exchange);
+                    sendResult(exchange, DlcApiService.listDlc());
                     return;
                 }
                 if ("GET".equals(method) && "/api/dlc/pending".equals(path)) {
-                    handleDlcPending(exchange);
+                    sendResult(exchange, DlcApiService.listPendingDlc());
                     return;
                 }
                 if ("POST".equals(method) && "/api/dlc/apply".equals(path)) {
@@ -204,6 +197,10 @@ public final class DlcServerApi {
                 }
                 if ("GET".equals(method) && "/api/remote/download/status".equals(path)) {
                     handleRemoteDownloadStatus(exchange);
+                    return;
+                }
+                if ("POST".equals(method) && "/api/remote/download/cancel".equals(path)) {
+                    handleRemoteDownloadCancel(exchange);
                     return;
                 }
                 if ("GET".equals(method) && "/api/required/list".equals(path)) {
@@ -288,461 +285,22 @@ public final class DlcServerApi {
         }
     }
 
-    private static void handlePing(HttpExchange exchange) throws IOException {
-        JsonObject data = new JsonObject();
-        data.addProperty("service", "dlc-api");
-        data.addProperty("running", RUNNING.get());
-        data.addProperty("mode", currentServer != null && currentServer.isDedicatedServer() ? "server" : "client");
-        sendOk(exchange, data);
-    }
-
-    private static void handleVersion(HttpExchange exchange) throws IOException {
-        Path dlcRoot = DlcConfig.getDlcRoot();
-        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
-        JsonObject data = new JsonObject();
-        data.addProperty("base", version == null ? "" : version.getBase());
-        data.addProperty("dlc", version == null ? "" : version.getDlc());
-        data.addProperty("rollback_from", version == null ? "" : blank(version.getRollbackFrom()));
-        data.addProperty("changelog_shown", version == null ? "" : blank(version.getChangelogShown()));
-        data.addProperty("label", DlcServerService.getServerVersionLabel());
-        sendOk(exchange, data);
-    }
-
-    private static void handleState(HttpExchange exchange) throws IOException {
-        Path dlcRoot = DlcConfig.getDlcRoot();
-        DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
-        Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
-        int total = 0;
-        int enabled = 0;
-        JsonObject counts = new JsonObject();
-        for (DlcType type : DlcType.values()) {
-            List<DlcItem> items = grouped.getOrDefault(type, List.of());
-            int count = items == null ? 0 : items.size();
-            counts.addProperty(type.name().toLowerCase(Locale.ROOT), count);
-            total += count;
-            if (items != null) {
-                for (DlcItem item : items) {
-                    if (item != null && item.isEnabled()) {
-                        enabled++;
-                    }
-                }
-            }
-        }
-        JsonObject data = new JsonObject();
-        data.addProperty("serverRunning", currentServer != null && currentServer.isRunning());
-        data.addProperty("dedicatedServer", currentServer != null && currentServer.isDedicatedServer());
-        data.addProperty("totalItems", total);
-        data.addProperty("enabledItems", enabled);
-        data.add("counts", counts);
-        sendOk(exchange, data);
-    }
-
-    private static void handleDlcList(HttpExchange exchange) throws IOException {
-        Map<DlcType, List<DlcItem>> grouped = scanDlcItemsForApi();
-        JsonObject data = new JsonObject();
-        JsonArray groups = new JsonArray();
-        for (DlcType type : DlcType.values()) {
-            JsonObject group = new JsonObject();
-            group.addProperty("type", type.name().toLowerCase(Locale.ROOT));
-            JsonArray items = new JsonArray();
-            for (DlcItem item : grouped.getOrDefault(type, List.of())) {
-                if (item == null) {
-                    continue;
-                }
-                JsonObject json = new JsonObject();
-                json.addProperty("id", blank(item.getId()));
-                json.addProperty("identifier", blank(item.getIdentifier()));
-                json.addProperty("name", blank(item.getName()));
-                json.addProperty("type", item.getType().name().toLowerCase(Locale.ROOT));
-                json.addProperty("enabled", item.isEnabled());
-                json.addProperty("baselineEnabled", Boolean.TRUE.equals(DlcRuntimeState.getBaselineEnabled(item.getId())));
-                json.addProperty("pending", DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled()));
-                json.addProperty("hidden", item.isHidden());
-                json.addProperty("configType", item.isConfigType());
-                json.addProperty("alarm", item.isAlarm());
-                json.addProperty("allowEnableByAll", item.AllowEnableByAll());
-                json.addProperty("appliedTarget", blank(item.getAppliedTargetRaw()));
-                json.addProperty("sourcePath", item.getSourcePath() == null ? "" : item.getSourcePath().toString());
-                json.add("sourcePaths", toStringArray(item.getSourcePaths()));
-                json.add("displayNames", toJsonObject(item.getDisplayNames()));
-                json.add("tips", toJsonObject(item.getTooltips()));
-                json.add("dependencies", toStringArray(item.getDependencies()));
-                json.add("conflicts", toStringArray(item.getConflicts()));
-                items.add(json);
-            }
-            group.add("items", items);
-            groups.add(group);
-        }
-        data.add("groups", groups);
-        sendOk(exchange, data);
-    }
-
-    private static void handleDlcPending(HttpExchange exchange) throws IOException {
-        Map<DlcType, List<DlcItem>> grouped = scanDlcItemsForApi();
-        JsonArray items = new JsonArray();
-        for (DlcType type : DlcType.values()) {
-            for (DlcItem item : grouped.getOrDefault(type, List.of())) {
-                if (item == null || item.getId() == null || item.getId().isBlank()) {
-                    continue;
-                }
-                if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
-                    continue;
-                }
-                JsonObject json = new JsonObject();
-                json.addProperty("id", blank(item.getId()));
-                json.addProperty("identifier", blank(item.getIdentifier()));
-                json.addProperty("name", resolveApiDisplayName(item));
-                json.addProperty("type", item.getType().name().toLowerCase(Locale.ROOT));
-                json.addProperty("enabled", item.isEnabled());
-                json.addProperty("baselineEnabled", Boolean.TRUE.equals(DlcRuntimeState.getBaselineEnabled(item.getId())));
-                json.addProperty("pending", true);
-                items.add(json);
-            }
-        }
-        JsonObject data = new JsonObject();
-        data.add("items", items);
-        data.addProperty("count", items.size());
-        sendOk(exchange, data);
-    }
-
-    private static Map<DlcType, List<DlcItem>> scanDlcItemsForApi() {
-        Map<DlcType, List<DlcItem>> grouped = new DlcScanner().scan();
-        List<DlcItem> allItems = new ArrayList<>();
-        for (List<DlcItem> group : grouped.values()) {
-            if (group == null) {
-                continue;
-            }
-            for (DlcItem item : group) {
-                if (item == null) {
-                    continue;
-                }
-                allItems.add(item);
-                DlcRuntimeState.ensureBaseline(item.getId(), item.isEnabled());
-                Boolean override = DlcRuntimeState.getOverride(item.getId());
-                if (override != null) {
-                    item.setEnabled(override);
-                }
-            }
-        }
-        DlcRuntimeState.updateItemIndex(allItems);
-        return grouped;
+    private static void sendResult(HttpExchange exchange, DlcApiService.ApiResult result) throws IOException {
+        sendJson(exchange, result.status(), result.body());
     }
 
     private static void handleDlcApply(HttpExchange exchange) throws IOException {
-        JsonObject request = readJsonBody(exchange);
-        String modeRaw = request == null ? "" : blank(getString(request, "mode"));
-        handleDlcApplyPending(exchange, modeRaw);
+        sendResult(exchange, DlcApiService.applyDlc(readJsonBody(exchange)));
     }
 
     private static void handleDlcSetEnabled(HttpExchange exchange, boolean enabled) throws IOException {
-        JsonObject request = readJsonBody(exchange);
-        Map<DlcType, List<DlcItem>> grouped = scanDlcItemsForApi();
-        Map<String, DlcItem> itemById = new java.util.LinkedHashMap<>();
-        Map<String, java.util.List<DlcItem>> itemsByIdentifier = new java.util.LinkedHashMap<>();
-        for (List<DlcItem> group : grouped.values()) {
-            if (group == null) {
-                continue;
-            }
-            for (DlcItem item : group) {
-                if (item != null) {
-                    itemById.put(item.getId(), item);
-                    String identifier = blank(item.getIdentifier());
-                    if (!identifier.isBlank()) {
-                        itemsByIdentifier.computeIfAbsent(identifier, key -> new java.util.ArrayList<>()).add(item);
-                    }
-                }
-            }
-        }
-
-        JsonArray changed = new JsonArray();
-        JsonArray unknownIds = new JsonArray();
-        JsonArray unknownIdentifiers = new JsonArray();
-        List<String> ids = new ArrayList<>();
-        List<String> identifiers = new ArrayList<>();
-        String singleId = request == null ? "" : blank(getString(request, "id"));
-        if (!singleId.isBlank()) {
-            ids.add(singleId);
-        }
-        String singleIdentifier = request == null ? "" : blank(getString(request, "identifier"));
-        if (!singleIdentifier.isBlank()) {
-            identifiers.add(singleIdentifier);
-        }
-        ids.addAll(readStringArray(request, "ids"));
-        identifiers.addAll(readStringArray(request, "identifiers"));
-        if (ids.isEmpty() && identifiers.isEmpty()) {
-            sendError(exchange, 400, "ids_empty", "No DLC id or identifier was provided.");
-            return;
-        }
-        JsonArray ambiguousIdentifiers = new JsonArray();
-        for (String identifier : identifiers) {
-            if (identifier == null || identifier.isBlank()) {
-                continue;
-            }
-            java.util.List<DlcItem> matches = itemsByIdentifier.get(identifier);
-            if (matches == null || matches.size() <= 1) {
-                continue;
-            }
-            JsonObject ambiguous = new JsonObject();
-            ambiguous.addProperty("identifier", identifier);
-            JsonArray matchedIds = new JsonArray();
-            JsonArray matchedNames = new JsonArray();
-            for (DlcItem match : matches) {
-                if (match == null) {
-                    continue;
-                }
-                matchedIds.add(blank(match.getId()));
-                matchedNames.add(blank(match.getName()));
-            }
-            ambiguous.add("ids", matchedIds);
-            ambiguous.add("names", matchedNames);
-            ambiguousIdentifiers.add(ambiguous);
-        }
-        if (ambiguousIdentifiers.size() > 0) {
-            JsonObject root = new JsonObject();
-            root.addProperty("ok", false);
-            JsonObject error = new JsonObject();
-            error.addProperty("code", "ambiguous_identifier");
-            error.addProperty("message", "One or more identifiers matched multiple DLC entries.");
-            error.add("ambiguousIdentifiers", ambiguousIdentifiers);
-            root.add("error", error);
-            sendJson(exchange, 409, root);
-            return;
-        }
-        java.util.LinkedHashMap<String, DlcItem> requestedItems = new java.util.LinkedHashMap<>();
-        for (String id : ids) {
-            if (id == null || id.isBlank()) {
-                continue;
-            }
-            DlcItem item = itemById.get(id);
-            if (item == null) {
-                unknownIds.add(id);
-                continue;
-            }
-            requestedItems.putIfAbsent(id, item);
-        }
-        for (String identifier : identifiers) {
-            if (identifier == null || identifier.isBlank()) {
-                continue;
-            }
-            java.util.List<DlcItem> matches = itemsByIdentifier.get(identifier);
-            if (matches == null || matches.isEmpty()) {
-                unknownIdentifiers.add(identifier);
-                continue;
-            }
-            DlcItem item = matches.get(0);
-            requestedItems.putIfAbsent(item.getId(), item);
-        }
-
-        JsonArray linkedChanges = new JsonArray();
-        if (enabled) {
-            DlcRuntimeState.DependencyBatchResult dependencyResult = DlcRuntimeState.collectMissingDependencies(requestedItems.values());
-            java.util.LinkedHashMap<String, DlcItem> plannedItems = new java.util.LinkedHashMap<>(requestedItems);
-            for (DlcItem item : dependencyResult.getItemsToEnable()) {
-                if (item != null) {
-                    plannedItems.putIfAbsent(item.getId(), item);
-                }
-            }
-            DlcRuntimeState.ConflictBatchResult conflictResult = DlcRuntimeState.collectConflicts(plannedItems.values());
-            if (!conflictResult.getLines().isEmpty()) {
-                JsonObject root = new JsonObject();
-                root.addProperty("ok", false);
-                JsonObject error = new JsonObject();
-                error.addProperty("code", "conflicts_detected");
-                error.addProperty("message", "One or more DLC conflicts prevent enabling the requested items.");
-                JsonArray conflicts = new JsonArray();
-                for (DlcRuntimeState.ConflictLine line : conflictResult.getLines()) {
-                    JsonObject conflict = new JsonObject();
-                    DlcItem left = DlcRuntimeState.getItemByIdentifier(line.getLeftName());
-                    DlcItem right = DlcRuntimeState.getItemByIdentifier(line.getRightName());
-                    conflict.add("left", toConflictItemJson(left, line.getLeftName()));
-                    conflict.add("right", toConflictItemJson(right, line.getRightName()));
-                    conflicts.add(conflict);
-                }
-                error.add("conflicts", conflicts);
-                error.add("unknownIds", unknownIds.deepCopy());
-                error.add("unknownIdentifiers", unknownIdentifiers.deepCopy());
-                root.add("error", error);
-                sendJson(exchange, 409, root);
-                return;
-            }
-            for (DlcItem item : requestedItems.values()) {
-                applyOverrideState(item, true);
-                changed.add(toChangeJson(item, true, false));
-            }
-            for (DlcItem item : dependencyResult.getItemsToEnable()) {
-                if (item == null || requestedItems.containsKey(item.getId())) {
-                    continue;
-                }
-                applyOverrideState(item, true);
-                linkedChanges.add(toChangeJson(item, true, true));
-            }
-        } else {
-            java.util.LinkedHashMap<String, DlcItem> linkedToDisable = new java.util.LinkedHashMap<>();
-            for (DlcItem item : requestedItems.values()) {
-                for (DlcItem dependent : DlcRuntimeState.collectDependentsRecursive(item)) {
-                    if (dependent != null) {
-                        linkedToDisable.putIfAbsent(dependent.getId(), dependent);
-                    }
-                }
-            }
-            java.util.Set<DlcItem> hiddenDependencies = DlcRuntimeState.collectHiddenDependenciesToDisable(linkedToDisable.values());
-            for (DlcItem item : hiddenDependencies) {
-                if (item != null) {
-                    linkedToDisable.putIfAbsent(item.getId(), item);
-                }
-            }
-            for (DlcItem item : requestedItems.values()) {
-                applyOverrideState(item, false);
-                changed.add(toChangeJson(item, false, false));
-            }
-            for (DlcItem item : linkedToDisable.values()) {
-                if (item == null || requestedItems.containsKey(item.getId())) {
-                    continue;
-                }
-                applyOverrideState(item, false);
-                linkedChanges.add(toChangeJson(item, false, true));
-            }
-        }
-
-        JsonObject data = new JsonObject();
-        data.addProperty("enabled", enabled);
-        data.add("changes", changed);
-        data.add("linkedChanges", linkedChanges);
-        data.add("unknownIds", unknownIds);
-        data.add("unknownIdentifiers", unknownIdentifiers);
-        notifyClientStateChanged();
-        sendOk(exchange, data);
-    }
-
-    private static void applyOverrideState(DlcItem item, boolean enabled) {
-        if (item == null || item.getId() == null || item.getId().isBlank()) {
-            return;
-        }
-        Boolean baseline = DlcRuntimeState.getBaselineEnabled(item.getId());
-        if (baseline != null && baseline == enabled) {
-            DlcRuntimeState.clearOverride(item.getId());
-        } else {
-            DlcRuntimeState.setOverride(item.getId(), enabled);
-        }
-    }
-
-    private static JsonObject toChangeJson(DlcItem item, boolean enabled, boolean linked) {
-        JsonObject entry = new JsonObject();
-        if (item == null) {
-            entry.addProperty("enabled", enabled);
-            entry.addProperty("linked", linked);
-            return entry;
-        }
-        entry.addProperty("id", blank(item.getId()));
-        entry.addProperty("identifier", blank(item.getIdentifier()));
-        entry.addProperty("name", resolveApiDisplayName(item));
-        entry.addProperty("enabled", enabled);
-        entry.addProperty("pending", DlcRuntimeState.isBaselineDifferent(item.getId(), enabled));
-        entry.addProperty("linked", linked);
-        return entry;
-    }
-
-    private static JsonObject toConflictItemJson(DlcItem item, String fallbackIdentifier) {
-        JsonObject json = new JsonObject();
-        json.addProperty("id", item == null ? "" : blank(item.getId()));
-        json.addProperty("identifier", item == null ? blank(fallbackIdentifier) : blank(item.getIdentifier()));
-        json.addProperty("name", item == null ? blank(fallbackIdentifier) : resolveApiDisplayName(item));
-        return json;
-    }
-
-    private static String resolveApiDisplayName(DlcItem item) {
-        if (item == null) {
-            return "";
-        }
-        Map<String, String> displayNames = item.getDisplayNames();
-        if (displayNames != null && !displayNames.isEmpty()) {
-            String english = blank(displayNames.get("en_us"));
-            if (!english.isBlank()) {
-                return english;
-            }
-            for (String value : displayNames.values()) {
-                if (value != null && !value.isBlank()) {
-                    return value;
-                }
-            }
-        }
-        String name = blank(item.getName());
-        return name.isBlank() ? blank(item.getIdentifier()) : name;
-    }
-
-    private static void handleDlcApplyPending(HttpExchange exchange, String modeRaw) throws IOException {
-        String normalizedMode = blank(modeRaw).toLowerCase(Locale.ROOT);
-        DlcApplyMode applyMode;
-        String responseMode;
-        if (normalizedMode.isBlank() || "restart".equals(normalizedMode)) {
-            applyMode = DlcApplyMode.RESTART_ONLY;
-            responseMode = "restart";
-        } else if ("reload".equals(normalizedMode)) {
-            applyMode = DlcApplyMode.TRY_HOT_RELOAD;
-            responseMode = "reload";
-        } else {
-            sendError(exchange, 400, "invalid_mode", "mode must be either 'restart' or 'reload'.");
-            return;
-        }
-
-        Map<DlcType, List<DlcItem>> grouped = scanDlcItemsForApi();
-        List<DlcItem> items = new ArrayList<>();
-        for (List<DlcItem> group : grouped.values()) {
-            if (group == null) {
-                continue;
-            }
-            for (DlcItem item : group) {
-                if (item == null) {
-                    continue;
-                }
-                items.add(item);
-            }
-        }
-        JsonArray appliedChanges = new JsonArray();
-        int changedCount = 0;
-
-        for (DlcItem item : items) {
-            if (item == null || item.getId() == null) {
-                continue;
-            }
-            if (!DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())) {
-                continue;
-            }
-            changedCount++;
-            JsonObject applied = new JsonObject();
-            applied.addProperty("id", item.getId());
-            applied.addProperty("enabled", item.isEnabled());
-            appliedChanges.add(applied);
-        }
-
-        if (changedCount == 0) {
-            sendError(exchange, 400, "changes_empty", "No pending DLC changes were provided.");
-            return;
-        }
-
-        DlcApplier.ApplyResult result = DlcApplier.apply(items, applyMode);
-        for (DlcItem item : items) {
-            if (item == null || item.getId() == null) {
-                continue;
-            }
-            DlcRuntimeState.updateBaseline(item.getId(), item.isEnabled());
-            DlcRuntimeState.clearOverride(item.getId());
-        }
-        notifyClientStateChanged();
-        JsonObject data = new JsonObject();
-        data.addProperty("mode", responseMode);
-        data.addProperty("changedCount", changedCount);
-        data.addProperty("requiresRestart", result.requiresRestart());
-        data.addProperty("hotReloaded", result.hotReloaded());
-        data.add("appliedChanges", appliedChanges);
-        data.add("messages", toStringArray(result.messages()));
-        sendOk(exchange, data);
+        sendResult(exchange, DlcApiService.setDlcEnabled(readJsonBody(exchange), enabled));
     }
 
     private static void handleRemoteList(HttpExchange exchange) throws IOException {
         String lang = blank(exchange.getRequestHeaders().getFirst("X-Dlc-Lang"));
         JsonObject data = new JsonObject();
-        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)));
+        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectRemoteItems(DlcConfig.getDlcRoot(), lang)));
         sendOk(exchange, data);
     }
 
@@ -770,6 +328,12 @@ public final class DlcServerApi {
         DlcServerRemoteStatus status = DlcServerDownloadService.getRemoteDownloadStatus(lang);
         JsonObject data = new JsonObject();
         data.add("status", GSON.toJsonTree(status));
+        sendOk(exchange, data);
+    }
+
+    private static void handleRemoteDownloadCancel(HttpExchange exchange) throws IOException {
+        JsonObject data = new JsonObject();
+        data.addProperty("canceled", DlcServerDownloadService.cancelRemoteDownload());
         sendOk(exchange, data);
     }
 

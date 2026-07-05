@@ -14,7 +14,6 @@
       "identifier = \"${1:example}\"",
       "type = \"mod\"",
       "file_name = \"${2:example.jar}\"",
-      "isInList = true",
       "isHidden = false",
       "AllowEnableByAll = true",
       "alarm = false",

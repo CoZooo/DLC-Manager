@@ -6,9 +6,14 @@ import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta
 import com.cozooo.dlc_manager.client.pack.DlcPackOrder
 import com.cozooo.dlc_manager.client.pack.DlcPackPackage
+import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
+import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry
+import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader
 import com.cozooo.dlc_manager.client.server.DlcServerItem
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo
+import com.cozooo.dlc_manager.client.server.DlcServerPresetItem
+import com.cozooo.dlc_manager.client.server.DlcServerRedirectItem
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus
@@ -23,6 +28,7 @@ import com.cozooo.dlc_manager.core.DlcApplier
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
+import com.cozooo.dlc_manager.core.DlcRuntimeState
 import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcTmpPaths
 import com.cozooo.dlc_manager.core.DlcType
@@ -217,10 +223,11 @@ object DlcServerService {
                                 continue
                             }
                             when (type) {
-                                "list" -> writeList(writer)
+                                "list" -> writeList(writer, clientLang)
                                 "remote_list" -> handleRemoteList(writer, clientLang)
                                 "remote_download_start" -> handleRemoteDownloadStart(request, writer, clientLang)
                                 "remote_download_status" -> handleRemoteDownloadStatus(writer, clientLang)
+                                "remote_download_cancel" -> handleRemoteDownloadCancel(writer)
                                 "remote_download" -> handleRemoteDownload(writer)
                                 "required_list" -> handleRequiredList(writer, clientLang)
                                 "required_download_start" -> handleRequiredDownloadStart(request, writer, clientLang)
@@ -344,26 +351,11 @@ object DlcServerService {
     }
 
     @Throws(IOException::class)
-    private fun writeList(writer: BufferedWriter) {
+    private fun writeList(writer: BufferedWriter, lang: String?) {
         val items = ArrayList<DlcServerItem>()
-        val grouped = scanDlcItems()
-        for (group in grouped.values) {
-            for (item in group) {
-                val serverItem = DlcServerItem()
-                serverItem.id = item.getId()
-                serverItem.identifier = item.getIdentifier()
-                serverItem.name = item.getName()
-                serverItem.displayNames = item.getDisplayNames()
-                serverItem.tips = item.getTooltips()
-                serverItem.type = item.getType()?.name
-                serverItem.enabled = item.isEnabled()
-                serverItem.dependencies = item.getDependencies()
-                serverItem.conflicts = item.getConflicts()
-                serverItem.allowEnableByAll = item.AllowEnableByAll()
-                serverItem.alarm = item.isAlarm()
-                serverItem.path = resolveGroupLabel(item)
-                items.add(serverItem)
-            }
+        val effectiveLang = if (lang.isNullOrBlank()) CrossPlatformRuntime.languageCode() else lang
+        for (item in scanDlcItemsForServer(true)) {
+            items.add(toServerItem(item, effectiveLang))
         }
         val dlcRoot = DlcConfig.getDlcRoot()
         val version = DlcUpdateVersion.load(dlcRoot)
@@ -373,14 +365,110 @@ object DlcServerService {
         response.addProperty("type", "list")
         response.addProperty("base", version.getBase())
         response.addProperty("dlc", version.getDlc())
+        response.addProperty("mcVersion", CrossPlatformRuntime.mcVersion())
+        response.addProperty("loaderName", CrossPlatformRuntime.loaderName())
         response.addProperty("remoteMissing", remoteMissing)
         response.addProperty("requiredMissing", requiredMissing)
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot))
         response.addProperty("hasTaczMod", CrossPlatformRuntime.isModLoaded("tacz"))
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl())
         response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl())
+        response.add("redirects", GSON.toJsonTree(loadVisibleRedirectItems(dlcRoot, effectiveLang)))
+        response.add("presets", GSON.toJsonTree(toServerPresetItems()))
         response.add("items", GSON.toJsonTree(items))
         writeLine(writer, response)
+    }
+
+    private fun toServerPresetItems(): List<DlcServerPresetItem> {
+        val out = ArrayList<DlcServerPresetItem>()
+        for (preset in DlcPresetRuntimeState.getPresets()) {
+            out.add(DlcServerPresetItem.fromPreset(preset))
+        }
+        return out
+    }
+
+    private fun scanDlcItemsForServer(detectInstalledState: Boolean): List<DlcItem> {
+        val grouped = DlcScanner().scan(detectInstalledState)
+        val items = ArrayList<DlcItem>()
+        for (type in DlcType.values()) {
+            val group = grouped[type] ?: continue
+            for (item in group) {
+                if (item != null) {
+                    items.add(item)
+                }
+            }
+        }
+        if (DlcConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.reload()
+        } else {
+            DlcPresetRuntimeState.clearAll()
+        }
+        for (item in items) {
+            DlcRuntimeState.ensureBaseline(item.getId(), item.isEnabled())
+            val override = DlcRuntimeState.getOverride(item.getId())
+            if (override != null) {
+                item.setEnabled(override)
+            }
+        }
+        DlcRuntimeState.updateItemIndex(items)
+        if (DlcConfig.isPresetFuncOn()) {
+            DlcPresetRuntimeState.applyOverridesToRuntime()
+        }
+        for (item in items) {
+            val override = DlcRuntimeState.getOverride(item.getId())
+            if (override != null) {
+                item.setEnabled(override)
+            }
+        }
+        return items
+    }
+
+    private fun toServerItem(item: DlcItem, lang: String?): DlcServerItem {
+        val serverItem = DlcServerItem()
+        serverItem.id = item.getId()
+        serverItem.identifier = item.getIdentifier()
+        serverItem.name = item.getName()
+        serverItem.displayNames = item.getDisplayNames()
+        serverItem.tips = item.getTooltips()
+        serverItem.type = item.getType()?.name
+        serverItem.enabled = item.isEnabled()
+        serverItem.baselineEnabled = DlcRuntimeState.getBaselineEnabled(item.getId()) ?: item.isEnabled()
+        serverItem.dependencies = item.getDependencies()
+        serverItem.conflicts = item.getConflicts()
+        serverItem.allowEnableByAll = item.AllowEnableByAll()
+        serverItem.alarm = item.isAlarm()
+        serverItem.hidden = item.isHidden()
+        serverItem.configType = item.isConfigType()
+        serverItem.appliedTargetRaw = item.getAppliedTargetRaw()
+        serverItem.redirectUrl = item.getRedirectUrl()
+        serverItem.presetBlocked = DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier())
+        serverItem.presetBlockers = DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(), lang)
+        serverItem.path = resolveGroupLabel(item)
+        return serverItem
+    }
+
+    private fun loadVisibleRedirectItems(dlcRoot: Path?, lang: String?): List<DlcServerRedirectItem> {
+        if (dlcRoot == null) {
+            return emptyList()
+        }
+        val out = ArrayList<DlcServerRedirectItem>()
+        for (entry in DlcRedirectLoader.load(dlcRoot)) {
+            if (entry.isHidden() || !entry.isAvailableFor(lang)) {
+                continue
+            }
+            out.add(toServerRedirectItem(entry))
+        }
+        return out
+    }
+
+    private fun toServerRedirectItem(entry: DlcRedirectEntry): DlcServerRedirectItem {
+        val item = DlcServerRedirectItem()
+        item.redirectUrl = entry.getRedirectUrl()
+        item.fallbackName = entry.getFallbackName()
+        item.displayNames = entry.getDisplayNames()
+        item.notices = entry.getNotices()
+        item.tips = entry.getTips()
+        return item
     }
 
     @Throws(IOException::class)
@@ -401,7 +489,7 @@ object DlcServerService {
         val response = JsonObject()
         response.addProperty("type", "remote_list")
         response.addProperty("ok", true)
-        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)))
+        response.add("items", GSON.toJsonTree(DlcServerDownloadService.collectRemoteItems(DlcConfig.getDlcRoot(), lang)))
         writeLine(writer, response)
     }
 
@@ -443,6 +531,16 @@ object DlcServerService {
         response.addProperty("type", "remote_download_status")
         response.addProperty("ok", true)
         response.add("status", GSON.toJsonTree(status))
+        writeLine(writer, response)
+    }
+
+    @Throws(IOException::class)
+    private fun handleRemoteDownloadCancel(writer: BufferedWriter) {
+        val canceled = DlcServerDownloadService.cancelRemoteDownload()
+        val response = JsonObject()
+        response.addProperty("type", "remote_download_cancel")
+        response.addProperty("ok", true)
+        response.addProperty("canceled", canceled)
         writeLine(writer, response)
     }
 
@@ -524,10 +622,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handleApply(overrides: Map<String, Boolean>, writer: BufferedWriter) {
-        val items = ArrayList<DlcItem>()
-        for (group in scanDlcItems().values) {
-            items.addAll(group)
-        }
+        val items = scanDlcItemsForServer(true)
         for (item in items) {
             val desired = overrides[item.getId()]
             if (desired != null) {
@@ -535,20 +630,25 @@ object DlcServerService {
             }
         }
         val result = DlcApplier.apply(items, DlcApplyMode.RESTART_ONLY)
+        for (item in items) {
+            if (item.getId() == null) {
+                continue
+            }
+            DlcRuntimeState.updateBaseline(item.getId(), item.isEnabled())
+            DlcRuntimeState.clearOverride(item.getId())
+        }
         val response = JsonObject()
         response.addProperty("type", "apply")
         response.addProperty("ok", true)
         response.addProperty("requiresRestart", result.requiresRestart())
-        writeLine(writer, response)
-    }
-
-    private fun scanDlcItems(): Map<DlcType, List<DlcItem>> {
-        val raw = DlcScanner().scan()
-        val grouped = LinkedHashMap<DlcType, List<DlcItem>>()
-        for (type in DlcType.values()) {
-            grouped[type] = raw[type]?.filterNotNull() ?: emptyList()
+        val messages = JsonArray()
+        for (msg in result.messages()) {
+            if (!msg.isNullOrBlank()) {
+                messages.add(msg)
+            }
         }
-        return grouped
+        response.add("messages", messages)
+        writeLine(writer, response)
     }
 
     private fun readStringArray(request: JsonObject, key: String): List<String> {

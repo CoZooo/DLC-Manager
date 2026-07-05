@@ -20,7 +20,6 @@ import com.cozooo.dlc_manager.core.DlcApplier.ApplyResult
 import com.cozooo.dlc_manager.core.DlcStateConfig.DlcState
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
 import com.google.gson.*
-import net.minecraft.network.chat.Component
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
@@ -99,6 +98,57 @@ object DlcUpdateService {
     private const val PLATFORM_UNIVERSAL = "universal"
     private val CURRENT_UPDATE_CONTEXT = ThreadLocal<UpdateContext?>()
     private val CURRENT_PROGRESS_LISTENER = ThreadLocal<ApplyProgressListener?>()
+
+    class DlcUpdateMessage private constructor(
+        val type: Type,
+        val value: String,
+        private val rawArgs: Array<out Any?>,
+    ) {
+        enum class Type {
+            EMPTY,
+            LITERAL,
+            TRANSLATABLE,
+        }
+
+        fun args(): Array<out Any?> = rawArgs.copyOf()
+
+        fun asPlainString(): String {
+            return when (type) {
+                Type.EMPTY -> ""
+                Type.LITERAL -> value
+                Type.TRANSLATABLE -> {
+                    val renderedArgs = rawArgs
+                        .map(::renderArg)
+                        .filter { it.isNotBlank() }
+                        .joinToString(", ")
+                    if (renderedArgs.isBlank()) value else "$value: $renderedArgs"
+                }
+            }
+        }
+
+        companion object {
+            private val EMPTY = DlcUpdateMessage(Type.EMPTY, "", emptyArray())
+
+            @JvmStatic
+            fun empty(): DlcUpdateMessage = EMPTY
+
+            @JvmStatic
+            fun literal(value: String?): DlcUpdateMessage = DlcUpdateMessage(Type.LITERAL, value ?: "", emptyArray())
+
+            @JvmStatic
+            fun translatable(key: String?, vararg args: Any?): DlcUpdateMessage {
+                return DlcUpdateMessage(Type.TRANSLATABLE, key ?: "", args)
+            }
+
+            private fun renderArg(arg: Any?): String {
+                return when (arg) {
+                    null -> ""
+                    is DlcUpdateMessage -> arg.asPlainString()
+                    else -> arg.toString()
+                }
+            }
+        }
+    }
 
     @JvmStatic
     fun checkForUpdates(): UpdateCheckResult {
@@ -238,28 +288,38 @@ object DlcUpdateService {
     }
 
     @JvmStatic
-    fun toFailureComponent(result: UpdateApplyResult?): Component {
-        val message: String? = if (result == null) "" else result.message
-        if (message == null || message.isBlank()) {
-            return Component.translatable("dlc_manager.update.failed")
-        }
-        if ("Version mismatch".equals(message.trim { it <= ' ' }, ignoreCase = true)) {
-            return Component.translatable("dlc_manager.update.failed_version_mismatch")
-        }
-        return Component.literal(message)
+    fun toFailureMessage(result: UpdateApplyResult?): String {
+        return toFailureUpdateMessage(result).asPlainString()
     }
 
     @JvmStatic
-    fun toImportValidationComponent(result: ImportValidationResult?): Component {
+    fun toFailureUpdateMessage(result: UpdateApplyResult?): DlcUpdateMessage {
+        val message: String? = if (result == null) "" else result.message
+        if (message == null || message.isBlank()) {
+            return DlcUpdateMessage.translatable("dlc_manager.update.failed")
+        }
+        if ("Version mismatch".equals(message.trim { it <= ' ' }, ignoreCase = true)) {
+            return DlcUpdateMessage.translatable("dlc_manager.update.failed_version_mismatch")
+        }
+        return DlcUpdateMessage.literal(message)
+    }
+
+    @JvmStatic
+    fun toImportValidationMessage(result: ImportValidationResult?): String {
+        return toImportValidationUpdateMessage(result).asPlainString()
+    }
+
+    @JvmStatic
+    fun toImportValidationUpdateMessage(result: ImportValidationResult?): DlcUpdateMessage {
         if (result == null) {
-            return Component.translatable("dlc_manager.update.import_invalid")
+            return DlcUpdateMessage.translatable("dlc_manager.update.import_invalid")
         }
         return when (result) {
-            ImportValidationResult.VALID -> Component.empty()
-            ImportValidationResult.DLC_ROOT_MISSING -> Component.translatable("dlc_manager.update.dlc_root_missing")
-            ImportValidationResult.PLATFORM_MISMATCH -> Component.translatable("dlc_manager.update.import_platform_mismatch")
-            ImportValidationResult.VERSION_MISMATCH -> Component.translatable("dlc_manager.update.import_version_mismatch")
-            ImportValidationResult.INVALID_PACKAGE -> Component.translatable("dlc_manager.update.import_invalid")
+            ImportValidationResult.VALID -> DlcUpdateMessage.empty()
+            ImportValidationResult.DLC_ROOT_MISSING -> DlcUpdateMessage.translatable("dlc_manager.update.dlc_root_missing")
+            ImportValidationResult.PLATFORM_MISMATCH -> DlcUpdateMessage.translatable("dlc_manager.update.import_platform_mismatch")
+            ImportValidationResult.VERSION_MISMATCH -> DlcUpdateMessage.translatable("dlc_manager.update.import_version_mismatch")
+            ImportValidationResult.INVALID_PACKAGE -> DlcUpdateMessage.translatable("dlc_manager.update.import_invalid")
         }
     }
 
@@ -368,10 +428,10 @@ object DlcUpdateService {
             return UpdateApplyResult.Companion.failed("Version mismatch")
         }
 
-        val missingModify: MutableList<String?> =
-            DlcUpdateService.findMissingModifyTargets(manifest, DlcPaths.gameDir())
-        if (!missingModify.isEmpty() && !forceMissing) {
-            return UpdateApplyResult.Companion.missing(missingModify)
+        val missingTargets: MutableList<String?> =
+            DlcUpdateService.findMissingUpdateTargets(manifest, DlcPaths.gameDir())
+        if (!missingTargets.isEmpty() && !forceMissing) {
+            return UpdateApplyResult.Companion.missing(missingTargets)
         }
 
         val staging = pkg.extractTo(dlcRoot)
@@ -1101,18 +1161,42 @@ object DlcUpdateService {
                 && dlc == sourceDlcVersion(info)
     }
 
-    private fun findMissingModifyTargets(manifest: DlcUpdateManifest?, gameDir: Path): MutableList<kotlin.String?> {
+    private fun findMissingUpdateTargets(manifest: DlcUpdateManifest?, gameDir: Path): MutableList<kotlin.String?> {
         if (manifest == null || manifest.getFileOps() == null) {
             return mutableListOf<kotlin.String?>()
         }
-        val missing: MutableList<kotlin.String?> = ArrayList<kotlin.String?>()
+        val missing: LinkedHashSet<kotlin.String?> = LinkedHashSet<kotlin.String?>()
         for (entry in manifest.getFileOps()!!.getModify()) {
             val target: Path? = resolveGamePath(gameDir, entry.getTargetPath())
             if (target == null || !Files.exists(target)) {
-                missing.add(entry.getTargetPath())
+                addMissingPath(missing, entry.getTargetPath())
             }
         }
-        return missing
+        for (raw in manifest.getFileOps()!!.getDel()) {
+            if (raw.isBlank()) {
+                continue
+            }
+            if (DlcPathUtil.findMatches(gameDir, raw).isEmpty()) {
+                addMissingPath(missing, raw)
+            }
+        }
+        for (entry in manifest.getFileOps()!!.getMove().entries) {
+            val rawFrom = entry.key
+            if (rawFrom.isBlank()) {
+                continue
+            }
+            if (DlcPathUtil.findMatches(gameDir, rawFrom).isEmpty()) {
+                addMissingPath(missing, rawFrom)
+            }
+        }
+        return ArrayList<kotlin.String?>(missing)
+    }
+
+    private fun addMissingPath(missing: MutableSet<kotlin.String?>, path: kotlin.String?) {
+        if (path.isNullOrBlank()) {
+            return
+        }
+        missing.add(path)
     }
 
     private fun applyDeleteOps(ops: DlcUpdateManifest.FileOps?, context: UpdateContext) {
@@ -1876,8 +1960,6 @@ object DlcUpdateService {
         "type",
         "appliedTarget",
         "RedirectUrl",
-        "isEnabled",
-        "isInList",
         "isHidden",
         "AllowEnableByAll",
         "dependencies",

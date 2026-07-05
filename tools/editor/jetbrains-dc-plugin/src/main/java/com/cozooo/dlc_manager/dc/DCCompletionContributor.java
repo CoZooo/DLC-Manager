@@ -310,7 +310,7 @@ public final class DCCompletionContributor extends CompletionContributor {
             "curseforge_fileid", "directUrl", "priority"
         ));
         map.put("basic", List.of(
-            "identifier", "file_name", "type", "appliedTarget", "isInList",
+            "identifier", "file_name", "type", "appliedTarget",
             "isHidden", "AllowEnableByAll", "dependencies", "conflicts", "alarm",
             "available", "ShowFrequency", "neverShow", "isNoticeEnabled", "enabled",
             "platform", "base", "base_new", "dlc", "dlc_new"

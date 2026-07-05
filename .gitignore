@@ -52,7 +52,6 @@ build/
 **/run/
 **/runs/
 .idea/*
-!.idea/compiler.xml
 !.idea/gradle.xml
 !.idea/vcs.xml
 output/
@@ -76,3 +75,8 @@ tools/dc-editor/OPERATION_TRACKING.txt
 debug.log
 
 DLC_Installer
+
+AGENT.md
+PLAN.md
+samples/
+.idea/gradle.xml

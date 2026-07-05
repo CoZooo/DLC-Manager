@@ -105,6 +105,7 @@ object DlcServerDownloadService {
         private val totalBytes = AtomicLong(0L)
         private val downloadedBytes = AtomicLong(0L)
         private val itemByKey: MutableMap<String, RemoteItemState> = ConcurrentHashMap()
+        val cancelRequested = AtomicBoolean(false)
         @Volatile private var statusKey: String? = null
         @Volatile private var error: String? = null
 
@@ -118,11 +119,12 @@ object DlcServerDownloadService {
             if (!running.compareAndSet(false, true)) {
                 return
             }
+            cancelRequested.set(false)
             val maxConcurrent = maxOf(1, DlcConfig.getMaxConcurrentDownloads())
             val executor = Executors.newFixedThreadPool(maxConcurrent)
             for (item in items) {
                 executor.submit {
-                    if (!running.get()) return@submit
+                    if (!running.get() || cancelRequested.get()) return@submit
                     downloadOne(dlcRoot, item)
                 }
             }
@@ -146,6 +148,12 @@ object DlcServerDownloadService {
                 return
             }
             try {
+                if (cancelRequested.get()) {
+                    markDone(item, false, "canceled")
+                    success.set(false)
+                    error = "canceled"
+                    return
+                }
                 val fileName = downloadRemoteEntryWithProgress(item.entry, item, object : ProgressListener {
                     override fun onProgress(downloadedBytes: Long, totalBytes: Long) {
                         this@RemoteDownloadSession.statusKey = null
@@ -155,11 +163,15 @@ object DlcServerDownloadService {
                     override fun onStatusKey(statusKey: String) {
                         this@RemoteDownloadSession.statusKey = statusKey
                     }
-                })
+                }, cancelRequested::get)
                 if (fileName != null) {
                     updateRemoteFileNameKey(item.entry, fileName)
                 }
                 markDone(item, true, null)
+            } catch (ex: DlcDownloadService.DownloadCanceledException) {
+                markDone(item, false, "canceled")
+                success.set(false)
+                error = "canceled"
             } catch (ex: Exception) {
                 markDone(item, false, ex.message)
                 success.set(false)
@@ -205,10 +217,7 @@ object DlcServerDownloadService {
             status.statusKey = statusKey
             status.error = error
             for (item in items) {
-                val view = DlcServerRemoteItem()
-                view.key = item.key
-                view.name = resolveDisplayName(item.entry, lang)
-                view.displayNames = resolveDisplayNames(item.entry, view.name)
+                val view = toRemoteItem(item.entry, lang)
                 view.totalBytes = item.totalBytes
                 view.downloadedBytes = item.downloaded.get()
                 view.done = item.done
@@ -217,6 +226,12 @@ object DlcServerDownloadService {
                 status.items.add(view)
             }
             return status
+        }
+
+        fun requestCancel() {
+            cancelRequested.set(true)
+            success.set(false)
+            error = "canceled"
         }
     }
 
@@ -422,10 +437,26 @@ object DlcServerDownloadService {
     fun collectMissingRemoteItems(dlcRoot: Path?, lang: String?): List<DlcServerRemoteItem> {
         val list = ArrayList<DlcServerRemoteItem>()
         for (entry in collectMissingRemote(dlcRoot)) {
-            val item = DlcServerRemoteItem()
-            item.key = selectionKey(entry)
-            item.name = resolveDisplayName(entry, lang)
-            item.displayNames = resolveDisplayNames(entry, item.name)
+            list.add(toRemoteItem(entry, lang))
+        }
+        return list
+    }
+
+    @JvmStatic
+    fun collectRemoteItems(dlcRoot: Path?): List<DlcServerRemoteItem> = collectRemoteItems(dlcRoot, null)
+
+    @JvmStatic
+    fun collectRemoteItems(dlcRoot: Path?, lang: String?): List<DlcServerRemoteItem> {
+        val list = ArrayList<DlcServerRemoteItem>()
+        if (dlcRoot == null) {
+            return list
+        }
+        for (entry in DlcRemoteLoader.load(dlcRoot)) {
+            if (entry.isHidden() && entry.getType() != DlcType.DLC_PACK) continue
+            val item = toRemoteItem(entry, lang)
+            val missing = isRemoteMissing(entry, false)
+            item.done = !missing
+            item.success = !missing
             list.add(item)
         }
         return list
@@ -439,7 +470,7 @@ object DlcServerDownloadService {
         val items = ArrayList<DlcServerRequiredItem>()
         val entries = loadAllRequiredEntries(dlcRoot)
         for (entry in entries) {
-            if (!entry.isInList() || entry.isHidden()) continue
+            if (entry.isHidden()) continue
             if (entry.isUserRemoved()) continue
             val fileName = resolveExistingFileName(entry)
             entry.setResolvedFileName(fileName)
@@ -460,7 +491,6 @@ object DlcServerDownloadService {
                     item.dependencies.add(identifier)
                 }
             }
-            item.inList = entry.isInList()
             item.hidden = entry.isHidden()
             item.userRemoved = entry.isUserRemoved()
             item.hasFile = hasFile
@@ -528,7 +558,7 @@ object DlcServerDownloadService {
             val targets = if (!ids.isNullOrEmpty()) collectRequiredDependencies(ids, index) else entries
             val items = ArrayList<RequiredItemState>()
             for (entry in targets) {
-                if (!entry.isInList() || entry.isHidden()) continue
+                if (entry.isHidden()) continue
                 if (entry.isUserRemoved()) continue
                 val id = safeId(entry)
                 val name = resolveRequiredDisplayName(entry, lang)
@@ -595,6 +625,18 @@ object DlcServerDownloadService {
     }
 
     @JvmStatic
+    fun cancelRemoteDownload(): Boolean {
+        synchronized(REMOTE_LOCK) {
+            val session = remoteSession
+            if (session == null || !session.running.get()) {
+                return false
+            }
+            session.requestCancel()
+            return true
+        }
+    }
+
+    @JvmStatic
     fun collectMissingRemote(dlcRoot: Path?): List<DlcRemoteEntry> {
         val missing = ArrayList<DlcRemoteEntry>()
         if (dlcRoot == null) {
@@ -625,7 +667,6 @@ object DlcServerDownloadService {
 
     private fun isRemoteMissing(entry: DlcRemoteEntry?, forceInclude: Boolean): Boolean {
         if (entry == null) return false
-        if (!forceInclude && !entry.isInList() && !entry.isHidden()) return false
         val target = entry.getTargetPath()
         return target == null || !Files.exists(target)
     }
@@ -643,6 +684,49 @@ object DlcServerDownloadService {
             key = entry.getFileNameHint()
         }
         return if (key.isNullOrBlank()) "unknown" else key
+    }
+
+    private fun resolveRemoteType(entry: DlcRemoteEntry?): String {
+        val type = entry?.getType() ?: return ""
+        return type.name
+    }
+
+    private fun resolveRemoteFolder(entry: DlcRemoteEntry?): String {
+        if (entry == null) return "__root__"
+        return try {
+            val config = entry.getConfigPath()
+            val remoteRoot = entry.getDlcRoot()?.resolve("remote")
+            var relative: String? = null
+            if (config != null && remoteRoot != null && config.startsWith(remoteRoot)) {
+                relative = remoteRoot.relativize(config).toString().replace('\\', '/')
+            }
+            if (relative == null) {
+                val baseDir = entry.getBaseDir()
+                if (baseDir != null && remoteRoot != null && baseDir.startsWith(remoteRoot)) {
+                    relative = remoteRoot.relativize(baseDir).toString().replace('\\', '/')
+                    return if (relative.isBlank()) "__root__" else relative
+                }
+            }
+            if (relative.isNullOrBlank()) {
+                return "__root__"
+            }
+            val lastSlash = relative.lastIndexOf('/')
+            if (lastSlash <= 0) "__root__" else relative.substring(0, lastSlash)
+        } catch (_: Exception) {
+            "__root__"
+        }
+    }
+
+    private fun toRemoteItem(entry: DlcRemoteEntry?, lang: String?): DlcServerRemoteItem {
+        val item = DlcServerRemoteItem()
+        item.key = selectionKey(entry)
+        item.name = resolveDisplayName(entry, lang)
+        item.type = resolveRemoteType(entry)
+        item.folder = resolveRemoteFolder(entry)
+        item.hidden = entry?.isHidden() == true
+        item.displayNames = resolveDisplayNames(entry, item.name)
+        item.tips = resolveTips(entry)
+        return item
     }
 
     private fun resolveDisplayName(entry: DlcRemoteEntry?): String = resolveDisplayName(entry, null)
@@ -705,7 +789,7 @@ object DlcServerDownloadService {
         }
         val entries = loadRequiredEntries(dlcRoot)
         for (entry in entries) {
-            if (!entry.isInList() || entry.isUserRemoved()) continue
+            if (entry.isUserRemoved()) continue
             val fileName = resolveExistingFileName(entry)
             entry.setResolvedFileName(fileName)
             val hasFile = fileName != null &&
@@ -770,7 +854,7 @@ object DlcServerDownloadService {
             return result
         }
         for (entry in entries) {
-            if (!entry.isInList() || entry.isUserRemoved()) continue
+            if (entry.isUserRemoved()) continue
             var fileName = resolveExistingFileName(entry)
             if (fileName.isNullOrBlank() || isTempFileName(fileName)) {
                 try {
@@ -947,7 +1031,7 @@ object DlcServerDownloadService {
                 if (id.isNullOrBlank()) continue
                 if (index.containsKey(id)) continue
                 val depEntry = dep.getEntry()
-                if (depEntry != null && depEntry.isInList()) {
+                if (depEntry != null) {
                     depEntry.setIdentifier(id)
                     index[id] = depEntry
                     entries.add(depEntry)
@@ -1236,16 +1320,25 @@ object DlcServerDownloadService {
     }
 
     @Throws(IOException::class, InterruptedException::class)
-    private fun downloadRemoteEntry(entry: DlcRemoteEntry?): String? = downloadRemoteEntryWithProgress(entry, null, null)
+    private fun downloadRemoteEntry(entry: DlcRemoteEntry?): String? = downloadRemoteEntryWithProgress(entry, null, null, null)
 
     @Throws(IOException::class, InterruptedException::class)
     private fun downloadRemoteEntryWithProgress(
         entry: DlcRemoteEntry?,
         state: RemoteItemState?,
         listener: ProgressListener?,
+    ): String? = downloadRemoteEntryWithProgress(entry, state, listener, null)
+
+    @Throws(IOException::class, InterruptedException::class)
+    private fun downloadRemoteEntryWithProgress(
+        entry: DlcRemoteEntry?,
+        state: RemoteItemState?,
+        listener: ProgressListener?,
+        cancelChecker: DlcDownloadService.CancelChecker?,
     ): String? {
         if (entry == null) return null
         val resolver = DlcDownloadCandidate.resolver(entry)
+        DlcDownloadService.checkCanceled(cancelChecker)
         precheckDownloadSources(entry, listener)
         var lastError: IOException? = null
         while (true) {
@@ -1254,6 +1347,7 @@ object DlcServerDownloadService {
             for (candidate in candidates) {
                 for (attempt in 1..DlcConfig.getMaxRetryCount()) {
                     try {
+                        DlcDownloadService.checkCanceled(cancelChecker)
                         var fileName = candidate.fileNameOverride
                         val fileNameExplicit = entry.isFileNameExplicit() && !fileName.isNullOrBlank()
                         if (fileName.isNullOrBlank()) {
@@ -1282,9 +1376,9 @@ object DlcServerDownloadService {
                         }
                         val downloadListener = progressListener(listener)
                         val downloaded = if (candidate.direct) {
-                            DlcDownloadService.download(candidate.url, target.parent, fileName, downloadListener, null)
+                            DlcDownloadService.download(candidate.url, target.parent, fileName, downloadListener, cancelChecker)
                         } else {
-                            DlcDownloadService.downloadKnown(candidate.url, target.parent, fileName, candidate.expectedSize, downloadListener, null)
+                            DlcDownloadService.downloadKnown(candidate.url, target.parent, fileName, candidate.expectedSize, downloadListener, cancelChecker)
                         }
                         verifyDownloadedFile(downloaded, candidate)
                         val actualName = downloaded.fileName?.toString() ?: fileName
@@ -1470,7 +1564,6 @@ object DlcServerDownloadService {
         ordered.addProperty("type", getString(obj, "type"))
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
         ordered.addProperty("file_name", fileName ?: "")
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         ordered.addProperty("AllowEnableByAll", getBoolean(obj, "AllowEnableByAll", true))
         val deps = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
@@ -1560,7 +1653,6 @@ object DlcServerDownloadService {
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
         ordered.addProperty("file_name", fileName ?: "")
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"))
-        ordered.addProperty("isEnabled", getBoolean(obj, "isEnabled", getBoolean(obj, "isInList", true)))
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
         val userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false)
         if (userRemoved) {

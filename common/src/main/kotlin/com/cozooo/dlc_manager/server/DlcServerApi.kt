@@ -162,6 +162,7 @@ object DlcServerApi {
                     method == "POST" && path == "/api/remote/download" -> handleRemoteDownload(exchange)
                     method == "POST" && path == "/api/remote/download/start" -> handleRemoteDownloadStart(exchange)
                     method == "GET" && path == "/api/remote/download/status" -> handleRemoteDownloadStatus(exchange)
+                    method == "POST" && path == "/api/remote/download/cancel" -> handleRemoteDownloadCancel(exchange)
                     method == "GET" && path == "/api/required/list" -> handleRequiredList(exchange)
                     method == "POST" && path == "/api/required/download/start" -> handleRequiredDownloadStart(exchange)
                     method == "GET" && path == "/api/required/download/status" -> handleRequiredDownloadStatus(exchange)
@@ -210,7 +211,7 @@ object DlcServerApi {
     private fun handleRemoteList(exchange: HttpExchange) {
         val lang = blank(exchange.requestHeaders.getFirst("X-Dlc-Lang"))
         val data = JsonObject()
-        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectMissingRemoteItems(DlcConfig.getDlcRoot(), lang)))
+        data.add("items", GSON.toJsonTree(DlcServerDownloadService.collectRemoteItems(DlcConfig.getDlcRoot(), lang)))
         sendOk(exchange, data)
     }
 
@@ -241,6 +242,13 @@ object DlcServerApi {
         val status: DlcServerRemoteStatus = DlcServerDownloadService.getRemoteDownloadStatus(lang)
         val data = JsonObject()
         data.add("status", GSON.toJsonTree(status))
+        sendOk(exchange, data)
+    }
+
+    @Throws(IOException::class)
+    private fun handleRemoteDownloadCancel(exchange: HttpExchange) {
+        val data = JsonObject()
+        data.addProperty("canceled", DlcServerDownloadService.cancelRemoteDownload())
         sendOk(exchange, data)
     }
 

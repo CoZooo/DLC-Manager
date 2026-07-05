@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
@@ -344,7 +345,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
             return
         }
         if (result == null || !result.isSuccess) {
-            val component = DlcUpdateService.toFailureComponent(result)
+            val component = DlcMessageAdapter.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, component))
             return
         }

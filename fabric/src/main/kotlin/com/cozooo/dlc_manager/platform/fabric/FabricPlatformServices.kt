@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.platform.fabric
 
+import com.cozooo.dlc_manager.client.DlcMinecraftSupport
 import com.cozooo.dlc_manager.platform.PlatformServices
 import net.fabricmc.api.EnvType
 import net.fabricmc.loader.api.FabricLoader
@@ -82,6 +83,10 @@ class FabricPlatformServices : PlatformServices.Provider {
         } catch (_: Exception) {
             null
         }
+    }
+
+    override fun isResourcePackSelected(fileName: String?): Boolean {
+        return DlcMinecraftSupport.isResourcePackSelected(fileName)
     }
 
     override fun playerName(): String {

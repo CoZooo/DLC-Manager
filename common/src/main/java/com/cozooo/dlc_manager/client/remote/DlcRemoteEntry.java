@@ -26,7 +26,6 @@ public class DlcRemoteEntry {
     private DlcType type;
     private boolean configType;
     private String appliedTargetRaw;
-    private boolean inList;
     private boolean hidden;
     private boolean allowEnableByAll;
     private List<String> dependencyNames = List.of();
@@ -248,14 +247,6 @@ public class DlcRemoteEntry {
 
     public void setAppliedTargetRaw(String appliedTargetRaw) {
         this.appliedTargetRaw = appliedTargetRaw;
-    }
-
-    public boolean isInList() {
-        return inList;
-    }
-
-    public void setInList(boolean inList) {
-        this.inList = inList;
     }
 
     public boolean isHidden() {

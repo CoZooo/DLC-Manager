@@ -7,9 +7,13 @@ import java.nio.file.Path
 import java.util.Locale
 
 object DlcFileOpsHelperClient {
-    init {
-        FileOpsHelperBootstrap.initialize(DlcPaths.gameDir(), DlcPaths.tmpRoot())
-    }
+    private val initLock = Any()
+    @Volatile
+    private var initialized = false
+    @Volatile
+    private var initializedGameDir: Path? = null
+    @Volatile
+    private var initializedTmpRoot: Path? = null
 
     enum class HelperState {
         NOT_REQUIRED,
@@ -51,7 +55,7 @@ object DlcFileOpsHelperClient {
         if (!shouldUseHelper()) {
             return HelperState.NOT_REQUIRED
         }
-        return if (isApiSupported()) HelperState.READY else HelperState.UNSUPPORTED
+        return if (ensureInitialized() && isApiSupported()) HelperState.READY else HelperState.UNSUPPORTED
     }
 
     @JvmStatic
@@ -206,10 +210,58 @@ object DlcFileOpsHelperClient {
     }
 
     private fun isApiSupported(): Boolean {
+        if (!ensureInitialized()) {
+            return false
+        }
         return try {
             FileOpsHelperApi.isSupported()
         } catch (_: Throwable) {
             false
+        }
+    }
+
+    private fun ensureInitialized(): Boolean {
+        val gameDir: Path
+        val tmpRoot: Path
+        try {
+            gameDir = DlcPaths.gameDir()
+            tmpRoot = DlcPaths.tmpRoot()
+        } catch (_: Throwable) {
+            return false
+        }
+        if (initialized && samePath(initializedGameDir, gameDir) && samePath(initializedTmpRoot, tmpRoot)) {
+            return true
+        }
+        synchronized(initLock) {
+            if (initialized && samePath(initializedGameDir, gameDir) && samePath(initializedTmpRoot, tmpRoot)) {
+                return true
+            }
+            return try {
+                FileOpsHelperBootstrap.initialize(gameDir, tmpRoot)
+                initialized = true
+                initializedGameDir = gameDir
+                initializedTmpRoot = tmpRoot
+                true
+            } catch (_: Throwable) {
+                initialized = false
+                initializedGameDir = gameDir
+                initializedTmpRoot = tmpRoot
+                false
+            }
+        }
+    }
+
+    private fun samePath(first: Path?, second: Path?): Boolean {
+        if (first === second) {
+            return true
+        }
+        if (first == null || second == null) {
+            return false
+        }
+        return try {
+            first.toAbsolutePath().normalize() == second.toAbsolutePath().normalize()
+        } catch (_: Throwable) {
+            first == second
         }
     }
 

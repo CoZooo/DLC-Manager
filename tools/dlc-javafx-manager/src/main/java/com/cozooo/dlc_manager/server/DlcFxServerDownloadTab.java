@@ -1,0 +1,529 @@
+package com.cozooo.dlc_manager.server;
+
+import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
+import com.cozooo.dlc_manager.ui.remote.DlcFxResourceDownloadActionFlow;
+import com.cozooo.dlc_manager.ui.remote.DlcFxRemoteDownloadListModel;
+import com.cozooo.dlc_manager.ui.remote.DlcFxRemoteDownloadShell;
+import com.cozooo.dlc_manager.ui.remote.DlcFxRemoteDownloadProgressModel;
+import com.cozooo.dlc_manager.ui.remote.DlcFxResourceOperationModel;
+import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabFactory;
+import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
+import com.cozooo.dlc_manager.ui.common.DlcFxTooltipText;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
+import javafx.scene.control.Tab;
+import javafx.scene.layout.VBox;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+public final class DlcFxServerDownloadTab {
+    private final DlcFxServerConnection conn;
+    private final ObservableList<Row> rows = FXCollections.observableArrayList();
+    private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
+    private final Label countLabel = new Label("");
+    private final ProgressBar progressBar = new ProgressBar(0);
+    private final Label totalProgressLabel = new Label("");
+    private final DlcFxResourceOperationModel operationModel = new DlcFxResourceOperationModel();
+    private final DlcFxResourceDownloadActionFlow<Row> actionFlow =
+            new DlcFxResourceDownloadActionFlow<>(new RemoteDownloadActions());
+    private volatile boolean pollingDownloadStatus;
+    private boolean downloading;
+    private boolean singleDownload;
+    private String singleDownloadId = "";
+    private DlcFxRemoteDownloadShell<Row> shell;
+    private boolean loadedForCurrentConnection;
+
+    public DlcFxServerDownloadTab(DlcFxServerConnection conn) {
+        this.conn = conn;
+        conn.connectedProperty().addListener((obs, oldValue, newValue) -> clearConnectionState(newValue));
+    }
+
+    public Tab build() {
+        shell = new DlcFxRemoteDownloadShell<>(
+                new Adapter(operationModel),
+                statusLabel,
+                countLabel,
+                progressBar,
+                totalProgressLabel,
+                this::refresh,
+                actionFlow::downloadMissing,
+                actionFlow::downloadSelected,
+                this::cancelDownload,
+                row -> {
+                    if (row == null || !row.missing) {
+                        return null;
+                    }
+                    if (operationModel.isSingleActive(row.id)) {
+                        return this::cancelDownload;
+                    }
+                    if (!operationModel.isBatchActive(row.id)) {
+                        return () -> actionFlow.downloadOne(row);
+                    }
+                    return null;
+                }
+        );
+        shell.bindAvailable(conn.connectedProperty());
+        DlcFxStyle.muted(countLabel);
+
+        DlcFxTabPage page = new DlcFxTabPage(DlcFxI18n.tr("dlc_manager.status.disconnected"));
+        page.setTop(shell.topBar());
+        VBox center = new VBox(shell.listFrame());
+        DlcFxTabPage.grow(shell.listFrame());
+        DlcFxTabPage.grow(center);
+        page.setCenter(page.section(center));
+        page.setBottom(shell.bottomBar());
+        return DlcFxTabFactory.create(DlcFxI18n.tr("dlc_manager.tab.remote"), page.root());
+    }
+
+    public void onTabSelected() {
+        if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
+            refresh();
+        }
+    }
+
+    private void clearConnectionState(boolean connected) {
+        loadedForCurrentConnection = false;
+        pollingDownloadStatus = false;
+        rows.clear();
+        operationModel.reset();
+        progressBar.setProgress(0);
+        progressBar.setVisible(false);
+        progressBar.setManaged(false);
+        totalProgressLabel.setText("");
+        downloading = false;
+        singleDownload = false;
+        singleDownloadId = "";
+        countLabel.setText("");
+        statusLabel.setText(connected
+                ? DlcFxI18n.tr("dlc_manager.status.no_data")
+                : DlcFxI18n.tr("dlc_manager.status.disconnected"));
+        if (shell != null) {
+            shell.setItems(List.of());
+            shell.clearSelection();
+            shell.setCancelVisible(false);
+            shell.setBusy(false);
+        }
+    }
+
+    private void refresh() {
+        operationModel.reset();
+        setBusy(true);
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
+        conn.runAsync(f -> f.remoteList(), response -> {
+            rows.setAll(parseRows(response));
+            shell.setItems(rows);
+            int missing = (int) rows.stream().filter(row -> row.missing).count();
+            countLabel.setText(DlcFxI18n.tr("dlc_manager.server.count", rows.size(), missing));
+            statusLabel.setText(missing == 0 ? DlcFxI18n.tr("dlc_manager.status.no_missing") : DlcFxI18n.tr("dlc_manager.server.has_missing"));
+            setBusy(false);
+            loadedForCurrentConnection = true;
+        }, error -> {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
+            setBusy(false);
+        });
+    }
+
+    private void startDownload(List<Row> items) {
+        List<Row> targets = items == null || items.isEmpty()
+                ? rows.stream().filter(row -> row.missing).toList()
+                : items.stream().filter(row -> row != null && row.missing).toList();
+        List<String> ids = targets.stream()
+                .map(row -> row.id)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+        if (ids.isEmpty()) {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
+            return;
+        }
+        downloading = true;
+        singleDownload = ids.size() == 1;
+        singleDownloadId = singleDownload ? ids.getFirst() : "";
+        setBusy(true);
+        shell.setCancelVisible(!singleDownload);
+        beginOperation(ids);
+        updateTotalProgress(0d);
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.starting_download"));
+        conn.runAsync(f -> f.remoteDownloadStart(ids), response -> {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_started", summarizeStatus(response)));
+            shell.clearSelection();
+            pollDownloadStatus();
+        }, error -> {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
+            operationModel.reset();
+            shell.setCancelVisible(false);
+            downloading = false;
+            singleDownload = false;
+            singleDownloadId = "";
+            updateTotalProgress(0d);
+            setBusy(false);
+        });
+    }
+
+    private void beginOperation(List<String> ids) {
+        List<String> targets = ids == null || ids.isEmpty()
+                ? rows.stream().filter(row -> row.missing).map(row -> row.id).filter(id -> id != null && !id.isBlank()).toList()
+                : ids;
+        if (singleDownload && !targets.isEmpty()) {
+            operationModel.beginSingle(targets.getFirst());
+        } else {
+            operationModel.beginBatch(targets);
+        }
+        shell.refreshRows();
+    }
+
+    private void setBusy(boolean busy) {
+        shell.setBusy(busy);
+        if (!busy || singleDownload) {
+            progressBar.setVisible(false);
+            progressBar.setManaged(false);
+            if (!busy) {
+                progressBar.setProgress(0);
+            }
+        }
+    }
+
+    private void cancelDownload() {
+        operationModel.requestBatchCancel();
+        statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.canceling"));
+        conn.runAsync(f -> f.remoteDownloadCancel(), response -> {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.canceling"));
+            shell.refreshRows();
+        }, error -> {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
+            shell.setCancelVisible(false);
+            downloading = false;
+            singleDownload = false;
+            singleDownloadId = "";
+            operationModel.reset();
+            setBusy(false);
+        });
+    }
+
+    private void pollDownloadStatus() {
+        pollingDownloadStatus = true;
+        Thread thread = new Thread(() -> {
+            while (pollingDownloadStatus) {
+                try {
+                    var facade = conn.facade();
+                    if (facade == null) {
+                        break;
+                    }
+                    JsonObject response = facade.remoteDownloadStatus();
+                    javafx.application.Platform.runLater(() -> applyDownloadStatus(response));
+                    JsonObject status = response == null || !response.has("status") ? null : response.getAsJsonObject("status");
+                    if (status != null && bool(status, "finished")) {
+                        break;
+                    }
+                    Thread.sleep(250L);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Throwable t) {
+                    javafx.application.Platform.runLater(() -> {
+                        statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(t)));
+                        setBusy(false);
+                    });
+                    break;
+                }
+            }
+            pollingDownloadStatus = false;
+            javafx.application.Platform.runLater(() -> {
+                boolean canceled = operationModel.isBatchCancelRequested();
+                downloading = false;
+                operationModel.finishBatch();
+                if (singleDownload) {
+                    operationModel.finishSingle(singleDownloadId);
+                }
+                shell.setCancelVisible(false);
+                singleDownload = false;
+                singleDownloadId = "";
+                totalProgressLabel.setText("");
+                setBusy(false);
+                if (canceled) {
+                    statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.download_canceled"));
+                    shell.refreshRows();
+                } else {
+                    refresh();
+                }
+            });
+        }, "dlc-remote-download-status");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void applyDownloadStatus(JsonObject response) {
+        JsonObject status = response == null || !response.has("status") ? null : response.getAsJsonObject("status");
+        if (status == null) {
+            return;
+        }
+        long totalBytes = lng(status, "totalBytes");
+        long downloadedBytes = lng(status, "downloadedBytes");
+        int total = (int) lng(status, "totalCount");
+        int completed = (int) lng(status, "completedCount");
+        boolean hasItemProgress = hasItemProgress(status);
+        if (hasItemProgress) {
+            DlcFxRemoteDownloadProgressModel.applyItemProgress(status, operationModel);
+        }
+        if (hasItemProgress) {
+            updateTotalProgress(operationModel.batchProgress());
+        } else if (totalBytes > 0) {
+            double progress = Math.max(0d, Math.min(1d, downloadedBytes / (double) totalBytes));
+            updateActiveProgress((float) progress);
+            updateTotalProgress(progress);
+        } else {
+            if (singleDownload) {
+                progressBar.setVisible(false);
+                progressBar.setManaged(false);
+                totalProgressLabel.setText("");
+            } else {
+                progressBar.setVisible(true);
+                progressBar.setManaged(true);
+                progressBar.setProgress(-1);
+                totalProgressLabel.setText(total > 0 ? completed + "/" + total : "");
+            }
+        }
+        statusLabel.setText(summarizeStatus(response));
+        shell.refreshRows();
+    }
+
+    private void updateTotalProgress(double progress) {
+        if (singleDownload) {
+            progressBar.setVisible(false);
+            progressBar.setManaged(false);
+            totalProgressLabel.setText("");
+            return;
+        }
+        progressBar.setVisible(true);
+        progressBar.setManaged(true);
+        double clamped = Math.max(0d, Math.min(1d, progress));
+        progressBar.setProgress(clamped);
+        totalProgressLabel.setText(Math.max(0, Math.min(100, Math.round((float) (clamped * 100d)))) + "%");
+    }
+
+    private static boolean hasItemProgress(JsonObject status) {
+        JsonArray items = status == null || !status.has("items") || !status.get("items").isJsonArray()
+                ? null
+                : status.getAsJsonArray("items");
+        return items != null && !items.isEmpty();
+    }
+
+    private void updateActiveProgress(float progress) {
+        for (String key : operationModel.activeBatchKeys()) {
+            operationModel.setProgress(key, progress);
+        }
+    }
+
+    private static List<Row> parseRows(JsonObject response) {
+        List<Row> out = new ArrayList<>();
+        JsonArray items = itemsArray(response);
+        if (items == null) {
+            return out;
+        }
+        for (JsonElement element : items) {
+            if (!element.isJsonObject()) {
+                continue;
+            }
+            JsonObject obj = element.getAsJsonObject();
+            String key = str(obj, "key");
+            String name = str(obj, "name");
+            String type = str(obj, "type");
+            String folder = str(obj, "folder");
+            boolean hidden = bool(obj, "hidden");
+            boolean done = bool(obj, "done");
+            boolean success = bool(obj, "success");
+            String error = str(obj, "error");
+            boolean missing = !(done && success);
+            String tag;
+            String tagStyle;
+            if (done && success) {
+                tag = DlcFxI18n.tr("dlc_manager.status.present");
+                tagStyle = DlcFxStyle.CHIP_OK;
+            } else if (done) {
+                tag = DlcFxI18n.tr("dlc_manager.status.failed_short");
+                tagStyle = DlcFxStyle.CHIP_ERROR;
+            } else {
+                tag = DlcFxI18n.tr("dlc_manager.status.missing");
+                tagStyle = DlcFxStyle.CHIP_ERROR;
+            }
+            StringBuilder detail = new StringBuilder();
+            DlcFxTooltipText.appendBlock(detail, DlcFxTooltipText.resolveLocalized(stringMap(obj, "tips")));
+            if (error != null && !error.isBlank()) {
+                DlcFxTooltipText.appendBlock(detail, "§c" + DlcFxI18n.tr("dlc_manager.tooltip.error") + error + "§r");
+            }
+            out.add(new Row(firstNonBlank(key, name), firstNonBlank(name, key, DlcFxI18n.tr("dlc_manager.status.unnamed")),
+                    firstNonBlank(type), firstNonBlank(folder, "__root__"), detail.toString(), tag, tagStyle, missing, hidden));
+        }
+        return out;
+    }
+
+    private static Map<String, String> stringMap(JsonObject obj, String key) {
+        JsonElement element = obj == null ? null : obj.get(key);
+        if (element == null || !element.isJsonObject()) {
+            return Map.of();
+        }
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+            JsonElement value = entry.getValue();
+            if (value != null && value.isJsonPrimitive()) {
+                values.put(entry.getKey(), value.getAsString());
+            }
+        }
+        return values;
+    }
+
+    private static JsonArray itemsArray(JsonObject response) {
+        if (response == null) {
+            return null;
+        }
+        JsonElement element = response.get("items");
+        return element != null && element.isJsonArray() ? element.getAsJsonArray() : null;
+    }
+
+    static String summarizeStatus(JsonObject response) {
+        if (response == null) {
+            return "";
+        }
+        JsonElement statusElement = response.get("status");
+        if (statusElement != null && statusElement.isJsonObject()) {
+            JsonObject status = statusElement.getAsJsonObject();
+            boolean running = bool(status, "running");
+            boolean finished = bool(status, "finished");
+            boolean success = bool(status, "success");
+            int total = (int) lng(status, "totalCount");
+            int completed = (int) lng(status, "completedCount");
+            String text = finished
+                    ? (success ? DlcFxI18n.tr("dlc_manager.status.completed_short") : DlcFxI18n.tr("dlc_manager.status.completed_with_failures"))
+                    : running ? DlcFxI18n.tr("dlc_manager.status.downloading_short") : DlcFxI18n.tr("dlc_manager.status.not_running");
+            return total > 0 || completed > 0 ? text + " " + completed + "/" + total : text;
+        }
+        JsonElement items = response.get("items");
+        if (items != null && items.isJsonArray()) {
+            return DlcFxI18n.tr("dlc_manager.common.count_items", items.getAsJsonArray().size());
+        }
+        return DlcFxI18n.tr("dlc_manager.status.ok");
+    }
+
+    private static String str(JsonObject obj, String key) {
+        JsonElement e = obj.get(key);
+        return e != null && e.isJsonPrimitive() ? e.getAsString() : null;
+    }
+
+    private static boolean bool(JsonObject obj, String key) {
+        JsonElement e = obj.get(key);
+        return e != null && e.isJsonPrimitive() && e.getAsBoolean();
+    }
+
+    private static long lng(JsonObject obj, String key) {
+        JsonElement e = obj.get(key);
+        if (e == null || !e.isJsonPrimitive()) {
+            return 0L;
+        }
+        try {
+            return e.getAsLong();
+        } catch (Exception ignored) {
+            return 0L;
+        }
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private static DlcType typeOf(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return DlcType.UNKNOWN;
+        }
+        try {
+            return DlcType.valueOf(raw);
+        } catch (IllegalArgumentException ignored) {
+            return DlcType.UNKNOWN;
+        }
+    }
+
+    private record Row(String id, String title, String type, String folder, String detail, String tag, String tagStyle, boolean missing, boolean hidden) {
+        private DlcType dlcType() {
+            return typeOf(type);
+        }
+
+        private String groupFolder() {
+            return DlcFxRemoteDownloadListModel.normalizeFolder(folder);
+        }
+    }
+
+    private final class RemoteDownloadActions implements DlcFxResourceDownloadActionFlow.Actions<Row> {
+        @Override
+        public boolean requireAvailable() {
+            return conn.isConnected();
+        }
+
+        @Override
+        public List<Row> missingItems() {
+            return rows.stream().filter(row -> row.missing).toList();
+        }
+
+        @Override
+        public List<Row> selectedItems() {
+            return shell == null ? List.of() : shell.selectedItems();
+        }
+
+        @Override
+        public void startDownload(List<Row> items) {
+            DlcFxServerDownloadTab.this.startDownload(items);
+        }
+
+        @Override
+        public void showNoMissingDownloads() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.no_missing_downloads"));
+        }
+
+        @Override
+        public void showSelectListItem() {
+            statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_list_item"));
+        }
+    }
+
+    private static final class Adapter implements DlcFxRemoteDownloadShell.Adapter<Row> {
+        private final DlcFxResourceOperationModel operationModel;
+
+        private Adapter(DlcFxResourceOperationModel operationModel) {
+            this.operationModel = operationModel;
+        }
+
+        @Override public String id(Row item) { return item.id; }
+        @Override public String title(Row item) { return item.title; }
+        @Override public DlcType type(Row item) { return item.dlcType(); }
+        @Override public String folder(Row item) { return item.groupFolder(); }
+        @Override public String tooltip(Row item) { return item.detail; }
+        @Override public boolean missing(Row item) { return item.missing; }
+        @Override public boolean hidden(Row item) { return item.hidden; }
+        @Override public boolean itemActionVisible(Row item) {
+            return item.missing && (!operationModel.isBatchActive(item.id) || operationModel.isSingleActive(item.id));
+        }
+        @Override public boolean itemActionDanger(Row item) { return operationModel.isSingleActive(item.id); }
+        @Override public String itemActionText(Row item) {
+            return operationModel.isSingleActive(item.id)
+                    ? DlcFxI18n.tr("dlc_manager.common.cancel")
+                    : DlcFxI18n.tr("dlc_manager.server.download");
+        }
+        @Override public double progress(Row item) { return operationModel.progress(item.id); }
+        @Override public String progressText(Row item) {
+            float progress = operationModel.progress(item.id);
+            return Float.isNaN(progress) ? "" : Math.max(0, Math.min(100, Math.round(progress * 100f))) + "%";
+        }
+    }
+}

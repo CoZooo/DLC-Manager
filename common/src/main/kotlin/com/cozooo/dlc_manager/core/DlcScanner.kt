@@ -3,8 +3,7 @@ package com.cozooo.dlc_manager.core
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader
 import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
-import net.minecraft.client.Minecraft
-import net.minecraft.server.packs.repository.PackRepository
+import com.cozooo.dlc_manager.platform.PlatformServices
 import java.io.IOException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
@@ -245,14 +244,10 @@ class DlcScanner {
             isEnabledInState(id)
         }
         val tips = tooltipData?.getTips()
-        val inList = tooltipData == null || tooltipData.isInList()
         val hidden = tooltipData != null && tooltipData.isHidden()
         var displayNames = tooltipData?.getDisplayName()
         if (displayNames.isNullOrEmpty()) {
             displayNames = mapOf("en_us" to name)
-        }
-        if (!inList && !hidden) {
-            return
         }
         val dependencies = tooltipData?.getDependencies() ?: emptyList()
         val conflicts = tooltipData?.getConflicts() ?: emptyList()
@@ -341,7 +336,7 @@ class DlcScanner {
             else -> emptyList()
         }
         if (type == DlcType.RESOURCE_PACK) {
-            return isResourcePackSelected(fileName)
+            return PlatformServices.get().isResourcePackSelected(fileName)
         }
         if (targetDirs.isEmpty()) {
             return false
@@ -443,48 +438,6 @@ class DlcScanner {
             return legacyBackup
         }
         return null
-    }
-
-    private fun isResourcePackSelected(fileName: String): Boolean {
-        return try {
-            val minecraft = Minecraft.getInstance()
-            val repo = minecraft.resourcePackRepository
-            val packId = resolvePackId(repo, fileName) ?: return false
-            repo.selectedIds.contains(packId)
-        } catch (_: Throwable) {
-            false
-        }
-    }
-
-    private fun resolvePackId(repo: PackRepository?, fileName: String): String? {
-        if (repo == null) {
-            return null
-        }
-        val stripped = stripArchiveExtension(fileName)
-        val candidates = arrayOf(
-            "file/$fileName",
-            "file/$stripped",
-            "vanilla/$fileName",
-            "vanilla/$stripped",
-        )
-        for (candidate in candidates) {
-            if (repo.getPack(candidate) != null) {
-                return candidate
-            }
-        }
-        return repo.availableIds.stream()
-            .filter { id -> id.endsWith("/$fileName") || id.endsWith("/$stripped") }
-            .findFirst()
-            .orElse(null)
-    }
-
-    private fun stripArchiveExtension(fileName: String): String {
-        val lower = fileName.lowercase()
-        return if (lower.endsWith(".zip") || lower.endsWith(".jar")) {
-            fileName.substring(0, fileName.length - 4)
-        } else {
-            fileName
-        }
     }
 
     private fun buildGroupedOwners(tooltips: Map<String, DlcTooltipLoader.TooltipData>?): Map<String, String> {
@@ -623,7 +576,6 @@ class DlcScanner {
                 true,
                 true,
                 entry.isConfigType(),
-                entry.isInList(),
                 entry.isHidden(),
                 entry.isAllowEnableByAll(),
                 entry.getResolvedDependencyNames(),

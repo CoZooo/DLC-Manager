@@ -22,7 +22,7 @@ object DlcConfig {
     const val DEFAULT_CONFIG_BUTTON_SHOWN: Boolean = false
     const val DEFAULT_U_BUTTON_SHOWN: Boolean = true
     const val DEFAULT_UPDATE_MANAGER_ON: Boolean = true
-    const val DEFAULT_SELF_UPDATE_AUTO_CHECK_ON: Boolean = true
+    const val DEFAULT_SELF_UPDATE_AUTO_CHECK_ON: Boolean = false
     const val DEFAULT_PRESET_FUNC_ON: Boolean = true
     const val DEFAULT_PACK_FUNC_ON: Boolean = true
     const val DEFAULT_P_BUTTON_SHOWN: Boolean = true
@@ -927,10 +927,7 @@ object DlcConfig {
         val out = JsonObject()
         if (input != null) {
             for ((key, value) in input.entrySet()) {
-                if (key.isNullOrBlank()
-                    || key.equals("isShownInList", ignoreCase = true)
-                    || key.equals("isInList", ignoreCase = true)
-                ) {
+                if (key.isNullOrBlank()) {
                     continue
                 }
                 out.add(key, value)
@@ -949,14 +946,6 @@ object DlcConfig {
             out.addProperty("identifier", identifier ?: "")
         }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "type")) out.addProperty("type", "others")
-        if (!DlcDcConfigIO.hasIgnoreCase(out, "isEnabled")) {
-            val legacyEnabled = if (DlcDcConfigIO.hasIgnoreCase(input, "isInList")) {
-                DlcDcConfigIO.getBooleanIgnoreCase(input, "isInList", true)
-            } else {
-                DlcDcConfigIO.getBooleanIgnoreCase(input, "isShownInList", true)
-            }
-            out.addProperty("isEnabled", legacyEnabled)
-        }
         if (!DlcDcConfigIO.hasIgnoreCase(out, "isHidden")) out.addProperty("isHidden", false)
         if (!DlcDcConfigIO.hasIgnoreCase(out, "AllowEnableByAll")) out.addProperty("AllowEnableByAll", true)
         if (!DlcDcConfigIO.hasIgnoreCase(out, "dependencies")) out.addProperty("dependencies", "")

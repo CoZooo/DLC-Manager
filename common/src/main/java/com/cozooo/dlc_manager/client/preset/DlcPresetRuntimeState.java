@@ -228,6 +228,31 @@ public final class DlcPresetRuntimeState {
         baselineDisabledRelativePathsInitialized = false;
     }
 
+    public static void loadExternal(List<DlcPresetEntry> entries) {
+        rollbackLastAppliedToBaseline();
+        PRESETS_BY_ID.clear();
+        ENABLED_PRESETS.clear();
+        LAST_APPLIED_IDENTIFIERS.clear();
+        BASELINE_DISABLED_RELATIVE_PATHS.clear();
+        APPLIED_DISABLED_RELATIVE_PATHS.clear();
+        BLOCKED_DLC = new LinkedHashMap<>();
+        BLOCKED_PRESET = new LinkedHashMap<>();
+        if (entries != null) {
+            for (DlcPresetEntry entry : entries) {
+                if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
+                    continue;
+                }
+                PRESETS_BY_ID.put(entry.getId(), entry);
+                if (entry.getStatus().isEnabled()) {
+                    ENABLED_PRESETS.add(entry.getId());
+                }
+            }
+        }
+        presetDirty = false;
+        baselineDisabledRelativePathsInitialized = true;
+        rebuildBlocks();
+    }
+
     public static void syncStatusFromRuntime() {
         if (PRESETS_BY_ID.isEmpty()) {
             return;
@@ -248,6 +273,10 @@ public final class DlcPresetRuntimeState {
     }
 
     public static void syncStatusFromExternal(Map<String, DlcPresetStatus> statuses) {
+        syncStatusFromExternal(statuses, true);
+    }
+
+    public static void syncStatusFromExternal(Map<String, DlcPresetStatus> statuses, boolean persist) {
         if (PRESETS_BY_ID.isEmpty()) {
             return;
         }
@@ -267,7 +296,9 @@ public final class DlcPresetRuntimeState {
                 ENABLED_PRESETS.add(entry.getId());
             }
         }
-        DlcPresetStateStore.savePresetStatus(normalized);
+        if (persist) {
+            DlcPresetStateStore.savePresetStatus(normalized);
+        }
         presetDirty = false;
         rebuildBlocks();
     }
@@ -638,11 +669,16 @@ public final class DlcPresetRuntimeState {
             return exact.getId();
         }
         for (DlcPresetEntry entry : PRESETS_BY_ID.values()) {
-            if (entry == null || entry.getId() == null || entry.getId().isBlank()) {
+            if (entry == null) {
                 continue;
             }
-            if (entry.getId().equalsIgnoreCase(value)) {
-                return entry.getId();
+            String id = entry.getId();
+            if (id != null && !id.isBlank() && id.equalsIgnoreCase(value)) {
+                return id;
+            }
+            String fileName = entry.getFileName();
+            if (fileName != null && !fileName.isBlank() && fileName.equalsIgnoreCase(value)) {
+                return id;
             }
         }
         return null;

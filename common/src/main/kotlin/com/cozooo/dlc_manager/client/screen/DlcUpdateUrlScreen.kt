@@ -6,6 +6,7 @@ import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
+import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
@@ -158,7 +159,7 @@ class DlcUpdateUrlScreen(
                 if (!validation.isValid) {
                     Files.deleteIfExists(downloaded)
                     Minecraft.getInstance().execute {
-                        val message = DlcUpdateService.toImportValidationComponent(validation)
+                        val message = DlcMessageAdapter.toImportValidationComponent(validation)
                         showToast(Component.translatable("dlc_manager.update.manager_title"), message)
                         errorText = message.string
                         downloading = false
@@ -339,7 +340,7 @@ class DlcUpdateUrlScreen(
             return
         }
         if (result?.isSuccess != true) {
-            val component = DlcUpdateService.toFailureComponent(result)
+            val component = DlcMessageAdapter.toFailureComponent(result)
             Minecraft.getInstance().setScreen(DlcUpdateResultScreen(parent, false, component))
             return
         }

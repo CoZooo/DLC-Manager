@@ -46,7 +46,6 @@ public final class DCColorSettingsPage implements ColorSettingsPage {
             identifier = "AE2"
             file_name = "appliedenergistics2-forge-15.4.10.jar"
             type = "mod"
-            isInList = true
             isHidden = false
             alarm = false
             retries = 3

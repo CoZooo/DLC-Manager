@@ -12,7 +12,6 @@ public class DlcServerRequiredItem {
     public Map<String, String> displayNames = new HashMap<>();
     public Map<String, String> tips = new HashMap<>();
     public List<String> dependencies = new ArrayList<>();
-    public boolean inList;
     public boolean hidden;
     public boolean userRemoved;
     public boolean hasFile;
