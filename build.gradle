@@ -110,6 +110,24 @@ tasks.register('exportObfClasspathAll') {
     dependsOn(gradle.includedBuild('arch1211').task(':exportObfClasspathAll'))
 }
 
+tasks.register('stonecutterArchCheck') {
+    group = 'verification'
+    description = 'Run Architectury checks through Stonecutter version nodes.'
+    dependsOn(':stonecutter:stonecutterArchCheck')
+}
+
+tasks.register('stonecutterArchBuild') {
+    group = 'build'
+    description = 'Build Architectury jars through Stonecutter version nodes.'
+    dependsOn(':stonecutter:stonecutterArchBuild')
+}
+
+tasks.register('stonecutterArchTest') {
+    group = 'verification'
+    description = 'Run Architectury tests through Stonecutter version nodes.'
+    dependsOn(':stonecutter:stonecutterArchTest')
+}
+
 tasks.register('helperBuild', GradleBuild) {
     group = 'build'
     description = 'Build helper library.'

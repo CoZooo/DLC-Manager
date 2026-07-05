@@ -1,0 +1,46 @@
+plugins {
+    id 'base'
+}
+
+def archBuildName = sc.current.project == 'mc1201' ? 'arch1201' : 'arch1211'
+def targetLabel = sc.current.version
+def checkTasks = sc.current.project == 'mc1201'
+    ? [':common:check', ':fabric:check', ':forge:check']
+    : [':common:check', ':fabric:check', ':neoforge:check']
+def testTasks = sc.current.project == 'mc1201'
+    ? [':common:test', ':fabric:test', ':forge:test']
+    : [':common:test', ':fabric:test', ':neoforge:test']
+def buildTasks = sc.current.project == 'mc1201'
+    ? [':fabric:remapJar', ':forge:remapJar']
+    : [':fabric:remapJar', ':neoforge:remapJar']
+def exportTasks = sc.current.project == 'mc1201'
+    ? [':fabric:exportObfClasspath', ':forge:exportObfClasspath']
+    : [':fabric:exportObfClasspath', ':neoforge:exportObfClasspath']
+
+def includedTasks = { List<String> paths ->
+    paths.collect { gradle.includedBuild(archBuildName).task(it) }
+}
+
+tasks.register('archCheck') {
+    group = 'verification'
+    description = "Run Architectury ${targetLabel} checks."
+    dependsOn includedTasks(checkTasks)
+}
+
+tasks.register('archTest') {
+    group = 'verification'
+    description = "Run Architectury ${targetLabel} tests."
+    dependsOn includedTasks(testTasks)
+}
+
+tasks.register('archBuild') {
+    group = 'build'
+    description = "Build Architectury ${targetLabel} remapped jars."
+    dependsOn includedTasks(buildTasks)
+}
+
+tasks.register('exportObfClasspathAll') {
+    group = 'build'
+    description = "Export Architectury ${targetLabel} obfuscation classpaths."
+    dependsOn includedTasks(exportTasks)
+}

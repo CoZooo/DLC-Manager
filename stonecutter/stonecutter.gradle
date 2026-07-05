@@ -1,0 +1,23 @@
+plugins {
+    id 'dev.kikugie.stonecutter'
+}
+
+stonecutter.active 'mc1211'
+
+tasks.register('stonecutterArchCheck') {
+    group = 'verification'
+    description = 'Run Architectury checks through Stonecutter version nodes.'
+    dependsOn stonecutter.tasks.named('archCheck') { true }
+}
+
+tasks.register('stonecutterArchBuild') {
+    group = 'build'
+    description = 'Build Architectury jars through Stonecutter version nodes.'
+    dependsOn stonecutter.tasks.named('archBuild') { true }
+}
+
+tasks.register('stonecutterArchTest') {
+    group = 'verification'
+    description = 'Run Architectury tests through Stonecutter version nodes.'
+    dependsOn stonecutter.tasks.named('archTest') { true }
+}

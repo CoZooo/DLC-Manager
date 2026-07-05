@@ -1,13 +1,33 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
+        maven {
+            url = 'https://maven.kikugie.dev/snapshots'
+            name = 'KikuGie Snapshots'
+        }
         maven { url = 'https://maven.minecraftforge.net' }
         maven { url = 'https://maven.neoforged.net/releases' }
         maven { url = 'https://maven.fabricmc.net' }
     }
 }
 
+plugins {
+    id('dev.kikugie.stonecutter') version '0.9.6'
+}
+
 rootProject.name = 'DLC-Manager'
+
+stonecutter {
+    kotlinController = false
+    centralScript = 'stonecutter.gradle'
+
+    create('stonecutter') {
+        version 'mc1201', '1.20.1'
+        version 'mc1211', '1.21.1'
+        vcsVersion = 'mc1211'
+        mapBuilds { branch, node -> 'stonecutter-node.gradle' }
+    }
+}
 
 include ':common'
 
