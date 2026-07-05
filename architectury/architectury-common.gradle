@@ -1,12 +1,9 @@
 ext.architecturyBooleanProperty = { Project targetProject, String propertyName, boolean fallback ->
-    def value = targetProject.findProperty(propertyName)
+    def value = targetProject.extensions.extraProperties.has(propertyName)
+        ? targetProject.extensions.extraProperties.get(propertyName)
+        : null
     if (value == null) {
-        def rootPropsFile = rootProject.file('../../gradle.properties')
-        if (rootPropsFile.exists()) {
-            def rootProps = new Properties()
-            rootPropsFile.withInputStream { rootProps.load(it) }
-            value = rootProps.getProperty(propertyName)
-        }
+        value = rootProject.findProperty(propertyName)
     }
     return value == null ? fallback : value.toString().toBoolean()
 }
@@ -37,8 +34,8 @@ ext.expandProcessedFabricModJson = { Task task, Map values, boolean includeKotli
 
 ext.configureArchitecturyShared = { int defaultJavaVersion ->
     allprojects {
-        group = mod_group
-        version = mod_version
+        group = rootProject.mod_group
+        version = rootProject.mod_version
 
         repositories {
             maven {
@@ -59,7 +56,7 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
             maven { url = 'https://maven.fabricmc.net/' }
             maven { url = 'https://maven.minecraftforge.net/' }
             maven { url = 'https://maven.neoforged.net/releases/' }
-            if ((findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+            if (rootProject.architecturyBooleanProperty(project, 'enable_kotlin', false)) {
                 maven {
                     name = 'Kotlin for Forge'
                     url = 'https://thedarkcolour.github.io/KotlinForForge/'
@@ -116,17 +113,17 @@ ext.configureArchitecturyShared = { int defaultJavaVersion ->
         }
 
         dependencies {
-            minecraft "com.mojang:minecraft:${minecraft_version}"
+            minecraft "com.mojang:minecraft:${rootProject.minecraft_version}"
             if (useParchment && !parchmentVersion.isEmpty()) {
                 mappings loom.layered {
                     officialMojangMappings()
-                    parchment("org.parchmentmc.data:parchment-${minecraft_version}:${parchmentVersion}@zip")
+                    parchment("org.parchmentmc.data:parchment-${rootProject.minecraft_version}:${parchmentVersion}@zip")
                 }
             } else {
                 mappings loom.officialMojangMappings()
             }
-            testImplementation "org.junit.jupiter:junit-jupiter:${junit_jupiter_version}"
-            testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junit_jupiter_version}"
+            testImplementation "org.junit.jupiter:junit-jupiter:${rootProject.junit_jupiter_version}"
+            testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${rootProject.junit_jupiter_version}"
             testRuntimeOnly "org.junit.platform:junit-platform-launcher"
         }
 

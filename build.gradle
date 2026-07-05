@@ -16,6 +16,10 @@ dependencies {
 
 def currentModVersion = providers.gradleProperty('mod_version').get()
 
+tasks.withType(GradleBuild).configureEach {
+    startParameter.projectProperties.putAll(gradle.startParameter.projectProperties)
+}
+
 def runYGuardObfuscation = { File inputJar, File outputJar, File libDir ->
     if (!inputJar.exists()) {
         throw new GradleException("Input jar not found: ${inputJar}")

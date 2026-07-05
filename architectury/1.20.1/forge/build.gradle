@@ -5,7 +5,8 @@ plugins {
 }
 
 def kotlinEnabled = rootProject.architecturyBooleanProperty(project, 'enable_kotlin', false)
-def kotlinExcludeJavaCompile = kotlinEnabled && rootProject.architecturyBooleanProperty(project, 'kotlin_exclude_java_compile', false)
+def kotlinSourcesEnabled = kotlinEnabled && plugins.hasPlugin('org.jetbrains.kotlin.jvm')
+def kotlinExcludeJavaCompile = kotlinSourcesEnabled && rootProject.architecturyBooleanProperty(project, 'kotlin_exclude_java_compile', false)
 def kotlinMainDirs = [
     '../../../forge/src/main/kotlin',
     '../../../forge/1.20.1/src/main/kotlin'
@@ -25,7 +26,7 @@ architectury {
 sourceSets {
     main {
         java.srcDirs = kotlinExcludeJavaCompile ? [] : javaMainDirs
-        if (kotlinEnabled) {
+        if (kotlinSourcesEnabled) {
             kotlin.srcDirs = kotlinMainDirs
             if (!kotlinExcludeJavaCompile) {
                 java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
@@ -35,7 +36,7 @@ sourceSets {
     }
 }
 
-if (kotlinEnabled) {
+if (kotlinSourcesEnabled) {
     tasks.named('compileKotlin').configure {
         if (!kotlinExcludeJavaCompile) {
             source(sourceSets.main.java)
@@ -75,7 +76,7 @@ if (kotlinEnabled) {
     }
 }
 
-rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs, kotlinExcludeJavaCompile)
+rootProject.configureReplacementClassSync(moduleProject, kotlinSourcesEnabled, kotlinMainDirs, kotlinExcludeJavaCompile)
 rootProject.configureLocalDevMods(moduleProject)
 rootProject.configureServerRunClientOnlyModExcludes(moduleProject)
 
@@ -101,7 +102,7 @@ def prepareKotlinForForgeModDiscovery = tasks.register('prepareKotlinForForgeMod
     rename { 'kotlinforforge-all.jar' }
 }
 
-if (kotlinEnabled) {
+if (kotlinSourcesEnabled) {
     tasks.matching {
         it.name == 'generateDLIConfig' || it.name == 'runClient' || it.name == 'runServer'
     }.configureEach {
@@ -114,7 +115,7 @@ loom {
         dlc_manager {
             sourceSet sourceSets.main
         }
-        if (kotlinEnabled) {
+        if (kotlinSourcesEnabled) {
             kotlinforforge {
                 getModFiles().from(files(kotlinForForgeDiscoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
             }
@@ -125,7 +126,7 @@ loom {
 dependencies {
     forge "net.minecraftforge:forge:${rootProject.minecraft_version}-${rootProject.forge_version}"
     modImplementation "dev.architectury:architectury-forge:${rootProject.architectury_api_version}"
-    if ((rootProject.findProperty('enable_kotlin') ?: 'false').toString().toBoolean()) {
+    if (kotlinSourcesEnabled) {
         modImplementation "thedarkcolour:kotlinforforge:${rootProject.kotlin_for_forge_version}"
         kotlinForForgeModDiscovery("thedarkcolour:kotlinforforge:${rootProject.kotlin_for_forge_version}:all") {
             transitive = false
@@ -144,7 +145,7 @@ dependencies {
 }
 
 processResources {
-    def kotlinForForgeDependency = kotlinEnabled ? """
+    def kotlinForForgeDependency = kotlinSourcesEnabled ? """
 [[dependencies.${rootProject.mod_id}]]
 modId="kotlinforforge"
 mandatory=true

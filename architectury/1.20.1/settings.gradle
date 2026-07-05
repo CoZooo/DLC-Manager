@@ -23,12 +23,17 @@ sharedProps.each { key, value ->
     }
     sharedProjectProps[propKey] = value
 }
+startParameter.projectProperties.each { key, value ->
+    def propKey = key.toString()
+    if (propKey.startsWith('org.gradle.') || propKey.startsWith('systemProp.')) {
+        return
+    }
+    sharedProjectProps[propKey] = value
+}
 
 gradle.beforeProject { project ->
     sharedProjectProps.each { key, value ->
-        if (!project.hasProperty(key)) {
-            project.ext.set(key, value)
-        }
+        project.ext.set(key, value)
     }
 }
 

@@ -8,7 +8,8 @@ architectury {
 }
 
 def kotlinEnabled = rootProject.architecturyBooleanProperty(project, 'enable_kotlin', false)
-def kotlinExcludeJavaCompile = kotlinEnabled && rootProject.architecturyBooleanProperty(project, 'kotlin_exclude_java_compile', false)
+def kotlinSourcesEnabled = kotlinEnabled && plugins.hasPlugin('org.jetbrains.kotlin.jvm')
+def kotlinExcludeJavaCompile = kotlinSourcesEnabled && rootProject.architecturyBooleanProperty(project, 'kotlin_exclude_java_compile', false)
 def kotlinMainDirs = [
     '../../../common/src/main/kotlin',
     '../../../common/1.20.1/src/main/kotlin'
@@ -22,7 +23,7 @@ def moduleProject = project
 sourceSets {
     main {
         java.srcDirs = kotlinExcludeJavaCompile ? [] : javaMainDirs
-        if (kotlinEnabled) {
+        if (kotlinSourcesEnabled) {
             kotlin.srcDirs = kotlinMainDirs
             if (!kotlinExcludeJavaCompile) {
                 java.exclude rootProject.javaSourcesReplacedByKotlin(project, kotlinMainDirs)
@@ -45,7 +46,7 @@ sourceSets {
     }
 }
 
-if (kotlinEnabled) {
+if (kotlinSourcesEnabled) {
     tasks.named('compileKotlin').configure {
         if (!kotlinExcludeJavaCompile) {
             source(sourceSets.main.java)
@@ -85,7 +86,7 @@ if (kotlinEnabled) {
     }
 }
 
-rootProject.configureReplacementClassSync(moduleProject, kotlinEnabled, kotlinMainDirs, kotlinExcludeJavaCompile)
+rootProject.configureReplacementClassSync(moduleProject, kotlinSourcesEnabled, kotlinMainDirs, kotlinExcludeJavaCompile)
 
 dependencies {
     modImplementation "net.fabricmc:fabric-loader:${rootProject.fabric_loader_version}"
