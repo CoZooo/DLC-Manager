@@ -19,6 +19,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.Tab;
+import javafx.scene.control.TextField;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
@@ -39,11 +40,13 @@ import java.util.Set;
 public final class DlcFxServerFileManagerTab {
 
     private final DlcFxServerConnection conn;
+    private final ObservableList<FileRow> allEntries = FXCollections.observableArrayList();
     private final ObservableList<FileRow> entries = FXCollections.observableArrayList();
     private final Set<String> selectedEntryNames = new LinkedHashSet<>();
     private final Label statusLabel = new Label(DlcFxI18n.tr("dlc_manager.status.disconnected"));
     private final Label pathLabel = new Label("/");
     private final Label countLabel = new Label(DlcFxI18n.tr("dlc_manager.common.count_items", 0));
+    private final TextField searchField = new TextField();
     private ListView<FileRow> listView;
     private String currentPath = "";
     private int selectionAnchor = -1;
@@ -68,6 +71,7 @@ public final class DlcFxServerFileManagerTab {
         Button invertBtn = new Button(DlcFxI18n.tr("dlc_manager.local.invert"));
         upBtn.disableProperty().bind(conn.connectedProperty().not());
         listBtn.disableProperty().bind(conn.connectedProperty().not());
+        searchField.disableProperty().bind(conn.connectedProperty().not());
         selectAllBtn.disableProperty().bind(conn.connectedProperty().not());
         selectNoneBtn.disableProperty().bind(conn.connectedProperty().not());
         invertBtn.disableProperty().bind(conn.connectedProperty().not());
@@ -77,6 +81,10 @@ public final class DlcFxServerFileManagerTab {
         selectNoneBtn.setOnAction(e -> clearEntrySelection());
         invertBtn.setOnAction(e -> invertEntrySelection());
         DlcFxStyle.primary(listBtn);
+        searchField.setPromptText(DlcFxI18n.tr("dlc_manager.files.search_prompt"));
+        searchField.setPrefColumnCount(18);
+        searchField.getStyleClass().add("dlc-file-search-field");
+        searchField.textProperty().addListener((obs, oldValue, newValue) -> applySearchFilter(newValue));
 
         HBox pathSummary = new HBox(14,
                 new Label(DlcFxI18n.tr("dlc_manager.files.current_path")),
@@ -86,7 +94,7 @@ public final class DlcFxServerFileManagerTab {
         pathSummary.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(pathSummary, Priority.ALWAYS);
 
-        HBox selectionActions = new HBox(8, selectAllBtn, selectNoneBtn, invertBtn);
+        HBox selectionActions = new HBox(8, searchField, selectAllBtn, selectNoneBtn, invertBtn);
         selectionActions.setAlignment(Pos.CENTER_RIGHT);
 
         HBox pathBar = new HBox(10,
@@ -192,7 +200,9 @@ public final class DlcFxServerFileManagerTab {
     private void clearConnectionState(boolean connected) {
         loadedForCurrentConnection = false;
         clearEntrySelectionState();
+        allEntries.clear();
         entries.clear();
+        searchField.clear();
         currentPath = "";
         pathLabel.setText("/");
         countLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", 0));
@@ -213,13 +223,18 @@ public final class DlcFxServerFileManagerTab {
             return;
         }
         String normalized = normalizePath(path);
+        boolean pathChanged = !normalizePath(currentPath).equals(normalized);
         currentPath = normalized;
         pathLabel.setText(displayPath(normalized));
         statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loading"));
         conn.runAsync(f -> f.listFiles(normalized), list -> {
             clearEntrySelectionState();
-            entries.setAll(formatEntries(list));
-            countLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", entries.size()));
+            allEntries.setAll(formatEntries(list));
+            if (pathChanged) {
+                clearSearchField();
+            } else {
+                applySearchFilter(currentSearchText());
+            }
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.loaded"));
         }, err -> statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(err))));
     }
@@ -227,10 +242,44 @@ public final class DlcFxServerFileManagerTab {
     private void reloadCurrentPathAfterOperation(String completionMessage) {
         conn.runAsync(f -> f.listFiles(currentPath), list -> {
             clearEntrySelectionState();
-            entries.setAll(formatEntries(list));
-            countLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", entries.size()));
+            allEntries.setAll(formatEntries(list));
+            applySearchFilter(currentSearchText());
             statusLabel.setText(completionMessage);
         }, err -> statusLabel.setText(completionMessage));
+    }
+
+    private void applySearchFilter(String query) {
+        entries.setAll(DlcFxServerFileSearchModel.filter(allEntries, query, FileRow::name));
+        pruneSelectionToVisibleEntries();
+        countLabel.setText(DlcFxI18n.tr("dlc_manager.common.count_items", entries.size()));
+        syncVisibleItemCells();
+    }
+
+    private String currentSearchText() {
+        return searchField.getText();
+    }
+
+    private void clearSearchField() {
+        if (searchField.getText() == null || searchField.getText().isBlank()) {
+            applySearchFilter("");
+        } else {
+            searchField.clear();
+        }
+    }
+
+    private void pruneSelectionToVisibleEntries() {
+        Set<String> visibleNames = new LinkedHashSet<>();
+        for (FileRow row : entries) {
+            if (row != null) {
+                visibleNames.add(row.name());
+            }
+        }
+        selectedEntryNames.retainAll(visibleNames);
+        if (entries.isEmpty()) {
+            selectionAnchor = -1;
+        } else if (selectionAnchor >= entries.size()) {
+            selectionAnchor = entries.size() - 1;
+        }
     }
 
     private List<FileRow> selectedRows() {

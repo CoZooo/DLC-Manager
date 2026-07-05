@@ -52,6 +52,7 @@
   "dlc_manager.files.refresh": "Refresh",
   "dlc_manager.files.remote_name": "Remote name:",
   "dlc_manager.files.remote_name_prompt": "Remote file name (optional)",
+  "dlc_manager.files.search_prompt": "Search current directory...",
   "dlc_manager.files.select_or_enter_path": "Select a file or enter a path",
   "dlc_manager.files.type_directory": "Folder",
   "dlc_manager.files.type_file": "File",
