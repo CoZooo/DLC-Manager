@@ -30,4 +30,4 @@ jobs:
         cache: gradle
 
     - name: Run check and test pipeline
-      run: ./gradlew check archTest --parallel
+      run: ./gradlew check stoneTest --parallel

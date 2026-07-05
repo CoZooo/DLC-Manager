@@ -110,22 +110,40 @@ tasks.register('exportObfClasspathAll') {
     dependsOn(gradle.includedBuild('arch1211').task(':exportObfClasspathAll'))
 }
 
-tasks.register('stonecutterArchCheck') {
+tasks.register('stoneCheck') {
     group = 'verification'
     description = 'Run Architectury checks through Stonecutter version nodes.'
-    dependsOn(':stonecutter:stonecutterArchCheck')
+    dependsOn(':stonecutter:stoneCheck')
+}
+
+tasks.register('stoneBuild') {
+    group = 'build'
+    description = 'Build Architectury jars through Stonecutter version nodes.'
+    dependsOn(':stonecutter:stoneBuild')
+}
+
+tasks.register('stoneTest') {
+    group = 'verification'
+    description = 'Run Architectury tests through Stonecutter version nodes.'
+    dependsOn(':stonecutter:stoneTest')
+}
+
+tasks.register('stonecutterArchCheck') {
+    group = 'verification'
+    description = 'Compatibility alias for stoneCheck.'
+    dependsOn(tasks.named('stoneCheck'))
 }
 
 tasks.register('stonecutterArchBuild') {
     group = 'build'
-    description = 'Build Architectury jars through Stonecutter version nodes.'
-    dependsOn(':stonecutter:stonecutterArchBuild')
+    description = 'Compatibility alias for stoneBuild.'
+    dependsOn(tasks.named('stoneBuild'))
 }
 
 tasks.register('stonecutterArchTest') {
     group = 'verification'
-    description = 'Run Architectury tests through Stonecutter version nodes.'
-    dependsOn(':stonecutter:stonecutterArchTest')
+    description = 'Compatibility alias for stoneTest.'
+    dependsOn(tasks.named('stoneTest'))
 }
 
 tasks.register('helperBuild', GradleBuild) {
@@ -279,36 +297,20 @@ tasks.register('obfuscateAllYguard') {
 
 tasks.register('archCheck') {
     group = 'verification'
-    description = 'Run checks for Architectury 1.20.1 and 1.21.1.'
-
-    dependsOn(gradle.includedBuild('arch1201').task(':common:check'))
-    dependsOn(gradle.includedBuild('arch1201').task(':fabric:check'))
-    dependsOn(gradle.includedBuild('arch1201').task(':forge:check'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:check'))
-    dependsOn(gradle.includedBuild('arch1211').task(':fabric:check'))
-    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:check'))
+    description = 'Compatibility alias for stoneCheck.'
+    dependsOn(tasks.named('stoneCheck'))
 }
 
 tasks.register('archTest') {
     group = 'verification'
-    description = 'Run tests for Architectury 1.20.1 and 1.21.1.'
-
-    dependsOn(gradle.includedBuild('arch1201').task(':common:test'))
-    dependsOn(gradle.includedBuild('arch1201').task(':fabric:test'))
-    dependsOn(gradle.includedBuild('arch1201').task(':forge:test'))
-    dependsOn(gradle.includedBuild('arch1211').task(':common:test'))
-    dependsOn(gradle.includedBuild('arch1211').task(':fabric:test'))
-    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:test'))
+    description = 'Compatibility alias for stoneTest.'
+    dependsOn(tasks.named('stoneTest'))
 }
 
 tasks.register('archBuild') {
     group = 'build'
-    description = 'Build remapped jars for all Architectury targets.'
-
-    dependsOn(gradle.includedBuild('arch1201').task(':fabric:remapJar'))
-    dependsOn(gradle.includedBuild('arch1201').task(':forge:remapJar'))
-    dependsOn(gradle.includedBuild('arch1211').task(':fabric:remapJar'))
-    dependsOn(gradle.includedBuild('arch1211').task(':neoforge:remapJar'))
+    description = 'Compatibility alias for stoneBuild.'
+    dependsOn(tasks.named('stoneBuild'))
 }
 
 tasks.register('archPublish') {

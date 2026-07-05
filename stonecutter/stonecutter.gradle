@@ -2,22 +2,40 @@ plugins {
     id 'dev.kikugie.stonecutter'
 }
 
-stonecutter.active 'mc1211'
+stonecutter.active '1.21.1'
 
-tasks.register('stonecutterArchCheck') {
+tasks.register('stoneCheck') {
     group = 'verification'
     description = 'Run Architectury checks through Stonecutter version nodes.'
     dependsOn stonecutter.tasks.named('archCheck') { true }
 }
 
-tasks.register('stonecutterArchBuild') {
+tasks.register('stoneBuild') {
     group = 'build'
     description = 'Build Architectury jars through Stonecutter version nodes.'
     dependsOn stonecutter.tasks.named('archBuild') { true }
 }
 
-tasks.register('stonecutterArchTest') {
+tasks.register('stoneTest') {
     group = 'verification'
     description = 'Run Architectury tests through Stonecutter version nodes.'
     dependsOn stonecutter.tasks.named('archTest') { true }
+}
+
+tasks.register('stonecutterArchCheck') {
+    group = 'verification'
+    description = 'Compatibility alias for stoneCheck.'
+    dependsOn tasks.named('stoneCheck')
+}
+
+tasks.register('stonecutterArchBuild') {
+    group = 'build'
+    description = 'Compatibility alias for stoneBuild.'
+    dependsOn tasks.named('stoneBuild')
+}
+
+tasks.register('stonecutterArchTest') {
+    group = 'verification'
+    description = 'Compatibility alias for stoneTest.'
+    dependsOn tasks.named('stoneTest')
 }

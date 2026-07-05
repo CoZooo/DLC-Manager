@@ -22,9 +22,9 @@ stonecutter {
     centralScript = 'stonecutter.gradle'
 
     create('stonecutter') {
-        version 'mc1201', '1.20.1'
-        version 'mc1211', '1.21.1'
-        vcsVersion = 'mc1211'
+        version '1.20.1', '1.20.1'
+        version '1.21.1', '1.21.1'
+        vcsVersion = '1.21.1'
         mapBuilds { branch, node -> 'stonecutter-node.gradle' }
     }
 }
