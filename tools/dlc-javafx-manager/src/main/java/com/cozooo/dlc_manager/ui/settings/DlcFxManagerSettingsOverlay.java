@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.ui.settings;
 
+import com.cozooo.dlc_manager.server.DlcFxServerSyncConfig;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
@@ -12,6 +13,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -130,6 +132,7 @@ public final class DlcFxManagerSettingsOverlay {
         VBox content = new VBox(14);
         content.setFillWidth(true);
         content.getStyleClass().add("dlc-manager-settings-content");
+        DlcFxServerSyncConfig syncConfig = DlcFxServerSyncConfig.load();
 
         Label sectionTitle = new Label(DlcFxI18n.tr("dlc_manager.manager_settings.general"));
         DlcFxStyle.add(sectionTitle, "dlc-section-title");
@@ -145,7 +148,40 @@ public final class DlcFxManagerSettingsOverlay {
         Node combo = languageComboBox();
         languageRow.getChildren().addAll(label, spacer, combo);
 
-        content.getChildren().addAll(sectionTitle, languageRow);
+        Label syncSectionTitle = new Label(DlcFxI18n.tr("dlc_manager.manager_settings.external_sync"));
+        DlcFxStyle.add(syncSectionTitle, "dlc-section-title");
+        Label syncHint = new Label(DlcFxI18n.tr("dlc_manager.manager_settings.external_sync_hint"));
+        DlcFxStyle.muted(syncHint);
+
+        HBox transportRow = new HBox(16);
+        transportRow.getStyleClass().add("dlc-manager-settings-row");
+        transportRow.setAlignment(Pos.CENTER_LEFT);
+        transportRow.setMaxWidth(Double.MAX_VALUE);
+        Label transportLabel = new Label(DlcFxI18n.tr("dlc_manager.server.sync_transport"));
+        DlcFxStyle.add(transportLabel, "dlc-config-option-name");
+        Region transportSpacer = new Region();
+        HBox.setHgrow(transportSpacer, Priority.ALWAYS);
+        transportRow.getChildren().addAll(transportLabel, transportSpacer, syncTransportComboBox(syncConfig));
+
+        HBox externalAddressRow = new HBox(16);
+        externalAddressRow.getStyleClass().add("dlc-manager-settings-row");
+        externalAddressRow.setAlignment(Pos.CENTER_LEFT);
+        externalAddressRow.setMaxWidth(Double.MAX_VALUE);
+        Label addressLabel = new Label(DlcFxI18n.tr("dlc_manager.server.sync_external_address"));
+        DlcFxStyle.add(addressLabel, "dlc-config-option-name");
+        Region addressSpacer = new Region();
+        HBox.setHgrow(addressSpacer, Priority.ALWAYS);
+        TextField externalAddress = new TextField(syncConfig.externalAddress());
+        externalAddress.setPromptText(DlcFxI18n.tr("dlc_manager.server.sync_external_address_prompt"));
+        externalAddress.setMinWidth(320);
+        externalAddress.setPrefWidth(360);
+        externalAddress.textProperty().addListener((obs, oldValue, newValue) -> {
+            syncConfig.setExternalAddress(newValue);
+            syncConfig.save();
+        });
+        externalAddressRow.getChildren().addAll(addressLabel, addressSpacer, externalAddress);
+
+        content.getChildren().addAll(sectionTitle, languageRow, syncSectionTitle, syncHint, transportRow, externalAddressRow);
         return content;
     }
 
@@ -182,6 +218,31 @@ public final class DlcFxManagerSettingsOverlay {
         return languageBox;
     }
 
+    private Node syncTransportComboBox(DlcFxServerSyncConfig config) {
+        ComboBox<SyncTransportOption> transportBox = new ComboBox<>();
+        transportBox.getItems().addAll(
+                new SyncTransportOption(DlcFxServerSyncConfig.TransportMode.DLC_TCP, DlcFxI18n.tr("dlc_manager.server.sync_transport_dlc_tcp")),
+                new SyncTransportOption(DlcFxServerSyncConfig.TransportMode.WEBRTC_WSS, DlcFxI18n.tr("dlc_manager.server.sync_transport_webrtc_wss")));
+        transportBox.setValue(optionForTransport(transportBox, config.transportMode()));
+        transportBox.setOnAction(event -> {
+            SyncTransportOption option = transportBox.getValue();
+            config.setTransportMode(option == null ? DlcFxServerSyncConfig.TransportMode.DLC_TCP : option.mode());
+            config.save();
+        });
+        transportBox.setMinWidth(190);
+        transportBox.setPrefWidth(190);
+        return transportBox;
+    }
+
+    private SyncTransportOption optionForTransport(ComboBox<SyncTransportOption> transportBox, DlcFxServerSyncConfig.TransportMode mode) {
+        for (SyncTransportOption option : transportBox.getItems()) {
+            if (option.mode() == mode) {
+                return option;
+            }
+        }
+        return transportBox.getItems().isEmpty() ? null : transportBox.getItems().get(0);
+    }
+
     private LanguageOption optionForCurrentLanguage(ComboBox<LanguageOption> languageBox) {
         String current = provider.languageCode();
         for (LanguageOption option : languageBox.getItems()) {
@@ -206,6 +267,13 @@ public final class DlcFxManagerSettingsOverlay {
     }
 
     private record LanguageOption(String code, String displayName) {
+        @Override
+        public String toString() {
+            return displayName;
+        }
+    }
+
+    private record SyncTransportOption(DlcFxServerSyncConfig.TransportMode mode, String displayName) {
         @Override
         public String toString() {
             return displayName;
