@@ -12,6 +12,7 @@ import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
 import com.cozooo.dlc_manager.client.server.DlcServerFileEntry;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.beans.value.ObservableValue;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -175,10 +176,11 @@ public final class DlcFxServerFileManagerTab {
     }
 
     public Tab buildSyncTab(java.util.function.Supplier<String> gameDirTextSupplier,
-                            java.util.function.BooleanSupplier gameDirSelectedSupplier,
-                            Runnable chooseGameDirAction,
-                            Runnable readLocalFilesAction) {
-        syncTab = new DlcFxServerSyncTab(gameDirTextSupplier, gameDirSelectedSupplier, chooseGameDirAction, readLocalFilesAction);
+                                java.util.function.BooleanSupplier gameDirSelectedSupplier,
+                                ObservableValue<String> serverPortTextProperty,
+                                Runnable chooseGameDirAction,
+                                Runnable readLocalFilesAction) {
+        syncTab = new DlcFxServerSyncTab(conn, gameDirTextSupplier, gameDirSelectedSupplier, serverPortTextProperty, chooseGameDirAction, readLocalFilesAction);
         return syncTab.build();
     }
 
@@ -186,6 +188,12 @@ public final class DlcFxServerFileManagerTab {
         if (!loadedForCurrentConnection && conn.connectedProperty().get()) {
             loadedForCurrentConnection = true;
             listPath(currentPath);
+        }
+    }
+
+    public void onSyncTabSelected() {
+        if (syncTab != null) {
+            syncTab.onTabSelected();
         }
     }
 

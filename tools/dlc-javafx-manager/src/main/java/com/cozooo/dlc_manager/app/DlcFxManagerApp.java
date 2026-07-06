@@ -406,8 +406,9 @@ public final class DlcFxManagerApp extends Application {
         remoteFileManagerTabNode = remoteFileManagerTab.build();
         remoteTabPane.getTabs().add(remoteFileManagerTabNode);
         remoteSyncTabNode = remoteFileManagerTab.buildSyncTab(
-                () -> localGameDirLabel == null ? "" : localGameDirLabel.getText(),
+                () -> PROVIDER.gameDir().toString(),
                 () -> localGameDirSelected,
+                remoteServerConnectionTab.serverPortTextProperty(),
                 this::chooseLocalGameDirectory,
                 this::scanLocalFilesFromRemoteWorkspace
         );
@@ -730,7 +731,7 @@ public final class DlcFxManagerApp extends Application {
         } else if (selected == remoteFileManagerTabNode && remoteFileManagerTab != null) {
             remoteFileManagerTab.onTabSelected();
         } else if (selected == remoteSyncTabNode && remoteFileManagerTab != null) {
-            remoteFileManagerTab.onTabSelected();
+            remoteFileManagerTab.onSyncTabSelected();
         }
     }
 

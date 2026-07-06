@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.ui.common.DlcFxTabPage;
 import com.cozooo.dlc_manager.ui.common.DlcFxToolbar;
 
 import javafx.geometry.Pos;
+import javafx.beans.property.ReadOnlyStringProperty;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
@@ -44,6 +45,30 @@ public final class DlcFxServerConnectionTab {
         hostField.textProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
         portField.textProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
         passwordField.textProperty().addListener((obs, oldValue, newValue) -> saveConnectionState());
+    }
+
+    public ReadOnlyStringProperty serverHostTextProperty() {
+        return hostField.textProperty();
+    }
+
+    public ReadOnlyStringProperty serverPortTextProperty() {
+        return portField.textProperty();
+    }
+
+    public ReadOnlyStringProperty serverPasswordTextProperty() {
+        return passwordField.textProperty();
+    }
+
+    public String currentHost() {
+        return hostField.getText() == null ? "" : hostField.getText().trim();
+    }
+
+    public int currentPort() {
+        return parsePort(portField.getText(), 29690);
+    }
+
+    public String currentPassword() {
+        return passwordField.getText() == null ? "" : passwordField.getText();
     }
 
     public Tab build() {
