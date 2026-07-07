@@ -710,6 +710,9 @@ public class DlcServerConnection {
     }
 
     public static boolean push(DlcServerEntry entry, int timeoutMs, List<String> targets, List<String> files, String mode, String playerName, String playerUuid) throws IOException {
+        if (entry == null) {
+            return false;
+        }
         Path zipPath = buildPushZip(targets, files);
         if (zipPath == null) {
             return false;

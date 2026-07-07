@@ -790,6 +790,7 @@ object DlcServerConnection {
     @JvmStatic
     @Throws(IOException::class)
     fun push(entry: DlcServerEntry?, timeoutMs: Int, targets: List<String>?, files: List<String>?, mode: String?, playerName: String?, playerUuid: String?): Boolean {
+        if (entry == null) return false
         val zipPath = buildPushZip(targets, files) ?: return false
         val transferId = UUID.randomUUID().toString()
         try {

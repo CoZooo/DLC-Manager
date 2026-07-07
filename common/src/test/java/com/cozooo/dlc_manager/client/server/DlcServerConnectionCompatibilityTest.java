@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.server;
 
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -48,21 +49,28 @@ class DlcServerConnectionCompatibilityTest {
     @Test
     void staticConnectionMethodsKeepFalseBehaviorForMissingEntry() throws Exception {
         Path source = Files.writeString(tempDir.resolve("a.zip"), "data");
-        assertFalse(DlcServerConnection.downloadMissingRemote(null, 1));
-        assertFalse(DlcServerConnection.cancelRequiredDownload(null, 1));
-        assertFalse(DlcServerConnection.uninstallRequired(null, 1, List.of("a")));
-        assertFalse(DlcServerConnection.applyRequired(null, 1, List.of("a")));
-        assertFalse(DlcServerConnection.restartServer(null, 1));
-        assertFalse(DlcServerConnection.downloadFile(null, 1, "a", Path.of("a")));
-        assertFalse(DlcServerConnection.importUpdatePackage(null, 1, source));
-        assertFalse(DlcServerConnection.importPackPackage(null, 1, source));
-        assertFalse(DlcServerConnection.importPackPackageFromUrl(null, 1, "https://example.invalid/a.zip", null));
-        assertFalse(DlcServerConnection.importUpdatePackageFromUrl(null, 1, "https://example.invalid/a.zip", null));
-        assertFalse(DlcServerConnection.applyUpdates(null, 1));
-        assertFalse(DlcServerConnection.push(null, 1, List.of("all"), "overwrite"));
-        assertFalse(DlcServerConnection.deleteFile(null, 1, "a"));
-        assertFalse(DlcServerConnection.uploadFile(null, 1, "a", source));
-        assertFalse(DlcServerConnection.saveRconConfig(null, 1, new DlcServerRconConfig()));
-        assertFalse(DlcServerConnection.saveServerConfig(null, 1, new JsonObject()));
+        Path isolatedDlcRoot = tempDir.resolve("game").resolve("DLC");
+        DlcConfig.setDlcRoot(isolatedDlcRoot.toString());
+        try {
+            assertFalse(DlcServerConnection.downloadMissingRemote(null, 1));
+            assertFalse(DlcServerConnection.cancelRequiredDownload(null, 1));
+            assertFalse(DlcServerConnection.uninstallRequired(null, 1, List.of("a")));
+            assertFalse(DlcServerConnection.applyRequired(null, 1, List.of("a")));
+            assertFalse(DlcServerConnection.restartServer(null, 1));
+            assertFalse(DlcServerConnection.downloadFile(null, 1, "a", Path.of("a")));
+            assertFalse(DlcServerConnection.importUpdatePackage(null, 1, source));
+            assertFalse(DlcServerConnection.importPackPackage(null, 1, source));
+            assertFalse(DlcServerConnection.importPackPackageFromUrl(null, 1, "https://example.invalid/a.zip", null));
+            assertFalse(DlcServerConnection.importUpdatePackageFromUrl(null, 1, "https://example.invalid/a.zip", null));
+            assertFalse(DlcServerConnection.applyUpdates(null, 1));
+            assertFalse(DlcServerConnection.push(null, 1, List.of("all"), "overwrite"));
+            assertFalse(DlcServerConnection.deleteFile(null, 1, "a"));
+            assertFalse(DlcServerConnection.uploadFile(null, 1, "a", source));
+            assertFalse(DlcServerConnection.saveRconConfig(null, 1, new DlcServerRconConfig()));
+            assertFalse(DlcServerConnection.saveServerConfig(null, 1, new JsonObject()));
+            assertFalse(Files.exists(isolatedDlcRoot));
+        } finally {
+            DlcConfig.setDlcRoot(DlcConfig.DEFAULT_DLC_ROOT);
+        }
     }
 }
