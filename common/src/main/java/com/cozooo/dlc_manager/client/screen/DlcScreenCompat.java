@@ -19,16 +19,27 @@ public final class DlcScreenCompat {
             super(title);
         }
 
+        //? if >=1.21.1 {
         @Override
         public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
             return handleCompatibleMouseScrolled(mouseX, mouseY, vertical);
         }
+        //?} else {
+        @Override
+        public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
+            return handleCompatibleMouseScrolled(mouseX, mouseY, delta);
+        }
+        //?}
 
         protected abstract boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY);
     }
 
     public static void renderBackground(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+        //? if >=1.21.1 {
         screen.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
+        //?} else {
+        screen.renderBackground(guiGraphics);
+        //?}
     }
 
     public static void renderModalBackground(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
@@ -40,15 +51,23 @@ public final class DlcScreenCompat {
         if (!(toasts instanceof ToastComponent toastComponent)) {
             throw new IllegalStateException("Failed to resolve ToastComponent for periodic notification");
         }
+        //? if >=1.21.1 {
         SystemToast.addOrUpdate(toastComponent, SystemToast.SystemToastId.PERIODIC_NOTIFICATION, title, description);
+        //?} else {
+        SystemToast.addOrUpdate(toastComponent, SystemToast.SystemToastIds.PERIODIC_NOTIFICATION, title, description);
+        //?}
     }
 
     public static Checkbox createCheckbox(Font font, int x, int y, int width, int height, Component label, boolean selected) {
+        //? if >=1.21.1 {
         return Checkbox.builder(label, font)
             .pos(x, y)
             .maxWidth(width)
             .selected(selected)
             .build();
+        //?} else {
+        return new Checkbox(x, y, width, height, label, selected);
+        //?}
     }
 
     public static void renderWidgets(Screen screen, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
@@ -60,6 +79,10 @@ public final class DlcScreenCompat {
     }
 
     public static boolean invokeCompatibleMouseScroll(GuiListBase<?, ?, ?> target, int mouseX, int mouseY, double deltaX, double deltaY) {
+        //? if >=1.21.1 {
         return target.onMouseScrolled(mouseX, mouseY, deltaX, deltaY);
+        //?} else {
+        return target.onMouseScrolled(mouseX, mouseY, deltaY);
+        //?}
     }
 }

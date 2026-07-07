@@ -6,7 +6,7 @@ import net.minecraft.server.MinecraftServer
 object DlcServerCompat {
     @JvmStatic
     fun executeCommand(server: MinecraftServer?, command: String?): Boolean {
-        if (server == null || command.isNullOrBlank()) {
+        if (server == null || command == null || command.isBlank()) {
             return false
         }
         val source = server.createCommandSourceStack()

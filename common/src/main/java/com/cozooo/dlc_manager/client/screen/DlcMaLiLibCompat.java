@@ -10,10 +10,17 @@ public abstract class DlcMaLiLibCompat<TYPE, WIDGET extends WidgetListEntryBase<
         super(listX, listY);
     }
 
+    //? if >=1.21.1 {
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        return handleCompatibleMouseScrolled(mouseX, mouseY, deltaX, deltaY);
+    }
+    //?} else {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         return handleCompatibleMouseScrolled(mouseX, mouseY, 0.0, delta);
     }
+    //?}
 
     protected abstract boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY);
 }
