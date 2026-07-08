@@ -1,8 +1,15 @@
 package com.cozooo.dlc_manager.ui;
 
+import com.cozooo.dlc_manager.ui.common.*;
+import com.cozooo.dlc_manager.ui.management.*;
+import com.cozooo.dlc_manager.ui.packs.*;
+import com.cozooo.dlc_manager.ui.remote.*;
+import com.cozooo.dlc_manager.ui.required.*;
+import com.cozooo.dlc_manager.ui.update.*;
+
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.local.DlcFxLocalUpdateTab;
-import com.cozooo.dlc_manager.remote.DlcFxRemoteHotUpdateTab;
+import com.cozooo.dlc_manager.server.DlcFxServerUpdateTab;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -49,15 +56,15 @@ final class DlcFxUpdateActionFlowTest {
     @Test
     void localAndRemoteUpdateTabsDelegateRowActionsToSharedFlow() throws Exception {
         assertEquals(DlcFxUpdateActionFlow.class, actionFlowFieldType(DlcFxLocalUpdateTab.class));
-        assertEquals(DlcFxUpdateActionFlow.class, actionFlowFieldType(DlcFxRemoteHotUpdateTab.class));
+        assertEquals(DlcFxUpdateActionFlow.class, actionFlowFieldType(DlcFxServerUpdateTab.class));
         assertFalse(hasDeclaredMethod(DlcFxLocalUpdateTab.class, "confirmRowAction"));
-        assertFalse(hasDeclaredMethod(DlcFxRemoteHotUpdateTab.class, "confirmApplyRow"));
+        assertFalse(hasDeclaredMethod(DlcFxServerUpdateTab.class, "confirmApplyRow"));
     }
 
     @Test
     void localAndRemoteUpdateTabsShouldUseSharedToolbarFlow() throws Exception {
         assertEquals(DlcFxUpdateToolbarFlow.class, toolbarFlowFieldType(DlcFxLocalUpdateTab.class));
-        assertEquals(DlcFxUpdateToolbarFlow.class, toolbarFlowFieldType(DlcFxRemoteHotUpdateTab.class));
+        assertEquals(DlcFxUpdateToolbarFlow.class, toolbarFlowFieldType(DlcFxServerUpdateTab.class));
     }
 
     private static DlcUpdateRowPlanner.UpdateRow row(DlcUpdateRowPlanner.Action action, String rollbackTarget) {
