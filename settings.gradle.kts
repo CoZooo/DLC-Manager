@@ -30,6 +30,26 @@ plugins {
 
 rootProject.name = "DLC-Manager"
 
+fun discoverActiveStoneNode(defaultNode: String): String {
+    val activeFile = file("stonecutter.gradle.kts")
+    if (!activeFile.isFile) {
+        return defaultNode
+    }
+    return Regex("stonecutter\\s+active\\s+\"([^\"]+)\"")
+        .find(activeFile.readText())
+        ?.groupValues
+        ?.get(1)
+        ?: defaultNode
+}
+
+fun isRootRunTaskRequest(): Boolean =
+    gradle.startParameter.taskNames.any { taskName ->
+        taskName == "runClient" ||
+            taskName == "runServer" ||
+            taskName == ":runClient" ||
+            taskName == ":runServer"
+    }
+
 gradle.beforeProject {
     if (Regex("""\d+\.\d+\.\d+-.+""").matches(name)) {
         val nodeBuildDir = rootProject.layout.buildDirectory.dir(name)
@@ -42,17 +62,24 @@ stonecutter {
     kotlinController = true
 
     shared {
-        val versionNodes = file("versions")
+        val allVersionNodes = file("versions")
             .listFiles { file -> file.isDirectory && file.resolve("gradle.properties").isFile }
             ?.map { it.name }
             ?.sorted()
             ?: emptyList()
+        val vcsNode = "1.20.1-forge"
+        val activeNode = discoverActiveStoneNode(vcsNode)
+        val versionNodes = if (isRootRunTaskRequest()) {
+            listOf(activeNode).filter(allVersionNodes::contains)
+        } else {
+            allVersionNodes
+        }
 
         versionNodes.forEach { node ->
             version(node, node.substringBeforeLast('-'))
         }
 
-        vcsVersion = "1.20.1-forge"
+        vcsVersion = vcsNode
     }
 
     create(rootProject)
