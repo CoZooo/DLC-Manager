@@ -601,9 +601,6 @@ if (stoneNodes.contains(project.name)) {
 
         if (loaderName == "fabric") {
             add("modImplementation", "maven.modrinth:malilib:${prop("malilib_version")}")
-            if (!optionalProp("modmenu_version").isNullOrBlank()) {
-                add("modCompileOnly", "com.terraformersmc:modmenu:${prop("modmenu_version")}")
-            }
             if (kotlinEnabled) {
                 add("modImplementation", "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
             }
