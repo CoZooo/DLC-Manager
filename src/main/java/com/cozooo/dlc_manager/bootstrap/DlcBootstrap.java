@@ -18,16 +18,4 @@ public final class DlcBootstrap {
         }
         DlcStateConfig.load();
     }
-
-    public static <T> void initializeClientEntrypoint(Class<T> modBusClass, T modBus) {
-        if (DlcPlatformServices.isDedicatedServer()) {
-            return;
-        }
-
-        try {
-            Class<?> client = Class.forName("com.cozooo.dlc_manager.DlcManagerClient");
-            client.getMethod("init", modBusClass).invoke(null, modBus);
-        } catch (Throwable ignored) {
-        }
-    }
 }

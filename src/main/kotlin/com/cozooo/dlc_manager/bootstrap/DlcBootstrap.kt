@@ -16,17 +16,4 @@ object DlcBootstrap {
         }
         DlcStateConfig.load()
     }
-
-    @JvmStatic
-    fun <T> initializeClientEntrypoint(modBusClass: Class<T>, modBus: T) {
-        if (DlcPlatformServices.isDedicatedServer()) {
-            return
-        }
-
-        try {
-            val client = Class.forName("com.cozooo.dlc_manager.DlcManagerClient")
-            client.getMethod("init", modBusClass).invoke(null, modBus)
-        } catch (_: Throwable) {
-        }
-    }
 }
