@@ -1,5 +1,4 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import com.cozooo.dlc_manager.gradle.DeleteKotlinClassesReplacedByJavaTask
 import com.cozooo.dlc_manager.gradle.GenerateDlcSourcesTask
 import com.cozooo.dlc_manager.gradle.PatchFabricModJsonTask
 import dev.kikugie.stonecutter.build.StonecutterBuildExtension
@@ -345,13 +344,22 @@ if (stoneNodes.contains(project.name)) {
     val kotlinEnabled = booleanProp("enable_kotlin", true)
     val kotlinExcludeJavaCompile = kotlinEnabled && booleanProp("kotlin_exclude_java_compile", false)
 
-    layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(nodeName))
+    val nodeBuildDirName = if (kotlinEnabled) nodeName else "java-only/$nodeName"
+    layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(nodeBuildDirName))
 
     loadProperties(rootProject.file("versions/dependencies/$minecraftVersion.properties")).forEach { (key, value) ->
         extensions.extraProperties[key] = value
     }
     loadProperties(rootProject.file("versions/$nodeName/gradle.properties")).forEach { (key, value) ->
         extensions.extraProperties[key] = value
+    }
+
+    configure<StonecutterBuildExtension> {
+        filters.exclude(
+            "**/*.json",
+            "**/*.mcmeta",
+            "**/*.png",
+        )
     }
 
     val javaVersion = prop("java_version").toInt()
@@ -469,19 +477,11 @@ if (stoneNodes.contains(project.name)) {
         tasks.named<Jar>("jar") {
             dependsOn(clearMainJavaClasses)
         }
-    } else if (!kotlinEnabled) {
-        val deleteKotlinClassesReplacedByJava = tasks.register<DeleteKotlinClassesReplacedByJavaTask>("deleteKotlinClassesReplacedByJava") {
-            kotlinSourceDir.set(mainKotlin)
-            kotlinClassesDir.set(layout.buildDirectory.dir("classes/kotlin/main"))
-        }
-        tasks.named<JavaCompile>("compileJava") {
-            dependsOn(deleteKotlinClassesReplacedByJava)
-        }
     }
 
     val kffDependencyText = if (kotlinEnabled && (loaderName == "forge" || loaderName == "neoforge")) {
         """
-        
+
         [[dependencies.${prop("mod_id")}]]
         modId="kotlinforforge"
         mandatory=true

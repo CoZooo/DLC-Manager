@@ -52,7 +52,10 @@ fun isRootRunTaskRequest(): Boolean =
 
 gradle.beforeProject {
     if (Regex("""\d+\.\d+\.\d+-.+""").matches(name)) {
-        val nodeBuildDir = rootProject.layout.buildDirectory.dir(name)
+        val javaOnly = providers.gradleProperty("enable_kotlin")
+            .map { it.toBooleanStrictOrNull() == false }
+            .getOrElse(false)
+        val nodeBuildDir = rootProject.layout.buildDirectory.dir(if (javaOnly) "java-only/$name" else name)
         layout.buildDirectory.set(nodeBuildDir)
     }
 }

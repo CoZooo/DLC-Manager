@@ -173,45 +173,6 @@ abstract class GenerateDlcSourcesTask : DefaultTask() {
     }
 }
 
-abstract class DeleteKotlinClassesReplacedByJavaTask : DefaultTask() {
-    @get:InputDirectory
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val kotlinSourceDir: DirectoryProperty
-
-    @get:InputDirectory
-    @get:Optional
-    @get:PathSensitive(PathSensitivity.RELATIVE)
-    abstract val kotlinClassesDir: DirectoryProperty
-
-    @TaskAction
-    fun deleteReplacedClasses() {
-        val classesRoot = kotlinClassesDir.asFile.orNull ?: return
-        if (!classesRoot.exists()) {
-            return
-        }
-        val kotlinRoot = kotlinSourceDir.get().asFile
-        if (!kotlinRoot.exists()) {
-            return
-        }
-        kotlinRoot.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .map { kotlinRoot.toPath().relativize(it.toPath()).toString().replace(File.separatorChar, '/') }
-            .map { it.replace(Regex("""\.kt$"""), ".java") }
-            .forEach { javaPath ->
-                val classPath = javaPath.removeSuffix(".java")
-                val slash = classPath.lastIndexOf('/')
-                val classDir = if (slash >= 0) classesRoot.resolve(classPath.substring(0, slash)) else classesRoot
-                val className = if (slash >= 0) classPath.substring(slash + 1) else classPath
-                if (classDir.exists()) {
-                    classDir.listFiles { file ->
-                        file.name == "$className.class" ||
-                            (file.name.startsWith("${className}$") && file.name.endsWith(".class"))
-                    }?.forEach(File::delete)
-                }
-            }
-    }
-}
-
 abstract class PatchFabricModJsonTask : DefaultTask() {
     @get:InputFile
     @get:Optional
