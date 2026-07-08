@@ -1,4 +1,4 @@
-name: Architectury Release
+name: DLC Manager Release
 
 on:
   release:
@@ -33,11 +33,11 @@ jobs:
     - name: Resolve mod version
       run: echo "MOD_VERSION=$(grep -E '^mod_version=' gradle.properties | cut -d= -f2)" >> "$GITHUB_ENV"
 
-    - name: Test Architectury
-      run: ./gradlew stoneTest --parallel
+    - name: Run checks
+      run: ./gradlew check test --parallel
 
-    - name: Build Architectury
-      run: ./gradlew stoneBuild --parallel
+    - name: Build release jars
+      run: ./gradlew build --parallel
 
     # - name: Run yGuard obfuscation
     #   run: ./gradlew obfuscateAllYguard
