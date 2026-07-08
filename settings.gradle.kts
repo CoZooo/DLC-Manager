@@ -79,7 +79,7 @@ stonecutter {
             version(node, node.substringBeforeLast('-'))
         }
 
-        vcsVersion = vcsNode
+        vcsVersion = activeNode
     }
 
     create(rootProject)
