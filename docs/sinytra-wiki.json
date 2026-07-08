@@ -1,8 +1,0 @@
-{
-    "id": "dlc-manager",
-    "modid": "dlc_manager",
-    "platforms": {
-        "curseforge": "dlc-manager",
-        "modrinth": "dlc-manager"
-    }
-}
