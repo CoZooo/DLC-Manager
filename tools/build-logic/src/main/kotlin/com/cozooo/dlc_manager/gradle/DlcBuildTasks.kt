@@ -67,14 +67,16 @@ private fun evaluateCondition(expression: String, loaderName: String, minecraftV
 private fun preprocessStonecutterText(source: String, loaderName: String, minecraftVersion: String): String {
     data class Frame(var parentActive: Boolean, var branchMatched: Boolean, var currentActive: Boolean)
 
+    val directivePattern = Regex("""^[*/^]*//\?\s*(.*)$""")
     val frames = mutableListOf<Frame>()
     val output = mutableListOf<String>()
     source.lineSequence().forEach { line ->
         val trimmed = line.trim()
-        val ifMatch = Regex("""^//\?\s*if\s+(.+?)\s*\{$""").matchEntire(trimmed)
-        val elseIfMatch = Regex("""^//\?\}\s*else\s+if\s+(.+?)\s*\{$""").matchEntire(trimmed)
-        val elseMatch = Regex("""^//\?\}\s*else\s*\{$""").matchEntire(trimmed)
-        val endMatch = Regex("""^//\?\}$""").matchEntire(trimmed)
+        val directive = directivePattern.matchEntire(trimmed)?.groupValues?.get(1)
+        val ifMatch = directive?.let { Regex("""^if\s+(.+?)\s*\{$""").matchEntire(it) }
+        val elseIfMatch = directive?.let { Regex("""^\}\s*else\s+if\s+(.+?)\s*\{$""").matchEntire(it) }
+        val elseMatch = directive?.let { Regex("""^\}\s*else\s*\{$""").matchEntire(it) }
+        val endMatch = directive?.let { Regex("""^\}$""").matchEntire(it) }
         when {
             ifMatch != null -> {
                 val parentActive = frames.lastOrNull()?.currentActive ?: true
