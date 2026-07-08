@@ -8,9 +8,12 @@ import gg.meza.stonecraft.mod
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Dependency
+import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.GradleBuild
+import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
@@ -24,6 +27,17 @@ import org.gradle.language.jvm.tasks.ProcessResources
 import java.io.File
 import java.util.Properties
 import java.util.zip.ZipFile
+
+buildscript {
+    repositories {
+        maven("https://maven.minecraftforge.net/")
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath("net.minecraftforge.gradle:ForgeGradle:6.0.54")
+    }
+}
 
 plugins {
     id("com.cozooo.dlc-manager.build-logic")
@@ -67,6 +81,45 @@ fun Project.loadProperties(file: File): Map<String, String> {
     val properties = Properties()
     file.inputStream().use(properties::load)
     return properties.entries.associate { it.key.toString() to it.value.toString() }
+}
+
+fun Project.configureLocalDevMods(loaderName: String, minecraftVersion: String) {
+    fun devModTree(dir: File) = fileTree(dir) {
+        include("**/*.jar")
+    }
+
+    val rootRunDir = rootProject.file("run/$loaderName/$minecraftVersion")
+    val sharedDevModJars = files(devModTree(rootRunDir.resolve("devmods")))
+    val clientDevModJars = files(devModTree(rootRunDir.resolve("client/devmods")))
+    val serverDevModJars = files(devModTree(rootRunDir.resolve("server/devmods")))
+    val devModJars = files(sharedDevModJars, clientDevModJars, serverDevModJars)
+
+    fun isDevModArtifact(file: File, devModFiles: FileCollection): Boolean =
+        devModFiles.files.any { devModFile ->
+            val fileName = devModFile.name
+            val baseName = fileName.removeSuffix(".jar")
+            file.absolutePath == devModFile.absolutePath || file.name == fileName || file.name.contains(baseName)
+        }
+
+    val localRuntimeConfig = configurations.findByName("modLocalRuntime")
+    if (localRuntimeConfig != null) {
+        dependencies.add(localRuntimeConfig.name, devModJars)
+    } else {
+        configurations.findByName("modRuntimeOnly")?.let { runtimeConfig ->
+            dependencies.add(runtimeConfig.name, devModJars)
+        }
+    }
+
+    tasks.matching { it.name == "runClient" }.configureEach {
+        if (this is JavaExec) {
+            classpath = classpath.filter { file -> !isDevModArtifact(file, serverDevModJars) }
+        }
+    }
+    tasks.matching { it.name == "runServer" }.configureEach {
+        if (this is JavaExec) {
+            classpath = classpath.filter { file -> !isDevModArtifact(file, clientDevModJars) }
+        }
+    }
 }
 
 fun Project.runYGuardObfuscation(inputJar: File, outputJar: File, libDir: File) {
@@ -443,14 +496,30 @@ if (stoneNodes.contains(project.name)) {
         )
     }
 
-    extensions.configure<LoomGradleExtensionAPI> {
-        runs {
-            named("client") {
-                runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client"))
+    afterEvaluate {
+        val clientRunDir = rootProject.file("run/$loaderName/$minecraftVersion/client")
+        val serverRunDir = rootProject.file("run/$loaderName/$minecraftVersion/server")
+        extensions.configure<LoomGradleExtensionAPI> {
+            runs {
+                named("client") {
+                    runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client"))
+                }
+                named("server") {
+                    runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
+                }
             }
-            named("server") {
-                runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
+            settingsPostEdit.add { run ->
+                when (run.name) {
+                    "client" -> run.runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client"))
+                    "server" -> run.runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
+                }
             }
+        }
+        tasks.named<JavaExec>("runClient") {
+            workingDir = clientRunDir
+        }
+        tasks.named<JavaExec>("runServer") {
+            workingDir = serverRunDir
         }
     }
 
@@ -469,9 +538,25 @@ if (stoneNodes.contains(project.name)) {
         }
     }
 
+    configureLocalDevMods(loaderName, minecraftVersion)
+
     fun addEmbedded(notation: String) {
         dependencies.add("implementation", notation)
         dependencies.add("include", notation)
+    }
+
+    fun forgeDeobfDependency(notation: String): Dependency {
+        val obfuscatedConfiguration = configurations.maybeCreate("__obfuscated")
+        val deobfuscator = net.minecraftforge.gradle.userdev.util.Deobfuscator(
+            project,
+            File(gradle.gradleUserHomeDir, "caches/forge_gradle/deobf_dependencies"),
+        )
+        val deobfuscatingRepo = net.minecraftforge.gradle.userdev.util.DeobfuscatingRepo(project, obfuscatedConfiguration, deobfuscator)
+        val remapper = net.minecraftforge.gradle.userdev.util.DependencyRemapper(project, deobfuscator)
+        val dependency = net.minecraftforge.gradle.userdev.DependencyManagementExtension(project, remapper, deobfuscatingRepo)
+            .deobf(notation)
+        remapper.attachMappings("official_$minecraftVersion")
+        return dependency
     }
 
     dependencies {
@@ -495,18 +580,20 @@ if (stoneNodes.contains(project.name)) {
         }
 
         if (loaderName == "forge") {
-            add("compileOnly", "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            val mafglibDependency = forgeDeobfDependency("curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            add("compileOnly", mafglibDependency)
             if (kotlinEnabled) {
                 add("modImplementation", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}:all") {
                     isTransitive = false
                 }
             }
-            add("modRuntimeOnly", "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            add("modRuntimeOnly", mafglibDependency)
         }
 
         if (loaderName == "neoforge") {
-            add("compileOnly", "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            val mafglibDependency = forgeDeobfDependency("curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            add("compileOnly", mafglibDependency)
             if (kotlinEnabled) {
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
@@ -518,7 +605,7 @@ if (stoneNodes.contains(project.name)) {
                     isTransitive = false
                 }
             }
-            add("modRuntimeOnly", "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            add("modRuntimeOnly", mafglibDependency)
         }
 
         addEmbedded("com.cozooo.dlc_manager:dlc-fileops-helper:${prop("file_ops_helper_version")}")
