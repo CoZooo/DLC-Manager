@@ -26,6 +26,7 @@ import java.util.Properties
 import java.util.zip.ZipFile
 
 plugins {
+    id("com.cozooo.dlc-manager.build-logic")
     id("gg.meza.stonecraft")
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") apply false
