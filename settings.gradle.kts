@@ -52,7 +52,7 @@ stonecutter {
             version(node, node.substringBeforeLast('-'))
         }
 
-        vcsVersion = "1.21.1-fabric"
+        vcsVersion = "1.20.1-forge"
     }
 
     create(rootProject)

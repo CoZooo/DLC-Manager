@@ -5,8 +5,8 @@ import com.cozooo.dlc_manager.platform.DlcPlatformServicesProvider;
 import com.cozooo.dlc_manager.server.DlcServerCommands;
 import com.cozooo.dlc_manager.world.DlcWorldSync;
 //? if fabric {
-import net.fabricmc.api.ModInitializer;
-//?}
+/*import net.fabricmc.api.ModInitializer;
+*///?}
 //? if forge {
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -15,27 +15,27 @@ import net.minecraftforge.fml.loading.FMLEnvironment;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 //?}
 //? if neoforge {
-import net.neoforged.bus.api.IEventBus;
+/*import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.common.Mod;
-//?}
+*///?}
 
 //? if forge || neoforge {
 @Mod(DlcManager.MOD_ID)
 //?}
 public class DlcManager
 //? if fabric {
-    implements ModInitializer
-//?}
+    /*implements ModInitializer
+*///?}
 {
     public static final String MOD_ID = "dlc_manager";
 
     //? if fabric {
-    @Override
+    /*@Override
     public void onInitialize() {
         initialize();
     }
-    //?}
+    *///?}
     //? if forge || neoforge {
     public DlcManager() {
         initialize();
@@ -47,9 +47,9 @@ public class DlcManager
         }
         //?}
         //? if neoforge {
-        IEventBus modBus = ModLoadingContext.get().getActiveContainer().getEventBus();
+        /*IEventBus modBus = ModLoadingContext.get().getActiveContainer().getEventBus();
         DlcBootstrap.initializeClientEntrypoint(IEventBus.class, modBus);
-        //?}
+        *///?}
     }
     //?}
 

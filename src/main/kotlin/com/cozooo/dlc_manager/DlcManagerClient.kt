@@ -1,5 +1,5 @@
 //? if fabric {
-package com.cozooo.dlc_manager
+/*package com.cozooo.dlc_manager
 
 import com.cozooo.dlc_manager.client.DlcClientRuntime
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
@@ -368,8 +368,8 @@ class DlcManagerClient : ClientModInitializer {
                 modsWidget.y = rowY
                 modsWidget.width = halfWidth
                 //? if >=1.21.1 {
-                modsWidget.height = rowH
-                //?}
+                /*modsWidget.height = rowH
+                *///?}
                 val dlcX = rowX + halfWidth + gap
                 val dlcWidth = halfWidth
                 var defaultUpdateX = dlcX + dlcWidth + iconGap
@@ -380,16 +380,16 @@ class DlcManagerClient : ClientModInitializer {
                 if (updateWidget != null) {
                     updateWidget.width = iconWidth
                     //? if >=1.21.1 {
-                    updateWidget.height = rowH
-                    //?}
+                    /*updateWidget.height = rowH
+                    *///?}
                     updateWidget.x = updatePos[0]
                     updateWidget.y = updatePos[1]
                 }
                 if (packWidget != null) {
                     packWidget.width = iconWidth
                     //? if >=1.21.1 {
-                    packWidget.height = rowH
-                    //?}
+                    /*packWidget.height = rowH
+                    *///?}
                     packWidget.x = updatePos[0] + iconWidth + iconGap
                     packWidget.y = updatePos[1]
                 }
@@ -397,8 +397,8 @@ class DlcManagerClient : ClientModInitializer {
                 dlcWidget.y = rowY
                 dlcWidget.width = dlcWidth
                 //? if >=1.21.1 {
-                dlcWidget.height = rowH
-                //?}
+                /*dlcWidget.height = rowH
+                *///?}
 
                 val optionsRowY = rowY + rowStep
                 moveBottomRow(screen, optionsRowY)
@@ -414,16 +414,16 @@ class DlcManagerClient : ClientModInitializer {
                 if (updateWidget != null) {
                     updateWidget.width = iconWidth
                     //? if >=1.21.1 {
-                    updateWidget.height = rowH
-                    //?}
+                    /*updateWidget.height = rowH
+                    *///?}
                     updateWidget.x = updatePos[0]
                     updateWidget.y = updatePos[1]
                 }
                 if (packWidget != null) {
                     packWidget.width = iconWidth
                     //? if >=1.21.1 {
-                    packWidget.height = rowH
-                    //?}
+                    /*packWidget.height = rowH
+                    *///?}
                     packWidget.x = updatePos[0] + iconWidth + iconGap
                     packWidget.y = updatePos[1]
                 }
@@ -431,8 +431,8 @@ class DlcManagerClient : ClientModInitializer {
                 dlcWidget.y = rowY
                 dlcWidget.width = dlcWidth
                 //? if >=1.21.1 {
-                dlcWidget.height = rowH
-                //?}
+                /*dlcWidget.height = rowH
+                *///?}
             }
         }
 
@@ -441,7 +441,7 @@ class DlcManagerClient : ClientModInitializer {
         }
     }
 }
-//?} else if forge {
+*///?} else if forge {
 package com.cozooo.dlc_manager
 
 import com.cozooo.dlc_manager.client.DlcClientRuntime
@@ -770,7 +770,7 @@ class DlcManagerClient {
     }
 }
 //?} else if neoforge {
-package com.cozooo.dlc_manager
+/*package com.cozooo.dlc_manager
 
 import com.cozooo.dlc_manager.client.DlcClientRuntime
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
@@ -1209,4 +1209,4 @@ class DlcManagerClient {
         }
     }
 }
-//?}
+*///?}

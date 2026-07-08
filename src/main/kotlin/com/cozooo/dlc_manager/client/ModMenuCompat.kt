@@ -1,5 +1,5 @@
 //? if fabric {
-package com.cozooo.dlc_manager.client
+/*package com.cozooo.dlc_manager.client
 
 import com.cozooo.dlc_manager.client.screen.DlcConfigScreen
 import com.terraformersmc.modmenu.api.ConfigScreenFactory
@@ -10,4 +10,4 @@ class ModMenuCompat : ModMenuApi {
         return ConfigScreenFactory(::DlcConfigScreen)
     }
 }
-//?}
+*///?}

@@ -9,10 +9,10 @@ abstract class DlcMaLiLibCompat<TYPE, WIDGET : WidgetListEntryBase<TYPE>, WIDGET
     listY: Int,
 ) : GuiListBase<TYPE, WIDGET, WIDGETLIST>(listX, listY) {
     //? if >=1.21.1 {
-    override fun mouseScrolled(mouseX: Double, mouseY: Double, deltaX: Double, deltaY: Double): Boolean {
+    /*override fun mouseScrolled(mouseX: Double, mouseY: Double, deltaX: Double, deltaY: Double): Boolean {
         return handleCompatibleMouseScrolled(mouseX, mouseY, deltaX, deltaY)
     }
-    //?} else {
+    *///?} else {
     override fun mouseScrolled(mouseX: Double, mouseY: Double, delta: Double): Boolean {
         return handleCompatibleMouseScrolled(mouseX, mouseY, 0.0, delta)
     }

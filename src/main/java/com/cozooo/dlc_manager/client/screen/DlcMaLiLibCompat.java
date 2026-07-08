@@ -11,11 +11,11 @@ public abstract class DlcMaLiLibCompat<TYPE, WIDGET extends WidgetListEntryBase<
     }
 
     //? if >=1.21.1 {
-    @Override
+    /*@Override
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
         return handleCompatibleMouseScrolled(mouseX, mouseY, deltaX, deltaY);
     }
-    //?} else {
+    *///?} else {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double delta) {
         return handleCompatibleMouseScrolled(mouseX, mouseY, 0.0, delta);

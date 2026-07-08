@@ -2,9 +2,9 @@ package com.cozooo.dlc_manager.platform
 
 import com.cozooo.dlc_manager.client.DlcMinecraftSupport
 //? if fabric {
-import net.fabricmc.api.EnvType
+/*import net.fabricmc.api.EnvType
 import net.fabricmc.loader.api.FabricLoader
-//?}
+*///?}
 //? if forge {
 import net.minecraftforge.api.distmarker.Dist
 import net.minecraftforge.fml.ModList
@@ -13,12 +13,12 @@ import net.minecraftforge.fml.loading.FMLPaths
 import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo
 //?}
 //? if neoforge {
-import net.neoforged.api.distmarker.Dist
+/*import net.neoforged.api.distmarker.Dist
 import net.neoforged.fml.ModList
 import net.neoforged.fml.loading.FMLEnvironment
 import net.neoforged.fml.loading.FMLPaths
 import net.neoforged.fml.loading.moddiscovery.ModFileInfo
-//?}
+*///?}
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
 import java.nio.file.Path
@@ -26,10 +26,10 @@ import java.nio.file.Path
 class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
     override fun gameDir(): Path {
         //? if fabric {
-        if (active()) {
+        /*if (active()) {
             return FabricLoader.getInstance().gameDir
         }
-        //?}
+        *///?}
         //? if forge || neoforge {
         if (active()) {
             return FMLPaths.GAMEDIR.get()
@@ -40,10 +40,10 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
 
     override fun configDir(): Path {
         //? if fabric {
-        if (active()) {
+        /*if (active()) {
             return FabricLoader.getInstance().configDir
         }
-        //?}
+        *///?}
         //? if forge || neoforge {
         if (active()) {
             return FMLPaths.CONFIGDIR.get()
@@ -54,10 +54,10 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
 
     override fun isModLoaded(modId: String?): Boolean {
         //? if fabric {
-        if (active()) {
+        /*if (active()) {
             return FabricLoader.getInstance().isModLoaded(modId)
         }
-        //?}
+        *///?}
         //? if forge || neoforge {
         if (active()) {
             return ModList.get().isLoaded(modId)
@@ -68,10 +68,10 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
 
     override fun isDedicatedServer(): Boolean {
         //? if fabric {
-        if (active()) {
+        /*if (active()) {
             return FabricLoader.getInstance().environmentType == EnvType.SERVER
         }
-        //?}
+        *///?}
         //? if forge || neoforge {
         if (active()) {
             return FMLEnvironment.dist == Dist.DEDICATED_SERVER
@@ -93,20 +93,20 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
 
     override fun loaderName(): String {
         //? if fabric {
-        if (active()) {
+        /*if (active()) {
             return "Fabric"
         }
-        //?}
+        *///?}
         //? if forge {
         if (active()) {
             return "Forge"
         }
         //?}
         //? if neoforge {
-        if (active()) {
+        /*if (active()) {
             return "NeoForge"
         }
-        //?}
+        *///?}
         return ""
     }
 
@@ -120,12 +120,12 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
 
     override fun modVersion(modId: String?): String {
         //? if fabric {
-        if (active()) {
+        /*if (active()) {
             return FabricLoader.getInstance().getModContainer(modId)
                 .map { it.metadata.version.friendlyString }
                 .orElse("")
         }
-        //?}
+        *///?}
         //? if forge || neoforge {
         if (active()) {
             return ModList.get().getModContainerById(modId)
@@ -138,7 +138,7 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
 
     override fun modFilePath(modId: String?): Path? {
         //? if fabric {
-        if (active()) {
+        /*if (active()) {
             val container = FabricLoader.getInstance().getModContainer(modId)
             if (container.isEmpty) {
                 return null
@@ -149,7 +149,7 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
                 null
             }
         }
-        //?}
+        *///?}
         //? if forge || neoforge {
         if (active()) {
             val modFile = ModList.get().getModContainerById(modId)
@@ -203,10 +203,10 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
 
         private fun isClient(): Boolean {
             //? if fabric {
-            if (active()) {
+            /*if (active()) {
                 return FabricLoader.getInstance().environmentType == EnvType.CLIENT
             }
-            //?}
+            *///?}
             //? if forge || neoforge {
             if (active()) {
                 return FMLEnvironment.dist == Dist.CLIENT
