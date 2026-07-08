@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.core
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
@@ -18,7 +18,7 @@ object DlcStateConfig {
 
     @JvmStatic
     fun load() {
-        val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
+        val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
         configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "state")
         stateById = HashMap()
         var migrateLegacyStateSection = false

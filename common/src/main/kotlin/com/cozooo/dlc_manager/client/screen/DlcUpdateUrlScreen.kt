@@ -12,7 +12,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -247,7 +247,7 @@ class DlcUpdateUrlScreen(
     private fun confirmReupdate(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
         val changelog = DlcUpdateService.buildChangelogText(
             DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
-            CrossPlatformRuntime.languageCode(),
+            DlcPlatformServices.languageCode(),
         )
         confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog)
     }

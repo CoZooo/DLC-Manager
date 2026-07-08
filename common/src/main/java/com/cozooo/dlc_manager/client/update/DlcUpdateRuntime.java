@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -61,7 +61,7 @@ public final class DlcUpdateRuntime {
         if (result == null) {
             return "";
         }
-        return DlcUpdateService.buildChangelogText(result.getUpdates(), CrossPlatformRuntime.languageCode());
+        return DlcUpdateService.buildChangelogText(result.getUpdates(), DlcPlatformServices.languageCode());
     }
 
     public static boolean isUpdateManagerEnabled() {

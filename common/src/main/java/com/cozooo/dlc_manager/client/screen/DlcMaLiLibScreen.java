@@ -20,7 +20,7 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
 import fi.dy.masa.malilib.util.StringUtils;
@@ -90,7 +90,7 @@ public class DlcMaLiLibScreen extends DlcMaLiLibCompat<DlcListRow, DlcListEntry,
 
     private DlcType activeFilter;
     private boolean footerTwoRows;
-    private final boolean hasTaczMod = CrossPlatformRuntime.isModLoaded("tacz");
+    private final boolean hasTaczMod = DlcPlatformServices.isModLoaded("tacz");
     private final Set<String> presetSnapshot = new LinkedHashSet<>();
     private boolean presetSnapshotCaptured;
     private int lastWidth = -1;

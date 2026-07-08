@@ -30,13 +30,35 @@ ext.loadStonecutterVersionProperties = { String minecraftVersion ->
     properties.collectEntries { key, value -> [(key.toString()): value.toString()] }
 }
 
+ext.loadStonecutterOptionalProperties = { File propertiesFile ->
+    if (!propertiesFile.isFile()) {
+        return [:]
+    }
+
+    def properties = new Properties()
+    propertiesFile.withInputStream { stream ->
+        properties.load(stream)
+    }
+    properties.collectEntries { key, value -> [(key.toString()): value.toString()] }
+}
+
 ext.stonecutterVersionProperties = rootProject.stonecutterMcVersions.collectEntries { minecraftVersion ->
     [(minecraftVersion): rootProject.loadStonecutterVersionProperties(minecraftVersion)]
 }
 
 ext.configureStonecutterVersionProperties = { Project targetProject ->
-    def versionProps = rootProject.stonecutterVersionProperties[targetProject.name]
+    def versionProps = [:]
+    versionProps.putAll(rootProject.stonecutterVersionProperties[targetProject.name] ?: [:])
     if (versionProps == null) {
+        throw new GradleException("Missing Stonecutter version properties for ${targetProject.path}")
+    }
+    def loaderName = targetProject.parent?.name
+    if (loaderName != null && loaderName != 'common') {
+        versionProps.putAll(rootProject.loadStonecutterOptionalProperties(
+            rootProject.file("versions/${targetProject.name}-${loaderName}/gradle.properties")
+        ))
+    }
+    if (versionProps.isEmpty()) {
         throw new GradleException("Missing Stonecutter version properties for ${targetProject.path}")
     }
     versionProps.each { key, value ->
@@ -300,6 +322,272 @@ ext.configureDlcStonecutterSources = { Project targetProject, boolean includeCom
 
     if (!kotlinExcludeJavaCompile) {
         rootProject.configureReplacementClassSync(moduleProject, kotlinSourcesEnabled, replacementKotlinDirs, false)
+    }
+}
+
+ext.dlcStonecutterVersionParts = { String version ->
+    version.tokenize('.').collect { it as int }
+}
+
+ext.dlcCompareStonecutterVersions = { String left, String right ->
+    def a = rootProject.dlcStonecutterVersionParts(left)
+    def b = rootProject.dlcStonecutterVersionParts(right)
+    int size = Math.max(a.size(), b.size())
+    for (int i = 0; i < size; i++) {
+        int av = i < a.size() ? a[i] : 0
+        int bv = i < b.size() ? b[i] : 0
+        if (av != bv) {
+            return av <=> bv
+        }
+    }
+    return 0
+}
+
+ext.dlcEvaluateStonecutterCondition = { String expression, String loaderName, String minecraftVersion ->
+    expression.split(/\|\|/).any { String orPart ->
+        orPart.split(/&&/).every { String rawTerm ->
+            String term = rawTerm.trim()
+            if (term.isEmpty()) {
+                return true
+            }
+            boolean negated = term.startsWith('!')
+            if (negated) {
+                term = term.substring(1).trim()
+            }
+            boolean value
+            if (term in ['fabric', 'forge', 'neoforge']) {
+                value = loaderName == term
+            } else {
+                def matcher = term =~ /^(>=|<=|>|<|==|=)?\s*([0-9]+(?:\.[0-9]+)*)$/
+                if (!matcher.matches()) {
+                    throw new GradleException("Unsupported Stonecutter platform condition '${rawTerm}' in common/src/platform")
+                }
+                String op = matcher.group(1) ?: '=='
+                int compared = rootProject.dlcCompareStonecutterVersions(minecraftVersion, matcher.group(2))
+                value = op == '>' ? compared > 0
+                    : op == '>=' ? compared >= 0
+                    : op == '<' ? compared < 0
+                    : op == '<=' ? compared <= 0
+                    : compared == 0
+            }
+            return negated ? !value : value
+        }
+    }
+}
+
+ext.dlcPreprocessStonecutterPlatformText = { String source, String loaderName, String minecraftVersion ->
+    def frames = []
+    def output = []
+    source.eachLine { String line ->
+        String trimmed = line.trim()
+        def ifMatcher = trimmed =~ /^\/\/\?\s*if\s+(.+?)\s*\{$/
+        def elseIfMatcher = trimmed =~ /^\/\/\?\}\s*else\s+if\s+(.+?)\s*\{$/
+        def elseMatcher = trimmed =~ /^\/\/\?\}\s*else\s*\{$/
+        def endMatcher = trimmed =~ /^\/\/\?\}$/
+        if (ifMatcher.matches()) {
+            boolean parentActive = frames.isEmpty() || frames[-1].currentActive
+            boolean active = parentActive && rootProject.dlcEvaluateStonecutterCondition(ifMatcher.group(1), loaderName, minecraftVersion)
+            frames.add([parentActive: parentActive, branchMatched: active, currentActive: active])
+            return
+        }
+        if (elseIfMatcher.matches()) {
+            if (frames.isEmpty()) {
+                throw new GradleException("Stonecutter else-if without matching if in common/src/platform")
+            }
+            def frame = frames[-1]
+            boolean active = frame.parentActive
+                && !frame.branchMatched
+                && rootProject.dlcEvaluateStonecutterCondition(elseIfMatcher.group(1), loaderName, minecraftVersion)
+            frame.currentActive = active
+            frame.branchMatched = frame.branchMatched || active
+            return
+        }
+        if (elseMatcher.matches()) {
+            if (frames.isEmpty()) {
+                throw new GradleException("Stonecutter else without matching if in common/src/platform")
+            }
+            def frame = frames[-1]
+            boolean active = frame.parentActive && !frame.branchMatched
+            frame.currentActive = active
+            frame.branchMatched = true
+            return
+        }
+        if (endMatcher.matches()) {
+            if (frames.isEmpty()) {
+                throw new GradleException("Stonecutter end without matching if in common/src/platform")
+            }
+            frames.remove(frames.size() - 1)
+            return
+        }
+        if (frames.isEmpty() || frames[-1].currentActive) {
+            output.add(line)
+        }
+    }
+    if (!frames.isEmpty()) {
+        throw new GradleException("Unclosed Stonecutter condition in common/src/platform")
+    }
+    return output.join(System.lineSeparator()) + System.lineSeparator()
+}
+
+ext.configureDlcStonecutterPlatformSources = { Project targetProject ->
+    String loaderName = targetProject.parent.name
+    File platformSourceRoot = rootProject.file('common/src/platform')
+    def generatedPlatformDir = targetProject.layout.buildDirectory.dir('generated/dlc-platform/main')
+    def generatePlatformSources = targetProject.tasks.register('generateDlcPlatformSources') {
+        inputs.dir(platformSourceRoot)
+        inputs.property('dlcLoaderName', loaderName)
+        inputs.property('dlcMinecraftVersion', targetProject.minecraft_version)
+        outputs.dir(generatedPlatformDir)
+        doLast {
+            File outputRoot = generatedPlatformDir.get().asFile
+            targetProject.delete(outputRoot)
+            ['java', 'kotlin', 'resources'].each { String kind ->
+                File kindRoot = new File(platformSourceRoot, kind)
+                if (!kindRoot.isDirectory()) {
+                    return
+                }
+                targetProject.fileTree(kindRoot).matching {
+                    include '**/*'
+                }.each { File inputFile ->
+                    if (inputFile.isDirectory()) {
+                        return
+                    }
+                    String relative = kindRoot.toPath().relativize(inputFile.toPath()).toString().replace(File.separatorChar, '/' as char)
+                    File outputFile = new File(new File(outputRoot, kind), relative)
+                    outputFile.parentFile.mkdirs()
+                    if (inputFile.name.endsWith('.java') || inputFile.name.endsWith('.kt')) {
+                        outputFile.text = rootProject.dlcPreprocessStonecutterPlatformText(inputFile.getText('UTF-8'), loaderName, targetProject.minecraft_version)
+                    } else {
+                        outputFile.bytes = inputFile.bytes
+                    }
+                }
+            }
+        }
+    }
+
+    def generatedJava = generatedPlatformDir.map { it.dir('java') }
+    def generatedKotlin = generatedPlatformDir.map { it.dir('kotlin') }
+    def generatedResources = generatedPlatformDir.map { it.dir('resources') }
+    def appendPlatformSourceDirs = {
+        targetProject.sourceSets {
+            main {
+                java.srcDir(targetProject.files(generatedJava).builtBy(generatePlatformSources))
+                if (targetProject.ext.dlcKotlinSourcesEnabled && targetProject.plugins.hasPlugin('org.jetbrains.kotlin.jvm')) {
+                    kotlin.srcDir(targetProject.files(generatedKotlin).builtBy(generatePlatformSources))
+                }
+                resources.srcDir(targetProject.files(generatedResources).builtBy(generatePlatformSources))
+            }
+        }
+    }
+    appendPlatformSourceDirs()
+    targetProject.afterEvaluate {
+        appendPlatformSourceDirs()
+    }
+    targetProject.tasks.matching {
+        it.name in ['compileJava', 'compileKotlin', 'processResources', 'jar']
+    }.configureEach {
+        dependsOn generatePlatformSources
+    }
+}
+
+ext.configureDlcStonecutterPlatformCommon = { Project targetProject, Map options ->
+    rootProject.configureDlcStonecutterBase(targetProject)
+
+    String platformName = options.platformName
+    String commonTransformTaskName = options.commonTransformTaskName
+    boolean includeCommonResources = options.includeCommonResources ?: false
+    String developmentConfigurationName = options.developmentConfigurationName
+    boolean includeFabricObfLib = options.includeFabricObfLib ?: false
+
+    def commonProjectPath = ":common:${targetProject.name}"
+    def commonProject = targetProject.project(commonProjectPath)
+    def commonJar = commonProject.tasks.named('jar').flatMap { it.archiveFile }
+    def commonPlatformJar = commonProject.tasks.named(commonTransformTaskName).flatMap { it.archiveFile }
+
+    targetProject.ext.dlcCommonProjectPath = commonProjectPath
+    targetProject.ext.dlcCommonProject = commonProject
+    targetProject.ext.dlcCommonJar = commonJar
+    targetProject.ext.dlcCommonPlatformJar = commonPlatformJar
+    targetProject.ext.dlcKotlinSourcesEnabled = rootProject.architecturyBooleanProperty(targetProject, 'enable_kotlin', false)
+        && targetProject.plugins.hasPlugin('org.jetbrains.kotlin.jvm')
+
+    rootProject.configureDlcStonecutterSources(targetProject, includeCommonResources)
+    rootProject.configureDlcStonecutterPlatformSources(targetProject)
+    rootProject.configureLocalDevMods(targetProject)
+    rootProject.configureServerRunClientOnlyModExcludes(targetProject, commonProjectPath)
+
+    def withoutOwnDevJar = { File file ->
+        !file.toPath().startsWith(targetProject.layout.buildDirectory.dir('devlibs').get().asFile.toPath())
+    }
+
+    targetProject.tasks.named('compileJava').configure {
+        classpath = classpath.filter(withoutOwnDevJar)
+    }
+
+    if (targetProject.tasks.findByName('compileKotlin') != null) {
+        targetProject.tasks.named('compileKotlin').configure {
+            libraries.setFrom(libraries.filter(withoutOwnDevJar))
+        }
+    }
+
+    targetProject.afterEvaluate {
+        targetProject.tasks.named('compileJava').configure {
+            setDependsOn(dependsOn.findAll { it != targetProject.tasks.named('jar').get() })
+        }
+        if (targetProject.tasks.findByName('compileKotlin') != null) {
+            targetProject.tasks.named('compileKotlin').configure {
+                setDependsOn(dependsOn.findAll { it != targetProject.tasks.named('jar').get() })
+            }
+        }
+    }
+
+    targetProject.configurations {
+        common
+        shadowCommon
+        compileClasspath.extendsFrom common
+        runtimeClasspath.extendsFrom common
+        if (developmentConfigurationName) {
+            maybeCreate(developmentConfigurationName).extendsFrom common
+        }
+        if (includeFabricObfLib) {
+            obfLib
+        }
+    }
+
+    targetProject.dependencies {
+        common(targetProject.files(commonJar).builtBy(commonProject.tasks.named('jar')))
+        shadowCommon(targetProject.files(commonPlatformJar).builtBy(commonProject.tasks.named(commonTransformTaskName)))
+    }
+
+    targetProject.tasks.named('shadowJar').configure {
+        configurations = [targetProject.configurations.shadowCommon]
+        archiveClassifier = 'dev-shadow'
+    }
+
+    targetProject.tasks.named('remapJar').configure {
+        inputFile = targetProject.tasks.named('shadowJar').flatMap { it.archiveFile }
+        dependsOn targetProject.tasks.named('shadowJar')
+        archiveFileName.set("DLC-Manager-${platformName}-${targetProject.minecraft_version}-${rootProject.mod_version}.jar")
+        destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
+    }
+
+    targetProject.tasks.named('jar').configure {
+        archiveClassifier = 'dev'
+    }
+
+    targetProject.tasks.register('exportObfClasspath', Sync) {
+        dependsOn("${commonProjectPath}:jar")
+        from({
+            def jars = [] as LinkedHashSet<File>
+            [targetProject.configurations.compileClasspath, targetProject.configurations.runtimeClasspath].each { cfg ->
+                jars.addAll(cfg.resolve().findAll { it.name.endsWith('.jar') })
+            }
+            if (includeFabricObfLib) {
+                jars.addAll(targetProject.configurations.obfLib.resolve().findAll { it.name.endsWith('.jar') })
+            }
+            jars
+        })
+        into rootProject.layout.projectDirectory.dir("obf-lib/${platformName}-${targetProject.minecraft_version}")
     }
 }
 

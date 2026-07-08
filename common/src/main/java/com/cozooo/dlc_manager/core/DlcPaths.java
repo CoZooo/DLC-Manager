@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.core;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.platform.PlatformServices;
 
 public class DlcPaths {
     public static Path gameDir() {
-        return CrossPlatformRuntime.gameDir();
+        return DlcPlatformServices.gameDir();
     }
 
     public static Path dlcRoot() {

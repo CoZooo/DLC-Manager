@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.core;
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -853,7 +853,7 @@ public class DlcConfig {
 
     private static void loadClientFromDisk() {
         resetDefaults();
-        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        Path configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR);
         Path jsonPath = resolveManagerConfigPath(configDir, CONFIG_NAME);
         if (Files.exists(jsonPath)) {
             loadFromJson(jsonPath);
@@ -861,7 +861,7 @@ public class DlcConfig {
     }
 
     private static void loadServerFromDisk() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        Path configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR);
         resetDefaults();
         Path clientPath = resolveManagerConfigPath(configDir, CONFIG_NAME);
         if (Files.exists(clientPath)) {
@@ -904,7 +904,7 @@ public class DlcConfig {
     }
 
     private static void ensureClientConfigFile() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        Path configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR);
         Path jsonPath = resolveManagerConfigPath(configDir, CONFIG_NAME);
         if (Files.exists(jsonPath)) {
             return;
@@ -913,7 +913,7 @@ public class DlcConfig {
     }
 
     private static void ensureServerConfigFile() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        Path configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR);
         Path serverPath = resolveManagerConfigPath(configDir, CONFIG_SERVER_NAME);
         if (Files.exists(serverPath)) {
             return;
@@ -922,7 +922,7 @@ public class DlcConfig {
     }
 
     private static void saveClientToDisk() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        Path configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR);
         Path jsonPath = managerConfigPath(configDir, CONFIG_NAME);
         try {
             Files.createDirectories(configDir);
@@ -935,7 +935,7 @@ public class DlcConfig {
     }
 
     private static void saveServerToDisk() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        Path configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR);
         Path serverPath = managerConfigPath(configDir, CONFIG_SERVER_NAME);
         try {
             Files.createDirectories(configDir);
@@ -1260,10 +1260,10 @@ public class DlcConfig {
             path = DlcPaths.parsePathLenient(fallback);
         }
         if (path == null) {
-            return CrossPlatformRuntime.gameDir().toAbsolutePath().normalize();
+            return DlcPlatformServices.gameDir().toAbsolutePath().normalize();
         }
         if (!path.isAbsolute()) {
-            path = CrossPlatformRuntime.gameDir().resolve(path);
+            path = DlcPlatformServices.gameDir().resolve(path);
         }
         return path.normalize();
     }
@@ -1332,7 +1332,7 @@ public class DlcConfig {
     }
 
     private static void migrateKnownConfigsToDc() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR);
+        Path configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR);
         migrateLocalConfigDirToDc(configDir);
         for (Path dlcRootPath : getDlcRoots()) {
             migrateDlcConfigTreeToDc(dlcRootPath);

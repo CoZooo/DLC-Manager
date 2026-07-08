@@ -14,7 +14,7 @@ import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -177,7 +177,7 @@ public class DlcUpdatePromptScreen extends DlcScreenCompat.MouseScroll {
         if (updates == null || updates.isEmpty()) {
             return lines;
         }
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         int maxWidth = Math.max(120, this.width - 56);
         for (DlcUpdatePackage pkg : updates) {
             String updateLine = "- " + formatUpdateLine(pkg);

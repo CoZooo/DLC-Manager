@@ -10,7 +10,7 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.Side
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.Util
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
@@ -268,7 +268,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
     }
 
     private fun relayoutChangelog(force: Boolean) {
-        val language = CrossPlatformRuntime.languageCode()
+        val language = DlcPlatformServices.languageCode()
         val nextLeft = 40
         val nextRight = max(nextLeft + 120, width - 40)
         val nextTop = height / 2 - 4 + CONTENT_Y_OFFSET

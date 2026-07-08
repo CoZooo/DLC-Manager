@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.client.download
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -282,8 +282,8 @@ class DlcDownloadCandidate private constructor(
             val file = DlcCurseForgeClient.fetchFileByIdOrVersion(
                 projectId,
                 fileId,
-                CrossPlatformRuntime.mcVersion(),
-                CrossPlatformRuntime.loaderName(),
+                DlcPlatformServices.mcVersion(),
+                DlcPlatformServices.loaderName(),
             )
             if (file != null && !file.url.isNullOrBlank()) {
                 candidates.addAll(curseForgeCandidates(file))
@@ -298,8 +298,8 @@ class DlcDownloadCandidate private constructor(
             val version = DlcModrinthClient.fetchVersionByIdOrVersion(
                 projectId,
                 versionId,
-                CrossPlatformRuntime.mcVersion(),
-                CrossPlatformRuntime.loaderName(),
+                DlcPlatformServices.mcVersion(),
+                DlcPlatformServices.loaderName(),
             )
             if (version != null && !version.url.isNullOrBlank()) {
                 candidates.add(modrinth(version))

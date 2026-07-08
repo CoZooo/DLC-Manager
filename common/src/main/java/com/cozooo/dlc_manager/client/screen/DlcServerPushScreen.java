@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -309,7 +309,7 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
                 return false;
             }
             return DlcServerConnection.push(entry, 20000, List.of(), files, overwriteMode ? "overwrite" : "diff",
-                CrossPlatformRuntime.playerName(), CrossPlatformRuntime.playerUuid());
+                DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid());
         } catch (Exception ignored) {
             return false;
         }

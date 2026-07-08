@@ -38,7 +38,7 @@ import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.mojang.logging.LogUtils;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -792,7 +792,7 @@ public final class DlcClientRuntime {
                             && !isSameChangelogMarker(shown, currentMarker, currentDlc)) {
                             List<DlcUpdateMeta> pending = collectPendingChangelogMeta(shown, currentMarker, currentBase, currentDlc);
                             if (!pending.isEmpty()) {
-                                changelogText = buildPendingChangelogText(pending, CrossPlatformRuntime.languageCode());
+                                changelogText = buildPendingChangelogText(pending, DlcPlatformServices.languageCode());
                                 if (changelogText != null && !changelogText.isBlank()) {
                                     changelogVersion = currentMarker;
                                 }
@@ -1255,7 +1255,7 @@ public final class DlcClientRuntime {
                 return name;
             }
         }
-        return CrossPlatformRuntime.playerName();
+        return DlcPlatformServices.playerName();
     }
 
     private static String currentPlayerUuid() {
@@ -1263,7 +1263,7 @@ public final class DlcClientRuntime {
         if (minecraft.player != null && minecraft.player.getGameProfile() != null && minecraft.player.getGameProfile().getId() != null) {
             return minecraft.player.getGameProfile().getId().toString();
         }
-        return CrossPlatformRuntime.playerUuid();
+        return DlcPlatformServices.playerUuid();
     }
 
     private static DlcServerEntry findEntryByKey(String key) {

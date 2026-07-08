@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.client.download;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -287,8 +287,8 @@ public final class DlcDownloadCandidate {
         DlcCurseForgeClient.CurseForgeFile file = DlcCurseForgeClient.fetchFileByIdOrVersion(
             projectId,
             fileId,
-            CrossPlatformRuntime.mcVersion(),
-            CrossPlatformRuntime.loaderName()
+            DlcPlatformServices.mcVersion(),
+            DlcPlatformServices.loaderName()
         );
         if (file != null && file.url != null && !file.url.isBlank()) {
             candidates.addAll(curseForgeCandidates(file));
@@ -303,8 +303,8 @@ public final class DlcDownloadCandidate {
         DlcModrinthClient.ModrinthVersion version = DlcModrinthClient.fetchVersionByIdOrVersion(
             projectId,
             versionId,
-            CrossPlatformRuntime.mcVersion(),
-            CrossPlatformRuntime.loaderName()
+            DlcPlatformServices.mcVersion(),
+            DlcPlatformServices.loaderName()
         );
         if (version != null && version.url != null && !version.url.isBlank()) {
             candidates.add(modrinth(version));

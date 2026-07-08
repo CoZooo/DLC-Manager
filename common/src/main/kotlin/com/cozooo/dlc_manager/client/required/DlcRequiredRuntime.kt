@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.download.DlcModrinthClient
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcConfig
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -481,8 +481,8 @@ object DlcRequiredRuntime {
             val file = DlcCurseForgeClient.fetchFileByIdOrVersion(
                 entry.getCurseforgeProjectId(),
                 fileId,
-                CrossPlatformRuntime.mcVersion(),
-                CrossPlatformRuntime.loaderName(),
+                DlcPlatformServices.mcVersion(),
+                DlcPlatformServices.loaderName(),
             )
             if (file != null && !file.fileName.isNullOrBlank()) file.fileName else null
         } catch (_: Exception) {

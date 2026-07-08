@@ -14,8 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
-import com.cozooo.dlc_manager.platform.PlatformServices;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -47,7 +46,7 @@ public class DlcScanner {
             scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir, detectInstalledState);
         }
 
-        if (CrossPlatformRuntime.isModLoaded("tacz")) {
+        if (DlcPlatformServices.isModLoaded("tacz")) {
             scanTaczRoots(grouped, tooltipLoader, detectInstalledState);
         }
 
@@ -328,7 +327,7 @@ public class DlcScanner {
             default -> List.of();
         };
         if (type == DlcType.RESOURCE_PACK) {
-            return PlatformServices.get().isResourcePackSelected(fileName);
+            return DlcPlatformServices.isResourcePackSelected(fileName);
         }
         if (targetDirs.isEmpty()) {
             return false;

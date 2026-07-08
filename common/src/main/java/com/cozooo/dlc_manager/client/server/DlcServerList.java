@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.server;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
@@ -19,7 +19,7 @@ public class DlcServerList {
     private static String lastSelectedKey;
 
     public static void load() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
+        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
         configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "servers");
         entries = new ArrayList<>();
         lastSelectedKey = null;
@@ -41,7 +41,7 @@ public class DlcServerList {
 
     public static void save() {
         if (configPath == null) {
-            Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
+            Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
             configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "servers");
         }
         try {

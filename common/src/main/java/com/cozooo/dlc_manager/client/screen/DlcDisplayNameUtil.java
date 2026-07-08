@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.screen;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcItem;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.platform.PlatformServices;
@@ -32,7 +32,7 @@ final class DlcDisplayNameUtil {
         if (names == null || names.isEmpty()) {
             return fallback == null ? "" : fallback;
         }
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         if (names.containsKey(lang)) {
             return names.get(lang);
         }

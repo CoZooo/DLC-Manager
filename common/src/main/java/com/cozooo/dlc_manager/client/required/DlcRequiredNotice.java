@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.required;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -70,7 +70,7 @@ public final class DlcRequiredNotice {
         if (values == null || values.isEmpty()) {
             return "";
         }
-        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
         if (lang != null && values.containsKey(lang)) {
             return values.get(lang);
         }

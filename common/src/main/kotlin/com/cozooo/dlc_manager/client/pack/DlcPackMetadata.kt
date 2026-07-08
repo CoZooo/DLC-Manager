@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.pack
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -125,7 +125,7 @@ class DlcPackMetadata(
 
         @JvmStatic
         fun currentPlatform(): String {
-            return if (CrossPlatformRuntime.isDedicatedServer()) "server" else "client"
+            return if (DlcPlatformServices.isDedicatedServer()) "server" else "client"
         }
 
         @JvmStatic
@@ -252,7 +252,7 @@ class DlcPackMetadata(
             val out = LinkedHashMap<String, String>()
             val links = DlcDcConfigIO.getObjectIgnoreCase(root, "links")
             readLinksInto(out, links)
-            val lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
+            val lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode())
             if (!lang.isNullOrBlank()) {
                 readLinksInto(out, DlcDcConfigIO.getObjectIgnoreCase(links, lang))
             }

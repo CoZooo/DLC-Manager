@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -323,8 +323,8 @@ class DlcServerPushScreen(
                 emptyList(),
                 files,
                 if (overwriteMode) "overwrite" else "diff",
-                CrossPlatformRuntime.playerName(),
-                CrossPlatformRuntime.playerUuid(),
+                DlcPlatformServices.playerName(),
+                DlcPlatformServices.playerUuid(),
             )
         } catch (_: Exception) {
             false

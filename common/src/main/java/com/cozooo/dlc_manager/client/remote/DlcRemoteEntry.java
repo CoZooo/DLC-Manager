@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.remote;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcType;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
@@ -325,7 +325,7 @@ public class DlcRemoteEntry {
         if (displayNames == null || displayNames.isEmpty()) {
             return fileNameHint != null ? fileNameHint : "";
         }
-        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
         if (displayNames.containsKey(lang)) {
             return displayNames.get(lang);
         }

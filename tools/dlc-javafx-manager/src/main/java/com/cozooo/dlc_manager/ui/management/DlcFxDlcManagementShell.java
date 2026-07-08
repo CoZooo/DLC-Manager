@@ -823,7 +823,7 @@ public final class DlcFxDlcManagementShell<T> {
                 setMouseTransparent(false);
                 activeAnimatedCells.add(this);
                 getStyleClass().add("dlc-row-item");
-                String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+                String lang = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
                 DlcFxRichTextRenderer.setFormatted(redirectLabel, row.redirectEntry == null ? "" : row.redirectEntry.resolveDisplayName(lang));
                 String tip = row.redirectEntry == null ? "" : row.redirectEntry.resolveTip(lang);
                 rowTooltip = tip == null || tip.isBlank() ? null : DlcFxRichTextRenderer.formattedTooltip(tip);

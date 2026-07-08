@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.core.DlcFilePicker;
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
@@ -311,7 +311,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
             return;
         }
         DlcUpdateMeta meta = rows.get(hoverIndex);
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         String changelog = meta == null ? "" : meta.resolveChangelog(lang);
         if (changelog == null || changelog.isBlank()) {
             return;
@@ -503,7 +503,7 @@ public class DlcUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
     private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         String changelog = DlcUpdateService.buildChangelogText(
             DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
-            CrossPlatformRuntime.languageCode());
+            DlcPlatformServices.languageCode());
         confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog);
     }
 

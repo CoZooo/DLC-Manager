@@ -118,7 +118,7 @@ def reusedCommonJavaFiles = [
     'com/cozooo/dlc_manager/core/DlcTmpPaths.java',
     'com/cozooo/dlc_manager/core/DlcTooltipLoader.java',
     'com/cozooo/dlc_manager/core/DlcType.java',
-    'com/cozooo/dlc_manager/platform/CrossPlatformRuntime.java',
+    'com/cozooo/dlc_manager/platform/DlcPlatformServices.java',
     'com/cozooo/dlc_manager/platform/PlatformServices.java'
 ]
 

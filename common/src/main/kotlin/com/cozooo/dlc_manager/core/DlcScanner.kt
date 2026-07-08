@@ -2,8 +2,7 @@ package com.cozooo.dlc_manager.core
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
-import com.cozooo.dlc_manager.platform.PlatformServices
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import java.io.IOException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
@@ -40,7 +39,7 @@ class DlcScanner {
             scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir, detectInstalledState)
         }
 
-        if (CrossPlatformRuntime.isModLoaded("tacz")) {
+        if (DlcPlatformServices.isModLoaded("tacz")) {
             scanTaczRoots(grouped, tooltipLoader, detectInstalledState)
         }
 
@@ -336,7 +335,7 @@ class DlcScanner {
             else -> emptyList()
         }
         if (type == DlcType.RESOURCE_PACK) {
-            return PlatformServices.get().isResourcePackSelected(fileName)
+            return DlcPlatformServices.isResourcePackSelected(fileName)
         }
         if (targetDirs.isEmpty()) {
             return false

@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.update;
 import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
@@ -2591,7 +2591,7 @@ public final class DlcUpdateService {
         if (presetId == null || presetId.isBlank()) {
             return;
         }
-        if (!CrossPlatformRuntime.isDedicatedServer()) {
+        if (!DlcPlatformServices.isDedicatedServer()) {
             DlcPresetRuntimeState.setPresetEnabled(presetId, false);
         }
         Map<String, DlcPresetStatus> statuses = new LinkedHashMap<>(DlcPresetStateStore.loadPresetStatus());
@@ -2893,7 +2893,7 @@ public final class DlcUpdateService {
     }
 
     private static void refreshPresetRuntimeState() {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return;
         }
         try {
@@ -2903,7 +2903,7 @@ public final class DlcUpdateService {
     }
 
     private static PresetUpdateSession preparePresetUpdateSession(DlcUpdateManifest.UpdateOps ops, Path dlcRoot) {
-        if (CrossPlatformRuntime.isDedicatedServer() || !DlcConfig.isPresetFuncOn() || ops == null || ops.getPreset().isEmpty()) {
+        if (DlcPlatformServices.isDedicatedServer() || !DlcConfig.isPresetFuncOn() || ops == null || ops.getPreset().isEmpty()) {
             return PresetUpdateSession.empty();
         }
         Map<String, Path> presetById = loadPresetConfigPathById(dlcRoot);
@@ -2928,7 +2928,7 @@ public final class DlcUpdateService {
     }
 
     private static void disablePresetUpdatesForApply(PresetUpdateSession session) throws IOException {
-        if (session == null || session.temporarilyDisabledPresetIds().isEmpty() || CrossPlatformRuntime.isDedicatedServer()) {
+        if (session == null || session.temporarilyDisabledPresetIds().isEmpty() || DlcPlatformServices.isDedicatedServer()) {
             return;
         }
         scanDlcItemsForLocalIndex();
@@ -2948,7 +2948,7 @@ public final class DlcUpdateService {
     }
 
     private static void finalizePresetUpdateSession(PresetUpdateSession session) throws IOException {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return;
         }
         refreshPresetRuntimeState();
@@ -2961,7 +2961,7 @@ public final class DlcUpdateService {
     }
 
     private static void restorePresetUpdatesAfterRollback(PresetUpdateSession session) {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return;
         }
         try {
@@ -2977,7 +2977,7 @@ public final class DlcUpdateService {
     }
 
     private static void applyLocalPresetState() throws IOException {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return;
         }
         List<DlcItem> items = scanDlcItemsForLocalIndex();
@@ -3558,7 +3558,7 @@ public final class DlcUpdateService {
         if (PLATFORM_UNIVERSAL.equals(normalized)) {
             return true;
         }
-        boolean dedicated = CrossPlatformRuntime.isDedicatedServer();
+        boolean dedicated = DlcPlatformServices.isDedicatedServer();
         if (dedicated) {
             return PLATFORM_SERVER.equals(normalized);
         }

@@ -5,7 +5,7 @@ import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcTmpPaths
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -995,7 +995,7 @@ object DlcServerConnection {
             actualEntry.port,
             actualEntry.password,
             timeoutMs,
-            CrossPlatformRuntime.languageCode(),
+            DlcPlatformServices.languageCode(),
             playerName,
             playerUuid,
         )
@@ -1044,11 +1044,11 @@ object DlcServerConnection {
     }
 
     private fun currentPlayerName(): String? {
-        return CrossPlatformRuntime.playerName()
+        return DlcPlatformServices.playerName()
     }
 
     private fun currentPlayerUuid(): String? {
-        return CrossPlatformRuntime.playerUuid()
+        return DlcPlatformServices.playerUuid()
     }
 
     private fun getString(obj: JsonObject?, key: String?): String? {
@@ -1088,7 +1088,7 @@ object DlcServerConnection {
         val includeDlc = includeAll || (hasTargets && targets!!.any { it.equals("dlc", ignoreCase = true) })
         val includeConfig = includeAll || (hasTargets && targets!!.any { it.equals("config", ignoreCase = true) })
         val dlcRoot = DlcConfig.getDlcRoot()
-        val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
+        val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
         val gameDir = DlcPaths.gameDir()
         val tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops") ?: return null
         Files.createDirectories(tempDir)

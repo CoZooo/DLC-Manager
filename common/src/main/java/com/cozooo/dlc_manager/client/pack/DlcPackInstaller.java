@@ -12,7 +12,7 @@ import com.cozooo.dlc_manager.core.DlcPathUtil;
 import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -554,8 +554,8 @@ public class DlcPackInstaller {
         String currentBase = version == null ? null : version.getBase();
         String currentDlc = version == null ? null : version.getDlc();
         String currentPlatform = DlcPackMetadata.currentPlatform();
-        String currentGameVersion = CrossPlatformRuntime.mcVersion();
-        String currentModLoader = CrossPlatformRuntime.loaderName();
+        String currentGameVersion = DlcPlatformServices.mcVersion();
+        String currentModLoader = DlcPlatformServices.loaderName();
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, currentModpack, metadata.modpackAnyWildcard)) {
             result.incompatible.add("modpack " + safeText(currentModpack) + " not in " + String.join(", ", metadata.modpacks));
         }

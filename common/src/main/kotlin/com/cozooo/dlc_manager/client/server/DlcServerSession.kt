@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.server
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
@@ -428,9 +428,9 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
                 entry.port,
                 entry.password,
                 timeoutMs,
-                CrossPlatformRuntime.languageCode(),
-                CrossPlatformRuntime.playerName(),
-                CrossPlatformRuntime.playerUuid(),
+                DlcPlatformServices.languageCode(),
+                DlcPlatformServices.playerName(),
+                DlcPlatformServices.playerUuid(),
             )
         }
 

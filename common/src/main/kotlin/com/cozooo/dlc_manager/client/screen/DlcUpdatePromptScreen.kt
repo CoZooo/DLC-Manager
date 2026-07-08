@@ -13,7 +13,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -170,7 +170,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
         if (updates.isEmpty()) {
             return lines
         }
-        val lang = CrossPlatformRuntime.languageCode()
+        val lang = DlcPlatformServices.languageCode()
         val maxWidth = max(120, width - 56)
         for (pkg in updates) {
             val updateLine = "- ${formatUpdateLine(pkg)}"

@@ -18,7 +18,7 @@ import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.core.*
 import com.cozooo.dlc_manager.core.DlcApplier.ApplyResult
 import com.cozooo.dlc_manager.core.DlcStateConfig.DlcState
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.*
 import java.io.IOException
 import java.net.HttpURLConnection
@@ -2735,7 +2735,7 @@ object DlcUpdateService {
         if (presetId == null || presetId.isBlank()) {
             return
         }
-        if (!CrossPlatformRuntime.isDedicatedServer()) {
+        if (!DlcPlatformServices.isDedicatedServer()) {
             DlcPresetRuntimeState.setPresetEnabled(presetId, false)
         }
         val statuses: MutableMap<kotlin.String, DlcPresetStatus?> = LinkedHashMap<kotlin.String, DlcPresetStatus?>(
@@ -3062,7 +3062,7 @@ object DlcUpdateService {
     }
 
     private fun refreshPresetRuntimeState() {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return
         }
         try {
@@ -3072,7 +3072,7 @@ object DlcUpdateService {
     }
 
     private fun preparePresetUpdateSession(ops: DlcUpdateManifest.UpdateOps?, dlcRoot: Path?): PresetUpdateSession {
-        if (CrossPlatformRuntime.isDedicatedServer() || !DlcConfig.isPresetFuncOn() || ops == null || ops.getPreset()
+        if (DlcPlatformServices.isDedicatedServer() || !DlcConfig.isPresetFuncOn() || ops == null || ops.getPreset()
                 .isEmpty()
         ) {
             return PresetUpdateSession.Companion.empty()
@@ -3100,7 +3100,7 @@ object DlcUpdateService {
 
     @Throws(IOException::class)
     private fun disablePresetUpdatesForApply(session: PresetUpdateSession?) {
-        if (session == null || session.temporarilyDisabledPresetIds!!.isEmpty() || CrossPlatformRuntime.isDedicatedServer()) {
+        if (session == null || session.temporarilyDisabledPresetIds!!.isEmpty() || DlcPlatformServices.isDedicatedServer()) {
             return
         }
         scanDlcItemsForLocalIndex()
@@ -3121,7 +3121,7 @@ object DlcUpdateService {
 
     @Throws(IOException::class)
     private fun finalizePresetUpdateSession(session: PresetUpdateSession?) {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return
         }
         refreshPresetRuntimeState()
@@ -3134,7 +3134,7 @@ object DlcUpdateService {
     }
 
     private fun restorePresetUpdatesAfterRollback(session: PresetUpdateSession?) {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return
         }
         try {
@@ -3151,7 +3151,7 @@ object DlcUpdateService {
 
     @Throws(IOException::class)
     private fun applyLocalPresetState() {
-        if (CrossPlatformRuntime.isDedicatedServer()) {
+        if (DlcPlatformServices.isDedicatedServer()) {
             return
         }
         val items: MutableList<DlcItem> = scanDlcItemsForLocalIndex()
@@ -3763,7 +3763,7 @@ object DlcUpdateService {
         if (PLATFORM_UNIVERSAL == normalized) {
             return true
         }
-        val dedicated = CrossPlatformRuntime.isDedicatedServer()
+        val dedicated = DlcPlatformServices.isDedicatedServer()
         if (dedicated) {
             return PLATFORM_SERVER == normalized
         }

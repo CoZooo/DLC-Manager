@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.server;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
@@ -891,7 +891,7 @@ public class DlcServerConnection {
                 entry.port,
                 entry.password,
                 timeoutMs,
-                CrossPlatformRuntime.languageCode(),
+                DlcPlatformServices.languageCode(),
                 playerName,
                 playerUuid);
     }
@@ -953,11 +953,11 @@ public class DlcServerConnection {
     }
 
     private static String currentPlayerName() {
-        return CrossPlatformRuntime.playerName();
+        return DlcPlatformServices.playerName();
     }
 
     private static String currentPlayerUuid() {
-        return CrossPlatformRuntime.playerUuid();
+        return DlcPlatformServices.playerUuid();
     }
 
     private static String getString(JsonObject obj, String key) {
@@ -1011,7 +1011,7 @@ public class DlcServerConnection {
         boolean includeDlc = includeAll || (hasTargets && targets.stream().anyMatch(value -> "dlc".equalsIgnoreCase(value)));
         boolean includeConfig = includeAll || (hasTargets && targets.stream().anyMatch(value -> "config".equalsIgnoreCase(value)));
         Path dlcRoot = DlcConfig.getDlcRoot();
-        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
+        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
         Path gameDir = DlcPaths.gameDir();
         Path tempDir = DlcTmpPaths.resolve(dlcRoot, "server_ops");
         Files.createDirectories(tempDir);

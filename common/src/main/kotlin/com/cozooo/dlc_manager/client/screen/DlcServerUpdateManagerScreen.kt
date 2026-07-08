@@ -13,7 +13,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -375,7 +375,7 @@ class DlcServerUpdateManagerScreen(
             return
         }
         val meta = rows[hoverIndex]
-        val lang = CrossPlatformRuntime.languageCode()
+        val lang = DlcPlatformServices.languageCode()
         val changelog = meta?.resolveChangelog(lang) ?: ""
         if (changelog.isBlank()) {
             return

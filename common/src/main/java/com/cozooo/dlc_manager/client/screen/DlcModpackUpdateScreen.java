@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -289,7 +289,7 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
     }
 
     private void relayoutChangelog(boolean force) {
-        String language = CrossPlatformRuntime.languageCode();
+        String language = DlcPlatformServices.languageCode();
         int nextLeft = 40;
         int nextRight = Math.max(nextLeft + 120, this.width - 40);
         int nextTop = this.height / 2 - 4 + CONTENT_Y_OFFSET;

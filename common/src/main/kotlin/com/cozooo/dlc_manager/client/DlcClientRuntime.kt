@@ -37,7 +37,7 @@ import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcType
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.cozooo.dlc_manager.server.DlcServerApi
 import com.mojang.logging.LogUtils
 import net.minecraft.Util
@@ -719,7 +719,7 @@ object DlcClientRuntime {
                 ) {
                     val pending = collectPendingChangelogMeta(shown, currentMarker, currentBase, currentDlc)
                     if (pending.isNotEmpty()) {
-                        changelogText = buildPendingChangelogText(pending, CrossPlatformRuntime.languageCode())
+                        changelogText = buildPendingChangelogText(pending, DlcPlatformServices.languageCode())
                         if (changelogText.isNotBlank()) {
                             changelogVersion = currentMarker
                         }
@@ -1150,7 +1150,7 @@ object DlcClientRuntime {
         if (!name.isNullOrBlank()) {
             return name
         }
-        return CrossPlatformRuntime.playerName()
+        return DlcPlatformServices.playerName()
     }
 
     private fun currentPlayerUuid(): String? {
@@ -1159,7 +1159,7 @@ object DlcClientRuntime {
         if (id != null) {
             return id.toString()
         }
-        return CrossPlatformRuntime.playerUuid()
+        return DlcPlatformServices.playerUuid()
     }
 
     private fun findEntryByKey(key: String?): DlcServerEntry? {

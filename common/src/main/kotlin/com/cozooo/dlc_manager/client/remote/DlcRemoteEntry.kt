@@ -3,7 +3,7 @@ package com.cozooo.dlc_manager.client.remote
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcType
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import java.nio.file.Path
 
 class DlcRemoteEntry(
@@ -215,7 +215,7 @@ class DlcRemoteEntry(
         if (displayNames.isEmpty()) {
             return fileNameHint ?: ""
         }
-        val lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
+        val lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode())
         if (displayNames.containsKey(lang)) {
             return displayNames[lang]!!
         }

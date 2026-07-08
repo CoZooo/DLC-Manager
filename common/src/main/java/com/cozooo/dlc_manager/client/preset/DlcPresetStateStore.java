@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.preset;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import java.io.IOException;
@@ -18,7 +18,7 @@ public final class DlcPresetStateStore {
     }
 
     public static Path getStatePath() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
+        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
         return DlcDcFormatUtil.resolveConfigPath(configDir, STATE_BASE_NAME);
     }
 

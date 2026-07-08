@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.client.server;
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -43,7 +43,7 @@ public final class DlcServerSession implements AutoCloseable {
             throw new IOException("missing server entry");
         }
         return connect(entry.host, entry.port, entry.password, timeoutMs,
-                CrossPlatformRuntime.languageCode(), CrossPlatformRuntime.playerName(), CrossPlatformRuntime.playerUuid());
+                DlcPlatformServices.languageCode(), DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid());
     }
 
     public static DlcServerSession connect(String host, int port, String password, int timeoutMs,

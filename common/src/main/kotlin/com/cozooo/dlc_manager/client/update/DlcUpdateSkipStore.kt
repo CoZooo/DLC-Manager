@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.update
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.JsonObject
 import java.nio.file.Files
 import java.nio.file.Path
@@ -61,7 +61,7 @@ object DlcUpdateSkipStore {
     }
 
     private fun resolveStorePath(baseName: String): Path? {
-        val dir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
+        val dir = DlcPlatformServices.configDir().resolve("dlc_manager")
         return DlcDcConfigIO.toDcPath(dir.resolve(baseName))
     }
 }

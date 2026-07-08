@@ -19,7 +19,7 @@ import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcType
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import fi.dy.masa.malilib.gui.button.ButtonBase
 import fi.dy.masa.malilib.gui.button.ButtonGeneric
 import fi.dy.masa.malilib.gui.button.IButtonActionListener
@@ -80,7 +80,7 @@ class DlcMaLiLibScreen(private val parent: Screen?) :
 
     private var activeFilter: DlcType? = null
     private var footerTwoRows = false
-    private val hasTaczMod = CrossPlatformRuntime.isModLoaded("tacz")
+    private val hasTaczMod = DlcPlatformServices.isModLoaded("tacz")
     private val presetSnapshot: MutableSet<String> = LinkedHashSet()
     private var presetSnapshotCaptured = false
     private var lastWidth = -1

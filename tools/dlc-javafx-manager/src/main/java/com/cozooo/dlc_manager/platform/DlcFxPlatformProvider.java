@@ -12,7 +12,7 @@ import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public final class DlcFxPlatformProvider implements PlatformServices.Provider {
+public final class DlcFxPlatformProvider implements DlcPlatformServices.Provider {
     private static final String PREF_LANGUAGE = "language";
     private static final Preferences PREFS = Preferences.userNodeForPackage(DlcFxPlatformProvider.class);
 

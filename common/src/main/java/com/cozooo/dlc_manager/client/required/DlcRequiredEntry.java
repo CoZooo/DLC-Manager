@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.required;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
@@ -328,7 +328,7 @@ public class DlcRequiredEntry {
         if (displayNames.isEmpty()) {
             return fallback;
         }
-        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
         if (displayNames.containsKey(lang)) {
             return displayNames.get(lang);
         }

@@ -8,7 +8,7 @@ import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.core.DlcTmpPaths
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -37,9 +37,9 @@ object DlcSelfUpdateService {
 
     @JvmStatic
     fun checkForUpdate(targetVersion: String?): SelfUpdateResult {
-        val loader = CrossPlatformRuntime.loaderName()
-        val mcVersion = CrossPlatformRuntime.mcVersion()
-        val currentVersion = CrossPlatformRuntime.modVersion(MOD_ID)
+        val loader = DlcPlatformServices.loaderName()
+        val mcVersion = DlcPlatformServices.mcVersion()
+        val currentVersion = DlcPlatformServices.modVersion(MOD_ID)
         var requestedVersion = targetVersion?.trim()
         if (!requestedVersion.isNullOrBlank().not()) {
             requestedVersion = null
@@ -126,7 +126,7 @@ object DlcSelfUpdateService {
             }
             return DownloadResult.failed("download_failed")
         }
-        val modFilePath = CrossPlatformRuntime.modFilePath(MOD_ID)
+        val modFilePath = DlcPlatformServices.modFilePath(MOD_ID)
         if (modFilePath == null || !Files.exists(modFilePath) || Files.isDirectory(modFilePath)) {
             try {
                 Files.deleteIfExists(targetFile)
@@ -257,7 +257,7 @@ object DlcSelfUpdateService {
         if (!Files.exists(backup)) {
             return false
         }
-        val current = CrossPlatformRuntime.modFilePath(MOD_ID)
+        val current = DlcPlatformServices.modFilePath(MOD_ID)
         if (current == null || !Files.exists(current)) {
             return false
         }
@@ -417,12 +417,12 @@ object DlcSelfUpdateService {
         return if (path.isAbsolute) {
             path
         } else {
-            CrossPlatformRuntime.gameDir().resolve(path).normalize()
+            DlcPlatformServices.gameDir().resolve(path).normalize()
         }
     }
 
     private fun toStoredPath(path: Path): String {
-        val gameDir = CrossPlatformRuntime.gameDir().toAbsolutePath().normalize()
+        val gameDir = DlcPlatformServices.gameDir().toAbsolutePath().normalize()
         val normalized = path.toAbsolutePath().normalize()
         return try {
             gameDir.relativize(normalized).toString().replace('\\', '/')
@@ -432,7 +432,7 @@ object DlcSelfUpdateService {
     }
 
     private fun getMarkerPath(): Path? {
-        val configDir = CrossPlatformRuntime.configDir() ?: return null
+        val configDir = DlcPlatformServices.configDir() ?: return null
         val dir = configDir.resolve("dlc_manager")
         return DlcDcFormatUtil.resolveConfigPath(dir, "self_update")
     }

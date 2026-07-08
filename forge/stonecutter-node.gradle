@@ -1,45 +1,19 @@
-rootProject.configureDlcStonecutterBase(project)
-
-def commonProjectPath = ":common:${project.name}"
-def commonProject = project(commonProjectPath)
-def commonJar = commonProject.tasks.named('jar').flatMap { it.archiveFile }
-def commonForgeJar = commonProject.tasks.named('transformProductionForge').flatMap { it.archiveFile }
-def kotlinSourcesEnabled = rootProject.architecturyBooleanProperty(project, 'enable_kotlin', false)
-    && plugins.hasPlugin('org.jetbrains.kotlin.jvm')
-
 architectury {
     platformSetupLoomIde()
     forge()
 }
 
-rootProject.configureDlcStonecutterSources(project)
-rootProject.configureLocalDevMods(project)
-rootProject.configureServerRunClientOnlyModExcludes(project, commonProjectPath)
-
-def withoutOwnDevJar = { File file ->
-    !file.toPath().startsWith(layout.buildDirectory.dir('devlibs').get().asFile.toPath())
+stonecutter {
+    constants.match('forge', 'fabric', 'forge', 'neoforge')
 }
 
-tasks.named('compileJava').configure {
-    classpath = classpath.filter(withoutOwnDevJar)
-}
+rootProject.configureDlcStonecutterPlatformCommon(project, [
+    platformName: 'forge',
+    commonTransformTaskName: 'transformProductionForge',
+    developmentConfigurationName: 'developmentForge'
+])
 
-if (tasks.findByName('compileKotlin') != null) {
-    tasks.named('compileKotlin').configure {
-        libraries.setFrom(libraries.filter(withoutOwnDevJar))
-    }
-}
-
-afterEvaluate {
-    tasks.named('compileJava').configure {
-        setDependsOn(dependsOn.findAll { it != tasks.named('jar').get() })
-    }
-    if (tasks.findByName('compileKotlin') != null) {
-        tasks.named('compileKotlin').configure {
-            setDependsOn(dependsOn.findAll { it != tasks.named('jar').get() })
-        }
-    }
-}
+def kotlinSourcesEnabled = project.ext.dlcKotlinSourcesEnabled
 
 loom {
     forge {
@@ -48,12 +22,7 @@ loom {
 }
 
 configurations {
-    common
-    shadowCommon
     kotlinForForgeModDiscovery
-    compileClasspath.extendsFrom common
-    runtimeClasspath.extendsFrom common
-    developmentForge.extendsFrom common
 }
 
 def kotlinForForgeDiscoveryJar = layout.buildDirectory.file("kotlinForForgeModDiscovery/kotlinforforge-all.jar")
@@ -101,8 +70,6 @@ dependencies {
     forgeRuntimeLibrary "org.commonmark:commonmark:0.21.0"
     forgeRuntimeLibrary "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0"
 
-    common(files(commonJar).builtBy(commonProject.tasks.named('jar')))
-    shadowCommon(files(commonForgeJar).builtBy(commonProject.tasks.named('transformProductionForge')))
 }
 
 processResources {
@@ -141,32 +108,4 @@ side="BOTH"
         ])
         rootProject.expandProcessedResource(task, 'pack.mcmeta', [pack_format: project.pack_format])
     }
-}
-
-shadowJar {
-    configurations = [project.configurations.shadowCommon]
-    archiveClassifier = 'dev-shadow'
-}
-
-remapJar {
-    inputFile = shadowJar.archiveFile
-    dependsOn shadowJar
-    archiveFileName.set("DLC-Manager-forge-${project.minecraft_version}-${rootProject.mod_version}.jar")
-    destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.findProperty('mod_version') ?: '0.0.0'}"))
-}
-
-jar {
-    archiveClassifier = 'dev'
-}
-
-tasks.register('exportObfClasspath', Sync) {
-    dependsOn("${commonProjectPath}:jar")
-    from({
-        def jars = [] as LinkedHashSet<File>
-        [configurations.compileClasspath, configurations.runtimeClasspath].each { cfg ->
-            jars.addAll(cfg.resolve().findAll { it.name.endsWith('.jar') })
-        }
-        jars
-    })
-    into rootProject.layout.projectDirectory.dir("obf-lib/forge-${project.minecraft_version}")
 }

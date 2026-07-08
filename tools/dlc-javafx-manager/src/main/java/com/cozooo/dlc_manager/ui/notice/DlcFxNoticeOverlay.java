@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.ui.notice;
 
 import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.common.DlcFxRichTextRenderer;
@@ -130,7 +130,7 @@ public final class DlcFxNoticeOverlay {
     }
 
     private void refreshContent() {
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         if (Objects.equals(contentLang, lang) && bodyScroll.getContent() != null) {
             return;
         }

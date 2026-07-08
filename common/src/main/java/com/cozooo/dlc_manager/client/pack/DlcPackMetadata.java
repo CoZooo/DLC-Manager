@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -174,7 +174,7 @@ public class DlcPackMetadata {
     }
 
     public static String currentPlatform() {
-        return CrossPlatformRuntime.isDedicatedServer() ? "server" : "client";
+        return DlcPlatformServices.isDedicatedServer() ? "server" : "client";
     }
 
     public static boolean platformMatches(String rule, String current) {
@@ -304,7 +304,7 @@ public class DlcPackMetadata {
         }
         Map<String, String> out = new LinkedHashMap<>();
         readLinksInto(out, DlcDcConfigIO.getObjectIgnoreCase(root, "links"));
-        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
         if (lang != null && !lang.isBlank()) {
             JsonObject links = DlcDcConfigIO.getObjectIgnoreCase(root, "links");
             readLinksInto(out, DlcDcConfigIO.getObjectIgnoreCase(links, lang));

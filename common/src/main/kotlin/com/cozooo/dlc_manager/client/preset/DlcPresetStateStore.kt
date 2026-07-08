@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.preset
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.JsonElement
 import java.io.IOException
 import java.nio.file.Files
@@ -14,7 +14,7 @@ object DlcPresetStateStore {
 
     @JvmStatic
     fun getStatePath(): Path? {
-        val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
+        val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
         return DlcDcConfigIO.toDcPath(configDir.resolve(STATE_BASE_NAME))
     }
 

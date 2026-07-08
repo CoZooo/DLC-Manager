@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.update
 
 import com.cozooo.dlc_manager.core.DlcConfig
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import java.nio.file.Path
 
 object DlcUpdateRuntime {
@@ -64,7 +64,7 @@ object DlcUpdateRuntime {
         if (result == null) {
             return ""
         }
-        return DlcUpdateService.buildChangelogText(result.updates, CrossPlatformRuntime.languageCode())
+        return DlcUpdateService.buildChangelogText(result.updates, DlcPlatformServices.languageCode())
     }
 
     @JvmStatic

@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.core.DlcConfig;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
@@ -375,7 +375,7 @@ public class DlcServerUpdateManagerScreen extends DlcScreenCompat.MouseScroll {
             return;
         }
         DlcUpdateMeta meta = rows.get(hoverIndex);
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         String changelog = meta == null ? "" : meta.resolveChangelog(lang);
         if (changelog == null || changelog.isBlank()) {
             return;

@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.pack;
 
 import com.cozooo.dlc_manager.client.update.DlcUpdateVersion;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,8 +52,8 @@ public final class DlcPackUpdateGuard {
         DlcUpdateVersion version = DlcUpdateVersion.load(dlcRoot);
         String targetModpack = version == null ? null : version.getModpack();
         String currentPlatform = DlcPackMetadata.currentPlatform();
-        String currentGameVersion = CrossPlatformRuntime.mcVersion();
-        String currentModLoader = CrossPlatformRuntime.loaderName();
+        String currentGameVersion = DlcPlatformServices.mcVersion();
+        String currentModLoader = DlcPlatformServices.loaderName();
         if (!DlcPackMetadata.anyStringMatches(metadata.modpacks, targetModpack, metadata.modpackAnyWildcard)) {
             reasons.add("modpack " + safeText(targetModpack) + " not in " + String.join(", ", metadata.modpacks));
         }

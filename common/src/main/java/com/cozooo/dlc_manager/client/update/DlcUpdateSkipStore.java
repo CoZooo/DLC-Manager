@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.update;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -68,7 +68,7 @@ public final class DlcUpdateSkipStore {
     }
 
     private static Path resolveStorePath(String baseName) {
-        Path configDir = CrossPlatformRuntime.configDir();
+        Path configDir = DlcPlatformServices.configDir();
         if (configDir == null) {
             return null;
         }

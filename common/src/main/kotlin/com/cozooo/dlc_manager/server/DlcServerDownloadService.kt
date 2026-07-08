@@ -17,7 +17,7 @@ import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
@@ -776,7 +776,7 @@ object DlcServerDownloadService {
     private fun normalizeLang(langOverride: String?): String? {
         var lang = langOverride
         if (lang.isNullOrBlank()) {
-            lang = CrossPlatformRuntime.languageCode()
+            lang = DlcPlatformServices.languageCode()
         }
         return DlcDcConfigIO.normalizeLangKey(lang)
     }

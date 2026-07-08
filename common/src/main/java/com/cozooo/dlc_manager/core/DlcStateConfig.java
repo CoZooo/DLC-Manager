@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.core;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -22,7 +22,7 @@ public class DlcStateConfig {
     private static Map<String, DlcState> stateById = new HashMap<>();
 
     public static void load() {
-        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
+        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
         configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "state");
         stateById = new HashMap<>();
         boolean migrateLegacyStateSection = false;

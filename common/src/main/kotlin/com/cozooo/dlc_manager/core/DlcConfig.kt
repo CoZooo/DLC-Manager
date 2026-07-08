@@ -1,6 +1,6 @@
 package com.cozooo.dlc_manager.core
 
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import java.io.IOException
@@ -409,7 +409,7 @@ object DlcConfig {
 
     private fun loadClientFromDisk() {
         resetDefaults()
-        val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        val configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR)
         val path = resolveManagerConfigPath(configDir, CONFIG_NAME)
         if (path != null && Files.exists(path)) {
             loadFromJson(path)
@@ -417,7 +417,7 @@ object DlcConfig {
     }
 
     private fun loadServerFromDisk() {
-        val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        val configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR)
         resetDefaults()
         val clientPath = resolveManagerConfigPath(configDir, CONFIG_NAME)
         if (clientPath != null && Files.exists(clientPath)) {
@@ -445,7 +445,7 @@ object DlcConfig {
     }
 
     private fun ensureClientConfigFile() {
-        val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        val configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR)
         val path = resolveManagerConfigPath(configDir, CONFIG_NAME)
         if (path != null && Files.exists(path)) {
             return
@@ -454,7 +454,7 @@ object DlcConfig {
     }
 
     private fun ensureServerConfigFile() {
-        val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        val configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR)
         val path = resolveManagerConfigPath(configDir, CONFIG_SERVER_NAME)
         if (path != null && Files.exists(path)) {
             return
@@ -463,7 +463,7 @@ object DlcConfig {
     }
 
     private fun saveClientToDisk() {
-        val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        val configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR)
         val path = managerConfigPath(configDir, CONFIG_NAME)
         try {
             Files.createDirectories(configDir)
@@ -476,7 +476,7 @@ object DlcConfig {
     }
 
     private fun saveServerToDisk() {
-        val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        val configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR)
         val path = managerConfigPath(configDir, CONFIG_SERVER_NAME)
         try {
             Files.createDirectories(configDir)
@@ -766,10 +766,10 @@ object DlcConfig {
             path = DlcPaths.parsePathLenient(fallback)
         }
         if (path == null) {
-            return CrossPlatformRuntime.gameDir().toAbsolutePath().normalize()
+            return DlcPlatformServices.gameDir().toAbsolutePath().normalize()
         }
         if (!path.isAbsolute) {
-            path = CrossPlatformRuntime.gameDir().resolve(path)
+            path = DlcPlatformServices.gameDir().resolve(path)
         }
         return path.normalize()
     }
@@ -832,7 +832,7 @@ object DlcConfig {
     }
 
     private fun migrateKnownConfigsToDc() {
-        val configDir = CrossPlatformRuntime.configDir().resolve(CONFIG_DIR)
+        val configDir = DlcPlatformServices.configDir().resolve(CONFIG_DIR)
         migrateLocalConfigDirToDc(configDir)
         for (dlcRootPath in getDlcRoots()) {
             migrateDlcConfigTreeToDc(dlcRootPath)

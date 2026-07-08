@@ -32,7 +32,7 @@ import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -401,7 +401,7 @@ public class DlcServerService {
 
     private static void writeList(BufferedWriter writer, String lang) throws IOException {
         List<DlcServerItem> items = new ArrayList<>();
-        String effectiveLang = lang == null || lang.isBlank() ? CrossPlatformRuntime.languageCode() : lang;
+        String effectiveLang = lang == null || lang.isBlank() ? DlcPlatformServices.languageCode() : lang;
         for (DlcItem item : scanDlcItemsForServer(true)) {
             DlcServerItem serverItem = toServerItem(item, effectiveLang);
             if (serverItem != null) {
@@ -416,12 +416,12 @@ public class DlcServerService {
         response.addProperty("type", "list");
         response.addProperty("base", version.getBase());
         response.addProperty("dlc", version.getDlc());
-        response.addProperty("mcVersion", CrossPlatformRuntime.mcVersion());
-        response.addProperty("loaderName", CrossPlatformRuntime.loaderName());
+        response.addProperty("mcVersion", DlcPlatformServices.mcVersion());
+        response.addProperty("loaderName", DlcPlatformServices.loaderName());
         response.addProperty("remoteMissing", remoteMissing);
         response.addProperty("requiredMissing", requiredMissing);
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot));
-        response.addProperty("hasTaczMod", CrossPlatformRuntime.isModLoaded("tacz"));
+        response.addProperty("hasTaczMod", DlcPlatformServices.isModLoaded("tacz"));
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl());
         response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl());
         response.add("redirects", GSON.toJsonTree(loadVisibleRedirectItems(dlcRoot, effectiveLang)));
@@ -862,7 +862,7 @@ public class DlcServerService {
     }
 
     private static void handleUpdateImport(JsonObject request, BufferedWriter writer) throws IOException {
-        Path root = CrossPlatformRuntime.gameDir();
+        Path root = DlcPlatformServices.gameDir();
         String raw = request.has("path") ? request.get("path").getAsString() : "";
         Path target = safeResolve(root, raw);
         boolean ok = target != null && DlcUpdateService.importUpdatePackage(target);
@@ -961,7 +961,7 @@ public class DlcServerService {
     }
 
     private static void handlePackImport(JsonObject request, BufferedWriter writer) throws IOException {
-        Path root = CrossPlatformRuntime.gameDir();
+        Path root = DlcPlatformServices.gameDir();
         String raw = request.has("path") ? request.get("path").getAsString() : "";
         Path target = safeResolve(root, raw);
         boolean ok = target != null && Files.isRegularFile(target) && target.startsWith(packArchiveRoot().toAbsolutePath().normalize());
@@ -1367,8 +1367,8 @@ public class DlcServerService {
             return false;
         }
         Path dlcRoot = DlcConfig.getDlcRoot();
-        Path configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager");
-        Path gameDir = CrossPlatformRuntime.gameDir();
+        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
+        Path gameDir = DlcPlatformServices.gameDir();
         boolean includeAll = state.targets.stream().anyMatch(value -> "all".equalsIgnoreCase(value));
         boolean includeDlc = includeAll || state.targets.stream().anyMatch(value -> "dlc".equalsIgnoreCase(value));
         boolean includeConfig = includeAll || state.targets.stream().anyMatch(value -> "config".equalsIgnoreCase(value));
@@ -1444,7 +1444,7 @@ public class DlcServerService {
     }
 
     private static void handleFileList(JsonObject request, BufferedWriter writer) throws IOException {
-        Path root = CrossPlatformRuntime.gameDir();
+        Path root = DlcPlatformServices.gameDir();
         String raw = request.has("path") ? request.get("path").getAsString() : "";
         Path target = safeResolve(root, raw);
         if (target == null) {
@@ -1482,7 +1482,7 @@ public class DlcServerService {
     }
 
     private static void handleFileDelete(JsonObject request, BufferedWriter writer) throws IOException {
-        Path root = CrossPlatformRuntime.gameDir();
+        Path root = DlcPlatformServices.gameDir();
         String raw = request.has("path") ? request.get("path").getAsString() : "";
         Path target = safeResolve(root, raw);
         if (target == null || !Files.exists(target)) {
@@ -1503,7 +1503,7 @@ public class DlcServerService {
     private static UploadState handleFileUploadInit(JsonObject request, BufferedWriter writer) throws IOException {
         String id = request.has("id") ? request.get("id").getAsString() : null;
         String raw = request.has("path") ? request.get("path").getAsString() : "";
-        Path root = CrossPlatformRuntime.gameDir();
+        Path root = DlcPlatformServices.gameDir();
         Path target = safeResolve(root, raw);
         if (target == null) {
             writeError(writer, "invalid path");
@@ -1543,7 +1543,7 @@ public class DlcServerService {
     private static void handleFileUploadFinish(UploadState state, BufferedWriter writer) throws IOException {
         boolean ok = false;
         if (state != null && state.tempFile != null) {
-            Path root = CrossPlatformRuntime.gameDir();
+            Path root = DlcPlatformServices.gameDir();
             Path dlcRoot = DlcConfig.getDlcRoot();
             try (DlcServerOps.ServerOpContext op = DlcServerOps.begin(dlcRoot, root, "upload")) {
                 Path target = state.targetPath;
@@ -1572,7 +1572,7 @@ public class DlcServerService {
     }
 
     private static void handleFileDownload(JsonObject request, BufferedWriter writer) throws IOException {
-        Path root = CrossPlatformRuntime.gameDir();
+        Path root = DlcPlatformServices.gameDir();
         String raw = request.has("path") ? request.get("path").getAsString() : "";
         Path target = safeResolve(root, raw);
         if (target == null || !Files.exists(target)) {

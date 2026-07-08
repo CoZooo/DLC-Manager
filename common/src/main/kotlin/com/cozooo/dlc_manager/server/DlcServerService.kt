@@ -32,7 +32,7 @@ import com.cozooo.dlc_manager.core.DlcRuntimeState
 import com.cozooo.dlc_manager.core.DlcScanner
 import com.cozooo.dlc_manager.core.DlcTmpPaths
 import com.cozooo.dlc_manager.core.DlcType
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
@@ -353,7 +353,7 @@ object DlcServerService {
     @Throws(IOException::class)
     private fun writeList(writer: BufferedWriter, lang: String?) {
         val items = ArrayList<DlcServerItem>()
-        val effectiveLang = if (lang.isNullOrBlank()) CrossPlatformRuntime.languageCode() else lang
+        val effectiveLang = if (lang.isNullOrBlank()) DlcPlatformServices.languageCode() else lang
         for (item in scanDlcItemsForServer(true)) {
             items.add(toServerItem(item, effectiveLang))
         }
@@ -365,12 +365,12 @@ object DlcServerService {
         response.addProperty("type", "list")
         response.addProperty("base", version.getBase())
         response.addProperty("dlc", version.getDlc())
-        response.addProperty("mcVersion", CrossPlatformRuntime.mcVersion())
-        response.addProperty("loaderName", CrossPlatformRuntime.loaderName())
+        response.addProperty("mcVersion", DlcPlatformServices.mcVersion())
+        response.addProperty("loaderName", DlcPlatformServices.loaderName())
         response.addProperty("remoteMissing", remoteMissing)
         response.addProperty("requiredMissing", requiredMissing)
         response.addProperty("hasRequired", DlcServerDownloadService.hasRequiredEntries(dlcRoot))
-        response.addProperty("hasTaczMod", CrossPlatformRuntime.isModLoaded("tacz"))
+        response.addProperty("hasTaczMod", DlcPlatformServices.isModLoaded("tacz"))
         response.addProperty("modpackUrl", DlcConfig.getServerModpackUrl())
         response.addProperty("updateGitRepo", DlcConfig.getServerUpdateGitRepoUrl())
         response.add("redirects", GSON.toJsonTree(loadVisibleRedirectItems(dlcRoot, effectiveLang)))
@@ -771,7 +771,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handleUpdateImport(request: JsonObject, writer: BufferedWriter) {
-        val root = CrossPlatformRuntime.gameDir()
+        val root = DlcPlatformServices.gameDir()
         val raw = if (request.has("path")) request.get("path").asString else ""
         val target = safeResolve(root, raw)
         val ok = target != null && DlcUpdateService.importUpdatePackage(target)
@@ -883,7 +883,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handlePackImport(request: JsonObject, writer: BufferedWriter) {
-        val root = CrossPlatformRuntime.gameDir()
+        val root = DlcPlatformServices.gameDir()
         val raw = if (request.has("path")) request.get("path").asString else ""
         val target = safeResolve(root, raw)
         val ok = target != null && Files.isRegularFile(target) && target.startsWith(packArchiveRoot())
@@ -1273,8 +1273,8 @@ object DlcServerService {
             return false
         }
         val dlcRoot = DlcConfig.getDlcRoot()
-        val configDir = CrossPlatformRuntime.configDir().resolve("dlc_manager")
-        val gameDir = CrossPlatformRuntime.gameDir()
+        val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
+        val gameDir = DlcPlatformServices.gameDir()
         val includeAll = state.targets.any { "all".equals(it, ignoreCase = true) }
         val includeDlc = includeAll || state.targets.any { "dlc".equals(it, ignoreCase = true) }
         val includeConfig = includeAll || state.targets.any { "config".equals(it, ignoreCase = true) }
@@ -1361,7 +1361,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handleFileList(request: JsonObject, writer: BufferedWriter) {
-        val root = CrossPlatformRuntime.gameDir()
+        val root = DlcPlatformServices.gameDir()
         val raw = if (request.has("path")) request.get("path").asString else ""
         val target = safeResolve(root, raw)
         if (target == null) {
@@ -1402,7 +1402,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handleFileDelete(request: JsonObject, writer: BufferedWriter) {
-        val root = CrossPlatformRuntime.gameDir()
+        val root = DlcPlatformServices.gameDir()
         val raw = if (request.has("path")) request.get("path").asString else ""
         val target = safeResolve(root, raw)
         if (target == null || !Files.exists(target)) {
@@ -1424,7 +1424,7 @@ object DlcServerService {
     private fun handleFileUploadInit(request: JsonObject, writer: BufferedWriter): UploadState? {
         val id = if (request.has("id")) request.get("id").asString else null
         val raw = if (request.has("path")) request.get("path").asString else ""
-        val root = CrossPlatformRuntime.gameDir()
+        val root = DlcPlatformServices.gameDir()
         val target = safeResolve(root, raw)
         if (target == null) {
             writeError(writer, "invalid path")
@@ -1470,7 +1470,7 @@ object DlcServerService {
     private fun handleFileUploadFinish(state: UploadState?, writer: BufferedWriter) {
         var ok = false
         if (state != null) {
-            val root = CrossPlatformRuntime.gameDir()
+            val root = DlcPlatformServices.gameDir()
             val dlcRoot = DlcConfig.getDlcRoot()
             try {
                 DlcServerOps.begin(dlcRoot, root, "upload").use { op ->
@@ -1500,7 +1500,7 @@ object DlcServerService {
 
     @Throws(IOException::class)
     private fun handleFileDownload(request: JsonObject, writer: BufferedWriter) {
-        val root = CrossPlatformRuntime.gameDir()
+        val root = DlcPlatformServices.gameDir()
         val raw = if (request.has("path")) request.get("path").asString else ""
         val target = safeResolve(root, raw)
         if (target == null || !Files.exists(target)) {

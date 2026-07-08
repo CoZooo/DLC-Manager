@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry;
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
@@ -950,7 +950,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         if (item.displayNames == null || item.displayNames.isEmpty()) {
             return item.name == null ? "" : item.name;
         }
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         if (item.displayNames.containsKey(lang)) {
             return item.displayNames.get(lang);
         }
@@ -964,7 +964,7 @@ public class DlcServerManagerScreen extends DlcScreenCompat.MouseScroll {
         if (item == null || item.tips == null || item.tips.isEmpty()) {
             return;
         }
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         String tip = item.tips.get(lang);
         if (tip == null || tip.isBlank()) {
             tip = item.tips.getOrDefault("en_us", "");

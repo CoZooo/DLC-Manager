@@ -495,8 +495,8 @@ public final class DlcRequiredRuntime {
             DlcCurseForgeClient.CurseForgeFile file = DlcCurseForgeClient.fetchFileByIdOrVersion(
                 entry.getCurseforgeProjectId(),
                 fileId,
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.mcVersion(),
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.loaderName()
+                com.cozooo.dlc_manager.platform.DlcPlatformServices.mcVersion(),
+                com.cozooo.dlc_manager.platform.DlcPlatformServices.loaderName()
             );
             if (file != null && file.fileName != null && !file.fileName.isBlank()) {
                 return file.fileName;

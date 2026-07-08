@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.server;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
@@ -850,7 +850,7 @@ public final class DlcServerDownloadService {
     private static String normalizeLang(String langOverride) {
         String lang = langOverride;
         if (lang == null || lang.isBlank()) {
-            lang = CrossPlatformRuntime.languageCode();
+            lang = DlcPlatformServices.languageCode();
         }
         return DlcDcConfigIO.normalizeLangKey(lang);
     }

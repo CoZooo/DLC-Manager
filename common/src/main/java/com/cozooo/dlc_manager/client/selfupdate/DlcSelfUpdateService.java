@@ -1,5 +1,5 @@
 package com.cozooo.dlc_manager.client.selfupdate;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcCurseForgeClient;
 import com.cozooo.dlc_manager.client.update.DlcUpdateSkipStore;
@@ -39,9 +39,9 @@ public final class DlcSelfUpdateService {
     }
 
     public static SelfUpdateResult checkForUpdate(String targetVersion) {
-        String loader = CrossPlatformRuntime.loaderName();
-        String mcVersion = CrossPlatformRuntime.mcVersion();
-        String currentVersion = CrossPlatformRuntime.modVersion(MOD_ID);
+        String loader = DlcPlatformServices.loaderName();
+        String mcVersion = DlcPlatformServices.mcVersion();
+        String currentVersion = DlcPlatformServices.modVersion(MOD_ID);
         String requestedVersion = targetVersion == null ? null : targetVersion.trim();
         if (requestedVersion != null && requestedVersion.isBlank()) {
             requestedVersion = null;
@@ -126,7 +126,7 @@ public final class DlcSelfUpdateService {
             }
             return DownloadResult.failed("download_failed");
         }
-        Path modFilePath = CrossPlatformRuntime.modFilePath(MOD_ID);
+        Path modFilePath = DlcPlatformServices.modFilePath(MOD_ID);
         if (modFilePath == null || !Files.exists(modFilePath) || Files.isDirectory(modFilePath)) {
             try {
                 Files.deleteIfExists(targetFile);
@@ -258,7 +258,7 @@ public final class DlcSelfUpdateService {
         if (!Files.exists(backup)) {
             return false;
         }
-        Path current = CrossPlatformRuntime.modFilePath(MOD_ID);
+        Path current = DlcPlatformServices.modFilePath(MOD_ID);
         if (current == null || !Files.exists(current)) {
             return false;
         }
@@ -437,11 +437,11 @@ public final class DlcSelfUpdateService {
         if (path.isAbsolute()) {
             return path;
         }
-        return CrossPlatformRuntime.gameDir().resolve(path).normalize();
+        return DlcPlatformServices.gameDir().resolve(path).normalize();
     }
 
     private static String toStoredPath(Path path) {
-        Path gameDir = CrossPlatformRuntime.gameDir().toAbsolutePath().normalize();
+        Path gameDir = DlcPlatformServices.gameDir().toAbsolutePath().normalize();
         Path normalized = path.toAbsolutePath().normalize();
         try {
             return gameDir.relativize(normalized).toString().replace('\\', '/');
@@ -451,7 +451,7 @@ public final class DlcSelfUpdateService {
     }
 
     private static Path getMarkerPath() {
-        Path configDir = CrossPlatformRuntime.configDir();
+        Path configDir = DlcPlatformServices.configDir();
         if (configDir == null) {
             return null;
         }

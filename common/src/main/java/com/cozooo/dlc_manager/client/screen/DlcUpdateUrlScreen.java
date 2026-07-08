@@ -13,7 +13,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
@@ -256,7 +256,7 @@ public class DlcUpdateUrlScreen extends Screen {
     private void confirmReupdate(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         String changelog = DlcUpdateService.buildChangelogText(
             DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
-            CrossPlatformRuntime.languageCode());
+            DlcPlatformServices.languageCode());
         confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog);
     }
 

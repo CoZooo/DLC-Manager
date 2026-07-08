@@ -2,7 +2,7 @@ package com.cozooo.dlc_manager.client.required
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcConfig
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -69,7 +69,7 @@ class DlcRequiredNotice private constructor(
             if (values.isNullOrEmpty()) {
                 return ""
             }
-            val lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode())
+            val lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode())
             if (lang != null && values.containsKey(lang)) {
                 return values[lang] ?: ""
             }

@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerList
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -904,7 +904,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         if (displayNames.isEmpty()) {
             return item.name ?: ""
         }
-        val lang = CrossPlatformRuntime.languageCode()
+        val lang = DlcPlatformServices.languageCode()
         if (displayNames.containsKey(lang)) {
             return displayNames[lang] ?: ""
         }
@@ -918,7 +918,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
         if (item == null || item.tips.isEmpty()) {
             return
         }
-        val lang = CrossPlatformRuntime.languageCode()
+        val lang = DlcPlatformServices.languageCode()
         var tip = item.tips[lang]
         if (tip.isNullOrBlank()) {
             tip = item.tips.getOrDefault("en_us", "")

@@ -21,7 +21,7 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateRollbackResult
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime
+import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
@@ -330,7 +330,7 @@ class DlcUpdateManagerScreen(
             return
         }
         val meta = rows[hoverIndex]
-        val lang = CrossPlatformRuntime.languageCode()
+        val lang = DlcPlatformServices.languageCode()
         val changelog = meta?.resolveChangelog(lang) ?: ""
         if (changelog.isBlank()) {
             return
@@ -456,7 +456,7 @@ class DlcUpdateManagerScreen(
     private fun confirmReupdate(baseOld: String?, dlcOld: String?, baseNew: String?, dlcNew: String?) {
         val changelog = DlcUpdateService.buildChangelogText(
             DlcUpdateService.resolveUpdateChainTo(baseOld, dlcOld, baseNew, dlcNew, true),
-            CrossPlatformRuntime.languageCode(),
+            DlcPlatformServices.languageCode(),
         )
         confirmReupdateNow(baseOld, dlcOld, baseNew, dlcNew, changelog)
     }
