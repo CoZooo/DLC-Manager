@@ -1,14 +1,15 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+import com.cozooo.dlc_manager.gradle.DeleteKotlinClassesReplacedByJavaTask
+import com.cozooo.dlc_manager.gradle.GenerateDlcSourcesTask
+import com.cozooo.dlc_manager.gradle.PatchFabricModJsonTask
 import dev.kikugie.stonecutter.build.StonecutterBuildExtension
 import gg.meza.stonecraft.extension.ModSettingsExtension
 import gg.meza.stonecraft.mod
-import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
-import org.gradle.api.JavaVersion
 import org.gradle.api.Project
 import org.gradle.api.tasks.Copy
+import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.GradleBuild
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.Sync
@@ -19,6 +20,7 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.gradle.language.jvm.tasks.ProcessResources
 import java.io.File
 import java.util.Properties
 import java.util.zip.ZipFile
@@ -31,12 +33,20 @@ plugins {
     base
 }
 
-val stoneNodes = listOf(
-    "1.20.1-fabric",
-    "1.20.1-forge",
-    "1.21.1-fabric",
-    "1.21.1-neoforge",
-)
+fun discoverStoneNodes(root: File): List<String> =
+    root.resolve("versions")
+        .listFiles { file -> file.isDirectory && file.resolve("gradle.properties").isFile }
+        ?.map { it.name }
+        ?.sorted()
+        ?: emptyList()
+
+val stoneNodes = discoverStoneNodes(rootDir)
+
+fun stoneNodeLoader(nodeName: String): String =
+    nodeName.substringAfterLast("-")
+
+fun stoneNodeMinecraftVersion(nodeName: String): String =
+    nodeName.substringBeforeLast("-")
 
 fun Project.prop(name: String): String =
     findProperty(name)?.toString()
@@ -56,153 +66,6 @@ fun Project.loadProperties(file: File): Map<String, String> {
     val properties = Properties()
     file.inputStream().use(properties::load)
     return properties.entries.associate { it.key.toString() to it.value.toString() }
-}
-
-fun compareVersions(left: String, right: String): Int {
-    val leftParts = left.split(".").mapNotNull { it.toIntOrNull() }
-    val rightParts = right.split(".").mapNotNull { it.toIntOrNull() }
-    val size = maxOf(leftParts.size, rightParts.size)
-    for (index in 0 until size) {
-        val leftPart = leftParts.getOrElse(index) { 0 }
-        val rightPart = rightParts.getOrElse(index) { 0 }
-        if (leftPart != rightPart) {
-            return leftPart.compareTo(rightPart)
-        }
-    }
-    return 0
-}
-
-fun evaluateCondition(expression: String, loaderName: String, minecraftVersion: String): Boolean =
-    expression.split("||").any { orPart ->
-        orPart.split("&&").all { rawTerm ->
-            var term = rawTerm.trim()
-            if (term.isEmpty()) {
-                return@all true
-            }
-            val negated = term.startsWith("!")
-            if (negated) {
-                term = term.drop(1).trim()
-            }
-            val value = when (term) {
-                "fabric", "forge", "neoforge" -> loaderName == term
-                "forgeLike" -> loaderName == "forge" || loaderName == "neoforge"
-                "fabricLike" -> loaderName == "fabric"
-                else -> {
-                    val match = Regex("""^(>=|<=|>|<|==|=)?\s*([0-9]+(?:\.[0-9]+)*)$""").matchEntire(term)
-                        ?: error("Unsupported Stonecutter condition '$rawTerm'")
-                    val operator = match.groupValues[1].ifBlank { "==" }
-                    val compared = compareVersions(minecraftVersion, match.groupValues[2])
-                    when (operator) {
-                        ">" -> compared > 0
-                        ">=" -> compared >= 0
-                        "<" -> compared < 0
-                        "<=" -> compared <= 0
-                        "=", "==" -> compared == 0
-                        else -> false
-                    }
-                }
-            }
-            if (negated) !value else value
-        }
-    }
-
-fun preprocessStonecutterText(source: String, loaderName: String, minecraftVersion: String): String {
-    data class Frame(var parentActive: Boolean, var branchMatched: Boolean, var currentActive: Boolean)
-
-    val frames = mutableListOf<Frame>()
-    val output = mutableListOf<String>()
-    source.lineSequence().forEach { line ->
-        val trimmed = line.trim()
-        val ifMatch = Regex("""^//\?\s*if\s+(.+?)\s*\{$""").matchEntire(trimmed)
-        val elseIfMatch = Regex("""^//\?\}\s*else\s+if\s+(.+?)\s*\{$""").matchEntire(trimmed)
-        val elseMatch = Regex("""^//\?\}\s*else\s*\{$""").matchEntire(trimmed)
-        val endMatch = Regex("""^//\?\}$""").matchEntire(trimmed)
-        when {
-            ifMatch != null -> {
-                val parentActive = frames.lastOrNull()?.currentActive ?: true
-                val active = parentActive && evaluateCondition(ifMatch.groupValues[1], loaderName, minecraftVersion)
-                frames += Frame(parentActive, active, active)
-            }
-            elseIfMatch != null -> {
-                val frame = frames.lastOrNull() ?: error("Stonecutter else-if without matching if")
-                val active = frame.parentActive &&
-                    !frame.branchMatched &&
-                    evaluateCondition(elseIfMatch.groupValues[1], loaderName, minecraftVersion)
-                frame.currentActive = active
-                frame.branchMatched = frame.branchMatched || active
-            }
-            elseMatch != null -> {
-                val frame = frames.lastOrNull() ?: error("Stonecutter else without matching if")
-                val active = frame.parentActive && !frame.branchMatched
-                frame.currentActive = active
-                frame.branchMatched = true
-            }
-            endMatch != null -> {
-                if (frames.isEmpty()) {
-                    error("Stonecutter end without matching if")
-                }
-                frames.removeLast()
-            }
-            frames.lastOrNull()?.currentActive != false -> output += line
-        }
-    }
-    check(frames.isEmpty()) { "Unclosed Stonecutter condition" }
-    return output.joinToString(System.lineSeparator()) + System.lineSeparator()
-}
-
-fun Project.copyProcessedTree(sourceRoot: File, outputRoot: File, loaderName: String, minecraftVersion: String) {
-    if (!sourceRoot.isDirectory) {
-        return
-    }
-    fileTree(sourceRoot).matching { include("**/*") }.files.forEach { input ->
-        if (input.isDirectory) {
-            return@forEach
-        }
-        val relative = sourceRoot.toPath().relativize(input.toPath()).toString().replace(File.separatorChar, '/')
-        val output = outputRoot.resolve(relative)
-        output.parentFile.mkdirs()
-        if (input.extension in setOf("java", "kt", "json", "toml", "mcmeta", "properties", "txt", "md")) {
-            output.writeText(preprocessStonecutterText(input.readText(), loaderName, minecraftVersion))
-        } else {
-            input.copyTo(output, overwrite = true)
-        }
-    }
-}
-
-fun Project.javaSourcesReplacedByKotlin(kotlinSourceDirs: List<File>): List<String> =
-    kotlinSourceDirs.flatMap { root ->
-        if (!root.exists()) {
-            emptyList()
-        } else {
-            fileTree(root).matching { include("**/*.kt") }.files.map { kotlinFile ->
-                root.toPath().relativize(kotlinFile.toPath()).toString()
-                    .replace(File.separatorChar, '/')
-                    .replace(Regex("""\.kt$"""), ".java")
-            }
-        }
-    }
-
-fun Project.deleteKotlinClassesReplacedByJava(kotlinSourceDirs: List<File>, kotlinClassesDir: File) {
-    if (!kotlinClassesDir.exists()) {
-        return
-    }
-    javaSourcesReplacedByKotlin(kotlinSourceDirs).forEach { javaPath ->
-        val classPath = javaPath.removeSuffix(".java")
-        val slash = classPath.lastIndexOf('/')
-        val classDir = if (slash >= 0) kotlinClassesDir.resolve(classPath.substring(0, slash)) else kotlinClassesDir
-        val className = if (slash >= 0) classPath.substring(slash + 1) else classPath
-        if (classDir.exists()) {
-            delete(fileTree(classDir) {
-                include("$className.class")
-                include("$className\$*.class")
-            })
-        }
-    }
-}
-
-fun Project.clearMainJavaClasses() {
-    val compileJava = tasks.findByName("compileJava") as? JavaCompile ?: return
-    delete(compileJava.destinationDirectory.get().asFile)
 }
 
 fun Project.runYGuardObfuscation(inputJar: File, outputJar: File, libDir: File) {
@@ -267,41 +130,23 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
         startParameter.projectProperties.putAll(gradle.startParameter.projectProperties)
     }
 
-    tasks.register("stoneCheck") {
-        group = "verification"
-        description = "Run checks through Stonecutter/StoneCraft version nodes."
+    tasks.matching { it.name == "check" }.configureEach {
         dependsOn(stoneNodes.map { ":$it:check" })
     }
 
-    tasks.register("stoneTest") {
-        group = "verification"
-        description = "Run tests through Stonecutter/StoneCraft version nodes."
-        dependsOn(stoneNodes.map { ":$it:test" })
-    }
-
-    tasks.register("stoneBuild") {
-        group = "build"
-        description = "Build remapped jars through Stonecutter/StoneCraft version nodes."
-        dependsOn(stoneNodes.map { ":$it:remapJar" })
-    }
-
-    tasks.matching { it.name == "check" }.configureEach {
-        dependsOn(tasks.named("stoneCheck"))
-    }
-
     tasks.matching { it.name == "build" }.configureEach {
-        dependsOn(tasks.named("stoneBuild"))
+        dependsOn(stoneNodes.map { ":$it:remapJar" })
     }
 
     if (tasks.findByName("test") == null) {
         tasks.register("test") {
             group = "verification"
             description = "Run all tests."
-            dependsOn(tasks.named("stoneTest"))
+            dependsOn(stoneNodes.map { ":$it:test" })
         }
     } else {
         tasks.named("test") {
-            dependsOn(tasks.named("stoneTest"))
+            dependsOn(stoneNodes.map { ":$it:test" })
         }
     }
 
@@ -325,14 +170,19 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
         }
     }
 
-    fun registerObfuscationTask(taskName: String, nodeName: String) {
-        val loaderName = nodeName.substringAfterLast("-")
-        val minecraftVersion = nodeName.substringBeforeLast("-")
+    fun nodeTaskSuffix(nodeName: String): String =
+        stoneNodeLoader(nodeName).replaceFirstChar { it.uppercase() } +
+            stoneNodeMinecraftVersion(nodeName).filter(Char::isDigit)
+
+    fun registerObfuscationTask(nodeName: String): String {
+        val loaderName = stoneNodeLoader(nodeName)
+        val minecraftVersion = stoneNodeMinecraftVersion(nodeName)
         val modVersion = prop("mod_version")
+        val taskName = "obfuscate${nodeTaskSuffix(nodeName)}Yguard"
         tasks.register(taskName) {
             group = "build"
             description = "Obfuscate $loaderName $minecraftVersion output jar with yGuard."
-            dependsOn(":$nodeName:exportObfClasspath", tasks.named("stoneBuild"))
+            dependsOn(":$nodeName:exportObfClasspath", ":$nodeName:remapJar")
             doLast {
                 runYGuardObfuscation(
                     file("output/$modVersion/DLC-Manager-$loaderName-$minecraftVersion-$modVersion.jar"),
@@ -341,22 +191,15 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
                 )
             }
         }
+        return taskName
     }
 
-    registerObfuscationTask("obfuscateFabric1201Yguard", "1.20.1-fabric")
-    registerObfuscationTask("obfuscateForge1201Yguard", "1.20.1-forge")
-    registerObfuscationTask("obfuscateFabric1211Yguard", "1.21.1-fabric")
-    registerObfuscationTask("obfuscateNeoForge1211Yguard", "1.21.1-neoforge")
+    val obfuscationTasks = stoneNodes.map(::registerObfuscationTask)
 
     tasks.register("obfuscateAllYguard") {
         group = "build"
         description = "Obfuscate all target jars with yGuard."
-        dependsOn(
-            "obfuscateFabric1201Yguard",
-            "obfuscateForge1201Yguard",
-            "obfuscateFabric1211Yguard",
-            "obfuscateNeoForge1211Yguard",
-        )
+        dependsOn(obfuscationTasks)
     }
 
     fun registerIncludedBuildTask(name: String, groupName: String, descriptionText: String, buildName: String, taskPath: String) {
@@ -370,25 +213,25 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
     tasks.register<GradleBuild>("helperBuild") {
         group = "build"
         description = "Build helper library."
-        dir = file("helper/file-ops-helper")
+        dir = file("tools/file-ops-helper")
         tasks = listOf("build")
     }
     tasks.register<GradleBuild>("helperCheck") {
         group = "verification"
         description = "Compile-check helper library."
-        dir = file("helper/file-ops-helper")
+        dir = file("tools/file-ops-helper")
         tasks = listOf("check")
     }
     tasks.register<GradleBuild>("helperClean") {
         group = "build"
         description = "Clean helper library outputs."
-        dir = file("helper/file-ops-helper")
+        dir = file("tools/file-ops-helper")
         tasks = listOf("clean")
     }
     tasks.register<GradleBuild>("helperPublish") {
         group = "publishing"
         description = "Publish helper library to configured Maven repository."
-        dir = file("helper/file-ops-helper")
+        dir = file("tools/file-ops-helper")
         tasks = listOf("publish")
     }
 
@@ -412,17 +255,21 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
 
 if (stoneNodes.contains(project.name)) {
     val nodeName = project.name
-    val loaderName = nodeName.substringAfterLast("-")
-    val minecraftVersion = nodeName.substringBeforeLast("-")
+    val loaderName = stoneNodeLoader(nodeName)
+    val minecraftVersion = stoneNodeMinecraftVersion(nodeName)
     val kotlinEnabled = booleanProp("enable_kotlin", true)
     val kotlinExcludeJavaCompile = kotlinEnabled && booleanProp("kotlin_exclude_java_compile", false)
-    val javaVersion = prop("java_version").toInt()
 
     layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(nodeName))
 
-    loadProperties(rootProject.file("versions/$nodeName.properties")).forEach { (key, value) ->
+    loadProperties(rootProject.file("versions/dependencies/$minecraftVersion.properties")).forEach { (key, value) ->
         extensions.extraProperties[key] = value
     }
+    loadProperties(rootProject.file("versions/$nodeName/gradle.properties")).forEach { (key, value) ->
+        extensions.extraProperties[key] = value
+    }
+
+    val javaVersion = prop("java_version").toInt()
 
     group = prop("mod_group")
     version = prop("mod_version")
@@ -481,40 +328,24 @@ if (stoneNodes.contains(project.name)) {
     tasks.withType<Jar>().configureEach {
         exclude("rebel.xml")
     }
+    tasks.withType<ProcessResources>().configureEach {
+        notCompatibleWithConfigurationCache("StoneCraft 1.12.4 processResources actions capture Project.")
+    }
 
     val generatedMainDir = layout.buildDirectory.dir("generated/dlc/main")
-    val generatedTestDir = layout.buildDirectory.dir("generated/dlc/test")
-    val commonMainJava = rootProject.file("common/src/main/java")
-    val commonMainKotlin = rootProject.file("common/src/main/kotlin")
-    val commonMainResources = rootProject.file("common/src/main/resources")
-    val commonPlatformJava = rootProject.file("common/src/platform/java")
-    val commonPlatformKotlin = rootProject.file("common/src/platform/kotlin")
-    val commonPlatformResources = rootProject.file("common/src/platform/resources")
-    val commonTestJava = rootProject.file("common/src/test/java")
-    val commonTestResources = rootProject.file("common/src/test/resources")
+    val mainJava = rootProject.file("src/main/java")
+    val mainKotlin = rootProject.file("src/main/kotlin")
+    val mainResources = rootProject.file("src/main/resources")
+    val testJava = rootProject.file("src/test/java")
+    val testResources = rootProject.file("src/test/resources")
 
-    val generateDlcSources = tasks.register("generateDlcSources") {
-        listOf(
-            commonMainJava,
-            commonMainKotlin,
-            commonMainResources,
-            commonPlatformJava,
-            commonPlatformKotlin,
-            commonPlatformResources,
-        ).filter(File::exists).forEach(inputs::dir)
-        inputs.property("dlcLoaderName", loaderName)
-        inputs.property("dlcMinecraftVersion", minecraftVersion)
-        outputs.dir(generatedMainDir)
-        doLast {
-            val outputRoot = generatedMainDir.get().asFile
-            delete(outputRoot)
-            copyProcessedTree(commonMainJava, outputRoot.resolve("java"), loaderName, minecraftVersion)
-            copyProcessedTree(commonPlatformJava, outputRoot.resolve("java"), loaderName, minecraftVersion)
-            copyProcessedTree(commonMainKotlin, outputRoot.resolve("kotlin"), loaderName, minecraftVersion)
-            copyProcessedTree(commonPlatformKotlin, outputRoot.resolve("kotlin"), loaderName, minecraftVersion)
-            copyProcessedTree(commonMainResources, outputRoot.resolve("resources"), loaderName, minecraftVersion)
-            copyProcessedTree(commonPlatformResources, outputRoot.resolve("resources"), loaderName, minecraftVersion)
-        }
+    val generateDlcSources = tasks.register<GenerateDlcSourcesTask>("generateDlcSources") {
+        mainJavaDir.set(mainJava)
+        mainKotlinDir.set(mainKotlin)
+        mainResourcesDir.set(mainResources)
+        this.loaderName.set(loaderName)
+        this.minecraftVersion.set(minecraftVersion)
+        outputDir.set(generatedMainDir)
     }
 
     extensions.configure<SourceSetContainer> {
@@ -523,8 +354,8 @@ if (stoneNodes.contains(project.name)) {
             resources.setSrcDirs(listOf(generatedMainDir.map { it.dir("resources") }))
         }
         named("test") {
-            java.setSrcDirs(listOf(commonTestJava))
-            resources.setSrcDirs(listOf(commonTestResources, generatedTestDir.map { it.dir("resources") }))
+            java.setSrcDirs(listOf(testJava))
+            resources.setSrcDirs(listOf(testResources))
         }
     }
 
@@ -547,19 +378,19 @@ if (stoneNodes.contains(project.name)) {
             enabled = false
             setDependsOn(emptyList<Any>())
         }
+        val clearMainJavaClasses = tasks.register<Delete>("clearMainJavaClasses") {
+            delete(tasks.named<JavaCompile>("compileJava").flatMap { it.destinationDirectory })
+        }
         tasks.named<Jar>("jar") {
-            doFirst {
-                clearMainJavaClasses()
-            }
+            dependsOn(clearMainJavaClasses)
         }
     } else if (!kotlinEnabled) {
+        val deleteKotlinClassesReplacedByJava = tasks.register<DeleteKotlinClassesReplacedByJavaTask>("deleteKotlinClassesReplacedByJava") {
+            kotlinSourceDir.set(mainKotlin)
+            kotlinClassesDir.set(layout.buildDirectory.dir("classes/kotlin/main"))
+        }
         tasks.named<JavaCompile>("compileJava") {
-            doFirst {
-                deleteKotlinClassesReplacedByJava(
-                    listOf(commonMainKotlin, commonPlatformKotlin),
-                    layout.buildDirectory.dir("classes/kotlin/main").get().asFile,
-                )
-            }
+            dependsOn(deleteKotlinClassesReplacedByJava)
         }
     }
 
@@ -725,19 +556,17 @@ if (stoneNodes.contains(project.name)) {
         }
     }
 
-    tasks.named("processResources") {
-        doLast {
-            if (loaderName == "fabric" && kotlinEnabled) {
-                val outputFile = layout.buildDirectory.file("resources/main/fabric.mod.json").get().asFile
-                if (outputFile.exists()) {
-                    @Suppress("UNCHECKED_CAST")
-                    val json = JsonSlurper().parse(outputFile) as MutableMap<String, Any?>
-                    @Suppress("UNCHECKED_CAST")
-                    val depends = json["depends"] as MutableMap<String, Any?>
-                    depends["fabric-language-kotlin"] = ">=${prop("fabric_language_kotlin_version")}"
-                    outputFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(json)) + "\n")
-                }
-            }
+    if (loaderName == "fabric" && kotlinEnabled) {
+        val patchFabricModJson = tasks.register<PatchFabricModJsonTask>("patchFabricModJson") {
+            dependsOn(tasks.named("processResources"))
+            patchEnabled.set(true)
+            fabricLanguageKotlinVersion.set(prop("fabric_language_kotlin_version"))
+            fabricModJson.set(layout.buildDirectory.file("resources/main/fabric.mod.json"))
+        }
+        tasks.matching {
+            it.name in setOf("classes", "jar", "remapJar")
+        }.configureEach {
+            dependsOn(patchFabricModJson)
         }
     }
 

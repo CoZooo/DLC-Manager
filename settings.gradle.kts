@@ -28,19 +28,27 @@ plugins {
 
 rootProject.name = "DLC-Manager"
 
+gradle.beforeProject {
+    if (Regex("""\d+\.\d+\.\d+-.+""").matches(name)) {
+        val nodeBuildDir = rootProject.layout.buildDirectory.dir(name)
+        layout.buildDirectory.set(nodeBuildDir)
+    }
+}
+
 stonecutter {
     centralScript = "build.gradle.kts"
     kotlinController = true
 
     shared {
-        fun mc(version: String, vararg loaders: String) {
-            loaders.forEach { loader ->
-                version("$version-$loader", version)
-            }
-        }
+        val versionNodes = file("versions")
+            .listFiles { file -> file.isDirectory && file.resolve("gradle.properties").isFile }
+            ?.map { it.name }
+            ?.sorted()
+            ?: emptyList()
 
-        mc("1.20.1", "fabric", "forge")
-        mc("1.21.1", "fabric", "neoforge")
+        versionNodes.forEach { node ->
+            version(node, node.substringBeforeLast('-'))
+        }
 
         vcsVersion = "1.21.1-fabric"
     }

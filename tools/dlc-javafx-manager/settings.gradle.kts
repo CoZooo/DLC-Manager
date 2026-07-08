@@ -8,9 +8,9 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven { url = uri('https://maven.cozozjw.cn/repository/maven-public/') }
+        maven("https://maven.cozozjw.cn/repository/maven-public/")
         mavenCentral()
     }
 }
 
-rootProject.name = 'dlc-javafx-manager'
+rootProject.name = "dlc-javafx-manager"

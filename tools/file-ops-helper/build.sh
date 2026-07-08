@@ -20,7 +20,7 @@ case "${MODE}" in
     TASK="publish"
     ;;
   *)
-    echo "Usage: ./helper/file-ops-helper/build.sh [build|check|clean|publish]"
+    echo "Usage: ./tools/file-ops-helper/build.sh [build|check|clean|publish]"
     exit 1
     ;;
 esac

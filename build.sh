@@ -5,17 +5,18 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOD_VERSION="$(grep -E '^mod_version=' "${ROOT_DIR}/gradle.properties" | cut -d= -f2)"
 MODE="${1:-build}"
 RELEASE_DIR="${ROOT_DIR}/output/${MOD_VERSION}/release"
+OBF_DIR="${ROOT_DIR}/tools/obf"
 
 run_export() {
   printf "==> Export mode: build + jar-obfuscator\n"
   "${ROOT_DIR}/gradlew" obfuscateAllYguard --parallel
 
-  if [[ ! -f "${ROOT_DIR}/jar-obfuscator.jar" ]]; then
-    echo "Missing file: ${ROOT_DIR}/jar-obfuscator.jar"
+  if [[ ! -f "${OBF_DIR}/jar-obfuscator.jar" ]]; then
+    echo "Missing file: ${OBF_DIR}/jar-obfuscator.jar"
     exit 1
   fi
-  if [[ ! -f "${ROOT_DIR}/config.yaml" ]]; then
-    echo "Missing file: ${ROOT_DIR}/config.yaml"
+  if [[ ! -f "${OBF_DIR}/config.yaml" ]]; then
+    echo "Missing file: ${OBF_DIR}/config.yaml"
     exit 1
   fi
 
@@ -81,7 +82,7 @@ run_export() {
     copy_merged_intermediary_jar "${mcver}" "${ROOT_DIR}/jar-obf-lib"
 
     rm -f "${obf_jar}"
-    (cd "${ROOT_DIR}" && java -jar jar-obfuscator.jar --jar "${input_jar}" --config config.yaml)
+    (cd "${ROOT_DIR}" && java -jar "${OBF_DIR}/jar-obfuscator.jar" --jar "${input_jar}" --config "${OBF_DIR}/config.yaml")
 
     if [[ ! -f "${obf_jar}" ]]; then
       echo "Obfuscated jar not found: ${obf_jar}"

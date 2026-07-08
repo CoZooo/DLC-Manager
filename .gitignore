@@ -58,9 +58,9 @@ build/
 !.idea/vcs.xml
 output/
 /test/
-jar-obf-lib/
-obf-lib/
-jar-obfuscator-temp/
+/tools/obf/jar-obf-lib/
+/tools/obf/obf-lib/
+/tools/obf/jar-obfuscator-temp/
 tools/editor/dc-quicklook/Derived/
 tools/dc-editor/node_modules/
 tools/dc-editor/dist/

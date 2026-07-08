@@ -70,10 +70,10 @@
 统一构建命令：
 
 ```bash
-./helper/file-ops-helper/build.sh build
-./helper/file-ops-helper/build.sh check
-./helper/file-ops-helper/build.sh clean
-./helper/file-ops-helper/build.sh publish
+./tools/file-ops-helper/build.sh build
+./tools/file-ops-helper/build.sh check
+./tools/file-ops-helper/build.sh clean
+./tools/file-ops-helper/build.sh publish
 ```
 
 根目录转调命令：
