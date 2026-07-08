@@ -3,7 +3,7 @@
   "id": "${mod_id}",
   "version": "${mod_version}",
   "name": "${mod_name}",
-  "description": "Manage optional DLC content (mods, resource packs, data packs) in-game.",
+  "description": "${mod_description}",
   "authors": ["${mod_author}"],
   "license": "All Rights Reserved",
   "environment": "*",
@@ -24,7 +24,7 @@
     "minecraft": "${mc_version_range}",
     "fabric-api": ">=${fabric_api_version_range}",
     "architectury": "*",
-    "java": ">=21"
+    "java": ">=${java_version}"
   },
   "suggests": {
     "malilib": ">=${malilib_version}"

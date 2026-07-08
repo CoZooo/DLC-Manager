@@ -1,3 +1,4 @@
+//? if fabric {
 package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.screen.DlcConfigScreen;
@@ -10,3 +11,4 @@ public class ModMenuCompat implements ModMenuApi {
         return DlcConfigScreen::new;
     }
 }
+//?}

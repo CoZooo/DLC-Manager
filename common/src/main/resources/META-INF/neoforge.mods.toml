@@ -1,5 +1,5 @@
 modLoader="javafml"
-loaderVersion="${forge_loader_version_range}"
+loaderVersion="${neoforge_loader_version_range}"
 license="All Rights Reserved"
 
 [[mods]]
@@ -10,24 +10,24 @@ logoFile="assets/dlc_manager/textures/gui/icon.png"
 authors="${mod_author}"
 displayTest="IGNORE_SERVER_VERSION"
 description='''
-Manage optional DLC content (mods, resource packs, data packs) in-game.
+${mod_description}
 '''
 
 [modproperties.${mod_id}]
-curseforgeProjectId="1424546"
-modrinthProjectId="B05EUil9"
-
-[[dependencies.${mod_id}]]
-modId="forge"
-mandatory=true
-versionRange="${forge_loader_version_range}"
-ordering="NONE"
-side="BOTH"
+curseforgeProjectId="${curseforge_project_id}"
+modrinthProjectId="${modrinth_project_id}"
 
 [[dependencies.${mod_id}]]
 modId="minecraft"
 mandatory=true
-versionRange="${forge_minecraft_version_range}"
+versionRange="${neoforge_minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.${mod_id}]]
+modId="neoforge"
+mandatory=true
+versionRange="${neoforge_version_range}"
 ordering="NONE"
 side="BOTH"
 
