@@ -29,8 +29,7 @@ bin/
 .gradle
 **/build/
 !src/**/build/
-/stonecutter.gradle
-/stonecutter/
+/stonecutter.gradle.kts
 
 # Ignore Gradle GUI config
 gradle-app.setting
