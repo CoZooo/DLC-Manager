@@ -38,9 +38,7 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
         }
 
         passwordField = EditBox(font, centerX - fieldWidth / 2, startY + 24, fieldWidth, fieldHeight, Component.empty()).also {
-            if (entry.password != null) {
-                it.value = entry.password
-            }
+            entry.password?.let { password -> it.value = password }
             addRenderableWidget(it)
         }
 

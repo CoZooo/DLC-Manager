@@ -36,18 +36,12 @@ class DlcServerEditScreen(
         hostField!!.setMaxLength(255)
 
         if (editing != null) {
-            if (editing.name != null) {
-                nameField!!.value = editing.name
-            }
-            if (editing.host != null) {
-                hostField!!.value = editing.host
-            }
+            editing.name?.let { nameField!!.value = it }
+            editing.host?.let { hostField!!.value = it }
             if (editing.port > 0) {
                 portField!!.value = editing.port.toString()
             }
-            if (editing.password != null) {
-                passwordField!!.value = editing.password
-            }
+            editing.password?.let { passwordField!!.value = it }
         } else {
             portField!!.value = DlcConfig.getServerPort().toString()
         }
