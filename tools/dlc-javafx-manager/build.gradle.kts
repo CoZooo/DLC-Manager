@@ -1,7 +1,10 @@
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.Configuration
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.tasks.Delete
+import org.gradle.api.tasks.Exec
 import org.gradle.api.tasks.bundling.Jar
+import org.gradle.api.tasks.bundling.Tar
 import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
@@ -32,6 +35,7 @@ fun String.capitalized(): String =
 
 val fileOpsHelperVersion = rootGradleProperty("file_ops_helper_version").orEmpty()
 val appVersion = rootGradleProperty("mod_version") ?: "0.0.0"
+val releaseOutputDir = layout.projectDirectory.dir("../../output/$appVersion")
 version = appVersion
 
 java {
@@ -219,6 +223,14 @@ tasks.named<Jar>("jar") {
     exclude("rebel.xml")
 }
 
+tasks.named<Zip>("distZip") {
+    destinationDirectory.set(releaseOutputDir)
+}
+
+tasks.named<Tar>("distTar") {
+    destinationDirectory.set(releaseOutputDir)
+}
+
 fun nonJavaFxRuntimeClasspath(): Set<File> =
     configurations.runtimeClasspath.get()
         .filter { file -> !file.name.startsWith("javafx-") }
@@ -237,6 +249,7 @@ fun registerPlatformFatJar(
         archiveBaseName.set("DLC-Manager")
         archiveVersion.set(appVersion)
         archiveClassifier.set(classifier)
+        destinationDirectory.set(releaseOutputDir)
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         isZip64 = true
 
@@ -301,62 +314,58 @@ tasks.register("jarAll") {
     })
 }
 
-tasks.register("jpackageImage") {
+val jpackageNativeImageDir = releaseOutputDir.dir("javafx-native-image")
+
+tasks.register<Delete>("cleanJpackageImage") {
+    delete(jpackageNativeImageDir)
+}
+
+tasks.register<Exec>("jpackageImage") {
     group = "distribution"
     description = "Build a native application image with bundled JRE."
-    dependsOn("installDist")
-    val outputDir = layout.buildDirectory.dir("native-image")
-    outputs.dir(outputDir)
-    doLast {
-        val nativeImageDir = outputDir.get().asFile
-        nativeImageDir.deleteRecursively()
-        val cmd = jpackageBin()
-        if (!cmd.exists()) {
-            throw GradleException("jpackage not found. Set JAVA_HOME to JDK 17+.")
-        }
-        val appDir = layout.buildDirectory.dir("install/${project.name}").get().asFile
-        val mainJarName = tasks.named<Jar>("jar").get().archiveFileName.get()
-        val osName = System.getProperty("os.name", "").lowercase(Locale.ROOT)
-        val isMacOs = osName.contains("mac")
-        var packageIconFile = appIconPngFile
-        if (isMacOs && appIconIcnsFile.exists()) {
-            packageIconFile = appIconIcnsFile
-        } else if (osName.contains("windows") && appIconIcoFile.exists()) {
-            packageIconFile = appIconIcoFile
-        }
-        val commandLine = mutableListOf(
-            cmd.absolutePath,
-            "--name", appDisplayName,
-            "--input", appDir.resolve("lib").toString(),
-            "--main-jar", mainJarName,
-            "--main-class", application.mainClass.get(),
-            "--app-version", appVersion,
-            "--type", "app-image",
-            "--dest", nativeImageDir.absolutePath,
-        )
-        if (packageIconFile.exists()) {
-            commandLine += listOf("--icon", packageIconFile.absolutePath)
-        }
-        commandLine += listOf(
-            "--module-path", appDir.resolve("lib").toString(),
-            "--add-modules", "javafx.controls,javafx.fxml,javafx.graphics,java.desktop",
-        )
-        appJvmArgs.forEach { option ->
-            commandLine += listOf("--java-options", option)
-        }
-        if (isMacOs) {
-            commandLine += listOf("--mac-package-identifier", appIdentifier)
-            commandLine += listOf("--mac-package-name", appDisplayName)
-        }
-        commandLine += "--verbose"
-        val exitCode = ProcessBuilder(commandLine)
-            .inheritIO()
-            .start()
-            .waitFor()
-        if (exitCode != 0) {
-            throw GradleException("jpackage failed with exit code $exitCode.")
-        }
+    dependsOn("installDist", "cleanJpackageImage")
+    outputs.dir(jpackageNativeImageDir)
+
+    val cmd = jpackageBin()
+    if (!cmd.exists()) {
+        throw GradleException("jpackage not found. Set JAVA_HOME to JDK 17+.")
     }
+    val appDir = layout.buildDirectory.dir("install/${project.name}").get().asFile
+    val mainJarName = tasks.named<Jar>("jar").get().archiveFileName.get()
+    val osName = System.getProperty("os.name", "").lowercase(Locale.ROOT)
+    val isMacOs = osName.contains("mac")
+    var packageIconFile = appIconPngFile
+    if (isMacOs && appIconIcnsFile.exists()) {
+        packageIconFile = appIconIcnsFile
+    } else if (osName.contains("windows") && appIconIcoFile.exists()) {
+        packageIconFile = appIconIcoFile
+    }
+
+    executable = cmd.absolutePath
+    args(
+        "--name", appDisplayName,
+        "--input", appDir.resolve("lib").toString(),
+        "--main-jar", mainJarName,
+        "--main-class", application.mainClass.get(),
+        "--app-version", appVersion,
+        "--type", "app-image",
+        "--dest", jpackageNativeImageDir.asFile.absolutePath,
+    )
+    if (packageIconFile.exists()) {
+        args("--icon", packageIconFile.absolutePath)
+    }
+    args(
+        "--module-path", appDir.resolve("lib").toString(),
+        "--add-modules", "javafx.controls,javafx.fxml,javafx.graphics,java.desktop",
+    )
+    appJvmArgs.forEach { option ->
+        args("--java-options", option)
+    }
+    if (isMacOs) {
+        args("--mac-package-identifier", appIdentifier)
+        args("--mac-package-name", appDisplayName)
+    }
+    args("--verbose")
 }
 
 tasks.register<Zip>("jpackageZip") {
@@ -364,6 +373,6 @@ tasks.register<Zip>("jpackageZip") {
     description = "Zip the native application image."
     dependsOn("jpackageImage")
     archiveBaseName.set("${project.name}-native")
-    from(layout.buildDirectory.dir("native-image"))
-    destinationDirectory.set(layout.buildDirectory.dir("native-distributions"))
+    from(jpackageNativeImageDir)
+    destinationDirectory.set(releaseOutputDir)
 }
