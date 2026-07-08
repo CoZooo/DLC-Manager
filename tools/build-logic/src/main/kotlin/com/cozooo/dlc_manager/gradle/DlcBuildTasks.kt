@@ -70,6 +70,18 @@ private fun preprocessStonecutterText(source: String, loaderName: String, minecr
     val directivePattern = Regex("""^[*/^]*//\?\s*(.*)$""")
     val frames = mutableListOf<Frame>()
     val output = mutableListOf<String>()
+    fun uncommentActiveLine(line: String): String {
+        val indentLength = line.indexOfFirst { !it.isWhitespace() }.let { if (it < 0) line.length else it }
+        val indent = line.take(indentLength)
+        val body = line.drop(indentLength)
+        return when {
+            body.startsWith("/*") -> indent + body.drop(2)
+            body.startsWith("/^") -> indent + body.drop(2)
+            body.startsWith("^") -> indent + body.drop(1)
+            else -> line
+        }
+    }
+
     source.lineSequence().forEach { line ->
         val trimmed = line.trim()
         val directive = directivePattern.matchEntire(trimmed)?.groupValues?.get(1)
@@ -103,7 +115,7 @@ private fun preprocessStonecutterText(source: String, loaderName: String, minecr
                 }
                 frames.removeLast()
             }
-            frames.lastOrNull()?.currentActive != false -> output += line
+            frames.lastOrNull()?.currentActive != false -> output += uncommentActiveLine(line)
         }
     }
     check(frames.isEmpty()) { "Unclosed Stonecutter condition" }
