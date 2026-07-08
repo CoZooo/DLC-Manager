@@ -4,7 +4,6 @@ import com.cozooo.dlc_manager.gradle.GenerateDlcSourcesTask
 import com.cozooo.dlc_manager.gradle.PatchFabricModJsonTask
 import dev.kikugie.stonecutter.build.StonecutterBuildExtension
 import gg.meza.stonecraft.extension.ModSettingsExtension
-import gg.meza.stonecraft.mod
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import org.gradle.api.Project
@@ -28,6 +27,12 @@ import java.io.File
 import java.util.Properties
 import java.util.zip.ZipFile
 
+val DLC_MOD_ID = "dlc_manager"
+val DLC_MOD_NAME = "DLC Manager"
+val DLC_MOD_GROUP = "com.cozooo.dlc_manager"
+val DLC_MOD_AUTHOR = "CoZooo"
+val DLC_MOD_DESCRIPTION = "Manage optional DLC content (mods, resource packs, data packs) in-game."
+
 buildscript {
     repositories {
         maven("https://maven.minecraftforge.net/")
@@ -41,7 +46,7 @@ buildscript {
 
 plugins {
     id("com.cozooo.dlc-manager.build-logic")
-    id("gg.meza.stonecraft")
+    id("gg.meza.stonecraft") apply false
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") apply false
     id("maven-publish")
@@ -57,6 +62,26 @@ fun discoverStoneNodes(root: File): List<String> =
 
 val stoneNodes = discoverStoneNodes(rootDir)
 
+val dlcFixedModProperties = mapOf(
+    "mod_id" to DLC_MOD_ID,
+    "mod_name" to DLC_MOD_NAME,
+    "mod_group" to DLC_MOD_GROUP,
+    "mod_author" to DLC_MOD_AUTHOR,
+    "mod_description" to DLC_MOD_DESCRIPTION,
+    "mod.id" to DLC_MOD_ID,
+    "mod.name" to DLC_MOD_NAME,
+    "mod.group" to DLC_MOD_GROUP,
+    "mod.author" to DLC_MOD_AUTHOR,
+    "mod.version" to prop("mod_version"),
+    "mod.description" to DLC_MOD_DESCRIPTION,
+)
+
+dlcFixedModProperties.forEach { (key, value) ->
+    extensions.extraProperties[key] = value
+}
+
+apply(plugin = "gg.meza.stonecraft")
+
 fun stoneNodeLoader(nodeName: String): String =
     nodeName.substringAfterLast("-")
 
@@ -66,6 +91,7 @@ fun stoneNodeMinecraftVersion(nodeName: String): String =
 fun Project.prop(name: String): String =
     findProperty(name)?.toString()
         ?: rootProject.findProperty(name)?.toString()
+        ?: dlcFixedModProperties[name]
         ?: error("Missing Gradle property: $name")
 
 fun Project.optionalProp(name: String): String? =
@@ -495,7 +521,7 @@ if (stoneNodes.contains(project.name)) {
                 "neoforge_minecraft_version_range" to optionalProp("neoforge_minecraft_version_range").orEmpty(),
                 "kotlin_for_forge_dependency" to kffDependencyText,
                 "mafglib_version_range" to optionalProp("mafglib_version_range").orEmpty(),
-                "malilib_version" to prop("malilib_version"),
+                "malilib_version" to optionalProp("malilib_version").orEmpty(),
                 "pack_format" to prop("pack_format"),
             )
         )
