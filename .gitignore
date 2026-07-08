@@ -76,8 +76,6 @@ tools/dc-editor/tsconfig.node.tsbuildinfo
 tools/dc-editor/OPERATION_TRACKING.txt
 debug.log
 
-DLC_Installer
-
 AGENT.md
 PLAN.md
 samples/
