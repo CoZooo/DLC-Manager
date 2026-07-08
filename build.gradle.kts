@@ -89,9 +89,14 @@ fun Project.configureLocalDevMods(loaderName: String, minecraftVersion: String) 
     }
 
     val rootRunDir = rootProject.file("run/$loaderName/$minecraftVersion")
-    val sharedDevModJars = files(devModTree(rootRunDir.resolve("devmods")))
-    val clientDevModJars = files(devModTree(rootRunDir.resolve("client/devmods")))
-    val serverDevModJars = files(devModTree(rootRunDir.resolve("server/devmods")))
+    val sharedDevModsDir = rootRunDir.resolve("devmods")
+    val clientDevModsDir = rootRunDir.resolve("client/devmods")
+    val serverDevModsDir = rootRunDir.resolve("server/devmods")
+    listOf(sharedDevModsDir, clientDevModsDir, serverDevModsDir).forEach(File::mkdirs)
+
+    val sharedDevModJars = files(devModTree(sharedDevModsDir))
+    val clientDevModJars = files(devModTree(clientDevModsDir))
+    val serverDevModJars = files(devModTree(serverDevModsDir))
     val devModJars = files(sharedDevModJars, clientDevModJars, serverDevModJars)
 
     fun isDevModArtifact(file: File, devModFiles: FileCollection): Boolean =
