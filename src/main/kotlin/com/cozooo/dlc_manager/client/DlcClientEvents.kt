@@ -110,14 +110,14 @@ object DlcClientEvents {
             }
         }
         //? if >=1.21.1 {
-        /^ClientScreenInputEvent.MOUSE_SCROLLED_PRE.register { _, screen, mouseX, mouseY, amountX, amountY ->
-        /^    if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, amountX, amountY)) {
-        /^        EventResult.interruptFalse()
-        /^    } else {
-        /^        EventResult.pass()
-        /^    }
-        /^}
-        ^///?} else {
+        /*ClientScreenInputEvent.MOUSE_SCROLLED_PRE.register { _, screen, mouseX, mouseY, amountX, amountY ->
+            if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, amountX, amountY)) {
+                EventResult.interruptFalse()
+            } else {
+                EventResult.pass()
+            }
+        }
+        *///?} else {
         ClientScreenInputEvent.MOUSE_SCROLLED_PRE.register { _, screen, mouseX, mouseY, amount ->
             if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelScroll(screen, mouseX, mouseY, 0.0, amount)) {
                 EventResult.interruptFalse()
@@ -342,8 +342,8 @@ object DlcClientEvents {
             modsWidget.y = rowY
             modsWidget.width = halfWidth
             //? if >=1.21.1 {
-            /^modsWidget.height = rowH
-            ^///?}
+            /*modsWidget.height = rowH
+            *///?}
             val dlcX = rowX + halfWidth + gap
             val dlcWidth = halfWidth
             var defaultUpdateX = dlcX + dlcWidth + iconGap
@@ -354,16 +354,16 @@ object DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /^updateWidget.height = rowH
-                ^///?}
+                /*updateWidget.height = rowH
+                *///?}
                 updateWidget.x = updatePos[0]
                 updateWidget.y = updatePos[1]
             }
             if (packWidget != null) {
                 packWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /^packWidget.height = rowH
-                ^///?}
+                /*packWidget.height = rowH
+                *///?}
                 packWidget.x = updatePos[0] + iconWidth + iconGap
                 packWidget.y = updatePos[1]
             }
@@ -371,8 +371,8 @@ object DlcClientEvents {
             dlcWidget.y = rowY
             dlcWidget.width = dlcWidth
             //? if >=1.21.1 {
-            /^dlcWidget.height = rowH
-            ^///?}
+            /*dlcWidget.height = rowH
+            *///?}
             moveBottomRow(screen, rowY + rowStep)
         } else {
             val iconGap = 4
@@ -386,16 +386,16 @@ object DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /^updateWidget.height = rowH
-                ^///?}
+                /*updateWidget.height = rowH
+                *///?}
                 updateWidget.x = updatePos[0]
                 updateWidget.y = updatePos[1]
             }
             if (packWidget != null) {
                 packWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /^packWidget.height = rowH
-                ^///?}
+                /*packWidget.height = rowH
+                *///?}
                 packWidget.x = updatePos[0] + iconWidth + iconGap
                 packWidget.y = updatePos[1]
             }
@@ -403,8 +403,8 @@ object DlcClientEvents {
             dlcWidget.y = rowY
             dlcWidget.width = dlcWidth
             //? if >=1.21.1 {
-            /^dlcWidget.height = rowH
-            ^///?}
+            /*dlcWidget.height = rowH
+            *///?}
         }
     }
 }

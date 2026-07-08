@@ -7,18 +7,15 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateService
 *///?}
 //? if forge || neoforge {
 import com.cozooo.dlc_manager.client.screen.DlcConfigScreen
+import dev.architectury.platform.Platform
 //?}
 //? if forge {
-import net.minecraftforge.client.ConfigScreenHandler
 import net.minecraftforge.eventbus.api.IEventBus
-import net.minecraftforge.fml.ModLoadingContext
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent
 //?}
 //? if neoforge {
 /*import net.neoforged.bus.api.IEventBus
-import net.neoforged.fml.ModLoadingContext
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent
-import net.neoforged.neoforge.client.gui.IConfigScreenFactory
 *///?}
 
 object DlcManagerClient
@@ -49,17 +46,9 @@ object DlcManagerClient
         DlcClientEvents.register()
     }
 
-    //? if forge {
+    //? if forge || neoforge {
     private fun registerConfigScreen() {
-        ModLoadingContext.get().registerExtensionPoint(
-            ConfigScreenHandler.ConfigScreenFactory::class.java
-        ) { ConfigScreenHandler.ConfigScreenFactory { _, parent -> DlcConfigScreen(parent) } }
+        Platform.getMod(DlcManager.MOD_ID).registerConfigurationScreen(::DlcConfigScreen)
     }
-    //?} else if neoforge {
-    /*private fun registerConfigScreen() {
-        ModLoadingContext.get().registerExtensionPoint(
-            IConfigScreenFactory::class.java
-        ) { IConfigScreenFactory { _, parent -> DlcConfigScreen(parent) } }
-    }
-    *///?}
+    //?}
 }

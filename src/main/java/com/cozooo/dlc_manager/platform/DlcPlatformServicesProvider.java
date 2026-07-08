@@ -1,29 +1,11 @@
 package com.cozooo.dlc_manager.platform;
 
 import com.cozooo.dlc_manager.client.DlcMinecraftSupport;
-import java.nio.file.Path;
-import java.util.Optional;
-//? if fabric {
-/*import net.fabricmc.api.EnvType;
-import net.fabricmc.loader.api.FabricLoader;
-import net.fabricmc.loader.api.ModContainer;
-*///?}
-//? if forge {
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.ModList;
-import net.minecraftforge.fml.loading.FMLEnvironment;
-import net.minecraftforge.fml.loading.FMLPaths;
-import net.minecraftforge.fml.loading.moddiscovery.ModFileInfo;
-//?}
-//? if neoforge {
-/*import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.fml.loading.FMLPaths;
-import net.neoforged.fml.loading.moddiscovery.ModFileInfo;
-*///?}
-import net.minecraft.SharedConstants;
+import dev.architectury.platform.Platform;
+import dev.architectury.utils.Env;
 import net.minecraft.client.Minecraft;
+
+import java.nio.file.Path;
 
 public final class DlcPlatformServicesProvider implements DlcPlatformServices.Provider {
     public static void init() {
@@ -32,62 +14,31 @@ public final class DlcPlatformServicesProvider implements DlcPlatformServices.Pr
 
     @Override
     public Path gameDir() {
-        //? if fabric {
-        /*if (active()) {
-            return FabricLoader.getInstance().getGameDir();
-        }
-        *///?}
-        //? if forge || neoforge {
-        if (active()) {
-            return FMLPaths.GAMEDIR.get();
-        }
-        //?}
-        return Path.of("").toAbsolutePath().normalize();
+        Path path = platformPath(Platform::getGameFolder);
+        return path == null ? Path.of("").toAbsolutePath().normalize() : path;
     }
 
     @Override
     public Path configDir() {
-        //? if fabric {
-        /*if (active()) {
-            return FabricLoader.getInstance().getConfigDir();
-        }
-        *///?}
-        //? if forge || neoforge {
-        if (active()) {
-            return FMLPaths.CONFIGDIR.get();
-        }
-        //?}
-        return gameDir().resolve("config");
+        Path path = platformPath(Platform::getConfigFolder);
+        return path == null ? gameDir().resolve("config") : path;
     }
 
     @Override
     public boolean isModLoaded(String modId) {
-        //? if fabric {
-        /*if (active()) {
-            return FabricLoader.getInstance().isModLoaded(modId);
+        if (modId == null || modId.isBlank()) {
+            return false;
         }
-        *///?}
-        //? if forge || neoforge {
-        if (active()) {
-            return ModList.get().isLoaded(modId);
+        try {
+            return Platform.isModLoaded(modId);
+        } catch (Throwable ignored) {
+            return false;
         }
-        //?}
-        return false;
     }
 
     @Override
     public boolean isDedicatedServer() {
-        //? if fabric {
-        /*if (active()) {
-            return FabricLoader.getInstance().getEnvironmentType() == EnvType.SERVER;
-        }
-        *///?}
-        //? if forge || neoforge {
-        if (active()) {
-            return FMLEnvironment.dist == Dist.DEDICATED_SERVER;
-        }
-        //?}
-        return false;
+        return platformEnvironment() == Env.SERVER;
     }
 
     @Override
@@ -105,81 +56,60 @@ public final class DlcPlatformServicesProvider implements DlcPlatformServices.Pr
 
     @Override
     public String loaderName() {
-        //? if fabric {
-        /*if (active()) {
-            return "Fabric";
+        try {
+            if (Platform.isFabric()) {
+                return "Fabric";
+            }
+            //? if >=1.21.1 {
+            /*if (Platform.isNeoForge()) {
+                return "NeoForge";
+            }
+            if (Platform.isMinecraftForge()) {
+                return "Forge";
+            }
+            *///?} else {
+            if (Platform.isForge()) {
+                return "Forge";
+            }
+            //?}
+        } catch (Throwable ignored) {
         }
-        *///?}
-        //? if forge {
-        if (active()) {
-            return "Forge";
-        }
-        //?}
-        //? if neoforge {
-        /*if (active()) {
-            return "NeoForge";
-        }
-        *///?}
         return "";
     }
 
     @Override
     public String mcVersion() {
         try {
-            return SharedConstants.getCurrentVersion().getName();
-        } catch (Exception ignored) {
+            return Platform.getMinecraftVersion();
+        } catch (Throwable ignored) {
             return "";
         }
     }
 
     @Override
     public String modVersion(String modId) {
-        //? if fabric {
-        /*if (active()) {
-            Optional<ModContainer> container = FabricLoader.getInstance().getModContainer(modId);
-            return container.map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("");
+        if (modId == null || modId.isBlank()) {
+            return "";
         }
-        *///?}
-        //? if forge || neoforge {
-        if (active()) {
-            return ModList.get().getModContainerById(modId)
-                .map(container -> container.getModInfo().getVersion().toString())
-                .orElse("");
+        try {
+            return Platform.getOptionalMod(modId).map(dev.architectury.platform.Mod::getVersion).orElse("");
+        } catch (Throwable ignored) {
+            return "";
         }
-        //?}
-        return "";
     }
 
     @Override
     public Path modFilePath(String modId) {
-        //? if fabric {
-        /*if (active()) {
-            Optional<ModContainer> container = FabricLoader.getInstance().getModContainer(modId);
-            if (container.isEmpty()) {
-                return null;
-            }
-            try {
-                return container.get().getOrigin().getPaths().stream().findFirst().orElse(null);
-            } catch (Exception ignored) {
-                return null;
-            }
+        if (modId == null || modId.isBlank()) {
+            return null;
         }
-        *///?}
-        //? if forge || neoforge {
-        if (active()) {
-            Optional<ModFileInfo> modFile = ModList.get().getModContainerById(modId)
-                .map(container -> (ModFileInfo) container.getModInfo().getOwningFile());
-            if (modFile.isEmpty()) {
-                return null;
-            }
-            try {
-                return modFile.get().getFile().getFilePath();
-            } catch (Exception ignored) {
-                return null;
-            }
+        try {
+            return Platform.getOptionalMod(modId)
+                .flatMap(mod -> mod.getFilePaths().stream().findFirst())
+                .orElse(null);
+        } catch (Throwable ignored) {
+            return null;
         }
-        //?}
-        return null;
     }
 
     @Override
@@ -220,20 +150,27 @@ public final class DlcPlatformServicesProvider implements DlcPlatformServices.Pr
     }
 
     private static boolean isClient() {
-        //? if fabric {
-        /*if (active()) {
-            return FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT;
-        }
-        *///?}
-        //? if forge || neoforge {
-        if (active()) {
-            return FMLEnvironment.dist == Dist.CLIENT;
-        }
-        //?}
-        return false;
+        return platformEnvironment() == Env.CLIENT;
     }
 
-    private static boolean active() {
-        return System.getProperty("java.vm.name") != null;
+    private static Env platformEnvironment() {
+        try {
+            return Platform.getEnvironment();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Path platformPath(PathSupplier supplier) {
+        try {
+            return supplier.get();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    @FunctionalInterface
+    private interface PathSupplier {
+        Path get();
     }
 }
