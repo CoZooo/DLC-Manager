@@ -429,7 +429,7 @@ public final class DlcFxLocalRemoteDownloadTab {
             return "";
         }
         String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+                com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode());
         String value = entry.getTips().get(lang);
         if (value == null || value.isBlank()) {
             value = entry.getTips().get("en_us");

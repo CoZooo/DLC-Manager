@@ -14,7 +14,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
@@ -1465,7 +1465,7 @@ public final class DlcFxLocalPackTab {
     }
 
     private Path packOrderPath() {
-        return CrossPlatformRuntime.configDir().resolve("dlc_manager").resolve("order.dc");
+        return DlcPlatformServices.configDir().resolve("dlc_manager").resolve("order.dc");
     }
 
     private PackArchiveGroup findGroup(String identifier) {

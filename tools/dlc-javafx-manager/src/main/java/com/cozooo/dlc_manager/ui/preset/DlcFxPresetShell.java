@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.ui.preset;
 
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.ui.common.DlcFxActionPanel;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxListViewSupport;
@@ -277,7 +277,7 @@ public final class DlcFxPresetShell<T> {
     }
 
     private static String currentLang() {
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         return lang == null || lang.isBlank() ? "en_us" : lang;
     }
 

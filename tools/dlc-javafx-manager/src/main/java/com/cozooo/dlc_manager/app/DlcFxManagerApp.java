@@ -17,7 +17,7 @@ import com.cozooo.dlc_manager.local.DlcFxLocalPresetTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRemoteDownloadTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalRequiredTab;
 import com.cozooo.dlc_manager.local.DlcFxLocalUpdateTab;
-import com.cozooo.dlc_manager.platform.PlatformServices;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.DlcFxPlatformProvider;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.server.DlcFxServerConnection;
@@ -134,7 +134,7 @@ public final class DlcFxManagerApp extends Application {
 
     @Override
     public void init() {
-        PlatformServices.setProvider(PROVIDER);
+        DlcPlatformServices.setProvider(PROVIDER);
     }
 
     @Override

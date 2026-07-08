@@ -497,7 +497,7 @@ public final class DlcFxServerDlcManagementTab {
         if (entry == null || entry.getRedirectUrl() == null || entry.getRedirectUrl().isBlank()) {
             return;
         }
-        confirmOpenRedirect(entry.getRedirectUrl(), entry.resolveNotice(com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode()));
+        confirmOpenRedirect(entry.getRedirectUrl(), entry.resolveNotice(com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode()));
     }
 
     private void confirmOpenRedirect(String url, String notice) {

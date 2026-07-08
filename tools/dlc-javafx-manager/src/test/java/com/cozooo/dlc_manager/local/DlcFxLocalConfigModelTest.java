@@ -91,14 +91,14 @@ final class DlcFxLocalConfigModelTest {
         DlcFxConfigModel model = new DlcFxConfigModel(DlcFxConfigModel.serverSource(root, json -> saved[0] = json));
         model.loadFromConfig();
 
-        assertEquals(10, model.options(DlcFxConfigModel.Tab.SERVER).size());
+        assertEquals(5, model.options(DlcFxConfigModel.Tab.SERVER).size());
         assertTrue(model.find("serverPort").setValueFromString("28888"));
-        assertTrue(model.find("rconHost").setValueFromString("127.0.0.1"));
+        assertTrue(model.find("serverPassword").setValueFromString("secret"));
         model.applyToConfig();
 
         JsonObject server = saved[0].getAsJsonObject("server");
         assertEquals(28888, server.get("serverPort").getAsInt());
-        assertEquals("127.0.0.1", server.get("rconHost").getAsString());
+        assertEquals("secret", server.get("serverPassword").getAsString());
         assertEquals(28888, model.snapshot().getAsJsonObject("server").get("serverPort").getAsInt());
     }
 

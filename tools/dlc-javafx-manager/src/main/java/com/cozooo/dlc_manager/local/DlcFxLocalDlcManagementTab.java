@@ -517,7 +517,7 @@ public final class DlcFxLocalDlcManagementTab {
         if (roots == null || roots.isEmpty()) {
             return List.of();
         }
-        String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+        String lang = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
         List<DlcRedirectEntry> out = new ArrayList<>();
         for (Path root : roots) {
             for (DlcRedirectEntry entry : DlcRedirectLoader.load(root)) {
@@ -658,7 +658,7 @@ public final class DlcFxLocalDlcManagementTab {
         }
         Map<String, String> names = item.getDisplayNames();
         if (names != null && !names.isEmpty()) {
-            String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+            String lang = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
             if (lang != null && names.containsKey(lang)) {
                 return names.get(lang);
             }
@@ -691,7 +691,7 @@ public final class DlcFxLocalDlcManagementTab {
         if (entry == null || entry.getRedirectUrl() == null || entry.getRedirectUrl().isBlank()) {
             return;
         }
-        String lang = com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode();
+        String lang = com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode();
         confirmOpenRedirect(entry.getRedirectUrl(), entry.resolveNotice(lang));
     }
 
@@ -987,7 +987,7 @@ public final class DlcFxLocalDlcManagementTab {
             appendBlock(tip, "§b" + DlcFxI18n.tr("dlc_manager.tooltip.double_click_redirect") + "§r");
         }
         List<String> blockers = DlcPresetRuntimeState.getDlcBlockerNames(item.getIdentifier(),
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+                com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode());
         if (!blockers.isEmpty()) {
             for (String blocker : blockers) {
                 appendBlock(tip, "§4" + DlcFxI18n.tr("dlc_manager.preset.conflict", blocker) + "§r");
@@ -1021,7 +1021,7 @@ public final class DlcFxLocalDlcManagementTab {
             return "";
         }
         String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+                com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode());
         String value = item.getTooltips().get(lang);
         if (value == null || value.isBlank()) {
             value = item.getTooltips().get("en_us");
@@ -1041,7 +1041,7 @@ public final class DlcFxLocalDlcManagementTab {
             return identifier;
         }
         String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+                com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode());
         String value = item.getDisplayNames().get(lang);
         if (value == null || value.isBlank()) {
             value = item.getDisplayNames().get("en_us");

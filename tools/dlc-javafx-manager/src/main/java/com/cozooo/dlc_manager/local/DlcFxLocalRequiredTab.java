@@ -574,7 +574,7 @@ public final class DlcFxLocalRequiredTab {
         }
         Map<String, String> tips = entry.getTips();
         String lang = com.cozooo.dlc_manager.core.DlcDcConfigIO.normalizeLangKey(
-                com.cozooo.dlc_manager.platform.CrossPlatformRuntime.languageCode());
+                com.cozooo.dlc_manager.platform.DlcPlatformServices.languageCode());
         String value = tips.get(lang);
         if (value == null || value.isBlank()) {
             value = tips.get("en_us");
