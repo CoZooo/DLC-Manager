@@ -5,7 +5,10 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
+import me.modmuss50.mpp.ModPublishExtension
+import me.modmuss50.mpp.ReleaseType
 import org.gradle.api.Project
+import org.gradle.api.JavaVersion
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
@@ -49,6 +52,7 @@ plugins {
     id("gg.meza.stonecraft") apply false
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") apply false
+    id("me.modmuss50.mod-publish-plugin") apply false
     id("maven-publish")
     base
 }
@@ -99,6 +103,66 @@ fun Project.optionalProp(name: String): String? =
 
 fun Project.booleanProp(name: String, fallback: Boolean = false): Boolean =
     optionalProp(name)?.toBoolean() ?: fallback
+
+fun Project.publishEnv(name: String): String? =
+    providers.environmentVariable(name).orNull?.takeIf { it.isNotBlank() }
+
+fun Project.modPublishReleaseType(): ReleaseType =
+    ReleaseType.of(prop("mod_publish_release_type"))
+
+fun Project.modPublishChangelog(): String =
+    optionalProp("mod_publish_changelog")
+        ?: publishEnv("MOD_PUBLISH_CHANGELOG")
+        ?: readVersionChangelog(prop("mod_version"))
+
+fun Project.readVersionChangelog(version: String): String {
+    val changelogFile = rootProject.file("changelog.md")
+    require(changelogFile.isFile) {
+        "Missing changelog.md. Add a ## $version section or set -Pmod_publish_changelog=..."
+    }
+    val text = changelogFile.readText()
+    val escapedVersion = Regex.escape(version)
+    val header = Regex("""(?m)^##[ \t]+\[?v?$escapedVersion\]?(?:[ \t]+.*)?$""")
+    val match = header.find(text)
+        ?: error("Missing changelog.md section for version $version.")
+    val nextHeader = Regex("""(?m)^##[ \t]+""").find(text, match.range.last + 1)
+    val endIndex = nextHeader?.range?.first ?: text.length
+    val body = text.substring(match.range.last + 1, endIndex).trim()
+    require(body.isNotBlank()) {
+        "changelog.md section for version $version is empty."
+    }
+    return normalizePublishChangelogHeadings(body)
+}
+
+fun normalizePublishChangelogHeadings(changelog: String): String =
+    changelog
+        .lineSequence()
+        .map { line ->
+            val match = Regex("""^(#{3,6})([ \t]+.+)$""").matchEntire(line)
+            if (match == null) {
+                line
+            } else {
+                "#".repeat(match.groupValues[1].length - 2) + match.groupValues[2]
+            }
+        }
+        .joinToString("\n")
+
+fun modPublishLoaderName(loaderName: String): String =
+    when (loaderName) {
+        "neoforge" -> "neoforge"
+        else -> loaderName
+    }
+
+fun modPublishLoaderDisplayName(loaderName: String): String =
+    when (loaderName) {
+        "fabric" -> "Fabric"
+        "forge" -> "Forge"
+        "neoforge" -> "NeoForge"
+        else -> loaderName.replaceFirstChar { it.uppercase() }
+    }
+
+fun Project.modPublishDisplayName(loaderName: String, minecraftVersion: String): String =
+    "${prop("mod_name")} ${prop("mod_version")} (${modPublishLoaderDisplayName(loaderName)} $minecraftVersion)"
 
 fun Project.loadProperties(file: File): Map<String, String> {
     if (!file.isFile) {
@@ -335,6 +399,19 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
         description = "Publish all mod artifacts to Cozooo Nexus."
         dependsOn(stoneNodes.map { ":$it:publishMavenJavaPublicationToCozoooNexusRepository" })
     }
+
+    tasks.register("publishModPlatforms") {
+        group = "publishing"
+        description = "Publish all mod artifacts to configured mod platforms."
+        dependsOn(stoneNodes.map { ":$it:publishMods" })
+        doFirst {
+            val dryRun = booleanProp("mod_publish_dry_run", false) ||
+                (publishEnv("MOD_PUBLISH_DRY_RUN")?.toBooleanStrictOrNull() ?: false)
+            if (!dryRun && publishEnv("MODRINTH_TOKEN").isNullOrBlank() && publishEnv("CURSEFORGE_TOKEN").isNullOrBlank()) {
+                error("Set MODRINTH_TOKEN or CURSEFORGE_TOKEN, or use -Pmod_publish_dry_run=true.")
+            }
+        }
+    }
     }
 }
 
@@ -344,6 +421,10 @@ if (stoneNodes.contains(project.name)) {
     val minecraftVersion = stoneNodeMinecraftVersion(nodeName)
     val kotlinEnabled = booleanProp("enable_kotlin", true)
     val kotlinExcludeJavaCompile = kotlinEnabled && booleanProp("kotlin_exclude_java_compile", false)
+    val publishDryRun = booleanProp("mod_publish_dry_run", false) ||
+        (publishEnv("MOD_PUBLISH_DRY_RUN")?.toBooleanStrictOrNull() ?: false)
+    val modrinthToken = publishEnv("MODRINTH_TOKEN")
+    val curseforgeToken = publishEnv("CURSEFORGE_TOKEN")
 
     val nodeBuildDirName = if (kotlinEnabled) nodeName else "java-only/$nodeName"
     layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(nodeBuildDirName))
@@ -359,6 +440,8 @@ if (stoneNodes.contains(project.name)) {
 
     group = prop("mod_group")
     version = prop("mod_version")
+
+    pluginManager.apply("me.modmuss50.mod-publish-plugin")
 
     repositories {
         maven {
@@ -630,7 +713,7 @@ if (stoneNodes.contains(project.name)) {
                 val json = JsonSlurper().parse(outputFile) as MutableMap<String, Any?>
                 @Suppress("UNCHECKED_CAST")
                 val depends = json["depends"] as MutableMap<String, Any?>
-                depends["fabric-language-kotlin"] = ">=${prop("fabric_language_kotlin_version")}"
+                depends["fabric-language-kotlin"] = "*"
                 val patched = JsonOutput.prettyPrint(JsonOutput.toJson(json)) + "\n"
                 if (outputFile.readText() != patched) {
                     outputFile.writeText(patched)
@@ -809,6 +892,68 @@ if (stoneNodes.contains(project.name)) {
     tasks.named<RemapJarTask>("remapJar") {
         archiveFileName.set("DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar")
         destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+    }
+    tasks.named("publishMods") {
+        dependsOn("remapJar")
+    }
+
+    configure<ModPublishExtension> {
+        dryRun.set(publishDryRun)
+        file.set(tasks.named<RemapJarTask>("remapJar").flatMap { it.archiveFile })
+        version.set("${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion")
+        displayName.set(rootProject.modPublishDisplayName(loaderName, minecraftVersion))
+        changelog.set(rootProject.modPublishChangelog())
+        type.set(rootProject.modPublishReleaseType())
+        modLoaders.add(modPublishLoaderName(loaderName))
+
+        if (!modrinthToken.isNullOrBlank() || publishDryRun) {
+            modrinth {
+                accessToken.set(modrinthToken ?: "")
+                projectId.set(rootProject.prop("modrinth_project_id"))
+                version.set(rootProject.prop("mod_version"))
+                minecraftVersions.add(minecraftVersion)
+                environment.set(CLIENT_AND_SERVER)
+                when (loaderName) {
+                    "fabric" -> {
+                        requires("architectury-api", "fabric-language-kotlin")
+                        embeds("malilib")
+                    }
+                    "forge" -> {
+                        requires("architectury-api", "kotlin-for-forge")
+                        embeds("mafglib")
+                    }
+                    "neoforge" -> {
+                        requires("architectury-api", "kotlin-for-forge")
+                        embeds("mafglib")
+                    }
+                }
+            }
+        }
+
+        if (!curseforgeToken.isNullOrBlank() || publishDryRun) {
+            curseforge {
+                accessToken.set(curseforgeToken ?: "")
+                projectId.set(rootProject.prop("curseforge_project_id"))
+                minecraftVersions.add(minecraftVersion)
+                client.set(true)
+                server.set(true)
+                javaVersions.add(JavaVersion.toVersion(javaVersion))
+                when (loaderName) {
+                    "fabric" -> {
+                        requires("architectury-api", "fabric-language-kotlin")
+                        embeds("malilib")
+                    }
+                    "forge" -> {
+                        requires("architectury-api", "kotlin-for-forge")
+                        embeds("mafglib")
+                    }
+                    "neoforge" -> {
+                        requires("architectury-api", "kotlin-for-forge")
+                        embeds("mafglib")
+                    }
+                }
+            }
+        }
     }
 
     tasks.register<Sync>("exportObfClasspath") {
