@@ -7,6 +7,7 @@ import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
+import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
@@ -521,6 +522,7 @@ if (stoneNodes.contains(project.name)) {
                 "neoforge_minecraft_version_range" to optionalProp("neoforge_minecraft_version_range").orEmpty(),
                 "kotlin_for_forge_dependency" to kffDependencyText,
                 "mafglib_version_range" to optionalProp("mafglib_version_range").orEmpty(),
+                "malilib_version_range" to optionalProp("malilib_version_range").orEmpty(),
                 "malilib_version" to optionalProp("malilib_version").orEmpty(),
                 "pack_format" to prop("pack_format"),
             )
@@ -576,6 +578,14 @@ if (stoneNodes.contains(project.name)) {
         dependencies.add("include", notation)
     }
 
+    fun addNestedMod(notation: String) {
+        val dependency = dependencies.create(notation)
+        if (dependency is ModuleDependency) {
+            dependency.isTransitive = false
+        }
+        dependencies.add("include", dependency)
+    }
+
     fun forgeDeobfDependency(notation: String): Dependency {
         val obfuscatedConfiguration = configurations.maybeCreate("__obfuscated")
         val deobfuscator = net.minecraftforge.gradle.userdev.util.Deobfuscator(
@@ -600,7 +610,9 @@ if (stoneNodes.contains(project.name)) {
         add("modImplementation", architecturyDependency)
 
         if (loaderName == "fabric") {
-            add("modImplementation", "maven.modrinth:malilib:${prop("malilib_version")}")
+            val malilibDependency = "maven.modrinth:malilib:${prop("malilib_version")}"
+            add("modImplementation", malilibDependency)
+            addNestedMod(malilibDependency)
             if (kotlinEnabled) {
                 add("modImplementation", "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
             }
@@ -608,8 +620,10 @@ if (stoneNodes.contains(project.name)) {
         }
 
         if (loaderName == "forge") {
-            val mafglibDependency = forgeDeobfDependency("curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            val mafglibNotation = "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}"
+            val mafglibDependency = forgeDeobfDependency(mafglibNotation)
             add("compileOnly", mafglibDependency)
+            addNestedMod(mafglibNotation)
             if (kotlinEnabled) {
                 add("modImplementation", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}:all") {
@@ -620,8 +634,10 @@ if (stoneNodes.contains(project.name)) {
         }
 
         if (loaderName == "neoforge") {
-            val mafglibDependency = forgeDeobfDependency("curse.maven:mafglib-910766:${prop("mafglib_curse_file")}")
+            val mafglibNotation = "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}"
+            val mafglibDependency = forgeDeobfDependency(mafglibNotation)
             add("compileOnly", mafglibDependency)
+            addNestedMod(mafglibNotation)
             if (kotlinEnabled) {
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false

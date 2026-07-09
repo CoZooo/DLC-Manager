@@ -18,9 +18,7 @@
     "minecraft": "${mc_version_range}",
     "fabric-api": ">=${fabric_api_version_range}",
     "architectury": "*",
-    "java": ">=${java_version}"
-  },
-  "suggests": {
-    "malilib": ">=${malilib_version}"
+    "java": ">=${java_version}",
+    "malilib": "${malilib_version_range}"
   }
 }
