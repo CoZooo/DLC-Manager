@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.ui.common;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -47,7 +47,7 @@ public final class DlcFxI18n {
     }
 
     private static String currentLang() {
-        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
         return lang == null || lang.isBlank() ? FALLBACK_LANG : lang;
     }
 

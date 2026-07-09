@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.ui.common.DlcFxStyle;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerSession;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ReadOnlyObjectProperty;
@@ -93,7 +93,7 @@ public final class DlcFxServerConnection {
                         port,
                         password,
                         timeoutMs,
-                        CrossPlatformRuntime.languageCode(),
+                        DlcPlatformServices.languageCode(),
                         PLAYER_NAME,
                         PLAYER_UUID);
                 DlcServerInfo info = created.fetchList();

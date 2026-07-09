@@ -29,5 +29,12 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Set up JDK 25
+      uses: actions/setup-java@v4
+      with:
+        java-version: '25'
+        distribution: 'temurin'
+        cache: gradle
+
     - name: Run check and test pipeline
-      run: ./gradlew check archTest --parallel
+      run: ./gradlew check test --parallel

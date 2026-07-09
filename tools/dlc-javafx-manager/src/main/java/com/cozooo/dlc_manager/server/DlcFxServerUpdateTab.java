@@ -9,7 +9,7 @@ import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.ReleaseS
 import com.cozooo.dlc_manager.client.update.DlcUpdateMeta;
 import com.cozooo.dlc_manager.client.update.DlcUpdateRowPlanner;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.ui.common.DlcFxConfirmDialogs;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
@@ -717,6 +717,6 @@ public final class DlcFxServerUpdateTab {
     }
 
     private static String currentLang() {
-        return DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        return DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
     }
 }

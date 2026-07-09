@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerItem;
 import com.cozooo.dlc_manager.client.server.DlcServerPresetItem;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
 import com.cozooo.dlc_manager.ui.common.DlcFxModalOverlay;
 import com.cozooo.dlc_manager.ui.preset.DlcFxPresetFlow;
@@ -244,7 +244,7 @@ public final class DlcFxServerPresetTab {
     }
 
     private static String currentLang() {
-        String lang = CrossPlatformRuntime.languageCode();
+        String lang = DlcPlatformServices.languageCode();
         return lang == null || lang.isBlank() ? "en_us" : lang;
     }
 

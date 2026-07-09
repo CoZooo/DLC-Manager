@@ -52,6 +52,7 @@
   "dlc_manager.files.refresh": "刷新",
   "dlc_manager.files.remote_name": "远程名：",
   "dlc_manager.files.remote_name_prompt": "远程文件名（可选）",
+  "dlc_manager.files.search_prompt": "搜索当前目录文件...",
   "dlc_manager.files.select_or_enter_path": "请选择文件或输入路径",
   "dlc_manager.files.type_directory": "目录",
   "dlc_manager.files.type_file": "文件",

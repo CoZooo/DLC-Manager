@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.ui.common;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 
 import java.util.Map;
 
@@ -13,7 +13,7 @@ public final class DlcFxTooltipText {
         if (values == null || values.isEmpty()) {
             return "";
         }
-        String lang = DlcDcConfigIO.normalizeLangKey(CrossPlatformRuntime.languageCode());
+        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
         String value = lang == null ? null : values.get(lang);
         if (value == null || value.isBlank()) {
             value = values.get("en_us");
