@@ -1,15 +1,10 @@
 package com.cozooo.dlc_manager.gradle
 
-import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -170,35 +165,5 @@ abstract class GenerateDlcSourcesTask : DefaultTask() {
         copyProcessedTree(mainJavaDir.get().asFile, outputRoot.resolve("java"), loaderName.get(), minecraftVersion.get())
         copyProcessedTree(mainKotlinDir.get().asFile, outputRoot.resolve("kotlin"), loaderName.get(), minecraftVersion.get())
         copyProcessedTree(mainResourcesDir.get().asFile, outputRoot.resolve("resources"), loaderName.get(), minecraftVersion.get())
-    }
-}
-
-abstract class PatchFabricModJsonTask : DefaultTask() {
-    @get:InputFile
-    @get:Optional
-    @get:PathSensitive(PathSensitivity.NONE)
-    abstract val fabricModJson: RegularFileProperty
-
-    @get:Input
-    abstract val patchEnabled: Property<Boolean>
-
-    @get:Input
-    abstract val fabricLanguageKotlinVersion: Property<String>
-
-    @TaskAction
-    fun patch() {
-        if (!patchEnabled.get()) {
-            return
-        }
-        val outputFile = fabricModJson.asFile.orNull ?: return
-        if (!outputFile.exists()) {
-            return
-        }
-        @Suppress("UNCHECKED_CAST")
-        val json = JsonSlurper().parse(outputFile) as MutableMap<String, Any?>
-        @Suppress("UNCHECKED_CAST")
-        val depends = json["depends"] as MutableMap<String, Any?>
-        depends["fabric-language-kotlin"] = ">=${fabricLanguageKotlinVersion.get()}"
-        outputFile.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(json)) + "\n")
     }
 }

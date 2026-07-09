@@ -1,13 +1,15 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import com.cozooo.dlc_manager.gradle.GenerateDlcSourcesTask
-import com.cozooo.dlc_manager.gradle.PatchFabricModJsonTask
 import dev.kikugie.stonecutter.build.StonecutterBuildExtension
 import gg.meza.stonecraft.extension.ModSettingsExtension
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import net.fabricmc.loom.api.LoomGradleExtensionAPI
 import net.fabricmc.loom.task.RemapJarTask
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ModuleDependency
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.Copy
 import org.gradle.api.tasks.Delete
@@ -374,27 +376,143 @@ if (stoneNodes.contains(project.name)) {
             url = uri("https://libraries.minecraft.net")
             content {
                 includeGroup("org.lwjgl")
+                includeGroup("com.mojang")
             }
         }
-        maven("https://maven.cozozjw.cn/repository/maven-public/")
+        maven {
+            name = "Cozooo Maven"
+            url = uri("https://maven.cozozjw.cn/repository/maven-public/")
+            content {
+                includeGroup("com.cozooo.dlc_manager")
+            }
+        }
         maven {
             name = "ParchmentMC"
             url = uri("https://maven.parchmentmc.org")
+            content {
+                includeGroup("org.parchmentmc.data")
+            }
         }
-        maven("https://maven.architectury.dev/")
-        maven("https://maven.fabricmc.net/")
-        maven("https://maven.minecraftforge.net/")
-        maven("https://maven.neoforged.net/releases/")
+        maven {
+            name = "Architectury"
+            url = uri("https://maven.architectury.dev/")
+            content {
+                includeGroup("dev.architectury")
+            }
+        }
+        maven {
+            name = "Fabric"
+            url = uri("https://maven.fabricmc.net/")
+            content {
+                includeGroup("net.fabricmc")
+                includeGroup("net.fabricmc.fabric-api")
+            }
+        }
+        maven {
+            name = "Forge"
+            url = uri("https://maven.minecraftforge.net/")
+            content {
+                includeGroup("net.minecraftforge")
+                includeGroup("net.minecraftforge.gradle")
+                includeGroup("cpw.mods")
+            }
+        }
+        maven {
+            name = "NeoForge"
+            url = uri("https://maven.neoforged.net/releases/")
+            content {
+                includeGroupByRegex("net\\.neoforged(\\..*)?")
+                includeGroup("cpw.mods")
+                includeGroup("net.neoforged.gradle")
+            }
+        }
         if (kotlinEnabled) {
             maven {
                 name = "Kotlin for Forge"
                 url = uri("https://thedarkcolour.github.io/KotlinForForge/")
+                content {
+                    includeGroup("thedarkcolour")
+                }
             }
         }
-        maven("https://api.modrinth.com/maven")
-        maven("https://maven.terraformersmc.com")
-        maven("https://cursemaven.com")
+        maven {
+            name = "Modrinth"
+            url = uri("https://api.modrinth.com/maven")
+            content {
+                includeGroup("maven.modrinth")
+            }
+        }
+        maven {
+            name = "Terraformers"
+            url = uri("https://maven.terraformersmc.com")
+            content {
+                includeGroup("com.terraformersmc")
+            }
+        }
+        maven {
+            name = "CurseMaven"
+            url = uri("https://cursemaven.com")
+            content {
+                includeGroup("curse.maven")
+            }
+        }
         mavenCentral()
+    }
+    repositories.withType<MavenArtifactRepository>().configureEach {
+        when (url.toString().trimEnd('/')) {
+            "https://libraries.minecraft.net" -> content {
+                includeGroup("org.lwjgl")
+                includeGroup("com.mojang")
+            }
+            "https://maven.cozozjw.cn/repository/maven-public" -> content {
+                includeGroup("com.cozooo.dlc_manager")
+            }
+            "https://maven.parchmentmc.org" -> content {
+                includeGroup("org.parchmentmc.data")
+            }
+            "https://maven.architectury.dev" -> content {
+                includeGroup("dev.architectury")
+            }
+            "https://maven.fabricmc.net" -> content {
+                includeGroup("net.fabricmc")
+                includeGroup("net.fabricmc.fabric-api")
+            }
+            "https://maven.minecraftforge.net" -> content {
+                includeGroup("net.minecraftforge")
+                includeGroup("net.minecraftforge.gradle")
+                includeGroup("cpw.mods")
+            }
+            "https://maven.neoforged.net/releases" -> content {
+                includeGroupByRegex("net\\.neoforged(\\..*)?")
+                includeGroup("cpw.mods")
+                includeGroup("net.neoforged.gradle")
+            }
+            "https://thedarkcolour.github.io/KotlinForForge" -> content {
+                includeGroup("thedarkcolour")
+            }
+            "https://api.modrinth.com/maven" -> content {
+                includeGroup("maven.modrinth")
+            }
+            "https://maven.terraformersmc.com" -> content {
+                includeGroup("com.terraformersmc")
+            }
+            "https://cursemaven.com" -> content {
+                includeGroup("curse.maven")
+            }
+            "https://repo.maven.apache.org/maven2" -> content {
+                excludeGroup("com.cozooo.dlc_manager")
+                excludeGroup("curse.maven")
+                excludeGroup("dev.architectury")
+                excludeGroup("maven.modrinth")
+                excludeGroup("net.fabricmc")
+                excludeGroup("net.fabricmc.fabric-api")
+                excludeGroup("net.minecraftforge")
+                excludeGroup("net.neoforged")
+                excludeGroupByRegex("net\\.neoforged(\\..*)?")
+                excludeGroup("org.parchmentmc.data")
+                excludeGroup("thedarkcolour")
+            }
+        }
     }
 
     if (kotlinEnabled) {
@@ -493,7 +611,6 @@ if (stoneNodes.contains(project.name)) {
     } else {
         ""
     }
-
     configure<ModSettingsExtension> {
         runDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
         testClientRunDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
@@ -527,6 +644,27 @@ if (stoneNodes.contains(project.name)) {
                 "pack_format" to prop("pack_format"),
             )
         )
+    }
+
+    if (loaderName == "fabric" && kotlinEnabled) {
+        tasks.named<ProcessResources>("processResources") {
+            inputs.property("fabricLanguageKotlinVersion", prop("fabric_language_kotlin_version"))
+            doLast {
+                val outputFile = destinationDir.resolve("fabric.mod.json")
+                if (!outputFile.isFile) {
+                    return@doLast
+                }
+                @Suppress("UNCHECKED_CAST")
+                val json = JsonSlurper().parse(outputFile) as MutableMap<String, Any?>
+                @Suppress("UNCHECKED_CAST")
+                val depends = json["depends"] as MutableMap<String, Any?>
+                depends["fabric-language-kotlin"] = ">=${prop("fabric_language_kotlin_version")}"
+                val patched = JsonOutput.prettyPrint(JsonOutput.toJson(json)) + "\n"
+                if (outputFile.readText() != patched) {
+                    outputFile.writeText(patched)
+                }
+            }
+        }
     }
 
     afterEvaluate {
@@ -685,20 +823,6 @@ if (stoneNodes.contains(project.name)) {
                 maybeCreate("dlc_manager").sourceSet(extensions.getByType<SourceSetContainer>().named("main").get())
                 maybeCreate("kotlinforforge").modFiles.from(files(discoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
             }
-        }
-    }
-
-    if (loaderName == "fabric" && kotlinEnabled) {
-        val patchFabricModJson = tasks.register<PatchFabricModJsonTask>("patchFabricModJson") {
-            dependsOn(tasks.named("processResources"))
-            patchEnabled.set(true)
-            fabricLanguageKotlinVersion.set(prop("fabric_language_kotlin_version"))
-            fabricModJson.set(layout.buildDirectory.file("resources/main/fabric.mod.json"))
-        }
-        tasks.matching {
-            it.name in setOf("classes", "jar", "remapJar")
-        }.configureEach {
-            dependsOn(patchFabricModJson)
         }
     }
 

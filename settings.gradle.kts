@@ -50,6 +50,15 @@ fun isRootRunTaskRequest(): Boolean =
             taskName == ":runServer"
     }
 
+fun requestedStoneNodes(allVersionNodes: List<String>): List<String> {
+    val requestedNodes = gradle.startParameter.taskNames.mapNotNull { taskName ->
+        val normalized = taskName.removePrefix(":")
+        val firstSegment = normalized.substringBefore(":")
+        firstSegment.takeIf(allVersionNodes::contains)
+    }.distinct()
+    return requestedNodes
+}
+
 gradle.beforeProject {
     if (Regex("""\d+\.\d+\.\d+-.+""").matches(name)) {
         val javaOnly = providers.gradleProperty("enable_kotlin")
@@ -72,17 +81,20 @@ stonecutter {
             ?: emptyList()
         val vcsNode = "1.20.1-forge"
         val activeNode = discoverActiveStoneNode(vcsNode)
-        val versionNodes = if (isRootRunTaskRequest()) {
-            listOf(activeNode).filter(allVersionNodes::contains)
-        } else {
-            allVersionNodes
+        val requestedNodes = requestedStoneNodes(allVersionNodes)
+        val versionNodes = when {
+            requestedNodes.isNotEmpty() -> (requestedNodes + activeNode).distinct().filter(allVersionNodes::contains)
+            isRootRunTaskRequest() -> listOf(activeNode).filter(allVersionNodes::contains)
+            else -> allVersionNodes
         }
 
         versionNodes.forEach { node ->
             version(node, node.substringBeforeLast('-'))
         }
 
-        vcsVersion = activeNode
+        vcsVersion = versionNodes.firstOrNull { it == activeNode }
+            ?: versionNodes.firstOrNull()
+            ?: activeNode
     }
 
     create(rootProject)
