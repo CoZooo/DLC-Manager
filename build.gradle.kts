@@ -753,6 +753,13 @@ if (stoneNodes.contains(project.name)) {
         maybeCreate("embedded")
         if (loaderName == "fabric") {
             maybeCreate("obfLib")
+            named("modApi") {
+                dependencies.removeIf {
+                    it.group == "net.fabricmc.fabric-api" &&
+                        it.name == "fabric-gametest-api-v1" &&
+                        it.version == prop("fabric_version")
+                }
+            }
         }
         if ((loaderName == "forge" || loaderName == "neoforge") && kotlinEnabled) {
             maybeCreate("kotlinForForgeModDiscovery")
@@ -763,7 +770,6 @@ if (stoneNodes.contains(project.name)) {
             }
         }
     }
-
     configureLocalDevMods(loaderName, minecraftVersion)
 
     fun addEmbedded(notation: String) {
