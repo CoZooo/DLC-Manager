@@ -2,8 +2,6 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
         mavenCentral()
-        maven("https://maven.meza.gg/releases")
-        maven("https://maven.meza.gg/snapshots")
         maven("https://maven.kikugie.dev/releases")
         maven("https://maven.kikugie.dev/snapshots")
         maven("https://maven.minecraftforge.net")
