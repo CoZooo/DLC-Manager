@@ -1,5 +1,4 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-import com.cozooo.dlc_manager.gradle.GenerateDlcSourcesTask
 import dev.kikugie.stonecutter.build.StonecutterBuildExtension
 import gg.meza.stonecraft.extension.ModSettingsExtension
 import groovy.json.JsonOutput
@@ -47,7 +46,6 @@ buildscript {
 }
 
 plugins {
-    id("com.cozooo.dlc-manager.build-logic")
     id("gg.meza.stonecraft") apply false
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") apply false
@@ -357,14 +355,6 @@ if (stoneNodes.contains(project.name)) {
         extensions.extraProperties[key] = value
     }
 
-    configure<StonecutterBuildExtension> {
-        filters.exclude(
-            "**/*.json",
-            "**/*.mcmeta",
-            "**/*.png",
-        )
-    }
-
     val javaVersion = prop("java_version").toInt()
 
     group = prop("mod_group")
@@ -544,48 +534,30 @@ if (stoneNodes.contains(project.name)) {
         notCompatibleWithConfigurationCache("StoneCraft 1.12.4 processResources actions capture Project.")
     }
 
-    val generatedMainDir = layout.buildDirectory.dir("generated/dlc/main")
-    val mainJava = rootProject.file("src/main/java")
-    val mainKotlin = rootProject.file("src/main/kotlin")
-    val mainResources = rootProject.file("src/main/resources")
-    val testJava = rootProject.file("src/test/java")
-    val testResources = rootProject.file("src/test/resources")
-
-    val generateDlcSources = tasks.register<GenerateDlcSourcesTask>("generateDlcSources") {
-        mainJavaDir.set(mainJava)
-        mainKotlinDir.set(mainKotlin)
-        mainResourcesDir.set(mainResources)
-        this.loaderName.set(loaderName)
-        this.minecraftVersion.set(minecraftVersion)
-        outputDir.set(generatedMainDir)
-    }
-
-    extensions.configure<SourceSetContainer> {
-        named("main") {
-            java.setSrcDirs(if (kotlinExcludeJavaCompile) emptyList<File>() else listOf(generatedMainDir.map { it.dir("java") }))
-            resources.setSrcDirs(listOf(generatedMainDir.map { it.dir("resources") }))
-        }
-        named("test") {
-            java.setSrcDirs(listOf(testJava))
-            resources.setSrcDirs(listOf(testResources))
-        }
-    }
-
     if (kotlinEnabled) {
+        val stonecutterBuild = extensions.getByType<StonecutterBuildExtension>()
         extensions.configure<KotlinJvmProjectExtension> {
             sourceSets.named("main") {
-                kotlin.setSrcDirs(listOf(generatedMainDir.map { it.dir("kotlin") }))
+                kotlin.setSrcDirs(
+                    if (stonecutterBuild.current.isActive) {
+                        listOf(rootProject.file("src/main/kotlin"))
+                    } else {
+                        listOf(stonecutterBuild.tasks.generatedSourcesDir.dir("main/kotlin"))
+                    }
+                )
             }
         }
-    }
-
-    tasks.matching {
-        it.name in setOf("compileJava", "compileKotlin", "processResources", "jar", "remapJar")
-    }.configureEach {
-        dependsOn(generateDlcSources)
+        tasks.named("compileKotlin") {
+            dependsOn("stonecutterGenerate")
+        }
     }
 
     if (kotlinExcludeJavaCompile) {
+        extensions.configure<SourceSetContainer> {
+            named("main") {
+                java.setSrcDirs(emptyList<File>())
+            }
+        }
         tasks.named<JavaCompile>("compileJava") {
             enabled = false
             setDependsOn(emptyList<Any>())
