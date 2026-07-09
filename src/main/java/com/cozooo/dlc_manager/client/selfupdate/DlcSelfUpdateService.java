@@ -28,6 +28,10 @@ public final class DlcSelfUpdateService {
     public static final String MOD_ID = "dlc_manager";
     public static final String PROJECT_ID = "1424546";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Pattern DISPLAY_NAME_VERSION_PATTERN = Pattern.compile(
+        "\\bDLC\\s+Manager\\s+(\\d+\\.\\d+(?:\\.\\d+)?)\\b",
+        Pattern.CASE_INSENSITIVE
+    );
     private static final Pattern VERSION_PATTERN_3 = Pattern.compile("(\\d+\\.\\d+\\.\\d+)");
     private static final Pattern VERSION_PATTERN_2 = Pattern.compile("(\\d+\\.\\d+)");
 
@@ -532,14 +536,26 @@ public final class DlcSelfUpdateService {
     }
 
     private static String extractVersion(String displayName, String fileName) {
+        return extractPublishedVersion(displayName, fileName);
+    }
+
+    static String extractPublishedVersion(String displayName, String fileName) {
         String candidate = null;
         if (fileName != null) {
             candidate = matchVersion(fileName);
         }
         if ((candidate == null || candidate.isBlank()) && displayName != null) {
-            candidate = matchVersion(displayName);
+            candidate = matchDisplayNameVersion(displayName);
         }
         return candidate;
+    }
+
+    private static String matchDisplayNameVersion(String displayName) {
+        String explicit = matchFirstVersionByPattern(displayName, DISPLAY_NAME_VERSION_PATTERN);
+        if (explicit != null && !explicit.isBlank()) {
+            return explicit;
+        }
+        return matchVersion(displayName);
     }
 
     private static String matchVersion(String source) {
@@ -560,6 +576,14 @@ public final class DlcSelfUpdateService {
             last = matcher.group(1);
         }
         return last;
+    }
+
+    private static String matchFirstVersionByPattern(String source, Pattern pattern) {
+        if (source == null || source.isBlank()) {
+            return null;
+        }
+        Matcher matcher = pattern.matcher(source);
+        return matcher.find() ? matcher.group(1) : null;
     }
 
     public static final class SelfUpdateResult {

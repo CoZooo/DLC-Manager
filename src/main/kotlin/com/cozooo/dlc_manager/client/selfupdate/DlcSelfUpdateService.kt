@@ -27,6 +27,10 @@ object DlcSelfUpdateService {
     const val MOD_ID: String = "dlc_manager"
     const val PROJECT_ID: String = "1424546"
     private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
+    private val DISPLAY_NAME_VERSION_PATTERN: Pattern = Pattern.compile(
+        "\\bDLC\\s+Manager\\s+(\\d+\\.\\d+(?:\\.\\d+)?)\\b",
+        Pattern.CASE_INSENSITIVE
+    )
     private val VERSION_PATTERN_3: Pattern = Pattern.compile("(\\d+\\.\\d+\\.\\d+)")
     private val VERSION_PATTERN_2: Pattern = Pattern.compile("(\\d+\\.\\d+)")
 
@@ -510,14 +514,27 @@ object DlcSelfUpdateService {
     }
 
     private fun extractVersion(displayName: String?, fileName: String?): String? {
+        return extractPublishedVersion(displayName, fileName)
+    }
+
+    @JvmStatic
+    fun extractPublishedVersion(displayName: String?, fileName: String?): String? {
         var candidate: String? = null
         if (fileName != null) {
             candidate = matchVersion(fileName)
         }
         if (candidate.isNullOrBlank() && displayName != null) {
-            candidate = matchVersion(displayName)
+            candidate = matchDisplayNameVersion(displayName)
         }
         return candidate
+    }
+
+    private fun matchDisplayNameVersion(displayName: String?): String? {
+        val explicit = matchFirstVersionByPattern(displayName, DISPLAY_NAME_VERSION_PATTERN)
+        if (!explicit.isNullOrBlank()) {
+            return explicit
+        }
+        return matchVersion(displayName)
     }
 
     private fun matchVersion(source: String?): String? {
@@ -538,6 +555,14 @@ object DlcSelfUpdateService {
             last = matcher.group(1)
         }
         return last
+    }
+
+    private fun matchFirstVersionByPattern(source: String?, pattern: Pattern): String? {
+        if (source.isNullOrBlank()) {
+            return null
+        }
+        val matcher = pattern.matcher(source)
+        return if (matcher.find()) matcher.group(1) else null
     }
 
     class SelfUpdateResult {
