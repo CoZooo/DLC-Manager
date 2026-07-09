@@ -14,7 +14,7 @@ pluginManagement {
     }
     plugins {
         id("gg.meza.stonecraft") version "1.12.4"
-        id("dev.kikugie.stonecutter") version "0.9.6"
+        id("dev.kikugie.stonecutter") version "0.10-alpha.3"
         id("com.gradleup.shadow") version "8.3.11"
         id("org.jetbrains.kotlin.jvm") version "2.2.20"
         id("me.modmuss50.mod-publish-plugin") version "2.1.1"

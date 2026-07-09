@@ -146,8 +146,10 @@ sourceSets {
     }
 }
 
+val javafxRuntimeVersion = "25.0.3"
+
 javafx {
-    version = "21"
+    version = javafxRuntimeVersion
     modules = listOf("javafx.controls", "javafx.fxml", "javafx.graphics")
 }
 
@@ -157,7 +159,6 @@ data class JavaFxFatJarPlatform(
     val label: String,
 )
 
-val javafxRuntimeVersion = "21"
 val javafxRuntimeModules = listOf("javafx-base", "javafx-graphics", "javafx-controls", "javafx-fxml")
 val javafxFatJarPlatforms = mapOf(
     "win" to JavaFxFatJarPlatform("win", "windows", "Windows"),
@@ -199,6 +200,18 @@ application {
     mainClass.set("com.cozooo.dlc_manager.app.DlcFxLauncher")
 }
 
+val appJvmArgs = mutableListOf("-Dfile.encoding=UTF-8")
+if (Runtime.version().feature() >= 24) {
+    appJvmArgs += "--sun-misc-unsafe-memory-access=allow"
+}
+val classpathJvmArgs = appJvmArgs + listOf("--enable-native-access=ALL-UNNAMED")
+val moduleJvmArgs = appJvmArgs + listOf("--enable-native-access=javafx.graphics")
+val hybridJvmArgs = appJvmArgs + listOf("--enable-native-access=javafx.graphics,ALL-UNNAMED")
+
+application {
+    applicationDefaultJvmArgs = classpathJvmArgs
+}
+
 distributions {
     main {
         contents {
@@ -211,6 +224,7 @@ distributions {
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+    jvmArgs(classpathJvmArgs)
 }
 
 tasks.named<JavaCompile>("compileJava") {
@@ -272,14 +286,8 @@ fun registerPlatformFatJar(
     }
 }
 
-val appJvmArgs = mutableListOf("-Dfile.encoding=UTF-8")
-if (Runtime.version().feature() >= 24) {
-    appJvmArgs += "--enable-native-access=javafx.graphics"
-    appJvmArgs += "--sun-misc-unsafe-memory-access=allow"
-}
-
 tasks.named<JavaExec>("run") {
-    jvmArgs(appJvmArgs)
+    jvmArgs(hybridJvmArgs)
 }
 
 fun jpackageBin(): File {
@@ -358,7 +366,7 @@ tasks.register<Exec>("jpackageImage") {
         "--module-path", appDir.resolve("lib").toString(),
         "--add-modules", "javafx.controls,javafx.fxml,javafx.graphics,java.desktop",
     )
-    appJvmArgs.forEach { option ->
+    moduleJvmArgs.forEach { option ->
         args("--java-options", option)
     }
     if (isMacOs) {
