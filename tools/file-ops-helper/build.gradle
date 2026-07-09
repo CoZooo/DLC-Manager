@@ -3,8 +3,14 @@ plugins {
     id 'maven-publish'
 }
 
-group = providers.gradleProperty('mod_group').get()
+def HELPER_MOD_ID = 'dlc_fileops_helper'
+def HELPER_MOD_NAME = 'DLC FileOps Helper'
+def HELPER_MOD_GROUP = 'com.cozooo.dlc_manager'
+def HELPER_MOD_AUTHOR = 'CoZooo'
+
+group = HELPER_MOD_GROUP
 version = providers.gradleProperty('mod_version').get()
+description = HELPER_MOD_NAME
 
 base {
     archivesName = 'dlc-fileops-helper'
@@ -50,6 +56,17 @@ tasks.register('helperClean') {
     dependsOn(tasks.named('clean'))
 }
 
+tasks.named('jar') {
+    manifest {
+        attributes(
+            'Implementation-Title': HELPER_MOD_NAME,
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': HELPER_MOD_AUTHOR,
+            'DLC-Helper-Mod-Id': HELPER_MOD_ID,
+        )
+    }
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
@@ -57,6 +74,15 @@ publishing {
             groupId = project.group
             artifactId = 'dlc-fileops-helper'
             version = project.version
+            pom {
+                name = HELPER_MOD_NAME
+                developers {
+                    developer {
+                        id = HELPER_MOD_AUTHOR
+                        name = HELPER_MOD_AUTHOR
+                    }
+                }
+            }
         }
     }
 
