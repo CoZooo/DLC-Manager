@@ -9,6 +9,7 @@ import org.gradle.api.tasks.bundling.Zip
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.api.tasks.JavaExec
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 import java.util.Locale
 import java.util.Properties
 
@@ -200,8 +201,13 @@ application {
     mainClass.set("com.cozooo.dlc_manager.app.DlcFxLauncher")
 }
 
+val javafxRuntimeJdkVersion = 25
+val jpackageLauncher = javaToolchains.launcherFor {
+    languageVersion.set(JavaLanguageVersion.of(javafxRuntimeJdkVersion))
+}
+
 val appJvmArgs = mutableListOf("-Dfile.encoding=UTF-8")
-if (Runtime.version().feature() >= 24) {
+if (javafxRuntimeJdkVersion >= 24) {
     appJvmArgs += "--sun-misc-unsafe-memory-access=allow"
 }
 val classpathJvmArgs = appJvmArgs + listOf("--enable-native-access=ALL-UNNAMED")
@@ -291,12 +297,13 @@ tasks.named<JavaExec>("run") {
 }
 
 fun jpackageBin(): File {
-    val home = System.getenv("JAVA_HOME") ?: System.getProperty("java.home")
-    var cmd = file("$home/bin/jpackage")
-    if (!cmd.exists()) {
-        cmd = file("$home/bin/jpackage.exe")
+    val binDir = jpackageLauncher.get().executablePath.asFile.parentFile
+    val executableName = if (System.getProperty("os.name", "").lowercase(Locale.ROOT).contains("windows")) {
+        "jpackage.exe"
+    } else {
+        "jpackage"
     }
-    return cmd
+    return binDir.resolve(executableName)
 }
 
 val appIconPngFile = file("src/main/resources/assets/dlc_manager/textures/gui/icon.png")
@@ -336,7 +343,7 @@ tasks.register<Exec>("jpackageImage") {
 
     val cmd = jpackageBin()
     if (!cmd.exists()) {
-        throw GradleException("jpackage not found. Set JAVA_HOME to JDK 17+.")
+        throw GradleException("jpackage not found. Install JDK $javafxRuntimeJdkVersion+ or configure Gradle toolchains.")
     }
     val appDir = layout.buildDirectory.dir("install/${project.name}").get().asFile
     val mainJarName = tasks.named<Jar>("jar").get().archiveFileName.get()
