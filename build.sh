@@ -116,6 +116,9 @@ case "${MODE}" in
   helperPublish)
     TASKS=(helperPublish)
     ;;
+  helperPublishCentral)
+    TASKS=(helperPublishCentral)
+    ;;
   build)
     TASKS=(build)
     ;;
@@ -157,7 +160,7 @@ case "${MODE}" in
     exit 0
     ;;
   *)
-    echo "Usage: ./build.sh [build|test|obfuscate|buildObf|check|archBuild|archCheck|publish|publishMaven|archPublish|archPublishMaven|all|export|helperBuild|helperCheck|helperClean|helperPublish]"
+    echo "Usage: ./build.sh [build|test|obfuscate|buildObf|check|archBuild|archCheck|publish|publishMaven|archPublish|archPublishMaven|all|export|helperBuild|helperCheck|helperClean|helperPublish|helperPublishCentral]"
     exit 1
     ;;
 esac

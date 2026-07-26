@@ -17,7 +17,7 @@ case "${MODE}" in
     TASK="helperClean"
     ;;
   publish)
-    TASK="publish"
+    TASK="publishToMavenCentral"
     ;;
   *)
     echo "Usage: ./tools/file-ops-helper/build.sh [build|check|clean|publish]"

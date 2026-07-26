@@ -8,7 +8,6 @@ pluginManagement {
         maven("https://maven.neoforged.net/releases")
         maven("https://maven.architectury.dev/")
         maven("https://maven.fabricmc.net")
-        maven("https://maven.cozozjw.cn/repository/maven-public/")
     }
     plugins {
         id("gg.meza.stonecraft") version "1.12.4"

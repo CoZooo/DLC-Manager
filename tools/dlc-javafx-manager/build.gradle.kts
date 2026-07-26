@@ -182,7 +182,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.commonmark:commonmark:0.21.0")
     implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
-    implementation("com.cozooo.dlc_manager:dlc-fileops-helper:$fileOpsHelperVersion")
+    implementation("com.cozooo.dlc_manager:dlc_fileops_helper:$fileOpsHelperVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

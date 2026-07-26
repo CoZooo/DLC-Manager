@@ -1,6 +1,6 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
+    id 'com.vanniktech.maven.publish' version '0.37.0'
 }
 
 def HELPER_MOD_ID = 'dlc_fileops_helper'
@@ -31,9 +31,6 @@ sourceSets {
 
 repositories {
     mavenCentral()
-    maven {
-        url = uri('https://maven.cozozjw.cn/repository/maven-public/')
-    }
 }
 
 dependencies {
@@ -67,37 +64,42 @@ tasks.named('jar') {
     }
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-            groupId = project.group
-            artifactId = 'dlc-fileops-helper'
-            version = project.version
-            pom {
-                name = HELPER_MOD_NAME
-                developers {
-                    developer {
-                        id = HELPER_MOD_AUTHOR
-                        name = HELPER_MOD_AUTHOR
-                    }
-                }
+mavenPublishing {
+    coordinates(HELPER_MOD_GROUP, 'dlc_fileops_helper', providers.gradleProperty('mod_version').get())
+
+    publishToMavenCentral()
+    signAllPublications()
+
+    pom {
+        name = HELPER_MOD_NAME
+        description = 'File operation helper for DLC Manager.'
+        url = 'https://github.com/CoZooo/DLC-Manager'
+        licenses {
+            license {
+                name = 'All Rights Reserved'
+                distribution = 'repo'
             }
         }
-    }
-
-    repositories {
-        def mavenUsername = findProperty('mavenUsername') ?: System.getenv('MAVEN_USERNAME')
-        def mavenPassword = findProperty('mavenPassword') ?: System.getenv('MAVEN_PASSWORD')
-        if (mavenUsername && mavenPassword) {
-            maven {
-                name = 'CozoooNexus'
-                url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
-                credentials {
-                    username = mavenUsername
-                    password = mavenPassword
-                }
+        developers {
+            developer {
+                id = HELPER_MOD_AUTHOR
+                name = HELPER_MOD_AUTHOR
             }
+        }
+        scm {
+            connection = 'scm:git:git://github.com/CoZooo/DLC-Manager.git'
+            developerConnection = 'scm:git:ssh://git@github.com/CoZooo/DLC-Manager.git'
+            url = 'https://github.com/CoZooo/DLC-Manager'
         }
     }
 }
+
+// Temporarily disabled while publishing through Maven Central Portal.
+// publishing {
+//     repositories {
+//         maven {
+//             name = 'CozoooNexus'
+//             url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
+//         }
+//     }
+// }

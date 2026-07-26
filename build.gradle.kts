@@ -379,9 +379,14 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
     }
     tasks.register<GradleBuild>("helperPublish") {
         group = "publishing"
-        description = "Publish helper library to configured Maven repository."
+        description = "Publish helper library to Maven Central Portal."
         dir = file("tools/file-ops-helper")
-        tasks = listOf("publish")
+        tasks = listOf("publishToMavenCentral")
+    }
+    tasks.register("helperPublishCentral") {
+        group = "publishing"
+        description = "Publish helper library to Maven Central Portal."
+        dependsOn("helperPublish")
     }
 
     registerIncludedBuildTask("javafxManagerBuild", "build", "Build the JavaFX DLC Manager desktop application.", "dlcJavafxManager", ":build")
@@ -450,13 +455,6 @@ if (stoneNodes.contains(project.name)) {
             content {
                 includeGroup("org.lwjgl")
                 includeGroup("com.mojang")
-            }
-        }
-        maven {
-            name = "Cozooo Maven"
-            url = uri("https://maven.cozozjw.cn/repository/maven-public/")
-            content {
-                includeGroup("com.cozooo.dlc_manager")
             }
         }
         maven {
@@ -536,9 +534,6 @@ if (stoneNodes.contains(project.name)) {
             "https://libraries.minecraft.net" -> content {
                 includeGroup("org.lwjgl")
                 includeGroup("com.mojang")
-            }
-            "https://maven.cozozjw.cn/repository/maven-public" -> content {
-                includeGroup("com.cozooo.dlc_manager")
             }
             "https://maven.parchmentmc.org" -> content {
                 includeGroup("org.parchmentmc.data")
@@ -851,12 +846,12 @@ if (stoneNodes.contains(project.name)) {
             add("modRuntimeOnly", mafglibDependency)
         }
 
-        addEmbedded("com.cozooo.dlc_manager:dlc-fileops-helper:${prop("file_ops_helper_version")}")
+        addEmbedded("com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
         addEmbedded("org.commonmark:commonmark:0.21.0")
         addEmbedded("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
 
         if (loaderName == "forge" || loaderName == "neoforge") {
-            add("forgeRuntimeLibrary", "com.cozooo.dlc_manager:dlc-fileops-helper:${prop("file_ops_helper_version")}")
+            add("forgeRuntimeLibrary", "com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark:0.21.0")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
         }
