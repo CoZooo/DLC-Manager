@@ -806,6 +806,21 @@ if (stoneNodes.contains(project.name)) {
         add("testRuntimeOnly", "org.junit.platform:junit-platform-launcher")
     }
 
+    if (loaderName == "forge" || loaderName == "neoforge") {
+        val mainSourceSet = extensions.getByType<SourceSetContainer>().named("main").get()
+        extensions.configure<LoomGradleExtensionAPI> {
+            runs.configureEach {
+                mods {
+                    maybeCreate(prop("mod_id")).apply {
+                        // Override automatic IDE paths with Gradle's expanded metadata.
+                        modFiles.setFrom(mainSourceSet.output)
+                        mainSourceSet.output.resourcesDir?.let { mainResourceDirectory.set(it) }
+                    }
+                }
+            }
+        }
+    }
+
     if ((loaderName == "forge" || loaderName == "neoforge") && kotlinEnabled) {
         val discoveryJarName = if (loaderName == "forge") "kotlinforforge-all.jar" else "kotlinforforge-neoforge.jar"
         val discoveryJar = layout.buildDirectory.file("kotlinForForgeModDiscovery/$discoveryJarName")
@@ -820,9 +835,10 @@ if (stoneNodes.contains(project.name)) {
             dependsOn(prepareKotlinForForgeModDiscovery)
         }
         extensions.configure<LoomGradleExtensionAPI> {
-            mods {
-                maybeCreate("dlc_manager").sourceSet(extensions.getByType<SourceSetContainer>().named("main").get())
-                maybeCreate("kotlinforforge").modFiles.from(files(discoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
+            runs.configureEach {
+                mods {
+                    maybeCreate("kotlinforforge").modFiles.from(files(discoveryJar).builtBy(prepareKotlinForForgeModDiscovery))
+                }
             }
         }
     }
