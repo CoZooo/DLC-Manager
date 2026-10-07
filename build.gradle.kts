@@ -424,6 +424,13 @@ if (stoneNodes.contains(project.name)) {
 
     repositories {
         maven {
+            name = "ApricityUI"
+            url = uri("https://maven.sighs.cc/repository/maven-public/")
+            content {
+                includeGroup("com.sighs")
+            }
+        }
+        maven {
             name = "Minecraft Libraries"
             url = uri("https://libraries.minecraft.net")
             content {
@@ -656,6 +663,7 @@ if (stoneNodes.contains(project.name)) {
                 "mafglib_version_range" to optionalProp("mafglib_version_range").orEmpty(),
                 "malilib_version_range" to optionalProp("malilib_version_range").orEmpty(),
                 "malilib_version" to optionalProp("malilib_version").orEmpty(),
+                "apricity_ui_version" to prop("apricity_ui_version"),
                 "pack_format" to prop("pack_format"),
             )
         )
@@ -747,6 +755,9 @@ if (stoneNodes.contains(project.name)) {
             else -> error("Unsupported loader: $loaderName")
         }
         add("modImplementation", architecturyDependency)
+
+        val apricityDependency = "com.sighs:ApricityUI-$loaderName-$minecraftVersion:${prop("apricity_ui_version")}"
+        add("modImplementation", apricityDependency)
 
         if (loaderName == "fabric") {
             val malilibDependency = "maven.modrinth:malilib:${prop("malilib_version")}"
@@ -879,14 +890,17 @@ if (stoneNodes.contains(project.name)) {
                     "fabric" -> {
                         requires("architectury-api", "fabric-language-kotlin")
                         embeds("malilib")
+                        requires("apricityui")
                     }
                     "forge" -> {
                         requires("architectury-api", "kotlin-for-forge")
                         embeds("mafglib")
+                        requires("apricityui")
                     }
                     "neoforge" -> {
                         requires("architectury-api", "kotlin-for-forge")
                         embeds("mafglib")
+                        requires("apricityui")
                     }
                 }
             }
@@ -904,14 +918,17 @@ if (stoneNodes.contains(project.name)) {
                     "fabric" -> {
                         requires("architectury-api", "fabric-language-kotlin")
                         embeds("malilib")
+                        requires("apricityui")
                     }
                     "forge" -> {
                         requires("architectury-api", "kotlin-for-forge")
                         embeds("mafglib")
+                        requires("apricityui")
                     }
                     "neoforge" -> {
                         requires("architectury-api", "kotlin-for-forge")
                         embeds("mafglib")
+                        requires("apricityui")
                     }
                 }
             }

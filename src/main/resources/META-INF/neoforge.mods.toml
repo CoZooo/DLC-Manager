@@ -45,3 +45,10 @@ mandatory=true
 versionRange="${mafglib_version_range}"
 ordering="NONE"
 side="CLIENT"
+
+[[dependencies.${mod_id}]]
+modId="apricityui"
+type="required"
+versionRange="[${apricity_ui_version},)"
+ordering="AFTER"
+side="CLIENT"
