@@ -93,13 +93,3 @@ mavenPublishing {
         }
     }
 }
-
-// Temporarily disabled while publishing through Maven Central Portal.
-// publishing {
-//     repositories {
-//         maven {
-//             name = 'CozoooNexus'
-//             url = uri('https://maven.cozozjw.cn/repository/maven-releases/')
-//         }
-//     }
-// }

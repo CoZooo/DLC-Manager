@@ -399,12 +399,6 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
     registerIncludedBuildTask("javafxManagerJarMacAarch64", "distribution", "Build the JavaFX DLC Manager runnable jar for macOS aarch64.", "dlcJavafxManager", ":jarMacAarch64")
     registerIncludedBuildTask("javafxManagerJarAll", "distribution", "Build the JavaFX DLC Manager runnable jars for all supported platforms.", "dlcJavafxManager", ":jarAll")
 
-    tasks.register("publishMaven") {
-        group = "publishing"
-        description = "Publish all mod artifacts to Cozooo Nexus."
-        dependsOn(stoneNodes.map { ":$it:publishMavenJavaPublicationToCozoooNexusRepository" })
-    }
-
     tasks.register("publishModPlatforms") {
         group = "publishing"
         description = "Publish all mod artifacts to configured mod platforms."
@@ -568,7 +562,6 @@ if (stoneNodes.contains(project.name)) {
                 includeGroup("curse.maven")
             }
             "https://repo.maven.apache.org/maven2" -> content {
-                excludeGroup("com.cozooo.dlc_manager")
                 excludeGroup("curse.maven")
                 excludeGroup("dev.architectury")
                 excludeGroup("maven.modrinth")
@@ -980,20 +973,6 @@ if (stoneNodes.contains(project.name)) {
                 groupId = rootProject.prop("mod_group")
                 artifactId = "$loaderName-$minecraftVersion"
                 version = rootProject.prop("mod_version")
-            }
-        }
-        repositories {
-            val mavenUsername = findProperty("mavenUsername")?.toString() ?: System.getenv("MAVEN_USERNAME")
-            val mavenPassword = findProperty("mavenPassword")?.toString() ?: System.getenv("MAVEN_PASSWORD")
-            if (!mavenUsername.isNullOrBlank() && !mavenPassword.isNullOrBlank()) {
-                maven {
-                    name = "CozoooNexus"
-                    url = uri("https://maven.cozozjw.cn/repository/maven-releases/")
-                    credentials {
-                        username = mavenUsername
-                        password = mavenPassword
-                    }
-                }
             }
         }
     }
