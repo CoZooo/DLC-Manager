@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -23,6 +24,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 public final class DlcServerSession implements AutoCloseable {
     private static final Gson GSON = new Gson();
@@ -39,33 +42,48 @@ public final class DlcServerSession implements AutoCloseable {
     }
 
     public static DlcServerSession connect(DlcServerEntry entry, int timeoutMs) throws IOException {
+        return connect(entry, timeoutMs, connection -> {});
+    }
+
+    public static DlcServerSession connect(DlcServerEntry entry, int timeoutMs,
+                                           Consumer<AutoCloseable> connectionOpened) throws IOException {
         if (entry == null) {
             throw new IOException("missing server entry");
         }
         return connect(entry.host, entry.port, entry.password, timeoutMs,
-                DlcPlatformServices.languageCode(), DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid());
+                DlcPlatformServices.languageCode(), DlcPlatformServices.playerName(), DlcPlatformServices.playerUuid(),
+                connectionOpened);
     }
 
     public static DlcServerSession connect(String host, int port, String password, int timeoutMs,
                                            String lang, String player, String uuid) throws IOException {
+        return connect(host, port, password, timeoutMs, lang, player, uuid, connection -> {});
+    }
+
+    private static DlcServerSession connect(String host, int port, String password, int timeoutMs,
+                                             String lang, String player, String uuid,
+                                             Consumer<AutoCloseable> connectionOpened) throws IOException {
         Socket socket = new Socket();
-        String actualHost = host == null ? "" : host;
-        socket.connect(new InetSocketAddress(actualHost, port), timeoutMs);
-        socket.setSoTimeout(timeoutMs);
-        DlcServerSession session = new DlcServerSession(socket);
         try {
+            if (connectionOpened != null) {
+                connectionOpened.accept(socket);
+            }
+            String actualHost = host == null ? "" : host;
+            socket.connect(new InetSocketAddress(actualHost, port), timeoutMs);
+            socket.setSoTimeout(timeoutMs);
+            DlcServerSession session = new DlcServerSession(socket);
             session.hello(password, lang, player, uuid);
             return session;
         } catch (IOException | RuntimeException error) {
             try {
-                session.close();
+                socket.close();
             } catch (IOException ignored) {
             }
             throw error;
         }
     }
 
-    public DlcServerInfo fetchList() throws IOException {
+    public synchronized DlcServerInfo fetchList() throws IOException {
         JsonObject response = request("list", null);
         if (!"list".equals(string(response, "type"))) {
             throw new IOException("invalid list response");
@@ -127,8 +145,15 @@ public final class DlcServerSession implements AutoCloseable {
     }
 
     public List<DlcServerFileEntry> listFiles(String path) throws IOException {
+        return listFiles(path, false);
+    }
+
+    public synchronized List<DlcServerFileEntry> listFiles(String path, boolean includeHash) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("path", path == null ? "" : path);
+        if (includeHash) {
+            payload.addProperty("includeHash", true);
+        }
         JsonObject response = rawRequest("file_list", payload);
         requireOk(response, "file_list");
         List<DlcServerFileEntry> entries = new ArrayList<>();
@@ -148,7 +173,12 @@ public final class DlcServerSession implements AutoCloseable {
         return entries;
     }
 
-    public void uploadFile(String remotePath, Path localPath) throws IOException {
+    public synchronized void uploadFile(String remotePath, Path localPath) throws IOException {
+        uploadFile(remotePath, localPath, () -> false);
+    }
+
+    public synchronized void uploadFile(String remotePath, Path localPath, BooleanSupplier canceled) throws IOException {
+        checkCanceled(canceled);
         if (localPath == null || !Files.isRegularFile(localPath)) {
             throw new IOException("missing local file: " + localPath);
         }
@@ -161,6 +191,7 @@ public final class DlcServerSession implements AutoCloseable {
         byte[] buffer = new byte[CHUNK_SIZE];
         try (InputStream input = Files.newInputStream(localPath)) {
             while (true) {
+                checkCanceled(canceled);
                 int bytesRead = input.read(buffer);
                 if (bytesRead < 0) {
                     break;
@@ -173,16 +204,17 @@ public final class DlcServerSession implements AutoCloseable {
         }
         JsonObject finish = new JsonObject();
         finish.addProperty("id", transferId);
+        checkCanceled(canceled);
         requireOk(rawRequest("file_upload_finish", finish), "file_upload_finish");
     }
 
-    public void deleteFile(String remotePath) throws IOException {
+    public synchronized void deleteFile(String remotePath) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("path", remotePath == null ? "" : remotePath);
         requireOk(rawRequest("file_delete", payload), "file_delete");
     }
 
-    public void setEnabled(String id, boolean enabled) throws IOException {
+    public synchronized void setEnabled(String id, boolean enabled) throws IOException {
         if (id == null || id.isBlank()) {
             return;
         }
@@ -196,7 +228,7 @@ public final class DlcServerSession implements AutoCloseable {
         return applyWithMessages();
     }
 
-    public DlcServerConnection.ApplyResponse applyWithMessages() throws IOException {
+    public synchronized DlcServerConnection.ApplyResponse applyWithMessages() throws IOException {
         JsonObject response = rawRequest("apply", null);
         requireOk(response, "apply");
         DlcServerConnection.ApplyResponse result = new DlcServerConnection.ApplyResponse();
@@ -216,7 +248,16 @@ public final class DlcServerSession implements AutoCloseable {
     public JsonObject requiredDownloadStatus() throws IOException { return checked("required_download_status"); }
     public JsonObject requiredDownloadCancel() throws IOException { return checked("required_download_cancel"); }
     public JsonObject requiredUninstall(List<String> ids) throws IOException { return checkedWithStrings("required_uninstall", "ids", ids); }
-    public JsonObject requiredApply(List<String> ids) throws IOException { return checkedWithStrings("required_apply", "ids", ids); }
+    public JsonObject requiredApply(List<String> ids) throws IOException {
+        return requiredApply(ids, false);
+    }
+
+    public synchronized JsonObject requiredApply(List<String> ids, boolean replaceExisting) throws IOException {
+        JsonObject payload = new JsonObject();
+        payload.add("ids", GSON.toJsonTree(ids == null ? List.of() : ids));
+        payload.addProperty("replaceExisting", replaceExisting);
+        return checked("required_apply", payload);
+    }
     public JsonObject updateState() throws IOException { return checked("update_state"); }
     public JsonObject updateList() throws IOException { return checked("update_list"); }
     public JsonObject updateApply(String baseOld, String dlcOld, String baseNew, String dlcNew) throws IOException {
@@ -293,7 +334,7 @@ public final class DlcServerSession implements AutoCloseable {
     public JsonObject rconExec(String command) throws IOException { return checkedWithString("rcon_exec", "command", command); }
     public JsonObject serverRestart() throws IOException { return checked("server_restart"); }
 
-    public JsonObject pushInit(String id, String mode, List<String> targets, List<String> paths) throws IOException {
+    public synchronized JsonObject pushInit(String id, String mode, List<String> targets, List<String> paths) throws IOException {
         JsonObject payload = new JsonObject();
         addIfNotBlank(payload, "id", id);
         addIfNotBlank(payload, "mode", mode);
@@ -306,7 +347,7 @@ public final class DlcServerSession implements AutoCloseable {
         return checked("push_init", payload);
     }
 
-    public void pushChunk(String id, byte[] data) throws IOException {
+    public synchronized void pushChunk(String id, byte[] data) throws IOException {
         JsonObject payload = new JsonObject();
         addIfNotBlank(payload, "id", id);
         if (data != null) {
@@ -315,11 +356,11 @@ public final class DlcServerSession implements AutoCloseable {
         send(withType("push_chunk", payload));
     }
 
-    public JsonObject pushFinish() throws IOException {
+    public synchronized JsonObject pushFinish() throws IOException {
         return checked("push_finish");
     }
 
-    public Path downloadFile(String remotePath, Path outputDir) throws IOException {
+    public synchronized Path downloadFile(String remotePath, Path outputDir) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("path", remotePath == null ? "" : remotePath);
         JsonObject init = rawRequest("file_download_init", payload);
@@ -355,7 +396,12 @@ public final class DlcServerSession implements AutoCloseable {
         return target;
     }
 
-    public boolean downloadFileTo(String remotePath, Path target) throws IOException {
+    public synchronized boolean downloadFileTo(String remotePath, Path target) throws IOException {
+        return downloadFileTo(remotePath, target, () -> false);
+    }
+
+    public synchronized boolean downloadFileTo(String remotePath, Path target, BooleanSupplier canceled) throws IOException {
+        checkCanceled(canceled);
         if (target == null) {
             return false;
         }
@@ -373,7 +419,9 @@ public final class DlcServerSession implements AutoCloseable {
         boolean ok = false;
         try (OutputStream out = Files.newOutputStream(temp)) {
             while (true) {
+                checkCanceled(canceled);
                 JsonObject chunk = readObject();
+                checkCanceled(canceled);
                 String type = string(chunk, "type");
                 if ("file_download_chunk".equals(type)) {
                     String data = string(chunk, "data");
@@ -393,11 +441,23 @@ public final class DlcServerSession implements AutoCloseable {
             Files.deleteIfExists(temp);
             return false;
         }
-        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
-        return true;
+        try {
+            checkCanceled(canceled);
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            return true;
+        } finally {
+            Files.deleteIfExists(temp);
+        }
     }
 
-    public boolean pushZip(String id, String mode, List<String> targets, List<String> paths, Path zipPath) throws IOException {
+    private void checkCanceled(BooleanSupplier canceled) throws IOException {
+        if (Thread.currentThread().isInterrupted() || (canceled != null && canceled.getAsBoolean())) {
+            close();
+            throw new InterruptedIOException("canceled");
+        }
+    }
+
+    public synchronized boolean pushZip(String id, String mode, List<String> targets, List<String> paths, Path zipPath) throws IOException {
         if (zipPath == null || !Files.isRegularFile(zipPath)) {
             return false;
         }
@@ -426,7 +486,7 @@ public final class DlcServerSession implements AutoCloseable {
         return bool(finishResponse, "ok");
     }
 
-    public JsonObject rawRequest(String type, JsonObject payload) throws IOException {
+    public synchronized JsonObject rawRequest(String type, JsonObject payload) throws IOException {
         send(withType(type, payload));
         return readObject();
     }
@@ -455,7 +515,7 @@ public final class DlcServerSession implements AutoCloseable {
         return checked(type, payload);
     }
 
-    private JsonObject request(String type, JsonObject payload) throws IOException {
+    private synchronized JsonObject request(String type, JsonObject payload) throws IOException {
         send(withType(type, payload));
         return readObject();
     }

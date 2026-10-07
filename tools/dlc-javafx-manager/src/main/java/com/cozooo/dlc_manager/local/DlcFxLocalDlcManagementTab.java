@@ -175,6 +175,10 @@ public final class DlcFxLocalDlcManagementTab {
         scanAsync();
     }
 
+    public void scanSelectedGameDir(Runnable onSuccess, Runnable onFailure) {
+        scanAsync(onSuccess, onFailure);
+    }
+
     private void openDlcDirectory() {
         List<java.nio.file.Path> roots = DlcConfig.getDlcRoots();
         if (roots.isEmpty()) {
@@ -194,8 +198,15 @@ public final class DlcFxLocalDlcManagementTab {
     }
 
     private void scanAsync() {
+        scanAsync(() -> {}, () -> {});
+    }
+
+    private void scanAsync(Runnable onSuccess, Runnable onFailure) {
+        Runnable completed = onSuccess == null ? () -> {} : onSuccess;
+        Runnable failed = onFailure == null ? () -> {} : onFailure;
         if (!gameDirSelected) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.select_game_dir"));
+            failed.run();
             return;
         }
         loadedForCurrentGameDir = true;
@@ -276,6 +287,7 @@ public final class DlcFxLocalDlcManagementTab {
                         statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_done"));
                     }
                     updateActionState();
+                    completed.run();
                 });
             } catch (Throwable t) {
                 t.printStackTrace();
@@ -286,6 +298,7 @@ public final class DlcFxLocalDlcManagementTab {
                     }
                     statusLabel.setText(DlcFxI18n.tr("dlc_manager.local.scan_failed", safeMessage(t)));
                     updateActionState();
+                    failed.run();
                 });
             }
         }, "dlc-scan");

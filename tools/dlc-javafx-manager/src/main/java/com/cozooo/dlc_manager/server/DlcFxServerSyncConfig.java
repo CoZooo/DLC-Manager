@@ -1,7 +1,8 @@
 package com.cozooo.dlc_manager.server;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.CrossPlatformRuntime;
+import com.cozooo.dlc_manager.platform.DlcPlatformServices;
+import com.cozooo.dlc_manager.server.DlcFxDlcSyncPlanner.Direction;
 import com.google.gson.JsonObject;
 
 import java.io.IOException;
@@ -15,8 +16,8 @@ public final class DlcFxServerSyncConfig {
 
     private TransportMode transportMode = TransportMode.DLC_TCP;
     private String externalAddress = "";
-    private boolean excludeDlcManagedMods = true;
-    private String syncStrategy = "upload_changed";
+    private Direction syncDirection = Direction.PUSH;
+    private boolean deepVerify;
 
     public enum TransportMode {
         DLC_TCP,
@@ -44,9 +45,8 @@ public final class DlcFxServerSyncConfig {
         }
         config.transportMode = TransportMode.fromString(DlcDcConfigIO.getStringIgnoreCase(root, "transportMode"));
         config.externalAddress = safe(DlcDcConfigIO.getStringIgnoreCase(root, "externalAddress"));
-        config.excludeDlcManagedMods = DlcDcConfigIO.getBooleanIgnoreCase(root, "excludeDlcManagedMods", true);
-        String strategy = DlcDcConfigIO.getStringIgnoreCase(root, "syncStrategy");
-        config.syncStrategy = strategy == null || strategy.isBlank() ? "upload_changed" : strategy.trim();
+        config.syncDirection = parseDirection(DlcDcConfigIO.getStringIgnoreCase(root, "syncDirection"));
+        config.deepVerify = DlcDcConfigIO.getBooleanIgnoreCase(root, "deepVerify", false);
         return config;
     }
 
@@ -54,8 +54,8 @@ public final class DlcFxServerSyncConfig {
         JsonObject root = new JsonObject();
         root.addProperty("transportMode", transportMode.name().toLowerCase(Locale.ROOT));
         root.addProperty("externalAddress", safe(externalAddress));
-        root.addProperty("excludeDlcManagedMods", excludeDlcManagedMods);
-        root.addProperty("syncStrategy", safe(syncStrategy).isBlank() ? "upload_changed" : syncStrategy.trim());
+        root.addProperty("syncDirection", syncDirection.name().toLowerCase(Locale.ROOT));
+        root.addProperty("deepVerify", deepVerify);
         Path path = configPath();
         try {
             if (path.getParent() != null) {
@@ -83,24 +83,28 @@ public final class DlcFxServerSyncConfig {
         this.externalAddress = safe(externalAddress);
     }
 
-    public boolean excludeDlcManagedMods() {
-        return excludeDlcManagedMods;
+    public Direction syncDirection() {
+        return syncDirection;
     }
 
-    public void setExcludeDlcManagedMods(boolean excludeDlcManagedMods) {
-        this.excludeDlcManagedMods = excludeDlcManagedMods;
+    public void setSyncDirection(Direction syncDirection) {
+        this.syncDirection = syncDirection == null ? Direction.PUSH : syncDirection;
     }
 
-    public String syncStrategy() {
-        return syncStrategy;
+    public boolean deepVerify() {
+        return deepVerify;
     }
 
-    public void setSyncStrategy(String syncStrategy) {
-        this.syncStrategy = safe(syncStrategy).isBlank() ? "upload_changed" : syncStrategy.trim();
+    public void setDeepVerify(boolean deepVerify) {
+        this.deepVerify = deepVerify;
     }
 
     static Path configPath() {
-        return CrossPlatformRuntime.configDir().resolve(CONFIG_DIR).resolve(CONFIG_NAME);
+        return DlcPlatformServices.configDir().resolve(CONFIG_DIR).resolve(CONFIG_NAME);
+    }
+
+    private static Direction parseDirection(String value) {
+        return value != null && "pull".equalsIgnoreCase(value.trim()) ? Direction.PULL : Direction.PUSH;
     }
 
     private static String safe(String value) {

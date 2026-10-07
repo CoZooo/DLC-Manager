@@ -187,7 +187,7 @@ public final class DlcFxServerFileManagerTab {
                                 java.util.function.BooleanSupplier gameDirSelectedSupplier,
                                 ObservableValue<String> serverPortTextProperty,
                                 Runnable chooseGameDirAction,
-                                Runnable readLocalFilesAction) {
+                                java.util.function.BiConsumer<Runnable, Runnable> readLocalFilesAction) {
         syncTab = new DlcFxServerSyncTab(conn, gameDirTextSupplier, gameDirSelectedSupplier, serverPortTextProperty, chooseGameDirAction, readLocalFilesAction);
         return syncTab.build();
     }

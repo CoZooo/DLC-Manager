@@ -5,6 +5,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate;
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil;
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
+import com.cozooo.dlc_manager.client.download.DlcSharedService;
+import com.cozooo.dlc_manager.client.download.DlcLightHash;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
@@ -423,6 +425,8 @@ public final class DlcUpdateService {
             if (!context.failureMessages.isEmpty()) {
                 throw new IllegalStateException(String.join("\n", context.failureMessages));
             }
+            notifyApplyProgress("Verifying downloaded DLC files...", -1f);
+            DlcUpdateFileVerifier.verify(context.dlcRoot, context.downloadedFiles);
             meta.save(metaPath);
 
             DlcUpdateVersion updated = new DlcUpdateVersion();
@@ -2269,8 +2273,24 @@ public final class DlcUpdateService {
         Path tempFile = target.resolveSibling(fileName + ".part");
         deleteWithHelperFallback(tempFile);
         downloadToFile(candidate.url, tempFile);
-        if (!moveWithHelperFallback(tempFile, target, true)) {
-            throw new IOException(latestFailureMessage("failed to move downloaded file"));
+        DlcSharedService.verifyDownloadedFile(tempFile, candidate, null, null);
+        long expectedSize = Files.size(tempFile);
+        String expectedHash = DlcLightHash.compute(tempFile);
+        try {
+            try {
+                Files.move(tempFile, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException error) {
+            throw new IOException("failed to replace downloaded file; close the game and retry: " + fileName, error);
+        }
+        UpdateContext context = CURRENT_UPDATE_CONTEXT.get();
+        if (context != null) {
+            Path configPath = entry instanceof DlcRemoteEntry remote
+                ? remote.getConfigPath() : ((DlcRequiredEntry) entry).getConfigPath();
+            context.downloadedFiles.add(new DlcUpdateFileVerifier.Download(configPath, target,
+                expectedSize, expectedHash, entry instanceof DlcRequiredEntry));
         }
         return new DownloadedFile(target, fileName);
     }
@@ -2286,9 +2306,7 @@ public final class DlcUpdateService {
             notifyApplyProgress("Downloading " + displayName + "...", progress);
         }, null);
         if (!downloaded.equals(target)) {
-            if (!moveWithHelperFallback(downloaded, target, true)) {
-                throw new IOException(latestFailureMessage("failed to finalize downloaded file"));
-            }
+            Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -3891,6 +3909,7 @@ public final class DlcUpdateService {
         private boolean addedRemote;
         private boolean helperScheduled;
         private final List<String> failureMessages = new ArrayList<>();
+        private final List<DlcUpdateFileVerifier.Download> downloadedFiles = new ArrayList<>();
 
         UpdateContext(Path dlcRoot, Path stagingRoot, Path backupRoot, DlcUpdateMeta meta) {
             this.dlcRoot = dlcRoot;

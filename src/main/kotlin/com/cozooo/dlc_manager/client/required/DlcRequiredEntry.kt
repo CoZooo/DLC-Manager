@@ -208,6 +208,10 @@ class DlcRequiredEntry(
     }
 
     fun resolveAppliedTargets(): List<Path> {
+        return resolveAppliedTargets(DlcPaths.gameDir())
+    }
+
+    fun resolveAppliedTargets(gameDir: Path): List<Path> {
         val targets = ArrayList<Path>()
         if (appliedTargetRaw.isNullOrBlank()) {
             return targets
@@ -220,7 +224,7 @@ class DlcRequiredEntry(
             }
             var path = Path.of(value)
             if (!path.isAbsolute) {
-                path = DlcPaths.gameDir().resolve(path)
+                path = gameDir.resolve(path)
             }
             targets.add(path.normalize())
         }

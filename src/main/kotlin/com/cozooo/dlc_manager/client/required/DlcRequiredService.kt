@@ -2,14 +2,19 @@ package com.cozooo.dlc_manager.client.required
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
+import com.cozooo.dlc_manager.client.download.DlcLightHash
 import com.cozooo.dlc_manager.client.download.DlcSharedService
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
+import com.cozooo.dlc_manager.core.DlcPaths
 import java.io.IOException
+import java.io.InterruptedIOException
+import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Locale
+import java.util.function.BooleanSupplier
 
 object DlcRequiredService {
     fun interface ProgressListener : DlcSharedService.ProgressListener
@@ -233,6 +238,23 @@ object DlcRequiredService {
     @JvmStatic
     @Throws(IOException::class)
     fun installOne(entry: DlcRequiredEntry?): Boolean {
+        return installOne(entry, false, DlcPaths.gameDir(), BooleanSupplier { false }, true)
+    }
+
+    @JvmStatic
+    @Throws(IOException::class)
+    fun installSynced(entry: DlcRequiredEntry?, gameDir: Path, canceled: BooleanSupplier?): Boolean {
+        return installOne(entry, true, gameDir, canceled, false)
+    }
+
+    private fun installOne(
+        entry: DlcRequiredEntry?,
+        replaceExisting: Boolean,
+        gameDir: Path,
+        canceled: BooleanSupplier?,
+        updateState: Boolean,
+    ): Boolean {
+        checkInstallCanceled(canceled)
         if (entry == null) {
             return false
         }
@@ -242,31 +264,87 @@ object DlcRequiredService {
         }
         entry.setResolvedFileName(fileName)
         val source = entry.resolveRequiredPath(fileName)
-        if (source == null || !Files.exists(source)) {
+        if (source == null || !Files.exists(source) || (replaceExisting && !Files.isRegularFile(source))) {
             throw IOException("missing required source")
         }
         var applied = false
-        val appliedTargets = entry.resolveAppliedTargets()
+        val appliedTargets = entry.resolveAppliedTargets(gameDir)
         if (appliedTargets.isEmpty()) {
-            applied = true
+            applied = !replaceExisting
         }
         for (targetDir in appliedTargets) {
-            val target = resolveTarget(targetDir, fileName) ?: continue
+            checkInstallCanceled(canceled)
+            val target = resolveTarget(targetDir, fileName)
+            if (target == null) {
+                if (replaceExisting) {
+                    throw IOException("invalid required target: $targetDir")
+                }
+                continue
+            }
             try {
                 Files.createDirectories(target.parent)
-                if (!Files.exists(target)) {
-                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+                if (replaceExisting || !Files.exists(target)) {
+                    if (replaceExisting) {
+                        copySyncedFile(source, target, canceled)
+                    } else {
+                        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+                    }
                     applied = true
                 }
-            } catch (_: IOException) {
+            } catch (error: IOException) {
+                if (replaceExisting) {
+                    throw error
+                }
             }
         }
         val id = entry.getIdentifier()
-        if (!id.isNullOrBlank()) {
+        if (updateState && !id.isNullOrBlank()) {
             DlcRequiredRuntime.updateUserRemoved(entry, false)
             DlcRequiredRuntimeState.setOverride(id, true)
         }
         return applied
+    }
+
+    private fun copySyncedFile(source: Path, target: Path, canceled: BooleanSupplier?) {
+        val expected = DlcLightHash.compute(source)
+        if (source.toAbsolutePath().normalize() == target.toAbsolutePath().normalize()) {
+            checkInstallCanceled(canceled)
+            return
+        }
+        val temp = Files.createTempFile(target.toAbsolutePath().parent, ".dlc-required-", ".part")
+        try {
+            Files.newInputStream(source).use { input ->
+                Files.newOutputStream(temp).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var read = input.read(buffer)
+                    while (read > 0) {
+                        checkInstallCanceled(canceled)
+                        output.write(buffer, 0, read)
+                        read = input.read(buffer)
+                    }
+                }
+            }
+            if (expected != DlcLightHash.compute(temp)) {
+                throw IOException("required file changed while applying")
+            }
+            checkInstallCanceled(canceled)
+            try {
+                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
+            }
+            if (expected != DlcLightHash.compute(target)) {
+                throw IOException("required target hash mismatch")
+            }
+        } finally {
+            Files.deleteIfExists(temp)
+        }
+    }
+
+    private fun checkInstallCanceled(canceled: BooleanSupplier?) {
+        if (Thread.currentThread().isInterrupted || canceled?.getAsBoolean() == true) {
+            throw InterruptedIOException("canceled")
+        }
     }
 
     @JvmStatic

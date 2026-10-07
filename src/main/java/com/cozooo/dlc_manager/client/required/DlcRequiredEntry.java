@@ -298,6 +298,10 @@ public class DlcRequiredEntry {
     }
 
     public List<Path> resolveAppliedTargets() {
+        return resolveAppliedTargets(DlcPaths.gameDir());
+    }
+
+    public List<Path> resolveAppliedTargets(Path gameDir) {
         List<Path> targets = new ArrayList<>();
         if (appliedTargetRaw == null || appliedTargetRaw.isBlank()) {
             return targets;
@@ -310,7 +314,7 @@ public class DlcRequiredEntry {
             }
             Path path = Path.of(value);
             if (!path.isAbsolute()) {
-                path = DlcPaths.gameDir().resolve(path);
+                path = gameDir.resolve(path);
             }
             targets.add(path.normalize());
         }

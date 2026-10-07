@@ -4,6 +4,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
 import com.cozooo.dlc_manager.client.download.DlcDownloadHeaderUtil
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
+import com.cozooo.dlc_manager.client.download.DlcLightHash
+import com.cozooo.dlc_manager.client.download.DlcSharedService
 import com.cozooo.dlc_manager.client.helper.DlcFileOpsHelperClient
 import com.cozooo.dlc_manager.client.preset.DlcPresetLoader
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
@@ -468,6 +470,8 @@ object DlcUpdateService {
             disablePresetUpdatesForApply(presetSession)
             applyUpdateOps(manifest.getUpdateOps(), context)
             check(context.failureMessages.isEmpty()) { context.failureMessages.joinToString("\n") }
+            notifyApplyProgress("Verifying downloaded DLC files...", -1f)
+            DlcUpdateFileVerifier.verify(context.dlcRoot, context.downloadedFiles)
             meta.save(metaPath)
 
             val updated = DlcUpdateVersion()
@@ -2366,8 +2370,9 @@ object DlcUpdateService {
             fileName = null
         }
         if (!fileNameExplicit) {
-            if (candidate.fileNameOverride != null && !candidate.fileNameOverride.isBlank()) {
-                fileName = candidate.fileNameOverride
+            val candidateFileName = candidate.fileNameOverride
+            if (!candidateFileName.isNullOrBlank()) {
+                fileName = candidateFileName
             }
             if (!DlcDownloadUtil.isLikelyFileName(fileName)) {
                 val urlName = DlcDownloadUtil.extractFileNameFromUrl(candidate.url)
@@ -2402,8 +2407,22 @@ object DlcUpdateService {
         val tempFile = target.resolveSibling(fileName + ".part")
         deleteWithHelperFallback(tempFile)
         downloadToFile(candidate.url, tempFile)
-        if (!moveWithHelperFallback(tempFile, target, true)) {
-            throw IOException(latestFailureMessage("failed to move downloaded file"))
+        DlcSharedService.verifyDownloadedFile(tempFile, candidate, null, null)
+        val expectedSize = Files.size(tempFile)
+        val expectedHash = DlcLightHash.compute(tempFile)
+        try {
+            try {
+                Files.move(tempFile, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(tempFile, target, StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (error: IOException) {
+            throw IOException("failed to replace downloaded file; close the game and retry: $fileName", error)
+        }
+        val context = CURRENT_UPDATE_CONTEXT.get()
+        if (context != null) {
+            val configPath = if (entry is DlcRemoteEntry) entry.getConfigPath() else (entry as DlcRequiredEntry).getConfigPath()
+            context.downloadedFiles.add(DlcUpdateFileVerifier.Download(configPath, target, expectedSize, expectedHash, entry is DlcRequiredEntry))
         }
         return DownloadedFile(target, fileName)
     }
@@ -2426,9 +2445,7 @@ object DlcUpdateService {
             null
         )
         if (downloaded != target) {
-            if (!moveWithHelperFallback(downloaded, target, true)) {
-                throw IOException(latestFailureMessage("failed to finalize downloaded file"))
-            }
+            Files.move(downloaded, target, StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
@@ -4243,6 +4260,7 @@ object DlcUpdateService {
         var addedRemote = false
         var helperScheduled = false
         val failureMessages: MutableList<kotlin.String?> = ArrayList<kotlin.String?>()
+        val downloadedFiles: MutableList<DlcUpdateFileVerifier.Download> = ArrayList()
     }
 
     private class JsonObjectHolder(val obj: JsonObject?) {

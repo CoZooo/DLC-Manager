@@ -997,6 +997,13 @@ public final class DlcServerDownloadService {
     }
 
     public static int applyRequiredByIds(Path dlcRoot, List<String> ids) {
+        return applyRequiredByIds(dlcRoot, ids, false);
+    }
+
+    public static int applyRequiredByIds(Path dlcRoot, List<String> ids, boolean replaceExisting) {
+        if (replaceExisting) {
+            return applyRequiredSynced(dlcRoot, ids).applied();
+        }
         if (dlcRoot == null || ids == null || ids.isEmpty()) {
             return 0;
         }
@@ -1015,12 +1022,48 @@ public final class DlcServerDownloadService {
             if (fileName != null) {
                 entry.setResolvedFileName(fileName);
             }
-            if (applyRequiredEntry(entry)) {
-                updateRequiredUserRemoved(entry, false);
+            if (applyRequiredEntry(entry, replaceExisting)) {
+                if (!replaceExisting) {
+                    updateRequiredUserRemoved(entry, false);
+                }
                 applied++;
             }
         }
         return applied;
+    }
+
+    public record RequiredApplyResult(int applied, int stored, List<String> errors) {
+    }
+
+    public static RequiredApplyResult applyRequiredSynced(Path dlcRoot, List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new RequiredApplyResult(0, 0, List.of());
+        }
+        Map<String, DlcRequiredEntry> index = dlcRoot == null ? Map.of()
+            : buildRequiredIndex(loadAllRequiredEntries(dlcRoot));
+        List<String> errors = new ArrayList<>();
+        int applied = 0;
+        int stored = 0;
+        for (String id : new java.util.LinkedHashSet<>(ids)) {
+            try {
+                DlcRequiredEntry entry = index.get(id);
+                if (entry == null) {
+                    throw new IOException("required config not found");
+                }
+                if (com.cozooo.dlc_manager.client.required.DlcRequiredService.installSynced(
+                        entry, DlcPlatformServices.gameDir(), () -> Thread.currentThread().isInterrupted())) {
+                    applied++;
+                } else if (entry.resolveAppliedTargets().isEmpty()) {
+                    stored++;
+                } else {
+                    throw new IOException("required targets were not applied");
+                }
+            } catch (IOException | RuntimeException error) {
+                String message = error.getMessage();
+                errors.add(id + ": " + (message == null ? error.getClass().getSimpleName() : message));
+            }
+        }
+        return new RequiredApplyResult(applied, stored, List.copyOf(errors));
     }
 
     private static String safeId(DlcRequiredEntry entry) {
@@ -1073,8 +1116,20 @@ public final class DlcServerDownloadService {
     }
 
     private static boolean applyRequiredEntry(DlcRequiredEntry entry) {
+        return applyRequiredEntry(entry, false);
+    }
+
+    private static boolean applyRequiredEntry(DlcRequiredEntry entry, boolean replaceExisting) {
         if (entry == null) {
             return false;
+        }
+        if (replaceExisting) {
+            try {
+                return com.cozooo.dlc_manager.client.required.DlcRequiredService.installSynced(
+                    entry, DlcPlatformServices.gameDir(), () -> Thread.currentThread().isInterrupted());
+            } catch (IOException error) {
+                return false;
+            }
         }
         String fileName = entry.getResolvedFileName();
         if (fileName == null || fileName.isBlank()) {

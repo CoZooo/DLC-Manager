@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.server
 
 import com.cozooo.dlc_manager.client.download.DlcDownloadService
+import com.cozooo.dlc_manager.client.download.DlcLightHash
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller
 import com.cozooo.dlc_manager.client.pack.DlcPackMeta
@@ -599,11 +600,20 @@ object DlcServerService {
     @Throws(IOException::class)
     private fun handleRequiredApply(request: JsonObject, writer: BufferedWriter) {
         val ids = readStringArray(request, "ids")
-        val applied = DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids)
+        val replaceExisting = request.has("replaceExisting") &&
+            request.get("replaceExisting").isJsonPrimitive && request.get("replaceExisting").asBoolean
         val response = JsonObject()
         response.addProperty("type", "required_apply")
         response.addProperty("ok", true)
-        response.addProperty("applied", applied)
+        response.addProperty("replaceExisting", replaceExisting)
+        if (replaceExisting) {
+            val result = DlcServerDownloadService.applyRequiredSynced(DlcConfig.getDlcRoot(), ids)
+            response.addProperty("applied", result.applied)
+            response.addProperty("stored", result.stored)
+            response.add("errors", GSON.toJsonTree(result.errors))
+        } else {
+            response.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids))
+        }
         writeLine(writer, response)
     }
 
@@ -1363,6 +1373,8 @@ object DlcServerService {
     private fun handleFileList(request: JsonObject, writer: BufferedWriter) {
         val root = DlcPlatformServices.gameDir()
         val raw = if (request.has("path")) request.get("path").asString else ""
+        val includeHash = request.has("includeHash") &&
+            request.get("includeHash").isJsonPrimitive && request.get("includeHash").asBoolean
         val target = safeResolve(root, raw)
         if (target == null) {
             writeError(writer, "invalid path")
@@ -1385,6 +1397,12 @@ object DlcServerService {
                             entry.addProperty("modified", Files.getLastModifiedTime(path).toMillis())
                         } catch (_: IOException) {
                             entry.addProperty("modified", 0L)
+                        }
+                        if (includeHash && !Files.isDirectory(path)) {
+                            try {
+                                entry.addProperty("hash", DlcLightHash.compute(path))
+                            } catch (_: IOException) {
+                            }
                         }
                         entries.add(entry)
                     }

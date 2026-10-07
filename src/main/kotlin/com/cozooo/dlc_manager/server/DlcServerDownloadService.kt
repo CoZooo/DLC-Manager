@@ -8,6 +8,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader
 import com.cozooo.dlc_manager.client.required.DlcRequiredDependency
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader
+import com.cozooo.dlc_manager.client.required.DlcRequiredService
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteItem
 import com.cozooo.dlc_manager.client.server.DlcServerRemoteStatus
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem
@@ -918,6 +919,14 @@ object DlcServerDownloadService {
 
     @JvmStatic
     fun applyRequiredByIds(dlcRoot: Path?, ids: List<String>?): Int {
+        return applyRequiredByIds(dlcRoot, ids, false)
+    }
+
+    @JvmStatic
+    fun applyRequiredByIds(dlcRoot: Path?, ids: List<String>?, replaceExisting: Boolean): Int {
+        if (replaceExisting) {
+            return applyRequiredSynced(dlcRoot, ids).applied
+        }
         if (dlcRoot == null || ids.isNullOrEmpty()) {
             return 0
         }
@@ -937,6 +946,40 @@ object DlcServerDownloadService {
             }
         }
         return applied
+    }
+
+    data class RequiredApplyResult(val applied: Int, val stored: Int, val errors: List<String>)
+
+    @JvmStatic
+    fun applyRequiredSynced(dlcRoot: Path?, ids: List<String>?): RequiredApplyResult {
+        if (ids.isNullOrEmpty()) {
+            return RequiredApplyResult(0, 0, emptyList())
+        }
+        val index = if (dlcRoot == null) emptyMap() else buildRequiredIndex(loadAllRequiredEntries(dlcRoot))
+        val errors = ArrayList<String>()
+        var applied = 0
+        var stored = 0
+        for (id in LinkedHashSet(ids)) {
+            try {
+                val entry = index[id] ?: throw IOException("required config not found")
+                if (DlcRequiredService.installSynced(
+                        entry,
+                        DlcPlatformServices.gameDir(),
+                        java.util.function.BooleanSupplier { Thread.currentThread().isInterrupted },
+                    )) {
+                    applied++
+                } else if (entry.resolveAppliedTargets().isEmpty()) {
+                    stored++
+                } else {
+                    throw IOException("required targets were not applied")
+                }
+            } catch (error: IOException) {
+                errors.add("$id: ${error.message ?: error.javaClass.simpleName}")
+            } catch (error: RuntimeException) {
+                errors.add("$id: ${error.message ?: error.javaClass.simpleName}")
+            }
+        }
+        return RequiredApplyResult(applied, stored, errors.toList())
     }
 
     private fun safeId(entry: DlcRequiredEntry?): String {

@@ -1042,9 +1042,12 @@ public final class DlcFxManagerApp extends Application {
         DlcFxStyle.add(badge, "dlc-remote-connection-badge");
     }
 
-    private void scanLocalFilesFromRemoteWorkspace() {
+    private void scanLocalFilesFromRemoteWorkspace(Runnable onSuccess, Runnable onFailure) {
+        Runnable completed = onSuccess == null ? () -> {} : onSuccess;
+        Runnable failed = onFailure == null ? () -> {} : onFailure;
         if (!localGameDirSelected) {
             refreshStatusForCurrentView();
+            failed.run();
             return;
         }
         if (localDlcManagementTab == null) {
@@ -1052,8 +1055,10 @@ public final class DlcFxManagerApp extends Application {
         }
         if (localDlcManagementTab != null) {
             localDlcManagementTab.setGameDirSelected(true);
-            localDlcManagementTab.scanSelectedGameDir();
+            localDlcManagementTab.scanSelectedGameDir(completed, failed);
             DlcFxStyle.setStatus(DlcFxI18n.tr("dlc_manager.server.read_local_started"));
+        } else {
+            failed.run();
         }
     }
 

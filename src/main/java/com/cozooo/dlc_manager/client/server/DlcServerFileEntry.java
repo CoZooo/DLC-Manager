@@ -5,4 +5,5 @@ public class DlcServerFileEntry {
     public boolean dir;
     public long size;
     public long modified;
+    public String hash;
 }

@@ -123,6 +123,11 @@ public final class DlcFxConfigModel {
         });
     }
 
+    public static ConfigSource snapshotSource(JsonObject config) {
+        JsonObject[] holder = new JsonObject[] { copy(config) };
+        return new JsonConfigSource(() -> holder[0], json -> holder[0] = copy(json));
+    }
+
     public static ConfigSource serverSource(JsonObject config, Consumer<JsonObject> onApply) {
         JsonObject[] holder = new JsonObject[] { copy(config) };
         return new JsonConfigSource(() -> holder[0], json -> {

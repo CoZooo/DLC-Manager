@@ -257,6 +257,17 @@ public final class DlcRequiredService {
     }
 
     public static boolean installOne(DlcRequiredEntry entry) throws IOException {
+        return installOne(entry, false, com.cozooo.dlc_manager.core.DlcPaths.gameDir(), () -> false, true);
+    }
+
+    public static boolean installSynced(DlcRequiredEntry entry, Path gameDir,
+                                        java.util.function.BooleanSupplier canceled) throws IOException {
+        return installOne(entry, true, gameDir, canceled, false);
+    }
+
+    private static boolean installOne(DlcRequiredEntry entry, boolean replaceExisting, Path gameDir,
+                                      java.util.function.BooleanSupplier canceled, boolean updateState) throws IOException {
+        checkInstallCanceled(canceled);
         if (entry == null) {
             return false;
         }
@@ -266,34 +277,86 @@ public final class DlcRequiredService {
         }
         entry.setResolvedFileName(fileName);
         Path source = entry.resolveRequiredPath(fileName);
-        if (source == null || !Files.exists(source)) {
+        if (source == null || !Files.exists(source) || (replaceExisting && !Files.isRegularFile(source))) {
             throw new IOException("missing required source");
         }
         boolean applied = false;
-        List<Path> appliedTargets = entry.resolveAppliedTargets();
+        List<Path> appliedTargets = entry.resolveAppliedTargets(gameDir);
         if (appliedTargets.isEmpty()) {
-            applied = true;
+            applied = !replaceExisting;
         }
         for (Path targetDir : appliedTargets) {
+            checkInstallCanceled(canceled);
             Path target = resolveTarget(targetDir, fileName);
             if (target == null) {
+                if (replaceExisting) {
+                    throw new IOException("invalid required target: " + targetDir);
+                }
                 continue;
             }
             try {
                 Files.createDirectories(target.getParent());
-                if (!Files.exists(target)) {
-                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                if (replaceExisting || !Files.exists(target)) {
+                    if (replaceExisting) {
+                        copySyncedFile(source, target, canceled);
+                    } else {
+                        Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                    }
                     applied = true;
                 }
-            } catch (IOException ignored) {
+            } catch (IOException error) {
+                if (replaceExisting) {
+                    throw error;
+                }
             }
         }
         String id = entry.getIdentifier();
-        if (id != null && !id.isBlank()) {
+        if (updateState && id != null && !id.isBlank()) {
             DlcRequiredRuntime.updateUserRemoved(entry, false);
             DlcRequiredRuntimeState.setOverride(id, true);
         }
         return applied;
+    }
+
+    private static void copySyncedFile(Path source, Path target,
+                                       java.util.function.BooleanSupplier canceled) throws IOException {
+        String expected = com.cozooo.dlc_manager.client.download.DlcLightHash.compute(source);
+        if (source.toAbsolutePath().normalize().equals(target.toAbsolutePath().normalize())) {
+            checkInstallCanceled(canceled);
+            return;
+        }
+        Path temp = Files.createTempFile(target.toAbsolutePath().getParent(), ".dlc-required-", ".part");
+        try {
+            try (java.io.InputStream input = Files.newInputStream(source);
+                 java.io.OutputStream output = Files.newOutputStream(temp)) {
+                byte[] buffer = new byte[64 * 1024];
+                int read;
+                while ((read = input.read(buffer)) > 0) {
+                    checkInstallCanceled(canceled);
+                    output.write(buffer, 0, read);
+                }
+            }
+            if (!expected.equals(com.cozooo.dlc_manager.client.download.DlcLightHash.compute(temp))) {
+                throw new IOException("required file changed while applying");
+            }
+            checkInstallCanceled(canceled);
+            try {
+                Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            if (!expected.equals(com.cozooo.dlc_manager.client.download.DlcLightHash.compute(target))) {
+                throw new IOException("required target hash mismatch");
+            }
+        } finally {
+            Files.deleteIfExists(temp);
+        }
+    }
+
+    private static void checkInstallCanceled(java.util.function.BooleanSupplier canceled) throws IOException {
+        if (Thread.currentThread().isInterrupted() || (canceled != null && canceled.getAsBoolean())) {
+            throw new java.io.InterruptedIOException("canceled");
+        }
     }
 
     public static String resolveExistingFileName(DlcRequiredEntry entry) {

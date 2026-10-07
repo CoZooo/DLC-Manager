@@ -1,0 +1,4 @@
+transportMode = "dlc_tcp"
+externalAddress = ""
+syncDirection = "push"
+deepVerify = false

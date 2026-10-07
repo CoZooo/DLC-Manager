@@ -8,6 +8,7 @@ import com.google.gson.JsonObject
 import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
@@ -18,12 +19,15 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.Base64
 import java.util.UUID
+import java.util.function.BooleanSupplier
+import java.util.function.Consumer
 
 class DlcServerSession private constructor(private val socket: Socket) : AutoCloseable {
     private val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
     private val writer = BufferedWriter(OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8))
 
     @Throws(IOException::class)
+    @Synchronized
     fun fetchList(): DlcServerInfo {
         val response = request("list", null)
         if (string(response, "type") != "list") {
@@ -68,9 +72,16 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     }
 
     @Throws(IOException::class)
-    fun listFiles(path: String?): List<DlcServerFileEntry> {
+    fun listFiles(path: String?): List<DlcServerFileEntry> = listFiles(path, false)
+
+    @Throws(IOException::class)
+    @Synchronized
+    fun listFiles(path: String?, includeHash: Boolean): List<DlcServerFileEntry> {
         val payload = JsonObject()
         payload.addProperty("path", path ?: "")
+        if (includeHash) {
+            payload.addProperty("includeHash", true)
+        }
         val response = rawRequest("file_list", payload)
         requireOk(response, "file_list")
         val entries = ArrayList<DlcServerFileEntry>()
@@ -83,7 +94,15 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     }
 
     @Throws(IOException::class)
+    @Synchronized
     fun uploadFile(remotePath: String?, localPath: Path?) {
+        uploadFile(remotePath, localPath, BooleanSupplier { false })
+    }
+
+    @Throws(IOException::class)
+    @Synchronized
+    fun uploadFile(remotePath: String?, localPath: Path?, canceled: BooleanSupplier?) {
+        checkCanceled(canceled)
         if (localPath == null || !Files.isRegularFile(localPath)) {
             throw IOException("missing local file: $localPath")
         }
@@ -96,6 +115,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         val buffer = ByteArray(CHUNK_SIZE)
         Files.newInputStream(localPath).use { input ->
             while (true) {
+                checkCanceled(canceled)
                 val read = input.read(buffer)
                 if (read < 0) break
                 val chunk = JsonObject()
@@ -106,10 +126,12 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         }
         val finish = JsonObject()
         finish.addProperty("id", id)
+        checkCanceled(canceled)
         requireOk(rawRequest("file_upload_finish", finish), "file_upload_finish")
     }
 
     @Throws(IOException::class)
+    @Synchronized
     fun deleteFile(remotePath: String?) {
         val payload = JsonObject()
         payload.addProperty("path", remotePath ?: "")
@@ -117,6 +139,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     }
 
     @Throws(IOException::class)
+    @Synchronized
     fun setEnabled(id: String?, enabled: Boolean) {
         if (id.isNullOrBlank()) return
         val payload = JsonObject()
@@ -129,6 +152,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     fun apply(): DlcServerConnection.ApplyResponse = applyWithMessages()
 
     @Throws(IOException::class)
+    @Synchronized
     fun applyWithMessages(): DlcServerConnection.ApplyResponse {
         val response = rawRequest("apply", null)
         requireOk(response, "apply")
@@ -149,7 +173,16 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     @Throws(IOException::class) fun requiredDownloadStatus(): JsonObject = checked("required_download_status")
     @Throws(IOException::class) fun requiredDownloadCancel(): JsonObject = checked("required_download_cancel")
     @Throws(IOException::class) fun requiredUninstall(ids: List<String>?): JsonObject = checkedWithStrings("required_uninstall", "ids", ids)
-    @Throws(IOException::class) fun requiredApply(ids: List<String>?): JsonObject = checkedWithStrings("required_apply", "ids", ids)
+    @Throws(IOException::class) fun requiredApply(ids: List<String>?): JsonObject = requiredApply(ids, false)
+
+    @Throws(IOException::class)
+    @Synchronized
+    fun requiredApply(ids: List<String>?, replaceExisting: Boolean): JsonObject {
+        val payload = JsonObject()
+        payload.add("ids", GSON.toJsonTree(ids ?: listOf<String>()))
+        payload.addProperty("replaceExisting", replaceExisting)
+        return checked("required_apply", payload)
+    }
     @Throws(IOException::class) fun updateState(): JsonObject = checked("update_state")
     @Throws(IOException::class) fun updateList(): JsonObject = checked("update_list")
 
@@ -224,6 +257,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     @Throws(IOException::class) fun serverRestart(): JsonObject = checked("server_restart")
 
     @Throws(IOException::class)
+    @Synchronized
     fun pushInit(id: String?, mode: String?, targets: List<String>?, paths: List<String>?): JsonObject {
         val payload = JsonObject()
         addIfNotBlank(payload, "id", id)
@@ -234,6 +268,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     }
 
     @Throws(IOException::class)
+    @Synchronized
     fun pushChunk(id: String?, data: ByteArray?) {
         val payload = JsonObject()
         addIfNotBlank(payload, "id", id)
@@ -241,9 +276,12 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         send(withType("push_chunk", payload))
     }
 
-    @Throws(IOException::class) fun pushFinish(): JsonObject = checked("push_finish")
+    @Throws(IOException::class)
+    @Synchronized
+    fun pushFinish(): JsonObject = checked("push_finish")
 
     @Throws(IOException::class)
+    @Synchronized
     fun downloadFile(remotePath: String?, outputDir: Path): Path {
         val payload = JsonObject()
         payload.addProperty("path", remotePath ?: "")
@@ -283,7 +321,15 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     }
 
     @Throws(IOException::class)
+    @Synchronized
     fun downloadFileTo(remotePath: String?, target: Path?): Boolean {
+        return downloadFileTo(remotePath, target, BooleanSupplier { false })
+    }
+
+    @Throws(IOException::class)
+    @Synchronized
+    fun downloadFileTo(remotePath: String?, target: Path?, canceled: BooleanSupplier?): Boolean {
+        checkCanceled(canceled)
         if (target == null) return false
         val payload = JsonObject()
         payload.addProperty("path", remotePath ?: "")
@@ -295,7 +341,9 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         try {
             Files.newOutputStream(temp).use { out ->
                 while (true) {
+                    checkCanceled(canceled)
                     val chunk = readObject()
+                    checkCanceled(canceled)
                     when (string(chunk, "type")) {
                         "file_download_chunk" -> {
                             val data = string(chunk, "data")
@@ -316,11 +364,17 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
             Files.deleteIfExists(temp)
             return false
         }
-        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
-        return true
+        try {
+            checkCanceled(canceled)
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING)
+            return true
+        } finally {
+            Files.deleteIfExists(temp)
+        }
     }
 
     @Throws(IOException::class)
+    @Synchronized
     fun pushZip(id: String?, mode: String?, targets: List<String>?, paths: List<String>?, zipPath: Path?): Boolean {
         if (zipPath == null || !Files.isRegularFile(zipPath)) return false
         val init = JsonObject()
@@ -346,6 +400,7 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     }
 
     @Throws(IOException::class)
+    @Synchronized
     fun rawRequest(type: String, payload: JsonObject?): JsonObject {
         send(withType(type, payload))
         return readObject()
@@ -373,9 +428,18 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
     }
 
     @Throws(IOException::class)
+    @Synchronized
     private fun request(type: String, payload: JsonObject?): JsonObject {
         send(withType(type, payload))
         return readObject()
+    }
+
+    @Throws(IOException::class)
+    private fun checkCanceled(canceled: BooleanSupplier?) {
+        if (Thread.currentThread().isInterrupted || canceled?.getAsBoolean() == true) {
+            close()
+            throw InterruptedIOException("canceled")
+        }
     }
 
     @Throws(IOException::class)
@@ -422,6 +486,16 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
         @JvmStatic
         @Throws(IOException::class)
         fun connect(entry: DlcServerEntry?, timeoutMs: Int): DlcServerSession {
+            return connect(entry, timeoutMs, Consumer { })
+        }
+
+        @JvmStatic
+        @Throws(IOException::class)
+        fun connect(
+            entry: DlcServerEntry?,
+            timeoutMs: Int,
+            connectionOpened: Consumer<AutoCloseable>,
+        ): DlcServerSession {
             if (entry == null) throw IOException("missing server entry")
             return connect(
                 entry.host,
@@ -431,23 +505,38 @@ class DlcServerSession private constructor(private val socket: Socket) : AutoClo
                 DlcPlatformServices.languageCode(),
                 DlcPlatformServices.playerName(),
                 DlcPlatformServices.playerUuid(),
+                connectionOpened,
             )
         }
 
         @JvmStatic
         @Throws(IOException::class)
         fun connect(host: String?, port: Int, password: String?, timeoutMs: Int, lang: String?, player: String?, uuid: String?): DlcServerSession {
+            return connect(host, port, password, timeoutMs, lang, player, uuid, Consumer { })
+        }
+
+        private fun connect(
+            host: String?,
+            port: Int,
+            password: String?,
+            timeoutMs: Int,
+            lang: String?,
+            player: String?,
+            uuid: String?,
+            connectionOpened: Consumer<AutoCloseable>,
+        ): DlcServerSession {
             val socket = Socket()
-            val actualHost = host ?: ""
-            socket.connect(InetSocketAddress(actualHost, port), timeoutMs)
-            socket.soTimeout = timeoutMs
-            val session = DlcServerSession(socket)
             try {
+                connectionOpened?.accept(socket)
+                val actualHost = host ?: ""
+                socket.connect(InetSocketAddress(actualHost, port), timeoutMs)
+                socket.soTimeout = timeoutMs
+                val session = DlcServerSession(socket)
                 session.hello(password, lang, player, uuid)
                 return session
             } catch (error: Throwable) {
                 try {
-                    session.close()
+                    socket.close()
                 } catch (_: IOException) {
                 }
                 throw error

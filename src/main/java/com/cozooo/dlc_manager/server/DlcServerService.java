@@ -32,6 +32,7 @@ import com.cozooo.dlc_manager.core.DlcRuntimeState;
 import com.cozooo.dlc_manager.core.DlcScanner;
 import com.cozooo.dlc_manager.core.DlcTmpPaths;
 import com.cozooo.dlc_manager.core.DlcType;
+import com.cozooo.dlc_manager.client.download.DlcLightHash;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.platform.PlatformServices;
 import com.google.gson.Gson;
@@ -693,11 +694,22 @@ public class DlcServerService {
                 }
             });
         }
-        int applied = DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids);
+        boolean replaceExisting = request.has("replaceExisting")
+            && request.get("replaceExisting").isJsonPrimitive()
+            && request.get("replaceExisting").getAsBoolean();
         JsonObject response = new JsonObject();
         response.addProperty("type", "required_apply");
         response.addProperty("ok", true);
-        response.addProperty("applied", applied);
+        response.addProperty("replaceExisting", replaceExisting);
+        if (replaceExisting) {
+            DlcServerDownloadService.RequiredApplyResult result =
+                DlcServerDownloadService.applyRequiredSynced(DlcConfig.getDlcRoot(), ids);
+            response.addProperty("applied", result.applied());
+            response.addProperty("stored", result.stored());
+            response.add("errors", GSON.toJsonTree(result.errors()));
+        } else {
+            response.addProperty("applied", DlcServerDownloadService.applyRequiredByIds(DlcConfig.getDlcRoot(), ids));
+        }
         writeLine(writer, response);
     }
 
@@ -1446,6 +1458,9 @@ public class DlcServerService {
     private static void handleFileList(JsonObject request, BufferedWriter writer) throws IOException {
         Path root = DlcPlatformServices.gameDir();
         String raw = request.has("path") ? request.get("path").getAsString() : "";
+        boolean includeHash = request.has("includeHash")
+            && request.get("includeHash").isJsonPrimitive()
+            && request.get("includeHash").getAsBoolean();
         Path target = safeResolve(root, raw);
         if (target == null) {
             writeError(writer, "invalid path");
@@ -1467,6 +1482,12 @@ public class DlcServerService {
                         entry.addProperty("modified", Files.getLastModifiedTime(path).toMillis());
                     } catch (IOException ignored) {
                         entry.addProperty("modified", 0L);
+                    }
+                    if (includeHash && !Files.isDirectory(path)) {
+                        try {
+                            entry.addProperty("hash", DlcLightHash.compute(path));
+                        } catch (IOException ignored) {
+                        }
                     }
                     entries.add(entry);
                 });

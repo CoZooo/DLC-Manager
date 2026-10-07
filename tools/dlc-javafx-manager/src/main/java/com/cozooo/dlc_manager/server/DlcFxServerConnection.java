@@ -172,7 +172,10 @@ public final class DlcFxServerConnection {
         }
         Thread thread = new Thread(() -> {
             try {
-                T result = action.apply(f);
+                T result;
+                synchronized (f) {
+                    result = action.apply(f);
+                }
                 Platform.runLater(() -> onSuccess.accept(result));
             } catch (Throwable t) {
                 Platform.runLater(() -> onError.accept(t));
