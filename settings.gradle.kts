@@ -15,7 +15,6 @@ pluginManagement {
         id("dev.architectury.loom") version "1.17.493"
         id("com.gradleup.shadow") version "8.3.11"
         id("org.jetbrains.kotlin.jvm") version "2.2.20"
-        id("me.modmuss50.mod-publish-plugin") version "2.1.1"
     }
 }
 
@@ -40,10 +39,7 @@ fun discoverActiveStoneNode(defaultNode: String): String {
 
 fun isRootRunTaskRequest(): Boolean =
     gradle.startParameter.taskNames.any { taskName ->
-        taskName == "runClient" ||
-            taskName == "runServer" ||
-            taskName == ":runClient" ||
-            taskName == ":runServer"
+        taskName.removePrefix(":") in setOf("runActive", "runActiveServer")
     }
 
 fun requestedStoneNodes(allVersionNodes: List<String>): List<String> {

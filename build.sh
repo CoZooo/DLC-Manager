@@ -135,16 +135,16 @@ case "${MODE}" in
     TASKS=(check)
     ;;
   archBuild)
-    TASKS=(archBuild)
+    TASKS=(build)
     ;;
   archCheck)
-    TASKS=(archCheck)
+    TASKS=(check)
     ;;
   publish)
-    TASKS=(archPublish)
+    TASKS=(publishModPlatforms)
     ;;
   archPublish)
-    TASKS=(archPublish)
+    TASKS=(publishModPlatforms)
     ;;
   all)
     TASKS=(check build obfuscateAllYguard)

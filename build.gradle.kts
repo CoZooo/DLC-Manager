@@ -22,13 +22,10 @@ import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.api.tasks.testing.Test
-import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.language.jvm.tasks.ProcessResources
 import java.io.File
-import java.util.Properties
 import java.util.zip.ZipFile
 
 val DLC_MOD_ID = "dlc_manager"
@@ -53,7 +50,6 @@ plugins {
     id("dev.architectury.loom") apply false
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") apply false
-    id("me.modmuss50.mod-publish-plugin") apply false
     id("maven-publish")
     base
 }
@@ -85,6 +81,7 @@ dlcFixedModProperties.forEach { (key, value) ->
     extensions.extraProperties[key] = value
 }
 
+// StoneCraft also applies Architectury Loom and mod-publish-plugin to each version project.
 apply(plugin = "gg.meza.stonecraft")
 
 fun stoneNodeLoader(nodeName: String): String =
@@ -164,15 +161,6 @@ fun modPublishLoaderDisplayName(loaderName: String): String =
 
 fun Project.modPublishDisplayName(loaderName: String, minecraftVersion: String): String =
     "${prop("mod_name")} ${prop("mod_version")} (${modPublishLoaderDisplayName(loaderName)} $minecraftVersion)"
-
-fun Project.loadProperties(file: File): Map<String, String> {
-    if (!file.isFile) {
-        return emptyMap()
-    }
-    val properties = Properties()
-    file.inputStream().use(properties::load)
-    return properties.entries.associate { it.key.toString() to it.value.toString() }
-}
 
 fun Project.configureLocalDevMods(loaderName: String, minecraftVersion: String) {
     fun devModTree(dir: File) = fileTree(dir) {
@@ -429,19 +417,10 @@ if (stoneNodes.contains(project.name)) {
     val nodeBuildDirName = if (kotlinEnabled) nodeName else "java-only/$nodeName"
     layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(nodeBuildDirName))
 
-    loadProperties(rootProject.file("versions/dependencies/$minecraftVersion.properties")).forEach { (key, value) ->
-        extensions.extraProperties[key] = value
-    }
-    loadProperties(rootProject.file("versions/$nodeName/gradle.properties")).forEach { (key, value) ->
-        extensions.extraProperties[key] = value
-    }
-
     val javaVersion = prop("java_version").toInt()
 
     group = prop("mod_group")
     version = prop("mod_version")
-
-    pluginManager.apply("me.modmuss50.mod-publish-plugin")
 
     repositories {
         maven {
@@ -584,20 +563,11 @@ if (stoneNodes.contains(project.name)) {
         }
     }
 
-    extensions.configure<JavaPluginExtension> {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(javaVersion))
-        }
-    }
-
     tasks.withType<JavaCompile>().configureEach {
         options.release.set(javaVersion)
     }
     tasks.withType<KotlinCompile>().configureEach {
         compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
-    }
-    tasks.withType<Test>().configureEach {
-        useJUnitPlatform()
     }
     tasks.withType<Jar>().configureEach {
         exclude("rebel.xml")
@@ -656,6 +626,7 @@ if (stoneNodes.contains(project.name)) {
         ""
     }
     configure<ModSettingsExtension> {
+        // StoneCraft uses this directory for the normal client and its client-options task.
         runDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
         testClientRunDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
         testServerRunDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server")
@@ -711,30 +682,10 @@ if (stoneNodes.contains(project.name)) {
         }
     }
 
-    afterEvaluate {
-        val clientRunDir = rootProject.file("run/$loaderName/$minecraftVersion/client")
-        val serverRunDir = rootProject.file("run/$loaderName/$minecraftVersion/server")
-        extensions.configure<LoomGradleExtensionAPI> {
-            runs {
-                named("client") {
-                    runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client"))
-                }
-                named("server") {
-                    runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
-                }
-            }
-            settingsPostEdit.add { run ->
-                when (run.name) {
-                    "client" -> run.runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client"))
-                    "server" -> run.runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
-                }
-            }
-        }
-        tasks.named<JavaExec>("runClient") {
-            workingDir = clientRunDir
-        }
-        tasks.named<JavaExec>("runServer") {
-            workingDir = serverRunDir
+    // StoneCraft configures client and GameTest runs. Only the normal server needs a separate directory.
+    extensions.configure<LoomGradleExtensionAPI> {
+        runs.named("server") {
+            runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
         }
     }
 
