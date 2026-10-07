@@ -37,14 +37,54 @@ class DlcNoticeConfigTest {
     }
 
     @Test
-    void loadCreatesDisabledDefaultNoticeFileWhenDlcRootExists() {
+    void loadAndSaveDoNotCreateMissingNoticeFileOrInfoDirectory() {
         DlcNoticeConfig config = DlcNoticeConfig.load();
 
         assertFalse(config.isNoticeEnabled());
-        assertEquals(DlcNoticeConfig.ShowFrequency.PER_LAUNCH_MANAGER, config.getShowFrequency());
-        assertEquals("Title", config.getTitle().resolve("en_us"));
-        assertEquals("Contents", config.resolveContents("en_us"));
-        assertTrue(Files.exists(dlcRoot.resolve("info").resolve("notice.dc")));
+        assertFalse(config.hasContent("en_us"));
+        assertTrue(config.getTitle().getValues().isEmpty());
+        assertTrue(config.getSubhead().text.getValues().isEmpty());
+        assertEquals("", config.resolveContents("en_us"));
+        config.setNeverShow(true);
+        config.save();
+        DlcNoticeConfig.load(dlcRoot.resolve("info").resolve("notice.dc")).save();
+        assertFalse(Files.exists(dlcRoot.resolve("info")));
+    }
+
+    @Test
+    void loadAndSaveLeaveMissingOrEmptyNoticeTextEmpty() throws Exception {
+        Path notice = dlcRoot.resolve("notice.dc");
+        for (String source : new String[] {
+            "isNoticeEnabled = true\n",
+            "isNoticeEnabled = true\n[Title]\n[Subhead]\nenabled = false\n[Contents]\n"
+        }) {
+            Files.writeString(notice, source);
+            DlcNoticeConfig config = DlcNoticeConfig.load(notice);
+            assertTrue(config.isNoticeEnabled());
+            assertTrue(config.getTitle().getValues().isEmpty());
+            assertTrue(config.getSubhead().text.getValues().isEmpty());
+            assertTrue(config.getContents().getValues().isEmpty());
+            config.setNeverShow(true);
+            config.save();
+
+            DlcNoticeConfig reloaded = DlcNoticeConfig.load(notice);
+            assertEquals("", reloaded.getTitle().resolve("en_us"));
+            assertEquals("", reloaded.getSubhead().text.resolve("en_us"));
+            assertEquals("", reloaded.resolveContents("en_us"));
+            assertFalse(reloaded.hasContent("en_us"));
+        }
+    }
+
+    @Test
+    void saveDoesNotRecreateNoticeRemovedAfterLoading() throws Exception {
+        Path notice = dlcRoot.resolve("notice.dc");
+        Files.writeString(notice, "isNoticeEnabled = true\n");
+        DlcNoticeConfig config = DlcNoticeConfig.load(notice);
+        Files.delete(notice);
+
+        config.setNeverShow(true);
+        config.save();
+        assertFalse(Files.exists(notice));
     }
 
     @Test
@@ -79,6 +119,38 @@ class DlcNoticeConfigTest {
         assertEquals("English Title", config.getTitle().resolve("ja_jp"));
         assertEquals("中文正文", config.resolveContents("zh_cn"));
         assertEquals("", config.getContentUrl("en_us"));
+    }
+
+    @Test
+    void absentOrBlankBodyDoesNotProducePlaceholderContent() throws Exception {
+        Path notice = dlcRoot.resolve("notice.dc");
+        Files.writeString(notice, "isNoticeEnabled = true\n[Title]\nen_us = \"Title\"\n");
+        DlcNoticeConfig empty = DlcNoticeConfig.load(notice);
+        assertFalse(empty.hasContent("en_us"));
+        assertEquals("", empty.resolveContents("en_us"));
+
+        Files.writeString(notice, "isNoticeEnabled = true\n[Contents]\nen_us = \"   \"\n");
+        assertFalse(DlcNoticeConfig.load(notice).hasContent("en_us"));
+    }
+
+    @Test
+    void localizedBodyOrConfiguredUrlCountsAsContentWithoutFetching() throws Exception {
+        Path notice = dlcRoot.resolve("notice.dc");
+        Files.writeString(notice, """
+            isNoticeEnabled = true
+            [Contents]
+            en_us = "English Body"
+            zh_cn = "   "
+            """);
+        DlcNoticeConfig local = DlcNoticeConfig.load(notice);
+        assertTrue(local.hasContent("ja_jp"));
+        assertFalse(local.hasContent("zh_cn"));
+
+        Files.writeString(notice, """
+            isNoticeEnabled = true
+            ContentUrl = "https://example.invalid/notice.txt"
+            """);
+        assertTrue(DlcNoticeConfig.load(notice).hasContent("zh_cn"));
     }
 
     @Test

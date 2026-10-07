@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
-import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcManagerScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import dev.architectury.event.EventResult;
@@ -142,7 +142,7 @@ public final class DlcClientEvents {
         int w = 200;
         int h = 20;
         Button button = Button.builder(Component.translatable("dlc_manager.title"), btn -> {
-            Screen managerScreen = new DlcMaLiLibScreen(screen);
+            Screen managerScreen = new DlcManagerScreen(screen);
             if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
                 return;
             }

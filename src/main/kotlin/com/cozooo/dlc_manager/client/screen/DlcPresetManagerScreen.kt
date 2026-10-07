@@ -161,7 +161,7 @@ open class DlcPresetManagerScreen(private val parent: Screen?) :
     private fun applyPresetEnabledState(entry: DlcPresetEntry, enabled: Boolean) {
         DlcPresetRuntimeState.setPresetEnabled(entry.getId(), enabled)
         when (parent) {
-            is DlcMaLiLibScreen -> parent.refreshAfterStateChange()
+            is DlcManagerScreen -> parent.refreshAfterStateChange()
             is DlcServerMaLiLibScreen -> parent.refreshAfterPresetChange()
         }
     }

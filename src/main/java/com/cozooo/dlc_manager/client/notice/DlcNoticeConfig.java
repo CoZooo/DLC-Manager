@@ -3,11 +3,8 @@ package com.cozooo.dlc_manager.client.notice;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -79,8 +76,6 @@ public class DlcNoticeConfig {
         public final LocalizedText text = new LocalizedText();
     }
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-
     private Path path;
     private boolean exists;
     private boolean noticeEnabled = true;
@@ -94,18 +89,7 @@ public class DlcNoticeConfig {
     private transient final Map<String, String> contentUrlText = new HashMap<>();
 
     public static DlcNoticeConfig load() {
-        DlcNoticeConfig config = new DlcNoticeConfig();
-        config.path = resolveNoticePath();
-        if (config.path == null || !Files.exists(config.path)) {
-            ensureNoticeFiles();
-            config.path = resolveNoticePath();
-        }
-        if (config.path == null || !Files.exists(config.path)) {
-            config.noticeEnabled = false;
-            config.exists = false;
-            return config;
-        }
-        return load(config.path);
+        return load(resolveNoticePath());
     }
 
     public static DlcNoticeConfig load(Path path) {
@@ -133,12 +117,11 @@ public class DlcNoticeConfig {
         }
         config.contentUrls.values.putAll(readLocalizedUrlValues(DlcDcConfigIO.getIgnoreCase(obj, "ContentUrl")));
         config.contents.values.putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "Contents")));
-        config.ensureDefaults();
         return config;
     }
 
     public void save() {
-        if (path == null || !exists) {
+        if (path == null || !exists || !Files.exists(path)) {
             return;
         }
         JsonObject obj = new JsonObject();
@@ -197,6 +180,10 @@ public class DlcNoticeConfig {
         return normalizeUrl(contentUrls.resolve(lang));
     }
 
+    public boolean hasContent(String lang) {
+        return !contents.resolve(lang).isBlank() || !getContentUrl(lang).isBlank();
+    }
+
     public String resolveContents(String lang) {
         String contentUrl = getContentUrl(lang);
         if (contentUrl != null && !contentUrl.isBlank()) {
@@ -217,44 +204,13 @@ public class DlcNoticeConfig {
         return DlcDcFormatUtil.resolveConfigPath(infoDir, "notice");
     }
 
-    private static void ensureNoticeFiles() {
-        Path root = DlcConfig.getDlcRoots().isEmpty() ? null : DlcConfig.getDlcRoots().get(0);
-        if (root == null || !Files.exists(root)) {
-            return;
-        }
-        Path infoDir = root.resolve("info");
-        Path noticePath = DlcDcFormatUtil.resolveConfigPath(infoDir, "notice");
-        if (Files.exists(noticePath)) {
-            return;
-        }
-        JsonObject obj = new JsonObject();
-        obj.addProperty("isNoticeEnabled", false);
-        obj.addProperty("neverShow", false);
-        obj.addProperty("ShowFrequency", ShowFrequency.PER_LAUNCH_MANAGER.getKey());
-        JsonObject title = new JsonObject();
-        title.addProperty("en_us", "Title");
-        obj.add("Title", title);
-        JsonObject subhead = new JsonObject();
-        subhead.addProperty("enabled", false);
-        subhead.addProperty("en_us", "Subhead");
-        obj.add("Subhead", subhead);
-        JsonObject contents = new JsonObject();
-        contents.addProperty("en_us", "Contents");
-        obj.add("Contents", contents);
-        try {
-            Files.createDirectories(noticePath.getParent());
-            DlcDcConfigIO.write(noticePath, obj, DlcDcConfigIO.Layout.GENERIC);
-        } catch (IOException ignored) {
-        }
-    }
-
     private static Map<String, String> readLocalized(JsonObject obj) {
         Map<String, String> values = new HashMap<>();
         if (obj == null) {
             return values;
         }
         for (Map.Entry<String, JsonElement> entry : obj.entrySet()) {
-            if (entry.getValue().isJsonPrimitive()) {
+            if (entry.getValue().isJsonPrimitive() && !"enabled".equalsIgnoreCase(entry.getKey())) {
                 values.put(DlcDcConfigIO.normalizeLangKey(entry.getKey()), entry.getValue().getAsString());
             }
         }
@@ -347,17 +303,5 @@ public class DlcNoticeConfig {
             return "";
         }
         return raw.trim();
-    }
-
-    private void ensureDefaults() {
-        if (title.values.isEmpty()) {
-            title.put("en_us", "Title");
-        }
-        if (subhead.text.values.isEmpty()) {
-            subhead.text.put("en_us", "Subhead");
-        }
-        if (contents.values.isEmpty()) {
-            contents.put("en_us", "Contents");
-        }
     }
 }

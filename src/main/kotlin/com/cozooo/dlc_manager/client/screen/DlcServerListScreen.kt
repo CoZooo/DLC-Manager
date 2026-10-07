@@ -72,7 +72,7 @@ class DlcServerListScreen(private val parent: Screen?) :
                 Minecraft.getInstance().setScreen(parent)
                 return@builder
             }
-            Minecraft.getInstance().setScreen(DlcMaLiLibScreen(null))
+            Minecraft.getInstance().setScreen(DlcManagerScreen(null))
         }
             .bounds(row2X + buttonWidth + gap, row2Y, buttonWidth, buttonHeight)
             .build()

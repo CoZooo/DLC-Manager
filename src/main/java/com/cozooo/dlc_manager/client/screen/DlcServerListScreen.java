@@ -79,7 +79,7 @@ public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
                 Minecraft.getInstance().setScreen(parent);
                 return;
             }
-            Minecraft.getInstance().setScreen(new DlcMaLiLibScreen(null));
+            Minecraft.getInstance().setScreen(new DlcManagerScreen(null));
         })
             .bounds(row2X + buttonWidth + gap, row2Y, buttonWidth, buttonHeight)
             .build();

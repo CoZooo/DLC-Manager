@@ -166,7 +166,7 @@ public class DlcPresetManagerScreen extends DlcScreenCompat.MouseScroll {
 
     private void applyPresetEnabledState(DlcPresetEntry entry, boolean enabled) {
         DlcPresetRuntimeState.setPresetEnabled(entry.getId(), enabled);
-        if (parent instanceof DlcMaLiLibScreen screen) {
+        if (parent instanceof DlcManagerScreen screen) {
             screen.refreshAfterStateChange();
         } else if (parent instanceof DlcServerMaLiLibScreen server) {
             server.refreshAfterPresetChange();

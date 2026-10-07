@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
-import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen
+import com.cozooo.dlc_manager.client.screen.DlcManagerScreen
 import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen
 import com.cozooo.dlc_manager.client.screen.DlcModpackUpdateScreen
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen
@@ -140,7 +140,7 @@ object DlcClientRuntime {
         } catch (_: IOException) {
             return
         }
-        val managerScreen: Screen = DlcMaLiLibScreen(parent)
+        val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return
         Minecraft.getInstance().setScreen(managerScreen)
     }
@@ -159,7 +159,7 @@ object DlcClientRuntime {
         } catch (_: IOException) {
             return false
         }
-        val managerScreen: Screen = DlcMaLiLibScreen(parent)
+        val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return true
         Minecraft.getInstance().setScreen(managerScreen)
         return true
@@ -566,7 +566,7 @@ object DlcClientRuntime {
     fun openManagerFromCommand() {
         val minecraft = Minecraft.getInstance()
         val parent = minecraft.screen
-        val managerScreen: Screen = DlcMaLiLibScreen(parent)
+        val managerScreen: Screen = DlcManagerScreen(parent)
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) return
         minecraft.setScreen(managerScreen)
     }
@@ -646,7 +646,7 @@ object DlcClientRuntime {
     fun runStartupChecksAsync(screen: Screen?) {
         if (startupCheckRunning || startupChecksCompleted) return
         DlcServerApi.start(null)
-        DlcServerApi.setClientStateChangedListener { Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen) }
+        DlcServerApi.setClientStateChangedListener { Minecraft.getInstance().execute(DlcManagerScreen::refreshCurrentOpenScreen) }
         ensurePackArchiveRoot(DlcPaths.dlcRoot())
         DlcPackRecovery.recover(DlcPaths.gameDir(), DlcPaths.dlcRoot())
         uninstallIncompatiblePacksForCurrentVersion()

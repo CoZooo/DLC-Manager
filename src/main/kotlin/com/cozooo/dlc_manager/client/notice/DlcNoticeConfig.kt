@@ -2,11 +2,8 @@ package com.cozooo.dlc_manager.client.notice
 
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcDcConfigIO
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
-import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.charset.StandardCharsets
@@ -93,7 +90,7 @@ class DlcNoticeConfig {
 
     fun save() {
         val noticePath = path
-        if (noticePath == null || !exists) {
+        if (noticePath == null || !exists || !Files.exists(noticePath)) {
             return
         }
         val obj = JsonObject()
@@ -151,6 +148,8 @@ class DlcNoticeConfig {
         return normalizeUrl(contentUrls.resolve(lang))
     }
 
+    fun hasContent(lang: String?): Boolean = contents.resolve(lang).isNotBlank() || getContentUrl(lang).isNotBlank()
+
     fun resolveContents(lang: String?): String {
         val contentUrl = getContentUrl(lang)
         if (contentUrl.isNotBlank()) {
@@ -200,38 +199,9 @@ class DlcNoticeConfig {
         return null
     }
 
-    private fun ensureDefaults() {
-        if (title.getValues().isEmpty()) {
-            title.put("en_us", "Title")
-        }
-        if (subhead.text.getValues().isEmpty()) {
-            subhead.text.put("en_us", "Subhead")
-        }
-        if (contents.getValues().isEmpty()) {
-            contents.put("en_us", "Contents")
-        }
-    }
-
     companion object {
-        @Suppress("unused")
-        private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
-
         @JvmStatic
-        fun load(): DlcNoticeConfig {
-            val config = DlcNoticeConfig()
-            config.path = resolveNoticePath()
-            if (config.path == null || !Files.exists(config.path)) {
-                ensureNoticeFiles()
-                config.path = resolveNoticePath()
-            }
-            val noticePath = config.path
-            if (noticePath == null || !Files.exists(noticePath)) {
-                config.noticeEnabled = false
-                config.exists = false
-                return config
-            }
-            return load(config.path)
-        }
+        fun load(): DlcNoticeConfig = load(resolveNoticePath())
 
         @JvmStatic
         fun load(path: Path?): DlcNoticeConfig {
@@ -259,43 +229,12 @@ class DlcNoticeConfig {
             }
             config.contentUrls.getValues().putAll(readLocalizedUrlValues(DlcDcConfigIO.getIgnoreCase(obj, "ContentUrl")))
             config.contents.getValues().putAll(readLocalized(DlcDcConfigIO.getObjectIgnoreCase(obj, "Contents")))
-            config.ensureDefaults()
             return config
         }
 
         private fun resolveNoticePath(): Path? {
             val root = firstDlcRoot() ?: return null
             return root.resolve("info").resolve("notice.dc")
-        }
-
-        private fun ensureNoticeFiles() {
-            val root = firstDlcRoot()
-            if (root == null || !Files.exists(root)) {
-                return
-            }
-            val noticePath = root.resolve("info").resolve("notice.dc")
-            if (Files.exists(noticePath)) {
-                return
-            }
-            val obj = JsonObject()
-            obj.addProperty("isNoticeEnabled", false)
-            obj.addProperty("neverShow", false)
-            obj.addProperty("ShowFrequency", ShowFrequency.PER_LAUNCH_MANAGER.getKey())
-            val title = JsonObject()
-            title.addProperty("en_us", "Title")
-            obj.add("Title", title)
-            val subhead = JsonObject()
-            subhead.addProperty("enabled", false)
-            subhead.addProperty("en_us", "Subhead")
-            obj.add("Subhead", subhead)
-            val contents = JsonObject()
-            contents.addProperty("en_us", "Contents")
-            obj.add("Contents", contents)
-            try {
-                Files.createDirectories(noticePath.parent)
-                DlcDcConfigIO.write(noticePath, obj, DlcDcConfigIO.Layout.GENERIC)
-            } catch (_: IOException) {
-            }
         }
 
         private fun firstDlcRoot(): Path? {
@@ -308,7 +247,7 @@ class DlcNoticeConfig {
                 return values
             }
             for ((key, value) in obj.entrySet()) {
-                if (value.isJsonPrimitive) {
+                if (value.isJsonPrimitive && !key.equals("enabled", ignoreCase = true)) {
                     val normalized = DlcDcConfigIO.normalizeLangKey(key)
                     if (normalized != null) {
                         values[normalized] = value.asString

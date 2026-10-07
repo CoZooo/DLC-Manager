@@ -638,8 +638,6 @@ function validateDocument(document, diagnostics) {
     if (tripleMatches > 0 && tripleMatches % 2 === 1) {
       tripleQuoteOpen = !tripleQuoteOpen;
     }
-    // Any line inside a triple-quoted block, or containing a triple delimiter,
-    // should not be validated as a normal key/value statement.
     if (wasTripleQuoteOpen || tripleMatches > 0) {
       continue;
     }

@@ -6,7 +6,7 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
-import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
@@ -148,7 +148,7 @@ public final class DlcClientRuntime {
         } catch (IOException ignored) {
             return;
         }
-        Screen managerScreen = new DlcMaLiLibScreen(parent);
+        Screen managerScreen = new DlcManagerScreen(parent);
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
             return;
         }
@@ -177,7 +177,7 @@ public final class DlcClientRuntime {
         } catch (IOException ignored) {
             return false;
         }
-        Screen managerScreen = new DlcMaLiLibScreen(parent);
+        Screen managerScreen = new DlcManagerScreen(parent);
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
             return true;
         }
@@ -639,7 +639,7 @@ public final class DlcClientRuntime {
     public static void openManagerFromCommand() {
         Minecraft minecraft = Minecraft.getInstance();
         Screen parent = minecraft.screen;
-        Screen managerScreen = new DlcMaLiLibScreen(parent);
+        Screen managerScreen = new DlcManagerScreen(parent);
         if (DlcRemoteManager.tryShowFromManager(managerScreen)) {
             return;
         }
@@ -717,7 +717,7 @@ public final class DlcClientRuntime {
             return;
         }
         DlcServerApi.start(null);
-        DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcMaLiLibScreen::refreshCurrentOpenScreen));
+        DlcServerApi.setClientStateChangedListener(() -> Minecraft.getInstance().execute(DlcManagerScreen::refreshCurrentOpenScreen));
         ensurePackArchiveRoot(DlcPaths.dlcRoot());
         com.cozooo.dlc_manager.client.pack.DlcPackRecovery.recover(DlcPaths.gameDir(), DlcPaths.dlcRoot());
         uninstallIncompatiblePacksForCurrentVersion();

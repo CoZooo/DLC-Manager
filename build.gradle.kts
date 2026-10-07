@@ -81,7 +81,6 @@ dlcFixedModProperties.forEach { (key, value) ->
     extensions.extraProperties[key] = value
 }
 
-// StoneCraft also applies Architectury Loom and mod-publish-plugin to each version project.
 apply(plugin = "gg.meza.stonecraft")
 
 fun stoneNodeLoader(nodeName: String): String =
@@ -633,7 +632,6 @@ if (stoneNodes.contains(project.name)) {
         ""
     }
     configure<ModSettingsExtension> {
-        // StoneCraft uses this directory for the normal client and its client-options task.
         runDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
         testClientRunDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/client")
         testServerRunDirectory = rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server")
@@ -690,7 +688,6 @@ if (stoneNodes.contains(project.name)) {
         }
     }
 
-    // StoneCraft configures client and GameTest runs. Only the normal server needs a separate directory.
     extensions.configure<LoomGradleExtensionAPI> {
         runs.named("server") {
             runDirectory.set(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/server"))
@@ -823,7 +820,6 @@ if (stoneNodes.contains(project.name)) {
             runs.configureEach {
                 mods {
                     maybeCreate(prop("mod_id")).apply {
-                        // Override automatic IDE paths with Gradle's expanded metadata.
                         modFiles.setFrom(mainSourceSet.output)
                         mainSourceSet.output.resourcesDir?.let { mainResourceDirectory.set(it) }
                     }

@@ -1,7 +1,7 @@
 package com.cozooo.dlc_manager.client
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
-import com.cozooo.dlc_manager.client.screen.DlcMaLiLibScreen
+import com.cozooo.dlc_manager.client.screen.DlcManagerScreen
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.core.DlcConfig
 import dev.architectury.event.EventResult
@@ -148,7 +148,7 @@ object DlcClientEvents {
         val w = 200
         val h = 20
         val button = Button.builder(Component.translatable("dlc_manager.title")) {
-            val managerScreen = DlcMaLiLibScreen(screen)
+            val managerScreen = DlcManagerScreen(screen)
             if (DlcRemoteManager.tryShowFromManager(managerScreen)) return@builder
             Minecraft.getInstance().setScreen(managerScreen)
         }.bounds(x, y, w, h).build()
