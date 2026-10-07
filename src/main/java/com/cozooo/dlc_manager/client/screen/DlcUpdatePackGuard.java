@@ -5,7 +5,6 @@ import com.cozooo.dlc_manager.client.update.DlcUpdateManifest;
 import com.cozooo.dlc_manager.client.update.DlcUpdatePackage;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -24,7 +23,7 @@ public final class DlcUpdatePackGuard {
         }
         Component title = Component.translatable("dlc_manager.pack.manager_title");
         Component message = DlcConfirmUtil.buildPackUpdateIncompatibleConfirmMessage(check);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 Minecraft.getInstance().setScreen(returnScreen);
                 handler.proceed(check, true);

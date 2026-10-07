@@ -5,24 +5,19 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerFileEntry
 import com.cozooo.dlc_manager.client.core.DlcFilePicker
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.name
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 class DlcServerFileManagerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.server.files_title")) {
+) : DlcFilePageScreen(parent, Component.translatable("dlc_manager.server.files_title")) {
     private var pathField: EditBox? = null
     private var entries: List<DlcServerFileEntry> = ArrayList()
     private var scrollIndex = 0
@@ -39,7 +34,7 @@ class DlcServerFileManagerScreen(
     private var draggingScroll = false
     private var scrollDragOffset = 0
 
-    override fun init() {
+    private fun initControls() {
         val centerX = width / 2
         var fieldWidth = width - 120
         if (fieldWidth < 160) {
@@ -97,130 +92,6 @@ class DlcServerFileManagerScreen(
 
         updateSelectionState()
         refresh()
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        guiGraphics.drawCenteredString(font, title, centerX, 16, 0xFFFFFF)
-        val field = pathField
-        if (field != null) {
-            guiGraphics.drawString(font, Component.translatable("dlc_manager.server.files_path"), field.x, field.y - 10, 0xC8C8C8, false)
-        }
-        renderList(guiGraphics)
-        if (loading) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.server.files_loading"), centerX, height - 62, 0xC8C8C8)
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    private fun renderList(guiGraphics: GuiGraphics) {
-        val listTop = 90
-        val listBottom = height - 40
-        val maxVisible = max(1, (listBottom - listTop) / ROW_HEIGHT)
-        val totalLines = entries.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll
-        }
-        var rowY = listTop
-        for (i in entries.indices) {
-            if (i < scrollIndex || i >= scrollIndex + maxVisible) {
-                continue
-            }
-            val fileEntry = entries[i]
-            val selected = i == selectedIndex
-            if (selected) {
-                val left = 24
-                val right = width - 24
-                val top = rowY + 1
-                val bottom = rowY + ROW_HEIGHT - 3
-                guiGraphics.fill(left, top, right, bottom, 0x33222222)
-                guiGraphics.fill(left, top, right, top + 1, 0xFFFFFFFF.toInt())
-                guiGraphics.fill(left, bottom - 1, right, bottom, 0xFFFFFFFF.toInt())
-                guiGraphics.fill(left, top, left + 1, bottom, 0xFFFFFFFF.toInt())
-                guiGraphics.fill(right - 1, top, right, bottom, 0xFFFFFFFF.toInt())
-            }
-            val rawName = fileEntry.name ?: ""
-            val label = if (fileEntry.dir) "$rawName/" else rawName
-            val color = if (fileEntry.dir) 0x6BA7FF else 0xE6E6E6
-            guiGraphics.drawString(font, label, 32, rowY + 4, color, false)
-            if (!fileEntry.dir) {
-                val size = formatSize(fileEntry.size)
-                guiGraphics.drawString(font, size, width - 90, rowY + 4, 0x9A9A9A, false)
-            }
-            rowY += ROW_HEIGHT
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll)
-    }
-
-    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        val listTop = 90
-        val listBottom = height - 40
-        val maxVisible = max(1, (listBottom - listTop) / ROW_HEIGHT)
-        val maxScroll = max(0, entries.size - maxVisible)
-        if (startScrollDrag(mouseX, mouseY, listTop, listBottom, entries.size, maxVisible, maxScroll)) {
-            return true
-        }
-        if (mouseY >= listTop && mouseY <= listBottom) {
-            val index = ((mouseY - listTop) / ROW_HEIGHT).toInt() + scrollIndex
-            if (index >= 0 && index < entries.size) {
-                val now = System.currentTimeMillis()
-                if (index == lastClickIndex && now - lastClickTime <= 250) {
-                    selectedIndex = index
-                    openSelected()
-                    lastClickIndex = -1
-                    lastClickTime = 0L
-                    return true
-                }
-                selectedIndex = index
-                lastClickIndex = index
-                lastClickTime = now
-                updateSelectionState()
-                return true
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button)
-    }
-
-    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
-        if (draggingScroll) {
-            val listTop = 90
-            val listBottom = height - 40
-            val maxVisible = max(1, (listBottom - listTop) / ROW_HEIGHT)
-            val maxScroll = max(0, entries.size - maxVisible)
-            updateScrollFromDrag(mouseY, listTop, listBottom, entries.size, maxVisible, maxScroll)
-            return true
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
-    }
-
-    override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (draggingScroll) {
-            draggingScroll = false
-            return true
-        }
-        return super.mouseReleased(mouseX, mouseY, button)
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        return handleMouseScrolled(mouseX, mouseY, deltaY)
-    }
-
-    private fun handleMouseScrolled(mouseX: Double, mouseY: Double, verticalAmount: Double): Boolean {
-        val listTop = 90
-        val listBottom = height - 40
-        if (mouseY < listTop || mouseY > listBottom) {
-            return false
-        }
-        val maxVisible = max(1, (listBottom - listTop) / ROW_HEIGHT)
-        val maxScroll = max(0, entries.size - maxVisible)
-        if (maxScroll > 0) {
-            val step = if (verticalAmount > 0) -1 else 1
-            scrollIndex = max(0, min(maxScroll, scrollIndex + step))
-            return true
-        }
-        return false
     }
 
     private fun refresh() {
@@ -396,7 +267,11 @@ class DlcServerFileManagerScreen(
     }
 
     private fun updateSelectionState() {
-        saveButton?.active = selectedEntry != null
+        saveButton?.active = !loading && selectedEntry != null
+        deleteButton?.active = !loading && selectedEntry != null
+        refreshButton?.active = !loading
+        uploadButton?.active = !loading
+        upButton?.active = !loading
     }
 
     private fun confirmDelete() {
@@ -404,7 +279,7 @@ class DlcServerFileManagerScreen(
         val title = Component.translatable("dlc_manager.server.files_delete")
         val message = Component.translatable("dlc_manager.server.files_delete_confirm", fileEntry.name)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen({ accepted ->
+            DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     confirmDeleteAgain(fileEntry)
                 } else {
@@ -418,7 +293,7 @@ class DlcServerFileManagerScreen(
         val title = Component.translatable("dlc_manager.server.files_delete")
         val message = Component.translatable("dlc_manager.server.files_delete_confirm_again", fileEntry.name)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen({ accepted ->
+            DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     deleteSelected(fileEntry)
                 } else {
@@ -462,59 +337,6 @@ class DlcServerFileManagerScreen(
     private val selectedEntry: DlcServerFileEntry?
         get() = if (selectedIndex >= 0 && selectedIndex < entries.size) entries[selectedIndex] else null
 
-    private fun drawScrollBar(guiGraphics: GuiGraphics, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (totalLines <= maxVisible) {
-            return
-        }
-        val barX = width - 20
-        val barWidth = 6
-        val barHeight = max(20, (bottom - top) * maxVisible / max(1, totalLines))
-        val trackHeight = bottom - top
-        val barY = top + (trackHeight - barHeight) * scrollIndex / max(1, maxScroll)
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF3B3B3B.toInt())
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF9B9B9B.toInt())
-    }
-
-    private fun startScrollDrag(
-        mouseX: Double,
-        mouseY: Double,
-        top: Int,
-        bottom: Int,
-        totalLines: Int,
-        maxVisible: Int,
-        maxScroll: Int,
-    ): Boolean {
-        if (totalLines <= maxVisible) {
-            return false
-        }
-        val barX = width - 20
-        val barWidth = 6
-        val trackHeight = bottom - top
-        val barHeight = max(20, trackHeight * maxVisible / max(1, totalLines))
-        val barY = top + (trackHeight - barHeight) * scrollIndex / max(1, maxScroll)
-        if (mouseX >= barX && mouseX <= barX + barWidth && mouseY >= barY && mouseY <= barY + barHeight) {
-            draggingScroll = true
-            scrollDragOffset = (mouseY - barY).toInt()
-            return true
-        }
-        return false
-    }
-
-    private fun updateScrollFromDrag(mouseY: Double, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (totalLines <= maxVisible || maxScroll <= 0) {
-            scrollIndex = 0
-            return
-        }
-        val trackHeight = bottom - top
-        val barHeight = max(20, trackHeight * maxVisible / max(1, totalLines))
-        val minY = top
-        val maxY = bottom - barHeight
-        val barY = max(minY.toDouble(), min(maxY.toDouble(), mouseY - scrollDragOffset)).toInt()
-        val range = max(1, maxY - minY)
-        val ratio = (barY - minY) / range.toDouble()
-        scrollIndex = max(0, min(maxScroll, (ratio * maxScroll).roundToInt()))
-    }
-
     private fun formatSize(size: Long): String {
         if (size <= 0) {
             return ""
@@ -529,6 +351,34 @@ class DlcServerFileManagerScreen(
     }
 
     companion object {
-        private const val ROW_HEIGHT = 18
+
     }
+
+    private var controlsReady = false
+    private var pageRevision = 0
+    override fun buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls() }
+        pageRevision = 31 * entries.hashCode() + loading.hashCode()
+
+        upButton?.let { mount(toolbar, it) }; refreshButton?.let { mount(toolbar, it) }; uploadButton?.let { mount(toolbar, it) }
+        pathField?.let { mount(content, it, tr("dlc_manager.server.files_path"), "text") }
+        if (entries.isEmpty() && !loading) text(content, tr("dlc_manager.ui.empty_files"), "page-description")
+        val list = fileList(null)
+        for ((index, file) in entries.withIndex()) {
+            fileRow(list, file.name + if (file.dir) "/" else "", if (file.dir) null else formatSize(file.size),
+                { (index == selectedIndex).toString() }, { !loading },
+                { selectedIndex = if (selectedIndex == index) -1 else index; updateSelectionState() },
+                if (file.dir) Runnable { selectedIndex = index; openSelected() } else null)
+        }
+        deleteButton?.let { mount(footer, it).getElement().setAttribute("class", "button danger") }; saveButton?.let { mount(footer, it) }
+        status(if (loading) tr("dlc_manager.server.files_loading") else "")
+
+    }
+    override fun updatePage() {
+        updateSelectionState(); pathField?.active = !loading
+        if (pageRevision != 31 * entries.hashCode() + loading.hashCode()) refreshPage()
+        super.updatePage()
+    }
+
+    override fun shouldCloseOnEsc() = !loading
 }

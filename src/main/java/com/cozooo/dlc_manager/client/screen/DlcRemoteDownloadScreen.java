@@ -3,10 +3,8 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteService;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker;
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -18,15 +16,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
-    private static final int LINE_HEIGHT = 10;
-    private static final int CHECKBOX_SIZE = 8;
-    private static final int CHECKBOX_X = 12;
+public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
+
+
+
     private static final String NONE_MARKER = "__NONE__";
     private static final String ALL_MARKER = "__ALL__";
     private static final long SWITCH_DELAY_MS = 20_000L;
-    private static final int SWITCH_BUTTON_SIZE = 8;
-    private static final int SWITCH_BUTTON_PAD = 4;
+
+
 
     private final Screen parent;
     private final List<DlcRemoteEntry> missing;
@@ -53,24 +51,20 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
     private volatile int totalCount;
     private volatile int completedCount;
     private volatile float currentProgress;
-    private int scrollIndex;
-    private boolean draggingScrollBar;
-    private int scrollBarDragOffset;
 
     public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing) {
         this(parent, missing, DlcRemoteMarker.PART_DLC, Component.translatable("dlc_manager.remote.title"));
     }
 
     public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing, String partMarkerKey, Component title) {
-        super(title);
+        super(parent, title);
         this.parent = parent;
         this.missing = missing == null ? List.of() : missing;
         this.partMarkerKey = partMarkerKey;
         this.maxConcurrentDownloads = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         if (missing.isEmpty()) {
             Minecraft.getInstance().setScreen(parent);
             return;
@@ -93,259 +87,10 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         new Thread(this::buildPreviewQueue, "dlc-remote-preview").start();
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        int y = 20;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
-        y += 18;
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.remote.desc"), centerX, y, 0xC8C8C8);
-        y += 16;
-        if (detecting && !downloading) {
-            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.remote.detecting"), centerX, y, 0xE6E6E6);
-            y += 12;
-        }
-
-        List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
-        int listTop = y;
-        drawCheckbox(guiGraphics, CHECKBOX_X, listTop + 1, CHECKBOX_SIZE, isAllSelected());
-        guiGraphics.drawString(this.font, Component.translatable("dlc_manager.remote.select_all"),
-            CHECKBOX_X + CHECKBOX_SIZE + 6, listTop, 0xE6E6E6, false);
-        int listStart = listTop + LINE_HEIGHT;
-        int listBottom = this.height - 70;
-        int lineHeight = LINE_HEIGHT;
-        int maxVisible = Math.max(1, (listBottom - listStart) / lineHeight);
-        int totalLines = showList.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll;
-        }
-        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            DlcRemoteEntry entry = showList.get(i);
-            String name = entry.resolveDisplayName();
-            boolean checked = isAllSelected() || selectedKeys.contains(selectionKey(entry));
-            int rowY = listStart + (i - scrollIndex) * lineHeight;
-            drawCheckbox(guiGraphics, CHECKBOX_X, rowY + 1, CHECKBOX_SIZE, checked);
-            guiGraphics.drawString(this.font, DlcTextFormatter.parse(name), CHECKBOX_X + CHECKBOX_SIZE + 6, rowY, 0xE6E6E6, false);
-            if (downloading && maxConcurrentDownloads > 1) {
-                String key = progressKey(entry);
-                Float progress = progressByKey.get(key);
-                if (progress != null) {
-                    int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
-                    String progressText = percent + "%";
-                    int textWidth = this.font.width(progressText);
-                    int percentBoxWidth = this.font.width("100%");
-                    int barWidth = 36;
-                    int barHeight = 6;
-                    int percentRight = this.width - 18;
-                    int percentLeft = percentRight - percentBoxWidth;
-                    int barRight = percentLeft - 6;
-                    int barLeft = barRight - barWidth;
-                    int barY = rowY + 2;
-                    drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress);
-                    if (shouldShowSwitch(key, entry, progress)) {
-                        int switchRight = barLeft - SWITCH_BUTTON_PAD;
-                        int switchLeft = switchRight - SWITCH_BUTTON_SIZE;
-                        int switchTop = barY - 1;
-                        drawSwitchButton(guiGraphics, switchLeft, switchTop);
-                    }
-                    guiGraphics.drawString(this.font, progressText, percentRight - textWidth, rowY, 0xC8C8C8, false);
-                }
-            }
-        }
-        drawScrollBar(guiGraphics, listStart, listBottom, totalLines, maxVisible, maxScroll);
-
-        if (downloading) {
-            y = this.height - 70;
-            if (maxConcurrentDownloads <= 1) {
-                String status = statusText == null ? "" : statusText;
-                guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(status), centerX, y, 0xE6E6E6);
-                y += 12;
-                DlcRemoteEntry activeEntry = activeDownloadEntry;
-                String activeKey = activeEntry == null ? null : progressKey(activeEntry);
-                if (activeKey != null && shouldShowSwitch(activeKey, activeEntry, currentProgress)) {
-                    int barLeft = centerX - 120;
-                    int switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE;
-                    int switchTop = y - 1;
-                    drawSwitchButton(guiGraphics, switchLeft, switchTop);
-                }
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress);
-                int percent = Math.round(Math.max(0f, Math.min(1f, currentProgress)) * 100f);
-                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
-            } else {
-                String status = Component.translatable("dlc_manager.remote.downloading_multi").getString();
-                guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
-                y += 12;
-                float totalProgress = getTotalProgress();
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, totalProgress);
-                int percent = Math.round(Math.max(0f, Math.min(1f, totalProgress)) * 100f);
-                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
-            }
-        } else if (errorText != null && !errorText.isBlank()) {
-            y = this.height - 70;
-            guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B);
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(deltaY);
-    }
-
-    private boolean handleMouseScrolled(double deltaY) {
-        List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
-        int listTop = getListTop() + LINE_HEIGHT;
-        int listBottom = this.height - 70;
-        int lineHeight = LINE_HEIGHT;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = showList.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (maxScroll > 0) {
-            int step = deltaY > 0 ? -1 : 1;
-            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && beginScrollDrag(mouseX, mouseY)) {
-            return true;
-        }
-        if (downloading && handleSwitchClick(mouseX, mouseY)) {
-            return true;
-        }
-        if (!downloading) {
-            List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
-            int listTop = getListTop();
-            int listBottom = this.height - 70;
-            if (mouseY >= listTop && mouseY < listTop + LINE_HEIGHT) {
-                int boxX = CHECKBOX_X;
-                int boxY = listTop + 1;
-                if (mouseX >= boxX && mouseX <= boxX + CHECKBOX_SIZE
-                    && mouseY >= boxY && mouseY <= boxY + CHECKBOX_SIZE) {
-                    toggleSelectAll();
-                    return true;
-                }
-            }
-            int listStart = listTop + LINE_HEIGHT;
-            if (mouseY >= listStart && mouseY < listBottom) {
-                int row = (int) ((mouseY - listStart) / LINE_HEIGHT);
-                int index = scrollIndex + row;
-                if (index >= 0 && index < showList.size()) {
-                    int boxX = CHECKBOX_X;
-                    int boxY = listStart + row * LINE_HEIGHT + 1;
-                    if (mouseX >= boxX && mouseX <= boxX + CHECKBOX_SIZE
-                        && mouseY >= boxY && mouseY <= boxY + CHECKBOX_SIZE) {
-                        toggleSelection(showList.get(index), showList);
-                        return true;
-                    }
-                }
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (button == 0 && draggingScrollBar) {
-            updateScrollFromDrag(mouseY);
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && draggingScrollBar) {
-            draggingScrollBar = false;
-            return true;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return;
-        }
-        int barX = this.width - 12;
-        int barWidth = 4;
-        int barHeight = Math.max(12, (bottom - top) * maxVisible / totalLines);
-        int trackHeight = bottom - top;
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barY = top + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B);
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
-    }
-
-    private boolean beginScrollDrag(double mouseX, double mouseY) {
-        List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
-        int listTop = getListTop() + LINE_HEIGHT;
-        int listBottom = this.height - 70;
-        int lineHeight = LINE_HEIGHT;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = showList.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return false;
-        }
-        int barX = this.width - 12;
-        int barWidth = 4;
-        int barHeight = Math.max(12, (listBottom - listTop) * maxVisible / totalLines);
-        int trackHeight = listBottom - listTop;
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barY = listTop + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
-        if (mouseX < barX || mouseX > barX + barWidth || mouseY < listTop || mouseY > listBottom) {
-            return false;
-        }
-        if (mouseY >= barY && mouseY <= barY + barHeight) {
-            draggingScrollBar = true;
-            scrollBarDragOffset = (int) mouseY - barY;
-            return true;
-        }
-        int targetBarY = (int) mouseY - barHeight / 2;
-        targetBarY = Math.max(listTop, Math.min(listTop + maxTrack, targetBarY));
-        int newIndex = Math.round(((targetBarY - listTop) / (float) maxTrack) * maxScroll);
-        scrollIndex = Math.max(0, Math.min(maxScroll, newIndex));
-        return true;
-    }
-
-    private void updateScrollFromDrag(double mouseY) {
-        List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
-        int listTop = getListTop() + LINE_HEIGHT;
-        int listBottom = this.height - 70;
-        int lineHeight = LINE_HEIGHT;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = showList.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return;
-        }
-        int barHeight = Math.max(12, (listBottom - listTop) * maxVisible / totalLines);
-        int trackHeight = listBottom - listTop;
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int targetBarY = (int) mouseY - scrollBarDragOffset;
-        targetBarY = Math.max(listTop, Math.min(listTop + maxTrack, targetBarY));
-        int newIndex = Math.round(((targetBarY - listTop) / (float) maxTrack) * maxScroll);
-        scrollIndex = Math.max(0, Math.min(maxScroll, newIndex));
-    }
-
-    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
-        int bg = 0xFF2B2B2B;
-        int fg = 0xFF4CAF50;
-        guiGraphics.fill(x, y, x + width, y + height, bg);
-        int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));
-        guiGraphics.fill(x, y, x + filled, y + height, fg);
-    }
-
     private void buildPreviewQueue() {
         previewQueue = DlcRemoteService.expandWithDependencies(missing);
         detecting = false;
         statusText = Component.translatable("dlc_manager.remote.ready").getString();
-        scrollIndex = 0;
         Minecraft.getInstance().execute(() -> {
             if (downloadButton != null) {
                 downloadButton.visible = true;
@@ -602,77 +347,6 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         return count > 1;
     }
 
-    private boolean shouldShowSwitch(String key, DlcRemoteEntry entry, float progress) {
-        if (!downloading || key == null || entry == null || progress >= 1f) {
-            return false;
-        }
-        Long start = downloadStartByKey.get(key);
-        if (start == null || System.currentTimeMillis() - start < SWITCH_DELAY_MS) {
-            return false;
-        }
-        return hasMultipleSources(entry);
-    }
-
-    private void drawSwitchButton(GuiGraphics guiGraphics, int x, int y) {
-        int right = x + SWITCH_BUTTON_SIZE;
-        int bottom = y + SWITCH_BUTTON_SIZE;
-        guiGraphics.fill(x, y, right, bottom, 0xFF4B4B4B);
-        guiGraphics.drawString(this.font, ">", x + 2, y + 1, 0xE6E6E6, false);
-    }
-
-    private boolean handleSwitchClick(double mouseX, double mouseY) {
-        if (!downloading) {
-            return false;
-        }
-        if (maxConcurrentDownloads <= 1) {
-            DlcRemoteEntry activeEntry = activeDownloadEntry;
-            String key = activeEntry == null ? null : progressKey(activeEntry);
-            if (key != null && shouldShowSwitch(key, activeEntry, currentProgress)) {
-                int centerX = this.width / 2;
-                int barLeft = centerX - 120;
-                int switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE;
-                int switchTop = (this.height - 70) + 12 - 1;
-                if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE
-                    && mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE) {
-                    switchRequested.add(key);
-                    return true;
-                }
-            }
-            return false;
-        }
-        List<DlcRemoteEntry> showList = previewQueue.isEmpty() ? missing : previewQueue;
-        int listTop = getListTop() + LINE_HEIGHT;
-        int listBottom = this.height - 70;
-        int maxVisible = Math.max(1, (listBottom - listTop) / LINE_HEIGHT);
-        int totalLines = showList.size();
-        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            DlcRemoteEntry entry = showList.get(i);
-            String key = progressKey(entry);
-            Float progress = progressByKey.get(key);
-            if (progress == null || !shouldShowSwitch(key, entry, progress)) {
-                continue;
-            }
-            int row = i - scrollIndex;
-            int rowY = listTop + row * LINE_HEIGHT;
-            int barWidth = 36;
-            int percentBoxWidth = this.font.width("100%");
-            int percentRight = this.width - 18;
-            int percentLeft = percentRight - percentBoxWidth;
-            int barRight = percentLeft - 6;
-            int barLeft = barRight - barWidth;
-            int barY = rowY + 2;
-            int switchRight = barLeft - SWITCH_BUTTON_PAD;
-            int switchLeft = switchRight - SWITCH_BUTTON_SIZE;
-            int switchTop = barY - 1;
-            if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE
-                && mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE) {
-                switchRequested.add(key);
-                return true;
-            }
-        }
-        return false;
-    }
-
     private String progressKey(DlcRemoteEntry entry) {
         if (entry == null) {
             return "";
@@ -777,25 +451,6 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         return unique == null ? "" : unique;
     }
 
-    private void drawCheckbox(GuiGraphics guiGraphics, int x, int y, int size, boolean checked) {
-        int bg = 0xFF2B2B2B;
-        int outline = 0xFF6B6B6B;
-        int fill = 0xFF4CAF50;
-        guiGraphics.fill(x, y, x + size, y + size, outline);
-        guiGraphics.fill(x + 1, y + 1, x + size - 1, y + size - 1, bg);
-        if (checked) {
-            guiGraphics.fill(x + 2, y + 2, x + size - 2, y + size - 2, fill);
-        }
-    }
-
-    private int getListTop() {
-        int y = 20 + 18 + 16;
-        if (detecting && !downloading) {
-            y += 12;
-        }
-        return y;
-    }
-
     private void toggleSelectAll() {
         if (isAllSelected()) {
             selectedKeys.clear();
@@ -814,4 +469,76 @@ public class DlcRemoteDownloadScreen extends DlcScreenCompat.MouseScroll {
         return selectedKeys.contains(NONE_MARKER);
     }
 
+
+    private boolean controlsReady;
+    private int pageRevision;
+    @Override protected void buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls(); }
+        pageRevision = java.util.Objects.hash((previewQueue.isEmpty() ? missing : previewQueue), downloading, detecting);
+        sourceButtons.clear();
+        var showList = previewQueue.isEmpty() ? missing : previewQueue;
+        var list = remoteList(this::isAllSelected, () -> !downloading && !detecting, this::toggleSelectAll);
+        for (var entry : showList) {
+            var line = remoteRow(list, entry.resolveDisplayName(), () -> isAllSelected() || selectedKeys.contains(selectionKey(entry)),
+                () -> !downloading && !detecting, () -> toggleSelection(entry, showList));
+            remoteTip(line, entry.resolveDisplayName(), entry.getTips());
+            String key = progressKey(entry);
+            if (downloading && maxConcurrentDownloads > 1 && progressByKey.containsKey(key)) {
+                var controls = node(line, "div", "remote-row-progress");
+                sourceSwitch(controls, entry);
+                remoteProgress(controls, () -> progressByKey.getOrDefault(key, 0f));
+            }
+        }
+        var summary = remoteStatus();
+        live(summary, () -> detecting ? tr("dlc_manager.remote.detecting") : downloading ? statusText : "", "remote-download-status");
+        live(summary, () -> errorText, "page-error");
+        if (detecting) progress(summary, () -> -1);
+        if (downloading) {
+            var meter = node(summary, "div", "remote-total-progress");
+            if (maxConcurrentDownloads <= 1) sourceSwitch(meter, () -> activeDownloadEntry);
+            remoteProgress(meter, () -> maxConcurrentDownloads <= 1 ? currentProgress : getTotalProgress());
+        }
+        mount(footer, skipButton);
+        mount(footer, downloadButton).getElement().setAttribute("class", "button primary");
+    }
+
+    private void sourceSwitch(com.sighs.apricityui.init.Element parent, DlcRemoteEntry entry) {
+        sourceSwitch(parent, () -> entry);
+    }
+
+    private void sourceSwitch(com.sighs.apricityui.init.Element parent, java.util.function.Supplier<DlcRemoteEntry> entry) {
+        var button = action(parent, tr("dlc_manager.remote.switch_source"), () -> {
+            var active = entry.get();
+            if (canSwitchSource(active)) switchRequested.add(progressKey(active));
+        });
+        button.getElement().setAttribute("class", "button remote-source-switch");
+        button.getElement().setAttribute("style", "display:none");
+        boolean[] shown = {false};
+        sourceButtons.add(() -> {
+            boolean visible = canSwitchSource(entry.get());
+            if (shown[0] != visible) {
+                shown[0] = visible;
+                button.getElement().setAttribute("style", visible ? "" : "display:none");
+            }
+        });
+    }
+
+    private final List<Runnable> sourceButtons = new ArrayList<>();
+
+    private boolean canSwitchSource(DlcRemoteEntry entry) {
+        if (!downloading || entry == null || !hasMultipleSources(entry)) return false;
+        String key = progressKey(entry);
+        Long start = downloadStartByKey.get(key);
+        return start != null && System.currentTimeMillis() - start >= SWITCH_DELAY_MS
+            && progressByKey.getOrDefault(key, 0f) < 1f && !switchRequested.contains(key);
+    }
+
+    @Override protected void updatePage() {
+        if (pageRevision != java.util.Objects.hash((previewQueue.isEmpty() ? missing : previewQueue), downloading, detecting)) refreshPage();
+        updateRemoteSelections();
+        sourceButtons.forEach(Runnable::run);
+    }
+
+    @Override public boolean shouldCloseOnEsc() { return !downloading && !detecting; }
+    @Override public void onClose() { if (shouldCloseOnEsc()) handleSkip(); }
 }

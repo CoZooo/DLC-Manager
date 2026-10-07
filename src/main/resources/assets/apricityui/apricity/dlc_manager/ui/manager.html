@@ -22,17 +22,20 @@
             </div>
         </aside>
         <section class="workspace">
-            <header class="workspace-header">
-                <div id="sidebar-toggle-slot"></div>
-                <nav id="manager-context" aria-label="DLC actions"></nav>
+            <header id="manager-header" class="workspace-header">
+                <div class="workspace-heading">
+                    <div id="manager-connection"></div>
+                </div>
             </header>
             <div class="list-toolbar">
+                <div id="sidebar-toggle-slot"></div>
                 <div class="search-field">
                     <input id="manager-search" type="search" autocomplete="off">
                     <div id="search-actions"></div>
                 </div>
                 <span id="manager-summary"></span>
                 <div id="batch-actions"></div>
+                <nav id="manager-context" aria-label="DLC actions"></nav>
             </div>
             <div id="manager-list" role="list" tabindex="0"></div>
             <footer class="workspace-footer">

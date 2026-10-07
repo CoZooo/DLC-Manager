@@ -23,12 +23,10 @@ import net.minecraft.Util
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.renderer.texture.DynamicTexture
 import net.minecraft.network.chat.Component
 import net.minecraft.resources.ResourceLocation
-import net.minecraft.util.FormattedCharSequence
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -40,7 +38,7 @@ import kotlin.math.roundToInt
 
 class DlcPackManagerScreen(
     private val parent: Screen?,
-) : DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.pack.manager_title")) {
+) : DlcPackPageScreen(parent, Component.translatable("dlc_manager.pack.manager_title")) {
     private var importButton: Button? = null
     private var urlButton: Button? = null
     private var applyButton: Button? = null
@@ -76,10 +74,8 @@ class DlcPackManagerScreen(
     @Volatile private var activeReinstallIdentifiers: Set<String> = emptySet()
     private var iconTextureSerial = 0
 
-    override fun init() {
-        if (!busy) {
-            refreshEntries()
-        }
+    private fun initControls() {
+
         clearWidgets()
         val buttonWidth = 104
         val buttonHeight = 20
@@ -184,109 +180,6 @@ class DlcPackManagerScreen(
         )
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        guiGraphics.drawCenteredString(font, title, width / 2, 18, 0xFFFFFF)
-        if (busy) {
-            renderOperation(guiGraphics)
-            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-            return
-        }
-        if (!DlcConfig.isPackFuncOn()) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.pack.disabled"), width / 2, height / 2 - 8, 0xFFCC66)
-        } else {
-            renderPackList(guiGraphics, mouseX, mouseY)
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    private fun renderOperation(guiGraphics: GuiGraphics) {
-        val centerX = width / 2
-        var y = height / 2 - 44
-        val progressText = if (operationProgress >= 0f) {
-            "${(operationProgress.coerceIn(0f, 1f) * 100f).roundToInt()}%"
-        } else {
-            "..."
-        }
-        val message = operationStatus ?: status ?: Component.translatable("dlc_manager.pack.applying")
-        guiGraphics.drawCenteredString(font, formatOperationTitle(message, operationProgress, progressText), centerX, y, 0xE6E6E6)
-        y += 24
-        drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, operationProgress)
-        guiGraphics.drawCenteredString(font, progressText, centerX, y + 14, 0xC8C8C8)
-        operationDetail?.let {
-            guiGraphics.drawCenteredString(font, it, centerX, y + 28, 0x9A9A9A)
-        }
-    }
-
-    private fun renderPackList(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
-        val left = listLeft
-        val right = listRight
-        val top = listTop
-        guiGraphics.drawString(font, Component.translatable("dlc_manager.pack.archive_count", archiveGroups.size), left, 38, 0xE6E6E6, false)
-        status?.let { guiGraphics.drawString(font, it, left + 150, 38, 0xFFCC66, false) }
-        if (archiveGroups.isEmpty()) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.pack.none_archived"), width / 2, top + 36, 0x9A9A9A)
-            return
-        }
-        clampScroll()
-        var rowY = top - scrollOffset
-        var index = 0
-        val contentRight = right - SCROLLBAR_WIDTH - 4
-        guiGraphics.enableScissor(left, top, contentRight, listBottom)
-        while (index < archiveGroups.size && rowY < listBottom) {
-            val group = archiveGroups[index]
-            val rowHeight = rowHeight(group, contentRight)
-            if (rowY + rowHeight > top) {
-                renderEntry(guiGraphics, group, index, left, contentRight, rowY, rowHeight, mouseX, mouseY)
-            }
-            rowY += rowHeight
-            index++
-        }
-        guiGraphics.disableScissor()
-        drawScrollBar(guiGraphics)
-        renderVersionDropdown(guiGraphics, mouseX, mouseY)
-    }
-
-    private fun renderEntry(guiGraphics: GuiGraphics, group: PackArchiveGroup, index: Int, left: Int, right: Int, y: Int, rowHeight: Int, mouseX: Int, mouseY: Int) {
-        val entry = group.displayEntry
-        val background = if (index == selectedIndex) 0x66335566 else 0x55202020
-        guiGraphics.fill(left, y, right, y + rowHeight - 4, background)
-        drawOrderButtons(guiGraphics, group, index, left + 4, y, rowHeight, mouseX, mouseY)
-        val iconX = left + ORDER_BUTTON_WIDTH + 12
-        val iconY = y + ROW_PADDING_TOP
-        val iconTexture = entry.iconTexture
-        if (iconTexture != null) {
-            guiGraphics.blit(iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE, 0.0f, 0.0f, entry.iconWidth, entry.iconHeight, entry.iconWidth, entry.iconHeight)
-        } else {
-            guiGraphics.fill(iconX, iconY, iconX + ICON_SIZE, iconY + ICON_SIZE, 0xFF3B3B3B.toInt())
-            val initial = entry.displayNameText.ifBlank { "P" }.substring(0, 1).uppercase(Locale.ROOT)
-            guiGraphics.drawCenteredString(font, Component.literal(initial), iconX + ICON_SIZE / 2, iconY + 12, 0xFFFFFF)
-        }
-        val textX = iconX + ICON_SIZE + 8
-        val textRight = right - BUTTON_WIDTH - 18
-        val homepagePrompt = homepagePrompt(entry)
-        val homepageWidth = homepagePrompt?.let { min((font.width(it) * HOMEPAGE_PROMPT_SCALE).roundToInt(), max(1, (textRight - textX) / 2)) } ?: 0
-        val nameWidth = max(1, textRight - textX - if (homepagePrompt != null) homepageWidth + HOMEPAGE_PROMPT_GAP else 0)
-        var textY = y + ROW_PADDING_TOP
-        textY = drawMultiline(guiGraphics, entry.displayName, textX, textY, nameWidth, 0xFFFFFF) + 4
-        if (homepagePrompt != null) {
-            guiGraphics.pose().pushPose()
-            guiGraphics.pose().scale(HOMEPAGE_PROMPT_SCALE, HOMEPAGE_PROMPT_SCALE, 1.0f)
-            val promptX = textRight - homepageWidth
-            val promptY = y + ROW_PADDING_TOP + 1
-            guiGraphics.drawString(font, homepagePrompt, (promptX / HOMEPAGE_PROMPT_SCALE).roundToInt(), (promptY / HOMEPAGE_PROMPT_SCALE).roundToInt(), 0x8FA8C8, false)
-            guiGraphics.pose().popPose()
-        }
-        textY = drawAuthorLines(guiGraphics, entry, textX, textY, textRight - textX, 0xC8C8C8) + 4
-        drawVersionLine(guiGraphics, group, textX, textY, textRight - textX, mouseX, mouseY)
-        drawMultiline(guiGraphics, entry.description, textX, textY + VERSION_LINE_HEIGHT, textRight - textX, 0xB0B0B0)
-        drawActionButtons(guiGraphics, group, right - BUTTON_WIDTH - 6, y, rowHeight, mouseX, mouseY)
-    }
-
-    private fun drawRowButton(guiGraphics: GuiGraphics, x: Int, y: Int, label: Component, mouseX: Int, mouseY: Int) {
-        drawSizedButton(guiGraphics, x, y, BUTTON_WIDTH, label, mouseX, mouseY)
-    }
-
     private fun drawSizedButton(guiGraphics: GuiGraphics, x: Int, y: Int, buttonWidth: Int, label: Component, mouseX: Int, mouseY: Int) {
         drawSizedButton(guiGraphics, x, y, buttonWidth, label, mouseX, mouseY, 0xFFFFFF)
     }
@@ -295,62 +188,6 @@ class DlcPackManagerScreen(
         val hover = mouseX >= x && mouseX < x + buttonWidth && mouseY >= y && mouseY < y + BUTTON_HEIGHT
         guiGraphics.fill(x, y, x + buttonWidth, y + BUTTON_HEIGHT, if (hover) 0xFF5A5A5A.toInt() else 0xFF404040.toInt())
         guiGraphics.drawCenteredString(font, label, x + buttonWidth / 2, y + 4, textColor)
-    }
-
-    private fun drawOrderButtons(guiGraphics: GuiGraphics, group: PackArchiveGroup, index: Int, x: Int, rowY: Int, rowHeight: Int, mouseX: Int, mouseY: Int) {
-        val startY = centeredButtonColumnY(rowY, rowHeight, ORDER_BUTTON_SLOTS)
-        if (canMoveUp(index)) {
-            drawSizedButton(guiGraphics, x, startY, ORDER_BUTTON_WIDTH, Component.literal("▲"), mouseX, mouseY)
-        }
-        if (canMoveDown(index)) {
-            drawSizedButton(guiGraphics, x, startY + BUTTON_HEIGHT + BUTTON_GAP, ORDER_BUTTON_WIDTH, Component.literal("▼"), mouseX, mouseY)
-        }
-    }
-
-    private fun drawActionButtons(guiGraphics: GuiGraphics, group: PackArchiveGroup, x: Int, rowY: Int, rowHeight: Int, mouseX: Int, mouseY: Int) {
-        val actions = actionButtons(group)
-        val startY = centeredButtonColumnY(rowY, rowHeight, actions.size)
-        for ((index, action) in actions.withIndex()) {
-            drawRowButton(guiGraphics, x, startY + index * (BUTTON_HEIGHT + BUTTON_GAP), actionLabel(group, action), mouseX, mouseY)
-        }
-    }
-
-    private fun drawVersionLine(guiGraphics: GuiGraphics, group: PackArchiveGroup, x: Int, y: Int, width: Int, mouseX: Int, mouseY: Int) {
-        val prefix = Component.translatable("dlc_manager.pack.version_prefix")
-        val prefixWidth = font.width(prefix)
-        val valueX = x + prefixWidth + VERSION_VALUE_GAP
-        guiGraphics.drawString(font, prefix, x, y + 4, 0xAFC8FF, false)
-        if (group.versions.size <= 1) {
-            guiGraphics.drawString(font, Component.literal(group.displayEntry.metadata.version), valueX, y + 4, 0xAFC8FF, false)
-            return
-        }
-        drawSizedButton(guiGraphics, valueX - VERSION_BUTTON_HORIZONTAL_PADDING, y, versionButtonWidth(group), versionButtonLabel(group), mouseX, mouseY, VERSION_BUTTON_TEXT_COLOR)
-    }
-
-    private fun centeredButtonColumnY(rowY: Int, rowHeight: Int, count: Int): Int {
-        if (count <= 0) return rowY + (rowHeight - 4) / 2
-        val totalHeight = count * BUTTON_HEIGHT + (count - 1) * BUTTON_GAP
-        return rowY + max(0, (rowHeight - 4 - totalHeight) / 2)
-    }
-
-    private fun drawMultiline(guiGraphics: GuiGraphics, text: Component, x: Int, y: Int, width: Int, color: Int): Int {
-        val lines = font.split(text, max(1, width))
-        for ((index, line) in lines.withIndex()) {
-            guiGraphics.drawString(font, line, x, y + index * 10, color, false)
-        }
-        return y + lines.size * 10
-    }
-
-    private fun drawAuthorLines(guiGraphics: GuiGraphics, entry: PackArchiveEntry, x: Int, y: Int, width: Int, color: Int): Int {
-        val lines = authorLines(entry, width)
-        for ((lineIndex, line) in lines.withIndex()) {
-            var cursor = x
-            for (part in line) {
-                guiGraphics.drawString(font, part, cursor, y + lineIndex * 10, color, false)
-                cursor += font.width(part)
-            }
-        }
-        return y + lines.size * 10
     }
 
     private fun installButtonLabel(group: PackArchiveGroup): Component {
@@ -371,93 +208,6 @@ class DlcPackManagerScreen(
             return if (compare > 0) Component.translatable("dlc_manager.pack.upgrade") else Component.translatable("dlc_manager.pack.downgrade")
         }
         return Component.translatable("dlc_manager.pack.install")
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        if (busy || archiveGroups.isEmpty() || mouseY < listTop || mouseY > listBottom) return false
-        val maxScrollValue = maxScroll
-        if (maxScrollValue <= 0) return false
-        versionDropdownIdentifier = null
-        scrollOffset = max(0, min(maxScrollValue, scrollOffset + if (deltaY > 0) -SCROLL_STEP else SCROLL_STEP))
-        return true
-    }
-
-    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (!busy && button == 0) {
-            if (handleVersionDropdownClick(mouseX, mouseY)) {
-                return true
-            }
-            if (isInsideScrollbar(mouseX, mouseY)) {
-                versionDropdownIdentifier = null
-                draggingScrollbar = true
-                scrollbarDragOffset = scrollbarDragOffset(mouseY)
-                updateScrollFromMouse(mouseY)
-                return true
-            }
-            val index = entryAt(mouseY)
-            if (index in archiveGroups.indices) {
-                return handleEntryClick(archiveGroups[index], index, mouseX, mouseY)
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button)
-    }
-
-    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, dragX: Double, dragY: Double): Boolean {
-        if (draggingScrollbar) {
-            updateScrollFromMouse(mouseY)
-            return true
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY)
-    }
-
-    override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        draggingScrollbar = false
-        scrollbarDragOffset = 0.0
-        return super.mouseReleased(mouseX, mouseY, button)
-    }
-
-    private fun handleEntryClick(group: PackArchiveGroup, index: Int, mouseX: Double, mouseY: Double): Boolean {
-        val entry = group.displayEntry
-        selectedIndex = index
-        val left = listLeft
-        val right = listRight - SCROLLBAR_WIDTH - 4
-        val rowTop = rowTop(index, right) ?: return true
-        val rowHeight = rowHeight(group, right)
-        val arrowX = left + 4
-        val orderAction = orderButtonAt(index, arrowX, rowTop, rowHeight, mouseX, mouseY)
-        if (orderAction != null) {
-            moveEntry(index, if (orderAction == RowAction.MOVE_UP) -1 else 1)
-            return true
-        }
-        val versionAction = versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY)
-        if (versionAction) {
-            if (canShowVersionDropdown(group, rowTop, right)) {
-                versionDropdownIdentifier = if (versionDropdownIdentifier == group.identifier) null else group.identifier
-            } else {
-                versionDropdownIdentifier = null
-                Minecraft.getInstance().setScreen(DlcPackVersionSelectScreen(this, group.identifier, group.displayEntry.displayName, group.versions.map { it.key }, group.selectedVersionKey, installedByIdentifier[group.identifier]?.version))
-            }
-            return true
-        }
-        val rowAction = actionButtonAt(group, right - BUTTON_WIDTH - 6, rowTop, rowHeight, mouseX, mouseY)
-        if (rowAction != null) {
-            when (rowAction) {
-                RowAction.INSTALL -> toggleInstall(group)
-                RowAction.DELETE -> confirmDeleteArchive(group)
-                RowAction.FEEDBACK -> confirmOpenLink(entry, "issue")
-                RowAction.SUPPORT -> confirmOpenLink(entry, "sponsor")
-                else -> {}
-            }
-            return true
-        }
-        val now = Util.getMillis()
-        if (entry.key == lastClickKey && now - lastClickAt < 350L) {
-            confirmOpenLink(entry, "homepage")
-        }
-        lastClickKey = entry.key
-        lastClickAt = now
-        rebuildPackWidgets()
-        return true
     }
 
     private fun toggleInstall(group: PackArchiveGroup) {
@@ -486,7 +236,7 @@ class DlcPackManagerScreen(
         val entry = group.displayEntry
         val uninstallFirst = isEntryCurrentlyInstalled(entry)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(this)
                     if (accepted) {
@@ -565,7 +315,7 @@ class DlcPackManagerScreen(
             return
         }
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(this)
                     if (accepted) {
@@ -578,21 +328,6 @@ class DlcPackManagerScreen(
                 DlcConfirmUtil.confirmNo(),
             )
         )
-    }
-
-    private fun openLink(entry: PackArchiveEntry, key: String) {
-        val url = entry.metadata.links[key]
-        if (url.isNullOrBlank()) {
-            return
-        }
-        Util.getPlatform().openUri(url)
-    }
-
-    private fun orderButtons(index: Int): List<RowAction> {
-        val out = ArrayList<RowAction>(2)
-        if (canMoveUp(index)) out.add(RowAction.MOVE_UP)
-        if (canMoveDown(index)) out.add(RowAction.MOVE_DOWN)
-        return out
     }
 
     private fun actionButtons(group: PackArchiveGroup): List<RowAction> {
@@ -617,129 +352,6 @@ class DlcPackManagerScreen(
         }
     }
 
-    private fun orderButtonAt(index: Int, x: Int, rowY: Int, rowHeight: Int, mouseX: Double, mouseY: Double): RowAction? {
-        val startY = centeredButtonColumnY(rowY, rowHeight, ORDER_BUTTON_SLOTS)
-        if (canMoveUp(index) && mouseX >= x && mouseX < x + ORDER_BUTTON_WIDTH && mouseY >= startY && mouseY < startY + BUTTON_HEIGHT) {
-            return RowAction.MOVE_UP
-        }
-        val downY = startY + BUTTON_HEIGHT + BUTTON_GAP
-        if (canMoveDown(index) && mouseX >= x && mouseX < x + ORDER_BUTTON_WIDTH && mouseY >= downY && mouseY < downY + BUTTON_HEIGHT) {
-            return RowAction.MOVE_DOWN
-        }
-        return null
-    }
-
-    private fun actionButtonAt(group: PackArchiveGroup, x: Int, rowY: Int, rowHeight: Int, mouseX: Double, mouseY: Double): RowAction? {
-        val buttons = actionButtons(group)
-        val startY = centeredButtonColumnY(rowY, rowHeight, buttons.size)
-        for ((buttonIndex, action) in buttons.withIndex()) {
-            val y = startY + buttonIndex * (BUTTON_HEIGHT + BUTTON_GAP)
-            if (mouseX >= x && mouseX < x + BUTTON_WIDTH && mouseY >= y && mouseY < y + BUTTON_HEIGHT) {
-                return action
-            }
-        }
-        return null
-    }
-
-    private fun versionButtonAt(group: PackArchiveGroup, x: Int, y: Int, mouseX: Double, mouseY: Double): Boolean {
-        if (group.versions.size <= 1) {
-            return false
-        }
-        val width = versionButtonWidth(group)
-        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + BUTTON_HEIGHT
-    }
-
-    private fun renderVersionDropdown(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int) {
-        val group = dropdownGroup() ?: return
-        val bounds = versionDropdownBounds(group) ?: return
-        guiGraphics.fill(bounds.x - 1, bounds.y - 1, bounds.x + bounds.width + 1, bounds.y + bounds.height + 1, 0xFF202020.toInt())
-        guiGraphics.fill(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, 0xFF303030.toInt())
-        for ((index, entry) in group.versions.withIndex()) {
-            val itemY = bounds.y + 1 + index * VERSION_DROPDOWN_ITEM_HEIGHT
-            val hover = mouseX >= bounds.x && mouseX < bounds.x + bounds.width && mouseY >= itemY && mouseY < itemY + VERSION_DROPDOWN_ITEM_HEIGHT
-            val selected = entry.key == group.selectedVersionKey
-            if (hover || selected) {
-                guiGraphics.fill(
-                    bounds.x + 1,
-                    itemY,
-                    bounds.x + bounds.width - 1,
-                    itemY + VERSION_DROPDOWN_ITEM_HEIGHT,
-                    if (hover) 0xFF5A5A5A.toInt() else 0xFF454545.toInt(),
-                )
-            }
-            guiGraphics.drawString(font, versionOptionLabel(entry), bounds.x + VERSION_BUTTON_HORIZONTAL_PADDING, itemY + 5, VERSION_BUTTON_TEXT_COLOR, false)
-        }
-    }
-
-    private fun handleVersionDropdownClick(mouseX: Double, mouseY: Double): Boolean {
-        val group = dropdownGroup() ?: return false
-        val bounds = versionDropdownBounds(group)
-        if (bounds != null && mouseX >= bounds.x && mouseX < bounds.x + bounds.width && mouseY >= bounds.y && mouseY < bounds.y + bounds.height) {
-            val index = ((mouseY - bounds.y - 1) / VERSION_DROPDOWN_ITEM_HEIGHT).toInt()
-            if (index in group.versions.indices) {
-                val entry = group.versions[index]
-                versionDropdownIdentifier = null
-                selectPackVersion(group.identifier, entry.key)
-                return true
-            }
-        }
-        if (!activeVersionButtonAt(group, mouseX, mouseY)) {
-            versionDropdownIdentifier = null
-        }
-        return false
-    }
-
-    private fun activeVersionButtonAt(group: PackArchiveGroup, mouseX: Double, mouseY: Double): Boolean {
-        val index = archiveGroups.indexOfFirst { it.identifier == group.identifier }
-        if (index < 0) return false
-        val right = listRight - SCROLLBAR_WIDTH - 4
-        val rowTop = rowTop(index, right) ?: return false
-        return versionButtonAt(group, versionButtonX(), versionLineY(group, rowTop, right), mouseX, mouseY)
-    }
-
-    private fun dropdownGroup(): PackArchiveGroup? {
-        val identifier = versionDropdownIdentifier ?: return null
-        return findGroup(identifier)?.takeIf { it.versions.size > 1 }
-    }
-
-    private fun versionDropdownBounds(group: PackArchiveGroup): VersionDropdownBounds? {
-        val index = archiveGroups.indexOfFirst { it.identifier == group.identifier }
-        if (index < 0) return null
-        val right = listRight - SCROLLBAR_WIDTH - 4
-        val rowTop = rowTop(index, right) ?: return null
-        if (!canShowVersionDropdown(group, rowTop, right)) return null
-        val buttonX = versionButtonX()
-        val buttonY = versionLineY(group, rowTop, right)
-        val maxLabelWidth = group.versions.maxOfOrNull { font.width(versionOptionLabel(it)) } ?: return null
-        val dropdownWidth = max(versionButtonWidth(group), maxLabelWidth + VERSION_BUTTON_HORIZONTAL_PADDING * 2)
-        val dropdownHeight = group.versions.size * VERSION_DROPDOWN_ITEM_HEIGHT + 2
-        val x = max(listLeft, min(buttonX, right - dropdownWidth))
-        val belowY = buttonY + BUTTON_HEIGHT + 2
-        val y = if (belowY + dropdownHeight <= listBottom) {
-            belowY
-        } else {
-            max(listTop, buttonY - dropdownHeight - 2)
-        }
-        return VersionDropdownBounds(x, y, dropdownWidth, dropdownHeight)
-    }
-
-    private fun canShowVersionDropdown(group: PackArchiveGroup, rowTop: Int, right: Int): Boolean {
-        val buttonY = versionLineY(group, rowTop, right)
-        val dropdownHeight = group.versions.size * VERSION_DROPDOWN_ITEM_HEIGHT + 2
-        val below = listBottom - (buttonY + BUTTON_HEIGHT + 2)
-        val above = buttonY - 2 - listTop
-        return dropdownHeight <= below || dropdownHeight <= above
-    }
-
-    private fun versionButtonLabel(group: PackArchiveGroup): Component {
-        val version = Component.literal(group.displayEntry.metadata.version)
-        return if (isInstalledVersion(group.displayEntry)) {
-            Component.translatable("dlc_manager.pack.version_current_short", version)
-        } else {
-            version
-        }
-    }
-
     private fun versionOptionLabel(entry: PackArchiveEntry): Component {
         val version = Component.literal(entry.metadata.version)
         return if (isInstalledVersion(entry)) {
@@ -747,27 +359,6 @@ class DlcPackManagerScreen(
         } else {
             version
         }
-    }
-
-    private fun versionButtonWidth(group: PackArchiveGroup): Int {
-        return font.width(versionButtonLabel(group)) + VERSION_BUTTON_HORIZONTAL_PADDING * 2
-    }
-
-    private fun versionButtonX(): Int {
-        return listLeft + ORDER_BUTTON_WIDTH + 12 + ICON_SIZE + 8 + font.width(Component.translatable("dlc_manager.pack.version_prefix")) + VERSION_VALUE_GAP - VERSION_BUTTON_HORIZONTAL_PADDING
-    }
-
-    private fun versionLineY(group: PackArchiveGroup, rowY: Int, right: Int): Int {
-        val entry = group.displayEntry
-        val textX = listLeft + ORDER_BUTTON_WIDTH + 12 + ICON_SIZE + 8
-        val textRight = right - BUTTON_WIDTH - 18
-        val homepagePrompt = homepagePrompt(entry)
-        val homepageWidth = homepagePrompt?.let { min((font.width(it) * HOMEPAGE_PROMPT_SCALE).roundToInt(), max(1, (textRight - textX) / 2)) } ?: 0
-        val nameWidth = max(1, textRight - textX - if (homepagePrompt != null) homepageWidth + HOMEPAGE_PROMPT_GAP else 0)
-        var y = rowY + ROW_PADDING_TOP
-        y += max(1, font.split(entry.displayName, nameWidth).size) * 10 + 4
-        y += authorLines(entry, textRight - textX).size * 10 + 4
-        return y
     }
 
     private fun moveEntry(index: Int, direction: Int) {
@@ -780,7 +371,7 @@ class DlcPackManagerScreen(
         currentArchiveOrder = collectArchiveKeys(archiveGroups)
         saveLiveOrder(currentArchiveOrder)
         selectedIndex = target
-        ensureSelectionVisible()
+
         rebuildPackWidgets()
     }
 
@@ -842,7 +433,7 @@ class DlcPackManagerScreen(
         val confirmText = buildReplacementConfirmText()
         if (confirmText != null) {
             Minecraft.getInstance().setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
@@ -864,7 +455,7 @@ class DlcPackManagerScreen(
         val runtimeConfirmText = buildRuntimeConfirmText()
         if (runtimeConfirmText != null) {
             Minecraft.getInstance().setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
@@ -1194,15 +785,6 @@ class DlcPackManagerScreen(
         }
     }
 
-    private fun formatOperationTitle(message: Component, progress: Float, progressText: String): Component {
-        val text = message.string.trimEnd('.', '。', '…')
-        return if (progress >= 0f) {
-            Component.literal("$text：$progressText")
-        } else {
-            Component.literal("$text...")
-        }
-    }
-
     private fun describeFailure(ex: Exception): String {
         val message = ex.message
         return if (message.isNullOrBlank()) ex.javaClass.simpleName else message
@@ -1307,7 +889,7 @@ class DlcPackManagerScreen(
     private fun showRestartPrompt() {
         val minecraft = Minecraft.getInstance()
         minecraft.setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted -> if (accepted) minecraft.stop() else minecraft.setScreen(this) },
                 Component.translatable("dlc_manager.title"),
                 Component.translatable("dlc_manager.pack.restart_prompt"),
@@ -1413,7 +995,7 @@ class DlcPackManagerScreen(
         }
         pendingUninstalls.removeIf { !installedByIdentifier.containsKey(it) }
         if (selectedIndex >= archiveGroups.size) selectedIndex = if (archiveGroups.isEmpty()) -1 else archiveGroups.size - 1
-        clampScroll()
+
     }
 
     private fun packOrderPath(): Path {
@@ -1639,41 +1221,6 @@ class DlcPackManagerScreen(
     private val listBottom: Int get() = max(listTop + 96, height - 42)
     private val maxScroll: Int get() = max(0, totalContentHeight() - (listBottom - listTop))
 
-    private fun clampScroll() {
-        scrollOffset = max(0, min(maxScroll, scrollOffset))
-    }
-
-    private fun ensureSelectionVisible() {
-        if (selectedIndex < 0) return
-        val right = listRight - SCROLLBAR_WIDTH - 4
-        val rowTop = rowTop(selectedIndex, right) ?: return
-        if (rowTop < listTop) {
-            scrollOffset = rowContentTop(selectedIndex, right)
-        } else {
-            val rowHeight = rowHeight(archiveGroups[selectedIndex], right)
-            if (rowTop + rowHeight > listBottom) {
-                scrollOffset = rowContentTop(selectedIndex, right) + rowHeight - (listBottom - listTop)
-            }
-        }
-        clampScroll()
-    }
-
-    private fun isInsideScrollbar(mouseX: Double, mouseY: Double): Boolean {
-        if (maxScroll <= 0) return false
-        val x = listRight - SCROLLBAR_WIDTH
-        return mouseX >= x && mouseX <= x + SCROLLBAR_WIDTH && mouseY >= listTop && mouseY <= listBottom
-    }
-
-    private fun updateScrollFromMouse(mouseY: Double) {
-        val maxScrollValue = maxScroll
-        if (maxScrollValue <= 0) return
-        val track = max(1, listBottom - listTop)
-        val barHeight = scrollBarHeight(track)
-        val travel = max(1, track - barHeight)
-        val ratio = max(0.0, min(1.0, (mouseY - listTop - scrollbarDragOffset) / travel))
-        scrollOffset = max(0, min(maxScrollValue, (ratio * maxScrollValue).roundToInt()))
-    }
-
     private fun scrollbarDragOffset(mouseY: Double): Double {
         val maxScrollValue = maxScroll
         if (maxScrollValue <= 0) return 0.0
@@ -1688,32 +1235,9 @@ class DlcPackManagerScreen(
         }
     }
 
-    private fun drawScrollBar(guiGraphics: GuiGraphics) {
-        val maxScrollValue = maxScroll
-        if (maxScrollValue <= 0) return
-        val trackHeight = max(1, listBottom - listTop)
-        val barHeight = scrollBarHeight(trackHeight)
-        val travel = max(1, trackHeight - barHeight)
-        val barY = listTop + (travel * (scrollOffset / maxScrollValue.toDouble())).roundToInt()
-        val x = listRight - SCROLLBAR_WIDTH
-        guiGraphics.fill(x, listTop, x + SCROLLBAR_WIDTH, listBottom, 0x663A3F48)
-        guiGraphics.fill(x, barY, x + SCROLLBAR_WIDTH, barY + barHeight, 0xFF8A95A8.toInt())
-    }
-
     private fun scrollBarHeight(trackHeight: Int): Int {
         val totalHeight = max(trackHeight, totalContentHeight())
         return max(18, trackHeight * trackHeight / max(1, totalHeight)).coerceAtMost(trackHeight)
-    }
-
-    private fun drawProgressBar(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val filled = if (progress >= 0f) (width * progress.coerceIn(0f, 1f)).roundToInt() else 0
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B.toInt())
-        if (progress < 0f) {
-            val pulse = ((Util.getMillis() / 12L) % width).toInt()
-            guiGraphics.fill(x + pulse.coerceAtMost(width - 24), y, x + (pulse + 24).coerceAtMost(width), y + height, 0xFF66CCFF.toInt())
-        } else {
-            guiGraphics.fill(x, y, x + filled, y + height, 0xFF66CCFF.toInt())
-        }
     }
 
     private fun updateOperationProgress(message: Component, progress: Float) {
@@ -1745,11 +1269,6 @@ class DlcPackManagerScreen(
             value.startsWith("dlc_manager.") -> Component.translatable(value)
             else -> DlcTextFormatter.parse(value)
         }
-    }
-
-    private fun trimToWidth(text: Component, width: Int): FormattedCharSequence {
-        if (font.width(text) <= width) return text.visualOrderText
-        return font.split(text, max(1, width)).firstOrNull() ?: FormattedCharSequence.EMPTY
     }
 
     private fun rowHeight(group: PackArchiveGroup, right: Int): Int {
@@ -1818,35 +1337,6 @@ class DlcPackManagerScreen(
         return lines.ifEmpty { listOf(listOf(prefix)) }
     }
 
-    private fun rowTop(index: Int, right: Int): Int? {
-        if (index !in archiveGroups.indices) return null
-        val y = listTop - scrollOffset + rowContentTop(index, right)
-        if (y >= listBottom || y + rowHeight(archiveGroups[index], right) <= listTop) return null
-        return y
-    }
-
-    private fun entryAt(mouseY: Double): Int {
-        if (mouseY < listTop || mouseY >= listBottom) return -1
-        var y = listTop - scrollOffset
-        var index = 0
-        while (index < archiveGroups.size && y < listBottom) {
-            val rowHeight = rowHeight(archiveGroups[index], listRight - SCROLLBAR_WIDTH - 4)
-            val rowBottom = y + rowHeight
-            if (mouseY >= y && mouseY < rowBottom) return index
-            y = rowBottom
-            index++
-        }
-        return -1
-    }
-
-    private fun rowContentTop(index: Int, right: Int): Int {
-        var y = 0
-        for (i in 0 until index) {
-            y += rowHeight(archiveGroups[i], right)
-        }
-        return y
-    }
-
     private fun totalContentHeight(): Int {
         val right = listRight - SCROLLBAR_WIDTH - 4
         var total = 0
@@ -1856,9 +1346,7 @@ class DlcPackManagerScreen(
         return total
     }
 
-    private fun rebuildPackWidgets() {
-        init(Minecraft.getInstance(), width, height)
-    }
+    private fun rebuildPackWidgets() { initControls(); refreshPage() }
 
     override fun shouldCloseOnEsc(): Boolean = !busy || paused
 
@@ -1933,17 +1421,70 @@ class DlcPackManagerScreen(
         private const val BUTTON_HEIGHT = 16
         private const val BUTTON_GAP = 4
         private const val VERSION_LINE_HEIGHT = 18
-        private const val VERSION_VALUE_GAP = 6
-        private const val VERSION_BUTTON_HORIZONTAL_PADDING = 6
-        private const val VERSION_BUTTON_TEXT_COLOR = 0xAFC8FF
-        private const val VERSION_DROPDOWN_ITEM_HEIGHT = 18
+
+
+
+
         private const val ORDER_BUTTON_WIDTH = 18
-        private const val ORDER_BUTTON_SLOTS = 2
+
         private const val HOMEPAGE_PROMPT_GAP = 12
         private const val HOMEPAGE_PROMPT_SCALE = 0.85f
         private const val SCROLLBAR_WIDTH = 6
-        private const val SCROLL_STEP = 24
+
     }
 
     private data class VersionDropdownBounds(val x: Int, val y: Int, val width: Int, val height: Int)
+    private val packAdapter = object : PackAdapter<PackArchiveGroup> {
+        override fun details(group: PackArchiveGroup): PackDetails {
+            val pack = group.displayEntry
+            return PackDetails(pack.displayName, pack.description, pack.authorNames, pack.metadata.version, pack.iconTexture?.toString(), group.selectedVersionKey)
+        }
+        override fun versions(group: PackArchiveGroup): List<PackVersion> = group.versions.map { PackVersion(it.key, versionOptionLabel(it).string) }
+        override fun actions(group: PackArchiveGroup): List<PackAction> {
+            val pack = group.displayEntry
+            val choices = actionButtons(group).mapTo(ArrayList<PackAction>()) { choice ->
+                PackAction(actionLabel(group, choice).string, choice == RowAction.DELETE) {
+                    when (choice) {
+                        RowAction.INSTALL -> toggleInstall(group)
+                        RowAction.DELETE -> confirmDeleteArchive(group)
+                        RowAction.FEEDBACK -> confirmOpenLink(pack, "issue")
+                        RowAction.SUPPORT -> confirmOpenLink(pack, "sponsor")
+                        else -> {}
+                    }
+                }
+            }
+            if (!pack.metadata.links["homepage"].isNullOrBlank()) choices.add(PackAction(tr("dlc_manager.pack.homepage"), false) { confirmOpenLink(pack, "homepage") })
+            return choices
+        }
+        override fun selectVersion(group: PackArchiveGroup, key: String) { selectPackVersion(group.identifier, key) }
+        override fun move(index: Int, direction: Int) { moveEntry(index, direction) }
+    }
+    override fun canEditPacks(): Boolean = !busy && DlcConfig.isPackFuncOn()
+
+    private var controlsReady = false
+    private var pageRevision = 0
+    override fun buildPage() {
+        pageRevision = archiveGroups.hashCode() + pendingInstalls.hashCode() + pendingUninstalls.hashCode() + busy.hashCode() + paused.hashCode() + cancelRequested.hashCode()
+
+        if (!controlsReady) { controlsReady = true; refreshEntries(); initControls() }
+        val list = section(null, null)
+        live(content, { status?.string }, "page-description")
+
+        if (busy) {
+            live(list, { operationStatus?.string }, "section-title"); live(list, { operationDetail?.string }, "page-description"); progress(list) { operationProgress.toDouble() }
+            if (busyOperation == BusyOperation.APPLY) {
+                action(footer, tr(if (paused) "dlc_manager.pack.continue_install" else "dlc_manager.pack.pause_install")) { if (paused) resumePausedApply() else requestPauseApplyOperation() }.setEnabled(paused || !cancelRequested)
+                action(footer, tr("dlc_manager.pack.cancel_install")) { requestCancelApplyOperation() }
+            } else action(footer, tr("dlc_manager.pack.cancel")) { onBackOrCancel() }.setEnabled(!cancelRequested && busyOperation != BusyOperation.DELETE)
+            return
+        }
+        if (!DlcConfig.isPackFuncOn()) text(list, tr("dlc_manager.pack.disabled"), "page-warning")
+
+        if (archiveGroups.isEmpty()) text(list, tr("dlc_manager.ui.empty_packs"), "page-description")
+        renderPackRows(list, archiveGroups, packAdapter)
+        renderPackFooter(importButton, urlButton, backButton, applyButton, hasPendingChanges())
+        completeButton?.let { mount(toolbar, it) }
+    }
+    override fun updatePage() { if (pageRevision != archiveGroups.hashCode() + pendingInstalls.hashCode() + pendingUninstalls.hashCode() + busy.hashCode() + paused.hashCode() + cancelRequested.hashCode()) refreshPage() }
+
 }

@@ -1348,7 +1348,7 @@ function addDocumentSpecificIssues(model: StructuredModel, schema: DocumentSchem
     if (!hasAnyLocaleValue(title) && !hasAnyLocaleValue(contentUrl) && !hasAnyLocaleValue(contents)) {
       issues.push({
         severity: "warning",
-        message: "公告已启用，但 Title、ContentUrl、Contents 都为空。",
+        message: "信息已启用，但 Title、ContentUrl、Contents 都为空。",
         source: "schema"
       });
     }

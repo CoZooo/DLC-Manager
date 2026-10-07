@@ -19,7 +19,6 @@
     "fabric-api": "*",
     "architectury": "*",
     "java": ">=${java_version}",
-    "malilib": "${malilib_version_range}",
     "apricityui": ">=${apricity_ui_version}"
   }
 }

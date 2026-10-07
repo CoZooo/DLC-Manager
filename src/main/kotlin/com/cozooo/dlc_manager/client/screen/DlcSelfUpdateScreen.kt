@@ -3,9 +3,7 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService.SelfUpdateResult
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
@@ -13,7 +11,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
     private val parent: Screen?,
     preset: SelfUpdateResult?,
     private val showSkipThisUpdateButton: Boolean = false,
-) : Screen(Component.translatable("dlc_manager.self_update.title")) {
+) : DlcPageScreen(parent, Component.translatable("dlc_manager.self_update.title")) {
     private var result: SelfUpdateResult? = preset
     private var downloadButton: Button? = null
     private var skipThisUpdateButton: Button? = null
@@ -23,7 +21,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
     private var statusText: String? = null
     private var errorText: String? = null
 
-    override fun init() {
+    private fun initControls() {
         val buttonWidth = if (showSkipThisUpdateButton) 110 else 140
         val buttonHeight = 20
         val gap = 6
@@ -61,55 +59,6 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
         if (result == null) {
             startCheck()
         }
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        var y = 30
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 18
-
-        val current = result
-        if (current != null && !current.currentVersion.isNullOrBlank()) {
-            guiGraphics.drawCenteredString(
-                font,
-                Component.translatable("dlc_manager.self_update.current", current.currentVersion),
-                centerX,
-                y,
-                0xC8C8C8,
-            )
-            y += 14
-        }
-        if (current != null && !current.latestVersion.isNullOrBlank() && current.hasUpdate) {
-            guiGraphics.drawCenteredString(
-                font,
-                Component.translatable("dlc_manager.self_update.latest", current.latestVersion),
-                centerX,
-                y,
-                0xC8C8C8,
-            )
-            y += 14
-        }
-        when {
-            checking -> guiGraphics.drawCenteredString(
-                font,
-                Component.translatable("dlc_manager.self_update.checking"),
-                centerX,
-                y,
-                0xE6E6E6,
-            )
-            downloading -> guiGraphics.drawCenteredString(font, statusText ?: "", centerX, y, 0xE6E6E6)
-            !errorText.isNullOrBlank() -> guiGraphics.drawCenteredString(font, errorText ?: "", centerX, y, 0xFF6B6B)
-            current != null && !current.hasUpdate -> guiGraphics.drawCenteredString(
-                font,
-                Component.translatable("dlc_manager.self_update.none"),
-                centerX,
-                y,
-                0xC8C8C8,
-            )
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
     }
 
     private fun startCheck() {
@@ -155,7 +104,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
 
     private fun showRestartPrompt() {
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { choice ->
                     if (choice) {
                         Minecraft.getInstance().stop()
@@ -190,4 +139,17 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
         }
         backButton?.active = !downloading && !checking
     }
+
+    override fun buildPage() {
+        initControls()
+        val body = node(content, "div", "page-dialog")
+        live(body, { result?.currentVersion?.let { tr("dlc_manager.self_update.current", it) }.orEmpty() }, "page-description")
+        live(body, { result?.takeIf { it.hasUpdate }?.latestVersion?.let { tr("dlc_manager.self_update.latest", it) }.orEmpty() }, "section-title")
+        live(body, { when { checking -> tr("dlc_manager.self_update.checking"); downloading -> statusText; errorText != null -> errorText; result?.hasUpdate == false -> tr("dlc_manager.self_update.none"); else -> "" } }, "page-message")
+        backButton?.let { mount(footer, it) }
+        skipThisUpdateButton?.let { mount(footer, it) }
+        downloadButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+    }
+    override fun updatePage() { updateButtons() }
+
 }

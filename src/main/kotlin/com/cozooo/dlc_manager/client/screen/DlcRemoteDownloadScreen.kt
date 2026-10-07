@@ -3,10 +3,8 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteService
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcConfig
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
@@ -15,14 +13,13 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 class DlcRemoteDownloadScreen(
     private val parent: Screen?,
     missing: List<DlcRemoteEntry>?,
     private val partMarkerKey: String = DlcRemoteMarker.PART_DLC,
     title: Component = Component.translatable("dlc_manager.remote.title"),
-) : DlcScreenCompat.MouseScroll(title) {
+) : DlcRemotePageScreen(parent, title) {
     private val missing: List<DlcRemoteEntry> = missing ?: emptyList()
     private var previewQueue: List<DlcRemoteEntry> = emptyList()
     private var downloadTargets: List<DlcRemoteEntry> = emptyList()
@@ -55,11 +52,8 @@ class DlcRemoteDownloadScreen(
     private var completedCount = 0
     @Volatile
     private var currentProgress = 0f
-    private var scrollIndex = 0
-    private var draggingScrollBar = false
-    private var scrollBarDragOffset = 0
 
-    override fun init() {
+    private fun initControls() {
         if (missing.isEmpty()) {
             Minecraft.getInstance().setScreen(parent)
             return
@@ -84,259 +78,10 @@ class DlcRemoteDownloadScreen(
         Thread({ buildPreviewQueue() }, "dlc-remote-preview").start()
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        var y = 20
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 18
-        guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.remote.desc"), centerX, y, 0xC8C8C8)
-        y += 16
-        if (detecting && !downloading) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.remote.detecting"), centerX, y, 0xE6E6E6)
-            y += 12
-        }
-
-        val showList = if (previewQueue.isEmpty()) missing else previewQueue
-        val listTop = y
-        drawCheckbox(guiGraphics, CHECKBOX_X, listTop + 1, CHECKBOX_SIZE, isAllSelected())
-        guiGraphics.drawString(
-            font,
-            Component.translatable("dlc_manager.remote.select_all"),
-            CHECKBOX_X + CHECKBOX_SIZE + 6,
-            listTop,
-            0xE6E6E6,
-            false,
-        )
-        val listStart = listTop + LINE_HEIGHT
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listStart) / LINE_HEIGHT)
-        val totalLines = showList.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll
-        }
-        val visibleEnd = min(totalLines, scrollIndex + maxVisible)
-        for (i in scrollIndex until visibleEnd) {
-            val entry = showList[i]
-            val name = entry.resolveDisplayName()
-            val checked = isAllSelected() || selectedKeys.contains(selectionKey(entry))
-            val rowY = listStart + (i - scrollIndex) * LINE_HEIGHT
-            drawCheckbox(guiGraphics, CHECKBOX_X, rowY + 1, CHECKBOX_SIZE, checked)
-            guiGraphics.drawString(font, DlcTextFormatter.parse(name), CHECKBOX_X + CHECKBOX_SIZE + 6, rowY, 0xE6E6E6, false)
-            if (downloading && maxConcurrentDownloads > 1) {
-                val key = progressKey(entry)
-                val progress = progressByKey[key]
-                if (progress != null) {
-                    val percent = (max(0f, min(1f, progress)) * 100f).roundToInt()
-                    val progressText = "$percent%"
-                    val textWidth = font.width(progressText)
-                    val percentBoxWidth = font.width("100%")
-                    val barWidth = 36
-                    val barHeight = 6
-                    val percentRight = width - 18
-                    val percentLeft = percentRight - percentBoxWidth
-                    val barRight = percentLeft - 6
-                    val barLeft = barRight - barWidth
-                    val barY = rowY + 2
-                    drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress)
-                    if (shouldShowSwitch(key, entry, progress)) {
-                        val switchRight = barLeft - SWITCH_BUTTON_PAD
-                        val switchLeft = switchRight - SWITCH_BUTTON_SIZE
-                        val switchTop = barY - 1
-                        drawSwitchButton(guiGraphics, switchLeft, switchTop)
-                    }
-                    guiGraphics.drawString(font, progressText, percentRight - textWidth, rowY, 0xC8C8C8, false)
-                }
-            }
-        }
-        drawScrollBar(guiGraphics, listStart, listBottom, totalLines, maxVisible, maxScroll)
-
-        if (downloading) {
-            y = height - 70
-            if (maxConcurrentDownloads <= 1) {
-                val status = statusText ?: ""
-                guiGraphics.drawCenteredString(font, DlcTextFormatter.parse(status), centerX, y, 0xE6E6E6)
-                y += 12
-                val activeEntry = activeDownloadEntry
-                val activeKey = if (activeEntry == null) null else progressKey(activeEntry)
-                if (activeKey != null && shouldShowSwitch(activeKey, activeEntry, currentProgress)) {
-                    val barLeft = centerX - 120
-                    val switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE
-                    val switchTop = y - 1
-                    drawSwitchButton(guiGraphics, switchLeft, switchTop)
-                }
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress)
-                val percent = (max(0f, min(1f, currentProgress)) * 100f).roundToInt()
-                guiGraphics.drawCenteredString(font, "$percent%", centerX, y + 10, 0xC8C8C8)
-            } else {
-                val status = Component.translatable("dlc_manager.remote.downloading_multi").string
-                guiGraphics.drawCenteredString(font, status, centerX, y, 0xE6E6E6)
-                y += 12
-                val totalProgress = getTotalProgress()
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, totalProgress)
-                val percent = (max(0f, min(1f, totalProgress)) * 100f).roundToInt()
-                guiGraphics.drawCenteredString(font, "$percent%", centerX, y + 10, 0xC8C8C8)
-            }
-        } else if (!errorText.isNullOrBlank()) {
-            y = height - 70
-            guiGraphics.drawCenteredString(font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B)
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        return handleMouseScrolled(deltaY)
-    }
-
-    private fun handleMouseScrolled(deltaY: Double): Boolean {
-        val showList = if (previewQueue.isEmpty()) missing else previewQueue
-        val listTop = getListTop() + LINE_HEIGHT
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / LINE_HEIGHT)
-        val totalLines = showList.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (maxScroll > 0) {
-            val step = if (deltaY > 0) -1 else 1
-            scrollIndex = max(0, min(maxScroll, scrollIndex + step))
-            return true
-        }
-        return false
-    }
-
-    override fun mouseClicked(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (button == 0 && beginScrollDrag(mouseX, mouseY)) {
-            return true
-        }
-        if (downloading && handleSwitchClick(mouseX, mouseY)) {
-            return true
-        }
-        if (!downloading) {
-            val showList = if (previewQueue.isEmpty()) missing else previewQueue
-            val listTop = getListTop()
-            val listBottom = height - 70
-            if (mouseY >= listTop && mouseY < listTop + LINE_HEIGHT) {
-                val boxX = CHECKBOX_X
-                val boxY = listTop + 1
-                if (mouseX >= boxX && mouseX <= boxX + CHECKBOX_SIZE &&
-                    mouseY >= boxY && mouseY <= boxY + CHECKBOX_SIZE
-                ) {
-                    toggleSelectAll()
-                    return true
-                }
-            }
-            val listStart = listTop + LINE_HEIGHT
-            if (mouseY >= listStart && mouseY < listBottom) {
-                val row = ((mouseY - listStart) / LINE_HEIGHT).toInt()
-                val index = scrollIndex + row
-                if (index >= 0 && index < showList.size) {
-                    val boxX = CHECKBOX_X
-                    val boxY = listStart + row * LINE_HEIGHT + 1
-                    if (mouseX >= boxX && mouseX <= boxX + CHECKBOX_SIZE &&
-                        mouseY >= boxY && mouseY <= boxY + CHECKBOX_SIZE
-                    ) {
-                        toggleSelection(showList[index], showList)
-                        return true
-                    }
-                }
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button)
-    }
-
-    override fun mouseDragged(mouseX: Double, mouseY: Double, button: Int, deltaX: Double, deltaY: Double): Boolean {
-        if (button == 0 && draggingScrollBar) {
-            updateScrollFromDrag(mouseY)
-            return true
-        }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY)
-    }
-
-    override fun mouseReleased(mouseX: Double, mouseY: Double, button: Int): Boolean {
-        if (button == 0 && draggingScrollBar) {
-            draggingScrollBar = false
-            return true
-        }
-        return super.mouseReleased(mouseX, mouseY, button)
-    }
-
-    private fun drawScrollBar(guiGraphics: GuiGraphics, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return
-        }
-        val barX = width - 12
-        val barWidth = 4
-        val barHeight = max(12, (bottom - top) * maxVisible / totalLines)
-        val trackHeight = bottom - top
-        val maxTrack = max(1, trackHeight - barHeight)
-        val barY = top + ((scrollIndex / maxScroll.toFloat()) * maxTrack).toInt()
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B.toInt())
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B.toInt())
-    }
-
-    private fun beginScrollDrag(mouseX: Double, mouseY: Double): Boolean {
-        val showList = if (previewQueue.isEmpty()) missing else previewQueue
-        val listTop = getListTop() + LINE_HEIGHT
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / LINE_HEIGHT)
-        val totalLines = showList.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return false
-        }
-        val barX = width - 12
-        val barWidth = 4
-        val barHeight = max(12, (listBottom - listTop) * maxVisible / totalLines)
-        val trackHeight = listBottom - listTop
-        val maxTrack = max(1, trackHeight - barHeight)
-        val barY = listTop + ((scrollIndex / maxScroll.toFloat()) * maxTrack).toInt()
-        if (mouseX < barX || mouseX > barX + barWidth || mouseY < listTop || mouseY > listBottom) {
-            return false
-        }
-        if (mouseY >= barY && mouseY <= barY + barHeight) {
-            draggingScrollBar = true
-            scrollBarDragOffset = mouseY.toInt() - barY
-            return true
-        }
-        var targetBarY = mouseY.toInt() - barHeight / 2
-        targetBarY = max(listTop, min(listTop + maxTrack, targetBarY))
-        val newIndex = (((targetBarY - listTop) / maxTrack.toFloat()) * maxScroll).roundToInt()
-        scrollIndex = max(0, min(maxScroll, newIndex))
-        return true
-    }
-
-    private fun updateScrollFromDrag(mouseY: Double) {
-        val showList = if (previewQueue.isEmpty()) missing else previewQueue
-        val listTop = getListTop() + LINE_HEIGHT
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / LINE_HEIGHT)
-        val totalLines = showList.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return
-        }
-        val barHeight = max(12, (listBottom - listTop) * maxVisible / totalLines)
-        val trackHeight = listBottom - listTop
-        val maxTrack = max(1, trackHeight - barHeight)
-        var targetBarY = mouseY.toInt() - scrollBarDragOffset
-        targetBarY = max(listTop, min(listTop + maxTrack, targetBarY))
-        val newIndex = (((targetBarY - listTop) / maxTrack.toFloat()) * maxScroll).roundToInt()
-        scrollIndex = max(0, min(maxScroll, newIndex))
-    }
-
-    private fun drawProgressBar(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val bg = 0xFF2B2B2B.toInt()
-        val fg = 0xFF4CAF50.toInt()
-        guiGraphics.fill(x, y, x + width, y + height, bg)
-        val filled = (width * max(0f, min(1f, progress))).toInt()
-        guiGraphics.fill(x, y, x + filled, y + height, fg)
-    }
-
     private fun buildPreviewQueue() {
         previewQueue = DlcRemoteService.expandWithDependencies(missing)
         detecting = false
         statusText = Component.translatable("dlc_manager.remote.ready").string
-        scrollIndex = 0
         Minecraft.getInstance().execute {
             downloadButton?.visible = true
             downloadButton?.active = true
@@ -587,80 +332,6 @@ class DlcRemoteDownloadScreen(
         return count > 1
     }
 
-    private fun shouldShowSwitch(key: String?, entry: DlcRemoteEntry?, progress: Float): Boolean {
-        if (!downloading || key == null || entry == null || progress >= 1f) {
-            return false
-        }
-        val start = downloadStartByKey[key] ?: return false
-        if (System.currentTimeMillis() - start < SWITCH_DELAY_MS) {
-            return false
-        }
-        return hasMultipleSources(entry)
-    }
-
-    private fun drawSwitchButton(guiGraphics: GuiGraphics, x: Int, y: Int) {
-        val right = x + SWITCH_BUTTON_SIZE
-        val bottom = y + SWITCH_BUTTON_SIZE
-        guiGraphics.fill(x, y, right, bottom, 0xFF4B4B4B.toInt())
-        guiGraphics.drawString(font, ">", x + 2, y + 1, 0xE6E6E6, false)
-    }
-
-    private fun handleSwitchClick(mouseX: Double, mouseY: Double): Boolean {
-        if (!downloading) {
-            return false
-        }
-        if (maxConcurrentDownloads <= 1) {
-            val activeEntry = activeDownloadEntry
-            val key = if (activeEntry == null) null else progressKey(activeEntry)
-            if (key != null && shouldShowSwitch(key, activeEntry, currentProgress)) {
-                val centerX = width / 2
-                val barLeft = centerX - 120
-                val switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE
-                val switchTop = (height - 70) + 12 - 1
-                if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE &&
-                    mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE
-                ) {
-                    switchRequested.add(key)
-                    return true
-                }
-            }
-            return false
-        }
-        val showList = if (previewQueue.isEmpty()) missing else previewQueue
-        val listTop = getListTop() + LINE_HEIGHT
-        val listBottom = height - 70
-        val maxVisible = max(1, (listBottom - listTop) / LINE_HEIGHT)
-        val totalLines = showList.size
-        val visibleEnd = min(totalLines, scrollIndex + maxVisible)
-        for (i in scrollIndex until visibleEnd) {
-            val entry = showList[i]
-            val key = progressKey(entry)
-            val progress = progressByKey[key]
-            if (progress == null || !shouldShowSwitch(key, entry, progress)) {
-                continue
-            }
-            val row = i - scrollIndex
-            val rowY = listTop + row * LINE_HEIGHT
-            val barWidth = 36
-            val percentBoxWidth = font.width("100%")
-            val percentRight = width - 18
-            val percentLeft = percentRight - percentBoxWidth
-            val barRight = percentLeft - 6
-            val barLeft = barRight - barWidth
-            val barY = rowY + 2
-            val switchRight = barLeft - SWITCH_BUTTON_PAD
-            val switchLeft = switchRight - SWITCH_BUTTON_SIZE
-            val switchTop = barY - 1
-            if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE &&
-                mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE
-            ) {
-                switchRequested.add(key)
-                return true
-            }
-        }
-        return false
-    }
-
     private fun progressKey(entry: DlcRemoteEntry?): String {
         if (entry == null) {
             return ""
@@ -758,25 +429,6 @@ class DlcRemoteDownloadScreen(
         return entry.getUniqueKey()
     }
 
-    private fun drawCheckbox(guiGraphics: GuiGraphics, x: Int, y: Int, size: Int, checked: Boolean) {
-        val bg = 0xFF2B2B2B.toInt()
-        val outline = 0xFF6B6B6B.toInt()
-        val fill = 0xFF4CAF50.toInt()
-        guiGraphics.fill(x, y, x + size, y + size, outline)
-        guiGraphics.fill(x + 1, y + 1, x + size - 1, y + size - 1, bg)
-        if (checked) {
-            guiGraphics.fill(x + 2, y + 2, x + size - 2, y + size - 2, fill)
-        }
-    }
-
-    private fun getListTop(): Int {
-        var y = 20 + 18 + 16
-        if (detecting && !downloading) {
-            y += 12
-        }
-        return y
-    }
-
     private fun toggleSelectAll() {
         if (isAllSelected()) {
             selectedKeys.clear()
@@ -796,13 +448,79 @@ class DlcRemoteDownloadScreen(
     }
 
     companion object {
-        private const val LINE_HEIGHT = 10
-        private const val CHECKBOX_SIZE = 8
-        private const val CHECKBOX_X = 12
+
+
+
         private const val NONE_MARKER = "__NONE__"
         private const val ALL_MARKER = "__ALL__"
-        private const val SWITCH_DELAY_MS = 20_000L
-        private const val SWITCH_BUTTON_SIZE = 8
-        private const val SWITCH_BUTTON_PAD = 4
+
+
+
     }
+
+    private var controlsReady = false
+    private var pageRevision = 0
+    override fun buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls() }
+        pageRevision = java.util.Objects.hash(if (previewQueue.isEmpty()) missing else previewQueue, downloading, detecting)
+        sourceButtons.clear()
+        val showList = if (previewQueue.isEmpty()) missing else previewQueue
+        val list = remoteList({ isAllSelected() }, { !downloading && !detecting }, { toggleSelectAll() })
+        for (entry in showList) {
+            val line = remoteRow(list, entry.resolveDisplayName(), { isAllSelected() || selectedKeys.contains(selectionKey(entry)) },
+                { !downloading && !detecting }, { toggleSelection(entry, showList) })
+            remoteTip(line, entry.resolveDisplayName(), entry.getTips())
+            val key = progressKey(entry)
+            if (downloading && maxConcurrentDownloads > 1 && progressByKey.containsKey(key)) {
+                val controls = node(line, "div", "remote-row-progress")
+                sourceSwitch(controls) { entry }
+                remoteProgress(controls) { (progressByKey[key] ?: 0f).toDouble() }
+            }
+        }
+        val summary = remoteStatus()
+        live(summary, { if (detecting) tr("dlc_manager.remote.detecting") else if (downloading) statusText else "" }, "remote-download-status")
+        live(summary, { errorText }, "page-error")
+        if (detecting) progress(summary) { -1.0 }
+        if (downloading) {
+            val meter = node(summary, "div", "remote-total-progress")
+            if (maxConcurrentDownloads <= 1) sourceSwitch(meter) { activeDownloadEntry }
+            remoteProgress(meter) { if (maxConcurrentDownloads <= 1) currentProgress.toDouble() else getTotalProgress().toDouble() }
+        }
+        skipButton?.let { mount(footer, it) }
+        downloadButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+    }
+
+    private val sourceButtons = mutableListOf<Runnable>()
+
+    private fun sourceSwitch(parent: com.sighs.apricityui.init.Element, entry: () -> DlcRemoteEntry?) {
+        val button = action(parent, tr("dlc_manager.remote.switch_source")) {
+            entry()?.takeIf { canSwitchSource(it) }?.let { switchRequested.add(progressKey(it)) }
+        }
+        button.getElement().setAttribute("class", "button remote-source-switch")
+        button.getElement().setAttribute("style", "display:none")
+        var shown = false
+        sourceButtons.add(Runnable {
+            val visible = canSwitchSource(entry())
+            if (shown != visible) {
+                shown = visible
+                button.getElement().setAttribute("style", if (visible) "" else "display:none")
+            }
+        })
+    }
+
+    private fun canSwitchSource(entry: DlcRemoteEntry?): Boolean {
+        if (!downloading || entry == null || !hasMultipleSources(entry)) return false
+        val key = progressKey(entry)
+        val start = downloadStartByKey[key] ?: return false
+        return System.currentTimeMillis() - start >= 20_000L && (progressByKey[key] ?: 0f) < 1f && !switchRequested.contains(key)
+    }
+
+    override fun updatePage() {
+        if (pageRevision != java.util.Objects.hash(if (previewQueue.isEmpty()) missing else previewQueue, downloading, detecting)) refreshPage()
+        updateRemoteSelections()
+        sourceButtons.forEach { it.run() }
+    }
+
+    override fun shouldCloseOnEsc() = !downloading && !detecting
+    override fun onClose() { if (shouldCloseOnEsc()) handleSkip() }
 }

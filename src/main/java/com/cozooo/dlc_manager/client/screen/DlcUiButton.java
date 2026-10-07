@@ -14,7 +14,7 @@ public final class DlcUiButton {
         element.setAttribute("type", "button");
         setDisplayString(label);
         element.addEventListener("click", event -> {
-            if (enabled) action.run();
+            if (enabled && !element.hasAttribute("disabled")) action.run();
         });
     }
 

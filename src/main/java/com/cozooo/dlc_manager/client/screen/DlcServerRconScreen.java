@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.server.DlcServerRconInfo;
 import com.cozooo.dlc_manager.server.DlcRconClient;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerRconScreen extends Screen {
+public class DlcServerRconScreen extends DlcPageScreen {
     private final Screen parent;
     private final DlcServerEntry entry;
 
@@ -41,13 +40,12 @@ public class DlcServerRconScreen extends Screen {
     private String rconPassword = "";
 
     public DlcServerRconScreen(Screen parent, DlcServerEntry entry) {
-        super(Component.translatable("dlc_manager.server.rcon_title"));
+        super(parent, Component.translatable("dlc_manager.server.rcon_title"));
         this.parent = parent;
         this.entry = entry;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         clearWidgets();
         loadSavedRcon();
         if (connectOnly) {
@@ -120,57 +118,6 @@ public class DlcServerRconScreen extends Screen {
         updateButtonStates();
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        guiGraphics.drawCenteredString(this.font, getTitle(), this.width / 2, 20, 0xFFFFFF);
-
-        String hostValue = entry == null || entry.host == null ? "" : entry.host;
-        Component hostLabel = Component.translatable("dlc_manager.server.rcon_host");
-        int hostLabelWidth = this.font.width(hostLabel);
-        int hostX = this.width / 2 - 120;
-        guiGraphics.drawString(this.font, hostLabel, hostX, 42, 0xC8C8C8, false);
-        guiGraphics.drawString(this.font, hostValue, hostX + hostLabelWidth + 6, 42, 0xE6E6E6, false);
-
-        if (statusText != null && !statusText.isBlank()) {
-            guiGraphics.drawCenteredString(this.font, statusText, this.width / 2, 60, 0xC8C8C8);
-        }
-
-        if (connectOnly) {
-            if (portField != null) {
-                Component portLabel = Component.translatable("dlc_manager.server.rcon_port");
-                int labelX = portField.getX() - this.font.width(portLabel) - 6;
-                guiGraphics.drawString(this.font, portLabel, labelX, portField.getY() + 6, 0xC8C8C8, false);
-            }
-            if (passwordField != null) {
-                Component passwordLabel = Component.translatable("dlc_manager.server.rcon_password");
-                int labelX = passwordField.getX() - this.font.width(passwordLabel) - 6;
-                guiGraphics.drawString(this.font, passwordLabel, labelX, passwordField.getY() + 6, 0xC8C8C8, false);
-            }
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    @Override
-    public void tick() {
-        if (connectOnly) {
-            if (connectButton != null) {
-                connectButton.active = !connectingRcon;
-            }
-            return;
-        }
-        boolean enable = connected;
-        if (playersButton != null) {
-            playersButton.active = enable;
-        }
-        if (consoleButton != null) {
-            consoleButton.active = enable;
-        }
-        if (quickButton != null) {
-            quickButton.active = enable;
-        }
-    }
-
     private void connect() {
         String host = entry == null ? "" : entry.host;
         int port = parsePort();
@@ -196,7 +143,7 @@ public class DlcServerRconScreen extends Screen {
                     statusText = Component.translatable("dlc_manager.server.rcon_connected").getString();
                     saveRconConfig();
                     connectOnly = false;
-                    init();
+                    refreshPage();
                 }
                 updateButtonStates();
             }));
@@ -319,4 +266,27 @@ public class DlcServerRconScreen extends Screen {
         DlcServerList.setEntries(list);
         DlcServerList.save();
     }
+
+    @Override protected void buildPage() {
+        String portDraft = portField == null ? null : portField.getValue();
+        String passwordDraft = passwordField == null ? null : passwordField.getValue();
+        initControls();
+        if (portDraft != null && portField != null) portField.setValue(portDraft);
+        if (passwordDraft != null && passwordField != null) passwordField.setValue(passwordDraft);
+        var body = node(content, "div", "page-dialog");
+        text(body, tr("dlc_manager.server.rcon_host") + "  " + (entry == null || entry.host == null ? "" : entry.host), "page-description");
+        live(body, () -> statusText, "page-message");
+        if (connectOnly) {
+            mount(body, portField, tr("dlc_manager.server.rcon_port"), "text");
+            mount(body, passwordField, tr("dlc_manager.server.rcon_password"), "password");
+            mount(footer, connectButton).getElement().setAttribute("class", "button primary");
+        } else {
+            mount(row(body, tr("dlc_manager.server.rcon_players"), ""), playersButton);
+            mount(row(body, tr("dlc_manager.server.rcon_console"), ""), consoleButton);
+            mount(row(body, tr("dlc_manager.server.rcon_common"), ""), quickButton);
+        }
+
+    }
+    @Override protected void updatePage() { updateButtonStates(); }
+
 }

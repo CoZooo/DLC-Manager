@@ -7,8 +7,6 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredService;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState;
-import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateApplyResult;
 import com.cozooo.dlc_manager.client.update.DlcUpdateService.UpdateCheckResult;
@@ -16,11 +14,8 @@ import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.io.IOException;
@@ -32,10 +27,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
+public class DlcRequiredDownloadScreen extends DlcPageScreen {
     private static final long SWITCH_DELAY_MS = 20_000L;
-    private static final int SWITCH_BUTTON_SIZE = 8;
-    private static final int SWITCH_BUTTON_PAD = 4;
+
+
 
     private final Screen parent;
     private final UpdateApplyResult postUpdateResult;
@@ -68,14 +63,13 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
     private volatile boolean downloadedAny;
 
     private int scrollIndex;
-    private java.util.List<String> noticeLines = java.util.List.of();
 
     public DlcRequiredDownloadScreen(Screen parent, List<DlcRequiredEntry> entries) {
         this(parent, entries, null);
     }
 
     public DlcRequiredDownloadScreen(Screen parent, List<DlcRequiredEntry> entries, UpdateApplyResult postUpdateResult) {
-        super(Component.translatable("dlc_manager.required.title"));
+        super(parent, Component.translatable("dlc_manager.required.title"));
         this.parent = parent;
         this.postUpdateResult = postUpdateResult;
         this.entries = entries == null ? List.of() : entries;
@@ -84,8 +78,7 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         this.maxConcurrentDownloads = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         if (entries.isEmpty()) {
             if (postUpdateResult != null) {
                 if (!tryShowPostUpdateDownloads(postUpdateResult)) {
@@ -126,143 +119,14 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         skipButton.active = !forceRequired;
         addRenderableWidget(downloadButton);
         addRenderableWidget(skipButton);
-        noticeLines = splitLines(DlcRequiredNotice.load().resolveDownloadDesc());
         detecting = true;
         statusText = Component.translatable("dlc_manager.required.preparing").getString();
         new Thread(this::detectEntries, "dlc-required-detect").start();
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        int y = 20;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
-        y += 18;
-        for (String line : getDescLines()) {
-            guiGraphics.drawCenteredString(this.font, line, centerX, y, 0xC8C8C8);
-            y += this.font.lineHeight + 2;
-        }
-        if (forceRequired) {
-            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.required.force_notice"), centerX, y, 0xFFAA55);
-            y += this.font.lineHeight + 2;
-        }
-        y += 6;
-        if (detecting && !downloading) {
-            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.required.detecting"), centerX, y, 0xE6E6E6);
-            y += 12;
-        }
-
-        int listTop = y;
-        int listBottom = this.height - 70;
-        int lineHeight = 10;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = displayList.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll;
-        }
-        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            DlcRequiredEntry entry = displayList.get(i);
-            String name = entry.resolveDisplayName();
-            guiGraphics.drawString(this.font, DlcTextFormatter.parse("- " + name), 24, y, 0xE6E6E6, false);
-            if (!downloading || maxConcurrentDownloads > 1) {
-                String key = progressKey(entry);
-                Float progress = downloading ? progressByKey.get(key) : null;
-                if (progress == null) {
-                    progress = getCompletedProgress(entry);
-                }
-                if (progress != null) {
-                    int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
-                    String progressText = percent + "%";
-                    int textWidth = this.font.width(progressText);
-                    int percentBoxWidth = this.font.width("100%");
-                    int barWidth = 36;
-                    int barHeight = 6;
-                    int percentRight = this.width - 18;
-                    int percentLeft = percentRight - percentBoxWidth;
-                    int barRight = percentLeft - 6;
-                    int barLeft = barRight - barWidth;
-                    int barY = y + 2;
-                    drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress);
-                    if (shouldShowSwitch(key, entry, progress)) {
-                        int switchRight = barLeft - SWITCH_BUTTON_PAD;
-                        int switchLeft = switchRight - SWITCH_BUTTON_SIZE;
-                        int switchTop = barY - 1;
-                        drawSwitchButton(guiGraphics, switchLeft, switchTop);
-                    }
-                    guiGraphics.drawString(this.font, progressText, percentRight - textWidth, y, 0xC8C8C8, false);
-                }
-            }
-            y += lineHeight;
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
-
-        if (downloading) {
-            y = this.height - 70;
-            if (maxConcurrentDownloads <= 1) {
-                String status = statusText == null ? "" : statusText;
-                guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(status), centerX, y, 0xE6E6E6);
-                y += 12;
-                DlcRequiredEntry activeEntry = activeDownloadEntry;
-                String activeKey = activeEntry == null ? null : progressKey(activeEntry);
-                if (activeKey != null && shouldShowSwitch(activeKey, activeEntry, currentProgress)) {
-                    int barLeft = centerX - 120;
-                    int switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE;
-                    int switchTop = y - 1;
-                    drawSwitchButton(guiGraphics, switchLeft, switchTop);
-                }
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, currentProgress);
-                int percent = Math.round(Math.max(0f, Math.min(1f, currentProgress)) * 100f);
-                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
-            } else {
-                String status = Component.translatable("dlc_manager.required.downloading_multi").getString();
-                guiGraphics.drawCenteredString(this.font, status, centerX, y, 0xE6E6E6);
-                y += 12;
-                float totalProgress = getTotalProgress();
-                drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, totalProgress);
-                int percent = Math.round(Math.max(0f, Math.min(1f, totalProgress)) * 100f);
-                guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 10, 0xC8C8C8);
-            }
-        } else if (errorText != null && !errorText.isBlank()) {
-            y = this.height - 70;
-            guiGraphics.drawCenteredString(this.font, DlcTextFormatter.parse(errorText), centerX, y, 0xFF6B6B);
-        }
-
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(deltaY);
-    }
-
-    private boolean handleMouseScrolled(double deltaY) {
-        int listTop = getListTop();
-        int listBottom = this.height - 70;
-        int lineHeight = 10;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = displayList.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (maxScroll > 0) {
-            int step = deltaY > 0 ? -1 : 1;
-            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (downloading && handleSwitchClick(mouseX, mouseY)) {
-            return true;
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
     public boolean shouldCloseOnEsc() {
-        return !forceRequired;
+        return !forceRequired && !downloading && !detecting;
     }
 
     private void detectEntries() {
@@ -302,44 +166,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
                 downloadButton.active = true;
             }
         });
-    }
-
-    private int getListTop() {
-        int y = 20 + 18;
-        y += getDescLines().size() * (this.font.lineHeight + 2);
-        y += 6;
-        if (detecting && !downloading) {
-            y += 12;
-        }
-        return y;
-    }
-
-    private List<String> getDescLines() {
-        List<String> lines = new ArrayList<>();
-        lines.addAll(splitLines(Component.translatable("dlc_manager.required.desc").getString()));
-        if (!noticeLines.isEmpty()) {
-            lines.addAll(noticeLines);
-        }
-        return lines;
-    }
-
-    private List<String> splitLines(String text) {
-        if (text == null || text.isBlank()) {
-            return new ArrayList<>();
-        }
-        if (text.contains("\n")) {
-            String[] parts = text.split("\\n");
-            List<String> lines = new ArrayList<>();
-            for (String part : parts) {
-                if (!part.isEmpty()) {
-                    lines.add(part);
-                }
-            }
-            if (!lines.isEmpty()) {
-                return lines;
-            }
-        }
-        return new ArrayList<>(List.of(text));
     }
 
     private void handleDownloadButton() {
@@ -615,37 +441,14 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             return;
         }
         if (forceRestartRequired) {
-            Minecraft.getInstance().execute(() -> minecraft.setScreen(new Screen(Component.translatable("dlc_manager.title")) {
-                @Override
-                protected void init() {
-                    int buttonWidth = 140;
-                    int buttonHeight = 20;
-                    int y = this.height - 40;
-                    addRenderableWidget(Button.builder(Component.translatable("dlc_manager.restart_now"), button -> Minecraft.getInstance().stop())
-                        .bounds(this.width / 2 - buttonWidth / 2, y, buttonWidth, buttonHeight)
-                        .build());
-                }
-
-                @Override
-                public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-                    DlcScreenCompat.renderBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-                    int centerX = this.width / 2;
-                    int y = 40;
-                    int titleX = (this.width - this.font.width(getTitle())) / 2;
-                    guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
-                    y += 20;
-                    guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.required.restart_prompt"), centerX, y, 0xC8C8C8);
-                    DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-                }
-
-                @Override
-                public boolean shouldCloseOnEsc() {
-                    return false;
-                }
+            Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcPageScreen(null, Component.translatable("dlc_manager.title")) {
+                @Override protected void buildPage() { rich(node(content, "div", "page-dialog page-message"), Component.translatable("dlc_manager.required.restart_prompt")); primary(tr("dlc_manager.restart_now"), () -> Minecraft.getInstance().stop()); }
+                @Override public boolean shouldCloseOnEsc() { return false; }
+                @Override public void onClose() {}
             }));
             return;
         }
-        Minecraft.getInstance().execute(() -> minecraft.setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 minecraft.stop();
             } else {
@@ -779,21 +582,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         return fileName.toLowerCase(java.util.Locale.ROOT).endsWith(".part");
     }
 
-    private Float getCompletedProgress(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return null;
-        }
-        String fileName = resolveExistingFileName(entry);
-        if (fileName == null || isTempFileName(fileName)) {
-            return null;
-        }
-        Path required = entry.resolveRequiredPath(fileName);
-        if (required != null && Files.exists(required)) {
-            return 1f;
-        }
-        return null;
-    }
-
     private boolean isConfigFile(DlcRequiredEntry entry, Path path) {
         if (entry == null || path == null) {
             return false;
@@ -879,28 +667,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         return fileName;
     }
 
-    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return;
-        }
-        int barX = this.width - 12;
-        int barWidth = 4;
-        int barHeight = Math.max(12, (bottom - top) * maxVisible / totalLines);
-        int trackHeight = bottom - top;
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barY = top + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B);
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
-    }
-
-    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
-        int bg = 0xFF2B2B2B;
-        int fg = 0xFF4CAF50;
-        guiGraphics.fill(x, y, x + width, y + height, bg);
-        int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));
-        guiGraphics.fill(x, y, x + filled, y + height, fg);
-    }
-
     private void markDownloadStart(String key) {
         if (key == null) {
             return;
@@ -936,83 +702,6 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
             count += directCount;
         }
         return count > 1;
-    }
-
-    private boolean shouldShowSwitch(String key, DlcRequiredEntry entry, float progress) {
-        if (!downloading || key == null || entry == null) {
-            return false;
-        }
-        if (progress >= 1f) {
-            return false;
-        }
-        Long start = downloadStartByKey.get(key);
-        if (start == null) {
-            return false;
-        }
-        if (System.currentTimeMillis() - start < SWITCH_DELAY_MS) {
-            return false;
-        }
-        return hasMultipleSources(entry);
-    }
-
-    private void drawSwitchButton(GuiGraphics guiGraphics, int x, int y) {
-        int right = x + SWITCH_BUTTON_SIZE;
-        int bottom = y + SWITCH_BUTTON_SIZE;
-        guiGraphics.fill(x, y, right, bottom, 0xFF4B4B4B);
-        guiGraphics.drawString(this.font, ">", x + 2, y + 1, 0xE6E6E6, false);
-    }
-
-    private boolean handleSwitchClick(double mouseX, double mouseY) {
-        if (!downloading) {
-            return false;
-        }
-        if (maxConcurrentDownloads <= 1) {
-            DlcRequiredEntry activeEntry = activeDownloadEntry;
-            String key = activeEntry == null ? null : progressKey(activeEntry);
-            if (key != null && shouldShowSwitch(key, activeEntry, currentProgress)) {
-                int centerX = this.width / 2;
-                int barLeft = centerX - 120;
-                int switchLeft = barLeft - SWITCH_BUTTON_PAD - SWITCH_BUTTON_SIZE;
-                int switchTop = (this.height - 70) + 12 - 1;
-                if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE
-                    && mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE) {
-                    switchRequested.add(key);
-                    return true;
-                }
-            }
-            return false;
-        }
-        int listTop = getListTop();
-        int listBottom = this.height - 70;
-        int lineHeight = 10;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = displayList.size();
-        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            DlcRequiredEntry entry = displayList.get(i);
-            String key = progressKey(entry);
-            Float progress = progressByKey.get(key);
-            if (progress == null || !shouldShowSwitch(key, entry, progress)) {
-                continue;
-            }
-            int row = i - scrollIndex;
-            int rowY = listTop + row * lineHeight;
-            int barWidth = 36;
-            int percentBoxWidth = this.font.width("100%");
-            int percentRight = this.width - 18;
-            int percentLeft = percentRight - percentBoxWidth;
-            int barRight = percentLeft - 6;
-            int barLeft = barRight - barWidth;
-            int barY = rowY + 2;
-            int switchRight = barLeft - SWITCH_BUTTON_PAD;
-            int switchLeft = switchRight - SWITCH_BUTTON_SIZE;
-            int switchTop = barY - 1;
-            if (mouseX >= switchLeft && mouseX <= switchLeft + SWITCH_BUTTON_SIZE
-                && mouseY >= switchTop && mouseY <= switchTop + SWITCH_BUTTON_SIZE) {
-                switchRequested.add(key);
-                return true;
-            }
-        }
-        return false;
     }
 
     private void initProgressMap(List<DlcRequiredEntry> pending) {
@@ -1068,4 +757,24 @@ public class DlcRequiredDownloadScreen extends DlcScreenCompat.MouseScroll {
         return suffix;
     }
 
+
+    private boolean controlsReady;
+    private int pageRevision;
+    @Override protected void buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls(); }
+        pageRevision = java.util.Objects.hash(displayList, downloading);
+        var list = section(null, null);
+        for (var entry : displayList) { var line = row(list, entry.resolveDisplayName(), null); var controls = node(line, "div", "row-controls");
+            progress(controls, () -> progressByKey.getOrDefault(progressKey(entry), 0f));
+            var switchSource = action(controls, tr("dlc_manager.remote.switch_source"), () -> switchRequested.add(progressKey(entry))); switchSource.setEnabled(hasMultipleSources(entry));
+        }
+        live(content, () -> statusText, "page-description"); live(content, () -> errorText, "page-error"); progress(content, () -> detecting ? -1 : downloading ? getTotalProgress() : 0); mount(footer, skipButton); mount(footer, downloadButton).getElement().setAttribute("class", "button primary");
+
+    }
+    @Override protected void updatePage() {
+
+        if (pageRevision != java.util.Objects.hash(displayList, downloading)) refreshPage();
+    }
+
+    @Override public void onClose() { if (shouldCloseOnEsc() && skipButton != null) skipButton.onPress(); }
 }

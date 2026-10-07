@@ -4,128 +4,123 @@ import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
-import fi.dy.masa.malilib.config.IConfigBase
-import fi.dy.masa.malilib.config.options.ConfigBoolean
-import fi.dy.masa.malilib.config.options.ConfigInteger
-import fi.dy.masa.malilib.config.options.ConfigString
-import fi.dy.masa.malilib.util.StringUtils
 
 object DlcServerConfigClient {
-    private val SERVER_SUPPORT = DlcConfigBoolean(
+    private val SERVER_SUPPORT = DlcConfigValue.BooleanValue(
         "serverSupport", true,
         "dlc_manager.config.comment.ui.serverSupport", "dlc_manager.config.ui.serverSupport"
     )
-    private val SERVER_PORT = DlcConfigInteger(
+    private val SERVER_PORT = DlcConfigValue.IntegerValue(
         "serverPort", DlcConfig.DEFAULT_SERVER_PORT, 1, 65535,
         "dlc_manager.config.comment.ui.serverPort", "dlc_manager.config.ui.serverPort"
     )
-    private val SERVER_PASSWORD = DlcConfigString(
+    private val SERVER_PASSWORD = DlcConfigValue.StringValue(
         "serverPassword", "",
         "dlc_manager.config.comment.ui.serverPassword", "dlc_manager.config.ui.serverPassword"
     )
-    private val RCON_HOST = DlcConfigString(
+    private val RCON_HOST = DlcConfigValue.StringValue(
         "rconHost", DlcConfig.DEFAULT_RCON_HOST,
         "dlc_manager.config.comment.ui.rconHost", "dlc_manager.config.ui.rconHost"
     )
-    private val RCON_PORT = DlcConfigInteger(
+    private val RCON_PORT = DlcConfigValue.IntegerValue(
         "rconPort", DlcConfig.DEFAULT_RCON_PORT, 1, 65535,
         "dlc_manager.config.comment.ui.rconPort", "dlc_manager.config.ui.rconPort"
     )
-    private val RCON_PASSWORD = DlcConfigString(
+    private val RCON_PASSWORD = DlcConfigValue.StringValue(
         "rconPassword", DlcConfig.DEFAULT_RCON_PASSWORD,
         "dlc_manager.config.comment.ui.rconPassword", "dlc_manager.config.ui.rconPassword"
     )
-    private val API_ENABLED = DlcConfigBoolean(
+    private val API_ENABLED = DlcConfigValue.BooleanValue(
         "apiEnabled", DlcConfig.DEFAULT_API_ENABLED,
         "dlc_manager.config.comment.ui.apiEnabled", "dlc_manager.config.ui.apiEnabled"
     )
-    private val API_PORT = DlcConfigInteger(
+    private val API_PORT = DlcConfigValue.IntegerValue(
         "apiPort", DlcConfig.DEFAULT_API_PORT, 0, 65535,
         "dlc_manager.config.comment.ui.apiPort", "dlc_manager.config.ui.apiPort"
     )
-    private val API_TOKEN = DlcConfigString(
+    private val API_TOKEN = DlcConfigValue.StringValue(
         "apiToken", "",
         "dlc_manager.config.comment.ui.apiToken", "dlc_manager.config.ui.apiToken"
     )
-    private val UI_ENABLE_ALL = DlcConfigBoolean(
+    private val UI_ENABLE_ALL = DlcConfigValue.BooleanValue(
         "isEnableAllButtonShown", DlcConfig.DEFAULT_ENABLE_ALL_SHOWN,
         "dlc_manager.config.comment.ui.isEnableAllButtonShown", "dlc_manager.config.ui.isEnableAllButtonShown"
     )
-    private val UI_UPDATE_MANAGER = DlcConfigBoolean(
+    private val UI_UPDATE_MANAGER = DlcConfigValue.BooleanValue(
         "isUpdateManagerOn", DlcConfig.DEFAULT_UPDATE_MANAGER_ON,
         "dlc_manager.config.comment.ui.isUpdateManagerOn", "dlc_manager.config.ui.isUpdateManagerOn"
     )
-    private val UI_SELF_UPDATE = DlcConfigBoolean(
+    private val UI_SELF_UPDATE = DlcConfigValue.BooleanValue(
         "isSelfUpdateAutoCheckOn", DlcConfig.DEFAULT_SELF_UPDATE_AUTO_CHECK_ON,
         "dlc_manager.config.comment.ui.isSelfUpdateAutoCheckOn", "dlc_manager.config.ui.isSelfUpdateAutoCheckOn"
     )
-    private val UI_PRESET = DlcConfigBoolean(
+    private val UI_PRESET = DlcConfigValue.BooleanValue(
         "isPresetFuncOn", DlcConfig.DEFAULT_PRESET_FUNC_ON,
         "dlc_manager.config.comment.ui.isPresetFuncOn", "dlc_manager.config.ui.isPresetFuncOn"
     )
-    private val UI_WAITING_TIME = DlcConfigInteger(
+    private val UI_WAITING_TIME = DlcConfigValue.IntegerValue(
         "WaitingTime", DlcConfig.DEFAULT_ALARM_WAITING_TIME, 0, 10,
         "dlc_manager.config.comment.ui.WaitingTime", "dlc_manager.config.ui.WaitingTime"
     )
-    private val MODPACK = DlcConfigString("modpack", DlcConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
-    private val MODPACK_URL = DlcConfigString("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
-    private val UPDATE_GIT_REPO = DlcConfigString("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
+    private val MODPACK = DlcConfigValue.StringValue("modpack", DlcConfig.DEFAULT_MODPACK, "dlc_manager.config.comment.modpack.modpack", "dlc_manager.config.modpack.modpack")
+    private val MODPACK_URL = DlcConfigValue.StringValue("modpackUrl", DlcConfig.DEFAULT_MODPACK_URL, "dlc_manager.config.comment.modpack.modpackUrl", "dlc_manager.config.modpack.modpackUrl")
+    private val UPDATE_GIT_REPO = DlcConfigValue.StringValue("updateGitRepo", DlcConfig.DEFAULT_UPDATE_GIT_REPO_URL, "dlc_manager.config.comment.modpack.updateGitRepo", "dlc_manager.config.modpack.updateGitRepo")
 
-    private val DLC_ROOT = DlcConfigString(
+    private val DLC_ROOT = DlcConfigValue.StringValue(
         "dlcRoot", DlcConfig.DEFAULT_DLC_ROOT,
         "dlc_manager.config.comment.paths.dlcRoot", "dlc_manager.config.paths.dlcRoot"
     )
-    private val TACZ_ROOT = DlcConfigString(
+    private val TACZ_ROOT = DlcConfigValue.StringValue(
         "taczRoot", DlcConfig.DEFAULT_TACZ_DLC_ROOT,
         "dlc_manager.config.comment.paths.taczRoot", "dlc_manager.config.paths.taczRoot"
     )
-    private val RESOURCEPACK_ROOT = DlcConfigString(
+    private val RESOURCEPACK_ROOT = DlcConfigValue.StringValue(
         "resourcepackRoot", DlcConfig.DEFAULT_RESOURCEPACK_ROOT,
         "dlc_manager.config.comment.paths.resourcepackRoot", "dlc_manager.config.paths.resourcepackRoot"
     )
-    private val DATAPACK_ROOT = DlcConfigString(
+    private val DATAPACK_ROOT = DlcConfigValue.StringValue(
         "datapackRoot", DlcConfig.DEFAULT_DATAPACK_ROOT,
         "dlc_manager.config.comment.paths.datapackRoot", "dlc_manager.config.paths.datapackRoot"
     )
 
-    private val MAX_CONCURRENT = DlcConfigInteger(
+    private val MAX_CONCURRENT = DlcConfigValue.IntegerValue(
         "maxConcurrentDownloads", DlcConfig.DEFAULT_MAX_CONCURRENT_DOWNLOADS, 1, 64,
         "dlc_manager.config.comment.download.maxConcurrentDownloads", "dlc_manager.config.download.maxConcurrentDownloads"
     )
-    private val MAX_SEGMENTS = DlcConfigInteger(
+    private val MAX_SEGMENTS = DlcConfigValue.IntegerValue(
         "maxSegmentsPerFile", DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE, 1, 64,
         "dlc_manager.config.comment.download.maxSegmentsPerFile", "dlc_manager.config.download.maxSegmentsPerFile"
     )
-    private val MIN_SEGMENT_MB = DlcConfigInteger(
+    private val MIN_SEGMENT_MB = DlcConfigValue.IntegerValue(
         "minSegmentMB", DlcConfig.DEFAULT_MIN_SEGMENT_MB, 1, Int.MAX_VALUE,
         "dlc_manager.config.comment.download.minSegmentMB", "dlc_manager.config.download.minSegmentMB"
     )
-    private val MAX_RETRY = DlcConfigInteger(
+    private val MAX_RETRY = DlcConfigValue.IntegerValue(
         "maxRetryCount", DlcConfig.DEFAULT_MAX_RETRY, 1, 100,
         "dlc_manager.config.comment.download.maxRetryCount", "dlc_manager.config.download.maxRetryCount"
     )
-    private val CONNECT_TIMEOUT = DlcConfigInteger(
+    private val CONNECT_TIMEOUT = DlcConfigValue.IntegerValue(
         "connectTimeoutSeconds", DlcConfig.DEFAULT_CONNECT_TIMEOUT_SECONDS, 1, 36000,
         "dlc_manager.config.comment.download.connectTimeoutSeconds", "dlc_manager.config.download.connectTimeoutSeconds"
     )
-    private val TASK_TIMEOUT = DlcConfigInteger(
+    private val TASK_TIMEOUT = DlcConfigValue.IntegerValue(
         "taskTimeoutSeconds", DlcConfig.DEFAULT_TASK_TIMEOUT_SECONDS, 1, 36000,
         "dlc_manager.config.comment.download.taskTimeoutSeconds", "dlc_manager.config.download.taskTimeoutSeconds"
     )
-    private val DOWNLOAD_MIRROR_MODE = DlcConfigString(
+    private val DOWNLOAD_MIRROR_MODE = DlcConfigValue.StringValue(
         "downloadMirrorMode", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_MODE,
         "dlc_manager.config.comment.download.downloadMirrorMode", "dlc_manager.config.download.downloadMirrorMode"
     )
-    private val DOWNLOAD_MIRROR_PROBE_COUNT = DlcConfigInteger(
+    private val DOWNLOAD_MIRROR_PROBE_COUNT = DlcConfigValue.IntegerValue(
         "downloadMirrorProbeCount", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_COUNT, 1, 10,
         "dlc_manager.config.comment.download.downloadMirrorProbeCount", "dlc_manager.config.download.downloadMirrorProbeCount"
     )
-    private val DOWNLOAD_MIRROR_PROBE_STRATEGY = DlcConfigString(
+    private val DOWNLOAD_MIRROR_PROBE_STRATEGY = DlcConfigValue.StringValue(
         "downloadMirrorProbeStrategy", DlcConfig.DEFAULT_DOWNLOAD_MIRROR_PROBE_STRATEGY,
         "dlc_manager.config.comment.download.downloadMirrorProbeStrategy", "dlc_manager.config.download.downloadMirrorProbeStrategy"
     )
 
-    private val SERVER_CONFIGS: List<IConfigBase> = listOf(
+    private val SERVER_CONFIGS: List<DlcConfigValue> = listOf(
         SERVER_SUPPORT,
         SERVER_PORT,
         SERVER_PASSWORD,
@@ -137,13 +132,13 @@ object DlcServerConfigClient {
         API_TOKEN
     )
 
-    private val MODPACK_CONFIGS: List<IConfigBase> = listOf(
+    private val MODPACK_CONFIGS: List<DlcConfigValue> = listOf(
         MODPACK,
         MODPACK_URL,
         UPDATE_GIT_REPO
     )
 
-    private val UI_CONFIGS: List<IConfigBase> = listOf(
+    private val UI_CONFIGS: List<DlcConfigValue> = listOf(
         UI_ENABLE_ALL,
         UI_UPDATE_MANAGER,
         UI_SELF_UPDATE,
@@ -151,14 +146,14 @@ object DlcServerConfigClient {
         UI_WAITING_TIME
     )
 
-    private val PATH_CONFIGS: List<IConfigBase> = listOf(
+    private val PATH_CONFIGS: List<DlcConfigValue> = listOf(
         DLC_ROOT,
         TACZ_ROOT,
         RESOURCEPACK_ROOT,
         DATAPACK_ROOT
     )
 
-    private val DOWNLOAD_CONFIGS: List<IConfigBase> = listOf(
+    private val DOWNLOAD_CONFIGS: List<DlcConfigValue> = listOf(
         MAX_CONCURRENT,
         MAX_SEGMENTS,
         MIN_SEGMENT_MB,
@@ -171,19 +166,19 @@ object DlcServerConfigClient {
     )
 
     @JvmStatic
-    fun getServerConfigs(): List<IConfigBase> = SERVER_CONFIGS
+    fun getServerConfigs(): List<DlcConfigValue> = SERVER_CONFIGS
 
     @JvmStatic
-    fun getUiConfigs(): List<IConfigBase> = UI_CONFIGS
+    fun getUiConfigs(): List<DlcConfigValue> = UI_CONFIGS
 
     @JvmStatic
-    fun getModpackConfigs(): List<IConfigBase> = MODPACK_CONFIGS
+    fun getModpackConfigs(): List<DlcConfigValue> = MODPACK_CONFIGS
 
     @JvmStatic
-    fun getPathConfigs(): List<IConfigBase> = PATH_CONFIGS
+    fun getPathConfigs(): List<DlcConfigValue> = PATH_CONFIGS
 
     @JvmStatic
-    fun getDownloadConfigs(): List<IConfigBase> = DOWNLOAD_CONFIGS
+    fun getDownloadConfigs(): List<DlcConfigValue> = DOWNLOAD_CONFIGS
 
     @JvmStatic
     fun loadFromJson(root: JsonObject?) {
@@ -334,59 +329,4 @@ object DlcServerConfigClient {
         return fallback
     }
 
-    private class DlcConfigString(
-        name: String,
-        defaultValue: String?,
-        private val commentKey: String?,
-        private val translationKey: String,
-    ) : ConfigString(name, defaultValue, "") {
-        override fun getConfigGuiDisplayName(): String {
-            return StringUtils.translate(translationKey)
-        }
-
-        override fun getComment(): String {
-            if (commentKey.isNullOrBlank()) {
-                return ""
-            }
-            return StringUtils.translate(commentKey)
-        }
-    }
-
-    private class DlcConfigBoolean(
-        name: String,
-        defaultValue: Boolean,
-        private val commentKey: String?,
-        private val translationKey: String,
-    ) : ConfigBoolean(name, defaultValue, "", name) {
-        override fun getConfigGuiDisplayName(): String {
-            return StringUtils.translate(translationKey)
-        }
-
-        override fun getComment(): String {
-            if (commentKey.isNullOrBlank()) {
-                return ""
-            }
-            return StringUtils.translate(commentKey)
-        }
-    }
-
-    private class DlcConfigInteger(
-        name: String,
-        defaultValue: Int,
-        min: Int,
-        max: Int,
-        private val commentKey: String?,
-        private val translationKey: String,
-    ) : ConfigInteger(name, defaultValue, min, max, "") {
-        override fun getConfigGuiDisplayName(): String {
-            return StringUtils.translate(translationKey)
-        }
-
-        override fun getComment(): String {
-            if (commentKey.isNullOrBlank()) {
-                return ""
-            }
-            return StringUtils.translate(commentKey)
-        }
-    }
 }

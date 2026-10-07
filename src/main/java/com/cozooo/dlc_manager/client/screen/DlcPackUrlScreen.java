@@ -4,10 +4,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.io.IOException;
@@ -15,7 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 
-public class DlcPackUrlScreen extends Screen {
+public class DlcPackUrlScreen extends DlcUrlPageScreen {
     private final DlcPackManagerScreen parent;
     private EditBox urlField;
     private Button downloadButton;
@@ -31,12 +29,11 @@ public class DlcPackUrlScreen extends Screen {
     private String urlValue = "";
 
     public DlcPackUrlScreen(DlcPackManagerScreen parent) {
-        super(Component.translatable("dlc_manager.pack.import_url_title"));
+        super(parent, Component.translatable("dlc_manager.pack.import_url_title"));
         this.parent = parent;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int fieldWidth = Math.min(320, this.width - 40);
         int fieldHeight = 18;
         int fieldX = this.width / 2 - fieldWidth / 2;
@@ -75,64 +72,6 @@ public class DlcPackUrlScreen extends Screen {
         addRenderableWidget(backButton);
         if (downloading) {
             setButtonsForDownload();
-        }
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        if (downloading) {
-            renderDownloadProgress(guiGraphics, centerX);
-            DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-            return;
-        }
-        int y = this.height / 2 - 80;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
-        y += 18;
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack.url_prompt"), centerX, y, 0xC8C8C8);
-
-        if (errorText != null && !errorText.isBlank()) {
-            guiGraphics.drawCenteredString(this.font, errorText, centerX, this.height / 2 + 60, 0xFF6B6B);
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    private void renderDownloadProgress(GuiGraphics guiGraphics, int centerX) {
-        int y = this.height / 2 - 44;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
-        y += 24;
-        guiGraphics.drawCenteredString(this.font, statusText == null ? "" : statusText, centerX, y, 0xE6E6E6);
-        y += 18;
-        drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, progress);
-        int percent = totalBytes > 0 ? Math.round(Math.max(0f, Math.min(1f, progress)) * 100f) : 0;
-        guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 14, 0xC8C8C8);
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (urlField != null && urlField.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public boolean charTyped(char codePoint, int modifiers) {
-        if (urlField != null && urlField.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        return super.charTyped(codePoint, modifiers);
-    }
-
-    @Override
-    public void resize(Minecraft minecraft, int width, int height) {
-        if (urlField != null) {
-            urlValue = urlField.getValue();
-        }
-        super.resize(minecraft, width, height);
-        if (urlField != null) {
-            urlField.setValue(urlValue);
         }
     }
 
@@ -302,9 +241,12 @@ public class DlcPackUrlScreen extends Screen {
         }
     }
 
-    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
-        int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);
-        guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50);
+    @Override protected void buildPage() {
+        if (urlField != null) urlValue = urlField.getValue();
+        initControls();
+        renderUrlForm("dlc_manager.pack.url_prompt", urlField, pasteButton, downloadButton,
+                () -> statusText, () -> errorText, () -> progress, () -> downloading ? Math.round(progress * 100) + "%" : "", () -> downloading);
     }
+    @Override protected void updatePage() { if (urlField != null) urlField.active = !downloading; }
+
 }

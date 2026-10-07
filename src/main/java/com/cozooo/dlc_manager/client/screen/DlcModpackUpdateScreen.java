@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult;
@@ -14,26 +13,24 @@ import com.cozooo.dlc_manager.client.core.DlcMessageAdapter;
 import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
 import net.minecraft.util.FormattedCharSequence;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
+public class DlcModpackUpdateScreen extends DlcPageScreen {
     private static final int TEXT_COLOR = 0xC8C8C8;
-    private static final int LABEL_COLOR = 0xDCDCDC;
-    private static final int VERSION_COLOR = 0x7FD0FF;
-    private static final int SECTION_COLOR = 0x93D9FF;
-    private static final int WARNING_COLOR = 0xD7B56D;
-    private static final int CONTENT_Y_OFFSET = -30;
-    private static final int PANEL_BG = 0xAA121519;
-    private static final int PANEL_BORDER = 0xFF2A2F36;
+
+
+
+
+
+
+
     private final Screen parent;
     private final CheckResult checkResult;
     private final DlcServerEntry serverEntry;
@@ -80,7 +77,7 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
     }
 
     public DlcModpackUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry, boolean allowSkipThisUpdate) {
-        super(Component.translatable("dlc_manager.pack_update.title"));
+        super(parent, Component.translatable("dlc_manager.pack_update.title"));
         this.parent = parent;
         this.checkResult = checkResult == null ? new CheckResult() : checkResult;
         this.serverEntry = serverEntry;
@@ -88,9 +85,8 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
         this.allowSkipThisUpdate = allowSkipThisUpdate;
     }
 
-    @Override
-    protected void init() {
-        relayoutChangelog(true);
+    private void initControls() {
+
         boolean showSkipThis = allowSkipThisUpdate && side == Side.CLIENT;
         int buttonWidth = showSkipThis ? 100 : 120;
         int buttonHeight = 20;
@@ -134,115 +130,6 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        updateButtons();
-        relayoutChangelog(false);
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 78 + CONTENT_Y_OFFSET;
-        guiGraphics.drawCenteredString(this.font, this.title, centerX, y, 0xFFFFFF);
-        y += 20;
-
-        y = drawCenteredVersionLine(guiGraphics, centerX, y,
-            Component.translatable("dlc_manager.pack_update.base").getString(),
-            checkResult.currentBase, checkResult.targetBase);
-        y += 14;
-        y = drawCenteredVersionLine(guiGraphics, centerX, y,
-            Component.translatable("dlc_manager.pack_update.dlc").getString(),
-            checkResult.currentDlc, checkResult.targetDlc);
-        y += 16;
-        y = renderChangelog(guiGraphics, y);
-
-        if (downloading) {
-            guiGraphics.drawCenteredString(this.font, statusText == null ? "" : statusText, centerX, y, 0xE6E6E6);
-            y += 14;
-            drawProgressBar(guiGraphics, centerX - 120, y, 240, 8, progress);
-            int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
-            guiGraphics.drawCenteredString(this.font, percent + "%", centerX, y + 12, 0xC8C8C8);
-            y += 26;
-        } else if (errorText != null && !errorText.isBlank()) {
-            guiGraphics.drawCenteredString(this.font, errorText, centerX, y, 0xFF7777);
-        } else if (checkResult.hasLatestGap()) {
-            Component warning = checkResult.canDownload()
-                ? Component.translatable(
-                    "dlc_manager.pack_update.latest_unreachable",
-                    normalizeVersion(checkResult.downloadBase),
-                    normalizeVersion(checkResult.downloadDlc)
-                )
-                : Component.translatable("dlc_manager.pack_update.latest_unreachable_no_download");
-            guiGraphics.drawCenteredString(this.font, warning, centerX, y, WARNING_COLOR);
-            y += 12;
-            if (checkResult.canDownload()) {
-                guiGraphics.drawCenteredString(this.font,
-                    Component.translatable("dlc_manager.pack_update.partial_download_hint"),
-                    centerX, y, WARNING_COLOR);
-            } else {
-                guiGraphics.drawCenteredString(this.font,
-                    Component.translatable("dlc_manager.pack_update.asset_missing"),
-                    centerX, y, WARNING_COLOR);
-            }
-        } else if (!checkResult.canDownload()) {
-            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack_update.asset_missing"), centerX, y, WARNING_COLOR);
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    private int renderChangelog(GuiGraphics guiGraphics, int y) {
-        if (changelogLines.isEmpty()) {
-            return y;
-        }
-        guiGraphics.drawString(this.font, Component.translatable("dlc_manager.update.changelog_tooltip_title"),
-            changelogLeft, y, 0xE6E6E6, false);
-        y += 12;
-        drawChangelogPanel(guiGraphics);
-        return changelogBottom + 8;
-    }
-
-    private void drawChangelogPanel(GuiGraphics guiGraphics) {
-        guiGraphics.fill(changelogLeft - 6, changelogTop - 6, changelogRight + 6, changelogBottom + 6, PANEL_BG);
-        guiGraphics.fill(changelogLeft - 6, changelogTop - 6, changelogRight + 6, changelogTop - 5, PANEL_BORDER);
-        guiGraphics.fill(changelogLeft - 6, changelogBottom + 5, changelogRight + 6, changelogBottom + 6, PANEL_BORDER);
-        guiGraphics.fill(changelogLeft - 6, changelogTop - 6, changelogLeft - 5, changelogBottom + 6, PANEL_BORDER);
-        guiGraphics.fill(changelogRight + 5, changelogTop - 6, changelogRight + 6, changelogBottom + 6, PANEL_BORDER);
-
-        int textY = changelogTop - scrollOffset;
-        guiGraphics.enableScissor(changelogLeft, changelogTop, changelogRight, changelogBottom);
-        try {
-            for (ChangelogLine line : changelogLines) {
-                if (line.hr) {
-                    int hrY = textY + line.height / 2;
-                    if (hrY >= changelogTop && hrY <= changelogBottom - 1) {
-                        guiGraphics.fill(changelogLeft, hrY, changelogRight, hrY + 1, 0xFF5A5A5A);
-                    }
-                    textY += line.height;
-                    continue;
-                }
-                if (line.empty) {
-                    textY += line.height;
-                    continue;
-                }
-                if (textY <= changelogBottom - line.height && textY + line.height >= changelogTop) {
-                    if (line.scale > 1.0f) {
-                        guiGraphics.pose().pushPose();
-                        guiGraphics.pose().scale(line.scale, line.scale, 1.0f);
-                        guiGraphics.drawString(this.font, line.sequence,
-                            (int) (changelogLeft / line.scale),
-                            (int) (textY / line.scale),
-                            line.color, false);
-                        guiGraphics.pose().popPose();
-                    } else {
-                        guiGraphics.drawString(this.font, line.sequence, changelogLeft, textY, line.color, false);
-                    }
-                }
-                textY += line.height;
-            }
-        } finally {
-            guiGraphics.disableScissor();
-        }
-        drawScrollBar(guiGraphics);
-    }
-
-    @Override
     public boolean shouldCloseOnEsc() {
         return !downloading;
     }
@@ -269,16 +156,6 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
         return value;
     }
 
-    private int drawCenteredVersionLine(GuiGraphics guiGraphics, int centerX, int y, String prefix, String current, String target) {
-        String prefixText = prefix + " ";
-        String versionText = formatVersionLineValue(current, target);
-        int totalWidth = this.font.width(prefixText) + this.font.width(versionText);
-        int x = centerX - totalWidth / 2;
-        guiGraphics.drawString(this.font, prefixText, x, y, LABEL_COLOR, false);
-        guiGraphics.drawString(this.font, versionText, x + this.font.width(prefixText), y, VERSION_COLOR, false);
-        return y;
-    }
-
     private String formatVersionLineValue(String current, String target) {
         String from = normalizeVersion(current);
         String to = normalizeVersion(target);
@@ -288,248 +165,10 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
         return from;
     }
 
-    private void relayoutChangelog(boolean force) {
-        String language = DlcPlatformServices.languageCode();
-        int nextLeft = 40;
-        int nextRight = Math.max(nextLeft + 120, this.width - 40);
-        int nextTop = this.height / 2 - 4 + CONTENT_Y_OFFSET;
-        int nextBottom = Math.max(nextTop + 60, this.height - 60 + CONTENT_Y_OFFSET);
-        int nextWidth = Math.max(120, nextRight - nextLeft - 20);
-        boolean changed = force
-            || !language.equals(changelogLang)
-            || nextLeft != changelogLeft
-            || nextRight != changelogRight
-            || nextTop != changelogTop
-            || nextBottom != changelogBottom
-            || nextWidth != changelogWidth;
-        changelogLeft = nextLeft;
-        changelogRight = nextRight;
-        changelogTop = nextTop;
-        changelogBottom = nextBottom;
-        changelogWidth = nextWidth;
-        scrollbarX = changelogRight - 4;
-        scrollbarTop = changelogTop;
-        scrollbarBottom = changelogBottom;
-        visibleHeight = Math.max(10, changelogBottom - changelogTop);
-        if (changed) {
-            changelogLang = language;
-            rebuildChangelogLines(language);
-        }
-    }
-
-    private void rebuildChangelogLines(String language) {
-        changelogLines.clear();
-        int lineStep = this.font.lineHeight + 2;
-        List<ReleaseStep> downloadableSteps = checkResult.steps == null ? List.of() : checkResult.steps;
-        appendChangelogSteps(downloadableSteps, language, lineStep);
-        List<ReleaseStep> unreachableSteps = resolveUnreachableSteps(downloadableSteps);
-        if (!unreachableSteps.isEmpty()) {
-            if (!changelogLines.isEmpty()) {
-                changelogLines.add(ChangelogLine.empty(lineStep));
-            }
-            for (FormattedCharSequence line : this.font.split(
-                Component.translatable("dlc_manager.pack_update.unreachable_changelog"),
-                changelogWidth
-            )) {
-                changelogLines.add(ChangelogLine.text(line, WARNING_COLOR, 1.0f, lineStep));
-            }
-            changelogLines.add(ChangelogLine.empty(lineStep));
-            appendChangelogSteps(unreachableSteps, language, lineStep);
-        }
-        totalContentHeight = 0;
-        for (ChangelogLine line : changelogLines) {
-            totalContentHeight += line.height;
-        }
-        maxScroll = Math.max(0, totalContentHeight - visibleHeight);
-        if (scrollOffset > maxScroll) {
-            scrollOffset = maxScroll;
-        }
-        if (maxScroll <= 0) {
-            scrollOffset = 0;
-        }
-    }
-
-    private void appendChangelogSteps(List<ReleaseStep> steps, String language, int lineStep) {
-        if (steps == null || steps.isEmpty()) {
-            return;
-        }
-        for (int stepIndex = 0; stepIndex < steps.size(); stepIndex++) {
-            ReleaseStep step = steps.get(stepIndex);
-            if (step == null) {
-                continue;
-            }
-            String transition = formatTransition(step);
-            for (FormattedCharSequence line : this.font.split(Component.literal(transition), changelogWidth)) {
-                changelogLines.add(ChangelogLine.text(line, SECTION_COLOR, 1.0f, lineStep));
-            }
-            String body = step.resolveChangelog(language);
-            if (body != null && !body.isBlank()) {
-                for (FormattedCharSequence line : DlcMarkdownRenderer.wrapMarkdown(this.font, body.trim(), changelogWidth)) {
-                    if (DlcMarkdownRenderer.isHrLine(line)) {
-                        changelogLines.add(ChangelogLine.hr(lineStep));
-                        continue;
-                    }
-                    float scale = DlcMarkdownRenderer.getHeadingScale(this.font, line, changelogWidth);
-                    int height = DlcMarkdownRenderer.getLineHeight(this.font, line, lineStep, changelogWidth);
-                    changelogLines.add(ChangelogLine.text(line, TEXT_COLOR, scale, height));
-                }
-            }
-            if (stepIndex < steps.size() - 1) {
-                changelogLines.add(ChangelogLine.empty(lineStep));
-            }
-        }
-    }
-
-    private List<ReleaseStep> resolveUnreachableSteps(List<ReleaseStep> downloadableSteps) {
-        List<ReleaseStep> fullSteps = checkResult.fullSteps == null ? List.of() : checkResult.fullSteps;
-        if (fullSteps.isEmpty() || !checkResult.hasLatestGap()) {
-            return List.of();
-        }
-        int index = 0;
-        while (index < fullSteps.size()
-            && downloadableSteps != null
-            && index < downloadableSteps.size()
-            && sameTransition(fullSteps.get(index), downloadableSteps.get(index))) {
-            index++;
-        }
-        if (index >= fullSteps.size()) {
-            return List.of();
-        }
-        return fullSteps.subList(index, fullSteps.size());
-    }
-
-    private boolean sameTransition(ReleaseStep left, ReleaseStep right) {
-        if (left == null || right == null) {
-            return false;
-        }
-        return normalizeVersion(left.oldBase).equals(normalizeVersion(right.oldBase))
-            && normalizeVersion(left.oldDlc).equals(normalizeVersion(right.oldDlc))
-            && normalizeVersion(left.newBase).equals(normalizeVersion(right.newBase))
-            && normalizeVersion(left.newDlc).equals(normalizeVersion(right.newDlc));
-    }
-
     private String formatTransition(ReleaseStep step) {
         return normalizeVersion(step.oldBase) + "+" + normalizeVersion(step.oldDlc)
             + " -> "
             + normalizeVersion(step.newBase) + "+" + normalizeVersion(step.newDlc);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(deltaY);
-    }
-
-    private boolean handleMouseScrolled(double delta) {
-        if (maxScroll <= 0) {
-            return false;
-        }
-        int step = this.font.lineHeight + 2;
-        scrollOffset -= (int) Math.round(delta * step);
-        if (scrollOffset < 0) {
-            scrollOffset = 0;
-        } else if (scrollOffset > maxScroll) {
-            scrollOffset = maxScroll;
-        }
-        return true;
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0 && isOverChangelogContent(mouseX, mouseY)) {
-            int textY = changelogTop - scrollOffset;
-            for (ChangelogLine line : changelogLines) {
-                if (line.hr || line.empty) {
-                    textY += line.height;
-                    continue;
-                }
-                if (mouseY >= textY && mouseY < textY + line.height) {
-                    int relX = (int) mouseX - changelogLeft;
-                    int maxWidth = Math.round(this.font.width(line.sequence) * line.scale);
-                    if (relX >= 0 && relX <= maxWidth) {
-                        int styleX = line.scale > 1.0f ? (int) (relX / line.scale) : relX;
-                        Style style = findStyleAt(line.sequence, styleX);
-                        if (style != null && handleComponentClicked(style)) {
-                            return true;
-                        }
-                    }
-                    break;
-                }
-                textY += line.height;
-            }
-        }
-        if (button == 0 && isOverScrollbar(mouseX, mouseY)) {
-            updateScrollFromDrag(mouseY);
-            draggingScrollbar = true;
-            dragStartY = (int) mouseY;
-            dragStartScroll = scrollOffset;
-            return true;
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (draggingScrollbar && button == 0) {
-            int trackHeight = Math.max(1, (scrollbarBottom - scrollbarTop) - scrollbarHeight);
-            int delta = (int) mouseY - dragStartY;
-            int next = dragStartScroll + (int) Math.round(delta * (maxScroll / (double) trackHeight));
-            scrollOffset = Math.max(0, Math.min(maxScroll, next));
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (draggingScrollbar && button == 0) {
-            draggingScrollbar = false;
-            return true;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    private boolean isOverChangelogContent(double mouseX, double mouseY) {
-        return mouseX >= changelogLeft && mouseX <= changelogRight
-            && mouseY >= changelogTop && mouseY <= changelogBottom;
-    }
-
-    private Style findStyleAt(FormattedCharSequence sequence, int x) {
-        if (sequence == null || x < 0) {
-            return null;
-        }
-        return this.font.getSplitter().componentStyleAtWidth(sequence, x);
-    }
-
-    private boolean isOverScrollbar(double mouseX, double mouseY) {
-        return maxScroll > 0
-            && mouseX >= scrollbarX - 2 && mouseX <= scrollbarX + 6
-            && mouseY >= scrollbarTop && mouseY <= scrollbarBottom;
-    }
-
-    private void updateScrollFromDrag(double mouseY) {
-        if (maxScroll <= 0) {
-            scrollOffset = 0;
-            return;
-        }
-        int trackHeight = Math.max(1, scrollbarBottom - scrollbarTop - scrollbarHeight);
-        int knobTop = (int) mouseY - scrollbarHeight / 2;
-        int rel = Math.max(0, Math.min(trackHeight, knobTop - scrollbarTop));
-        scrollOffset = (int) Math.round(rel * (maxScroll / (double) trackHeight));
-    }
-
-    private void drawScrollBar(GuiGraphics guiGraphics) {
-        if (maxScroll <= 0) {
-            return;
-        }
-        int trackHeight = Math.max(1, scrollbarBottom - scrollbarTop);
-        scrollbarHeight = Math.max(18, (int) (trackHeight * (visibleHeight / (double) Math.max(visibleHeight, totalContentHeight))));
-        if (scrollbarHeight > trackHeight) {
-            scrollbarHeight = trackHeight;
-        }
-        int travel = Math.max(1, trackHeight - scrollbarHeight);
-        int knobTop = scrollbarTop + (int) Math.round((scrollOffset / (double) maxScroll) * travel);
-        guiGraphics.fill(scrollbarX, scrollbarTop, scrollbarX + 4, scrollbarBottom, 0x663A3F48);
-        guiGraphics.fill(scrollbarX, knobTop, scrollbarX + 4, knobTop + scrollbarHeight, 0xFF8A95A8);
     }
 
     private void onDownloadButton() {
@@ -635,17 +274,6 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
         }
     }
 
-    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float value) {
-        float clamped = Math.max(0f, Math.min(1f, value));
-        int filled = Math.max(0, Math.min(width, Math.round(width * clamped)));
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);
-        if (filled > 0) {
-            guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50);
-        }
-        guiGraphics.fill(x, y - 1, x + width, y, 0xFF4A4A4A);
-        guiGraphics.fill(x, y + height, x + width, y + height + 1, 0xFF1A1A1A);
-    }
-
     private static final class ChangelogLine {
         private final FormattedCharSequence sequence;
         private final int color;
@@ -675,4 +303,27 @@ public class DlcModpackUpdateScreen extends DlcScreenCompat.MouseScroll {
             return new ChangelogLine(FormattedCharSequence.EMPTY, TEXT_COLOR, 1.0f, height, false, true);
         }
     }
+
+    private boolean controlsReady;
+    private int pageRevision;
+    @Override protected void buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls(); }
+        pageRevision = 0;
+
+        var list = section(null, null); row(list, tr("dlc_manager.pack_update.base"), formatVersionLineValue(checkResult.currentBase, checkResult.targetBase)); row(list, tr("dlc_manager.pack_update.dlc"), formatVersionLineValue(checkResult.currentDlc, checkResult.targetDlc));
+        if (checkResult.hasLatestGap()) text(list, tr("dlc_manager.pack_update.latest_unreachable_no_download"), "page-warning");
+        var steps = checkResult.fullSteps.isEmpty() ? checkResult.steps : checkResult.fullSteps;
+        for (var step : steps) {
+            var part = section(formatTransition(step), null);
+            markdown(part, step.resolveChangelog(DlcPlatformServices.languageCode()));
+        }
+        live(content, () -> statusText, "page-description"); live(content, () -> errorText, "page-error"); progress(content, () -> progress);
+        if (skipButton != null) mount(footer, skipButton); if (skipThisUpdateButton != null) mount(footer, skipThisUpdateButton); mount(footer, openButton); mount(footer, downloadButton).getElement().setAttribute("class", "button primary");
+
+    }
+    @Override protected void updatePage() {
+        updateButtons();
+        if (pageRevision != 0) refreshPage();
+    }
+
 }

@@ -8,36 +8,26 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerInfo
 import com.cozooo.dlc_manager.client.server.DlcServerItem
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
+import com.sighs.apricityui.init.Document
+import net.minecraft.client.gui.GuiGraphics
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcType
-import fi.dy.masa.malilib.gui.GuiListBase
-import fi.dy.masa.malilib.gui.button.ButtonBase
-import fi.dy.masa.malilib.gui.button.ButtonGeneric
-import fi.dy.masa.malilib.gui.button.IButtonActionListener
-import fi.dy.masa.malilib.util.StringUtils
-import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.Font
-import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.PauseScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.minecraft.util.FormattedCharSequence
 import java.util.ArrayDeque
 import java.util.Collections
 import java.util.EnumMap
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
-import kotlin.math.max
-import kotlin.math.min
 
-class DlcServerMaLiLibScreen(
+class DlcServerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
     info: DlcServerInfo?,
     private val openedFromIngame: Boolean,
-) : GuiListBase<DlcServerListRow, DlcServerListEntry, DlcServerListWidget>(10, 34), DlcReturnPositionHost {
+) : DlcManagerPageScreen(), DlcReturnPositionHost {
     constructor(parent: Screen?, entry: DlcServerEntry?, info: DlcServerInfo?) : this(
         parent,
         entry,
@@ -55,28 +45,13 @@ class DlcServerMaLiLibScreen(
     private var presetSnapshotCaptured = false
     private val presetAppliedIdentifiers: MutableSet<String> = LinkedHashSet()
     private val presetStatusById: MutableMap<String, DlcPresetStatus> = LinkedHashMap()
-    private var savedScrollOffset = 0
+    private var savedScrollOffset = 0.0
     private var savedScrollFilter: DlcType? = null
     private var restoreScrollPending = false
 
-    private var applyButton: ButtonGeneric? = null
-    private var backButton: ButtonGeneric? = null
-    private var presetButton: ButtonGeneric? = null
-    private var enableAllButton: ButtonGeneric? = null
-    private var disableAllButton: ButtonGeneric? = null
-    private var configButton: ButtonGeneric? = null
-    private var serverToolsButton: ButtonGeneric? = null
-    private var dlcTabButton: ButtonGeneric? = null
-    private var requiredButton: ButtonGeneric? = null
-    private var missingButton: ButtonGeneric? = null
+    private var applyButton: DlcUiButton? = null
+    private var backButton: DlcUiButton? = null
 
-    private var allFilterButton: ButtonGeneric? = null
-    private var modsFilterButton: ButtonGeneric? = null
-    private var taczFilterButton: ButtonGeneric? = null
-    private var resourceFilterButton: ButtonGeneric? = null
-    private var dataFilterButton: ButtonGeneric? = null
-    private var otherFilterButton: ButtonGeneric? = null
-    private val filterButtons: MutableMap<DlcType, ButtonGeneric> = EnumMap(DlcType::class.java)
     private var activeFilter: DlcType? = null
     private var applying = false
     private var remoteMissingCount = 0
@@ -86,60 +61,7 @@ class DlcServerMaLiLibScreen(
     private var hasServerTaczMod = false
 
     init {
-        setTitle("")
-        setParent(parent)
-        setListPosition(18, 34)
         setInfo(info)
-    }
-
-    override fun createListWidget(x: Int, y: Int): DlcServerListWidget {
-        return object : DlcServerListWidget(x, y, browserWidth, browserHeight, rows, this) {
-            override fun createListEntryWidget(
-                x: Int,
-                y: Int,
-                listIndex: Int,
-                isOdd: Boolean,
-                entry: DlcServerListRow,
-            ): DlcServerListEntry {
-                return DlcServerListEntry(
-                    x,
-                    y,
-                    browserEntryWidth,
-                    getBrowserEntryHeightFor(entry),
-                    isOdd,
-                    entry,
-                    listIndex,
-                    this@DlcServerMaLiLibScreen,
-                )
-            }
-        }
-    }
-
-    override fun getBrowserWidth(): Int = width - 36
-
-    override fun getBrowserHeight(): Int {
-        val listTop = getListTop()
-        val listBottom = getFooterTop()
-        return max(80, listBottom - listTop)
-    }
-
-    override fun initGui() {
-        promptRemoteDownloadIfMissing()
-        rebuildRows()
-        capturePresetSnapshot()
-        reCreateListWidget()
-        super.initGui()
-        addHeaderButtons()
-        addFilterButtons()
-        addFooterButtons()
-        updateListLayout()
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcTooltipContext.clear()
-        super.render(guiGraphics, mouseX, mouseY, partialTick)
-        renderTitle(guiGraphics)
-        DlcTooltipContext.render(guiGraphics, Minecraft.getInstance().font)
     }
 
     private fun setInfo(info: DlcServerInfo?) {
@@ -219,128 +141,6 @@ class DlcServerMaLiLibScreen(
         }
     }
 
-    private fun addHeaderButtons() {
-        val right = width - 2
-        val y = 0
-        val h = 14
-        val gap = 6
-
-        val configLabel = StringUtils.translate("dlc_manager.server.config")
-        val configWidth = max(60, StringUtils.getStringWidth(configLabel) + 12)
-        val configX = right - configWidth
-        configButton = ButtonGeneric(configX, y, configWidth, h, configLabel)
-        addButton(configButton, SimpleButtonListener { openConfig() })
-
-        val serverLabel = StringUtils.translate("dlc_manager.server.tab.servers")
-        val serverWidth = max(60, StringUtils.getStringWidth(serverLabel) + 12)
-        val serverX = configX - gap - serverWidth
-        serverToolsButton = ButtonGeneric(serverX, y, serverWidth, h, serverLabel)
-        addButton(serverToolsButton, SimpleButtonListener { openServerTools() })
-
-        val dlcLabel = StringUtils.translate("dlc_manager.server.tab.dlc")
-        val dlcWidth = max(48, StringUtils.getStringWidth(dlcLabel) + 12)
-        val dlcX = serverX - gap - dlcWidth
-        dlcTabButton = ButtonGeneric(dlcX, y, dlcWidth, h, dlcLabel)
-        dlcTabButton?.setEnabled(false)
-        addButton(dlcTabButton, SimpleButtonListener {})
-
-        val requiredLabel = StringUtils.translate("dlc_manager.required.manage_title")
-        val requiredWidth = max(60, StringUtils.getStringWidth(requiredLabel) + 12)
-        requiredButton = ButtonGeneric(8, 2, requiredWidth, h, requiredLabel)
-        addButton(requiredButton, SimpleButtonListener { openRequiredManager() })
-        if (!shouldShowRequiredButton()) {
-            requiredButton?.setEnabled(false)
-            requiredButton?.setX(-9999)
-            requiredButton?.setY(-9999)
-        }
-        if (remoteMissingCount > 0) {
-            val missingLabel = StringUtils.translate("dlc_manager.server.remote_missing_button")
-            val missingWidth = max(60, StringUtils.getStringWidth(missingLabel) + 12)
-            missingButton = ButtonGeneric(8, 2, missingWidth, h, missingLabel)
-            addButton(missingButton, SimpleButtonListener { startRemoteDownload() })
-        } else {
-            missingButton = null
-        }
-    }
-
-    private fun addFilterButtons() {
-        filterButtons.clear()
-        modsFilterButton = null
-        taczFilterButton = null
-        resourceFilterButton = null
-        dataFilterButton = null
-        otherFilterButton = null
-        val panelLeft = 20
-        val panelRight = width - 20
-        val y = 19
-        val h = 18
-        var gap = if (width < 420) 4 else 6
-        val visibleTypes = visibleFilterTypes()
-        val count = visibleTypes.size + 1
-        val available = panelRight - panelLeft
-        var totalGap = gap * (count - 1)
-        var w = max(40, (available - totalGap) / count)
-        if (w * count + totalGap > available) {
-            gap = 2
-            totalGap = gap * (count - 1)
-            w = max(32, (available - totalGap) / count)
-        }
-        var x = panelLeft
-        allFilterButton = ButtonGeneric(x, y, w, h, getFilterLabel(null))
-        addButton(allFilterButton, FilterButtonListener(null))
-        x += w + gap
-        for (type in visibleTypes) {
-            val button = ButtonGeneric(x, y, w, h, getFilterLabel(type))
-            addButton(button, FilterButtonListener(type))
-            filterButtons[type] = button
-            when (type) {
-                DlcType.MOD -> modsFilterButton = button
-                DlcType.TACZ_PACK -> taczFilterButton = button
-                DlcType.RESOURCE_PACK -> resourceFilterButton = button
-                DlcType.DATA_PACK -> dataFilterButton = button
-                DlcType.UNKNOWN -> otherFilterButton = button
-                DlcType.DLC_PACK -> {}
-            }
-            x += w + gap
-        }
-        updateFilterButtons()
-    }
-
-    private fun addFooterButtons() {
-        val gap = 4
-        val rightGap = 2
-        val totalButtons = 5
-        val buttonWidth = min(80, (width - 16 - gap * (totalButtons - 1)) / totalButtons)
-        val buttonHeight = 20
-        val buttonY = height - 28
-        val leftX = 6
-        val rightX = width - 6
-        enableAllButton = ButtonGeneric(leftX, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.enable_all"))
-        disableAllButton = ButtonGeneric(leftX + buttonWidth + gap, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.disable_all"))
-        addButton(enableAllButton, SimpleButtonListener { setAllEnabled(true) })
-        addButton(disableAllButton, SimpleButtonListener { setAllEnabled(false) })
-        backButton = ButtonGeneric(rightX - buttonWidth, buttonY, buttonWidth, buttonHeight, StringUtils.translate("gui.back"))
-        applyButton = ButtonGeneric(rightX - buttonWidth * 2 - rightGap, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.apply"))
-        presetButton = ButtonGeneric(applyButton!!.getX() - rightGap - buttonWidth, buttonY, buttonWidth, buttonHeight, StringUtils.translate("dlc_manager.preset.manager"))
-        addButton(presetButton, SimpleButtonListener { openPreset() })
-        addButton(applyButton, SimpleButtonListener { applyChanges() })
-        addButton(backButton, SimpleButtonListener { openServerList() })
-        updateApplyState()
-    }
-
-    private fun updateFilterButtons() {
-        allFilterButton?.setDisplayString(getFilterLabel(null))
-        allFilterButton?.setEnabled(activeFilter != null)
-        modsFilterButton?.setDisplayString(getFilterLabel(DlcType.MOD))
-        taczFilterButton?.setDisplayString(getFilterLabel(DlcType.TACZ_PACK))
-        resourceFilterButton?.setDisplayString(getFilterLabel(DlcType.RESOURCE_PACK))
-        dataFilterButton?.setDisplayString(getFilterLabel(DlcType.DATA_PACK))
-        otherFilterButton?.setDisplayString(getFilterLabel(DlcType.UNKNOWN))
-        for ((type, button) in filterButtons) {
-            button.setEnabled(activeFilter != type)
-        }
-    }
-
     private fun visibleFilterTypes(): List<DlcType> {
         return DlcType.values().filter { it != DlcType.DLC_PACK && isServerTypeVisible(it) }
     }
@@ -350,15 +150,18 @@ class DlcServerMaLiLibScreen(
     }
 
     private fun openConfig() {
+        if (applying) return
         val serverEntry = entry ?: return
-        Minecraft.getInstance().setScreen(DlcServerConfigMaLiLibScreen(this, serverEntry))
+        Minecraft.getInstance().setScreen(DlcServerConfigScreen(this, serverEntry))
     }
 
     private fun openServerTools() {
+        if (applying) return
         Minecraft.getInstance().setScreen(DlcServerManagerScreen(this, entry, buildInfoSnapshot(), DlcServerManagerScreen.Tab.SERVERS, openedFromIngame))
     }
 
     private fun openRequiredManager() {
+        if (applying) return
         Minecraft.getInstance().setScreen(DlcServerRequiredManagerScreen(this, entry))
     }
 
@@ -403,8 +206,9 @@ class DlcServerMaLiLibScreen(
     }
 
     private fun openPreset() {
+        if (applying) return
         capturePresetSnapshot()
-        Minecraft.getInstance().setScreen(object : DlcPresetManagerScreen(this@DlcServerMaLiLibScreen) {
+        Minecraft.getInstance().setScreen(object : DlcPresetManagerScreen(this@DlcServerScreen) {
             override fun onClose() {
                 refreshAfterPresetChange()
                 super.onClose()
@@ -414,7 +218,7 @@ class DlcServerMaLiLibScreen(
 
     private fun setAllEnabled(enabled: Boolean) {
         for (item in items) {
-            if (activeFilter != null && mapType(item.type) != activeFilter) {
+            if (!matchesVisibleItem(item)) {
                 continue
             }
             item.enabled = enabled
@@ -422,7 +226,7 @@ class DlcServerMaLiLibScreen(
         updateApplyState()
     }
 
-    fun handleToggle(item: DlcServerItem?, button: ButtonGeneric?) {
+    fun handleToggle(item: DlcServerItem?) {
         if (item == null) {
             return
         }
@@ -447,7 +251,7 @@ class DlcServerMaLiLibScreen(
             val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.conflictNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
@@ -467,7 +271,7 @@ class DlcServerMaLiLibScreen(
             val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
@@ -505,7 +309,7 @@ class DlcServerMaLiLibScreen(
             val message = DlcConfirmUtil.buildDependencyPromptMessage(deps.missingNames)
             rememberListScroll()
             Minecraft.getInstance().setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted ->
                         Minecraft.getInstance().setScreen(this)
                         if (accepted) {
@@ -592,7 +396,7 @@ class DlcServerMaLiLibScreen(
             }
         }
         apply.setEnabled(dirty && !applying)
-        backButton?.setEnabled(!dirty && !applying && requiredMissingCount <= 0)
+        backButton?.setEnabled(!applying && requiredMissingCount <= 0)
     }
 
     fun isDirty(item: DlcServerItem?): Boolean {
@@ -606,9 +410,9 @@ class DlcServerMaLiLibScreen(
             return ""
         }
         return if (mapType(item?.type) == DlcType.MOD) {
-            StringUtils.translate("dlc_manager.pending.restart")
+            tr("dlc_manager.pending.restart")
         } else {
-            StringUtils.translate("dlc_manager.pending.reload")
+            tr("dlc_manager.pending.reload")
         }
     }
 
@@ -629,56 +433,6 @@ class DlcServerMaLiLibScreen(
             return item.name!!
         }
         return item.identifier ?: ""
-    }
-
-    fun buildTooltipLines(font: Font, item: DlcServerItem?, maxWidth: Int): List<FormattedCharSequence> {
-        val lines = ArrayList<FormattedCharSequence>()
-        val tooltip = getTooltipText(item)
-        if (!tooltip.isNullOrBlank()) {
-            lines.addAll(DlcTextFormatter.splitMultiline(font, tooltip, maxWidth))
-        }
-        val deps = collectDependencyNamesRecursive(item)
-        val conflicts = item?.conflicts ?: emptyList()
-        val missing = collectMissingDependencyIdentifiers(item)
-        val presetBlockers = DlcPresetRuntimeState.getDlcBlockerNames(item?.identifier, Minecraft.getInstance().options.languageCode)
-        if (presetBlockers.isNotEmpty()) {
-            if (lines.isNotEmpty()) lines.add(FormattedCharSequence.EMPTY)
-            for (blocker in presetBlockers) {
-                val line = Component.translatable("dlc_manager.preset.conflict", blocker).withStyle(ChatFormatting.DARK_RED)
-                lines.addAll(font.split(line, maxWidth))
-            }
-        }
-        if (missing.isNotEmpty()) {
-            if (lines.isNotEmpty()) lines.add(FormattedCharSequence.EMPTY)
-            val missingLabel = Component.empty()
-                .append(Component.translatable("dlc_manager.tooltip.missing_dependencies").withStyle(ChatFormatting.RED))
-                .append(":")
-            lines.addAll(font.split(missingLabel, maxWidth))
-            for (dep in missing) {
-                lines.addAll(font.split(DlcTextFormatter.parse(resolveDisplayName(resolveDependencyItem(dep))), maxWidth))
-            }
-        }
-        if (deps.isNotEmpty()) {
-            if (lines.isNotEmpty()) lines.add(FormattedCharSequence.EMPTY)
-            val depLabel = Component.empty()
-                .append(Component.translatable("dlc_manager.tooltip.dependencies").withStyle(ChatFormatting.GOLD))
-                .append(":")
-            lines.addAll(font.split(depLabel, maxWidth))
-            for (dep in deps) {
-                lines.addAll(font.split(DlcTextFormatter.parse(resolveDisplayName(resolveDependencyItem(dep))), maxWidth))
-            }
-        }
-        if (conflicts.isNotEmpty()) {
-            if (lines.isNotEmpty()) lines.add(FormattedCharSequence.EMPTY)
-            val conflictLabel = Component.empty()
-                .append(Component.translatable("dlc_manager.tooltip.conflicts").withStyle(ChatFormatting.DARK_RED))
-                .append(":")
-            lines.addAll(font.split(conflictLabel, maxWidth))
-            for (conflict in conflicts) {
-                lines.addAll(font.split(DlcTextFormatter.parse(resolveDisplayName(resolveDependencyItem(conflict))), maxWidth))
-            }
-        }
-        return lines
     }
 
     private fun getTooltipText(item: DlcServerItem?): String? {
@@ -872,6 +626,7 @@ class DlcServerMaLiLibScreen(
             return
         }
         applying = true
+        pageError = null
         updateApplyState()
         val changed: MutableList<DlcServerItem> = ArrayList()
         for (item in items) {
@@ -888,6 +643,7 @@ class DlcServerMaLiLibScreen(
             .whenComplete { response, _ ->
                 Minecraft.getInstance().execute {
                     applying = false
+                    if (response == null || !response.ok) pageError = tr("dlc_manager.server.apply_failed")
                     if (response != null && response.ok) {
                         for (item in items) {
                             baseline[item.id] = item.enabled
@@ -915,7 +671,7 @@ class DlcServerMaLiLibScreen(
 
     private fun promptServerRestart() {
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { result ->
                     if (result) {
                         CompletableFuture.runAsync {
@@ -1068,8 +824,8 @@ class DlcServerMaLiLibScreen(
     fun refreshAfterPresetChange() {
         applyPresetOverrides()
         rebuildRows()
-        reCreateListWidget()
-        updateListLayout()
+        refreshManagerPage()
+        
         updateApplyState()
     }
 
@@ -1267,8 +1023,8 @@ class DlcServerMaLiLibScreen(
                     if (info != null) {
                         setInfo(info)
                         rebuildRows()
-                        reCreateListWidget()
-                        updateListLayout()
+                        refreshManagerPage()
+                        
                     }
                 }
             }
@@ -1282,109 +1038,11 @@ class DlcServerMaLiLibScreen(
         }
     }
 
-    private fun updateListLayout() {
-        setListPosition(18, getListTop())
-        val widget = listWidget
-        if (widget != null) {
-            widget.setSize(browserWidth, browserHeight)
-            widget.initGui()
-        }
-        restoreListScroll()
-    }
-
-    private fun getListTop(): Int = 34
-
-    private fun getFooterTop(): Int = height - 36
-
-    private fun typeId(type: DlcType): String {
-        return when (type) {
-            DlcType.MOD -> "mod"
-            DlcType.RESOURCE_PACK -> "resource"
-            DlcType.DATA_PACK -> "data"
-            DlcType.TACZ_PACK -> "tacz"
-            DlcType.DLC_PACK -> "dlcpack"
-            DlcType.UNKNOWN -> "other"
-        }
-    }
-
     override fun rememberReturnPosition() {
         rememberListScroll()
     }
 
-    private fun rememberListScroll() {
-        val widget = listWidget
-        if (widget == null || widget.scrollbar == null) return
-        savedScrollOffset = widget.scrollbar.value
-        savedScrollFilter = activeFilter
-        restoreScrollPending = true
-    }
-
-    private fun restoreListScroll() {
-        if (!restoreScrollPending) return
-        val widget = listWidget
-        if (widget == null || widget.scrollbar == null) return
-        if (savedScrollFilter != activeFilter) {
-            restoreScrollPending = false
-            return
-        }
-        val scrollBar = widget.scrollbar
-        scrollBar.value = min(savedScrollOffset, scrollBar.maxValue)
-        restoreScrollPending = false
-    }
-
-    private fun renderTitle(guiGraphics: GuiGraphics) {
-        val title = StringUtils.translate("dlc_manager.server.title")
-        val base = serverBaseVersion
-        val dlc = serverDlcVersion
-        var version = ""
-        if (base.isNotBlank() || dlc.isNotBlank()) {
-            version = if (dlc.isBlank()) base else if (base.isBlank()) dlc else "$base+$dlc"
-        }
-        val titleX = 8
-        val titleY = 6
-        guiGraphics.drawString(Minecraft.getInstance().font, title, titleX, titleY, 0xFFFFFF, false)
-        if (version.isNotBlank()) {
-            val titleWidth = Minecraft.getInstance().font.width(title)
-            guiGraphics.drawString(Minecraft.getInstance().font, version, titleX + titleWidth + 6, titleY, 0xC8C8C8, false)
-        }
-        val textWidth = Minecraft.getInstance().font.width(title) + if (version.isBlank()) 0 else 6 + Minecraft.getInstance().font.width(version)
-        val nextX = titleX + textWidth + 8
-        val showRequired = shouldShowRequiredButton()
-        requiredButton?.let { button ->
-            if (!showRequired) {
-                button.setEnabled(false)
-                button.setX(-9999)
-                button.setY(-9999)
-            } else {
-                button.setEnabled(true)
-                val maxX = width - 10 - button.getWidth() - (missingButton?.let { it.getWidth() + 6 } ?: 0)
-                button.setX(min(nextX, max(titleX, maxX)))
-                button.setY(2)
-            }
-        }
-        missingButton?.let { button ->
-            val baseX = if (showRequired && requiredButton != null) {
-                requiredButton!!.getX() + requiredButton!!.getWidth() + 6
-            } else {
-                nextX
-            }
-            val missMax = width - 10 - button.getWidth()
-            button.setX(min(baseX, max(titleX, missMax)))
-            button.setY(2)
-        }
-    }
-
     private fun shouldShowRequiredButton(): Boolean = hasRequiredEntries || requiredMissingCount > 0
-
-    private fun getFilterLabel(type: DlcType?): String {
-        val active = (type == null && activeFilter == null) || (type != null && type == activeFilter)
-        val base = if (type == null) {
-            StringUtils.translate("dlc_manager.filter.all")
-        } else {
-            StringUtils.translate(type.getDisplayKey())
-        }
-        return if (active) "[$base]" else base
-    }
 
     private fun groupByRelativeFolder(items: List<DlcServerItem>): Map<String, List<DlcServerItem>> {
         val grouped: MutableMap<String, MutableList<DlcServerItem>> = java.util.TreeMap()
@@ -1397,7 +1055,7 @@ class DlcServerMaLiLibScreen(
 
     private fun resolvePathLabel(raw: String): String {
         if (raw == "__root__") {
-            return StringUtils.translate("dlc_manager.group.root")
+            return tr("dlc_manager.group.root")
         }
         return raw
     }
@@ -1412,26 +1070,6 @@ class DlcServerMaLiLibScreen(
         val conflicts: MutableList<String> = ArrayList()
         val conflictNames: MutableList<String> = ArrayList()
         val conflictItems: MutableList<DlcServerItem> = ArrayList()
-    }
-
-    private class SimpleButtonListener(private val action: Runnable) : IButtonActionListener {
-        override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
-            action.run()
-        }
-    }
-
-    private inner class FilterButtonListener(private val filter: DlcType?) : IButtonActionListener {
-        override fun actionPerformedWithButton(button: ButtonBase, mouseButton: Int) {
-            activeFilter = if (filter != null && !isServerTypeVisible(filter)) null else filter
-            rebuildRows()
-            reCreateListWidget()
-            updateFilterButtons()
-            updateListLayout()
-            val widget = listWidget
-            if (widget != null && widget.scrollbar != null) {
-                widget.scrollbar.value = 0
-            }
-        }
     }
 
     companion object {
@@ -1469,4 +1107,264 @@ class DlcServerMaLiLibScreen(
             return DlcType.UNKNOWN
         }
     }
+
+    private var prepared = false
+    private var enableAllButton: DlcUiButton? = null
+    private var disableAllButton: DlcUiButton? = null
+    private var pageError: String? = null
+    private var controlsLocked: Boolean? = null
+    private var renderedState: List<Boolean> = emptyList()
+
+    override fun getTitle(): Component = Component.translatable("dlc_manager.server.title")
+
+    override fun init() {
+        capturePresetSnapshot()
+        super.init()
+        if (!prepared) {
+            prepared = true
+            promptRemoteDownloadIfMissing()
+        }
+    }
+
+    override fun bindDocument(document: Document) {
+        bindManagerLayout(document, tr("dlc_manager.server.title"))
+        document.getElementById("manager-header").setAttribute("class", "workspace-header connected")
+        val connection = document.getElementById("manager-connection")
+        connection.setInnerHTML("")
+        connection.setAttribute("style", "display:flex")
+        managerText(document, connection, "span", entry?.getDisplayName().orEmpty(), "connection-name")
+        managerText(document, connection, "span", listOf(serverBaseVersion, serverDlcVersion).filter { it.isNotBlank() }.joinToString(" · "), "connection-version")
+        val context = document.getElementById("manager-context")
+        context.setInnerHTML("")
+        if (entry != null) button(document, context, tr("dlc_manager.server.config")) { openConfig() }
+        val tools = document.getElementById("manager-tools")
+        tools.setInnerHTML("")
+        if (shouldShowRequiredButton()) button(document, tools, tr("dlc_manager.required.manage_button")) { openRequiredManager() }
+        if (DlcConfig.isPresetFuncOn()) button(document, tools, tr("dlc_manager.preset.manager")) { openPreset() }
+        button(document, tools, tr("dlc_manager.server.tab.servers")) { openServerTools() }
+        for (tool in tools.children) tool.setAttribute("class", "button nav-button")
+        val batch = document.getElementById("batch-actions")
+        batch.setInnerHTML("")
+        if (remoteMissingCount > 0) button(document, batch, tr("dlc_manager.server.remote_missing_button")) { startRemoteDownload() }
+        enableAllButton = if (DlcConfig.isEnableAllButtonShown()) button(document, batch, "") { confirmBatchToggle(true) } else null
+        disableAllButton = button(document, batch, "") { confirmBatchToggle(false) }
+        val mode = document.getElementById("manager-mode")
+        mode.setInnerHTML("")
+        mode.setAttribute("style", "display:none")
+        val actions = document.getElementById("manager-actions")
+        actions.setInnerHTML("")
+        backButton = button(document, actions, tr("gui.back")) { onClose() }
+        applyButton = button(document, actions, tr("dlc_manager.apply")) { applyChanges() }
+        applyButton!!.getElement().setAttribute("class", "button primary")
+        renderFilters(document)
+        renderServerRows(document)
+        restoreScrollPending = savedScrollFilter == activeFilter
+        if (searchQuery.isNotBlank()) onManagerSearch(document, searchQuery)
+    }
+
+    private fun refreshManagerPage() {
+        linkedDocument?.let { document ->
+            if (document.isActive) Document.runWithContext(document) { bindDocument(document) }
+        }
+    }
+
+    private fun renderFilters(document: Document) {
+        val filters = document.getElementById("manager-filters")
+        filters.setInnerHTML("")
+        for (type in listOf(null) + visibleFilterTypes()) {
+            val filter = button(document, filters, tr(type?.getDisplayKey() ?: "dlc_manager.filter.all")) {
+                if (!applying) {
+                    activeFilter = type
+                    savedScrollOffset = 0.0
+                    savedScrollFilter = type
+                    document.getElementById("manager-list").setScrollTop(0.0)
+                    renderFilters(document)
+                    renderServerRows(document)
+                }
+            }
+            filter.getElement().setAttribute("class", "button filter" + if (activeFilter == type) " active" else "")
+            filter.getElement().setAttribute("aria-pressed", (activeFilter == type).toString())
+            filter.getElement().setAttribute("aria-selected", (activeFilter == type).toString())
+        }
+    }
+
+    private var searchMatches = emptySet<String>()
+    override fun onManagerSearch(document: Document, query: String?) {
+        if (applying) return
+        searchQuery = query.orEmpty()
+        searchMatches = emptySet()
+        savedScrollOffset = 0.0
+        val list = document.getElementById("manager-list")
+        list.setScrollTop(0.0); list.setAttribute("style", "pointer-events:none"); list.setAttribute("aria-busy", "true")
+        val apply = java.util.function.Consumer<Set<String>> { matches ->
+            searchMatches = matches; list.removeAttribute("style"); list.removeAttribute("aria-busy")
+            renderServerRows(document); updateManagerControls(document)
+        }
+        if (searchQuery.isBlank()) {
+            filterAsync("", emptyList(), apply)
+            return
+        }
+        val entries = items.map { DlcUiAsyncSearch.Entry(it.id.orEmpty(), DlcTextFormatter.parse(resolveDisplayName(it)).string, it.identifier, it.path) }
+        updateManagerControls(document)
+        filterAsync(searchQuery, entries, apply)
+    }
+    private fun matchesItem(item: DlcServerItem): Boolean = !item.hidden && (searchQuery.isBlank() || item.id.orEmpty() in searchMatches)
+
+    private fun matchesVisibleItem(item: DlcServerItem): Boolean = isServerTypeVisible(mapType(item.type) ?: DlcType.UNKNOWN) &&
+        (activeFilter == null || mapType(item.type) == activeFilter) && matchesItem(item)
+
+    private fun renderServerRows(document: Document) {
+        tooltip?.hide()
+        val list = document.getElementById("manager-list")
+        val scroll = list.targetScrollTop
+        list.setInnerHTML("")
+        clearManagerGroups()
+        rebuildRows()
+        var parent = list
+        var count = 0
+        var enabled = 0
+        for (row in rows) {
+            if (row.getType() != DlcServerListRow.RowType.ITEM) parent = list
+            when (row.getType()) {
+                DlcServerListRow.RowType.GROUP_HEADER -> {
+                    if (items.any { mapType(it.type) == row.getGroupType() && matchesItem(it) })
+                        managerText(document, list, "div", tr(row.getGroupType()!!.getDisplayKey()), "group-heading")
+                }
+                DlcServerListRow.RowType.PATH_HEADER -> {
+                    val groupItems = row.getItems().orEmpty().filter { matchesItem(it) }
+                    if (groupItems.isEmpty()) continue
+                    val heading = managerText(document, list, "div", "", "path-heading")
+                    managerText(document, heading, "span", row.getLabel(), "path-label")
+                    if (!row.isRootPath()) button(document, heading, tr(if (groupItems.all { it.enabled }) "dlc_manager.disable_all" else "dlc_manager.enable_all")) {
+                        if (!applying) {
+                            val enable = groupItems.any { !it.enabled }
+                            groupItems.forEach { it.enabled = enable }
+                            renderServerRows(document)
+                        }
+                    }
+                    parent = addManagerGroup(document, list, heading, (groupItems.first().type.orEmpty()) + ":" + row.getLabel(), groupItems.size)
+                }
+                DlcServerListRow.RowType.ITEM -> {
+                    val item = row.getItem() ?: continue
+                    if (!matchesItem(item)) continue
+                    count++
+                    if (item.enabled) enabled++
+                    val line = parent.appendChild(document.createElement("div"))
+                    val name = styleManagerRow(document, line, resolveDisplayName(item), item.enabled, isDirty(item))
+                    if (!item.redirectUrl.isNullOrBlank()) {
+                        val generation = document.refreshGeneration
+                        name.addEventListener("dblclick") {
+                            if (!applying && Minecraft.getInstance().screen === this && document.isCurrentGeneration(generation)) {
+                                rememberListScroll()
+                                Minecraft.getInstance().setScreen(DlcRedirectConfirmScreen(this, item.redirectUrl, ""))
+                            }
+                        }
+                    }
+                    tooltip?.bind(line) { serverTooltip(item) }
+                    if (isDirty(item)) managerText(document, line, "span", getPendingSuffix(item), "pending-label")
+                    managerToggle(document, line, item.enabled) { if (!applying) handleToggle(item) }.setEnabled(!applying)
+                }
+            }
+        }
+        if (count == 0) managerText(document, list, "p", tr(if (searchQuery.isBlank()) "dlc_manager.ui.empty" else "dlc_manager.ui.no_results"), "empty-state")
+        document.getElementById("manager-summary").setTextContent(tr("dlc_manager.ui.summary", count, enabled))
+        renderedState = items.flatMap { listOf(it.enabled, isDirty(it)) }
+        controlsLocked = null
+        updateManagerControls(document)
+        updateAnimations(document, System.nanoTime())
+        list.setScrollTop(scroll)
+    }
+
+    private fun serverTooltip(item: DlcServerItem): DlcUiTooltip.Content {
+        val details = ArrayList<DlcUiTooltip.Detail>()
+        val blockers = DlcPresetRuntimeState.getDlcBlockerNames(item.identifier, Minecraft.getInstance().options.languageCode)
+        if (blockers.isNotEmpty()) details.add(DlcUiTooltip.Detail("", blockers.joinToString("\n") { tr("dlc_manager.preset.conflict", it) }, true))
+        val missing = collectMissingDependencyIdentifiers(item); if (missing.isNotEmpty()) details.add(DlcUiTooltip.Detail(tr("dlc_manager.tooltip.missing_dependencies"), missing.joinToString("\n") { resolveDisplayName(resolveDependencyItem(it)) }, true))
+        val deps = collectDependencyNamesRecursive(item); if (deps.isNotEmpty()) details.add(DlcUiTooltip.Detail(tr("dlc_manager.tooltip.dependencies"), deps.joinToString("\n") { resolveDisplayName(resolveDependencyItem(it)) }, false))
+        if (item.conflicts.isNotEmpty()) details.add(DlcUiTooltip.Detail(tr("dlc_manager.tooltip.conflicts"), item.conflicts.joinToString("\n") { resolveDisplayName(resolveDependencyItem(it)) }, true))
+        return DlcUiTooltip.Content(resolveDisplayName(item), getTooltipText(item).orEmpty(), details, if (!item.redirectUrl.isNullOrBlank()) tr("dlc_manager.tooltip.double_click_redirect") else getPendingSuffix(item))
+    }
+    private fun updateManagerControls(document: Document) {
+        if (controlsLocked != applying) {
+            controlsLocked = applying
+            val managed = listOfNotNull(applyButton, backButton, enableAllButton, disableAllButton, searchClearButton).map { it.getElement() }
+            for (element in document.querySelectorAll("#manager button, #manager input")) {
+                if (element in managed) continue
+                if (applying) element.setAttribute("disabled", "") else element.removeAttribute("disabled")
+            }
+        }
+        updateApplyState()
+        val visible = items.filter { matchesVisibleItem(it) }
+        val scope = if (searchQuery.isNotBlank()) tr("dlc_manager.scope.search") else activeFilter?.let { tr(it.getDisplayKey()) }
+        val allEnabled = visible.isNotEmpty() && visible.all { it.enabled }
+        val allDisabled = visible.isNotEmpty() && visible.none { it.enabled }
+        fun label(enable: Boolean, done: Boolean): String {
+            val key = if (enable) (if (done) "dlc_manager.all_enabled" else "dlc_manager.enable_all") else (if (done) "dlc_manager.all_disabled" else "dlc_manager.disable_all")
+            return if (scope == null) tr(key) else tr(key + "_type", scope)
+        }
+        enableAllButton?.setDisplayString(label(true, allEnabled))
+        disableAllButton?.setDisplayString(label(false, allDisabled))
+        enableAllButton?.setEnabled(!applying && visible.isNotEmpty() && !allEnabled)
+        disableAllButton?.setEnabled(!applying && visible.isNotEmpty() && !allDisabled)
+        searchClearButton?.setEnabled(!applying && searchQuery.isNotBlank())
+        val count = items.count { isDirty(it) }
+        val status = document.getElementById("pending-status")
+        val message = if (applying) tr("dlc_manager.server.applying") else pageError ?: tr(if (count > 0) "dlc_manager.ui.pending" else "dlc_manager.ui.clean", count)
+        if (status.textContent != message) status.setTextContent(message)
+        val classes = if (count > 0 || applying || pageError != null) "pending" else ""
+        if (status.getAttribute("class") != classes) status.setAttribute("class", classes)
+    }
+
+    private fun confirmBatchToggle(enable: Boolean) {
+        if (applying) return
+        rememberListScroll()
+        val scope = if (searchQuery.isNotBlank()) Component.translatable("dlc_manager.scope.search") else activeFilter?.let { Component.translatable(it.getDisplayKey()) }
+        Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted ->
+            Minecraft.getInstance().setScreen(this)
+            if (accepted) setAllEnabled(enable)
+        }, getTitle(), DlcConfirmUtil.buildHeaderConfirmMessage(enable, scope), DlcConfirmUtil.confirmYes(), DlcConfirmUtil.confirmNo()))
+    }
+
+    override fun tick() {
+        super.tick()
+        val document = linkedDocument ?: return
+        if (!document.isActive) return
+        Document.runWithContext(document) {
+            rememberListScroll()
+            if (renderedState != items.flatMap { listOf(it.enabled, isDirty(it)) } || (controlsLocked == true && !applying)) renderServerRows(document)
+            else updateManagerControls(document)
+        }
+    }
+
+    private fun rememberListScroll() {
+        if (restoreScrollPending) return
+        linkedDocument?.let { savedScrollOffset = it.getElementById("manager-list").targetScrollTop }
+        savedScrollFilter = activeFilter
+    }
+
+    override fun resize(minecraft: Minecraft, width: Int, height: Int) {
+        rememberListScroll()
+        restoreScrollPending = savedScrollFilter == activeFilter
+        super.resize(minecraft, width, height)
+    }
+
+    override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        super.render(graphics, mouseX, mouseY, partialTick)
+        val document = linkedDocument ?: return
+        if (!restoreScrollPending || document.isInitialCommitSlicing) return
+        val list = document.getElementById("manager-list")
+        if (list.clientHeight > 0 && list.computedStyle.overflowY == "auto") {
+            Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
+            restoreScrollPending = false
+        }
+    }
+
+    private fun tr(key: String, vararg args: Any): String = Component.translatable(key, *args).string
+
+    override fun onClose() {
+        if (applying || requiredMissingCount > 0) return
+        if (items.any { isDirty(it) }) Minecraft.getInstance().setScreen(DlcConfirmScreen({ accepted -> if (accepted) { for (item in items) item.enabled = baseline[item.id] ?: false; openServerList() } else Minecraft.getInstance().setScreen(this) }, Component.translatable("dlc_manager.config.cancel_title"), Component.translatable("dlc_manager.config.cancel_prompt")))
+        else openServerList()
+    }
+    override fun shouldCloseOnEsc() = !applying && requiredMissingCount <= 0
 }

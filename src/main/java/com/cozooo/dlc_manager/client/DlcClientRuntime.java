@@ -11,7 +11,7 @@ import com.cozooo.dlc_manager.client.screen.DlcPackManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen;
 import com.cozooo.dlc_manager.client.screen.DlcSelfUpdateScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerListScreen;
-import com.cozooo.dlc_manager.client.screen.DlcServerMaLiLibScreen;
+import com.cozooo.dlc_manager.client.screen.DlcServerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerManagerScreen;
 import com.cozooo.dlc_manager.client.screen.DlcServerPasswordScreen;
 import com.cozooo.dlc_manager.client.screen.DlcModpackUpdateScreen;

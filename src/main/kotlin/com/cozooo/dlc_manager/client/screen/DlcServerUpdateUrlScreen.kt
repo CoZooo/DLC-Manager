@@ -7,7 +7,6 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.core.DlcMessageAdapter
 import com.cozooo.dlc_manager.client.update.DlcUpdateService
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
@@ -20,7 +19,7 @@ import java.util.Locale
 class DlcServerUpdateUrlScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : Screen(Component.translatable("dlc_manager.update.import_url_title")) {
+) : DlcUrlPageScreen(parent, Component.translatable("dlc_manager.update.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null
@@ -33,7 +32,7 @@ class DlcServerUpdateUrlScreen(
     @Volatile private var downloadedBytes = 0L
     private var urlValue = ""
 
-    override fun init() {
+    private fun initControls() {
         val fieldWidth = kotlin.math.min(320, width - 40)
         val fieldHeight = 18
         val fieldX = width / 2 - fieldWidth / 2
@@ -68,52 +67,6 @@ class DlcServerUpdateUrlScreen(
         addRenderableWidget(download)
         addRenderableWidget(paste)
         addRenderableWidget(back)
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        var y = height / 2 - 80
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 18
-        guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.update.url_prompt"), centerX, y, 0xC8C8C8)
-
-        if (downloading) {
-            val barY = height / 2 + 60
-            val status = statusText ?: ""
-            guiGraphics.drawCenteredString(font, status, centerX, barY - 14, 0xE6E6E6)
-            drawProgressBar(guiGraphics, centerX - 120, barY, 240, 8, progress)
-            val percent = if (totalBytes > 0) kotlin.math.round(kotlin.math.max(0f, kotlin.math.min(1f, progress)) * 100f).toInt() else 0
-            guiGraphics.drawCenteredString(font, "$percent%", centerX, barY + 10, 0xC8C8C8)
-        } else if (!errorText.isNullOrBlank()) {
-            guiGraphics.drawCenteredString(font, errorText ?: "", centerX, height / 2 + 60, 0xFF6B6B)
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
-        val field = urlField
-        if (field != null && field.keyPressed(keyCode, scanCode, modifiers)) {
-            return true
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers)
-    }
-
-    override fun charTyped(codePoint: Char, modifiers: Int): Boolean {
-        val field = urlField
-        if (field != null && field.charTyped(codePoint, modifiers)) {
-            return true
-        }
-        return super.charTyped(codePoint, modifiers)
-    }
-
-    override fun resize(minecraft: Minecraft, width: Int, height: Int) {
-        val field = urlField
-        if (field != null) {
-            urlValue = field.value
-        }
-        super.resize(minecraft, width, height)
-        urlField?.value = urlValue
     }
 
     private fun pasteClipboard() {
@@ -225,9 +178,13 @@ class DlcServerUpdateUrlScreen(
         backButton?.active = active
     }
 
-    private fun drawProgressBar(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val filled = (width * kotlin.math.max(0f, kotlin.math.min(1f, progress))).toInt()
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B.toInt())
-        guiGraphics.fill(x, y, x + filled, y + height, 0xFF4CAF50.toInt())
+    override fun buildPage() {
+        urlField?.let { urlValue = it.value }
+        initControls()
+        renderUrlForm("dlc_manager.update.url_prompt", urlField, pasteButton, downloadButton,
+            { statusText }, { errorText }, { progress.toDouble() }, { if (downloading) "${(progress * 100).toInt()}%" else "" }, { downloading })
     }
+    override fun updatePage() { urlField?.active = !downloading }
+
+    override fun shouldCloseOnEsc() = !downloading
 }

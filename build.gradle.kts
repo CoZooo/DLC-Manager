@@ -9,8 +9,6 @@ import me.modmuss50.mpp.ModPublishExtension
 import me.modmuss50.mpp.ReleaseType
 import org.gradle.api.Project
 import org.gradle.api.JavaVersion
-import org.gradle.api.artifacts.Dependency
-import org.gradle.api.artifacts.ModuleDependency
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.Copy
@@ -658,9 +656,6 @@ if (stoneNodes.contains(project.name)) {
                 "neoforge_version_range" to optionalProp("neoforge_version_range").orEmpty(),
                 "neoforge_minecraft_version_range" to optionalProp("neoforge_minecraft_version_range").orEmpty(),
                 "kotlin_for_forge_dependency" to kffDependencyText,
-                "mafglib_version_range" to optionalProp("mafglib_version_range").orEmpty(),
-                "malilib_version_range" to optionalProp("malilib_version_range").orEmpty(),
-                "malilib_version" to optionalProp("malilib_version").orEmpty(),
                 "apricity_ui_version" to prop("apricity_ui_version"),
                 "pack_format" to prop("pack_format"),
             )
@@ -722,28 +717,6 @@ if (stoneNodes.contains(project.name)) {
         dependencies.add("include", notation)
     }
 
-    fun addNestedMod(notation: String) {
-        val dependency = dependencies.create(notation)
-        if (dependency is ModuleDependency) {
-            dependency.isTransitive = false
-        }
-        dependencies.add("include", dependency)
-    }
-
-    fun forgeDeobfDependency(notation: String): Dependency {
-        val obfuscatedConfiguration = configurations.maybeCreate("__obfuscated")
-        val deobfuscator = net.minecraftforge.gradle.userdev.util.Deobfuscator(
-            project,
-            File(gradle.gradleUserHomeDir, "caches/forge_gradle/deobf_dependencies"),
-        )
-        val deobfuscatingRepo = net.minecraftforge.gradle.userdev.util.DeobfuscatingRepo(project, obfuscatedConfiguration, deobfuscator)
-        val remapper = net.minecraftforge.gradle.userdev.util.DependencyRemapper(project, deobfuscator)
-        val dependency = net.minecraftforge.gradle.userdev.DependencyManagementExtension(project, remapper, deobfuscatingRepo)
-            .deobf(notation)
-        remapper.attachMappings("official_$minecraftVersion")
-        return dependency
-    }
-
     dependencies {
         val architecturyDependency = when (loaderName) {
             "fabric" -> "dev.architectury:architectury-fabric:${prop("architectury_api_version")}"
@@ -757,9 +730,6 @@ if (stoneNodes.contains(project.name)) {
         add("modImplementation", apricityDependency)
 
         if (loaderName == "fabric") {
-            val malilibDependency = "maven.modrinth:malilib:${prop("malilib_version")}"
-            add("modImplementation", malilibDependency)
-            addNestedMod(malilibDependency)
             if (kotlinEnabled) {
                 add("modImplementation", "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
             }
@@ -767,24 +737,15 @@ if (stoneNodes.contains(project.name)) {
         }
 
         if (loaderName == "forge") {
-            val mafglibNotation = "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}"
-            val mafglibDependency = forgeDeobfDependency(mafglibNotation)
-            add("compileOnly", mafglibDependency)
-            addNestedMod(mafglibNotation)
             if (kotlinEnabled) {
                 add("modImplementation", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}")
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge:${prop("kotlin_for_forge_version")}:all") {
                     isTransitive = false
                 }
             }
-            add("modRuntimeOnly", mafglibDependency)
         }
 
         if (loaderName == "neoforge") {
-            val mafglibNotation = "curse.maven:mafglib-910766:${prop("mafglib_curse_file")}"
-            val mafglibDependency = forgeDeobfDependency(mafglibNotation)
-            add("compileOnly", mafglibDependency)
-            addNestedMod(mafglibNotation)
             if (kotlinEnabled) {
                 add("kotlinForForgeModDiscovery", "thedarkcolour:kotlinforforge-neoforge:${prop("kotlin_for_forge_version")}") {
                     isTransitive = false
@@ -796,7 +757,6 @@ if (stoneNodes.contains(project.name)) {
                     isTransitive = false
                 }
             }
-            add("modRuntimeOnly", mafglibDependency)
         }
 
         addEmbedded("com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
@@ -885,17 +845,14 @@ if (stoneNodes.contains(project.name)) {
                 when (loaderName) {
                     "fabric" -> {
                         requires("architectury-api", "fabric-language-kotlin")
-                        embeds("malilib")
                         requires("apricityui")
                     }
                     "forge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
                         requires("apricityui")
                     }
                     "neoforge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
                         requires("apricityui")
                     }
                 }
@@ -913,17 +870,14 @@ if (stoneNodes.contains(project.name)) {
                 when (loaderName) {
                     "fabric" -> {
                         requires("architectury-api", "fabric-language-kotlin")
-                        embeds("malilib")
                         requires("apricityui")
                     }
                     "forge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
                         requires("apricityui")
                     }
                     "neoforge" -> {
                         requires("architectury-api", "kotlin-for-forge")
-                        embeds("mafglib")
                         requires("apricityui")
                     }
                 }

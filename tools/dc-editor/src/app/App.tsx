@@ -14,8 +14,7 @@ import {
 } from "../models/editor";
 import {
   configurableDocumentTypes,
-  documentSchemas,
-  internalDocumentTypes
+  documentSchemas
 } from "../schemas/documentSchemas";
 import { EditorBackend } from "../services/backend/EditorBackend";
 import { LocalBackend } from "../services/backend/LocalBackend";
@@ -228,7 +227,7 @@ function validateDocumentFileName(name: string): ValidationIssue[] {
 }
 
 function isConfigurableType(type: DocumentType): boolean {
-  return !internalDocumentTypes.has(type);
+  return configurableDocumentTypes.includes(type);
 }
 
 function schemaHasField(schema: DocumentSchema, sectionKey: string, fieldKey: string): boolean {

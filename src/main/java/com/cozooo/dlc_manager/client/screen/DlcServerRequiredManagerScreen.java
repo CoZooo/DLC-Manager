@@ -1,8 +1,6 @@
 package com.cozooo.dlc_manager.client.screen;
 
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
-import com.cozooo.dlc_manager.client.required.DlcRequiredNotice;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem;
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredProgressItem;
@@ -10,7 +8,6 @@ import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -24,7 +21,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll {
+public class DlcServerRequiredManagerScreen extends DlcRequiredPageScreen {
     private static final class InstallState {
         private volatile boolean running;
         private volatile float progress;
@@ -42,7 +39,6 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
     private Button applyAllButton;
     private Button backButton;
     private final InstallState batchState = new InstallState();
-    private List<String> noticeLines = List.of();
 
     private volatile boolean loading;
     private volatile boolean downloading;
@@ -53,22 +49,14 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
     private Set<String> activeIds = new HashSet<>();
 
     public DlcServerRequiredManagerScreen(Screen parent, DlcServerEntry serverEntry) {
-        super(Component.translatable("dlc_manager.required.manage_title"));
+        super(parent, Component.translatable("dlc_manager.required.manage_title"));
         this.parent = parent;
         this.serverEntry = serverEntry;
     }
 
-    @Override
-    protected void init() {
-        noticeLines = splitLines(DlcRequiredNotice.load().resolveManageDesc());
+    private void initControls() {
         rebuildAllWidgets();
         loadRequiredList();
-    }
-
-    @Override
-    public void resize(Minecraft minecraft, int width, int height) {
-        super.resize(minecraft, width, height);
-        init();
     }
 
     private void rebuildAllWidgets() {
@@ -351,120 +339,6 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
         return "";
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        int y = 20;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
-        y += 18;
-        for (String line : getManageDescLines()) {
-            guiGraphics.drawCenteredString(this.font, line, centerX, y, 0xC8C8C8);
-            y += this.font.lineHeight + 2;
-        }
-        if (errorText != null && !errorText.isBlank()) {
-            y += 4;
-            guiGraphics.drawCenteredString(this.font, errorText, centerX, y, 0xE6E6E6);
-            y += this.font.lineHeight + 2;
-        }
-        y += 8;
-
-        int listTop = y;
-        int listBottom = this.height - 70;
-        int lineHeight = 18;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = visibleItems.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll;
-        }
-
-        int rowY = listTop;
-        for (int i = 0; i < visibleItems.size(); i++) {
-            DlcServerRequiredItem item = visibleItems.get(i);
-            Button button = item == null ? null : entryButtons.get(item.id);
-            boolean visible = i >= scrollIndex && i < scrollIndex + maxVisible;
-            if (!visible) {
-                if (button != null) {
-                    button.visible = false;
-                }
-                continue;
-            }
-            if (button != null) {
-                button.visible = true;
-                button.setY(rowY - 2);
-            }
-            Component label = buildEntryLabel(item);
-            guiGraphics.drawString(this.font, label, 20, rowY, 0xE6E6E6, false);
-            if (item != null && item.id != null) {
-                Float progress = progressById.get(item.id);
-                if (progress != null) {
-                    drawRightProgress(guiGraphics, rowY, button, progress);
-                }
-            }
-            if (isMouseOverRow(mouseX, mouseY, rowY, lineHeight) && !isMouseOverButton(button, mouseX, mouseY)) {
-                renderTooltip(guiGraphics, item, mouseX, mouseY);
-            }
-            rowY += lineHeight;
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-        renderInstallOverlays(guiGraphics);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(mouseX, mouseY, deltaY);
-    }
-
-    private boolean handleMouseScrolled(double mouseX, double mouseY, double delta) {
-        int listTop = getListTop();
-        int listBottom = this.height - 70;
-        int lineHeight = 18;
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int totalLines = visibleItems.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (maxScroll > 0) {
-            int step = delta > 0 ? -1 : 1;
-            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
-            return true;
-        }
-        return false;
-    }
-
-    private int getListTop() {
-        int y = 20 + 18;
-        y += getManageDescLines().size() * (this.font.lineHeight + 2);
-        if (errorText != null && !errorText.isBlank()) {
-            y += this.font.lineHeight + 6;
-        }
-        y += 8;
-        return y;
-    }
-
-    private List<String> getManageDescLines() {
-        return noticeLines == null ? List.of() : noticeLines;
-    }
-
-    private List<String> splitLines(String text) {
-        if (text == null || text.isBlank()) {
-            return new ArrayList<>();
-        }
-        if (text.contains("\n")) {
-            String[] parts = text.split("\\n");
-            List<String> lines = new ArrayList<>();
-            for (String part : parts) {
-                if (!part.isEmpty()) {
-                    lines.add(part);
-                }
-            }
-            if (!lines.isEmpty()) {
-                return lines;
-            }
-        }
-        return new ArrayList<>(List.of(text));
-    }
-
     private void handleBack() {
         Minecraft.getInstance().setScreen(parent);
     }
@@ -551,63 +425,6 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
         applyAllButton.setMessage(Component.translatable("dlc_manager.required.apply_all"));
     }
 
-    private void renderInstallOverlays(GuiGraphics guiGraphics) {
-        if (batchState.running && applyAllButton != null) {
-            drawProgressButton(guiGraphics, applyAllButton.getX(), applyAllButton.getY(),
-                applyAllButton.getWidth(), applyAllButton.getHeight(), batchState.progress);
-        }
-    }
-
-    private void drawProgressButton(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
-        int bg = 0xFF2B2B2B;
-        int fg = 0xFF4CAF50;
-        guiGraphics.fill(x, y, x + width, y + height, bg);
-        int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));
-        guiGraphics.fill(x, y, x + filled, y + height, fg);
-        int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
-        String label = percent + "%";
-        int textX = x + (width - this.font.width(label)) / 2;
-        int textY = y + (height - this.font.lineHeight) / 2 + 1;
-        guiGraphics.drawString(this.font, label, textX, textY, 0xFFFFFF, false);
-    }
-
-    private void drawRightProgress(GuiGraphics guiGraphics, int rowY, Button button, float progress) {
-        int percent = Math.round(Math.max(0f, Math.min(1f, progress)) * 100f);
-        String progressText = percent + "%";
-        int textWidth = this.font.width(progressText);
-        int percentBoxWidth = this.font.width("100%");
-        int barWidth = 36;
-        int barHeight = 6;
-        int percentRight = button != null ? button.getX() - 6 : this.width - 18;
-        int percentLeft = percentRight - percentBoxWidth;
-        int barRight = percentLeft - 6;
-        int barLeft = barRight - barWidth;
-        int barY = rowY + 2;
-        drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress);
-        guiGraphics.drawString(this.font, progressText, percentRight - textWidth, rowY, 0xC8C8C8, false);
-    }
-
-    private void drawProgressBar(GuiGraphics guiGraphics, int x, int y, int width, int height, float progress) {
-        int bg = 0xFF2B2B2B;
-        int fg = 0xFF4CAF50;
-        guiGraphics.fill(x, y, x + width, y + height, bg);
-        int filled = (int) (width * Math.max(0f, Math.min(1f, progress)));
-        guiGraphics.fill(x, y, x + filled, y + height, fg);
-    }
-
-    private void renderTooltip(GuiGraphics guiGraphics, DlcServerRequiredItem item, int mouseX, int mouseY) {
-        if (item == null || item.tips == null || item.tips.isEmpty()) {
-            return;
-        }
-        String tip = resolveTip(item);
-        if (tip == null || tip.isBlank()) {
-            return;
-        }
-        int maxWidth = Math.min(260, this.width - 40);
-        List<net.minecraft.util.FormattedCharSequence> lines = DlcTextFormatter.splitMultiline(this.font, tip, maxWidth);
-        guiGraphics.renderTooltip(this.font, lines, mouseX, mouseY);
-    }
-
     private String resolveTip(DlcServerRequiredItem item) {
         if (item == null || item.tips == null || item.tips.isEmpty()) {
             return "";
@@ -647,31 +464,6 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
             return item.name;
         }
         return item.id == null ? "" : item.id;
-    }
-
-    private boolean isMouseOverRow(int mouseX, int mouseY, int y, int height) {
-        return mouseX >= 16 && mouseX <= this.width - 16 && mouseY >= y && mouseY <= y + height;
-    }
-
-    private boolean isMouseOverButton(Button button, int mouseX, int mouseY) {
-        if (button == null || !button.visible) {
-            return false;
-        }
-        return button.isMouseOver(mouseX, mouseY);
-    }
-
-    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return;
-        }
-        int barX = this.width - 12;
-        int barWidth = 4;
-        int barHeight = Math.max(12, (bottom - top) * maxVisible / totalLines);
-        int trackHeight = bottom - top;
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barY = top + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B);
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
     }
 
     private Map<String, Set<String>> buildDependents(List<DlcServerRequiredItem> entries) {
@@ -756,4 +548,25 @@ public class DlcServerRequiredManagerScreen extends DlcScreenCompat.MouseScroll 
     private boolean isEnabled(DlcServerRequiredItem item) {
         return item != null && (item.applied || item.hasFile);
     }
+
+    private boolean controlsReady;
+    private int pageRevision;
+    @Override protected void buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls(); }
+        pageRevision = java.util.Objects.hash(visibleItems, entryButtons.values().toArray(), loading);
+
+        var resources = new java.util.ArrayList<ResourceRow>();
+        for (var item : visibleItems) resources.add(new ResourceRow(resolveDisplayName(item),
+                () -> buildEntryLabel(item).getString(), () -> resolveTip(item), entryButtons.get(item.id),
+                () -> progressById.getOrDefault(item.id, isApplied(item) ? 1f : 0f)));
+        renderResources(resources, () -> errorText, !loading, applyAllButton,
+                () -> loading ? -1 : batchState.progress);
+
+    }
+    @Override protected void updatePage() {
+        updateEntryButtons(); updateApplyAllAvailability();
+        if (pageRevision != java.util.Objects.hash(visibleItems, entryButtons.values().toArray(), loading)) refreshPage();
+    }
+
+    @Override public boolean shouldCloseOnEsc() { return !downloading && !loading; }
 }

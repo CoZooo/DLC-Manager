@@ -25,7 +25,6 @@ import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.toasts.SystemToast;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.network.chat.Component;
@@ -43,12 +42,10 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import com.sighs.apricityui.event.MouseEvent;
 import com.sighs.apricityui.init.Document;
 import com.sighs.apricityui.init.Element;
-import com.sighs.apricityui.layout.Box;
 
-public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPositionHost {
+public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnPositionHost {
     private final Screen parent;
     private final List<DlcListRow> rows = new ArrayList<>();
     private final List<DlcItem> items = new ArrayList<>();
@@ -59,29 +56,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
     private final boolean hasTaczMod = DlcPlatformServices.isModLoaded("tacz");
     private final Set<String> presetSnapshot = new LinkedHashSet<>();
     private boolean presetSnapshotCaptured;
-    private DlcUiButton modeButton, backButton, enableAllButton, disableAllButton, searchClearButton;
-    private String searchQuery = "";
-    private DlcUiTooltip tooltip;
-    private boolean sidebarCollapsed;
-    private final DlcUiMotion sidebarMotion = new DlcUiMotion(1);
-    private double lastSidebarProgress = Double.NaN;
-    private final Map<String, DlcUiMotion> groupMotions = new HashMap<>();
-    private final List<GroupView> groupViews = new ArrayList<>();
-
-    private static final class GroupView {
-        final DlcUiMotion motion;
-        final Element body, button, caret;
-        final int itemCount;
-        double lastProgress = Double.NaN;
-
-        GroupView(DlcUiMotion motion, Element body, Element button, Element caret, int itemCount) {
-            this.motion = motion;
-            this.body = body;
-            this.button = button;
-            this.caret = caret;
-            this.itemCount = itemCount;
-        }
-    }
+    private DlcUiButton modeButton, backButton, enableAllButton, disableAllButton;
     private boolean pendingScrollRestore;
     private double savedScrollOffset;
     private DlcType savedScrollFilter;
@@ -269,7 +244,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
                 DlcPresetRuntimeState.syncStatusFromRuntime();
             }
             if (requiredPending) {
-                minecraft.setScreen(new ConfirmScreen(accepted -> {
+                minecraft.setScreen(new DlcConfirmScreen(accepted -> {
                     if (accepted) {
                         minecraft.stop();
                     } else {
@@ -306,7 +281,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
 
         if (!modReloadNeeded && !otherReloadNeeded) {
             if (requiredPending) {
-                minecraft.setScreen(new ConfirmScreen(accepted -> {
+                minecraft.setScreen(new DlcConfirmScreen(accepted -> {
                     if (accepted) {
                         minecraft.stop();
                     } else {
@@ -335,7 +310,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
 
         Minecraft minecraft = Minecraft.getInstance();
         if (applyMode == DlcApplyMode.RESTART_ONLY) {
-            minecraft.setScreen(new ConfirmScreen(accepted -> {
+            minecraft.setScreen(new DlcConfirmScreen(accepted -> {
                 if (accepted) {
                     minecraft.stop();
                 } else {
@@ -345,7 +320,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
                 Component.translatable("dlc_manager.restart_now"),
                 Component.translatable("dlc_manager.restart_later")));
         } else if (applyMode == DlcApplyMode.TRY_HOT_RELOAD) {
-            minecraft.setScreen(new ConfirmScreen(accepted -> {
+            minecraft.setScreen(new DlcConfirmScreen(accepted -> {
                 if (accepted) {
                     var future = tryReloadResources();
                     future.thenRun(() -> minecraft.execute(() -> {
@@ -359,7 +334,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
                 Component.translatable("dlc_manager.reload_now"),
                 Component.translatable("dlc_manager.reload_later")));
         } else {
-            minecraft.setScreen(new ConfirmScreen(accepted -> minecraft.setScreen(parent),
+            minecraft.setScreen(new DlcConfirmScreen(accepted -> minecraft.setScreen(parent),
                 Component.translatable("dlc_manager.title"), Component.translatable(message)));
         }
     }
@@ -732,7 +707,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.DARK_RED);
         rememberListScroll();
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(this);
             if (!accepted) {
                 return;
@@ -780,7 +755,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
         Component title = Component.translatable("dlc_manager.batch.dependencies_title");
         Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
         rememberListScroll();
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(this);
             if (!accepted) {
                 return;
@@ -895,7 +870,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
             : activeFilter == null ? null : Component.translatable(activeFilter.getDisplayKey());
         Component message = DlcConfirmUtil.buildHeaderConfirmMessage(enable, activeFilterLabel);
         rememberListScroll();
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(DlcManagerScreen.this);
             if (!accepted) {
                 return;
@@ -924,7 +899,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
     }
 
     public DlcManagerScreen(Screen parent) {
-        super("dlc_manager/ui/manager.html");
+        super();
         this.parent = parent;
     }
 
@@ -942,16 +917,15 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
 
     @Override
     protected void bindDocument(Document document) {
-        tooltip = new DlcUiTooltip(document);
-        document.getElementById("manager-title").setTextContent(translate("dlc_manager.title"));
-        document.getElementById("category-label").setTextContent(translate("dlc_manager.ui.categories"));
-        document.getElementById("tools-label").setTextContent(translate("dlc_manager.ui.tools"));
-        bindSidebar(document);
-        bindSearch(document);
+        bindManagerLayout(document, translate("dlc_manager.title"));
         Element tools = document.getElementById("manager-tools");
         tools.setInnerHTML("");
         if (DlcConfig.isUpdateManagerOn() && !DlcConfig.isUButtomShown())
             button(document, tools, translate("dlc_manager.update.manager"), () -> open(() -> DlcUpdateClient.openUpdateManager(this)));
+        if (DlcConfig.isNoticeDisplayModeManagerButton() && hasNoticeContent())
+            button(document, tools, translate("dlc_manager.notice"), () -> open(() -> DlcNoticeManager.forceShow(this)));
+        if (hasRequiredEntries())
+            button(document, tools, translate("dlc_manager.required.manage_button"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcRequiredManagerScreen(this))));
         if (DlcConfig.isPresetFuncOn())
             button(document, tools, translate("dlc_manager.preset.manager"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcPresetManagerScreen(this))));
         if (DlcConfig.isPackFuncOn() && !DlcConfig.isPButtomShown())
@@ -961,17 +935,13 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
         Element context = document.getElementById("manager-context");
         context.setInnerHTML("");
         if (DlcConfig.isConfigButtonShown())
-            button(document, context, translate("dlc_manager.config"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcConfigScreen(this))));
-        if (DlcConfig.isNoticeDisplayModeManagerButton() && hasNoticeContent())
-            button(document, context, translate("dlc_manager.notice"), () -> open(() -> DlcNoticeManager.forceShow(this)));
-        if (DlcRemoteManager.hasMissing())
-            button(document, context, translate("dlc_manager.remote.complete"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(this, DlcRemoteManager.collectMissing()))));
-        if (hasRequiredEntries())
-            button(document, context, translate("dlc_manager.required.manage_button"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcRequiredManagerScreen(this))));
+            button(document, tools, translate("dlc_manager.config"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcConfigScreen(this))));
 
         for (Element tool : tools.getChildren()) tool.setAttribute("class", "button nav-button");
         Element batch = document.getElementById("batch-actions");
         batch.setInnerHTML("");
+        if (DlcRemoteManager.hasMissing())
+            button(document, batch, translate("dlc_manager.remote.complete"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(this, DlcRemoteManager.collectMissing()))));
         enableAllButton = DlcConfig.isEnableAllButtonShown() ? button(document, batch, "", () -> handleBatchToggle(true)) : null;
         disableAllButton = button(document, batch, "", () -> handleBatchToggle(false));
         Element footer = document.getElementById("manager-actions");
@@ -986,6 +956,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
         updateModeAvailability();
         updateHeaderButtonsState();
         restoreListScroll();
+        if (!searchQuery.isBlank()) onManagerSearch(document, searchQuery);
     }
 
     private boolean hasNoticeContent() {
@@ -993,83 +964,36 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
         return notice.isNoticeEnabled() && notice.hasContent(DlcPlatformServices.languageCode());
     }
 
-    private void bindSidebar(Document document) {
-        Element sidebar = document.getElementById("sidebar-content");
-        long generation = document.getRefreshGeneration();
-        sidebar.addEventListener("wheel", event -> {
-            if (!(event instanceof MouseEvent wheel) || Minecraft.getInstance().screen != this
-                || getLinkedDocument() != document || !document.isCurrentGeneration(generation)) return;
-            event.preventDefault();
-            Document.runWithContext(document, () -> {
-                sidebar.commitScrollMetricsFromLayout();
-                double limit = Math.max(0, sidebar.scrollHeight - Box.of(sidebar).innerSize().height());
-                sidebar.scrollTo(0, Math.max(0, Math.min(limit, sidebar.getTargetScrollTop() + wheel.scrollDelta)));
-            });
-        });
-        Element slot = document.getElementById("sidebar-toggle-slot");
-        slot.setInnerHTML("");
-        DlcUiButton toggle = button(document, slot, "", () -> {
-            rememberListScroll();
-            sidebarCollapsed = !sidebarCollapsed;
-            sidebarMotion.animateTo(sidebarCollapsed ? 0 : 1, System.nanoTime());
-            renderSidebarState(document);
-            restoreListScroll();
-        });
-        toggle.getElement().setAttribute("id", "sidebar-toggle");
-        toggle.getElement().setAttribute("class", "button sidebar-toggle");
-        toggle.getElement().setAttribute("aria-controls", "manager-sidebar");
-        renderSidebarState(document);
-        lastSidebarProgress = Double.NaN;
-        updateAnimations(document, System.nanoTime());
-    }
-
-    private void renderSidebarState(Document document) {
-        document.getElementById("manager").setAttribute("class", sidebarCollapsed ? "manager sidebar-collapsed" : "manager");
-        Element toggle = document.getElementById("sidebar-toggle");
-        toggle.setTextContent(sidebarCollapsed ? "»" : "«");
-        toggle.setAttribute("aria-expanded", Boolean.toString(!sidebarCollapsed));
-        toggle.setAttribute("aria-label", translate(sidebarCollapsed ? "dlc_manager.ui.expand_sidebar" : "dlc_manager.ui.collapse_sidebar"));
-        document.getElementById("manager-sidebar").setAttribute("aria-hidden", Boolean.toString(sidebarCollapsed));
-    }
-
-    private void bindSearch(Document document) {
-        Element input = document.getElementById("manager-search");
-        input.setValue(searchQuery);
-        input.setAttribute("placeholder", translate("dlc_manager.ui.search"));
-        input.setAttribute("aria-label", translate("dlc_manager.ui.search"));
-        long generation = document.getRefreshGeneration();
-        input.addEventListener("input", event -> {
-            if (Minecraft.getInstance().screen == this && getLinkedDocument() == document && document.isCurrentGeneration(generation))
-                updateSearch(document, input.getValue());
-        });
-        Element actions = document.getElementById("search-actions");
-        actions.setInnerHTML("");
-        searchClearButton = button(document, actions, "×", () -> {
-            input.setValue("");
-            updateSearch(document, "");
-        });
-        searchClearButton.getElement().setAttribute("class", "button clear-search");
-        searchClearButton.getElement().setAttribute("aria-label", translate("dlc_manager.ui.clear_search"));
-        searchClearButton.setEnabled(!searchQuery.isBlank());
-    }
-
-    private void updateSearch(Document document, String query) {
+    private java.util.Set<String> searchMatches = java.util.Set.of();
+    @Override protected void onManagerSearch(Document document, String query) {
         searchQuery = query == null ? "" : query;
+        searchMatches = java.util.Set.of();
         savedScrollOffset = 0;
-        document.getElementById("manager-list").setScrollTop(0);
-        renderRows(document);
+        var list = document.getElementById("manager-list");
+        list.setScrollTop(0); list.setAttribute("style", "pointer-events:none"); list.setAttribute("aria-busy", "true");
         searchClearButton.setEnabled(!searchQuery.isBlank());
+        java.util.function.Consumer<java.util.Set<String>> apply = matches -> {
+            searchMatches = matches; list.removeAttribute("style"); list.removeAttribute("aria-busy");
+            renderRows(document); updateHeaderButtonsState();
+        };
+        if (searchQuery.isBlank()) {
+            filterAsync("", java.util.List.of(), apply);
+            return;
+        }
+        var entries = new ArrayList<DlcUiAsyncSearch.Entry<String>>();
+        for (var item : allItems) entries.add(new DlcUiAsyncSearch.Entry<>("item:" + item.getId(), plain(DlcDisplayNameUtil.resolveDisplayName(item)), item.getIdentifier(), item.getSourcePath() == null ? "" : item.getSourcePath().toString()));
+        for (var row : rows) if (row.getRedirectEntry() != null) {
+            var redirect = row.getRedirectEntry();
+            entries.add(new DlcUiAsyncSearch.Entry<>(redirectSearchKey(redirect), plain(redirect.resolveDisplayName(DlcPlatformServices.languageCode())), redirect.getRedirectUrl()));
+        }
         updateHeaderButtonsState();
+        filterAsync(searchQuery, entries, apply);
     }
-
-    private boolean matchesItem(DlcItem item) {
-        return DlcUiSearch.matches(searchQuery, plain(DlcDisplayNameUtil.resolveDisplayName(item)), item.getIdentifier(),
-            item.getSourcePath() == null ? "" : item.getSourcePath().toString());
+    private static String redirectSearchKey(DlcRedirectEntry redirect) {
+        return "redirect:" + plain(redirect.resolveDisplayName(DlcPlatformServices.languageCode())) + "\n" + redirect.getRedirectUrl();
     }
-
-    private boolean matchesRedirect(DlcRedirectEntry redirect) {
-        return redirect != null && DlcUiSearch.matches(searchQuery, plain(redirect.resolveDisplayName(DlcPlatformServices.languageCode())), redirect.getRedirectUrl());
-    }
+    private boolean matchesItem(DlcItem item) { return searchQuery.isBlank() || searchMatches.contains("item:" + item.getId()); }
+    private boolean matchesRedirect(DlcRedirectEntry redirect) { return redirect != null && (searchQuery.isBlank() || searchMatches.contains(redirectSearchKey(redirect))); }
 
     private boolean matchesRow(DlcListRow row) {
         return switch (row.getType()) {
@@ -1140,7 +1064,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
         Element list = document.getElementById("manager-list");
         double scroll = list.getTargetScrollTop();
         list.setInnerHTML("");
-        groupViews.clear();
+        clearManagerGroups();
         Element rowParent = list;
         int renderedRows = 0;
         int renderedDlcCount = 0;
@@ -1157,7 +1081,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
                 }
                 case PATH_HEADER -> {
                     entry.setAttribute("class", "path-heading");
-                    text(document, entry, "span", row.getLabel(), "path-label");
+                    managerText(document, entry, "span", row.getLabel(), "path-label");
                     List<DlcItem> groupItems = row.getItems().stream().filter(this::matchesItem).toList();
                     if (!row.isRootPath() && DlcItemActions.canToggleGroup(groupItems))
                         button(document, entry, DlcItemActions.groupToggleLabel(groupItems), () -> {
@@ -1166,27 +1090,12 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
                             refreshAfterStateChange();
                         });
                     String key = groupItems.get(0).getType().name() + ":" + row.getLabel();
-                    DlcUiMotion motion = groupMotions.computeIfAbsent(key, ignored -> new DlcUiMotion(1));
-                    Element body = list.appendChild(document.createElement("div"));
-                    body.setAttribute("class", "group-items");
-                    body.setAttribute("id", "dlc-group-" + groupViews.size());
-                    DlcUiButton collapse = button(document, entry, "", () -> {
-                        if (tooltip != null) tooltip.hide();
-                        motion.animateTo(motion.getTarget() == 0 ? 1 : 0, System.nanoTime());
-                        updateAnimations(document, System.nanoTime());
-                    });
-                    collapse.getElement().setAttribute("class", "button group-collapse");
-                    collapse.getElement().setAttribute("aria-controls", body.getAttribute("id"));
-                    Element caret = text(document, collapse.getElement(), "span", "", "group-caret");
-                    caret.setAttribute("aria-hidden", "true");
-                    caret.setInnerHTML("<svg viewBox=\"0 0 16 16\"><path d=\"M3 10 L8 5 L13 10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></path></svg>");
-                    groupViews.add(new GroupView(motion, body, collapse.getElement(), caret, groupItems.size()));
-                    rowParent = body;
+                    rowParent = addManagerGroup(document, list, entry, key, groupItems.size());
                 }
                 case REDIRECT_ITEM -> {
                     entry.setAttribute("class", "dlc-row redirect-row");
                     DlcRedirectEntry redirect = row.getRedirectEntry();
-                    text(document, entry, "span", redirect.resolveDisplayName(DlcPlatformServices.languageCode()), "item-name");
+                    managerText(document, entry, "span", redirect.resolveDisplayName(DlcPlatformServices.languageCode()), "item-name");
                     button(document, entry, translate("dlc_manager.redirect.open"), () -> open(() -> Minecraft.getInstance().setScreen(
                         new DlcRedirectConfirmScreen(this, redirect.getRedirectUrl(), redirect.resolveNotice(DlcPlatformServices.languageCode())))));
                 }
@@ -1195,10 +1104,7 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
                     renderedDlcCount++;
                     if (item.isEnabled()) enabledDlcCount++;
                     boolean dirty = DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled());
-                    entry.setAttribute("class", "dlc-row" + (item.isEnabled() ? " enabled" : "") + (dirty ? " pending" : ""));
-                    if (dirty || item.isEnabled())
-                        text(document, entry, "span", "", "item-status-dot " + (dirty ? "pending" : "enabled")).setAttribute("aria-hidden", "true");
-                    Element name = text(document, entry, "span", DlcDisplayNameUtil.resolveDisplayName(item), "item-name");
+                    Element name = styleManagerRow(document, entry, DlcDisplayNameUtil.resolveDisplayName(item), item.isEnabled(), dirty);
                     tooltip.bind(entry, () -> itemTooltip(item));
                     if (item.getRedirectUrl() != null && !item.getRedirectUrl().isBlank()) {
                         long generation = document.getRefreshGeneration();
@@ -1207,53 +1113,21 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
                                 open(() -> Minecraft.getInstance().setScreen(new DlcRedirectConfirmScreen(this, item.getRedirectUrl(), "")));
                         });
                     }
-                    if (dirty) text(document, entry, "span", getPendingSuffix(item), "pending-label");
-                    DlcUiButton toggle = button(document, entry, translate(item.isEnabled() ? "dlc_manager.toggle.on" : "dlc_manager.toggle.off"), () -> {
+                    if (dirty) managerText(document, entry, "span", getPendingSuffix(item), "pending-label");
+                    DlcUiButton toggle = managerToggle(document, entry, item.isEnabled(), () -> {
                         rememberListScroll();
                         DlcItemActions.toggle(item);
                         refreshAfterStateChange();
                     });
-                    toggle.getElement().setAttribute("class", "button toggle" + (item.isEnabled() ? " on" : ""));
-                    toggle.getElement().setAttribute("aria-pressed", Boolean.toString(item.isEnabled()));
                     toggle.setEnabled(!DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier()) && (item.isEnabled() || !DlcRuntimeState.hasMissingDependencies(item)));
                 }
             }
         }
-        if (renderedRows == 0) text(document, list, "p", translate(searchQuery.isBlank() ? "dlc_manager.ui.empty" : "dlc_manager.ui.no_results"), "empty-state");
+        if (renderedRows == 0) managerText(document, list, "p", translate(searchQuery.isBlank() ? "dlc_manager.ui.empty" : "dlc_manager.ui.no_results"), "empty-state");
         document.getElementById("manager-summary").setTextContent(translate("dlc_manager.ui.summary", renderedDlcCount, enabledDlcCount));
         updatePendingStatus(document);
         updateAnimations(document, System.nanoTime());
         list.setScrollTop(scroll);
-    }
-
-    private void updateAnimations(Document document, long now) {
-        Document.runWithContext(document, () -> {
-            double progress = sidebarMotion.valueAt(now);
-            if (progress != lastSidebarProgress) {
-                document.getElementById("manager-sidebar").setAttribute("style",
-                    "width:" + (172 * progress) + "px;border-right-width:" + progress + "px;opacity:" + progress);
-                lastSidebarProgress = progress;
-            }
-            for (GroupView group : groupViews) {
-                double value = group.motion.valueAt(now);
-                if (value == group.lastProgress) continue;
-                boolean expanded = group.motion.getTarget() == 1;
-                group.body.setAttribute("style", "height:" + (value == 1 ? "auto" : (group.itemCount * 40 * value) + "px")
-                    + ";opacity:" + value + ";pointer-events:" + (expanded ? "auto" : "none"));
-                group.body.setAttribute("aria-hidden", Boolean.toString(!expanded));
-                group.button.setAttribute("aria-expanded", Boolean.toString(expanded));
-                group.button.setAttribute("aria-label", translate(expanded ? "dlc_manager.ui.collapse_group" : "dlc_manager.ui.expand_group"));
-                group.caret.setAttribute("style", "transform:rotate(" + ((1 - value) * 180) + "deg)");
-                group.lastProgress = value;
-            }
-        });
-    }
-
-    private static Element text(Document document, Element parent, String tag, String value, String className) {
-        Element element = document.createElement(tag);
-        element.setAttribute("class", className);
-        DlcUiText.set(element, value);
-        return parent.appendChild(element);
     }
 
     private static DlcUiTooltip.Content itemTooltip(DlcItem item) {
@@ -1317,11 +1191,6 @@ public class DlcManagerScreen extends DlcApricityScreen implements DlcReturnPosi
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        Document animationDocument = getLinkedDocument();
-        if (animationDocument != null) {
-            updateAnimations(animationDocument, System.nanoTime());
-            if (tooltip != null) Document.runWithContext(animationDocument, () -> tooltip.update());
-        }
         super.render(graphics, mouseX, mouseY, partialTick);
         Document document = getLinkedDocument();
         if (!pendingScrollRestore || document == null || document.isInitialCommitSlicing()) return;

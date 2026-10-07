@@ -1,29 +1,23 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.required.DlcRequiredNotice
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredItem
-import com.cozooo.dlc_manager.client.server.DlcServerRequiredProgressItem
 import com.cozooo.dlc_manager.client.server.DlcServerRequiredStatus
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.ArrayDeque
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 class DlcServerRequiredManagerScreen(
     private val parent: Screen?,
     private val serverEntry: DlcServerEntry?,
-) : DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.required.manage_title")) {
+) : DlcRequiredPageScreen(parent, Component.translatable("dlc_manager.required.manage_title")) {
     private class InstallState {
         @Volatile var running = false
         @Volatile var progress = 0f
@@ -39,7 +33,6 @@ class DlcServerRequiredManagerScreen(
     private var applyAllButton: Button? = null
     private var backButton: Button? = null
     private val batchState = InstallState()
-    private var noticeLines: List<String> = emptyList()
 
     @Volatile
     private var loading = false
@@ -54,15 +47,9 @@ class DlcServerRequiredManagerScreen(
     private var scrollIndex = 0
     private var activeIds: Set<String> = HashSet()
 
-    override fun init() {
-        noticeLines = splitLines(DlcRequiredNotice.load().resolveManageDesc())
+    private fun initControls() {
         rebuildAllWidgets()
         loadRequiredList()
-    }
-
-    override fun resize(minecraft: Minecraft, width: Int, height: Int) {
-        super.resize(minecraft, width, height)
-        init()
     }
 
     private fun rebuildAllWidgets() {
@@ -349,119 +336,6 @@ class DlcServerRequiredManagerScreen(
         return ""
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        var y = 20
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 18
-        for (line in manageDescLines) {
-            guiGraphics.drawCenteredString(font, line, centerX, y, 0xC8C8C8)
-            y += font.lineHeight + 2
-        }
-        val error = errorText
-        if (!error.isNullOrBlank()) {
-            y += 4
-            guiGraphics.drawCenteredString(font, error, centerX, y, 0xE6E6E6)
-            y += font.lineHeight + 2
-        }
-        y += 8
-
-        val listTop = y
-        val listBottom = height - 70
-        val lineHeight = 18
-        val maxVisible = max(1, (listBottom - listTop) / lineHeight)
-        val totalLines = visibleItems.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll
-        }
-
-        var rowY = listTop
-        for (i in visibleItems.indices) {
-            val item = visibleItems[i]
-            val button = item.id?.let { entryButtons[it] }
-            val visible = i >= scrollIndex && i < scrollIndex + maxVisible
-            if (!visible) {
-                if (button != null) {
-                    button.visible = false
-                }
-                continue
-            }
-            if (button != null) {
-                button.visible = true
-                button.y = rowY - 2
-            }
-            val label = buildEntryLabel(item)
-            guiGraphics.drawString(font, label, 20, rowY, 0xE6E6E6, false)
-            val id = item.id
-            if (id != null) {
-                val progress = progressById[id]
-                if (progress != null) {
-                    drawRightProgress(guiGraphics, rowY, button, progress)
-                }
-            }
-            if (isMouseOverRow(mouseX, mouseY, rowY, lineHeight) && !isMouseOverButton(button, mouseX, mouseY)) {
-                renderTooltip(guiGraphics, item, mouseX, mouseY)
-            }
-            rowY += lineHeight
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll)
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-        renderInstallOverlays(guiGraphics)
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        return handleMouseScrolled(mouseX, mouseY, deltaY)
-    }
-
-    private fun handleMouseScrolled(mouseX: Double, mouseY: Double, delta: Double): Boolean {
-        val listTop = getListTop()
-        val listBottom = height - 70
-        val lineHeight = 18
-        val maxVisible = max(1, (listBottom - listTop) / lineHeight)
-        val totalLines = visibleItems.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (maxScroll > 0) {
-            val step = if (delta > 0) -1 else 1
-            scrollIndex = max(0, min(maxScroll, scrollIndex + step))
-            return true
-        }
-        return false
-    }
-
-    private fun getListTop(): Int {
-        var y = 20 + 18
-        y += manageDescLines.size * (font.lineHeight + 2)
-        if (!errorText.isNullOrBlank()) {
-            y += font.lineHeight + 6
-        }
-        y += 8
-        return y
-    }
-
-    private val manageDescLines: List<String>
-        get() = noticeLines
-
-    private fun splitLines(text: String?): List<String> {
-        if (text.isNullOrBlank()) {
-            return ArrayList()
-        }
-        if (text.contains("\n")) {
-            val parts = text.split("\\n".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-            val lines: MutableList<String> = ArrayList()
-            for (part in parts) {
-                if (part.isNotEmpty()) {
-                    lines.add(part)
-                }
-            }
-            if (lines.isNotEmpty()) {
-                return lines
-            }
-        }
-        return ArrayList(listOf(text))
-    }
-
     private fun handleBack() {
         Minecraft.getInstance().setScreen(parent)
     }
@@ -541,64 +415,6 @@ class DlcServerRequiredManagerScreen(
         applyAll.message = Component.translatable("dlc_manager.required.apply_all")
     }
 
-    private fun renderInstallOverlays(guiGraphics: GuiGraphics) {
-        val applyAll = applyAllButton
-        if (batchState.running && applyAll != null) {
-            drawProgressButton(guiGraphics, applyAll.x, applyAll.y, applyAll.width, applyAll.height, batchState.progress)
-        }
-    }
-
-    private fun drawProgressButton(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val bg = 0xFF2B2B2B.toInt()
-        val fg = 0xFF4CAF50.toInt()
-        guiGraphics.fill(x, y, x + width, y + height, bg)
-        val clamped = max(0f, min(1f, progress))
-        val filled = (width * clamped).toInt()
-        guiGraphics.fill(x, y, x + filled, y + height, fg)
-        val percent = (clamped * 100f).roundToInt()
-        val label = "$percent%"
-        val textX = x + (width - font.width(label)) / 2
-        val textY = y + (height - font.lineHeight) / 2 + 1
-        guiGraphics.drawString(font, label, textX, textY, 0xFFFFFF, false)
-    }
-
-    private fun drawRightProgress(guiGraphics: GuiGraphics, rowY: Int, button: Button?, progress: Float) {
-        val percent = (max(0f, min(1f, progress)) * 100f).roundToInt()
-        val progressText = "$percent%"
-        val textWidth = font.width(progressText)
-        val percentBoxWidth = font.width("100%")
-        val barWidth = 36
-        val barHeight = 6
-        val percentRight = button?.let { it.x - 6 } ?: (width - 18)
-        val percentLeft = percentRight - percentBoxWidth
-        val barRight = percentLeft - 6
-        val barLeft = barRight - barWidth
-        val barY = rowY + 2
-        drawProgressBar(guiGraphics, barLeft, barY, barWidth, barHeight, progress)
-        guiGraphics.drawString(font, progressText, percentRight - textWidth, rowY, 0xC8C8C8, false)
-    }
-
-    private fun drawProgressBar(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val bg = 0xFF2B2B2B.toInt()
-        val fg = 0xFF4CAF50.toInt()
-        guiGraphics.fill(x, y, x + width, y + height, bg)
-        val filled = (width * max(0f, min(1f, progress))).toInt()
-        guiGraphics.fill(x, y, x + filled, y + height, fg)
-    }
-
-    private fun renderTooltip(guiGraphics: GuiGraphics, item: DlcServerRequiredItem?, mouseX: Int, mouseY: Int) {
-        if (item == null || item.tips.isEmpty()) {
-            return
-        }
-        val tip = resolveTip(item)
-        if (tip.isBlank()) {
-            return
-        }
-        val maxWidth = min(260, width - 40)
-        val lines = DlcTextFormatter.splitMultiline(font, tip, maxWidth)
-        guiGraphics.renderTooltip(font, lines, mouseX, mouseY)
-    }
-
     private fun resolveTip(item: DlcServerRequiredItem?): String {
         if (item == null || item.tips.isEmpty()) {
             return ""
@@ -636,31 +452,6 @@ class DlcServerRequiredManagerScreen(
             return item.name ?: ""
         }
         return item.id ?: ""
-    }
-
-    private fun isMouseOverRow(mouseX: Int, mouseY: Int, y: Int, height: Int): Boolean {
-        return mouseX >= 16 && mouseX <= width - 16 && mouseY >= y && mouseY <= y + height
-    }
-
-    private fun isMouseOverButton(button: Button?, mouseX: Int, mouseY: Int): Boolean {
-        if (button == null || !button.visible) {
-            return false
-        }
-        return button.isMouseOver(mouseX.toDouble(), mouseY.toDouble())
-    }
-
-    private fun drawScrollBar(guiGraphics: GuiGraphics, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return
-        }
-        val barX = width - 12
-        val barWidth = 4
-        val barHeight = max(12, (bottom - top) * maxVisible / totalLines)
-        val trackHeight = bottom - top
-        val maxTrack = max(1, trackHeight - barHeight)
-        val barY = top + (scrollIndex / maxScroll.toFloat() * maxTrack).toInt()
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B.toInt())
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B.toInt())
     }
 
     private fun buildDependents(entries: List<DlcServerRequiredItem>): Map<String, Set<String>> {
@@ -741,4 +532,24 @@ class DlcServerRequiredManagerScreen(
     private fun isEnabled(item: DlcServerRequiredItem?): Boolean {
         return item != null && (item.applied || item.hasFile)
     }
+
+    private var controlsReady = false
+    private var pageRevision = 0
+    override fun buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls() }
+        pageRevision = 31 * visibleItems.hashCode() + entryButtons.values.hashCode() + loading.hashCode()
+
+        val resources = visibleItems.map { item -> ResourceRow(resolveDisplayName(item),
+            { buildEntryLabel(item).string }, { resolveTip(item) }, entryButtons[item.id],
+            { (progressById[item.id] ?: if (isApplied(item)) 1f else 0f).toDouble() }) }
+        renderResources(resources, { errorText }, !loading, applyAllButton,
+            { if (loading) -1.0 else batchState.progress.toDouble() })
+
+    }
+    override fun updatePage() {
+        updateEntryButtons(); updateApplyAllAvailability()
+        if (pageRevision != 31 * visibleItems.hashCode() + entryButtons.values.hashCode() + loading.hashCode()) refreshPage()
+    }
+
+    override fun shouldCloseOnEsc() = !downloading && !loading
 }

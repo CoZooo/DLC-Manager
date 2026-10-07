@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.core.DlcMarkdownRenderer
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerConnection.UpdateResponse
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
@@ -15,9 +14,7 @@ import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcPaths
 import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.io.IOException
@@ -29,13 +26,12 @@ import kotlin.math.min
 class DlcServerUpdateManagerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.update.manager_title")) {
+) : DlcUpdatePageScreen(parent, Component.translatable("dlc_manager.update.manager_title")) {
     private var importButton: Button? = null
     private var pushUpdateButton: Button? = null
     private var urlButton: Button? = null
     private var packUpdateCheckButton: Button? = null
     private var backButton: Button? = null
-    private var scrollIndex = 0
     private var rows: List<DlcUpdateMeta?> = emptyList()
     private var rowActions: List<DlcUpdateRowPlanner.Action?> = emptyList()
     private var rollbackTargets: List<String?> = emptyList()
@@ -55,7 +51,7 @@ class DlcServerUpdateManagerScreen(
     private var packUpdateRepoUrl = ""
     private var packModpackUrl = ""
 
-    override fun init() {
+    private fun initControls() {
         refreshData()
     }
 
@@ -229,111 +225,6 @@ class DlcServerUpdateManagerScreen(
         }
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        var y = 20
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 16
-        guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.update.base", baseVersion), centerX, y, 0xC8C8C8)
-        y += 14
-        guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.update.current", currentVersion), centerX, y, 0xC8C8C8)
-        y += 14
-        if (rolledBackMode) {
-            val currentPair = normalizeVersion(baseVersion) + "+" + normalizeVersion(currentVersion)
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.update.rollback_info", rollbackFrom, currentPair), centerX, y, 0xE6E6E6)
-            y += 12
-        }
-        if (hasVisibleUpdates) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.update.desc"), centerX, y, 0xE6E6E6)
-            y += 12
-        }
-        drawHistoryList(guiGraphics, y, mouseX, mouseY)
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    private fun drawHistoryList(guiGraphics: GuiGraphics, startY: Int, mouseX: Int, mouseY: Int) {
-        val listTop = startY
-        val listBottom = height - 60
-        val lineHeight = 20
-        val totalLines = rows.size
-        val maxVisible = max(1, (listBottom - listTop) / lineHeight)
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll
-        }
-        if (loading) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.server.update_checking"), width / 2, (listTop + listBottom) / 2, 0xC8C8C8)
-            return
-        }
-        if (loadFailed) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.server.update_failed"), width / 2, (listTop + listBottom) / 2, 0xFF7777)
-            return
-        }
-        if (rows.isEmpty()) {
-            guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.server.update_empty"), width / 2, (listTop + listBottom) / 2, 0xC8C8C8)
-            return
-        }
-        var y = listTop
-        val visibleEnd = min(totalLines, scrollIndex + maxVisible)
-        for (i in scrollIndex until visibleEnd) {
-            val meta = rows[i]
-            val sourceBase = meta?.getBaseOld()
-            val sourceDlc = meta?.getDlcOld()
-            var targetBase = meta?.getBaseNew()
-            var targetDlc = meta?.getDlcNew()
-            if (targetBase.isNullOrBlank()) {
-                targetBase = sourceBase
-            }
-            if (targetDlc.isNullOrBlank()) {
-                targetDlc = sourceDlc
-            }
-            val oldText = if (i < displayOld.size) displayOld[i] else normalizeVersion(sourceBase) + "+" + normalizeVersion(sourceDlc)
-            val newText = if (i < displayNew.size) displayNew[i] else normalizeVersion(targetBase) + "+" + normalizeVersion(targetDlc)
-            var label = formatUpdateRowLabel(sourceBase, sourceDlc, targetBase, targetDlc, oldText, newText)
-            if (i < rowActions.size && rowActions[i] == DlcUpdateRowPlanner.Action.REUPDATE) {
-                label += " " + Component.translatable("dlc_manager.update.rolled_back").string
-            }
-            guiGraphics.drawString(font, label, 24, y + 6, 0xE6E6E6, false)
-            val buttonIndex = i
-            val buttonWidth = if (buttonIndex < rowActions.size &&
-                (rowActions[buttonIndex] == DlcUpdateRowPlanner.Action.REUPDATE || rowActions[buttonIndex] == DlcUpdateRowPlanner.Action.UPDATE)
-            ) {
-                80
-            } else {
-                50
-            }
-            val buttonHeight = 16
-            val buttonX = width - 24 - buttonWidth
-            val buttonY = y + 2
-            if (buttonIndex >= 0 && buttonIndex < actionButtons.size) {
-                val actionButton = actionButtons[buttonIndex]
-                val action = if (buttonIndex < rowActions.size) rowActions[buttonIndex] else DlcUpdateRowPlanner.Action.NONE
-                val enabled = action != DlcUpdateRowPlanner.Action.NONE && !applying
-                actionButton.visible = enabled
-                actionButton.active = enabled
-                if (enabled) {
-                    actionButton.x = buttonX
-                    actionButton.y = buttonY
-                } else {
-                    actionButton.x = -10000
-                    actionButton.y = -10000
-                }
-            }
-            y += lineHeight
-        }
-        for (i in actionButtons.indices) {
-            if (i < scrollIndex || i >= visibleEnd) {
-                val actionButton = actionButtons[i]
-                actionButton.visible = false
-                actionButton.x = -10000
-                actionButton.y = -10000
-            }
-        }
-        renderChangelogTooltip(guiGraphics, listTop, listBottom, lineHeight, totalLines, maxVisible, mouseX, mouseY, rows)
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll)
-    }
-
     private fun formatUpdateRowLabel(
         sourceBase: String?,
         sourceDlc: String?,
@@ -353,59 +244,6 @@ class DlcServerUpdateManagerScreen(
         return "$oldText -> $newText"
     }
 
-    private fun renderChangelogTooltip(
-        guiGraphics: GuiGraphics,
-        listTop: Int,
-        listBottom: Int,
-        lineHeight: Int,
-        totalLines: Int,
-        maxVisible: Int,
-        mouseX: Int,
-        mouseY: Int,
-        rows: List<DlcUpdateMeta?>?,
-    ) {
-        if (rows.isNullOrEmpty()) {
-            return
-        }
-        if (mouseY < listTop || mouseY > listBottom) {
-            return
-        }
-        val hoverIndex = scrollIndex + max(0, (mouseY - listTop) / lineHeight)
-        if (hoverIndex < scrollIndex || hoverIndex >= rows.size || hoverIndex >= scrollIndex + maxVisible) {
-            return
-        }
-        val meta = rows[hoverIndex]
-        val lang = DlcPlatformServices.languageCode()
-        val changelog = meta?.resolveChangelog(lang) ?: ""
-        if (changelog.isBlank()) {
-            return
-        }
-        val maxWidth = max(120, width - 60)
-        val lines: MutableList<net.minecraft.util.FormattedCharSequence> = ArrayList()
-        lines.addAll(font.split(Component.translatable("dlc_manager.update.changelog_tooltip_title"), maxWidth))
-        lines.addAll(DlcMarkdownRenderer.wrapMarkdown(font, changelog, maxWidth))
-        guiGraphics.renderTooltip(font, lines, mouseX, mouseY)
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        return handleMouseScrolled(deltaY)
-    }
-
-    private fun handleMouseScrolled(vertical: Double): Boolean {
-        val listTop = 20 + 16 + 14 + if (rolledBackMode) 12 else 0 + if (hasVisibleUpdates) 12 else 0
-        val listBottom = height - 60
-        val lineHeight = 20
-        val totalLines = rows.size
-        val maxVisible = max(1, (listBottom - listTop) / lineHeight)
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (maxScroll > 0) {
-            val step = if (vertical > 0) -1 else 1
-            scrollIndex = max(0, min(maxScroll, scrollIndex + step))
-            return true
-        }
-        return false
-    }
-
     private fun confirmRollback(targetVersion: String?) {
         if (targetVersion.isNullOrBlank()) {
             return
@@ -413,7 +251,7 @@ class DlcServerUpdateManagerScreen(
         val title = DlcConfirmUtil.buildUpdateManagerTitle()
         val message = DlcConfirmUtil.buildUpdateConfirmRollbackMessage(targetVersion)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen({ accepted ->
+            DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     startRollback(targetVersion)
                 } else {
@@ -427,7 +265,7 @@ class DlcServerUpdateManagerScreen(
         val title = DlcConfirmUtil.buildUpdateManagerTitle()
         val message = DlcConfirmUtil.buildUpdateConfirmReapplyMessage(baseOld, dlcOld, baseNew, dlcNew)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen({ accepted ->
+            DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     startApply(baseOld, dlcOld, baseNew, dlcNew)
                 } else {
@@ -441,7 +279,7 @@ class DlcServerUpdateManagerScreen(
         val title = DlcConfirmUtil.buildUpdateManagerTitle()
         val message = DlcConfirmUtil.buildUpdateConfirmApplyMessage()
         Minecraft.getInstance().setScreen(
-            ConfirmScreen({ accepted ->
+            DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     startApply(baseOld, dlcOld, baseNew, dlcNew)
                 } else {
@@ -484,7 +322,7 @@ class DlcServerUpdateManagerScreen(
         val title = Component.translatable("dlc_manager.update.manager_title")
         val message = Component.translatable("dlc_manager.server.update.restart")
         Minecraft.getInstance().setScreen(
-            ConfirmScreen({ accepted ->
+            DlcConfirmScreen({ accepted ->
                 if (accepted) {
                     restartServer()
                 } else {
@@ -618,19 +456,6 @@ class DlcServerUpdateManagerScreen(
         }, "dlc-server-update-push").start()
     }
 
-    private fun drawScrollBar(guiGraphics: GuiGraphics, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (totalLines <= maxVisible) {
-            return
-        }
-        val barX = width - 18
-        val barWidth = 6
-        val barHeight = max(20, (bottom - top) * maxVisible / max(1, totalLines))
-        val trackHeight = bottom - top
-        val barY = top + (trackHeight - barHeight) * scrollIndex / max(1, maxScroll)
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF3B3B3B.toInt())
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF9B9B9B.toInt())
-    }
-
     companion object {
         private val PACK_RELEASE_CHECKED_ONCE = AtomicBoolean(false)
 
@@ -657,4 +482,33 @@ class DlcServerUpdateManagerScreen(
             return arrayOf("$sourceBase+$sourceDlc", "$targetBase+$targetDlc")
         }
     }
+
+    private var controlsReady = false
+    private var pageRevision = 0
+    override fun buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls() }
+        pageRevision = 31 * rows.hashCode() + actionButtons.hashCode() + loading.hashCode() + loadFailed.hashCode()
+
+        val list = updateSection(baseVersion, currentVersion)
+        val updates = mutableListOf<UpdateRow>()
+        for ((index, meta) in rows.withIndex()) {
+            if (meta == null) continue
+            var label = formatUpdateRowLabel(meta.getBaseOld(), meta.getDlcOld(), meta.getBaseNew(), meta.getDlcNew(), displayOld[index], displayNew[index])
+            val model = actionButtons.getOrNull(index)
+            model?.let { it.visible = rowActions[index] != DlcUpdateRowPlanner.Action.NONE; it.active = it.visible && !applying && !loading }
+            updates.add(UpdateRow(label, if (rowActions[index] == DlcUpdateRowPlanner.Action.REUPDATE) tr("dlc_manager.update.rolled_back") else null,
+                meta.resolveChangelog(DlcPlatformServices.languageCode()), model))
+        }
+        renderUpdates(list, updates, !loading && !loadFailed)
+        renderUpdateActions(importButton, urlButton, pushUpdateButton, packUpdateCheckButton)
+        if (loadFailed) action(content, tr("dlc_manager.server.files_refresh")) { refreshData() }
+        status(if (loading) tr("dlc_manager.server.update_checking") else if (loadFailed) tr("dlc_manager.server.update_failed") else if (rows.isEmpty()) tr("dlc_manager.server.update_empty") else "")
+
+    }
+    override fun updatePage() {
+        if (loading || applying) listOfNotNull(importButton, urlButton, pushUpdateButton, backButton, packUpdateCheckButton).forEach { it.active = false }
+        if (pageRevision != 31 * rows.hashCode() + actionButtons.hashCode() + loading.hashCode() + loadFailed.hashCode()) refreshPage()
+    }
+
+    override fun shouldCloseOnEsc() = !applying && !loading
 }

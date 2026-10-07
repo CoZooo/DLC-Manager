@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcRuntimeState
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.ArrayDeque
@@ -293,11 +292,11 @@ object DlcItemActions {
         }
         val title = Component.translatable("dlc_manager.batch.conflicts_title").withStyle(ChatFormatting.RED)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(returnScreen)
                     if (!accepted) {
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     onSkipConfirm?.run()
                     if (returnScreen is DlcManagerScreen) {
@@ -326,11 +325,11 @@ object DlcItemActions {
         val title = Component.translatable("dlc_manager.batch.dependencies_title")
         val enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(returnScreen)
                     if (!accepted) {
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     val planned = ArrayList<DlcItem>()
                     if (depsToEnable != null) {
@@ -350,7 +349,7 @@ object DlcItemActions {
                                 returnScreen.refreshAfterStateChange()
                             }
                         }
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     enableItems(planned, true)
                     if (returnScreen is DlcManagerScreen) {
@@ -375,11 +374,11 @@ object DlcItemActions {
         }
         val message = DlcConfirmUtil.buildDependencyPromptMessage(dependencies.names)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(returnScreen)
                     if (!accepted) {
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     for (dep in dependencies.items) {
                         dep.setEnabled(true)
@@ -410,11 +409,11 @@ object DlcItemActions {
         }
         val message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names)
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(returnScreen)
                     if (!accepted) {
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     continueEnableAfterConflictResolution(item)
                     if (returnScreen is DlcManagerScreen) {

@@ -21,7 +21,6 @@ class DlcPackInstallPlanTest {
         "tmp/pack/a",
         "info/version.dc",
         "info/notice.dc",
-        "required/notice.dc",
         "required/SKIP",
         "update/file.zip",
         "ShownOnFirstRun",

@@ -23,7 +23,6 @@ import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
 import net.minecraft.network.chat.Component
@@ -36,12 +35,10 @@ import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.TreeMap
 import java.util.concurrent.CompletableFuture
-import com.sighs.apricityui.event.MouseEvent
 import com.sighs.apricityui.init.Document
 import com.sighs.apricityui.init.Element
-import com.sighs.apricityui.layout.Box
 
-class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_manager/ui/manager.html"), DlcReturnPositionHost {
+class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), DlcReturnPositionHost {
     private val rows: MutableList<DlcListRow> = ArrayList()
     private val items: MutableList<DlcItem> = ArrayList()
     private val allItems: MutableList<DlcItem> = ArrayList()
@@ -58,20 +55,6 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
     private var backButton: DlcUiButton? = null
     private var enableAllButton: DlcUiButton? = null
     private var disableAllButton: DlcUiButton? = null
-    private var searchClearButton: DlcUiButton? = null
-    private var searchQuery = ""
-    private var tooltip: DlcUiTooltip? = null
-    private var sidebarCollapsed = false
-    private val sidebarMotion = DlcUiMotion(1.0)
-    private var lastSidebarProgress = Double.NaN
-    private val groupMotions = HashMap<String, DlcUiMotion>()
-    private val groupViews = ArrayList<GroupView>()
-
-    private class GroupView(
-        val motion: DlcUiMotion, val body: Element, val button: Element, val caret: Element, val itemCount: Int
-    ) {
-        var lastProgress = Double.NaN
-    }
     private var pendingScrollRestore = false
     private var savedScrollOffset = 0.0
     private var savedScrollFilter: DlcType? = null
@@ -283,7 +266,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         val minecraft = Minecraft.getInstance()
         if (applyMode == DlcApplyMode.RESTART_ONLY) {
             minecraft.setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted -> if (accepted) minecraft.stop() else minecraft.setScreen(parent) },
                     Component.translatable("dlc_manager.title"),
                     Component.translatable(message),
@@ -293,7 +276,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
             )
         } else if (applyMode == DlcApplyMode.TRY_HOT_RELOAD) {
             minecraft.setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { accepted ->
                         if (accepted) {
                             val future = tryReloadResources()
@@ -315,7 +298,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
             )
         } else {
             minecraft.setScreen(
-                ConfirmScreen(
+                DlcConfirmScreen(
                     { minecraft.setScreen(parent) },
                     Component.translatable("dlc_manager.title"),
                     Component.translatable(message),
@@ -671,11 +654,11 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         val title = Component.translatable("dlc_manager.batch.conflicts_title").withStyle(ChatFormatting.DARK_RED)
         rememberListScroll()
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(this)
                     if (!accepted) {
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     onSkipConfirm?.run()
                 },
@@ -721,11 +704,11 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         val enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel)
         rememberListScroll()
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(this)
                     if (!accepted) {
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     val planned = ArrayList<DlcItem>()
                     if (depsToEnable != null) {
@@ -739,13 +722,13 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
                         val filteredTargets = filterConflictTargets(planned, conflicts)
                         if (filteredTargets.isEmpty()) {
                             refreshAfterStateChange()
-                            return@ConfirmScreen
+                            return@DlcConfirmScreen
                         }
                         showBatchConflictSkipPrompt(conflicts.getLines()) {
                             enableItems(filteredTargets, true)
                             refreshAfterStateChange()
                         }
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     enableItems(planned, true)
                     refreshAfterStateChange()
@@ -844,11 +827,11 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         val message = DlcConfirmUtil.buildHeaderConfirmMessage(enable, activeFilterLabel)
         rememberListScroll()
         Minecraft.getInstance().setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted ->
                     Minecraft.getInstance().setScreen(this@DlcManagerScreen)
                     if (!accepted) {
-                        return@ConfirmScreen
+                        return@DlcConfirmScreen
                     }
                     val actionItems = getActionItems()
                     if (enable) {
@@ -890,16 +873,15 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
     }
 
     override fun bindDocument(document: Document) {
-        tooltip = DlcUiTooltip(document)
-        document.getElementById("manager-title").setTextContent(translate("dlc_manager.title"))
-        document.getElementById("category-label").setTextContent(translate("dlc_manager.ui.categories"))
-        document.getElementById("tools-label").setTextContent(translate("dlc_manager.ui.tools"))
-        bindSidebar(document)
-        bindSearch(document)
+        bindManagerLayout(document, translate("dlc_manager.title"))
         val tools = document.getElementById("manager-tools")
         tools.setInnerHTML("")
         if (DlcConfig.isUpdateManagerOn() && !DlcConfig.isUButtomShown())
             button(document, tools, translate("dlc_manager.update.manager")) { open { DlcUpdateClient.openUpdateManager(this) } }
+        if (DlcConfig.isNoticeDisplayModeManagerButton() && hasNoticeContent())
+            button(document, tools, translate("dlc_manager.notice")) { open { DlcNoticeManager.forceShow(this) } }
+        if (hasRequiredEntries())
+            button(document, tools, translate("dlc_manager.required.manage_button")) { open { Minecraft.getInstance().setScreen(DlcRequiredManagerScreen(this)) } }
         if (DlcConfig.isPresetFuncOn())
             button(document, tools, translate("dlc_manager.preset.manager")) { open { Minecraft.getInstance().setScreen(DlcPresetManagerScreen(this)) } }
         if (DlcConfig.isPackFuncOn() && !DlcConfig.isPButtomShown())
@@ -909,20 +891,16 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         val context = document.getElementById("manager-context")
         context.setInnerHTML("")
         if (DlcConfig.isConfigButtonShown())
-            button(document, context, translate("dlc_manager.config")) { open { Minecraft.getInstance().setScreen(DlcConfigScreen(this)) } }
-        if (DlcConfig.isNoticeDisplayModeManagerButton() && hasNoticeContent())
-            button(document, context, translate("dlc_manager.notice")) { open { DlcNoticeManager.forceShow(this) } }
-        if (DlcRemoteManager.hasMissing())
-            button(document, context, translate("dlc_manager.remote.complete")) { open {
-                val missing = DlcRemoteManager.collectMissing()
-                if (missing.isNotEmpty()) Minecraft.getInstance().setScreen(DlcRemoteDownloadScreen(this, missing))
-            } }
-        if (hasRequiredEntries())
-            button(document, context, translate("dlc_manager.required.manage_button")) { open { Minecraft.getInstance().setScreen(DlcRequiredManagerScreen(this)) } }
+            button(document, tools, translate("dlc_manager.config")) { open { Minecraft.getInstance().setScreen(DlcConfigScreen(this)) } }
 
         for (tool in tools.children) tool.setAttribute("class", "button nav-button")
         val batch = document.getElementById("batch-actions")
         batch.setInnerHTML("")
+        if (DlcRemoteManager.hasMissing())
+            button(document, batch, translate("dlc_manager.remote.complete")) { open {
+                val missing = DlcRemoteManager.collectMissing()
+                if (missing.isNotEmpty()) Minecraft.getInstance().setScreen(DlcRemoteDownloadScreen(this, missing))
+            } }
         enableAllButton = if (DlcConfig.isEnableAllButtonShown()) button(document, batch, "") { handleBatchToggle(true) } else null
         disableAllButton = button(document, batch, "") { handleBatchToggle(false) }
         val footer = document.getElementById("manager-actions")
@@ -937,6 +915,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         updateModeAvailability()
         updateHeaderButtonsState()
         restoreListScroll()
+        if (searchQuery.isNotBlank()) onManagerSearch(document, searchQuery)
     }
 
     private fun hasNoticeContent(): Boolean {
@@ -944,81 +923,34 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         return notice.isNoticeEnabled() && notice.hasContent(DlcPlatformServices.languageCode())
     }
 
-    private fun bindSidebar(document: Document) {
-        val sidebar = document.getElementById("sidebar-content")
-        val generation = document.refreshGeneration
-        sidebar.addEventListener("wheel") { event ->
-            if (event is MouseEvent && Minecraft.getInstance().screen === this
-                && linkedDocument === document && document.isCurrentGeneration(generation)) {
-                event.preventDefault()
-                Document.runWithContext(document) {
-                    sidebar.commitScrollMetricsFromLayout()
-                    val limit = (sidebar.scrollHeight - Box.of(sidebar).innerSize().height()).coerceAtLeast(0.0)
-                    sidebar.scrollTo(0.0, (sidebar.targetScrollTop + event.scrollDelta).coerceIn(0.0, limit))
-                }
-            }
-        }
-        val slot = document.getElementById("sidebar-toggle-slot")
-        slot.setInnerHTML("")
-        val toggle = button(document, slot, "") {
-            rememberListScroll()
-            sidebarCollapsed = !sidebarCollapsed
-            sidebarMotion.animateTo(if (sidebarCollapsed) 0.0 else 1.0, System.nanoTime())
-            renderSidebarState(document)
-            restoreListScroll()
-        }
-        toggle.getElement().setAttribute("id", "sidebar-toggle")
-        toggle.getElement().setAttribute("class", "button sidebar-toggle")
-        toggle.getElement().setAttribute("aria-controls", "manager-sidebar")
-        renderSidebarState(document)
-        lastSidebarProgress = Double.NaN
-        updateAnimations(document, System.nanoTime())
-    }
-
-    private fun renderSidebarState(document: Document) {
-        document.getElementById("manager").setAttribute("class", if (sidebarCollapsed) "manager sidebar-collapsed" else "manager")
-        val toggle = document.getElementById("sidebar-toggle")
-        toggle.setTextContent(if (sidebarCollapsed) "»" else "«")
-        toggle.setAttribute("aria-expanded", (!sidebarCollapsed).toString())
-        toggle.setAttribute("aria-label", translate(if (sidebarCollapsed) "dlc_manager.ui.expand_sidebar" else "dlc_manager.ui.collapse_sidebar"))
-        document.getElementById("manager-sidebar").setAttribute("aria-hidden", sidebarCollapsed.toString())
-    }
-
-    private fun bindSearch(document: Document) {
-        val input = document.getElementById("manager-search")
-        input.setValue(searchQuery)
-        input.setAttribute("placeholder", translate("dlc_manager.ui.search"))
-        input.setAttribute("aria-label", translate("dlc_manager.ui.search"))
-        val generation = document.refreshGeneration
-        input.addEventListener("input") {
-            if (Minecraft.getInstance().screen === this && linkedDocument === document && document.isCurrentGeneration(generation))
-                updateSearch(document, input.value)
-        }
-        val actions = document.getElementById("search-actions")
-        actions.setInnerHTML("")
-        searchClearButton = button(document, actions, "×") {
-            input.setValue("")
-            updateSearch(document, "")
-        }
-        searchClearButton!!.getElement().setAttribute("class", "button clear-search")
-        searchClearButton!!.getElement().setAttribute("aria-label", translate("dlc_manager.ui.clear_search"))
-        searchClearButton!!.setEnabled(searchQuery.isNotBlank())
-    }
-
-    private fun updateSearch(document: Document, query: String?) {
-        searchQuery = query ?: ""
+    private var searchMatches = emptySet<String>()
+    override fun onManagerSearch(document: Document, query: String?) {
+        searchQuery = query.orEmpty()
+        searchMatches = emptySet()
         savedScrollOffset = 0.0
-        document.getElementById("manager-list").setScrollTop(0.0)
-        renderRows(document)
+        val list = document.getElementById("manager-list")
+        list.setScrollTop(0.0); list.setAttribute("style", "pointer-events:none"); list.setAttribute("aria-busy", "true")
         searchClearButton?.setEnabled(searchQuery.isNotBlank())
+        val apply = java.util.function.Consumer<Set<String>> { matches ->
+            searchMatches = matches; list.removeAttribute("style"); list.removeAttribute("aria-busy")
+            renderRows(document); updateHeaderButtonsState()
+        }
+        if (searchQuery.isBlank()) {
+            filterAsync("", emptyList(), apply)
+            return
+        }
+        val entries = allItems.mapTo(ArrayList<DlcUiAsyncSearch.Entry<String>>()) {
+            DlcUiAsyncSearch.Entry("item:" + it.getId(), plain(DlcDisplayNameUtil.resolveDisplayName(it)), it.getIdentifier(), it.getSourcePath()?.toString())
+        }
+        for (row in rows) row.getRedirectEntry()?.let {
+            entries.add(DlcUiAsyncSearch.Entry(redirectSearchKey(it), plain(it.resolveDisplayName(DlcPlatformServices.languageCode())), it.getRedirectUrl()))
+        }
         updateHeaderButtonsState()
+        filterAsync(searchQuery, entries, apply)
     }
-
-    private fun matchesItem(item: DlcItem): Boolean = DlcUiSearch.matches(searchQuery,
-        plain(DlcDisplayNameUtil.resolveDisplayName(item)), item.getIdentifier(), item.getSourcePath()?.toString() ?: "")
-
-    private fun matchesRedirect(redirect: DlcRedirectEntry?): Boolean = redirect != null && DlcUiSearch.matches(searchQuery,
-        plain(redirect.resolveDisplayName(DlcPlatformServices.languageCode())), redirect.getRedirectUrl())
+    private fun redirectSearchKey(redirect: DlcRedirectEntry): String = "redirect:" + plain(redirect.resolveDisplayName(DlcPlatformServices.languageCode())) + "\n" + redirect.getRedirectUrl()
+    private fun matchesItem(item: DlcItem): Boolean = searchQuery.isBlank() || "item:" + item.getId() in searchMatches
+    private fun matchesRedirect(redirect: DlcRedirectEntry?): Boolean = redirect != null && (searchQuery.isBlank() || redirectSearchKey(redirect) in searchMatches)
 
     private fun matchesRow(row: DlcListRow): Boolean = when (row.getType()) {
         DlcListRow.RowType.ITEM -> row.getItem()?.let { matchesItem(it) } ?: false
@@ -1086,7 +1018,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
         val list = document.getElementById("manager-list")
         val scroll = list.targetScrollTop
         list.setInnerHTML("")
-        groupViews.clear()
+        clearManagerGroups()
         var rowParent = list
         var renderedRows = 0
         var renderedDlcCount = 0
@@ -1103,7 +1035,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
                 }
                 DlcListRow.RowType.PATH_HEADER -> {
                     entry.setAttribute("class", "path-heading")
-                    text(document, entry, "span", row.getLabel(), "path-label")
+                    managerText(document, entry, "span", row.getLabel(), "path-label")
                     val groupItems = row.getItems().orEmpty().filter { matchesItem(it) }
                     if (!row.isRootPath() && DlcItemActions.canToggleGroup(groupItems))
                         button(document, entry, DlcItemActions.groupToggleLabel(groupItems)) {
@@ -1112,27 +1044,12 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
                             refreshAfterStateChange()
                         }
                     val key = (groupItems.first().getType()?.name ?: "") + ":" + row.getLabel()
-                    val motion = groupMotions.getOrPut(key) { DlcUiMotion(1.0) }
-                    val body = list.appendChild(document.createElement("div"))
-                    body.setAttribute("class", "group-items")
-                    body.setAttribute("id", "dlc-group-" + groupViews.size)
-                    val collapse = button(document, entry, "") {
-                        tooltip?.hide()
-                        motion.animateTo(if (motion.getTarget() == 0.0) 1.0 else 0.0, System.nanoTime())
-                        updateAnimations(document, System.nanoTime())
-                    }
-                    collapse.getElement().setAttribute("class", "button group-collapse")
-                    collapse.getElement().setAttribute("aria-controls", body.getAttribute("id"))
-                    val caret = text(document, collapse.getElement(), "span", "", "group-caret")
-                    caret.setAttribute("aria-hidden", "true")
-                    caret.setInnerHTML("<svg viewBox=\"0 0 16 16\"><path d=\"M3 10 L8 5 L13 10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></path></svg>")
-                    groupViews.add(GroupView(motion, body, collapse.getElement(), caret, groupItems.size))
-                    rowParent = body
+                    rowParent = addManagerGroup(document, list, entry, key, groupItems.size)
                 }
                 DlcListRow.RowType.REDIRECT_ITEM -> {
                     val redirect = row.getRedirectEntry() ?: continue
                     entry.setAttribute("class", "dlc-row redirect-row")
-                    text(document, entry, "span", redirect.resolveDisplayName(DlcPlatformServices.languageCode()), "item-name")
+                    managerText(document, entry, "span", redirect.resolveDisplayName(DlcPlatformServices.languageCode()), "item-name")
                     button(document, entry, translate("dlc_manager.redirect.open")) { open {
                         Minecraft.getInstance().setScreen(DlcRedirectConfirmScreen(this, redirect.getRedirectUrl(), redirect.resolveNotice(DlcPlatformServices.languageCode())))
                     } }
@@ -1142,10 +1059,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
                     renderedDlcCount++
                     if (item.isEnabled()) enabledDlcCount++
                     val dirty = DlcRuntimeState.isBaselineDifferent(item.getId(), item.isEnabled())
-                    entry.setAttribute("class", "dlc-row" + (if (item.isEnabled()) " enabled" else "") + (if (dirty) " pending" else ""))
-                    if (dirty || item.isEnabled())
-                        text(document, entry, "span", "", "item-status-dot " + if (dirty) "pending" else "enabled").setAttribute("aria-hidden", "true")
-                    val name = text(document, entry, "span", DlcDisplayNameUtil.resolveDisplayName(item), "item-name")
+                    val name = styleManagerRow(document, entry, DlcDisplayNameUtil.resolveDisplayName(item), item.isEnabled(), dirty)
                     tooltip?.bind(entry) { itemTooltip(item) }
                     if (!item.getRedirectUrl().isNullOrBlank()) {
                         val generation = document.refreshGeneration
@@ -1154,53 +1068,21 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
                                 open { Minecraft.getInstance().setScreen(DlcRedirectConfirmScreen(this, item.getRedirectUrl()!!, "")) }
                         }
                     }
-                    if (dirty) text(document, entry, "span", getPendingSuffix(item), "pending-label")
-                    val toggle = button(document, entry, translate(if (item.isEnabled()) "dlc_manager.toggle.on" else "dlc_manager.toggle.off")) {
+                    if (dirty) managerText(document, entry, "span", getPendingSuffix(item), "pending-label")
+                    val toggle = managerToggle(document, entry, item.isEnabled()) {
                         rememberListScroll()
                         DlcItemActions.toggle(item)
                         refreshAfterStateChange()
                     }
-                    toggle.getElement().setAttribute("class", "button toggle" + (if (item.isEnabled()) " on" else ""))
-                    toggle.getElement().setAttribute("aria-pressed", item.isEnabled().toString())
                     toggle.setEnabled(!DlcPresetRuntimeState.isDlcBlocked(item.getIdentifier()) && (item.isEnabled() || !DlcRuntimeState.hasMissingDependencies(item)))
                 }
             }
         }
-        if (renderedRows == 0) text(document, list, "p", translate(if (searchQuery.isBlank()) "dlc_manager.ui.empty" else "dlc_manager.ui.no_results"), "empty-state")
+        if (renderedRows == 0) managerText(document, list, "p", translate(if (searchQuery.isBlank()) "dlc_manager.ui.empty" else "dlc_manager.ui.no_results"), "empty-state")
         document.getElementById("manager-summary").setTextContent(translate("dlc_manager.ui.summary", renderedDlcCount, enabledDlcCount))
         updatePendingStatus(document)
         updateAnimations(document, System.nanoTime())
         list.setScrollTop(scroll)
-    }
-
-    private fun updateAnimations(document: Document, now: Long) {
-        Document.runWithContext(document) {
-            val progress = sidebarMotion.valueAt(now)
-            if (progress != lastSidebarProgress) {
-                document.getElementById("manager-sidebar").setAttribute("style",
-                    "width:${172 * progress}px;border-right-width:${progress}px;opacity:$progress")
-                lastSidebarProgress = progress
-            }
-            for (group in groupViews) {
-                val value = group.motion.valueAt(now)
-                if (value == group.lastProgress) continue
-                val expanded = group.motion.getTarget() == 1.0
-                val height = if (value == 1.0) "auto" else "${group.itemCount * 40 * value}px"
-                group.body.setAttribute("style", "height:$height;opacity:$value;pointer-events:" + if (expanded) "auto" else "none")
-                group.body.setAttribute("aria-hidden", (!expanded).toString())
-                group.button.setAttribute("aria-expanded", expanded.toString())
-                group.button.setAttribute("aria-label", translate(if (expanded) "dlc_manager.ui.collapse_group" else "dlc_manager.ui.expand_group"))
-                group.caret.setAttribute("style", "transform:rotate(${(1 - value) * 180}deg)")
-                group.lastProgress = value
-            }
-        }
-    }
-
-    private fun text(document: Document, parent: Element, tag: String, value: String?, className: String): Element {
-        val element = document.createElement(tag)
-        element.setAttribute("class", className)
-        DlcUiText.set(element, value)
-        return parent.appendChild(element)
     }
 
     private fun itemTooltip(item: DlcItem): DlcUiTooltip.Content {
@@ -1257,10 +1139,6 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
     }
 
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        linkedDocument?.let {
-            updateAnimations(it, System.nanoTime())
-            Document.runWithContext(it) { tooltip?.update() }
-        }
         super.render(graphics, mouseX, mouseY, partialTick)
         val document = linkedDocument ?: return
         if (!pendingScrollRestore || document.isInitialCommitSlicing) return
@@ -1281,7 +1159,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcApricityScreen("dlc_man
     private fun showRequiredRestartPrompt() {
         val minecraft = Minecraft.getInstance()
         minecraft.setScreen(
-            ConfirmScreen(
+            DlcConfirmScreen(
                 { accepted -> if (accepted) minecraft.stop() else minecraft.setScreen(parent) },
                 Component.translatable("dlc_manager.title"),
                 Component.translatable("dlc_manager.required.restart_prompt"),

@@ -12,13 +12,12 @@ import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.List;
 
-public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
+public class DlcUpdateMissingScreen extends DlcPageScreen {
     private final Screen parent;
     private final UpdateCheckResult updateResult;
     private final List<String> missingPaths;
@@ -28,14 +27,13 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
     private boolean applying;
 
     public DlcUpdateMissingScreen(Screen parent, UpdateCheckResult updateResult, List<String> missingPaths) {
-        super(Component.translatable("dlc_manager.update.missing_title"));
+        super(parent, Component.translatable("dlc_manager.update.missing_title"));
         this.parent = parent;
         this.updateResult = updateResult;
         this.missingPaths = missingPaths == null ? List.of() : missingPaths;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int buttonWidth = 120;
         int buttonHeight = 20;
         int y = this.height - 40;
@@ -47,73 +45,6 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
             .build();
         addRenderableWidget(forceButton);
         addRenderableWidget(cancelButton);
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        int y = 20;
-        int titleX = (this.width - this.font.width(getTitle())) / 2;
-        guiGraphics.drawString(this.font, getTitle(), titleX, y, 0xFFFFFF, false);
-        y += 16;
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.update.missing_desc"), centerX, y, 0xE6E6E6);
-        y += 12;
-        drawMissingList(guiGraphics, y);
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    private void drawMissingList(GuiGraphics guiGraphics, int startY) {
-        int listTop = startY;
-        int listBottom = this.height - 70;
-        int lineHeight = 12;
-        int totalLines = missingPaths.size();
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll;
-        }
-        int y = listTop;
-        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            String path = missingPaths.get(i);
-            guiGraphics.drawString(this.font, "- " + path, 24, y, 0xE6E6E6, false);
-            y += lineHeight;
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
-    }
-
-    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return;
-        }
-        int barX = this.width - 12;
-        int barWidth = 4;
-        int barHeight = Math.max(12, (bottom - top) * maxVisible / totalLines);
-        int trackHeight = bottom - top;
-        int maxTrack = Math.max(1, trackHeight - barHeight);
-        int barY = top + (int) ((scrollIndex / (float) maxScroll) * maxTrack);
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B);
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(deltaY);
-    }
-
-    private boolean handleMouseScrolled(double deltaY) {
-        int listTop = 20 + 16 + 12;
-        int listBottom = this.height - 70;
-        int lineHeight = 12;
-        int totalLines = missingPaths.size();
-        int maxVisible = Math.max(1, (listBottom - listTop) / lineHeight);
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (maxScroll > 0) {
-            int step = deltaY > 0 ? -1 : 1;
-            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
-            return true;
-        }
-        return false;
     }
 
     @Override
@@ -218,4 +149,13 @@ public class DlcUpdateMissingScreen extends DlcScreenCompat.MouseScroll {
             : Component.translatable("dlc_manager.update.success");
         return new DlcUpdateResultScreen(parent, true, message);
     }
+
+    @Override protected void buildPage() {
+        initControls();
+        var list = section("", tr("dlc_manager.update.missing_desc"));
+        for (String path : missingPaths) row(list, path, "");
+        mount(footer, cancelButton);
+        mount(footer, forceButton).getElement().setAttribute("class", "button primary");
+    }
+
 }

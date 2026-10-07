@@ -13,18 +13,18 @@ html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hid
 .brand { display: block; flex-shrink: 0; padding: 0 8px 24px; font-size: 18px; font-weight: 600; line-height: 1.2; margin: 0; white-space: nowrap; }
 .sidebar-tools { margin-top: auto; padding-top: 24px; flex-shrink: 0; }
 .manager.sidebar-collapsed .sidebar { pointer-events: none; }
-#sidebar-toggle-slot { display: flex; }
-.button.sidebar-toggle { width: 34px; padding: 4px; font-size: 20px; }
+#sidebar-toggle-slot { display: flex; flex-shrink: 0; }
+.button.sidebar-toggle { width: 34px; min-width: 34px; padding: 4px; font-size: 20px; }
 .section-label { display: block; padding: 0 12px 10px; color: var(--muted); font-size: 11px; }
 #manager-filters, #manager-tools { flex-shrink: 0; display: flex; flex-direction: column; gap: 5px; }
 .sidebar-divider { height: 1px; min-height: 1px; margin: 20px 12px; background: var(--line); }
-.button { display: flex; align-items: center; justify-content: center; min-height: 34px; padding: 7px 12px; margin: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 13px; line-height: 1.25; font-weight: 400; cursor: pointer; white-space: nowrap; transition: background-color 120ms, border-color 120ms, color 120ms; }
+.button { display: flex; align-items: center; justify-content: center; min-width: 96px; min-height: 34px; padding: 7px 12px; margin: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font-size: 13px; line-height: 1.25; font-weight: 400; cursor: pointer; white-space: nowrap; transition: background-color 120ms, border-color 120ms, color 120ms; }
 .button:hover { background: var(--hover); border-color: #4b5c70; }
 .button:active { background: #303c4c; }
 .button:focus-visible { border-color: var(--accent); }
 .search-field:focus-within { border-color: var(--accent); }
 .button:disabled { color: #647184; background: #171d26; border-color: #252e3a; cursor: default; }
-.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; min-width: 112px; }
+.button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .button.primary:hover { background: #c4f2e2; border-color: #c4f2e2; }
 .button.primary:active { background: #85cfb7; border-color: #85cfb7; }
 .button.primary:disabled { background: #273e38; border-color: #273e38; color: #6d9386; }
@@ -35,17 +35,24 @@ html, body { display: block; width: 100%; height: 100%; margin: 0; overflow: hid
 .button.nav-button:hover { border-color: transparent; }
 .button.filter.active { color: var(--accent); background: #203831; border-left-color: var(--accent); }
 .workspace { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; padding: 20px 24px 0; overflow: hidden; }
-.workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 48px; flex-shrink: 0; margin-bottom: 12px; }
-#manager-context { display: flex; align-items: center; gap: 6px; }
+.workspace-header { display: none; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; flex-shrink: 0; margin-bottom: 12px; }
+.workspace-header.connected { display: flex; }
+.workspace-heading { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+#manager-connection { display: none; flex-direction: column; min-width: 0; gap: 2px; }
+.connection-name { display: block; color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.connection-version, .apply-scope { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; }
+#manager-context { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; flex-shrink: 0; max-width: 100%; }
+#manager-context:empty { display: none; }
 #manager-context .button { border-color: #465469; color: var(--ink); }
 #manager-context .button:hover { background: #334354; border-color: #708199; color: var(--ink); }
-.list-toolbar { display: flex; align-items: center; gap: 14px; padding: 0 0 12px; flex-shrink: 0; }
-.search-field { display: flex; align-items: center; width: 260px; min-width: 150px; min-height: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.list-toolbar { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; padding: 0 0 12px; flex-shrink: 0; }
+.search-field { display: flex; align-items: center; flex: 1; flex-basis: 240px; max-width: 300px; min-width: 150px; min-height: 34px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
 #manager-search { display: block; flex: 1; width: 0; min-width: 0; height: 32px; user-select: text; padding: 6px 10px; background: transparent; border: 0; color: var(--ink); font-size: 13px; line-height: 1.3; }
 #search-actions { display: flex; padding-right: 4px; }
-.button.clear-search { min-height: 24px; padding: 2px 6px; border: 0; background: transparent; color: var(--muted); font-size: 18px; }
-#manager-summary { display: block; flex: 1; color: var(--muted); font-size: 12px; white-space: nowrap; }
-#batch-actions { display: flex; gap: 6px; }
+.button.clear-search { min-width: 24px; min-height: 24px; padding: 2px 6px; border: 0; background: transparent; color: var(--muted); font-size: 18px; }
+#manager-summary { display: block; flex: 1; flex-basis: 120px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+#batch-actions { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; max-width: 100%; }
+#batch-actions .button, #manager-context .button { flex-shrink: 0; }
 #batch-actions .button { font-size: 12px; }
 #manager-list { display: block; flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; scrollbar-color: #465469 #11151c; padding: 0 10px 12px 0; border-top: 1px solid var(--line); }
 .group-heading { display: block; padding: 14px 12px 8px; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: 1px; }

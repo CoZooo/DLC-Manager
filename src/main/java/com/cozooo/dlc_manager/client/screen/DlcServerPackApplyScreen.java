@@ -4,17 +4,14 @@ import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerPackApplyScreen extends Screen {
+public class DlcServerPackApplyScreen extends DlcPageScreen {
     private static final int TIMEOUT_MS = 8000;
     private static final int STATUS_TIMEOUT_MS = 3000;
 
@@ -36,7 +33,7 @@ public class DlcServerPackApplyScreen extends Screen {
 
     public DlcServerPackApplyScreen(DlcServerPackManagerScreen manager, DlcServerEntry entry, List<String> order,
                                     List<String> uninstallIdentifiers, List<String> installArchives) {
-        super(Component.translatable("dlc_manager.server.pack.manager_title"));
+        super(manager, Component.translatable("dlc_manager.server.pack.manager_title"));
         this.manager = manager;
         this.entry = entry;
         this.order = order;
@@ -44,8 +41,7 @@ public class DlcServerPackApplyScreen extends Screen {
         this.installArchives = installArchives;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int buttonWidth = 104;
         int gap = 8;
         int y = this.height - 28;
@@ -208,46 +204,6 @@ public class DlcServerPackApplyScreen extends Screen {
         }
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, 18, 0xFFFFFF);
-        renderOperation(guiGraphics);
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    private void renderOperation(GuiGraphics guiGraphics) {
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 44;
-        float progress = status == null ? -1.0F : status.progress;
-        String progressText = progress >= 0.0F
-            ? Math.round(Math.max(0.0F, Math.min(1.0F, progress)) * 100.0F) + "%"
-            : "...";
-        guiGraphics.drawCenteredString(this.font, formatOperationTitle(statusText, progress, progressText), centerX, y, 0xE6E6E6);
-        y += 24;
-        drawProgress(guiGraphics, centerX - 120, y, 240, 8, progress);
-        guiGraphics.drawCenteredString(this.font, Component.literal(progressText), centerX, y + 14, 0xC8C8C8);
-        if (statusDetail != null) {
-            guiGraphics.drawCenteredString(this.font, statusDetail, centerX, y + 28, 0x9A9A9A);
-        }
-    }
-
-    private void drawProgress(GuiGraphics guiGraphics, int x, int y, int width, int height, float value) {
-        int filled = value >= 0.0F ? Math.round(width * Math.max(0.0F, Math.min(1.0F, value))) : 0;
-        guiGraphics.fill(x, y, x + width, y + height, 0xFF2B2B2B);
-        if (value < 0.0F) {
-            int pulse = (int) ((Util.getMillis() / 12L) % width);
-            guiGraphics.fill(x + Math.min(pulse, width - 24), y, x + Math.min(pulse + 24, width), y + height, 0xFF66CCFF);
-        } else {
-            guiGraphics.fill(x, y, x + filled, y + height, 0xFF66CCFF);
-        }
-    }
-
-    private Component formatOperationTitle(Component message, float progress, String progressText) {
-        String text = message.getString().replaceAll("[.。…]+$", "");
-        return progress >= 0.0F ? Component.literal(text + "：" + progressText) : Component.literal(text + "...");
-    }
-
     private Component operationDetailFor(String raw) {
         String value = raw == null ? "" : raw.trim();
         if (value.isEmpty() || "dlc_manager.pack.selecting_source".equals(value)) {
@@ -299,4 +255,17 @@ public class DlcServerPackApplyScreen extends Screen {
     public boolean shouldCloseOnEsc() {
         return finished;
     }
+
+    @Override protected void buildPage() {
+        initControls();
+        var body = node(content, "div", "page-dialog");
+        live(body, () -> statusText.getString(), "section-title");
+        progress(body, () -> status == null ? -1 : status.progress);
+        live(body, () -> status == null || status.progress < 0 ? "" : Math.round(status.progress * 100) + "%", "page-description");
+        live(body, () -> statusDetail == null ? "" : statusDetail.getString(), "page-message");
+        mount(footer, backButton).getElement().setAttribute("class", "button danger");
+        mount(footer, cancelButton).getElement().setAttribute("class", "button primary");
+    }
+    @Override protected void updatePage() { updateButtonState(); }
+
 }

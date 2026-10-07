@@ -538,14 +538,6 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
       tipSection
     ]
   },
-  required_notice: {
-    type: "required_notice",
-    label: "Required Notice",
-    summary: "static.summary.requiredNotice",
-    defaultFileName: "notice.dc",
-    supportsStructured: false,
-    sections: []
-  },
   preset: {
     type: "preset",
     label: "Preset",
@@ -579,7 +571,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
   },
   notice: {
     type: "notice",
-    label: "Notice",
+    label: "Information",
     summary: "static.summary.notice",
     defaultFileName: "notice.dc",
     supportsStructured: true,
@@ -864,7 +856,6 @@ export const orderedDocumentTypes: DocumentType[] = [
   "info",
   "remote",
   "required",
-  "required_notice",
   "preset",
   "notice",
   "redirect",
@@ -886,7 +877,3 @@ export const configurableDocumentTypes: DocumentType[] = [
   "config",
   "pack"
 ];
-
-export const internalDocumentTypes = new Set<DocumentType>([
-  "required_notice"
-]);

@@ -1,39 +1,29 @@
 package com.cozooo.dlc_manager.client.screen
 
-import com.cozooo.dlc_manager.client.download.DlcDownloadCandidate
-import com.cozooo.dlc_manager.client.download.DlcDownloadService
-import com.cozooo.dlc_manager.client.download.DlcDownloadUtil
-import com.cozooo.dlc_manager.client.required.DlcRequiredDependency
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
 import com.cozooo.dlc_manager.client.required.DlcRequiredService
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
-import com.cozooo.dlc_manager.client.required.DlcRequiredNotice
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil
 import net.minecraft.ChatFormatting
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
-import net.minecraft.client.gui.screens.ConfirmScreen
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
-import net.minecraft.util.FormattedCharSequence
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.util.ArrayDeque
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 class DlcRequiredManagerScreen(
     private val parent: Screen?,
-) : DlcScreenCompat.MouseScroll(Component.translatable("dlc_manager.required.manage_title")) {
+) : DlcRequiredPageScreen(parent, Component.translatable("dlc_manager.required.manage_title")) {
     private class InstallState {
         @Volatile var running = false
         @Volatile var done = false
@@ -50,16 +40,14 @@ class DlcRequiredManagerScreen(
     @Volatile
     private var batchInstalling = false
     private val batchState = InstallState()
-    private var noticeLines: List<String> = emptyList()
 
     private var applyAllButton: Button? = null
     private var backButton: Button? = null
     private val entryButtons: MutableMap<String, Button> = HashMap()
     private var scrollIndex = 0
 
-    override fun init() {
+    private fun initControls() {
         rebuildEntries()
-        noticeLines = splitLines(DlcRequiredNotice.load().resolveManageDesc())
         val buttonWidth = 140
         val buttonHeight = 20
         val y = height - 40
@@ -75,112 +63,6 @@ class DlcRequiredManagerScreen(
         addRenderableWidget(back)
         buildEntryButtons()
         updateApplyAllAvailability()
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        var y = 20
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        y += 18
-        for (line in getManageDescLines()) {
-            guiGraphics.drawCenteredString(font, line, centerX, y, 0xC8C8C8)
-            y += font.lineHeight + 2
-        }
-        y += 10
-
-        val listTop = y
-        val listBottom = height - 70
-        val lineHeight = 18
-        val maxVisible = max(1, (listBottom - listTop) / lineHeight)
-        val totalLines = visibleEntries.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll
-        }
-
-        var rowY = listTop
-        for (i in visibleEntries.indices) {
-            val entry = visibleEntries[i]
-            val button = entryButtons[entry.getIdentifier()]
-            val visible = i >= scrollIndex && i < scrollIndex + maxVisible
-            if (!visible) {
-                if (button != null) {
-                    button.visible = false
-                }
-                continue
-            }
-            if (button != null) {
-                button.visible = true
-                button.y = rowY - 2
-            }
-            val label = buildEntryLabel(entry)
-            guiGraphics.drawString(font, label, 20, rowY, 0xE6E6E6, false)
-            if (isMouseOverRow(mouseX, mouseY, rowY, lineHeight) && !isMouseOverButton(button, mouseX, mouseY)) {
-                renderTooltip(guiGraphics, entry, mouseX, mouseY)
-            }
-            rowY += lineHeight
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll)
-
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-        renderInstallOverlays(guiGraphics)
-    }
-
-    override fun handleCompatibleMouseScrolled(mouseX: Double, mouseY: Double, deltaY: Double): Boolean {
-        return handleMouseScrolled(mouseX, mouseY, deltaY)
-    }
-
-    private fun handleMouseScrolled(mouseX: Double, mouseY: Double, delta: Double): Boolean {
-        val listTop = getListTop()
-        val listBottom = height - 70
-        val lineHeight = 18
-        val maxVisible = max(1, (listBottom - listTop) / lineHeight)
-        val totalLines = visibleEntries.size
-        val maxScroll = max(0, totalLines - maxVisible)
-        if (maxScroll > 0) {
-            val step = if (delta > 0) -1 else 1
-            scrollIndex = max(0, min(maxScroll, scrollIndex + step))
-            return true
-        }
-        return false
-    }
-
-    private fun getListTop(): Int {
-        var y = 20 + 18
-        y += getManageDescLines().size * (font.lineHeight + 2)
-        y += 10
-        return y
-    }
-
-    private fun getManageDescLines(): List<String> {
-        return noticeLines
-    }
-
-    private fun splitLines(text: String?): List<String> {
-        if (text.isNullOrBlank()) {
-            return ArrayList()
-        }
-        if (text.contains("\n")) {
-            val parts = text.split("\\n".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
-            val lines: MutableList<String> = ArrayList()
-            for (part in parts) {
-                if (part.isNotEmpty()) {
-                    lines.add(part)
-                }
-            }
-            if (lines.isNotEmpty()) {
-                return lines
-            }
-        }
-        return ArrayList(listOf(text))
-    }
-
-    override fun resize(minecraft: Minecraft, width: Int, height: Int) {
-        super.resize(minecraft, width, height)
-        clearWidgets()
-        entryButtons.clear()
-        init()
     }
 
     private fun rebuildEntries() {
@@ -294,7 +176,7 @@ class DlcRequiredManagerScreen(
                 }
                 if (shouldPrompt) {
                     minecraft.setScreen(
-                        ConfirmScreen(
+                        DlcConfirmScreen(
                             { accepted ->
                                 if (accepted) {
                                     minecraft.stop()
@@ -339,40 +221,6 @@ class DlcRequiredManagerScreen(
             }
         }
         return true
-    }
-
-    private fun resolveExistingFileName(entry: DlcRequiredEntry): String? {
-        var fileName = entry.getRequiredFileName()
-        if (!fileName.isNullOrBlank()) {
-            return fileName
-        }
-        fileName = entry.getResolvedFileName()
-        if (!fileName.isNullOrBlank()) {
-            val target = entry.resolveRequiredPath(fileName)
-            if (target != null && Files.exists(target) && !isConfigFile(entry, target)) {
-                return fileName
-            }
-        }
-        val base = entry.getBaseName()
-        if (entry.getRequiredDir() == null || base.isBlank()) {
-            return fileName
-        }
-        try {
-            Files.newDirectoryStream(entry.getRequiredDir(), "$base.*").use { stream ->
-                for (path in stream) {
-                    if (isConfigFile(entry, path)) {
-                        continue
-                    }
-                    val name = path.fileName?.toString() ?: ""
-                    if (DlcDcFormatUtil.isDcName(name)) {
-                        continue
-                    }
-                    return name
-                }
-            }
-        } catch (_: IOException) {
-        }
-        return fileName
     }
 
     private fun uninstallEntry(root: DlcRequiredEntry?) {
@@ -476,18 +324,6 @@ class DlcRequiredManagerScreen(
                 }
             }
         }
-    }
-
-    private fun isConfigFile(entry: DlcRequiredEntry?, path: Path?): Boolean {
-        if (entry == null || path == null) {
-            return false
-        }
-        val configPath = entry.getConfigPath()
-        if (configPath != null && path == configPath) {
-            return true
-        }
-        val name = path.fileName?.toString() ?: ""
-        return DlcDcFormatUtil.isDcName(name)
     }
 
     private fun resolveAppliedFileName(entry: DlcRequiredEntry?, targets: List<Path>?): String? {
@@ -601,53 +437,6 @@ class DlcRequiredManagerScreen(
         button.message = Component.translatable("dlc_manager.required.apply_all")
     }
 
-    private fun isMouseOverRow(mouseX: Int, mouseY: Int, y: Int, height: Int): Boolean {
-        return mouseX >= 16 && mouseX <= width - 16 && mouseY >= y && mouseY <= y + height
-    }
-
-    private fun isMouseOverButton(button: Button?, mouseX: Int, mouseY: Int): Boolean {
-        if (button == null || !button.visible) {
-            return false
-        }
-        return button.isMouseOver(mouseX.toDouble(), mouseY.toDouble())
-    }
-
-    private fun renderInstallOverlays(guiGraphics: GuiGraphics) {
-        val applyAll = applyAllButton
-        if (batchState.running && applyAll != null && applyAll.visible) {
-            drawProgressButton(guiGraphics, applyAll.x, applyAll.y, applyAll.width, applyAll.height, batchState.progress)
-        }
-        for (entry in visibleEntries) {
-            val id = entry.getIdentifier()
-            if (id.isNullOrBlank()) {
-                continue
-            }
-            val state = installStates[id]
-            if (state == null || !state.running) {
-                continue
-            }
-            val button = entryButtons[id]
-            if (button == null || !button.visible) {
-                continue
-            }
-            drawProgressButton(guiGraphics, button.x, button.y, button.width, button.height, state.progress)
-        }
-    }
-
-    private fun drawProgressButton(guiGraphics: GuiGraphics, x: Int, y: Int, width: Int, height: Int, progress: Float) {
-        val bg = 0xFF2B2B2B.toInt()
-        val fg = 0xFF4CAF50.toInt()
-        guiGraphics.fill(x, y, x + width, y + height, bg)
-        val clamped = max(0f, min(1f, progress))
-        val filled = (width * clamped).toInt()
-        guiGraphics.fill(x, y, x + filled, y + height, fg)
-        val percent = (clamped * 100f).roundToInt()
-        val label = "$percent%"
-        val textX = x + (width - font.width(label)) / 2
-        val textY = y + (height - font.lineHeight) / 2 + 1
-        guiGraphics.drawString(font, label, textX, textY, 0xFFFFFF, false)
-    }
-
     private fun showRequiredErrorToast(reason: String?) {
         val safeReason = if (reason.isNullOrBlank()) "unknown" else reason
         val minecraft = Minecraft.getInstance()
@@ -694,7 +483,7 @@ class DlcRequiredManagerScreen(
                 }
                 if (shouldPrompt) {
                     minecraft.setScreen(
-                        ConfirmScreen(
+                        DlcConfirmScreen(
                             { accepted ->
                                 if (accepted) {
                                     minecraft.stop()
@@ -771,51 +560,6 @@ class DlcRequiredManagerScreen(
         state.progress = max(0f, min(1f, progress))
     }
 
-    private fun resolveFileName(entry: DlcRequiredEntry?): String? {
-        if (entry == null) {
-            return null
-        }
-        val resolver = DlcDownloadCandidate.resolver(entry)
-        try {
-            while (true) {
-                val candidates = resolver.next()
-                if (candidates.isEmpty()) {
-                    break
-                }
-                for (candidate in candidates) {
-                    var name = candidate.fileNameOverride
-                    if (!DlcDownloadUtil.isLikelyFileName(name) && candidate.direct) {
-                        name = DlcDownloadUtil.extractFileNameFromUrl(candidate.url)
-                    }
-                    name = DlcDownloadUtil.sanitizeFileName(name)
-                    if (DlcDownloadUtil.isLikelyFileName(name)) {
-                        return name
-                    }
-                }
-            }
-        } catch (_: IOException) {
-            if (Thread.currentThread().isInterrupted) {
-                Thread.currentThread().interrupt()
-            }
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-        }
-        return null
-    }
-
-    private fun renderTooltip(guiGraphics: GuiGraphics, entry: DlcRequiredEntry?, mouseX: Int, mouseY: Int) {
-        if (entry == null) {
-            return
-        }
-        val tip = resolveTip(entry)
-        if (tip.isNullOrBlank()) {
-            return
-        }
-        val maxWidth = min(260, width - 40)
-        val lines: List<FormattedCharSequence> = DlcTextFormatter.splitMultiline(font, tip, maxWidth)
-        guiGraphics.renderTooltip(font, lines, mouseX, mouseY)
-    }
-
     private fun resolveTip(entry: DlcRequiredEntry?): String {
         if (entry == null || entry.getTips().isEmpty()) {
             return ""
@@ -830,20 +574,6 @@ class DlcRequiredManagerScreen(
         return entry.getTips().values.stream().findFirst().orElse("")
     }
 
-    private fun drawScrollBar(guiGraphics: GuiGraphics, top: Int, bottom: Int, totalLines: Int, maxVisible: Int, maxScroll: Int) {
-        if (maxScroll <= 0 || totalLines <= maxVisible) {
-            return
-        }
-        val barX = width - 12
-        val barWidth = 4
-        val barHeight = max(12, (bottom - top) * maxVisible / totalLines)
-        val trackHeight = bottom - top
-        val maxTrack = max(1, trackHeight - barHeight)
-        val barY = top + ((scrollIndex / maxScroll.toFloat()) * maxTrack).toInt()
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF2B2B2B.toInt())
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF6B6B6B.toInt())
-    }
-
     companion object {
         private val INSTALL_EXECUTOR: ExecutorService = Executors.newFixedThreadPool(3) { runnable ->
             Thread(runnable, "dlc-required-install").apply {
@@ -851,4 +581,24 @@ class DlcRequiredManagerScreen(
             }
         }
     }
+
+    private var controlsReady = false
+    private var pageRevision = 0
+    override fun buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls() }
+        pageRevision = 0
+
+        val resources = visibleEntries.map { entry -> ResourceRow(entry.resolveDisplayName().orEmpty(),
+            { buildEntryLabel(entry).string }, { resolveTip(entry) }, entryButtons[entry.getIdentifier()],
+            { installStates[entry.getIdentifier()]?.takeIf { it.running }?.progress?.toDouble() ?: if (isApplied(entry)) 1.0 else 0.0 }) }
+        renderResources(resources, null, true, applyAllButton,
+            { if (batchState.running) batchState.progress.toDouble() else 0.0 })
+
+    }
+    override fun updatePage() {
+        updateEntryButtons(); updateApplyAllAvailability()
+        if (pageRevision != 0) refreshPage()
+    }
+
+    override fun shouldCloseOnEsc() = !batchInstalling && installStates.values.none { it.running }
 }

@@ -1,24 +1,20 @@
 package com.cozooo.dlc_manager.client.screen;
 
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.client.server.DlcServerCache;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
-import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
-    private static final int ROW_HEIGHT = 22;
+public class DlcServerListScreen extends DlcPageScreen {
+
 
     private final Screen parent;
     private List<DlcServerEntry> servers = List.of();
@@ -34,12 +30,11 @@ public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
     private volatile boolean connecting;
 
     public DlcServerListScreen(Screen parent) {
-        super(Component.translatable("dlc_manager.server.list_title"));
+        super(parent, Component.translatable("dlc_manager.server.list_title"));
         this.parent = parent;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         DlcServerList.load();
         servers = new ArrayList<>(DlcServerList.getEntries());
         String lastKey = DlcServerList.getLastSelectedKey();
@@ -91,108 +86,6 @@ public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
         updateButtonStates();
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 20, 0xFFFFFF);
-        int listTop = 50;
-        int listBottom = this.height - 70;
-        int maxVisible = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
-        int totalLines = servers.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll;
-        }
-        int rowY = listTop;
-        for (int i = 0; i < servers.size(); i++) {
-            DlcServerEntry entry = servers.get(i);
-            boolean visible = i >= scrollIndex && i < scrollIndex + maxVisible;
-            if (!visible) {
-                continue;
-            }
-            boolean selected = i == selectedIndex;
-            if (selected) {
-                int left = 28;
-                int right = this.width - 28;
-                int top = rowY + 2;
-                int bottom = rowY + ROW_HEIGHT;
-                guiGraphics.fill(left, top, right, bottom, 0x33222222);
-                guiGraphics.fill(left, top, right, top + 1, 0xFFFFFFFF);
-                guiGraphics.fill(left, bottom - 1, right, bottom, 0xFFFFFFFF);
-                guiGraphics.fill(left, top, left + 1, bottom, 0xFFFFFFFF);
-                guiGraphics.fill(right - 1, top, right, bottom, 0xFFFFFFFF);
-            }
-            String label = entry == null ? "" : entry.getDisplayName();
-            String host = entry == null ? "" : entry.getKey();
-            guiGraphics.drawString(this.font, DlcTextFormatter.parse(label), 36, rowY + 4, 0xE6E6E6, false);
-            guiGraphics.drawString(this.font, host, 36, rowY + 13, 0x9A9A9A, false);
-            rowY += ROW_HEIGHT;
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible, maxScroll);
-        if (connecting) {
-            guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.connecting"), centerX, listBottom + 4, 0xC8C8C8);
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        int listTop = 50;
-        int listBottom = this.height - 70;
-        if (mouseY >= listTop && mouseY <= listBottom) {
-            int index = (int) ((mouseY - listTop) / ROW_HEIGHT) + scrollIndex;
-            if (index >= 0 && index < servers.size()) {
-                selectedIndex = index;
-                String key = servers.get(index).getKey();
-                DlcServerList.setLastSelectedKey(key);
-                DlcServerList.save();
-                updateButtonStates();
-                if (button == 0) {
-                    long now = System.currentTimeMillis();
-                    if (lastClickIndex == index && now - lastClickTime < 250) {
-                        connectSelected();
-                        lastClickIndex = -1;
-                        lastClickTime = 0L;
-                        return true;
-                    }
-                    lastClickIndex = index;
-                    lastClickTime = now;
-                }
-                return true;
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(mouseX, mouseY, deltaY);
-    }
-
-    private boolean handleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        int listTop = 50;
-        int listBottom = this.height - 70;
-        if (mouseY < listTop || mouseY > listBottom) {
-            return false;
-        }
-        int maxVisible = Math.max(1, (listBottom - listTop) / ROW_HEIGHT);
-        int maxScroll = Math.max(0, servers.size() - maxVisible);
-        if (maxScroll > 0) {
-            int step = deltaY > 0 ? -1 : 1;
-            scrollIndex = Math.max(0, Math.min(maxScroll, scrollIndex + step));
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public void resize(Minecraft minecraft, int width, int height) {
-        super.resize(minecraft, width, height);
-        clearWidgets();
-        init();
-    }
-
     private void openAdd() {
         Minecraft.getInstance().setScreen(new DlcServerEditScreen(this, null, entry -> {
             servers.add(entry);
@@ -225,7 +118,7 @@ public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
         }
         Component title = Component.translatable("selectServer.deleteQuestion");
         Component message = Component.translatable("selectServer.deleteWarning", entry.getDisplayName());
-        Minecraft.getInstance().setScreen(new ConfirmScreen(result -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(result -> {
             if (result && selectedIndex >= 0 && selectedIndex < servers.size()) {
                 servers.remove(selectedIndex);
                 if (selectedIndex >= servers.size()) {
@@ -262,7 +155,7 @@ public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
                     return;
                 }
                 DlcServerCache.put(entry.getKey(), info);
-                Minecraft.getInstance().setScreen(new DlcServerMaLiLibScreen(this, entry, info));
+                Minecraft.getInstance().setScreen(new DlcServerScreen(this, entry, info));
             }));
     }
 
@@ -276,11 +169,13 @@ public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
 
     private void updateButtonStates() {
         boolean hasSelection = getSelectedEntry() != null;
+        if (addButton != null) addButton.active = !connecting;
+        if (backButton != null) backButton.active = !connecting;
         if (deleteButton != null) {
-            deleteButton.active = hasSelection;
+            deleteButton.active = hasSelection && !connecting;
         }
         if (editButton != null) {
-            editButton.active = hasSelection;
+            editButton.active = hasSelection && !connecting;
         }
         if (connectButton != null) {
             connectButton.active = hasSelection && !connecting;
@@ -293,16 +188,54 @@ public class DlcServerListScreen extends DlcScreenCompat.MouseScroll {
         return null;
     }
 
-    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int totalLines, int maxVisible, int maxScroll) {
-        if (totalLines <= maxVisible) {
-            return;
-        }
-        int barX = this.width - 20;
-        int barWidth = 6;
-        int barHeight = Math.max(20, (bottom - top) * maxVisible / Math.max(1, totalLines));
-        int trackHeight = bottom - top;
-        int barY = top + (trackHeight - barHeight) * scrollIndex / Math.max(1, maxScroll);
-        guiGraphics.fill(barX, top, barX + barWidth, bottom, 0xFF3B3B3B);
-        guiGraphics.fill(barX, barY, barX + barWidth, barY + barHeight, 0xFF9B9B9B);
+    private String query = "";
+    private java.util.Set<String> matchedServers = java.util.Set.of();
+    private final java.util.Map<Integer, com.sighs.apricityui.init.Element> serverRows = new java.util.LinkedHashMap<>();
+    @Override protected void buildPage() {
+        initControls();
+        input(toolbar, tr("dlc_manager.ui.search_servers"), query, "search", value -> { query = value; searchServers(); });
+        mount(toolbar, addButton);
+        searchServers();
+        mount(footer, deleteButton).getElement().setAttribute("class", "button danger");
+        mount(footer, editButton);
+
+        mount(footer, connectButton).getElement().setAttribute("class", "button primary");
     }
+    private void searchServers() {
+        var entries = new java.util.ArrayList<DlcUiAsyncSearch.Entry<String>>();
+        for (int i = 0; i < servers.size(); i++) {
+            var entry = servers.get(i);
+            if (entry != null) entries.add(new DlcUiAsyncSearch.Entry<>(String.valueOf(i), entry.getDisplayName(), entry.getKey()));
+        }
+        content.setAttribute("style", "pointer-events:none"); content.setAttribute("aria-busy", "true");
+        filterAsync(query, entries, matches -> {
+            matchedServers = matches; renderServers(); content.removeAttribute("style"); content.removeAttribute("aria-busy");
+        });
+    }
+    private void renderServers() {
+        content.setInnerHTML(""); serverRows.clear();
+        for (int i = 0; i < servers.size(); i++) {
+            DlcServerEntry entry = servers.get(i);
+            if (entry == null || !matchedServers.contains(String.valueOf(i))) continue;
+            int index = i;
+            var row = row(content, entry.getDisplayName(), entry.getKey());
+            row.setAttribute("class", "page-row server-row" + (index == selectedIndex ? " selected" : ""));
+            row.setAttribute("tabindex", "0");
+            row.setAttribute("role", "option");
+            row.setAttribute("aria-selected", String.valueOf(index == selectedIndex));
+            row.addEventListener("click", event -> {
+                if (connecting) return;
+                selectedIndex = index; DlcServerList.setLastSelectedKey(entry.getKey()); DlcServerList.save();
+                updateButtonStates();
+                serverRows.forEach((key, item) -> { item.setAttribute("class", "page-row server-row" + (key == selectedIndex ? " selected" : "")); item.setAttribute("aria-selected", String.valueOf(key == selectedIndex)); });
+            });
+            row.addEventListener("dblclick", event -> connectSelected());
+            serverRows.put(index, row);
+        }
+        if (serverRows.isEmpty()) text(content, tr(query.isBlank() ? "dlc_manager.ui.empty_servers" : "dlc_manager.ui.no_results"), "empty-state");
+    }
+    @Override protected void updatePage() { updateButtonStates(); status(connecting ? tr("dlc_manager.server.connecting") : ""); }
+    @Override public boolean shouldCloseOnEsc() { return !connecting; }
+    @Override public void onClose() { if (connecting) return; if (pageParent == null) Minecraft.getInstance().setScreen(new DlcManagerScreen(null)); else super.onClose(); }
+
 }

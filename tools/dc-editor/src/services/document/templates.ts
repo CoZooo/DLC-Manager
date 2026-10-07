@@ -77,13 +77,6 @@ export function createEmptyTemplate(type: DocumentType): string {
         "[tip]",
         ""
       ].join("\n");
-    case "required_notice":
-      return [
-        "[download_desc]",
-        "",
-        "[manage_desc]",
-        ""
-      ].join("\n");
     case "preset":
       return [
         "[basic]",

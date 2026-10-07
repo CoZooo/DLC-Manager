@@ -12,7 +12,7 @@ class DlcUiButton(document: Document, container: Element, label: String, action:
         element.setAttribute("class", "button")
         element.setAttribute("type", "button")
         setDisplayString(label)
-        element.addEventListener("click") { if (enabled) action.run() }
+        element.addEventListener("click") { if (enabled && !element.hasAttribute("disabled")) action.run() }
     }
 
     fun getElement(): Element = element

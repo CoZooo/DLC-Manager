@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState;
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry;
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.nio.file.Path;
@@ -299,7 +298,7 @@ public final class DlcItemActions {
         }
         Component title = Component.translatable("dlc_manager.batch.conflicts_title")
             .withStyle(net.minecraft.ChatFormatting.RED);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
                 return;
@@ -324,7 +323,7 @@ public final class DlcItemActions {
         }
         Component title = Component.translatable("dlc_manager.batch.dependencies_title");
         Component enableLabel = Component.translatable("dlc_manager.batch.enable_deps", scopeLabel);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
                 return;
@@ -365,7 +364,7 @@ public final class DlcItemActions {
             screen.rememberListScroll();
         }
         Component message = DlcConfirmUtil.buildDependencyPromptMessage(dependencies.names);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
                 return;
@@ -394,7 +393,7 @@ public final class DlcItemActions {
             screen.rememberListScroll();
         }
         Component message = DlcConfirmUtil.buildConflictPromptMessage(conflicts.names);
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             Minecraft.getInstance().setScreen(returnScreen);
             if (!accepted) {
                 return;

@@ -5,9 +5,7 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.core.DlcPaths;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import java.nio.file.DirectoryStream;
@@ -22,10 +20,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
-    private static final int LINE_HEIGHT = 10;
-    private static final int CHECKBOX_SIZE = 8;
-    private static final int CHECKBOX_X = 12;
+public class DlcServerPushScreen extends DlcFilePageScreen {
+
+
+
 
     private final Screen parent;
     private final DlcServerEntry entry;
@@ -50,15 +48,14 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
     private boolean draggingScrollBar;
 
     public DlcServerPushScreen(Screen parent, DlcServerEntry entry) {
-        super(Component.translatable("dlc_manager.server.push_title"));
+        super(parent, Component.translatable("dlc_manager.server.push_title"));
         this.parent = parent;
         this.entry = entry;
         this.rootDir = DlcPaths.gameDir().toAbsolutePath().normalize();
         this.currentDir = rootDir;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int buttonHeight = 20;
         int bottomY = this.height - 28;
         int modeWidth = 96;
@@ -100,126 +97,6 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
         updateLabels();
     }
 
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, 20, 0xFFFFFF);
-        guiGraphics.drawString(this.font,
-            Component.translatable("dlc_manager.server.push_current_dir", getCurrentDirLabel()),
-            20, 36, 0xC8C8C8, false);
-        if (!selectedFiles.isEmpty()) {
-            guiGraphics.drawString(this.font,
-                Component.translatable("dlc_manager.server.push_selected_count", selectedFiles.size()),
-                20, 48, 0xC8C8C8, false);
-        }
-        if (errorText != null && !errorText.isBlank()) {
-            guiGraphics.drawString(this.font, errorText, 20, 48, 0xE6E6E6, false);
-        }
-
-        int listTop = 80;
-        int listBottom = this.height - 60;
-        int maxVisible = Math.max(1, (listBottom - listTop) / LINE_HEIGHT);
-        int totalLines = entries.size();
-        int maxScroll = Math.max(0, totalLines - maxVisible);
-        if (scrollIndex > maxScroll) {
-            scrollIndex = maxScroll;
-        }
-        for (int i = scrollIndex; i < Math.min(totalLines, scrollIndex + maxVisible); i++) {
-            FileEntry entry = entries.get(i);
-            int rowY = listTop + (i - scrollIndex) * LINE_HEIGHT;
-            SelectionState state = getEntryState(entry);
-            drawCheckbox(guiGraphics, CHECKBOX_X, rowY + 1, CHECKBOX_SIZE, state);
-            int color = entry.isDir ? 0x66A8FF : 0xE6E6E6;
-            String label = entry.isDir ? (entry.name + "/") : entry.name;
-            guiGraphics.drawString(this.font, label, CHECKBOX_X + CHECKBOX_SIZE + 6, rowY, color, false);
-        }
-        drawScrollBar(guiGraphics, listTop, listBottom, totalLines, maxVisible);
-
-        Component modeLabel = Component.translatable("dlc_manager.server.push_mode");
-        guiGraphics.drawString(this.font, modeLabel, 20, this.height - 23, 0xC8C8C8, false);
-        if (pushing) {
-            String text = statusText == null ? "" : statusText;
-            guiGraphics.drawCenteredString(this.font, text, centerX, this.height - 48, 0xC8C8C8);
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            int listTop = 80;
-            int listBottom = this.height - 60;
-            int maxVisible = Math.max(1, (listBottom - listTop) / LINE_HEIGHT);
-            int index = (int) ((mouseY - listTop) / LINE_HEIGHT) + scrollIndex;
-            if (mouseY >= listTop && mouseY <= listBottom && index >= 0 && index < entries.size()) {
-                FileEntry entry = entries.get(index);
-                if (mouseX >= CHECKBOX_X && mouseX <= CHECKBOX_X + CHECKBOX_SIZE + 4) {
-                    toggleEntry(entry);
-                    return true;
-                }
-                if (entry.isDir) {
-                    openDirectory(entry.path);
-                    return true;
-                }
-            }
-            int barX = this.width - 10;
-            if (mouseX >= barX && mouseX <= barX + 6 && mouseY >= listTop && mouseY <= listBottom) {
-                draggingScrollBar = true;
-                updateScrollFromDrag(mouseY);
-                return true;
-            }
-        }
-        return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0) {
-            draggingScrollBar = false;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (draggingScrollBar) {
-            updateScrollFromDrag(mouseY);
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    protected boolean handleCompatibleMouseScrolled(double mouseX, double mouseY, double deltaY) {
-        return handleMouseScrolled(deltaY);
-    }
-
-    private boolean handleMouseScrolled(double deltaY) {
-        if (deltaY != 0) {
-            scrollIndex = Math.max(0, scrollIndex - (int) Math.signum(deltaY));
-            return true;
-        }
-        return false;
-    }
-
-    private void updateScrollFromDrag(double mouseY) {
-        int listTop = 80;
-        int listBottom = this.height - 60;
-        int total = entries.size();
-        int visible = Math.max(1, (listBottom - listTop) / LINE_HEIGHT);
-        int maxScroll = Math.max(0, total - visible);
-        if (maxScroll <= 0) {
-            scrollIndex = 0;
-            return;
-        }
-        int barHeight = Math.max(10, (listBottom - listTop) * visible / total);
-        int maxBarTravel = (listBottom - listTop) - barHeight;
-        int relY = (int) mouseY - listTop - barHeight / 2;
-        relY = Math.max(0, Math.min(maxBarTravel, relY));
-        scrollIndex = (int) Math.round(relY * (maxScroll / (double) maxBarTravel));
-    }
-
     private void toggleMode() {
         if (pushing) {
             return;
@@ -259,7 +136,7 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
         }
         Component title = Component.translatable("dlc_manager.server.push_title");
         Component message = Component.translatable("dlc_manager.server.push_confirm", buildTargetLabel(), getModeLabel());
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 confirmPushAgain();
             } else {
@@ -271,7 +148,7 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
     private void confirmPushAgain() {
         Component title = Component.translatable("dlc_manager.server.push_title");
         Component message = Component.translatable("dlc_manager.server.push_confirm_again");
-        Minecraft.getInstance().setScreen(new ConfirmScreen(accepted -> {
+        Minecraft.getInstance().setScreen(new DlcConfirmScreen(accepted -> {
             if (accepted) {
                 startPush();
             } else {
@@ -387,18 +264,8 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
         if (files.isEmpty()) {
             return SelectionState.NONE;
         }
-        boolean anySelected = false;
-        for (String file : files) {
-            if (selectedFiles.contains(file)) {
-                anySelected = true;
-            } else if (anySelected) {
-                return SelectionState.PARTIAL;
-            }
-        }
-        if (anySelected) {
-            return SelectionState.ALL;
-        }
-        return SelectionState.NONE;
+        long count = files.stream().filter(selectedFiles::contains).count();
+        return count == 0 ? SelectionState.NONE : count == files.size() ? SelectionState.ALL : SelectionState.PARTIAL;
     }
 
     private void toggleEntry(FileEntry entry) {
@@ -486,30 +353,6 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
         return "/" + rel;
     }
 
-    private void drawCheckbox(GuiGraphics guiGraphics, int x, int y, int size, SelectionState state) {
-        boolean checked = state == SelectionState.ALL;
-        int color = checked ? 0xFF66FF66 : 0xFF777777;
-        guiGraphics.fill(x, y, x + size, y + size, color);
-        guiGraphics.fill(x + 1, y + 1, x + size - 1, y + size - 1, 0xFF000000);
-        if (checked) {
-            guiGraphics.fill(x + 2, y + 2, x + size - 2, y + size - 2, 0xFF66FF66);
-        } else if (state == SelectionState.PARTIAL) {
-            int barY = y + size / 2 - 1;
-            guiGraphics.fill(x + 2, barY, x + size - 2, barY + 2, 0xFFBBBBBB);
-        }
-    }
-
-    private void drawScrollBar(GuiGraphics guiGraphics, int top, int bottom, int total, int visible) {
-        if (total <= visible) {
-            return;
-        }
-        int barHeight = Math.max(10, (bottom - top) * visible / total);
-        int barX = this.width - 10;
-        int maxScroll = total - visible;
-        int barY = top + (bottom - top - barHeight) * scrollIndex / Math.max(1, maxScroll);
-        guiGraphics.fill(barX, top, barX + 6, bottom, 0xFF2B2B2B);
-        guiGraphics.fill(barX, barY, barX + 6, barY + barHeight, 0xFFCCCCCC);
-    }
     private static final class FileEntry {
         private final Path path;
         private final String name;
@@ -527,4 +370,28 @@ public class DlcServerPushScreen extends DlcScreenCompat.MouseScroll {
         PARTIAL,
         ALL
     }
+
+    private boolean controlsReady;
+    private int pageRevision;
+    @Override protected void buildPage() {
+        if (!controlsReady) { controlsReady = true; initControls(); }
+        pageRevision = java.util.Objects.hash(entries, pushing);
+
+        mount(toolbar, upButton); mount(toolbar, clearButton);
+        var list = fileList(getCurrentDirLabel());
+        for (var file : entries) {
+            fileRow(list, file.name + (file.isDir ? "/" : ""), null,
+                () -> switch (getEntryState(file)) { case ALL -> "true"; case PARTIAL -> "mixed"; case NONE -> "false"; },
+                () -> !pushing, () -> toggleEntry(file), file.isDir ? () -> openDirectory(file.path) : null);
+        }
+        live(content, () -> statusText, "page-description"); live(content, () -> errorText, "page-error"); mount(footer, modeButton); mount(footer, pushButton).getElement().setAttribute("class", "button primary");
+
+    }
+    @Override protected void updatePage() {
+        updateLabels();
+        if (pageRevision != java.util.Objects.hash(entries, pushing)) refreshPage();
+        super.updatePage();
+    }
+
+    @Override public boolean shouldCloseOnEsc() { return !pushing; }
 }

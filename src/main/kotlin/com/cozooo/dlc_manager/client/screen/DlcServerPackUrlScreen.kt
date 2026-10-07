@@ -3,16 +3,14 @@ package com.cozooo.dlc_manager.client.screen
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
 class DlcServerPackUrlScreen(
     private val parent: DlcServerPackManagerScreen,
     private val entry: DlcServerEntry,
-) : Screen(Component.translatable("dlc_manager.pack.import_url_title")) {
+) : DlcUrlPageScreen(parent, Component.translatable("dlc_manager.pack.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null
@@ -21,7 +19,7 @@ class DlcServerPackUrlScreen(
     private var urlValue = ""
     private var statusText: String? = null
 
-    override fun init() {
+    private fun initControls() {
         val fieldWidth = minOf(320, width - 40)
         val fieldX = width / 2 - fieldWidth / 2
         val fieldY = height / 2 - 20
@@ -49,34 +47,6 @@ class DlcServerPackUrlScreen(
         addRenderableWidget(paste)
         addRenderableWidget(back)
         updateButtons()
-    }
-
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        val centerX = width / 2
-        val y = height / 2 - 80
-        guiGraphics.drawCenteredString(font, title, centerX, y, 0xFFFFFF)
-        guiGraphics.drawCenteredString(font, Component.translatable("dlc_manager.pack.url_prompt"), centerX, y + 18, 0xC8C8C8)
-        if (!statusText.isNullOrBlank()) {
-            guiGraphics.drawCenteredString(font, statusText.orEmpty(), centerX, height / 2 + 60, if (working) 0xE6E6E6 else 0xFF6B6B)
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int): Boolean {
-        if (urlField?.keyPressed(keyCode, scanCode, modifiers) == true) return true
-        return super.keyPressed(keyCode, scanCode, modifiers)
-    }
-
-    override fun charTyped(codePoint: Char, modifiers: Int): Boolean {
-        if (urlField?.charTyped(codePoint, modifiers) == true) return true
-        return super.charTyped(codePoint, modifiers)
-    }
-
-    override fun resize(minecraft: Minecraft, width: Int, height: Int) {
-        urlField?.let { urlValue = it.value }
-        super.resize(minecraft, width, height)
-        urlField?.value = urlValue
     }
 
     private fun pasteClipboard() {
@@ -118,4 +88,14 @@ class DlcServerPackUrlScreen(
         pasteButton?.active = !working
         backButton?.active = !working
     }
+
+    override fun buildPage() {
+        urlField?.let { urlValue = it.value }
+        initControls()
+        renderUrlForm("dlc_manager.pack.url_prompt", urlField, pasteButton, downloadButton,
+            { statusText }, null, null, null, { working })
+    }
+    override fun updatePage() { updateButtons(); urlField?.active = !working }
+
+    override fun shouldCloseOnEsc() = !working
 }

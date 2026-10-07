@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import com.cozooo.dlc_manager.client.server.DlcServerInfo;
 import com.cozooo.dlc_manager.client.server.DlcServerList;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -16,10 +15,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public class DlcServerPasswordScreen extends Screen {
+public class DlcServerPasswordScreen extends DlcPageScreen {
     private final Screen parent;
     private final DlcServerEntry entry;
     private final boolean autoConnect;
+    private boolean autoConnectAttempted;
     private final boolean openServerManagerOnSuccess;
     private EditBox portField;
     private EditBox passwordField;
@@ -32,15 +32,14 @@ public class DlcServerPasswordScreen extends Screen {
     }
 
     public DlcServerPasswordScreen(Screen parent, DlcServerEntry entry, boolean autoConnect, boolean openServerManagerOnSuccess) {
-        super(Component.translatable("dlc_manager.server.password_title"));
+        super(parent, Component.translatable("dlc_manager.server.password_title"));
         this.parent = parent;
         this.entry = entry;
         this.autoConnect = autoConnect;
         this.openServerManagerOnSuccess = openServerManagerOnSuccess;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int fieldWidth = Math.min(260, this.width - 40);
         int fieldHeight = 18;
         int centerX = this.width / 2;
@@ -69,32 +68,10 @@ public class DlcServerPasswordScreen extends Screen {
         addRenderableWidget(connectButton);
         addRenderableWidget(backButton);
         updateButtonState();
-        if (autoConnect && entry.password != null && !entry.password.isBlank()) {
+        if (autoConnect && !autoConnectAttempted && entry.password != null && !entry.password.isBlank()) {
+            autoConnectAttempted = true;
             startConnect();
         }
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, this.height / 2 - 60, 0xFFFFFF);
-        String address = entry.host == null ? "" : entry.host;
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.server.address", address), centerX, this.height / 2 - 48, 0xC8C8C8);
-        drawFieldLabel(guiGraphics, "dlc_manager.server.port", portField);
-        drawFieldLabel(guiGraphics, "dlc_manager.server.password", passwordField);
-        updateButtonState();
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    private void drawFieldLabel(GuiGraphics guiGraphics, String key, EditBox field) {
-        int labelWidth = this.font.width(Component.translatable(key));
-        int x = field.getX() - labelWidth - 8;
-        if (x < 8) {
-            x = 8;
-        }
-        int y = field.getY() + (field.getHeight() - this.font.lineHeight) / 2;
-        guiGraphics.drawString(this.font, Component.translatable(key), x, y, 0xC8C8C8, false);
     }
 
     private void updateButtonState() {
@@ -133,7 +110,7 @@ public class DlcServerPasswordScreen extends Screen {
                 if (openServerManagerOnSuccess) {
                     Minecraft.getInstance().setScreen(new DlcServerManagerScreen(parent, entry, info, DlcServerManagerScreen.Tab.SERVERS, true));
                 } else {
-                    Minecraft.getInstance().setScreen(new DlcServerMaLiLibScreen(parent, entry, info));
+                    Minecraft.getInstance().setScreen(new DlcServerScreen(parent, entry, info));
                 }
             }));
     }
@@ -192,4 +169,22 @@ public class DlcServerPasswordScreen extends Screen {
             return -1;
         }
     }
+
+    @Override protected void buildPage() {
+        String portDraft = portField == null ? null : portField.getValue();
+        String passwordDraft = passwordField == null ? null : passwordField.getValue();
+        initControls();
+        if (portDraft != null && portField != null) portField.setValue(portDraft);
+        if (passwordDraft != null && passwordField != null) passwordField.setValue(passwordDraft);
+        var form = node(content, "div", "page-dialog");
+        text(form, tr("dlc_manager.server.address", entry.host == null ? "" : entry.host), "page-description");
+        mount(form, portField, tr("dlc_manager.server.port"), "text");
+        mount(form, passwordField, tr("dlc_manager.server.password"), "password");
+
+        mount(footer, connectButton).getElement().setAttribute("class", "button primary");
+    }
+    @Override protected void updatePage() { updateButtonState(); status(connecting ? tr("dlc_manager.server.connecting") : ""); }
+    @Override public void onClose() { if (!connecting) super.onClose(); }
+
+    @Override public boolean shouldCloseOnEsc() { return !connecting; }
 }

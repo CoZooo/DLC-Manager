@@ -6,6 +6,15 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DlcUiSearchTest {
     @Test
+    void cachedQueriesSwitchAndClearWithoutKeepingPreviousTokens() {
+        assertTrue(DlcUiSearch.matches("gao", "高清材质包"));
+        assertFalse(DlcUiSearch.matches("missing", "高清材质包"));
+        assertTrue(DlcUiSearch.matches("", "高清材质包"));
+        assertTrue(DlcUiSearch.matches("de", "的"));
+        DlcUiSearch.warmup("高清材质包");
+        assertTrue(DlcUiSearch.matches("gaoqing", "高清材质包"));
+    }
+    @Test
     void blankSearchIncludesUnnamedEntries() {
         assertTrue(DlcUiSearch.matches(null, (String) null));
         assertTrue(DlcUiSearch.matches("  ", ""));
@@ -27,5 +36,21 @@ class DlcUiSearchTest {
         } finally {
             Locale.setDefault(previous);
         }
+    }
+
+    @Test
+    void matchesChineseUsingPinyinWithOrWithoutSpaces() {
+        assertTrue(DlcUiSearch.matches("de", "的"));
+        assertTrue(DlcUiSearch.matches("gaoqingcaizhi", "高清材质包"));
+        assertTrue(DlcUiSearch.matches("gao qing cai zhi", "高清材质包"));
+        assertTrue(DlcUiSearch.matches("GAOQING", "高清材质包"));
+        assertFalse(DlcUiSearch.matches("missing", "高清材质包"));
+    }
+
+    @Test
+    void combinesChinesePinyinAndOriginalFields() {
+        assertTrue(DlcUiSearch.matches("材质 gaoqing weapons", "高清材质包", "weapons"));
+        assertTrue(DlcUiSearch.matches("peizhi", "", null, "配置选项"));
+        assertFalse(DlcUiSearch.matches("材质 missing", "高清材质包"));
     }
 }

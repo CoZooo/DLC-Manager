@@ -3,13 +3,11 @@ package com.cozooo.dlc_manager.client.screen;
 import com.cozooo.dlc_manager.client.server.DlcServerConnection;
 import com.cozooo.dlc_manager.client.server.DlcServerEntry;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-public class DlcServerPackUrlScreen extends Screen {
+public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
     private final DlcServerPackManagerScreen parent;
     private final DlcServerEntry entry;
     private EditBox urlField;
@@ -21,13 +19,12 @@ public class DlcServerPackUrlScreen extends Screen {
     private String statusText;
 
     public DlcServerPackUrlScreen(DlcServerPackManagerScreen parent, DlcServerEntry entry) {
-        super(Component.translatable("dlc_manager.pack.import_url_title"));
+        super(parent, Component.translatable("dlc_manager.pack.import_url_title"));
         this.parent = parent;
         this.entry = entry;
     }
 
-    @Override
-    protected void init() {
+    private void initControls() {
         int fieldWidth = Math.min(320, this.width - 40);
         int fieldHeight = 18;
         int fieldX = this.width / 2 - fieldWidth / 2;
@@ -57,46 +54,6 @@ public class DlcServerPackUrlScreen extends Screen {
         addRenderableWidget(pasteButton);
         addRenderableWidget(backButton);
         updateButtons();
-    }
-
-    @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick);
-        int centerX = this.width / 2;
-        int y = this.height / 2 - 80;
-        guiGraphics.drawCenteredString(this.font, getTitle(), centerX, y, 0xFFFFFF);
-        guiGraphics.drawCenteredString(this.font, Component.translatable("dlc_manager.pack.url_prompt"), centerX, y + 18, 0xC8C8C8);
-        if (statusText != null && !statusText.isBlank()) {
-            guiGraphics.drawCenteredString(this.font, statusText, centerX, this.height / 2 + 60, working ? 0xE6E6E6 : 0xFF6B6B);
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick);
-    }
-
-    @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (urlField != null && urlField.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        return super.keyPressed(keyCode, scanCode, modifiers);
-    }
-
-    @Override
-    public boolean charTyped(char codePoint, int modifiers) {
-        if (urlField != null && urlField.charTyped(codePoint, modifiers)) {
-            return true;
-        }
-        return super.charTyped(codePoint, modifiers);
-    }
-
-    @Override
-    public void resize(Minecraft minecraft, int width, int height) {
-        if (urlField != null) {
-            urlValue = urlField.getValue();
-        }
-        super.resize(minecraft, width, height);
-        if (urlField != null) {
-            urlField.setValue(urlValue);
-        }
     }
 
     private void pasteClipboard() {
@@ -145,4 +102,14 @@ public class DlcServerPackUrlScreen extends Screen {
         if (pasteButton != null) pasteButton.active = !working;
         if (backButton != null) backButton.active = !working;
     }
+
+    @Override protected void buildPage() {
+        if (urlField != null) urlValue = urlField.getValue();
+        initControls();
+        renderUrlForm("dlc_manager.pack.url_prompt", urlField, pasteButton, downloadButton,
+                () -> statusText, null, null, null, () -> working);
+    }
+    @Override protected void updatePage() { updateButtons(); if (urlField != null) urlField.active = !working; }
+
+    @Override public boolean shouldCloseOnEsc() { return !working; }
 }

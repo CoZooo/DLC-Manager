@@ -6,7 +6,6 @@ import com.cozooo.dlc_manager.client.server.DlcServerList
 import com.cozooo.dlc_manager.client.server.DlcServerRconInfo
 import com.cozooo.dlc_manager.server.DlcRconClient
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
@@ -16,7 +15,7 @@ import java.util.concurrent.CompletableFuture
 class DlcServerRconScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : Screen(Component.translatable("dlc_manager.server.rcon_title")) {
+) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.rcon_title")) {
     private var portField: EditBox? = null
     private var passwordField: EditBox? = null
     private var connectButton: Button? = null
@@ -37,7 +36,7 @@ class DlcServerRconScreen(
     private var rconPort = 25575
     private var rconPassword = ""
 
-    override fun init() {
+    private fun initControls() {
         clearWidgets()
         loadSavedRcon()
         if (connectOnly) {
@@ -118,49 +117,6 @@ class DlcServerRconScreen(
         updateButtonStates()
     }
 
-    override fun render(guiGraphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
-        DlcScreenCompat.renderModalBackground(this, guiGraphics, mouseX, mouseY, partialTick)
-        guiGraphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFF)
-
-        val hostValue = entry?.host ?: ""
-        val hostLabel = Component.translatable("dlc_manager.server.rcon_host")
-        val hostLabelWidth = font.width(hostLabel)
-        val hostX = width / 2 - 120
-        guiGraphics.drawString(font, hostLabel, hostX, 42, 0xC8C8C8, false)
-        guiGraphics.drawString(font, hostValue, hostX + hostLabelWidth + 6, 42, 0xE6E6E6, false)
-
-        if (!statusText.isNullOrBlank()) {
-            guiGraphics.drawCenteredString(font, statusText ?: "", width / 2, 60, 0xC8C8C8)
-        }
-
-        if (connectOnly) {
-            val port = portField
-            if (port != null) {
-                val portLabel = Component.translatable("dlc_manager.server.rcon_port")
-                val labelX = port.x - font.width(portLabel) - 6
-                guiGraphics.drawString(font, portLabel, labelX, port.y + 6, 0xC8C8C8, false)
-            }
-            val password = passwordField
-            if (password != null) {
-                val passwordLabel = Component.translatable("dlc_manager.server.rcon_password")
-                val labelX = password.x - font.width(passwordLabel) - 6
-                guiGraphics.drawString(font, passwordLabel, labelX, password.y + 6, 0xC8C8C8, false)
-            }
-        }
-        DlcScreenCompat.renderWidgets(this, guiGraphics, mouseX, mouseY, partialTick)
-    }
-
-    override fun tick() {
-        if (connectOnly) {
-            connectButton?.active = !connectingRcon
-            return
-        }
-        val enable = connected
-        playersButton?.active = enable
-        consoleButton?.active = enable
-        quickButton?.active = enable
-    }
-
     private fun connect() {
         val host = entry?.host ?: ""
         val port = parsePort()
@@ -190,7 +146,7 @@ class DlcServerRconScreen(
                         statusText = Component.translatable("dlc_manager.server.rcon_connected").string
                         saveRconConfig()
                         connectOnly = false
-                        init()
+                        refreshPage()
                     }
                     updateButtonStates()
                 }
@@ -302,4 +258,26 @@ class DlcServerRconScreen(
         DlcServerList.setEntries(list)
         DlcServerList.save()
     }
+
+    override fun buildPage() {
+        val portDraft = portField?.value
+        val passwordDraft = passwordField?.value
+        initControls()
+        if (portDraft != null) portField?.value = portDraft
+        if (passwordDraft != null) passwordField?.value = passwordDraft
+        val body = node(content, "div", "page-dialog")
+        text(body, tr("dlc_manager.server.rcon_host") + "  " + entry?.host.orEmpty(), "page-description")
+        live(body, { statusText }, "page-message")
+        if (connectOnly) {
+            portField?.let { mount(body, it, tr("dlc_manager.server.rcon_port"), "text") }
+            passwordField?.let { mount(body, it, tr("dlc_manager.server.rcon_password"), "password") }
+            connectButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+        } else {
+            playersButton?.let { mount(row(body, tr("dlc_manager.server.rcon_players"), ""), it) }
+            consoleButton?.let { mount(row(body, tr("dlc_manager.server.rcon_console"), ""), it) }
+            quickButton?.let { mount(row(body, tr("dlc_manager.server.rcon_common"), ""), it) }
+        }
+    }
+    override fun updatePage() { updateButtonStates() }
+
 }
