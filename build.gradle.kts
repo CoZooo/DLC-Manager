@@ -50,6 +50,7 @@ buildscript {
 
 plugins {
     id("gg.meza.stonecraft") apply false
+    id("dev.architectury.loom") apply false
     id("com.gradleup.shadow")
     id("org.jetbrains.kotlin.jvm") apply false
     id("me.modmuss50.mod-publish-plugin") apply false
@@ -602,7 +603,7 @@ if (stoneNodes.contains(project.name)) {
         exclude("rebel.xml")
     }
     tasks.withType<ProcessResources>().configureEach {
-        notCompatibleWithConfigurationCache("StoneCraft 1.12.4 processResources actions capture Project.")
+        notCompatibleWithConfigurationCache("StoneCraft processResources actions capture Project.")
     }
 
     if (kotlinEnabled) {
