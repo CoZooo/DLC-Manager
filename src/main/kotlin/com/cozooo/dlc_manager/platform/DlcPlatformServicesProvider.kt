@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.platform
 
+import com.cozooo.dlc_manager.bootstrap.DlcDistributionPaths
+
 import com.cozooo.dlc_manager.client.DlcMinecraftSupport
 import dev.architectury.platform.Platform
 import dev.architectury.utils.Env
@@ -82,9 +84,9 @@ class DlcPlatformServicesProvider : DlcPlatformServices.Provider {
             return null
         }
         return try {
-            Platform.getOptionalMod(modId)
+            DlcDistributionPaths.originalModFile(modId, Platform.getOptionalMod(modId)
                 .flatMap { mod -> mod.filePaths.stream().findFirst() }
-                .orElse(null)
+                .orElse(null))
         } catch (_: Throwable) {
             null
         }

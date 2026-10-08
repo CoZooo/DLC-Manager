@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.world
 
+import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements
 import com.cozooo.dlc_manager.core.DlcItem
 import com.cozooo.dlc_manager.core.DlcConfig
 import com.cozooo.dlc_manager.core.DlcScanner
@@ -35,7 +36,7 @@ object DlcWorldSync {
                 DlcServerService.updateServerStatus(server)
                 DlcServerApi.start(server)
                 DlcServerService.start()
-                startServerRequiredDownload(server)
+                if (!DlcStartupRequirements.usesEarlyInstallation()) startServerRequiredDownload(server)
             }
         }
         LifecycleEvent.SERVER_STOPPING.register {

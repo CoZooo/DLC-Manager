@@ -1,10 +1,7 @@
 package com.cozooo.dlc_manager.client.required
 
-import com.cozooo.dlc_manager.core.DlcDcConfigIO
 import com.cozooo.dlc_manager.core.DlcPaths
-import com.cozooo.dlc_manager.platform.DlcPlatformServices
 import java.nio.file.Path
-import java.util.Collections
 import java.util.Locale
 
 class DlcRequiredEntry(
@@ -13,8 +10,6 @@ class DlcRequiredEntry(
 ) {
     private val baseName: String
     private var identifier: String
-    private val displayNames: MutableMap<String, String> = HashMap()
-    private val tips: MutableMap<String, String> = HashMap()
     private var requiredFileName: String? = null
     private var directUrl: String? = null
     private var directUrls: MutableList<String> = ArrayList()
@@ -23,9 +18,7 @@ class DlcRequiredEntry(
     private var modrinthVersionId: String? = null
     private var curseforgeProjectId: String? = null
     private var curseforgeFileId: String? = null
-    private var hidden = false
     private var appliedTargetRaw: String? = null
-    private var redirectUrl: String? = null
     private var resolvedFileName: String? = null
     private val dependencies: MutableList<DlcRequiredDependency> = ArrayList()
 
@@ -48,24 +41,6 @@ class DlcRequiredEntry(
         if (!identifier.isNullOrBlank()) {
             this.identifier = identifier
         }
-    }
-
-    fun getDisplayNames(): Map<String, String> = Collections.unmodifiableMap(displayNames)
-
-    fun putDisplayName(lang: String?, value: String?) {
-        if (lang.isNullOrBlank() || value == null) {
-            return
-        }
-        displayNames[lang] = value
-    }
-
-    fun getTips(): Map<String, String> = Collections.unmodifiableMap(tips)
-
-    fun putTip(lang: String?, value: String?) {
-        if (lang.isNullOrBlank() || value == null) {
-            return
-        }
-        tips[lang] = value
     }
 
     fun getDirectUrl(): String? {
@@ -161,12 +136,6 @@ class DlcRequiredEntry(
         return parsePriority(downloadPriority)
     }
 
-    fun isHidden(): Boolean = hidden
-
-    fun setHidden(hidden: Boolean) {
-        this.hidden = hidden
-    }
-
     fun getDependencies(): MutableList<DlcRequiredDependency> = dependencies
 
     fun addDependency(dependency: DlcRequiredDependency?) {
@@ -180,12 +149,6 @@ class DlcRequiredEntry(
     }
 
     fun getAppliedTargetRaw(): String? = appliedTargetRaw
-
-    fun setRedirectUrl(redirectUrl: String?) {
-        this.redirectUrl = redirectUrl
-    }
-
-    fun getRedirectUrl(): String? = redirectUrl
 
     fun setResolvedFileName(resolvedFileName: String?) {
         this.resolvedFileName = resolvedFileName
@@ -228,17 +191,7 @@ class DlcRequiredEntry(
         if (fallback.isBlank()) {
             fallback = "required"
         }
-        if (displayNames.isEmpty()) {
-            return fallback
-        }
-        val lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode())
-        if (displayNames.containsKey(lang)) {
-            return displayNames[lang] ?: fallback
-        }
-        if (displayNames.containsKey("en_us")) {
-            return displayNames["en_us"] ?: fallback
-        }
-        return displayNames.values.firstOrNull() ?: fallback
+        return fallback
     }
 
     companion object {

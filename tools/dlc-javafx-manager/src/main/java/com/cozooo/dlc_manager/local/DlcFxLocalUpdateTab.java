@@ -1,13 +1,13 @@
 package com.cozooo.dlc_manager.local;
 
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+
 import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateCoordinator;
 import com.cozooo.dlc_manager.client.pack.DlcPackUpdateGuard;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry;
 import com.cozooo.dlc_manager.client.remote.DlcRemoteRuntime;
-import com.cozooo.dlc_manager.client.required.DlcRequiredEntry;
-import com.cozooo.dlc_manager.client.required.DlcRequiredRuntime;
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult;
@@ -672,6 +672,11 @@ public final class DlcFxLocalUpdateTab {
         thread.start();
     }
 
+    private void ensureRequiredResources() {
+        DlcFxManagerApp app = DlcFxManagerApp.instance();
+        if (app != null) app.ensureLocalRequiredResources();
+    }
+
     private void handleApplyResult(UpdateApplyResult result) {
         if (result == null) {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.result_unknown"));
@@ -684,6 +689,7 @@ public final class DlcFxLocalUpdateTab {
         statusLabel.setText(describeApply(result));
         if (result.isSuccess()) {
             checkLocalAsync();
+            ensureRequiredResources();
         }
     }
 
@@ -736,6 +742,7 @@ public final class DlcFxLocalUpdateTab {
                     setBusy(false, null);
                     if (forced.isSuccess()) {
                         checkLocalAsync();
+                        ensureRequiredResources();
                     }
                 });
             } catch (Throwable t) {
@@ -764,6 +771,7 @@ public final class DlcFxLocalUpdateTab {
                     setBusy(false, null);
                     if (result.isSuccess()) {
                         checkLocalAsync();
+                        ensureRequiredResources();
                     }
                 });
             } catch (Throwable t) {
@@ -825,10 +833,6 @@ public final class DlcFxLocalUpdateTab {
             StringBuilder sb = new StringBuilder(DlcFxI18n.tr("dlc_manager.update.result_success"));
             if (result.hasRequiredAdd()) {
                 sb.append(DlcFxI18n.tr("dlc_manager.update.result_required_added"));
-                List<DlcRequiredEntry> missing = DlcRequiredRuntime.collectMissingDownloadsForPrompt();
-                if (!missing.isEmpty()) {
-                    sb.append(DlcFxI18n.tr("dlc_manager.update.result_required_missing", missing.size()));
-                }
             }
             if (result.hasRemoteAdd()) {
                 sb.append(DlcFxI18n.tr("dlc_manager.update.result_remote_added"));

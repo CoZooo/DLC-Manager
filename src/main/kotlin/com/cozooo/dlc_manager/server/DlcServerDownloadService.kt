@@ -411,7 +411,7 @@ object DlcServerDownloadService {
             for (item in items) {
                 val view = DlcServerRequiredProgressItem()
                 view.id = item.id
-                view.name = resolveRequiredDisplayName(item.entry, lang)
+                view.name = resolveRequiredDisplayName(item.entry)
                 view.totalBytes = item.totalBytes
                 view.downloadedBytes = item.downloaded.get()
                 view.done = item.done
@@ -469,7 +469,6 @@ object DlcServerDownloadService {
         val items = ArrayList<DlcServerRequiredItem>()
         val entries = loadAllRequiredEntries(dlcRoot)
         for (entry in entries) {
-            if (entry.isHidden()) continue
             val fileName = resolveExistingFileName(entry)
             entry.setResolvedFileName(fileName)
             val hasFile = fileName != null &&
@@ -480,16 +479,13 @@ object DlcServerDownloadService {
             val item = DlcServerRequiredItem()
             item.id = safeId(entry)
             item.identifier = entry.getIdentifier()
-            item.name = resolveRequiredDisplayName(entry, lang)
-            item.displayNames.putAll(entry.getDisplayNames())
-            item.tips.putAll(entry.getTips())
+            item.name = resolveRequiredDisplayName(entry)
             for (dep in entry.getDependencies()) {
                 val identifier = dep?.getIdentifier()
                 if (!identifier.isNullOrBlank()) {
                     item.dependencies.add(identifier)
                 }
             }
-            item.hidden = entry.isHidden()
             item.hasFile = hasFile
             item.needsApply = needsApply
             item.applied = hasFile && !needsApply
@@ -555,9 +551,8 @@ object DlcServerDownloadService {
             val targets = if (!ids.isNullOrEmpty()) collectRequiredDependencies(ids, index) else entries
             val items = ArrayList<RequiredItemState>()
             for (entry in targets) {
-                if (entry.isHidden()) continue
                 val id = safeId(entry)
-                val name = resolveRequiredDisplayName(entry, lang)
+                val name = resolveRequiredDisplayName(entry)
                 items.add(RequiredItemState(entry, id, name))
             }
             val session = RequiredDownloadSession(items)
@@ -745,29 +740,7 @@ object DlcServerDownloadService {
         return name ?: ""
     }
 
-    private fun resolveRequiredDisplayName(entry: DlcRequiredEntry?, langOverride: String?): String {
-        if (entry == null) return ""
-        var fallback = entry.getBaseName()
-        if (fallback.isBlank()) {
-            fallback = entry.getIdentifier()
-        }
-        if (fallback.isBlank()) {
-            fallback = "required"
-        }
-        val displayNames = entry.getDisplayNames()
-        if (displayNames.isEmpty()) {
-            return fallback
-        }
-        val lang = normalizeLang(langOverride)
-        var name = displayNames[lang]
-        if (name.isNullOrBlank()) {
-            name = displayNames["en_us"]
-        }
-        if (name.isNullOrBlank()) {
-            name = displayNames.values.firstOrNull() ?: fallback
-        }
-        return name ?: ""
-    }
+    private fun resolveRequiredDisplayName(entry: DlcRequiredEntry?): String = entry?.resolveDisplayName() ?: ""
 
     private fun normalizeLang(langOverride: String?): String? {
         var lang = langOverride
@@ -1634,24 +1607,11 @@ object DlcServerDownloadService {
         val fileName = if (fileNameOverride.isNullOrBlank()) getString(obj, "file_name") else fileNameOverride
         ordered.addProperty("file_name", fileName ?: "")
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"))
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
-        ordered.addProperty("dependencies", getString(obj, "dependencies"))
-        val display = JsonObject()
-        val displayObj = obj.get("DisplayName")
-        if (displayObj != null && displayObj.isJsonObject) {
-            for ((key, value) in displayObj.asJsonObject.entrySet()) {
-                display.addProperty(key, value.asString)
-            }
+        val dependencies = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
+        ordered.add("dependencies", dependencies ?: JsonPrimitive(""))
+        for ((key, value) in obj.entrySet()) {
+            if (!ordered.has(key)) ordered.add(key, value)
         }
-        ordered.add("DisplayName", display)
-        val tipObj = JsonObject()
-        val tip = obj.get("tip")
-        if (tip != null && tip.isJsonObject) {
-            for ((key, value) in tip.asJsonObject.entrySet()) {
-                tipObj.addProperty(key, value.asString)
-            }
-        }
-        ordered.add("tip", tipObj)
         return ordered
     }
 

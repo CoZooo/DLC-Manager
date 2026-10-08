@@ -536,20 +536,26 @@ object DlcDcFormatUtil {
             }
         }
 
-        indentLine(out, indent)
-        out.append('\n')
-        indentLine(out, indent)
-        out.append("[DisplayName]\n")
-        for ((key, value) in asObject(node.get("DisplayName")).entrySet()) {
-            out.append(formatKeyValue(key, value)).append('\n')
+        val display = asObject(node.get("DisplayName"))
+        if (display.entrySet().isNotEmpty()) {
+            indentLine(out, indent)
+            out.append('\n')
+            indentLine(out, indent)
+            out.append("[DisplayName]\n")
+            for ((key, value) in display.entrySet()) {
+                out.append(formatKeyValue(key, value)).append('\n')
+            }
         }
 
-        indentLine(out, indent)
-        out.append('\n')
-        indentLine(out, indent)
-        out.append("[tip]\n")
-        for ((key, value) in asObject(node.get("tip")).entrySet()) {
-            out.append(formatKeyValue(key, value)).append('\n')
+        val tip = asObject(node.get("tip"))
+        if (tip.entrySet().isNotEmpty()) {
+            indentLine(out, indent)
+            out.append('\n')
+            indentLine(out, indent)
+            out.append("[tip]\n")
+            for ((key, value) in tip.entrySet()) {
+                out.append(formatKeyValue(key, value)).append('\n')
+            }
         }
     }
 

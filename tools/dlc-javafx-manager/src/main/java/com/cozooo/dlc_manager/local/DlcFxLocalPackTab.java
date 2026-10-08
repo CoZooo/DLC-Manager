@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.local;
 
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+
 import com.cozooo.dlc_manager.client.pack.DlcPackArchive;
 import com.cozooo.dlc_manager.client.pack.DlcPackCFResolver;
 import com.cozooo.dlc_manager.client.pack.DlcPackInstaller;
@@ -1191,6 +1193,7 @@ public final class DlcFxLocalPackTab {
 
     private void finishBusy(String message, boolean refreshAfter) {
         Platform.runLater(() -> {
+            boolean requiredMayHaveChanged = busyOperation == BusyOperation.APPLY || busyOperation == BusyOperation.DELETE;
             busy = false;
             cancelRequested = false;
             cancelApplyRequested = false;
@@ -1212,6 +1215,9 @@ public final class DlcFxLocalPackTab {
                 refreshAsync(false);
             } else {
                 updateActionButtons();
+            }
+            if (requiredMayHaveChanged && DlcFxManagerApp.instance() != null) {
+                DlcFxManagerApp.instance().ensureLocalRequiredResources();
             }
         });
     }

@@ -72,36 +72,11 @@ public final class DlcRequiredLoader {
         if (obj == null) {
             return null;
         }
-        if (discardLegacyRemovalState(obj)) DlcDcFormatUtil.write(path, obj);
         NormalizedRequired normalized = normalizeRequiredObject(obj, requiredDir, path, null);
         if (normalized == null) {
             return null;
         }
         return normalized.entry;
-    }
-
-    private static boolean discardLegacyRemovalState(JsonElement value) {
-        boolean changed = false;
-        if (value != null && value.isJsonObject()) {
-            JsonObject object = value.getAsJsonObject();
-            for (String key : new ArrayList<>(object.keySet())) {
-                if ("UserRemoved".equalsIgnoreCase(key)) {
-                    object.remove(key);
-                    changed = true;
-                }
-            }
-            JsonElement dependencies = DlcDcConfigIO.getIgnoreCase(object, "dependencies");
-            if (dependencies != null && dependencies.isJsonObject()) {
-                for (var dependency : dependencies.getAsJsonObject().entrySet()) {
-                    changed |= discardLegacyRemovalState(dependency.getValue());
-                }
-            } else {
-                changed |= discardLegacyRemovalState(dependencies);
-            }
-        } else if (value != null && value.isJsonArray()) {
-            for (JsonElement item : value.getAsJsonArray()) changed |= discardLegacyRemovalState(item);
-        }
-        return changed;
     }
 
     private static JsonObject readConfigObject(Path path) {
@@ -186,71 +161,14 @@ public final class DlcRequiredLoader {
         if (priority != null && !priority.isBlank()) {
             entry.setDownloadPriority(priority);
         }
-        Boolean hidden = getBoolean(obj, "isHidden");
-        if (hidden != null) {
-            entry.setHidden(hidden);
-        }
-        readDisplayNames(obj, entry);
-        readTips(obj, entry);
         String applied = null;
         applied = getString(obj, "appliedTarget");
         entry.setAppliedTargetRaw(applied == null ? "" : applied);
-        entry.setRedirectUrl(getString(obj, "RedirectUrl"));
         JsonElement depsElement = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir);
         }
         return entry;
-    }
-
-    private static void readDisplayNames(JsonObject obj, DlcRequiredEntry entry) {
-        if (obj == null || entry == null) {
-            return;
-        }
-        JsonObject display = DlcDcConfigIO.getObjectIgnoreCase(obj, "displayName");
-        if (display == null) {
-            display = DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName");
-        }
-        if (display == null) {
-            String fallback = entry.getBaseName();
-            if (fallback == null || fallback.isBlank()) {
-                fallback = entry.getIdentifier();
-            }
-            entry.putDisplayName("en_us", fallback);
-            return;
-        }
-        for (var e : display.entrySet()) {
-            if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                String key = DlcDcConfigIO.normalizeLangKey(e.getKey());
-                if (key != null) {
-                    entry.putDisplayName(key, e.getValue().getAsString());
-                }
-            }
-        }
-        if (entry.getDisplayNames().isEmpty()) {
-            String fallback = entry.getBaseName();
-            if (fallback == null || fallback.isBlank()) {
-                fallback = entry.getIdentifier();
-            }
-            entry.putDisplayName("en_us", fallback);
-        }
-    }
-
-    private static void readTips(JsonObject obj, DlcRequiredEntry entry) {
-        if (obj == null || entry == null) {
-            return;
-        }
-        JsonObject tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip");
-        if (tipObj != null) {
-            for (var e : tipObj.entrySet()) {
-                if (e.getValue() != null && e.getValue().isJsonPrimitive()) {
-                    String key = DlcDcConfigIO.normalizeLangKey(e.getKey());
-                    if (key != null) {
-                        entry.putTip(key, e.getValue().getAsString());
-                    }
-                }
-            }
-        }
     }
 
     private static void parseDependencies(JsonElement element, DlcRequiredEntry entry, Path requiredDir) {
@@ -367,13 +285,7 @@ public final class DlcRequiredLoader {
         String identifier = entry.getIdentifier();
         String fileName = entry.getRequiredFileName();
         String appliedTarget = entry.getAppliedTargetRaw();
-        String redirectUrl = entry.getRedirectUrl();
         DependencyResult deps = normalizeDependencies(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), requiredDir);
-        JsonObject display = new JsonObject();
-        entry.getDisplayNames().forEach(display::addProperty);
-        JsonObject tip = new JsonObject();
-        entry.getTips().forEach(tip::addProperty);
-
         JsonObject ordered = new JsonObject();
         ordered.addProperty("curseforge_projectid", curseProjectId == null ? "" : curseProjectId);
         ordered.addProperty("curseforge_fileid", curseFileId == null ? "" : curseFileId);
@@ -394,22 +306,11 @@ public final class DlcRequiredLoader {
             ordered.addProperty("file_name", fileName);
         }
         ordered.addProperty("appliedTarget", appliedTarget == null ? "" : appliedTarget);
-        if (redirectUrl != null && !redirectUrl.isBlank()) {
-            ordered.addProperty("RedirectUrl", redirectUrl);
-        }
-        ordered.addProperty("isHidden", entry.isHidden());
         ordered.add("dependencies", deps.element == null ? new JsonPrimitive("") : deps.element);
-        ordered.add("DisplayName", display);
-        ordered.add("tip", tip);
 
         for (var e : obj.entrySet()) {
             String key = e.getKey();
             if (key == null || ordered.has(key)) {
-                continue;
-            }
-            if ("displayName".equalsIgnoreCase(key) || "DisplayName".equalsIgnoreCase(key)
-                || "tip".equalsIgnoreCase(key)
-                || "userRemoved".equalsIgnoreCase(key)) {
                 continue;
             }
             ordered.add(key, e.getValue());
@@ -594,12 +495,7 @@ public final class DlcRequiredLoader {
                 || "file_name".equals(lowered)
                 || "appliedtarget".equals(lowered)
                 || "appliedtaget".equals(lowered)
-                || "displayname".equals(lowered)
-                || "tip".equals(lowered)
-                || "isinlist".equals(lowered)
-                || "ishidden".equals(lowered)
-                || "dependencies".equals(lowered)
-                || "userremoved".equals(lowered)) {
+                || "dependencies".equals(lowered)) {
                 return true;
             }
         }
@@ -638,10 +534,6 @@ public final class DlcRequiredLoader {
 
     private static String getString(JsonObject obj, String key) {
         return DlcDcConfigIO.getStringIgnoreCase(obj, key);
-    }
-
-    private static Boolean getBoolean(JsonObject obj, String key) {
-        return DlcDcConfigIO.getBooleanIgnoreCase(obj, key);
     }
 
     private static final class DependencyResult {

@@ -454,7 +454,7 @@ public final class DlcServerDownloadService {
             for (RequiredItemState item : items) {
                 DlcServerRequiredProgressItem view = new DlcServerRequiredProgressItem();
                 view.id = item.id;
-                view.name = resolveRequiredDisplayName(item.entry, lang);
+                view.name = resolveRequiredDisplayName(item.entry);
                 view.totalBytes = item.totalBytes;
                 view.downloadedBytes = item.downloaded.get();
                 view.done = item.done;
@@ -517,7 +517,7 @@ public final class DlcServerDownloadService {
         List<DlcServerRequiredItem> items = new ArrayList<>();
         List<DlcRequiredEntry> entries = loadAllRequiredEntries(dlcRoot);
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || entry.isHidden()) {
+            if (entry == null) {
                 continue;
             }
 
@@ -529,15 +529,12 @@ public final class DlcServerDownloadService {
             DlcServerRequiredItem item = new DlcServerRequiredItem();
             item.id = safeId(entry);
             item.identifier = entry.getIdentifier();
-            item.name = resolveRequiredDisplayName(entry, lang);
-            item.displayNames.putAll(entry.getDisplayNames());
-            item.tips.putAll(entry.getTips());
+            item.name = resolveRequiredDisplayName(entry);
             for (DlcRequiredDependency dep : entry.getDependencies()) {
                 if (dep != null && dep.getIdentifier() != null && !dep.getIdentifier().isBlank()) {
                     item.dependencies.add(dep.getIdentifier());
                 }
             }
-            item.hidden = entry.isHidden();
             item.hasFile = hasFile;
             item.needsApply = needsApply;
             item.applied = hasFile && !needsApply;
@@ -611,12 +608,12 @@ public final class DlcServerDownloadService {
             }
             List<RequiredItemState> items = new ArrayList<>();
             for (DlcRequiredEntry entry : targets) {
-                if (entry == null || entry.isHidden()) {
+                if (entry == null) {
                     continue;
                 }
 
                 String id = safeId(entry);
-                String name = resolveRequiredDisplayName(entry, lang);
+                String name = resolveRequiredDisplayName(entry);
                 items.add(new RequiredItemState(entry, id, name));
             }
             requiredSession = new RequiredDownloadSession(items);
@@ -815,30 +812,8 @@ public final class DlcServerDownloadService {
         return name == null ? "" : name;
     }
 
-    private static String resolveRequiredDisplayName(DlcRequiredEntry entry, String langOverride) {
-        if (entry == null) {
-            return "";
-        }
-        String fallback = entry.getBaseName();
-        if (fallback == null || fallback.isBlank()) {
-            fallback = entry.getIdentifier();
-        }
-        if (fallback == null || fallback.isBlank()) {
-            fallback = "required";
-        }
-        Map<String, String> displayNames = entry.getDisplayNames();
-        if (displayNames == null || displayNames.isEmpty()) {
-            return fallback;
-        }
-        String lang = normalizeLang(langOverride);
-        String name = displayNames.get(lang);
-        if (name == null || name.isBlank()) {
-            name = displayNames.get("en_us");
-        }
-        if (name == null || name.isBlank()) {
-            name = displayNames.values().stream().findFirst().orElse(fallback);
-        }
-        return name == null ? "" : name;
+    private static String resolveRequiredDisplayName(DlcRequiredEntry entry) {
+        return entry == null ? "" : entry.resolveDisplayName();
     }
 
     private static String normalizeLang(String langOverride) {
@@ -1885,24 +1860,12 @@ public final class DlcServerDownloadService {
             ordered.addProperty("file_name", "");
         }
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"));
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
-        ordered.addProperty("dependencies", getString(obj, "dependencies"));
-        JsonObject display = new JsonObject();
-        JsonElement displayObj = obj.get("DisplayName");
-        if (displayObj != null && displayObj.isJsonObject()) {
-            for (var e : displayObj.getAsJsonObject().entrySet()) {
-                display.addProperty(e.getKey(), e.getValue().getAsString());
-            }
+        JsonElement dependencies = DlcDcConfigIO.getIgnoreCase(obj, "dependencies");
+        ordered.add("dependencies", dependencies == null ? new JsonPrimitive("") : dependencies);
+        for (var entry : obj.entrySet()) {
+            String key = entry.getKey();
+            if (!ordered.has(key)) ordered.add(key, entry.getValue());
         }
-        ordered.add("DisplayName", display);
-        JsonObject tipObj = new JsonObject();
-        JsonElement tip = obj.get("tip");
-        if (tip != null && tip.isJsonObject()) {
-            for (var e : tip.getAsJsonObject().entrySet()) {
-                tipObj.addProperty(e.getKey(), e.getValue().getAsString());
-            }
-        }
-        ordered.add("tip", tipObj);
         return ordered;
     }
 

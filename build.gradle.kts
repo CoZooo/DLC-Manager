@@ -285,6 +285,10 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
         }
     }
 
+    tasks.named("test") {
+        dependsOn(gradle.includedBuild("dlcBootstrap").task(":test"))
+    }
+
     tasks.register("exportObfClasspathAll") {
         group = "build"
         description = "Export obfuscation classpath jars for all targets."
@@ -314,17 +318,32 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
         val minecraftVersion = stoneNodeMinecraftVersion(nodeName)
         val modVersion = prop("mod_version")
         val taskName = "obfuscate${nodeTaskSuffix(nodeName)}Yguard"
-        tasks.register(taskName) {
+        val earlyLoading = loaderName == "forge" || loaderName == "neoforge"
+        val nodeBuild = if (booleanProp("enable_kotlin", true)) "build/$nodeName" else "build/java-only/$nodeName"
+        val jarName = "DLC-Manager-$loaderName-$minecraftVersion-$modVersion.jar"
+        val obfuscatedPayload = file("$nodeBuild/distribution/obfuscated/$jarName")
+        val obfuscate = tasks.register(taskName) {
             group = "build"
             description = "Obfuscate $loaderName $minecraftVersion output jar with yGuard."
             dependsOn(":$nodeName:exportObfClasspath", ":$nodeName:remapJar")
             doLast {
                 runYGuardObfuscation(
-                    file("output/$modVersion/DLC-Manager-$loaderName-$minecraftVersion-$modVersion.jar"),
-                    file("output/$modVersion/yGuard/DLC-Manager-$loaderName-$minecraftVersion-$modVersion.jar"),
+                    file(if (earlyLoading) "$nodeBuild/distribution/payload/$jarName" else "output/$modVersion/$jarName"),
+                    if (earlyLoading) obfuscatedPayload else file("output/$modVersion/yGuard/$jarName"),
                     file("obf-lib/$loaderName-$minecraftVersion"),
                 )
             }
+        }
+        if (earlyLoading) {
+            val serviceBuild = if (booleanProp("enable_kotlin", true)) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
+            val serviceJar = file("$serviceBuild/services/$loaderName/DLC-Manager-bootstrap-$loaderName-$minecraftVersion-$modVersion.jar")
+            val packageObfuscated = tasks.register<JavaExec>("${taskName}Package") {
+                dependsOn(obfuscate, gradle.includedBuild("dlcBootstrap").task(":${loaderName}BootstrapJar"))
+                classpath = files(serviceJar)
+                mainClass.set("com.cozooo.dlc_bootstrap.launch.DlcDistributionAssembler")
+                args(serviceJar.absolutePath, obfuscatedPayload.absolutePath, file("output/$modVersion/yGuard/$jarName").absolutePath)
+            }
+            obfuscate.configure { finalizedBy(packageObfuscated) }
         }
         return taskName
     }
@@ -775,6 +794,27 @@ if (stoneNodes.contains(project.name)) {
     }
 
     if (loaderName == "forge" || loaderName == "neoforge") {
+        val distributionJar = rootProject.layout.projectDirectory.file(
+            "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+        )
+        listOf("client", "server").forEach { side ->
+            val sideName = side.replaceFirstChar { it.uppercase() }
+            val prepareDistribution = tasks.register<Copy>("prepare${sideName}DlcDistribution") {
+                dependsOn("packageDistribution")
+                from(distributionJar)
+                into(rootProject.layout.projectDirectory.dir("run/$loaderName/$minecraftVersion/$side/mods"))
+                doFirst {
+                    destinationDir.listFiles()?.filter {
+                        (it.name.startsWith("DLC-Manager-bootstrap-$loaderName-$minecraftVersion-") ||
+                            it.name.startsWith("DLC-Manager-$loaderName-$minecraftVersion-")) &&
+                            it.name.endsWith(".jar") && it.name != distributionJar.asFile.name
+                    }?.forEach(File::delete)
+                }
+            }
+            tasks.matching { it.name == "run$sideName" || it.name == "configureMinecraft$sideName" }.configureEach {
+                dependsOn(prepareDistribution)
+            }
+        }
         val mainSourceSet = extensions.getByType<SourceSetContainer>().named("main").get()
         extensions.configure<LoomGradleExtensionAPI> {
             runs.configureEach {
@@ -818,17 +858,49 @@ if (stoneNodes.contains(project.name)) {
         archiveClassifier.set("dev-shadow")
     }
 
-    tasks.named<RemapJarTask>("remapJar") {
-        archiveFileName.set("DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar")
-        destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+    val distributionJar = rootProject.layout.projectDirectory.file(
+        "output/${rootProject.prop("mod_version")}/DLC-Manager-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+    )
+    val earlyLoading = loaderName == "forge" || loaderName == "neoforge"
+    val remappedJar = tasks.named<RemapJarTask>("remapJar") {
+        archiveFileName.set(distributionJar.asFile.name)
+        if (earlyLoading) destinationDirectory.set(layout.buildDirectory.dir("distribution/payload"))
+        else destinationDirectory.set(rootProject.layout.projectDirectory.dir("output/${rootProject.prop("mod_version")}"))
+    }
+    if (earlyLoading) {
+        val serviceBuild = if (kotlinEnabled) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
+        val serviceJar = rootProject.layout.projectDirectory.file(
+            "$serviceBuild/services/$loaderName/DLC-Manager-bootstrap-$loaderName-$minecraftVersion-${rootProject.prop("mod_version")}.jar"
+        )
+        val packageDistribution = tasks.register<JavaExec>("packageDistribution") {
+            group = "build"
+            description = "Package the early service and main mod into one distributable JAR."
+            dependsOn(remappedJar, gradle.includedBuild("dlcBootstrap").task(":${loaderName}BootstrapJar"))
+            inputs.files(serviceJar, remappedJar.flatMap { it.archiveFile })
+            outputs.file(distributionJar)
+            classpath = files(serviceJar)
+            javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+            mainClass.set("com.cozooo.dlc_bootstrap.launch.DlcDistributionAssembler")
+            doFirst {
+                setArgs(listOf(serviceJar.asFile.absolutePath, remappedJar.get().archiveFile.get().asFile.absolutePath,
+                    distributionJar.asFile.absolutePath))
+            }
+            doLast {
+                distributionJar.asFile.parentFile.listFiles()?.filter {
+                    it.name.startsWith("DLC-Manager-bootstrap-$loaderName-$minecraftVersion-") && it.name.endsWith(".jar")
+                }?.forEach(File::delete)
+            }
+        }
+        remappedJar.configure { finalizedBy(packageDistribution) }
     }
     tasks.named("publishMods") {
-        dependsOn("remapJar")
+        dependsOn(if (earlyLoading) "packageDistribution" else "remapJar")
     }
 
     configure<ModPublishExtension> {
         dryRun.set(publishDryRun)
-        file.set(tasks.named<RemapJarTask>("remapJar").flatMap { it.archiveFile })
+        if (earlyLoading) file.set(tasks.named("packageDistribution").map { distributionJar })
+        else file.set(remappedJar.flatMap { it.archiveFile })
         version.set("${rootProject.prop("mod_version")}-$loaderName-$minecraftVersion")
         displayName.set(rootProject.modPublishDisplayName(loaderName, minecraftVersion))
         changelog.set(rootProject.modPublishChangelog())

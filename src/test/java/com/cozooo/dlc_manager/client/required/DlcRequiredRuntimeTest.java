@@ -45,7 +45,7 @@ class DlcRequiredRuntimeTest {
 
     @Test void legacySkipAndForceMarkersAndRemovalStateDoNotBypassInstallation() throws Exception {
         resource();
-        assertTrue(com.cozooo.dlc_manager.core.DlcDcFormatUtil.read(root.resolve("required/main.dc")).keySet().stream().noneMatch(key -> key.equalsIgnoreCase("UserRemoved")));
+        assertTrue(com.cozooo.dlc_manager.core.DlcDcFormatUtil.read(root.resolve("required/main.dc")).get("UserRemoved").getAsBoolean());
         Files.writeString(root.resolve("required/SKIP"), "");
         Files.writeString(root.resolve("required/FORCE"), "forcerestart");
         assertTrue(DlcRequiredRuntime.hasMissingDownloadsForPrompt());
@@ -89,5 +89,52 @@ class DlcRequiredRuntimeTest {
         var result = DlcServerDownloadService.downloadAndApplyRequired(root);
         assertNotNull(result);
         assertFalse(result.success);
+    }
+
+    @Test void removedVisibilityFieldsCannotHideRequiredResourcesFromServer() throws Exception {
+        Path config = root.resolve("required/main.dc");
+        String contents = """
+            identifier = "main"
+            file_name = "main.jar"
+            isHidden = true
+            isInList = false
+            RedirectUrl = "https://example.com"
+            [DisplayName]
+            en_us = "Ignored name"
+            [Tip]
+            en_us = "Ignored tip"
+            """;
+        Files.writeString(config, contents);
+
+        var items = DlcServerDownloadService.collectRequiredItems(root, "zh_cn");
+        assertEquals(1, items.size());
+        assertEquals("main", items.get(0).name);
+        assertFalse(items.get(0).hidden);
+        assertTrue(items.get(0).displayNames.isEmpty());
+        assertTrue(items.get(0).tips.isEmpty());
+        assertEquals(contents, Files.readString(config));
+    }
+
+    @Test void writingDownloadedFileNameDoesNotGeneratePresentationFields() throws Exception {
+        Path config = root.resolve("required/main.dc");
+        Files.writeString(config, """
+            identifier = "main"
+            appliedTarget = "mods/main.jar"
+            custom = "preserved"
+            [dependencies.child]
+            identifier = "child"
+            file_name = "child.jar"
+            """);
+        DlcRequiredEntry entry = DlcRequiredLoader.loadSingle(config, root);
+        DlcRequiredRuntime.updateFileNameKey(entry, "downloaded.jar");
+
+        var saved = com.cozooo.dlc_manager.core.DlcDcFormatUtil.read(config);
+        assertNotNull(saved);
+        String written = Files.readString(config).toLowerCase(java.util.Locale.ROOT);
+        assertTrue(List.of("isinlist", "ishidden", "displayname", "tip", "redirecturl").stream().noneMatch(written::contains));
+        assertEquals("downloaded.jar", saved.get("file_name").getAsString());
+        assertEquals("mods/main.jar", saved.get("appliedTarget").getAsString());
+        assertEquals("preserved", saved.get("custom").getAsString());
+        assertEquals("child.jar", saved.getAsJsonObject("dependencies").getAsJsonObject("child").get("file_name").getAsString());
     }
 }

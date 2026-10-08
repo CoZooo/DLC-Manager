@@ -96,12 +96,6 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       help: "static.help.redirectUrl"
     },
     {
-      key: "isInList",
-      label: "isInList",
-      kind: "boolean",
-      help: "static.help.isInDlcList"
-    },
-    {
       key: "isHidden",
       label: "isHidden",
       kind: "boolean",
@@ -144,25 +138,6 @@ const requiredBasicSection: SectionSchema = {
       label: "appliedTarget",
       kind: "text",
       help: "static.help.appliedTarget"
-    },
-    {
-      key: "RedirectUrl",
-      label: "RedirectUrl",
-      kind: "text",
-      help: "static.help.redirectUrl"
-    },
-    {
-      key: "isInList",
-      label: "isInList",
-      kind: "boolean",
-      help: "static.help.isInRequiredList"
-    },
-    {
-      key: "isHidden",
-      label: "isHidden",
-      kind: "boolean",
-      help: "static.help.isHidden",
-      toggleLabels: { checked: "static.label.hidden", unchecked: "static.label.hidden" }
     },
   ]
 };
@@ -533,9 +508,7 @@ export const documentSchemas: Record<DocumentType, DocumentSchema> = {
         ]
       },
       requiredBasicSection,
-      dependenciesSection,
-      displayNameSection,
-      tipSection
+      dependenciesSection
     ]
   },
   preset: {

@@ -555,38 +555,11 @@ object DlcRequiredRuntime {
         val applied = getString(obj, "appliedTarget")
         ordered.addProperty("appliedTarget", if (applied.isEmpty()) "" else applied)
 
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
-
         val deps = obj.get("dependencies")
         ordered.add("dependencies", deps ?: JsonPrimitive(""))
 
-        var display: JsonObject? = null
-        if (obj.has("DisplayName") && obj.get("DisplayName").isJsonObject) {
-            display = obj.getAsJsonObject("DisplayName")
-        } else if (obj.has("displayName") && obj.get("displayName").isJsonObject) {
-            display = obj.getAsJsonObject("displayName")
-        }
-        if (display == null) {
-            display = JsonObject()
-            display.addProperty("en_us", "")
-        }
-        ordered.add("DisplayName", display)
-
-        val tip = if (obj.has("tip") && obj.get("tip").isJsonObject) {
-            obj.getAsJsonObject("tip")
-        } else {
-            JsonObject()
-        }
-        ordered.add("tip", tip)
-
         for ((key, value) in obj.entrySet()) {
             if (key == null || ordered.has(key)) {
-                continue
-            }
-            if (key == "displayName") {
-                continue
-            }
-            if (key.equals("UserRemoved", ignoreCase = true)) {
                 continue
             }
             ordered.add(key, value)
@@ -599,17 +572,6 @@ object DlcRequiredRuntime {
             return ""
         }
         return obj.get(key).asString
-    }
-
-    private fun getBoolean(obj: JsonObject?, key: String?, fallback: Boolean): Boolean {
-        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive) {
-            return fallback
-        }
-        return try {
-            obj.get(key).asBoolean
-        } catch (_: Exception) {
-            fallback
-        }
     }
 
     private fun resolveTarget(targetDir: Path?, fileName: String?): Path? {

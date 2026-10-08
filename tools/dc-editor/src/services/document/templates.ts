@@ -9,7 +9,6 @@ export function createEmptyTemplate(type: DocumentType): string {
         'file_name = ""',
         'type = "mod"',
         'RedirectUrl = ""',
-        "isInList = true",
         "isHidden = false",
         "AllowEnableByAll = true",
         "alarm = false",
@@ -38,7 +37,6 @@ export function createEmptyTemplate(type: DocumentType): string {
         'file_name = ""',
         'type = "mod"',
         'RedirectUrl = ""',
-        "isInList = true",
         "isHidden = false",
         "AllowEnableByAll = true",
         "alarm = false",
@@ -66,15 +64,8 @@ export function createEmptyTemplate(type: DocumentType): string {
         'identifier = ""',
         'file_name = ""',
         'appliedTarget = ""',
-        'RedirectUrl = ""',
-        "isInList = true",
-        "isHidden = false",
         "",
         "[dependencies]",
-        "",
-        "[DisplayName]",
-        "",
-        "[tip]",
         ""
       ].join("\n");
     case "preset":

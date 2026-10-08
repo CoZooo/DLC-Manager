@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+
 import com.cozooo.dlc_manager.client.server.DlcServerPackApplyStatus;
 import com.cozooo.dlc_manager.client.server.DlcServerPackInfo;
 import com.cozooo.dlc_manager.ui.common.DlcFxI18n;
@@ -236,6 +238,9 @@ public final class DlcFxServerPackTab {
             statusLabel.setText(plan.successMessage());
             setBusy(false, null);
             refreshList();
+            if (DlcFxManagerApp.instance() != null) {
+                DlcFxManagerApp.instance().ensureServerRequiredResources();
+            }
         }, err -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.pack.delete_failed", DlcFxServerConnection.safeMessage(err)));
             setBusy(false, null);
@@ -337,6 +342,9 @@ public final class DlcFxServerPackTab {
                 ? DlcFxI18n.tr("dlc_manager.pack.canceled")
                 : status.success ? DlcFxI18n.tr("dlc_manager.pack.apply_success") : DlcFxI18n.tr("dlc_manager.pack.apply_failed", status.error == null ? "" : status.error));
             refreshList();
+            if (DlcFxManagerApp.instance() != null) {
+                DlcFxManagerApp.instance().ensureServerRequiredResources();
+            }
         }
     }
 

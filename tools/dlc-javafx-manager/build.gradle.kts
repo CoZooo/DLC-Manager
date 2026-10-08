@@ -45,6 +45,7 @@ java {
 }
 
 val reusedCommonJavaFiles = listOf(
+    "com/cozooo/dlc_manager/bootstrap/DlcEarlyInstaller.java",
     "com/cozooo/dlc_manager/client/core/DlcZipUtil.java",
     "com/cozooo/dlc_manager/client/download/DlcCurseForgeClient.java",
     "com/cozooo/dlc_manager/client/download/DlcDownloadCandidate.java",

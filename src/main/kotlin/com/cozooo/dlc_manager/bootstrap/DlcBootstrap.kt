@@ -14,6 +14,7 @@ object DlcBootstrap {
         } else {
             DlcConfig.loadClient()
         }
+        DlcStartupRequirements.verifyBeforeGameLoad()
         DlcStateConfig.load()
     }
 }

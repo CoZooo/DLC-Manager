@@ -582,22 +582,26 @@ public final class DlcDcFormatUtil {
             }
         }
 
-        indentLine(out, indent);
-        out.append("\n");
-        indentLine(out, indent);
-        out.append("[DisplayName]\n");
         JsonObject display = asObject(node.get("DisplayName"));
-        for (Map.Entry<String, JsonElement> entry : display.entrySet()) {
-            out.append(formatKeyValue(entry.getKey(), entry.getValue())).append('\n');
+        if (!display.entrySet().isEmpty()) {
+            indentLine(out, indent);
+            out.append("\n");
+            indentLine(out, indent);
+            out.append("[DisplayName]\n");
+            for (Map.Entry<String, JsonElement> entry : display.entrySet()) {
+                out.append(formatKeyValue(entry.getKey(), entry.getValue())).append('\n');
+            }
         }
 
-        indentLine(out, indent);
-        out.append("\n");
-        indentLine(out, indent);
-        out.append("[tip]\n");
         JsonObject tip = asObject(node.get("tip"));
-        for (Map.Entry<String, JsonElement> entry : tip.entrySet()) {
-            out.append(formatKeyValue(entry.getKey(), entry.getValue())).append('\n');
+        if (!tip.entrySet().isEmpty()) {
+            indentLine(out, indent);
+            out.append("\n");
+            indentLine(out, indent);
+            out.append("[tip]\n");
+            for (Map.Entry<String, JsonElement> entry : tip.entrySet()) {
+                out.append(formatKeyValue(entry.getKey(), entry.getValue())).append('\n');
+            }
         }
     }
 

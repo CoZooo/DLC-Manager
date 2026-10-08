@@ -1,5 +1,7 @@
 package com.cozooo.dlc_manager.server;
 
+import com.cozooo.dlc_manager.app.DlcFxManagerApp;
+
 import com.cozooo.dlc_manager.client.server.DlcServerUpdateInfo;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService;
 import com.cozooo.dlc_manager.client.update.DlcPackReleaseUpdateService.CheckResult;
@@ -141,12 +143,18 @@ public final class DlcFxServerUpdateTab {
         });
     }
 
+    private void ensureRequiredResources() {
+        DlcFxManagerApp app = DlcFxManagerApp.instance();
+        if (app != null) app.ensureServerRequiredResources();
+    }
+
     private void apply(String baseOld, String dlcOld, String baseNew, String dlcNew) {
         setBusy(true, DlcFxI18n.tr("dlc_manager.status.applying"));
         conn.runAsync(f -> f.updateApply(baseOld, dlcOld, baseNew, dlcNew), response -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.result_value", response.toString()));
             setBusy(false, null);
             refreshState();
+            ensureRequiredResources();
         }, error -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);
@@ -181,6 +189,7 @@ public final class DlcFxServerUpdateTab {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.update.rollback_result", response.toString()));
             setBusy(false, null);
             refreshState();
+            ensureRequiredResources();
         }, error -> {
             statusLabel.setText(DlcFxI18n.tr("dlc_manager.status.failed", DlcFxServerConnection.safeMessage(error)));
             setBusy(false, null);

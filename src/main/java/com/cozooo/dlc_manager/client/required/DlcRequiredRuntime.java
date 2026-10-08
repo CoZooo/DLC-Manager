@@ -575,37 +575,12 @@ public final class DlcRequiredRuntime {
         String applied = getString(obj, "appliedTarget");
         ordered.addProperty("appliedTarget", applied == null ? "" : applied);
 
-        ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
-
         com.google.gson.JsonElement deps = obj.get("dependencies");
         ordered.add("dependencies", deps == null ? new com.google.gson.JsonPrimitive("") : deps);
-
-        com.google.gson.JsonObject display = null;
-        if (obj.has("DisplayName") && obj.get("DisplayName").isJsonObject()) {
-            display = obj.getAsJsonObject("DisplayName");
-        } else if (obj.has("displayName") && obj.get("displayName").isJsonObject()) {
-            display = obj.getAsJsonObject("displayName");
-        }
-        if (display == null) {
-            display = new com.google.gson.JsonObject();
-            display.addProperty("en_us", "");
-        }
-        ordered.add("DisplayName", display);
-
-        com.google.gson.JsonObject tip = obj.has("tip") && obj.get("tip").isJsonObject()
-            ? obj.getAsJsonObject("tip")
-            : new com.google.gson.JsonObject();
-        ordered.add("tip", tip);
 
         for (var entry : obj.entrySet()) {
             String key = entry.getKey();
             if (key == null || ordered.has(key)) {
-                continue;
-            }
-            if ("displayName".equals(key)) {
-                continue;
-            }
-            if ("UserRemoved".equalsIgnoreCase(key)) {
                 continue;
             }
             ordered.add(key, entry.getValue());
@@ -618,17 +593,6 @@ public final class DlcRequiredRuntime {
             return "";
         }
         return obj.get(key).getAsString();
-    }
-
-    private static boolean getBoolean(com.google.gson.JsonObject obj, String key, boolean fallback) {
-        if (obj == null || key == null || !obj.has(key) || !obj.get(key).isJsonPrimitive()) {
-            return fallback;
-        }
-        try {
-            return obj.get(key).getAsBoolean();
-        } catch (Exception ignored) {
-            return fallback;
-        }
     }
 
     private static Path resolveTarget(Path targetDir, String fileName) {

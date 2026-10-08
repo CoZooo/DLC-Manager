@@ -95,3 +95,7 @@ stonecutter {
 includeBuild("tools/dlc-javafx-manager") {
     name = "dlcJavafxManager"
 }
+
+includeBuild("tools/dlc-bootstrap") {
+    name = "dlcBootstrap"
+}

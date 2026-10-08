@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.client.required
 
+import com.cozooo.dlc_manager.bootstrap.DlcStartupRequirements
 import com.cozooo.dlc_manager.client.screen.DlcRequiredDownloadScreen
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
@@ -7,6 +8,7 @@ import net.minecraft.client.gui.screens.Screen
 object DlcRequiredManager {
     @JvmStatic
     fun tryShowFromTitle(parent: Screen?): Boolean {
+        if (DlcStartupRequirements.usesEarlyInstallation()) return false
         val missing = DlcRequiredRuntime.pollMissingDownloadsForTitlePrompt()
         if (missing.isEmpty()) {
             return false
@@ -52,7 +54,7 @@ object DlcRequiredManager {
 
     @JvmStatic
     fun hasMissingDownloadsForPrompt(): Boolean {
-        return DlcRequiredRuntime.hasMissingDownloadsForPrompt()
+        return !DlcStartupRequirements.usesEarlyInstallation() && DlcRequiredRuntime.hasMissingDownloadsForPrompt()
     }
 
     @JvmStatic
@@ -67,7 +69,7 @@ object DlcRequiredManager {
 
     @JvmStatic
     fun collectMissingDownloadsForPrompt(): List<DlcRequiredEntry> {
-        return DlcRequiredRuntime.collectMissingDownloadsForPrompt()
+        return if (DlcStartupRequirements.usesEarlyInstallation()) emptyList() else DlcRequiredRuntime.collectMissingDownloadsForPrompt()
     }
 
     @JvmStatic

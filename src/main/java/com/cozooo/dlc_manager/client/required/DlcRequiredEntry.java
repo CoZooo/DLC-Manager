@@ -1,23 +1,15 @@
 package com.cozooo.dlc_manager.client.required;
-import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import java.nio.file.Path;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcPaths;
-import com.cozooo.dlc_manager.core.DlcDcConfigIO;
-import com.cozooo.dlc_manager.platform.PlatformServices;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class DlcRequiredEntry {
     private final Path configPath;
     private final Path requiredDir;
     private final String baseName;
     private String identifier;
-    private final Map<String, String> displayNames = new HashMap<>();
-    private final Map<String, String> tips = new HashMap<>();
     private String requiredFileName;
     private String directUrl;
     private List<String> directUrls = new ArrayList<>();
@@ -26,9 +18,7 @@ public class DlcRequiredEntry {
     private String modrinthVersionId;
     private String curseforgeProjectId;
     private String curseforgeFileId;
-    private boolean hidden;
     private String appliedTargetRaw;
-    private String redirectUrl;
     private String resolvedFileName;
     private final List<DlcRequiredDependency> dependencies = new ArrayList<>();
 
@@ -61,28 +51,6 @@ public class DlcRequiredEntry {
         if (identifier != null && !identifier.isBlank()) {
             this.identifier = identifier;
         }
-    }
-
-    public Map<String, String> getDisplayNames() {
-        return Collections.unmodifiableMap(displayNames);
-    }
-
-    public void putDisplayName(String lang, String value) {
-        if (lang == null || lang.isBlank() || value == null) {
-            return;
-        }
-        displayNames.put(lang, value);
-    }
-
-    public Map<String, String> getTips() {
-        return Collections.unmodifiableMap(tips);
-    }
-
-    public void putTip(String lang, String value) {
-        if (lang == null || lang.isBlank() || value == null) {
-            return;
-        }
-        tips.put(lang, value);
     }
 
     public String getDirectUrl() {
@@ -239,14 +207,6 @@ public class DlcRequiredEntry {
         };
     }
 
-    public boolean isHidden() {
-        return hidden;
-    }
-
-    public void setHidden(boolean hidden) {
-        this.hidden = hidden;
-    }
-
     public List<DlcRequiredDependency> getDependencies() {
         return dependencies;
     }
@@ -263,14 +223,6 @@ public class DlcRequiredEntry {
 
     public String getAppliedTargetRaw() {
         return appliedTargetRaw;
-    }
-
-    public void setRedirectUrl(String redirectUrl) {
-        this.redirectUrl = redirectUrl;
-    }
-
-    public String getRedirectUrl() {
-        return redirectUrl;
     }
 
     public void setResolvedFileName(String resolvedFileName) {
@@ -316,16 +268,6 @@ public class DlcRequiredEntry {
         if (fallback == null || fallback.isBlank()) {
             fallback = "required";
         }
-        if (displayNames.isEmpty()) {
-            return fallback;
-        }
-        String lang = DlcDcConfigIO.normalizeLangKey(DlcPlatformServices.languageCode());
-        if (displayNames.containsKey(lang)) {
-            return displayNames.get(lang);
-        }
-        if (displayNames.containsKey("en_us")) {
-            return displayNames.get("en_us");
-        }
-        return displayNames.values().stream().findFirst().orElse(fallback);
+        return fallback;
     }
 }

@@ -64,33 +64,8 @@ object DlcRequiredLoader {
             return null
         }
         val obj = readConfigObject(path) ?: return null
-        if (discardLegacyRemovalState(obj)) DlcDcFormatUtil.write(path, obj)
         val normalized = normalizeRequiredObject(obj, requiredDir, path, null) ?: return null
         return normalized.entry
-    }
-
-    private fun discardLegacyRemovalState(value: JsonElement?): Boolean {
-        var changed = false
-        if (value?.isJsonObject == true) {
-            val obj = value.asJsonObject
-            for (key in obj.keySet().toList()) {
-                if (key.equals("UserRemoved", ignoreCase = true)) {
-                    obj.remove(key)
-                    changed = true
-                }
-            }
-            val dependencies = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
-            if (dependencies?.isJsonObject == true) {
-                for ((_, dependency) in dependencies.asJsonObject.entrySet()) {
-                    changed = discardLegacyRemovalState(dependency) || changed
-                }
-            } else {
-                changed = discardLegacyRemovalState(dependencies) || changed
-            }
-        } else if (value?.isJsonArray == true) {
-            for (item in value.asJsonArray) changed = discardLegacyRemovalState(item) || changed
-        }
-        return changed
     }
 
     private fun readConfigObject(path: Path?): JsonObject? {
@@ -173,70 +148,13 @@ object DlcRequiredLoader {
         if (priority.isNotBlank()) {
             entry.setDownloadPriority(priority)
         }
-        val hidden = getBoolean(obj, "isHidden")
-        if (hidden != null) {
-            entry.setHidden(hidden)
-        }
-        readDisplayNames(obj, entry)
-        readTips(obj, entry)
         val applied = getString(obj, "appliedTarget")
         entry.setAppliedTargetRaw(applied ?: "")
-        entry.setRedirectUrl(getString(obj, "RedirectUrl"))
         val depsElement = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
         if (depsElement != null) {
             parseDependencies(depsElement, entry, requiredDir)
         }
         return entry
-    }
-
-    private fun readDisplayNames(obj: JsonObject?, entry: DlcRequiredEntry?) {
-        if (obj == null || entry == null) {
-            return
-        }
-        var display = DlcDcConfigIO.getObjectIgnoreCase(obj, "displayName")
-        if (display == null) {
-            display = DlcDcConfigIO.getObjectIgnoreCase(obj, "DisplayName")
-        }
-        if (display == null) {
-            var fallback = entry.getBaseName()
-            if (fallback.isBlank()) {
-                fallback = entry.getIdentifier()
-            }
-            entry.putDisplayName("en_us", fallback)
-            return
-        }
-        for ((key, value) in display.entrySet()) {
-            if (value != null && value.isJsonPrimitive) {
-                val lang = DlcDcConfigIO.normalizeLangKey(key)
-                if (lang != null) {
-                    entry.putDisplayName(lang, value.asString)
-                }
-            }
-        }
-        if (entry.getDisplayNames().isEmpty()) {
-            var fallback = entry.getBaseName()
-            if (fallback.isBlank()) {
-                fallback = entry.getIdentifier()
-            }
-            entry.putDisplayName("en_us", fallback)
-        }
-    }
-
-    private fun readTips(obj: JsonObject?, entry: DlcRequiredEntry?) {
-        if (obj == null || entry == null) {
-            return
-        }
-        val tipObj = DlcDcConfigIO.getObjectIgnoreCase(obj, "tip")
-        if (tipObj != null) {
-            for ((key, value) in tipObj.entrySet()) {
-                if (value != null && value.isJsonPrimitive) {
-                    val lang = DlcDcConfigIO.normalizeLangKey(key)
-                    if (lang != null) {
-                        entry.putTip(lang, value.asString)
-                    }
-                }
-            }
-        }
     }
 
     private fun parseDependencies(element: JsonElement?, entry: DlcRequiredEntry?, requiredDir: Path?) {
@@ -347,13 +265,7 @@ object DlcRequiredLoader {
         val identifier = entry.getIdentifier()
         val fileName = entry.getRequiredFileName()
         val appliedTarget = entry.getAppliedTargetRaw()
-        val redirectUrl = entry.getRedirectUrl()
         val deps = normalizeDependencies(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"), requiredDir)
-        val display = JsonObject()
-        entry.getDisplayNames().forEach(display::addProperty)
-        val tip = JsonObject()
-        entry.getTips().forEach(tip::addProperty)
-
         val ordered = JsonObject()
         ordered.addProperty("curseforge_projectid", curseProjectId ?: "")
         ordered.addProperty("curseforge_fileid", curseFileId ?: "")
@@ -374,22 +286,10 @@ object DlcRequiredLoader {
             ordered.addProperty("file_name", fileName)
         }
         ordered.addProperty("appliedTarget", appliedTarget ?: "")
-        if (!redirectUrl.isNullOrBlank()) {
-            ordered.addProperty("RedirectUrl", redirectUrl)
-        }
-        ordered.addProperty("isHidden", entry.isHidden())
         ordered.add("dependencies", deps.element ?: JsonPrimitive(""))
-        ordered.add("DisplayName", display)
-        ordered.add("tip", tip)
 
         for ((key, value) in obj.entrySet()) {
             if (key == null || ordered.has(key)) {
-                continue
-            }
-            if ("displayName".equals(key, ignoreCase = true) || "DisplayName".equals(key, ignoreCase = true)
-                || "tip".equals(key, ignoreCase = true)
-                || "userRemoved".equals(key, ignoreCase = true)
-            ) {
                 continue
             }
             ordered.add(key, value)
@@ -565,12 +465,7 @@ object DlcRequiredLoader {
                 || lowered == "file_name"
                 || lowered == "appliedtarget"
                 || lowered == "appliedtaget"
-                || lowered == "displayname"
-                || lowered == "tip"
-                || lowered == "isinlist"
-                || lowered == "ishidden"
                 || lowered == "dependencies"
-                || lowered == "userremoved"
             ) {
                 return true
             }
@@ -609,8 +504,6 @@ object DlcRequiredLoader {
     }
 
     private fun getString(obj: JsonObject?, key: String): String? = DlcDcConfigIO.getStringIgnoreCase(obj, key)
-
-    private fun getBoolean(obj: JsonObject?, key: String): Boolean? = DlcDcConfigIO.getBooleanIgnoreCase(obj, key)
 
     private class DependencyResult {
         var element: JsonElement? = null
