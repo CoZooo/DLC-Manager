@@ -754,19 +754,13 @@ object DlcClientRuntime {
                     System.currentTimeMillis() - selfAt,
                 )
             }
-            if (!hasUpdate && !DlcRequiredManager.hasSkipMarker()) {
-                val requiredAt = System.currentTimeMillis()
-                hasRequired = DlcRequiredManager.hasMissingDownloadsForPrompt()
-                if (hasRequired) {
-                    missing = DlcRequiredManager.collectMissingDownloadsForPrompt()
-                }
-                LOGGER.info(
-                    "[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms",
-                    hasRequired,
-                    missing.size,
-                    System.currentTimeMillis() - requiredAt,
-                )
-            }
+            val requiredAt = System.currentTimeMillis()
+            missing = DlcRequiredManager.collectMissingDownloadsForPrompt()
+            hasRequired = missing.isNotEmpty()
+            LOGGER.info(
+                "[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms",
+                hasRequired, missing.size, System.currentTimeMillis() - requiredAt,
+            )
 
             val finalHasUpdate = hasUpdate
             val finalUpdateResult = updateResult

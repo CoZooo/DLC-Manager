@@ -160,11 +160,6 @@ class DlcServerScreen(
         Minecraft.getInstance().setScreen(DlcServerManagerScreen(this, entry, buildInfoSnapshot(), DlcServerManagerScreen.Tab.SERVERS, openedFromIngame))
     }
 
-    private fun openRequiredManager() {
-        if (applying) return
-        Minecraft.getInstance().setScreen(DlcServerRequiredManagerScreen(this, entry))
-    }
-
     private fun openServerList() {
         if (hasPresetChanges()) {
             DlcPresetRuntimeState.restoreEnabledPresets(presetSnapshot)
@@ -1042,8 +1037,6 @@ class DlcServerScreen(
         rememberListScroll()
     }
 
-    private fun shouldShowRequiredButton(): Boolean = hasRequiredEntries || requiredMissingCount > 0
-
     private fun groupByRelativeFolder(items: List<DlcServerItem>): Map<String, List<DlcServerItem>> {
         val grouped: MutableMap<String, MutableList<DlcServerItem>> = java.util.TreeMap()
         for (item in items) {
@@ -1139,7 +1132,6 @@ class DlcServerScreen(
         if (entry != null) button(document, context, tr("dlc_manager.server.config")) { openConfig() }
         val tools = document.getElementById("manager-tools")
         tools.setInnerHTML("")
-        if (shouldShowRequiredButton()) button(document, tools, tr("dlc_manager.required.manage_button")) { openRequiredManager() }
         if (DlcConfig.isPresetFuncOn()) button(document, tools, tr("dlc_manager.preset.manager")) { openPreset() }
         button(document, tools, tr("dlc_manager.server.tab.servers")) { openServerTools() }
         for (tool in tools.children) tool.setAttribute("class", "button nav-button")

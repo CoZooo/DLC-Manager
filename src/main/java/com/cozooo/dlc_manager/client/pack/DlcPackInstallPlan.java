@@ -25,7 +25,6 @@ public class DlcPackInstallPlan {
         "tmp/",
         "info/version.dc",
         "info/notice.dc",
-        "required/skip",
         "update/",
         "shownonfirstrun",
         "skip"

@@ -35,8 +35,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private val displayList: MutableList<DlcRequiredEntry> = ArrayList()
     private val downloadQueue: MutableList<DlcRequiredEntry> = ArrayList()
     private val applyQueue: MutableList<DlcRequiredEntry> = ArrayList()
-    private val forceRequired = DlcRequiredManager.hasForceMarker()
-    private val forceRestartRequired = DlcRequiredManager.hasForceRestartMarker()
     private var updatePackageRequired = false
     private val maxConcurrentDownloads = max(1, DlcConfig.getMaxConcurrentDownloads())
     private val progressByKey: MutableMap<String, Float> = ConcurrentHashMap()
@@ -49,7 +47,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private var activeDownloadEntry: DlcRequiredEntry? = null
 
     private var downloadButton: Button? = null
-    private var skipButton: Button? = null
 
     @Volatile
     private var detecting = true
@@ -86,36 +83,21 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         val buttonWidth = 140
         val buttonHeight = 20
         val y = height - 40
-        val downloadX = if (forceRequired) width / 2 - buttonWidth / 2 else width / 2 - buttonWidth - 6
+        val downloadX = width / 2 - buttonWidth / 2
         val download = Button.builder(Component.translatable("dlc_manager.required.download")) { handleDownloadButton() }
             .bounds(downloadX, y, buttonWidth, buttonHeight)
             .build()
         download.active = false
         download.visible = false
-        val skip = Button.builder(Component.translatable("dlc_manager.required.skip")) {
-            DlcRequiredManager.markPrompted()
-            DlcRequiredManager.markSkipped()
-            if (postUpdateResult != null) {
-                if (!tryShowPostUpdateDownloads(postUpdateResult)) {
-                    Minecraft.getInstance().setScreen(createPostUpdateResultScreen(postUpdateResult))
-                }
-            } else if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
-                Minecraft.getInstance().setScreen(parent)
-            }
-        }.bounds(width / 2 + 6, y, buttonWidth, buttonHeight).build()
-        skip.visible = !forceRequired
-        skip.active = !forceRequired
         downloadButton = download
-        skipButton = skip
         addRenderableWidget(download)
-        addRenderableWidget(skip)
         detecting = true
         statusText = Component.translatable("dlc_manager.required.preparing").string
         Thread({ detectEntries() }, "dlc-required-detect").start()
     }
 
     override fun shouldCloseOnEsc(): Boolean {
-        return !forceRequired && !downloading && !detecting
+        return false
     }
 
     private fun detectEntries() {
@@ -168,9 +150,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         cancelRequested = true
         statusText = Component.translatable("dlc_manager.required.canceling").string
         downloadButton?.active = false
-        if (!forceRequired) {
-            skipButton?.active = false
-        }
     }
 
     private fun updateDownloadButtonLabel(isDownloading: Boolean) {
@@ -189,9 +168,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         downloadedAny = false
         updateDownloadButtonLabel(true)
         downloadButton?.active = true
-        if (!forceRequired) {
-            skipButton?.active = false
-        }
         initProgressMap(downloadQueue)
         if (downloadQueue.isEmpty()) {
             Thread({
@@ -206,9 +182,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                     Minecraft.getInstance().execute {
                         updateDownloadButtonLabel(false)
                         downloadButton?.active = true
-                        if (!forceRequired) {
-                            skipButton?.active = true
-                        }
                     }
                 } finally {
                     downloading = false
@@ -318,9 +291,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true
-                if (!forceRequired) {
-                    skipButton?.active = true
-                }
             }
             return
         }
@@ -329,9 +299,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true
-                if (!forceRequired) {
-                    skipButton?.active = true
-                }
             }
             return
         }
@@ -355,9 +322,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             Minecraft.getInstance().execute {
                 updateDownloadButtonLabel(false)
                 downloadButton?.active = true
-                if (!forceRequired) {
-                    skipButton?.active = true
-                }
             }
             return
         }
@@ -384,6 +348,9 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             if (DlcRequiredService.installOne(entry)) {
                 didApply = true
             }
+        }
+        if (DlcRequiredService.collectNeedsApply(applyQueue).isNotEmpty()) {
+            throw IOException("required installation incomplete")
         }
         if (updatePackageRequired) {
             val updateCheck: UpdateCheckResult = DlcUpdateService.checkForUpdates(true)
@@ -422,10 +389,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
             }
             return
         }
-        if (forceRestartRequired) {
-            Minecraft.getInstance().execute { minecraft.setScreen(RestartRequiredScreen()) }
-            return
-        }
         Minecraft.getInstance().execute {
             minecraft.setScreen(
                 DlcConfirmScreen(
@@ -443,12 +406,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
                 ),
             )
         }
-    }
-
-    private inner class RestartRequiredScreen : DlcPageScreen(null, Component.translatable("dlc_manager.title")) {
-        override fun buildPage() { rich(node(content, "div", "page-dialog page-message"), Component.translatable("dlc_manager.required.restart_prompt")); primary(tr("dlc_manager.restart_now")) { Minecraft.getInstance().stop() } }
-        override fun shouldCloseOnEsc() = false
-        override fun onClose() {}
     }
 
     private fun ensureAllRequiredReady(): Boolean {
@@ -747,12 +704,12 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     override fun buildPage() {
         if (!controlsReady) { controlsReady = true; initControls() }
         pageRevision = 31 * displayList.hashCode() + downloading.hashCode()
-        val list = section(null, null)
+        val list = section(null, tr("dlc_manager.required.desc"))
         for (entry in displayList) { val line = row(list, entry.resolveDisplayName(), null); val controls = node(line, "div", "row-controls")
             progress(controls) { (progressByKey[progressKey(entry)] ?: 0f).toDouble() }
             action(controls, tr("dlc_manager.remote.switch_source")) { switchRequested.add(progressKey(entry)) }.setEnabled(hasMultipleSources(entry))
         }
-        live(content, { statusText }, "page-description"); live(content, { errorText }, "page-error"); progress(content) { if (detecting) -1.0 else if (downloading) getTotalProgress().toDouble() else 0.0 }; skipButton?.let { mount(footer, it) }; downloadButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
+        live(content, { statusText }, "page-description"); live(content, { errorText }, "page-error"); progress(content) { if (detecting) -1.0 else if (downloading) getTotalProgress().toDouble() else 0.0 }; downloadButton?.let { mount(footer, it).getElement().setAttribute("class", "button primary") }
 
     }
     override fun updatePage() {
@@ -760,5 +717,6 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
         if (pageRevision != 31 * displayList.hashCode() + downloading.hashCode()) refreshPage()
     }
 
-    override fun onClose() { if (shouldCloseOnEsc()) skipButton?.onPress() }
+    override fun showHeaderBackButton() = false
+    override fun onClose() {}
 }

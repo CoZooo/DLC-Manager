@@ -279,18 +279,14 @@ public final class DlcRequiredService {
             if (target == null) {
                 continue;
             }
-            try {
-                Files.createDirectories(target.getParent());
-                if (!Files.exists(target)) {
-                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-                    applied = true;
-                }
-            } catch (IOException ignored) {
+            Files.createDirectories(target.getParent());
+            if (!Files.exists(target)) {
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                applied = true;
             }
         }
         String id = entry.getIdentifier();
         if (id != null && !id.isBlank()) {
-            DlcRequiredRuntime.updateUserRemoved(entry, false);
             DlcRequiredRuntimeState.setOverride(id, true);
         }
         return applied;

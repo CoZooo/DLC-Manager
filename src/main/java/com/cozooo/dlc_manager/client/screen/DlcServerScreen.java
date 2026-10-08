@@ -183,11 +183,6 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         Minecraft.getInstance().setScreen(new DlcServerManagerScreen(this, entry, buildInfoSnapshot(), DlcServerManagerScreen.Tab.SERVERS, openedFromIngame));
     }
 
-    private void openRequiredManager() {
-        if (applying) return;
-        Minecraft.getInstance().setScreen(new DlcServerRequiredManagerScreen(this, entry));
-    }
-
     private void openServerList() {
         if (hasPresetChanges()) {
             DlcPresetRuntimeState.restoreEnabledPresets(presetSnapshot);
@@ -1250,10 +1245,6 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         rememberListScroll();
     }
 
-    private boolean shouldShowRequiredButton() {
-        return hasRequiredEntries || requiredMissingCount > 0;
-    }
-
     private Map<String, List<DlcServerItem>> groupByRelativeFolder(List<DlcServerItem> items) {
         Map<String, List<DlcServerItem>> grouped = new java.util.TreeMap<>();
         for (DlcServerItem item : items) {
@@ -1311,7 +1302,6 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         if (entry != null) button(document, context, tr("dlc_manager.server.config"), this::openConfig);
         Element tools = document.getElementById("manager-tools");
         tools.setInnerHTML("");
-        if (shouldShowRequiredButton()) button(document, tools, tr("dlc_manager.required.manage_button"), this::openRequiredManager);
         if (DlcConfig.isPresetFuncOn()) button(document, tools, tr("dlc_manager.preset.manager"), this::openPreset);
         button(document, tools, tr("dlc_manager.server.tab.servers"), this::openServerTools);
         for (Element tool : tools.children) tool.setAttribute("class", "button nav-button");

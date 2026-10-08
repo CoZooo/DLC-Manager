@@ -743,19 +743,6 @@ object DlcUpdateService {
     }
 
     @JvmStatic
-    fun removeSkipMarker(addedRequiredFiles: MutableList<Path?>?) {
-        if (addedRequiredFiles == null || addedRequiredFiles.isEmpty()) {
-            return
-        }
-        val dlcRoot: Path? = dlcRoot
-        if (dlcRoot == null) {
-            return
-        }
-        val skip = dlcRoot.resolve("required").resolve("SKIP")
-        deleteWithHelperFallback(skip)
-    }
-
-    @JvmStatic
     fun skipPromptForUpdate(result: UpdateCheckResult?) {
         val span = resolveUpdatePromptSpan(result)
         if (span == null) {
@@ -1262,7 +1249,6 @@ object DlcUpdateService {
             }
         }
         applyImplicitRemoteAndRequired(context, addedRequiredFiles, hasRemoteAdd, hasRequiredAdd)
-        removeSkipMarker(addedRequiredFiles)
         if (!addedRequiredFiles.isEmpty()) {
             context.addedRequired = true
         }

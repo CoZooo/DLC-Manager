@@ -61,10 +61,35 @@ class DlcRequiredLoaderTest {
         assertEquals("mods/main.jar", entry.getAppliedTargetRaw());
         assertEquals("https://example.com", entry.getRedirectUrl());
         assertTrue(entry.isHidden());
-        assertTrue(entry.isUserRemoved());
+        assertTrue(com.cozooo.dlc_manager.core.DlcDcFormatUtil.read(required.resolve("main.dc")).keySet().stream().noneMatch(key -> key.equalsIgnoreCase("UserRemoved")));
         assertEquals("Main", entry.getDisplayNames().get("en_us"));
         assertEquals("Tip", entry.getTips().get("en_us"));
         assertEquals(List.of("dep-a", "dep-b"), entry.getDependencies().stream().map(DlcRequiredDependency::getIdentifier).toList());
+    }
+
+    @Test
+    void loadRemovesLegacyStateFromRootAndNestedDependencies() throws Exception {
+        Path required = tempDir.resolve("required");
+        Files.createDirectories(required);
+        Path config = required.resolve("legacy.dc");
+        JsonObject object = new JsonObject();
+        object.addProperty("identifier", "owner");
+        object.addProperty("userRemoved", true);
+        object.addProperty("custom", "preserved");
+        JsonObject dependencies = new JsonObject();
+        JsonObject child = new JsonObject();
+        child.addProperty("identifier", "child");
+        child.addProperty("USERREMOVED", true);
+        dependencies.add("child", child);
+        object.add("dependencies", dependencies);
+        assertTrue(com.cozooo.dlc_manager.core.DlcDcFormatUtil.write(config, object));
+
+        assertEquals(1, DlcRequiredLoader.load(tempDir).size());
+        JsonObject cleaned = com.cozooo.dlc_manager.core.DlcDcFormatUtil.read(config);
+        assertNotNull(cleaned);
+        assertTrue(cleaned.keySet().stream().noneMatch(key -> key.equalsIgnoreCase("UserRemoved")));
+        assertTrue(cleaned.getAsJsonObject("dependencies").getAsJsonObject("child").keySet().stream().noneMatch(key -> key.equalsIgnoreCase("UserRemoved")));
+        assertEquals("preserved", cleaned.get("custom").getAsString());
     }
 
     @Test

@@ -38,8 +38,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
     private final List<DlcRequiredEntry> displayList = new ArrayList<>();
     private final List<DlcRequiredEntry> downloadQueue = new ArrayList<>();
     private final List<DlcRequiredEntry> applyQueue = new ArrayList<>();
-    private final boolean forceRequired;
-    private final boolean forceRestartRequired;
     private boolean updatePackageRequired;
     private final int maxConcurrentDownloads;
     private final Map<String, Float> progressByKey = new ConcurrentHashMap<>();
@@ -50,7 +48,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
     private volatile DlcRequiredEntry activeDownloadEntry;
 
     private Button downloadButton;
-    private Button skipButton;
 
     private volatile boolean detecting = true;
     private volatile boolean downloading;
@@ -73,8 +70,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         this.parent = parent;
         this.postUpdateResult = postUpdateResult;
         this.entries = entries == null ? List.of() : entries;
-        this.forceRequired = DlcRequiredManager.hasForceMarker();
-        this.forceRestartRequired = DlcRequiredManager.hasForceRestartMarker();
         this.maxConcurrentDownloads = Math.max(1, DlcConfig.getMaxConcurrentDownloads());
     }
 
@@ -94,31 +89,13 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         int buttonWidth = 140;
         int buttonHeight = 20;
         int y = this.height - 40;
-        int downloadX = forceRequired
-            ? this.width / 2 - buttonWidth / 2
-            : this.width / 2 - buttonWidth - 6;
+        int downloadX = this.width / 2 - buttonWidth / 2;
         downloadButton = Button.builder(Component.translatable("dlc_manager.required.download"), button -> handleDownloadButton())
             .bounds(downloadX, y, buttonWidth, buttonHeight)
             .build();
         downloadButton.active = false;
         downloadButton.visible = false;
-        skipButton = Button.builder(Component.translatable("dlc_manager.required.skip"), button -> {
-            DlcRequiredManager.markPrompted();
-            DlcRequiredManager.markSkipped();
-            if (postUpdateResult != null) {
-                if (!tryShowPostUpdateDownloads(postUpdateResult)) {
-                    Minecraft.getInstance().setScreen(createPostUpdateResultScreen(postUpdateResult));
-                }
-            } else {
-                if (!DlcClientRuntime.tryContinueFirstRun(parent)) {
-                    Minecraft.getInstance().setScreen(parent);
-                }
-            }
-        }).bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight).build();
-        skipButton.visible = !forceRequired;
-        skipButton.active = !forceRequired;
         addRenderableWidget(downloadButton);
-        addRenderableWidget(skipButton);
         detecting = true;
         statusText = Component.translatable("dlc_manager.required.preparing").getString();
         new Thread(this::detectEntries, "dlc-required-detect").start();
@@ -126,7 +103,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
 
     @Override
     public boolean shouldCloseOnEsc() {
-        return !forceRequired && !downloading && !detecting;
+        return false;
     }
 
     private void detectEntries() {
@@ -183,9 +160,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         cancelRequested = true;
         statusText = Component.translatable("dlc_manager.required.canceling").getString();
         downloadButton.active = false;
-        if (!forceRequired) {
-            skipButton.active = false;
-        }
     }
 
     private void updateDownloadButtonLabel(boolean isDownloading) {
@@ -207,9 +181,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         downloadedAny = false;
         updateDownloadButtonLabel(true);
         downloadButton.active = true;
-        if (!forceRequired) {
-            skipButton.active = false;
-        }
         initProgressMap(downloadQueue);
         if (downloadQueue.isEmpty()) {
             new Thread(() -> {
@@ -224,9 +195,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                     Minecraft.getInstance().execute(() -> {
                         updateDownloadButtonLabel(false);
                         downloadButton.active = true;
-                        if (!forceRequired) {
-                            skipButton.active = true;
-                        }
                     });
                 } finally {
                     downloading = false;
@@ -334,9 +302,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
             Minecraft.getInstance().execute(() -> {
                 updateDownloadButtonLabel(false);
                 downloadButton.active = true;
-                if (!forceRequired) {
-                    skipButton.active = true;
-                }
             });
             return;
         }
@@ -345,9 +310,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
             Minecraft.getInstance().execute(() -> {
                 updateDownloadButtonLabel(false);
                 downloadButton.active = true;
-                if (!forceRequired) {
-                    skipButton.active = true;
-                }
             });
             return;
         }
@@ -371,9 +333,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
             Minecraft.getInstance().execute(() -> {
                 updateDownloadButtonLabel(false);
                 downloadButton.active = true;
-                if (!forceRequired) {
-                    skipButton.active = true;
-                }
             });
             return;
         }
@@ -407,6 +366,9 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                 didApply = true;
             }
         }
+        if (!DlcRequiredService.collectNeedsApply(applyQueue).isEmpty()) {
+            throw new IOException("required installation incomplete");
+        }
         if (updatePackageRequired) {
             UpdateCheckResult updateCheck = DlcUpdateService.checkForUpdates(true);
             if (updateCheck != null && updateCheck.getUpdates() != null && !updateCheck.getUpdates().isEmpty()) {
@@ -438,14 +400,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
                     minecraft.setScreen(parent);
                 }
             });
-            return;
-        }
-        if (forceRestartRequired) {
-            Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcPageScreen(null, Component.translatable("dlc_manager.title")) {
-                @Override protected void buildPage() { rich(node(content, "div", "page-dialog page-message"), Component.translatable("dlc_manager.required.restart_prompt")); primary(tr("dlc_manager.restart_now"), () -> Minecraft.getInstance().stop()); }
-                @Override public boolean shouldCloseOnEsc() { return false; }
-                @Override public void onClose() {}
-            }));
             return;
         }
         Minecraft.getInstance().execute(() -> minecraft.setScreen(new DlcConfirmScreen(accepted -> {
@@ -763,12 +717,13 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
     @Override protected void buildPage() {
         if (!controlsReady) { controlsReady = true; initControls(); }
         pageRevision = java.util.Objects.hash(displayList, downloading);
-        var list = section(null, null);
+        var list = section(null, tr("dlc_manager.required.desc"));
         for (var entry : displayList) { var line = row(list, entry.resolveDisplayName(), null); var controls = node(line, "div", "row-controls");
             progress(controls, () -> progressByKey.getOrDefault(progressKey(entry), 0f));
             var switchSource = action(controls, tr("dlc_manager.remote.switch_source"), () -> switchRequested.add(progressKey(entry))); switchSource.setEnabled(hasMultipleSources(entry));
         }
-        live(content, () -> statusText, "page-description"); live(content, () -> errorText, "page-error"); progress(content, () -> detecting ? -1 : downloading ? getTotalProgress() : 0); mount(footer, skipButton); mount(footer, downloadButton).getElement().setAttribute("class", "button primary");
+        live(content, () -> statusText, "page-description"); live(content, () -> errorText, "page-error"); progress(content, () -> detecting ? -1 : downloading ? getTotalProgress() : 0);
+        if (downloadButton != null) mount(footer, downloadButton).getElement().setAttribute("class", "button primary");
 
     }
     @Override protected void updatePage() {
@@ -776,5 +731,6 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
         if (pageRevision != java.util.Objects.hash(displayList, downloading)) refreshPage();
     }
 
-    @Override public void onClose() { if (shouldCloseOnEsc() && skipButton != null) skipButton.onPress(); }
+    @Override protected boolean showHeaderBackButton() { return false; }
+    @Override public void onClose() {}
 }

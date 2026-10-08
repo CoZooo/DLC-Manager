@@ -72,11 +72,36 @@ public final class DlcRequiredLoader {
         if (obj == null) {
             return null;
         }
+        if (discardLegacyRemovalState(obj)) DlcDcFormatUtil.write(path, obj);
         NormalizedRequired normalized = normalizeRequiredObject(obj, requiredDir, path, null);
         if (normalized == null) {
             return null;
         }
         return normalized.entry;
+    }
+
+    private static boolean discardLegacyRemovalState(JsonElement value) {
+        boolean changed = false;
+        if (value != null && value.isJsonObject()) {
+            JsonObject object = value.getAsJsonObject();
+            for (String key : new ArrayList<>(object.keySet())) {
+                if ("UserRemoved".equalsIgnoreCase(key)) {
+                    object.remove(key);
+                    changed = true;
+                }
+            }
+            JsonElement dependencies = DlcDcConfigIO.getIgnoreCase(object, "dependencies");
+            if (dependencies != null && dependencies.isJsonObject()) {
+                for (var dependency : dependencies.getAsJsonObject().entrySet()) {
+                    changed |= discardLegacyRemovalState(dependency.getValue());
+                }
+            } else {
+                changed |= discardLegacyRemovalState(dependencies);
+            }
+        } else if (value != null && value.isJsonArray()) {
+            for (JsonElement item : value.getAsJsonArray()) changed |= discardLegacyRemovalState(item);
+        }
+        return changed;
     }
 
     private static JsonObject readConfigObject(Path path) {
@@ -164,10 +189,6 @@ public final class DlcRequiredLoader {
         Boolean hidden = getBoolean(obj, "isHidden");
         if (hidden != null) {
             entry.setHidden(hidden);
-        }
-        Boolean userRemoved = getBoolean(obj, "UserRemoved");
-        if (userRemoved != null) {
-            entry.setUserRemoved(userRemoved);
         }
         readDisplayNames(obj, entry);
         readTips(obj, entry);
@@ -377,9 +398,6 @@ public final class DlcRequiredLoader {
             ordered.addProperty("RedirectUrl", redirectUrl);
         }
         ordered.addProperty("isHidden", entry.isHidden());
-        if (entry.isUserRemoved()) {
-            ordered.addProperty("UserRemoved", true);
-        }
         ordered.add("dependencies", deps.element == null ? new JsonPrimitive("") : deps.element);
         ordered.add("DisplayName", display);
         ordered.add("tip", tip);

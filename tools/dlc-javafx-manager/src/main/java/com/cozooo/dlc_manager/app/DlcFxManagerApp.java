@@ -1292,20 +1292,10 @@ public final class DlcFxManagerApp extends Application {
         DlcRequiredRuntime.markPrompted();
         String title = DlcFxI18n.tr("dlc_manager.required.missing_title");
         String message = DlcFxI18n.tr("dlc_manager.required.missing_prompt", missing.size());
-        boolean forceOnly = DlcRequiredRuntime.hasForceMarker();
-        if (forceOnly) {
-            DlcFxModalOverlay.show(scene(), title, message, () -> {
-                showRequiredTabWithPrompt();
-                localRequiredTabPage.forceDownloadAndInstall(missing);
-            }, DlcFxI18n.tr("dlc_manager.required.download_install"));
-            return;
-        }
         DlcFxModalOverlay.show(scene(), title, message, () -> {
             showRequiredTabWithPrompt();
             localRequiredTabPage.forceDownloadAndInstall(missing);
-        }, DlcFxI18n.tr("dlc_manager.required.download_install"), () -> {
-            DlcRequiredRuntime.markSkipped();
-        }, DlcFxI18n.tr("dlc_manager.required.skip"));
+        }, DlcFxI18n.tr("dlc_manager.required.download_install"));
     }
 
     private Scene scene() {

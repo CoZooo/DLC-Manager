@@ -47,8 +47,17 @@ object DlcWorldSync {
 
     private fun startServerRequiredDownload(server: MinecraftServer) {
         Thread({
-            val result = DlcServerDownloadService.downloadAndApplyRequired(DlcConfig.getDlcRoot())
-            if (result != null && result.didWork()) {
+            var didWork = false
+            for (root in DlcConfig.getDlcRoots()) {
+                val result = DlcServerDownloadService.downloadAndApplyRequired(root)
+                if (result?.success != true) {
+                    LOGGER.error("[dlc-manager] required resources could not be installed; stopping server: {}", result?.error ?: "no result")
+                    server.halt(false)
+                    return@Thread
+                }
+                didWork = didWork || result.didWork()
+            }
+            if (didWork) {
                 LOGGER.info("[dlc-manager] server required download applied, restarting server")
                 server.halt(false)
             }

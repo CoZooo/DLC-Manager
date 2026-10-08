@@ -13,7 +13,6 @@ public class DlcServerRequiredItem {
     public Map<String, String> tips = new HashMap<>();
     public List<String> dependencies = new ArrayList<>();
     public boolean hidden;
-    public boolean userRemoved;
     public boolean hasFile;
     public boolean needsApply;
     public boolean applied;

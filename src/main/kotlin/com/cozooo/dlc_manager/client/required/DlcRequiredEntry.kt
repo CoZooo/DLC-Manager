@@ -24,7 +24,6 @@ class DlcRequiredEntry(
     private var curseforgeProjectId: String? = null
     private var curseforgeFileId: String? = null
     private var hidden = false
-    private var userRemoved = false
     private var appliedTargetRaw: String? = null
     private var redirectUrl: String? = null
     private var resolvedFileName: String? = null
@@ -166,12 +165,6 @@ class DlcRequiredEntry(
 
     fun setHidden(hidden: Boolean) {
         this.hidden = hidden
-    }
-
-    fun isUserRemoved(): Boolean = userRemoved
-
-    fun setUserRemoved(userRemoved: Boolean) {
-        this.userRemoved = userRemoved
     }
 
     fun getDependencies(): MutableList<DlcRequiredDependency> = dependencies

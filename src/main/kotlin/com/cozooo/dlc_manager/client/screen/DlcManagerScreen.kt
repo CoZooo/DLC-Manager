@@ -5,7 +5,6 @@ import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.remote.DlcRedirectEntry
 import com.cozooo.dlc_manager.client.remote.DlcRedirectLoader
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
-import com.cozooo.dlc_manager.client.required.DlcRequiredLoader
 import com.cozooo.dlc_manager.client.required.DlcRequiredRuntimeState
 import com.cozooo.dlc_manager.client.core.DlcTextFormatter
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
@@ -61,15 +60,6 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), Dl
 
 
     private fun canShowServerButton(): Boolean = DlcConfig.isServerSupportOn()
-
-    private fun hasRequiredEntries(): Boolean {
-        for (dlcRoot in DlcConfig.getDlcRoots()) {
-            if (DlcRequiredLoader.load(dlcRoot).any { !it.isHidden() }) {
-                return true
-            }
-        }
-        return false
-    }
 
     private fun rebuildRows() {
         rows.clear()
@@ -880,8 +870,6 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), Dl
             button(document, tools, translate("dlc_manager.update.manager")) { open { DlcUpdateClient.openUpdateManager(this) } }
         if (DlcConfig.isNoticeDisplayModeManagerButton() && hasNoticeContent())
             button(document, tools, translate("dlc_manager.notice")) { open { DlcNoticeManager.forceShow(this) } }
-        if (hasRequiredEntries())
-            button(document, tools, translate("dlc_manager.required.manage_button")) { open { Minecraft.getInstance().setScreen(DlcRequiredManagerScreen(this)) } }
         if (DlcConfig.isPresetFuncOn())
             button(document, tools, translate("dlc_manager.preset.manager")) { open { Minecraft.getInstance().setScreen(DlcPresetManagerScreen(this)) } }
         if (DlcConfig.isPackFuncOn() && !DlcConfig.isPButtomShown())

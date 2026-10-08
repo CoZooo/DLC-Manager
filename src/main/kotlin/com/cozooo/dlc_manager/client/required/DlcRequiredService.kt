@@ -252,18 +252,14 @@ object DlcRequiredService {
         }
         for (targetDir in appliedTargets) {
             val target = resolveTarget(targetDir, fileName) ?: continue
-            try {
-                Files.createDirectories(target.parent)
-                if (!Files.exists(target)) {
-                    Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
-                    applied = true
-                }
-            } catch (_: IOException) {
+            Files.createDirectories(target.parent)
+            if (!Files.exists(target)) {
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+                applied = true
             }
         }
         val id = entry.getIdentifier()
         if (!id.isNullOrBlank()) {
-            DlcRequiredRuntime.updateUserRemoved(entry, false)
             DlcRequiredRuntimeState.setOverride(id, true)
         }
         return applied

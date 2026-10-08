@@ -138,9 +138,6 @@ public final class DlcClientRuntime {
         if (Files.exists(markerPath)) {
             return;
         }
-        if (DlcRequiredManager.tryShowFromTitle(parent)) {
-            return;
-        }
         try {
             Files.createDirectories(dlcRoot);
             ensurePackArchiveRoot(dlcRoot);
@@ -822,16 +819,10 @@ public final class DlcClientRuntime {
                 LOGGER.info("[dlc-manager] self update check done: hasUpdate={}, promptSkipped={}, took={}ms",
                     hasSelfUpdate, promptSkipped, System.currentTimeMillis() - selfAt);
             }
-            if (!hasUpdate) {
-                if (!DlcRequiredManager.hasSkipMarker()) {
-                    long requiredAt = System.currentTimeMillis();
-                    hasRequired = DlcRequiredManager.hasMissingDownloadsForPrompt();
-                    if (hasRequired) {
-                        missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
-                    }
-                    LOGGER.info("[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms", hasRequired, missing.size(), System.currentTimeMillis() - requiredAt);
-                }
-            }
+            long requiredAt = System.currentTimeMillis();
+            missing = DlcRequiredManager.collectMissingDownloadsForPrompt();
+            hasRequired = !missing.isEmpty();
+            LOGGER.info("[dlc-manager] required check done: hasRequired={}, missingCount={}, took={}ms", hasRequired, missing.size(), System.currentTimeMillis() - requiredAt);
             boolean finalHasUpdate = hasUpdate;
             UpdateCheckResult finalUpdateResult = updateResult;
             boolean finalHasPackUpdate = hasPackUpdate;

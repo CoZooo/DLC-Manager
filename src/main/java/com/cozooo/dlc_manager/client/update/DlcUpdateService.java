@@ -677,18 +677,6 @@ public final class DlcUpdateService {
         }
     }
 
-    public static void removeSkipMarker(List<Path> addedRequiredFiles) {
-        if (addedRequiredFiles == null || addedRequiredFiles.isEmpty()) {
-            return;
-        }
-        Path dlcRoot = getDlcRoot();
-        if (dlcRoot == null) {
-            return;
-        }
-        Path skip = dlcRoot.resolve("required").resolve("SKIP");
-        deleteWithHelperFallback(skip);
-    }
-
     public static void skipPromptForUpdate(UpdateCheckResult result) {
         UpdatePromptSpan span = resolveUpdatePromptSpan(result);
         if (span == null) {
@@ -1170,7 +1158,6 @@ public final class DlcUpdateService {
             }
         }
         applyImplicitRemoteAndRequired(context, addedRequiredFiles, hasRemoteAdd, hasRequiredAdd);
-        removeSkipMarker(addedRequiredFiles);
         if (!addedRequiredFiles.isEmpty()) {
             context.addedRequired = true;
         }

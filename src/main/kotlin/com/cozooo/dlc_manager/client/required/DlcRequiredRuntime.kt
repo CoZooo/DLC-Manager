@@ -26,21 +26,8 @@ object DlcRequiredRuntime {
     private var promptedThisSession = false
 
     @JvmStatic
-    fun markSkipped() {
-        if (hasForceMarker()) {
-            return
-        }
-        val requiredDir = getRequiredDir() ?: return
-        try {
-            Files.createDirectories(requiredDir)
-            Files.writeString(requiredDir.resolve("SKIP"), "")
-        } catch (_: Exception) {
-        }
-    }
-
-    @JvmStatic
     fun pollMissingDownloadsForTitlePrompt(): List<DlcRequiredEntry> {
-        if (promptedThisSession || hasSkipMarker()) {
+        if (promptedThisSession) {
             return emptyList()
         }
         val missing = collectMissingDownloadsForPrompt()
@@ -56,37 +43,8 @@ object DlcRequiredRuntime {
     }
 
     @JvmStatic
-    fun hasSkipMarker(): Boolean {
-        if (hasForceMarker()) {
-            return false
-        }
-        val requiredDir = getRequiredDir() ?: return false
-        return Files.exists(requiredDir.resolve("SKIP"))
-    }
-
-    @JvmStatic
-    fun hasForceMarker(): Boolean {
-        val requiredDir = getRequiredDir() ?: return false
-        return Files.exists(requiredDir.resolve("FORCE"))
-    }
-
-    @JvmStatic
-    fun hasForceRestartMarker(): Boolean {
-        val requiredDir = getRequiredDir() ?: return false
-        val marker = requiredDir.resolve("FORCE")
-        if (!Files.exists(marker)) {
-            return false
-        }
-        return try {
-            Files.readString(marker)?.lowercase(Locale.ROOT)?.contains("forcerestart") == true
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    @JvmStatic
     fun loadEntries(): List<DlcRequiredEntry> {
-        return DlcRequiredLoader.load(getDlcRoot())
+        return DlcConfig.getDlcRoots().flatMap { DlcRequiredLoader.load(it) }
     }
 
     @JvmStatic
@@ -121,16 +79,6 @@ object DlcRequiredRuntime {
             }
         }
         return entries
-    }
-
-    private fun getDlcRoot(): Path? {
-        val roots = DlcConfig.getDlcRoots()
-        return if (roots.isEmpty()) null else roots[0]
-    }
-
-    private fun getRequiredDir(): Path? {
-        val dlcRoot = getDlcRoot() ?: return null
-        return dlcRoot.resolve("required")
     }
 
     @JvmStatic
@@ -241,7 +189,7 @@ object DlcRequiredRuntime {
     @JvmStatic
     fun hasMissingDownloadsForPrompt(): Boolean {
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -329,7 +277,7 @@ object DlcRequiredRuntime {
     fun collectMissingDownloadsForPrompt(): List<DlcRequiredEntry> {
         val missing = ArrayList<DlcRequiredEntry>()
         for (entry in loadAllEntriesInternal()) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue
             }
             var fileName = normalizeFileName(entry.getRequiredFileName())
@@ -559,30 +507,6 @@ object DlcRequiredRuntime {
         }
     }
 
-    @JvmStatic
-    fun updateUserRemoved(entry: DlcRequiredEntry?, userRemoved: Boolean) {
-        if (entry == null) {
-            return
-        }
-        val config = entry.getConfigPath()
-        if (config == null || !Files.exists(config)) {
-            return
-        }
-        try {
-            val obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED) ?: return
-            if (userRemoved) {
-                obj.addProperty("UserRemoved", true)
-            } else {
-                obj.remove("UserRemoved")
-                obj.remove("userRemoved")
-            }
-            val reordered = reorderRequiredJson(obj, entry.getRequiredFileName())
-            writeRequiredConfig(config, reordered)
-            entry.setUserRemoved(userRemoved)
-        } catch (_: Exception) {
-        }
-    }
-
     private fun writeRequiredConfig(config: Path?, ordered: JsonObject?): Path? {
         if (config == null || ordered == null) {
             return null
@@ -632,10 +556,6 @@ object DlcRequiredRuntime {
         ordered.addProperty("appliedTarget", if (applied.isEmpty()) "" else applied)
 
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false))
-        val userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false)
-        if (userRemoved) {
-            ordered.addProperty("UserRemoved", true)
-        }
 
         val deps = obj.get("dependencies")
         ordered.add("dependencies", deps ?: JsonPrimitive(""))
@@ -666,7 +586,7 @@ object DlcRequiredRuntime {
             if (key == "displayName") {
                 continue
             }
-            if (key == "UserRemoved" || key == "userRemoved") {
+            if (key.equals("UserRemoved", ignoreCase = true)) {
                 continue
             }
             ordered.add(key, value)

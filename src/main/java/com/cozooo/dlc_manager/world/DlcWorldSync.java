@@ -51,8 +51,17 @@ public final class DlcWorldSync {
 
     private static void startServerRequiredDownload(MinecraftServer server) {
         new Thread(() -> {
-            DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(DlcConfig.getDlcRoot());
-            if (result != null && result.didWork()) {
+            boolean didWork = false;
+            for (Path root : DlcConfig.getDlcRoots()) {
+                DlcServerDownloadService.DownloadResult result = DlcServerDownloadService.downloadAndApplyRequired(root);
+                if (result == null || !result.success) {
+                    LOGGER.error("[dlc-manager] required resources could not be installed; stopping server: {}", result == null ? "no result" : result.error);
+                    server.halt(false);
+                    return;
+                }
+                didWork |= result.didWork();
+            }
+            if (didWork) {
                 LOGGER.info("[dlc-manager] server required download applied, restarting server");
                 server.halt(false);
             }

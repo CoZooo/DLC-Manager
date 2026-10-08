@@ -27,7 +27,6 @@ public class DlcRequiredEntry {
     private String curseforgeProjectId;
     private String curseforgeFileId;
     private boolean hidden;
-    private boolean userRemoved;
     private String appliedTargetRaw;
     private String redirectUrl;
     private String resolvedFileName;
@@ -246,14 +245,6 @@ public class DlcRequiredEntry {
 
     public void setHidden(boolean hidden) {
         this.hidden = hidden;
-    }
-
-    public boolean isUserRemoved() {
-        return userRemoved;
-    }
-
-    public void setUserRemoved(boolean userRemoved) {
-        this.userRemoved = userRemoved;
     }
 
     public List<DlcRequiredDependency> getDependencies() {

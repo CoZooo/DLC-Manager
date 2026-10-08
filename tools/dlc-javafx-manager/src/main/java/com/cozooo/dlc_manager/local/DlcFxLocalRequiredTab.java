@@ -287,7 +287,6 @@ public final class DlcFxLocalRequiredTab {
                         updateTotalProgress(targets, token);
                     }
                     if (DlcRequiredService.installOne(entry)) {
-                        DlcRequiredRuntime.updateUserRemoved(entry, false);
                     }
                     done++;
                     if (isCurrentGeneration(token)) {
@@ -377,7 +376,6 @@ public final class DlcFxLocalRequiredTab {
                 }
             }
         }
-        DlcRequiredRuntime.updateUserRemoved(entry, true);
     }
 
     private final class LocalRequiredActions implements DlcFxRequiredActionFlow.Actions<DlcRequiredEntry> {

@@ -64,8 +64,33 @@ object DlcRequiredLoader {
             return null
         }
         val obj = readConfigObject(path) ?: return null
+        if (discardLegacyRemovalState(obj)) DlcDcFormatUtil.write(path, obj)
         val normalized = normalizeRequiredObject(obj, requiredDir, path, null) ?: return null
         return normalized.entry
+    }
+
+    private fun discardLegacyRemovalState(value: JsonElement?): Boolean {
+        var changed = false
+        if (value?.isJsonObject == true) {
+            val obj = value.asJsonObject
+            for (key in obj.keySet().toList()) {
+                if (key.equals("UserRemoved", ignoreCase = true)) {
+                    obj.remove(key)
+                    changed = true
+                }
+            }
+            val dependencies = DlcDcConfigIO.getIgnoreCase(obj, "dependencies")
+            if (dependencies?.isJsonObject == true) {
+                for ((_, dependency) in dependencies.asJsonObject.entrySet()) {
+                    changed = discardLegacyRemovalState(dependency) || changed
+                }
+            } else {
+                changed = discardLegacyRemovalState(dependencies) || changed
+            }
+        } else if (value?.isJsonArray == true) {
+            for (item in value.asJsonArray) changed = discardLegacyRemovalState(item) || changed
+        }
+        return changed
     }
 
     private fun readConfigObject(path: Path?): JsonObject? {
@@ -151,10 +176,6 @@ object DlcRequiredLoader {
         val hidden = getBoolean(obj, "isHidden")
         if (hidden != null) {
             entry.setHidden(hidden)
-        }
-        val userRemoved = getBoolean(obj, "UserRemoved")
-        if (userRemoved != null) {
-            entry.setUserRemoved(userRemoved)
         }
         readDisplayNames(obj, entry)
         readTips(obj, entry)
@@ -357,9 +378,6 @@ object DlcRequiredLoader {
             ordered.addProperty("RedirectUrl", redirectUrl)
         }
         ordered.addProperty("isHidden", entry.isHidden())
-        if (entry.isUserRemoved()) {
-            ordered.addProperty("UserRemoved", true)
-        }
         ordered.add("dependencies", deps.element ?: JsonPrimitive(""))
         ordered.add("DisplayName", display)
         ordered.add("tip", tip)

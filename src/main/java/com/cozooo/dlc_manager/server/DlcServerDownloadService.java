@@ -352,7 +352,6 @@ public final class DlcServerDownloadService {
                 if (fileName != null && !fileName.isBlank()) {
                     item.entry.setResolvedFileName(fileName);
                     updateRequiredFileNameKey(item.entry, fileName);
-                    updateRequiredUserRemoved(item.entry, false);
                 } else {
                     String err = "download_failed:" + safeId(item.entry);
                     markDone(item, false, err);
@@ -521,9 +520,7 @@ public final class DlcServerDownloadService {
             if (entry == null || entry.isHidden()) {
                 continue;
             }
-            if (entry.isUserRemoved()) {
-                continue;
-            }
+
             String fileName = resolveExistingFileName(entry);
             entry.setResolvedFileName(fileName);
             boolean hasFile = fileName != null && entry.resolveRequiredPath(fileName) != null
@@ -541,7 +538,6 @@ public final class DlcServerDownloadService {
                 }
             }
             item.hidden = entry.isHidden();
-            item.userRemoved = entry.isUserRemoved();
             item.hasFile = hasFile;
             item.needsApply = needsApply;
             item.applied = hasFile && !needsApply;
@@ -618,9 +614,7 @@ public final class DlcServerDownloadService {
                 if (entry == null || entry.isHidden()) {
                     continue;
                 }
-                if (entry.isUserRemoved()) {
-                    continue;
-                }
+
                 String id = safeId(entry);
                 String name = resolveRequiredDisplayName(entry, lang);
                 items.add(new RequiredItemState(entry, id, name));
@@ -861,9 +855,9 @@ public final class DlcServerDownloadService {
         if (dlcRoot == null) {
             return missing;
         }
-        List<DlcRequiredEntry> entries = loadRequiredEntries(dlcRoot);
+        List<DlcRequiredEntry> entries = loadAllRequiredEntries(dlcRoot);
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = resolveExistingFileName(entry);
@@ -919,13 +913,13 @@ public final class DlcServerDownloadService {
             Files.createDirectories(dlcRoot);
         } catch (IOException ignored) {
         }
-        List<DlcRequiredEntry> entries = DlcRequiredLoader.load(dlcRoot);
+        List<DlcRequiredEntry> entries = loadAllRequiredEntries(dlcRoot);
         if (entries == null || entries.isEmpty()) {
             result.success = true;
             return result;
         }
         for (DlcRequiredEntry entry : entries) {
-            if (entry == null || entry.isUserRemoved()) {
+            if (entry == null) {
                 continue;
             }
             String fileName = resolveExistingFileName(entry);
@@ -970,6 +964,11 @@ public final class DlcServerDownloadService {
         }
         int applied = applyRequired(entries);
         result.appliedCount = applied;
+        if (!collectMissingRequired(dlcRoot).isEmpty()) {
+            result.success = false;
+            result.error = "required installation incomplete";
+            return result;
+        }
         result.success = true;
         return result;
     }
@@ -990,7 +989,6 @@ public final class DlcServerDownloadService {
                 continue;
             }
             removeEntryFiles(entry);
-            updateRequiredUserRemoved(entry, true);
             removed++;
         }
         return removed;
@@ -1016,7 +1014,6 @@ public final class DlcServerDownloadService {
                 entry.setResolvedFileName(fileName);
             }
             if (applyRequiredEntry(entry)) {
-                updateRequiredUserRemoved(entry, false);
                 applied++;
             }
         }
@@ -1865,29 +1862,6 @@ public final class DlcServerDownloadService {
         DlcDcConfigIO.write(config, ordered, DlcDcConfigIO.Layout.DLC_STRUCTURED);
     }
 
-    private static void updateRequiredUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
-        if (entry == null) {
-            return;
-        }
-        Path config = entry.getConfigPath();
-        if (config == null || !Files.exists(config)) {
-            return;
-        }
-        JsonObject obj = DlcDcConfigIO.read(config, DlcDcConfigIO.Layout.DLC_STRUCTURED);
-        if (obj == null) {
-            return;
-        }
-        if (userRemoved) {
-            obj.addProperty("UserRemoved", true);
-        } else {
-            obj.remove("UserRemoved");
-            obj.remove("userRemoved");
-        }
-        JsonObject ordered = reorderRequiredJson(obj, entry.getRequiredFileName());
-        DlcDcConfigIO.write(config, ordered, DlcDcConfigIO.Layout.DLC_STRUCTURED);
-        entry.setUserRemoved(userRemoved);
-    }
-
     private static JsonObject reorderRequiredJson(JsonObject obj, String fileNameOverride) {
         JsonObject ordered = new JsonObject();
         ordered.addProperty("curseforge_projectid", getString(obj, "curseforge_projectid"));
@@ -1912,10 +1886,6 @@ public final class DlcServerDownloadService {
         }
         ordered.addProperty("appliedTarget", getString(obj, "appliedTarget"));
         ordered.addProperty("isHidden", getBoolean(obj, "isHidden", false));
-        boolean userRemoved = getBoolean(obj, "UserRemoved", false) || getBoolean(obj, "userRemoved", false);
-        if (userRemoved) {
-            ordered.addProperty("UserRemoved", true);
-        }
         ordered.addProperty("dependencies", getString(obj, "dependencies"));
         JsonObject display = new JsonObject();
         JsonElement displayObj = obj.get("DisplayName");

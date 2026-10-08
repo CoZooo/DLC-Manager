@@ -21,26 +21,6 @@ object DlcRequiredManager {
     }
 
     @JvmStatic
-    fun markSkipped() {
-        DlcRequiredRuntime.markSkipped()
-    }
-
-    @JvmStatic
-    fun hasSkipMarker(): Boolean {
-        return DlcRequiredRuntime.hasSkipMarker()
-    }
-
-    @JvmStatic
-    fun hasForceMarker(): Boolean {
-        return DlcRequiredRuntime.hasForceMarker()
-    }
-
-    @JvmStatic
-    fun hasForceRestartMarker(): Boolean {
-        return DlcRequiredRuntime.hasForceRestartMarker()
-    }
-
-    @JvmStatic
     fun loadEntries(): List<DlcRequiredEntry> {
         return DlcRequiredRuntime.loadEntries()
     }
@@ -120,8 +100,4 @@ object DlcRequiredManager {
         DlcRequiredRuntime.updateFileNameKey(entry, fileName)
     }
 
-    @JvmStatic
-    fun updateUserRemoved(entry: DlcRequiredEntry?, userRemoved: Boolean) {
-        DlcRequiredRuntime.updateUserRemoved(entry, userRemoved)
-    }
 }

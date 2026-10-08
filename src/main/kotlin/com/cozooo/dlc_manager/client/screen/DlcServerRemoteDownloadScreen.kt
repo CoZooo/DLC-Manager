@@ -44,7 +44,7 @@ class DlcServerRemoteDownloadScreen(
             .bounds(width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build()
         download.active = false
-        val back = Button.builder(Component.translatable("dlc_manager.required.skip")) { Minecraft.getInstance().setScreen(parent) }
+        val back = Button.builder(Component.translatable("dlc_manager.remote.skip")) { Minecraft.getInstance().setScreen(parent) }
             .bounds(width / 2 + 6, y, buttonWidth, buttonHeight)
             .build()
         downloadButton = download

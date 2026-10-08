@@ -1,6 +1,7 @@
 package com.cozooo.dlc_manager.client;
 
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager;
+import com.cozooo.dlc_manager.client.required.DlcRequiredManager;
 import com.cozooo.dlc_manager.client.screen.DlcManagerScreen;
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient;
 import com.cozooo.dlc_manager.core.DlcConfig;
@@ -185,6 +186,7 @@ public final class DlcClientEvents {
         }
         alignTitleButtons(screen);
         pendingAlignScreen = screen;
+        if (DlcRequiredManager.tryShowFromTitle(screen)) return;
         DlcClientRuntime.maybeOpenManagerOnFirstRun(screen);
         DlcClientRuntime.runStartupChecksAsync(screen);
     }

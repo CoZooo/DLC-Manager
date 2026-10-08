@@ -52,7 +52,7 @@ public class DlcServerRemoteDownloadScreen extends DlcRemotePageScreen {
             .bounds(this.width / 2 - buttonWidth - 6, y, buttonWidth, buttonHeight)
             .build();
         downloadButton.active = false;
-        backButton = Button.builder(Component.translatable("dlc_manager.required.skip"), button -> Minecraft.getInstance().setScreen(parent))
+        backButton = Button.builder(Component.translatable("dlc_manager.remote.skip"), button -> Minecraft.getInstance().setScreen(parent))
             .bounds(this.width / 2 + 6, y, buttonWidth, buttonHeight)
             .build();
         addRenderableWidget(downloadButton);

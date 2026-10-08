@@ -24,22 +24,6 @@ public final class DlcRequiredManager {
         DlcRequiredRuntime.markPrompted();
     }
 
-    public static void markSkipped() {
-        DlcRequiredRuntime.markSkipped();
-    }
-
-    public static boolean hasSkipMarker() {
-        return DlcRequiredRuntime.hasSkipMarker();
-    }
-
-    public static boolean hasForceMarker() {
-        return DlcRequiredRuntime.hasForceMarker();
-    }
-
-    public static boolean hasForceRestartMarker() {
-        return DlcRequiredRuntime.hasForceRestartMarker();
-    }
-
     public static List<DlcRequiredEntry> loadEntries() {
         return DlcRequiredRuntime.loadEntries();
     }
@@ -104,7 +88,4 @@ public final class DlcRequiredManager {
         DlcRequiredRuntime.updateFileNameKey(entry, fileName);
     }
 
-    public static void updateUserRemoved(DlcRequiredEntry entry, boolean userRemoved) {
-        DlcRequiredRuntime.updateUserRemoved(entry, userRemoved);
-    }
 }
