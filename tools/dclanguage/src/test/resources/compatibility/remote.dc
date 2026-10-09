@@ -1,0 +1,25 @@
+# Remote resource, including fields unknown to consumers.
+[download]
+modrinth_projectid = "main-project"
+curseforge_projectid = "123456"
+directUrl = [
+  "https://example.invalid/main.jar?mirror=1#download",
+  "https://mirror.invalid/main.jar"
+]
+priority = ["curseforge", "modrinth", "directUrl"]
+
+[basic]
+identifier = "main"
+file_name = "main.jar"
+mode = "hash" # preserve this setting comment
+isHidden = false
+AllowEnableByAll = true
+optional = null
+vendor = {"revision": 4, "flags": [true, false], "meta": {"channel": "beta"}}
+
+[DisplayName]
+en_us = "Main DLC"
+zh_cn = "主要内容"
+
+[tip]
+zh_cn = "第一行\n第二行"

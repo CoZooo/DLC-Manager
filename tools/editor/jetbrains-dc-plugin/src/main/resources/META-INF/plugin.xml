@@ -1,15 +1,23 @@
 <idea-plugin>
     <id>com.cozooo.dlc_manager.dc</id>
     <name>DC Language Support</name>
-    <vendor email="dev@cozooo.com">CoZooo</vendor>
+    <vendor email="dev@cozooo.com" url="https://github.com/CoZooo/DLC-Manager">CoZooo</vendor>
 
     <description><![CDATA[
-    Support for <code>.dc</code> files:
+    Edit <code>.dc</code> configuration files with:
     <ul>
-      <li>syntax highlighting</li>
-      <li>basic key/section completion</li>
-      <li>basic syntax inspection</li>
+      <li>syntax highlighting and section and field completion</li>
+      <li>error hints and field documentation</li>
+      <li>document formatting with Reformat Code</li>
+      <li>hex color completion, previews and a color picker</li>
+      <li>customizable syntax colors</li>
     </ul>
+    Supports compatible IntelliJ Platform IDEs, including Community editions.
+    Requires Java 17 or newer; the IDE runtime can usually be used.
+    <p>Noncommercial use; commercial use or resale requires prior written permission.
+    <a href="https://github.com/CoZooo/DLC-Manager/blob/main/LICENSING.md">Licensing details</a>.</p>
+    <p><a href="https://github.com/CoZooo/DLC-Manager">Project and user guides</a> ·
+    <a href="https://github.com/CoZooo/DLC-Manager/issues">Report an issue</a></p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -38,14 +46,10 @@
                 implementationClass="com.cozooo.dlc_manager.dc.DCInlineColorInlayHintsProvider"/>
         <typedHandler implementation="com.cozooo.dlc_manager.dc.DCTypedHandler"/>
         <backspaceHandlerDelegate implementation="com.cozooo.dlc_manager.dc.DCBackspaceHandler"/>
-        <localInspection
-                language="DC"
-                shortName="DCBasicSyntax"
-                displayName="DC basic syntax check"
-                groupName="DC"
-                enabledByDefault="true"
-                level="WARNING"
-                implementationClass="com.cozooo.dlc_manager.dc.DCBasicSyntaxInspection"/>
-        <postStartupActivity implementation="com.cozooo.dlc_manager.dc.DCAutoCorrectStartupActivity"/>
+        <externalAnnotator language="DC" implementationClass="com.cozooo.dlc_manager.dc.DCExternalAnnotator"/>
+        <lang.documentationProvider language="DC" implementationClass="com.cozooo.dlc_manager.dc.DCDocumentationProvider"/>
+        <formattingService implementation="com.cozooo.dlc_manager.dc.DCFormattingService"/>
+        <notificationGroup id="DC Language Server" displayType="BALLOON"/>
+        <postStartupActivity implementation="com.cozooo.dlc_manager.dc.DCLanguageServerStartupActivity"/>
     </extensions>
 </idea-plugin>

@@ -1,59 +1,47 @@
-# DC QuickLook (macOS)
+# DC Quick Look
 
-为 `.dc` 文件提供 macOS Finder Quick Look 预览（空格键），包含基础语法高亮。
+[简体中文](README.zh.md)
 
-## 目录结构
+Select a `.dc` file in macOS Finder and press Space to preview it with syntax highlighting.
 
-- `project.yml`: XcodeGen 工程定义（Host App + Quick Look Extension）
-- `HostApp`: 扩展宿主 App（用于安装与签名）
-- `Extension`: Quick Look Preview Extension
-- `Shared`: 预览高亮逻辑
-- `scripts/generate_project.sh`: 生成 `.xcodeproj`
+Noncommercial use is subject to the license supplied with the release. Commercial use or resale requires prior written permission.
 
-## 快速开始
+## Features
 
-1. 安装 XcodeGen
+- Highlight sections, fields, strings, numbers, booleans, and comments.
+- Preview nested configurations, arrays, and multiline text.
+- Use light or dark appearance and select or copy preview text.
+- Keep the original file unchanged and continue using your preferred editor.
 
-```bash
-brew install xcodegen
-```
+## Requirements
 
-2. 生成工程
+macOS 13 or later, on Apple Silicon or Intel Macs.
 
-```bash
-cd /Users/cozozjw/Projects/DLC-Manager/tools/editor/dc-quicklook
-./scripts/generate_project.sh
-```
+## Install
 
-3. 打开工程
+1. Download `DCQuickLookHost-2.0.0-distribution.zip` from [Releases](https://github.com/CoZooo/DLC-Manager/releases).
+2. Extract the package, then open `DCQuickLookHost-2.0.0-macos-notarized.zip` inside it. Move the extracted `DCQuickLookHost.app` to Applications.
+3. Open the app once. It closes automatically after setup; this is expected.
+4. Select a `.dc` file in Finder and press Space.
 
-```bash
-open /Users/cozozjw/Projects/DLC-Manager/tools/editor/dc-quicklook/DCQuickLook.xcodeproj
-```
+If previews are not enabled, search System Settings for Quick Look extensions and enable DC Quick Look.
 
-4. Xcode 内配置
+## Use
 
-- 给 `DCQuickLookHost` 和 `DCQuickLookExtension` 选择同一 Team 进行签名
-- 运行 `DCQuickLookHost` 一次，Host 会自动执行扩展注册并自动退出
-- 如未生效：`System Settings -> Privacy & Security -> Extensions -> Quick Look` 中启用
+Select a file in Finder and press Space to open its preview. Press Space or Esc to close it. Open the file in your usual editor when you want to make changes.
 
-5. 验证
+Files larger than 2 MiB show only the beginning, with a notice. Open the file in an editor to read the rest.
 
-```bash
-qlmanage -r
-qlmanage -r cache
-qlmanage -p /path/to/test.dc
-```
+## Troubleshooting
 
-## 当前高亮覆盖
+**The app opens without a window:** This is expected. The app enables previews; everyday use starts in Finder with the Space key.
 
-- 节头：`[basic]`
-- 键值：`key = value` 的 key 与 `=`/`:`
-- 字符串、数字、布尔值
-- 注释：`#`、`//`
-- 三引号字符串行（`"""`）
+**Previews do not appear:** Check that the app is in Applications and has been opened once, then check that its Quick Look extension is enabled. Close and reopen the preview. If needed, sign out of macOS and sign in again.
 
-## 说明
+**The file cannot be read:** Check that it opens in an editor. Download cloud-stored files to your Mac before previewing them.
 
-- 该扩展是完整 Quick Look 预览扩展，不是纯文本回退方案。
-- 如果你的 macOS 或 Xcode 版本较旧，建议优先升级到 Xcode 15+。
+**Only part of the file appears:** The file exceeds the preview limit. Use an editor to read it in full.
+
+To uninstall, disable the extension in System Settings and move the app to the Trash.
+
+For other problems, [open an issue](https://github.com/CoZooo/DLC-Manager/issues) with your app and macOS versions and a small file that reproduces the problem. Remove passwords, tokens, and private information before sharing it.

@@ -79,6 +79,7 @@ sourceSets.test {
 
 dependencies {
     if (kotlinEnabled) add(bootstrapLibraries.name, "org.jetbrains.kotlin:kotlin-stdlib:2.2.20") { isTransitive = false }
+    implementation("com.cozooo:dclanguage:0.1.0")
     implementation("com.google.code.gson:gson:2.10.1")
     compileOnly("cpw.mods:modlauncher:10.0.9") { isTransitive = false }
     compileOnly("net.minecraftforge:fmlloader:1.20.1-47.2.0") { isTransitive = false }
@@ -137,6 +138,7 @@ val bootstrapJars = listOf("forge" to "1.20.1", "neoforge" to "1.21.1").map { (l
         archiveFileName.set("DLC-Manager-runtime-$loader-$minecraft-${project.version}.jar")
         destinationDirectory.set(layout.buildDirectory.dir("services/$loader"))
         relocate("com.cozooo.dlc_manager", "com.cozooo.dlc_bootstrap.internal")
+        relocate("com.cozooo.dclanguage", "com.cozooo.dlc_bootstrap.internal.dclanguage")
         relocate("com.google.gson", "com.cozooo.dlc_bootstrap.internal.gson")
         exclude("META-INF/services/**", "META-INF/jarjar/**", "META-INF/versions/**", "META-INF/*.SF", "META-INF/*.RSA", "META-INF/*.DSA", "module-info.class", "org/jetbrains/annotations/**")
     }
@@ -157,6 +159,12 @@ val bootstrapJars = listOf("forge" to "1.20.1", "neoforge" to "1.21.1").map { (l
         manifest.attributes("FMLModType" to "LIBRARY", "Automatic-Module-Name" to "dlc.manager.bootstrap.$loader")
     }
 }
+tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
+    from("../../LICENSE") { into("META-INF/dlc-manager") }
+    from("../../LICENSING.md") { into("META-INF/dlc-manager") }
+    from("../../LICENSING.zh.md") { into("META-INF/dlc-manager") }
+}
+
 tasks.shadowJar { enabled = false }
 tasks.assemble { dependsOn(bootstrapJars) }
 tasks.test {

@@ -1,0 +1,11 @@
+# DC files remain ordinary UTF-8 text.
+[basic]
+identifier = "example"
+mode = "hash"
+
+[display_name]
+en_us = "Example"
+zh_cn = "示例"
+
+[options]
+features = [true, 1.25, null, {"name": "nested", "values": [1, 2]}]

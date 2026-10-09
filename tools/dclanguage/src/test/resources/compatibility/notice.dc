@@ -1,0 +1,25 @@
+isNoticeEnabled = true
+neverShow = false
+ShowFrequency = "perlaunchmanager"
+
+[Title]
+en_us = "Release notes"
+zh_cn = "更新信息"
+
+[Subhead]
+enabled = true
+zh_cn = "2026 年 10 月"
+
+[ContentUrl]
+en_us = "https://example.invalid/notice#contents"
+
+[Contents]
+zh_cn = """
+<h1>欢迎使用 DLC</h1>
+<p>正文中的 # 与 // 保留。</p>
+<script>const path = "mods/example.jar";</script>
+"""
+en_us = '''
+A literal Windows path: C:\Games\DLC
+[This is text, not a category]
+'''

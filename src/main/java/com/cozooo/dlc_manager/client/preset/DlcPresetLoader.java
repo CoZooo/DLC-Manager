@@ -1,6 +1,8 @@
 package com.cozooo.dlc_manager.client.preset;
 
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
+import com.cozooo.dclanguage.DcDocument;
+import com.cozooo.dclanguage.DcDocuments;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
 import com.google.gson.JsonElement;
@@ -213,7 +215,14 @@ public final class DlcPresetLoader {
             }
             migrated.add(key, entry.getValue());
         }
-        DlcDcConfigIO.write(path, migrated, DlcDcConfigIO.Layout.GENERIC);
+        try {
+            DcDocument document = DcDocuments.read(path);
+            document.root().entrySet().clear();
+            for (var entry : migrated.entrySet()) document.root().add(entry.getKey(), entry.getValue().deepCopy());
+            document.asSection("basic").asSection("dependencies").asSection("conflicts");
+            DcDocuments.write(path, document);
+        } catch (IOException | IllegalArgumentException | IllegalStateException ignored) {
+        }
     }
 
     private static JsonObject relationObject(List<String> values) {

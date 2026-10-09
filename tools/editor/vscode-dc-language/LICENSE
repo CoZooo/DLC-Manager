@@ -1,0 +1,136 @@
+DLC Manager Noncommercial Source License
+Version 1.0
+
+License identifier: LicenseRef-DLC-Manager-Noncommercial-1.0
+Copyright CoZooo.
+
+1. Scope and definitions
+
+This license applies to the original source code, binaries, documentation,
+and other material that a copyright holder expressly makes available under
+this license (the "Covered Material"). A "Licensor" is a copyright holder,
+or its authorized representative, granting rights that it is entitled to
+grant in the Covered Material. "You" means the person or legal entity
+exercising rights under this license.
+
+Material identified as subject to a separate license, including third-party
+libraries, fonts, tools, games, and IDEs, is not relicensed by this document.
+Its own license continues to govern it. Merely distributing independent
+third-party material alongside the Covered Material does not make that
+third-party material subject to this license.
+
+"Corresponding Source" means the preferred form for modifying the Covered
+Material in the version You distribute, including Your modifications and
+the build scripts, configuration, and language definitions needed to build
+that covered version. It does not include private signing keys, passwords,
+access tokens, or the source of independent third-party software. Identify
+the versions and sources of required third-party dependencies and retain
+any notices or source-offer obligations required by their own licenses.
+
+2. Limited noncommercial permission
+
+Subject to all conditions below, each Licensor grants You a nonexclusive,
+worldwide, royalty-free permission to use, copy, study, and modify the
+Covered Material for noncommercial purposes, and to distribute it for
+noncommercial purposes without charging recipients, under section 4.
+
+Personal learning, private entertainment, and hobby projects without a
+commercial purpose are permitted. Private noncommercial modifications do
+not have to be published. There is no automatic exemption for an
+organization based on its legal form, funding, or public-interest status.
+
+3. Commercial use and sales require separate written permission
+
+The permission in section 2 does not cover an activity with a commercial
+purpose, whether that purpose is primary or secondary, including commercial
+advantage, commercial revenue generation, or the operation of a business.
+Before undertaking such an activity involving the Covered
+Material, You must obtain a separate written license from every relevant
+Licensor, or a representative authorized to grant the necessary rights.
+
+Without that permission, You may not:
+
+(a) sell, rent, license for a fee, or charge for access to the Covered
+    Material, a modified version, or a product or modpack containing it;
+(b) use the Covered Material to provide paid hosting, paid game servers,
+    subscription features, managed services, or other paid services;
+(c) use the Covered Material as part of an activity monetized through
+    advertising, commercial sponsorship, or other commercial means; or
+(d) deploy or use the Covered Material for the internal operation of a
+    commercial business.
+
+Offering the software itself for free does not make an otherwise
+commercial activity noncommercial. This section does not prohibit personal
+learning merely because the skills acquired might later be useful at work.
+
+A separate written license may authorize specified commercial uses or
+different distribution terms. It overrides this license only to the extent
+expressly agreed and only for rights the granting party is entitled to
+license. No contributor's copyright is assigned or made available for
+commercial relicensing merely by contributing or distributing changes.
+
+4. Conditions for noncommercial redistribution
+
+For every copy of Covered Material You distribute, whether modified or
+unmodified, You must:
+
+(a) provide this complete license and retain applicable copyright,
+    attribution, and third-party notices;
+(b) clearly identify Your modifications and their dates, and avoid
+    presenting a modified version as an official release;
+(c) provide the Corresponding Source with the copy, or provide a working
+    link allowing recipients to download that exact Corresponding Source
+    at no charge, without requiring a separate agreement or credentials;
+    the link must remain available for at least three years after Your
+    last distribution of that version;
+(d) distribute Your modifications to the Covered Material under this same
+    license, unless all relevant rights holders have separately authorized
+    another license; and
+(e) impose no additional terms that prevent recipients from exercising
+    the noncommercial rights granted by this license.
+
+Publishing only an unrelated version or a link to a changing development
+branch is not sufficient to provide the Corresponding Source of a binary.
+This section is triggered by distribution; it does not itself require the
+publication of private changes used without distribution. Commercial
+network services remain subject to section 3.
+
+5. Reserved rights and independent third-party rights
+
+Rights not expressly granted are reserved. No right to use a Licensor's
+names, logos, or trademarks to imply endorsement is granted.
+
+The restrictions in this license do not remove any rights You independently
+receive under a third-party license, including commercial-use rights in
+separately licensed third-party components. They also do not grant rights
+to distribute Minecraft, a proprietary IDE, or any other third-party work
+contrary to its own license.
+
+6. Termination
+
+Your permissions under this license end automatically if You violate its
+conditions. After termination, You must stop activities that require those
+permissions. Reinstatement requires written permission from the relevant
+Licensor or its authorized representative. A later commercial license does
+not excuse earlier unauthorized activities unless it expressly says so.
+
+Termination of Your permissions does not terminate the permissions of
+recipients who independently comply with this license.
+
+7. No warranty; limitation of liability
+
+TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE COVERED MATERIAL IS PROVIDED
+"AS IS", WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
+NONINFRINGEMENT. TO THE EXTENT PERMITTED BY APPLICABLE LAW, NO LICENSOR OR
+CONTRIBUTOR IS LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
+FROM THIS LICENSE OR THE USE OR DISTRIBUTION OF THE COVERED MATERIAL.
+
+8. Statutory rights and severability
+
+Nothing in this license limits rights or exceptions that applicable law
+does not permit a license to restrict. If a provision is unenforceable,
+the remaining provisions continue to apply to the extent permitted by law.
+
+This English text is the operative license. Translations and summaries
+are provided for convenience and do not replace its terms.

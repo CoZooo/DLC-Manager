@@ -48,4 +48,25 @@ class DlcUpdateDcParserTest {
         assertEquals("\n第一行\n第二行", preset.getAsJsonObject("changelog").get("zh_cn").getAsString());
         assertTrue(!preset.get("hidden").getAsBoolean());
     }
+    @Test
+    void nestedDeleteListsAndTrailingCommasRemainSupported() {
+        JsonObject object = DlcUpdateDcParser.parse("""
+            [update]
+              [del]
+              "mods/old.jar",
+              "config/old.toml",
+            [extra]
+            preserved = {"vendor": 42}
+            """);
+        assertNotNull(object);
+        assertEquals(2, object.getAsJsonObject("update").getAsJsonArray("del").size());
+        assertEquals("mods/old.jar", object.getAsJsonObject("update").getAsJsonArray("del").get(0).getAsString());
+        assertEquals(42, object.getAsJsonObject("extra").getAsJsonObject("preserved").get("vendor").getAsInt());
+    }
+
+    @Test
+    void malformedUpdatesAreRejectedWithoutPartialParsing() {
+        org.junit.jupiter.api.Assertions.assertNull(DlcUpdateDcParser.parse("[update]\nname = \"unterminated\n"));
+    }
+
 }

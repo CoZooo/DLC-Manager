@@ -35,25 +35,17 @@ public final class DCColorSettingsPage implements ColorSettingsPage {
 
     @Override
     public @NotNull String getDemoText() {
-        return """
-            # DC demo
-            [download]
-            modrinth_projectid = "XxWD5pD3"
-            modrinth_versionid = "7KVs6HMQ"
-            priority = "modrinth"
-
-            [basic]
-            identifier = "AE2"
-            file_name = "appliedenergistics2-forge-15.4.10.jar"
-            type = "mod"
-            isHidden = false
-            alarm = false
-            retries = 3
-
-            [DisplayName]
-            en_us = "Applied Energistics 2"
-            zh_cn = "应用能源2"
-            """;
+        var syntax = DCSyntaxDefinition.get();
+        String open = syntax.token("categoryOpen"), close = syntax.token("categoryClose"), assignment = syntax.token("assignment");
+        String quote = syntax.strings.stream().filter(rule -> !rule.multiline()).findFirst().orElseThrow().delimiter();
+        return syntax.token("comment") + " DC syntax demo\n"
+            + open + "example" + close + "\n"
+            + "title " + assignment + " " + quote + "A document" + quote + "\n"
+            + "enabled " + assignment + " " + syntax.literal("true") + "\n"
+            + "retries " + assignment + " 3\n\n"
+            + open + "example" + syntax.token("categorySeparator") + "labels" + close + "\n"
+            + "en_us " + assignment + " " + quote + "English" + quote + "\n"
+            + "zh_cn " + assignment + " " + quote + "中文" + quote + "\n";
     }
 
     @Override

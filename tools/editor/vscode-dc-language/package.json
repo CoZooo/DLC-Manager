@@ -1,9 +1,23 @@
 {
   "name": "dc-language-tools",
   "displayName": "DC Language Tools",
-  "description": "Syntax highlighting, diagnostics, and completion for .dc files",
-  "version": "1.2.1",
+  "description": "Edit .dc files with highlighting, completion, error hints, documentation, formatting, and color picking",
+  "version": "2.0.0",
   "publisher": "cozooo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CoZooo/DLC-Manager.git",
+    "directory": "tools/editor/vscode-dc-language"
+  },
+  "homepage": "https://github.com/CoZooo/DLC-Manager",
+  "bugs": {
+    "url": "https://github.com/CoZooo/DLC-Manager/issues"
+  },
+  "keywords": [
+    "dc",
+    "dlc-manager",
+    "configuration"
+  ],
   "icon": "icons/plugin-icon.png",
   "engines": {
     "vscode": "^1.90.0"
@@ -52,6 +66,34 @@
         "language": "dc",
         "path": "./snippets/dc.json"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "DC",
+      "properties": {
+        "dc.javaPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a Java 17+ executable. Leave empty to find Java automatically. Reload the window after changing."
+        },
+        "dc.profile": {
+          "type": "string",
+          "default": "auto",
+          "description": "Configuration type used for checking and completion. Keep auto to detect it automatically. Reload the window after changing."
+        }
+      }
+    }
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "prepare-server": "node scripts/prepare-server.js",
+    "vscode:prepublish": "npm run prepare-server",
+    "package": "vsce package --baseContentUrl https://github.com/CoZooo/DLC-Manager/blob/main/tools/editor/vscode-dc-language --out ../vscode-dc-language-2.0.0.vsix"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "3.6.2",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.2.0",
+    "yauzl": "^3.2.0"
   }
 }

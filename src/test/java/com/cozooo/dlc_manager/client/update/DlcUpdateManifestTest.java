@@ -133,4 +133,10 @@ class DlcUpdateManifestTest {
         assertFalse(manifest.isUpdateDLCM());
         assertEquals(null, manifest.getUpdateDLCMVersion());
     }
+    @Test
+    void invalidDcFileDoesNotFallBackToJsonParsing(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        java.nio.file.Path file = directory.resolve("update.dc");
+        java.nio.file.Files.writeString(file, "[update]\nname = \"unterminated\n");
+        org.junit.jupiter.api.Assertions.assertNull(DlcUpdateManifest.load(file));
+    }
 }

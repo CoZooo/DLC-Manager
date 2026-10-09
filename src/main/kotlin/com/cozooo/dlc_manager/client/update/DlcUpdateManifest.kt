@@ -341,7 +341,10 @@ class DlcUpdateManifest {
                     }
                 } catch (_: IOException) {
                     return null
+                } catch (_: com.google.gson.JsonParseException) {
+                    return null
                 }
+                return fromJsonObject(obj)
             }
             if (obj == null) {
                 try {

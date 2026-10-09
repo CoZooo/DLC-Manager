@@ -37,9 +37,11 @@ fun String.capitalized(): String =
 val fileOpsHelperVersion = rootGradleProperty("file_ops_helper_version").orEmpty()
 val appVersion = rootGradleProperty("mod_version") ?: "0.0.0"
 val releaseOutputDir = layout.projectDirectory.dir("../../output/$appVersion")
+val javafxRuntimeJdkVersion = 25
 version = appVersion
 
 java {
+    toolchain.languageVersion.set(JavaLanguageVersion.of(javafxRuntimeJdkVersion))
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
@@ -183,6 +185,7 @@ val javafxRuntimeConfigurations = javafxFatJarPlatforms.mapKeys { (platformName,
 }
 
 dependencies {
+    implementation("com.cozooo:dclanguage:0.1.0")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.commonmark:commonmark:0.21.0")
     implementation("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
@@ -205,7 +208,6 @@ application {
     mainClass.set("com.cozooo.dlc_manager.app.DlcFxLauncher")
 }
 
-val javafxRuntimeJdkVersion = 25
 val jpackageLauncher = javaToolchains.launcherFor {
     languageVersion.set(JavaLanguageVersion.of(javafxRuntimeJdkVersion))
 }
@@ -225,11 +227,18 @@ application {
 distributions {
     main {
         contents {
-            from("README.md") {
+            from(files("README.md", "README.zh.md")) {
                 into("")
             }
+            from(files("../../LICENSE", "../../LICENSING.md", "../../LICENSING.zh.md")) { into("") }
         }
     }
+}
+
+tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
+    from("../../LICENSE") { into("META-INF/dlc-manager") }
+    from("../../LICENSING.md") { into("META-INF/dlc-manager") }
+    from("../../LICENSING.zh.md") { into("META-INF/dlc-manager") }
 }
 
 tasks.named<Test>("test") {
@@ -270,6 +279,7 @@ fun registerPlatformFatJar(
         group = "distribution"
         description = "Build a runnable fat jar for $label."
         dependsOn(tasks.named("classes"))
+        dependsOn(configurations.runtimeClasspath, javafxRuntime)
         archiveBaseName.set("DLC-Manager")
         archiveVersion.set(appVersion)
         archiveClassifier.set(classifier)

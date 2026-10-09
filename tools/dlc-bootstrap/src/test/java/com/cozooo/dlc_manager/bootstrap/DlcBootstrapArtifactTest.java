@@ -72,12 +72,18 @@ class DlcBootstrapArtifactTest {
             try (var runtimeJar = new java.util.jar.JarInputStream(jar.getInputStream(jar.getEntry("META-INF/dlc-manager/early.jar")))) {
                 java.util.jar.JarEntry entry;
                 boolean installerFound = false;
+                boolean dcLanguageFound = false;
                 while ((entry = runtimeJar.getNextJarEntry()) != null) {
                     assertFalse(entry.getName().startsWith("kotlin/"));
                     assertFalse(entry.getName().startsWith("com/cozooo/dlc_bootstrap/internal/kotlin/"));
+                    assertFalse(entry.getName().startsWith("com/cozooo/dclanguage/"));
+                    assertFalse(entry.getName().startsWith("jetbrains/mps/"));
+                    assertFalse(entry.getName().startsWith("org/jetbrains/mps/"));
                     installerFound |= entry.getName().equals("com/cozooo/dlc_bootstrap/internal/bootstrap/DlcBootstrapService.class");
+                    dcLanguageFound |= entry.getName().equals("com/cozooo/dlc_bootstrap/internal/dclanguage/DcDocuments.class");
                 }
                 assertTrue(installerFound);
+                assertTrue(dcLanguageFound);
             }
             assertEquals(kotlinBundled, notices.contains("Kotlin JVM Standard Library 2.2.20"));
             for (String name : new String[]{"COPYRIGHT.txt", "ATTRIBUTION.txt", "gwt_license.txt", "guava_license.txt", "threetenbp_license.txt", "boost_LICENSE.txt"}) {
@@ -124,6 +130,16 @@ class DlcBootstrapArtifactTest {
             var runtimeField = runtimeBridge.getDeclaredField("runtime");
             runtimeField.setAccessible(true);
             ClassLoader privateRuntime = (ClassLoader) runtimeField.get(null);
+            Class<?> dcDocuments = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.dclanguage.DcDocuments");
+            assertSame(privateRuntime, dcDocuments.getClassLoader());
+            Object parsed = dcDocuments.getMethod("readText", String.class).invoke(null, "[basic]\nidentifier = \"isolated\"\n");
+            assertEquals("isolated", parsed.getClass().getMethod("getString", String.class, String.class).invoke(parsed, "basic", "identifier"));
+            assertSame(privateRuntime, parsed.getClass().getMethod("toJson").invoke(parsed).getClass().getClassLoader());
+            Class<?> catalogType = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.dclanguage.DcSchemaCatalog");
+            Object catalog = catalogType.getMethod("loadDefault").invoke(null);
+            assertFalse(((java.util.List<?>) catalogType.getMethod("profiles").invoke(catalog)).isEmpty());
+            Class<?> syntaxType = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.dclanguage.generated.DcGeneratedSyntax");
+            assertEquals(syntaxType.getField("DEFINITION_SHA256").get(null), catalogType.getMethod("definitionHash").invoke(catalog));
             if (!System.getProperty("kotlinStdlibJar").isEmpty()) {
                 Class<?> intrinsics = privateRuntime.loadClass("kotlin.jvm.internal.Intrinsics");
                 assertSame(privateRuntime, intrinsics.getClassLoader());

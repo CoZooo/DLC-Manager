@@ -23,9 +23,9 @@ object DlcDcConfigIO {
             return null
         }
         if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(path)) {
-            return DcFormatBridge.read(path)
+            return DlcDcFormatUtil.read(path)
         }
-        return DcFormatBridge.readGeneric(path)
+        return DlcDcFormatUtil.readGeneric(path)
     }
 
     @JvmStatic
@@ -33,15 +33,15 @@ object DlcDcConfigIO {
         if (originalPath == null || obj == null) {
             return false
         }
-        val target = DcFormatBridge.toDcPath(originalPath) ?: return false
+        val target = DlcDcFormatUtil.toDcPath(originalPath) ?: return false
         var source = obj
         if (layout == Layout.DLC_STRUCTURED && isInfoPath(target)) {
             source = stripDownloadKeys(obj)
         }
         val written = if (layout == Layout.DLC_STRUCTURED && !isNoticeConfigPath(target)) {
-            DcFormatBridge.write(target, source)
+            DlcDcFormatUtil.write(target, source)
         } else {
-            DcFormatBridge.writeGeneric(target, source)
+            DlcDcFormatUtil.writeGeneric(target, source)
         }
         if (!written) {
             return false
@@ -57,14 +57,14 @@ object DlcDcConfigIO {
 
     @JvmStatic
     fun toDcPath(path: Path?): Path? {
-        return DcFormatBridge.toDcPath(path)
+        return DlcDcFormatUtil.toDcPath(path)
     }
 
     @JvmStatic
     fun isDc(path: Path?): Boolean {
         return path != null &&
             path.fileName != null &&
-            DcFormatBridge.isDcName(path.fileName.toString())
+            DlcDcFormatUtil.isDcName(path.fileName.toString())
     }
 
     @JvmStatic
@@ -161,7 +161,7 @@ object DlcDcConfigIO {
         if (path == null || path.fileName == null) {
             return false
         }
-        val base = DcFormatBridge.stripConfigExtension(path.fileName.toString())
+        val base = DlcDcFormatUtil.stripConfigExtension(path.fileName.toString())
         return "notice".equals(base, ignoreCase = true)
     }
 
@@ -188,33 +188,4 @@ object DlcDcConfigIO {
         return out
     }
 
-    private object DcFormatBridge {
-        fun read(path: Path): JsonObject? {
-            return DlcDcFormatUtil.read(path)
-        }
-
-        fun readGeneric(path: Path): JsonObject? {
-            return DlcDcFormatUtil.readGeneric(path)
-        }
-
-        fun write(path: Path, obj: JsonObject?): Boolean {
-            return DlcDcFormatUtil.write(path, obj)
-        }
-
-        fun writeGeneric(path: Path, obj: JsonObject?): Boolean {
-            return DlcDcFormatUtil.writeGeneric(path, obj)
-        }
-
-        fun toDcPath(path: Path?): Path? {
-            return DlcDcFormatUtil.toDcPath(path)
-        }
-
-        fun isDcName(name: String): Boolean {
-            return DlcDcFormatUtil.isDcName(name)
-        }
-
-        fun stripConfigExtension(name: String): String? {
-            return DlcDcFormatUtil.stripConfigExtension(name)
-        }
-    }
 }

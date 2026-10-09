@@ -1,5 +1,6 @@
 package com.cozooo.dlc_manager.dc;
 
+import com.google.gson.*;
 import com.intellij.codeInsight.completion.CompletionContributor;
 import com.intellij.codeInsight.completion.CompletionParameters;
 import com.intellij.codeInsight.completion.CompletionProvider;
@@ -14,17 +15,12 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.util.ProcessingContext;
 import java.awt.Color;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.NotNull;
 
 public final class DCCompletionContributor extends CompletionContributor {
-    private static final Map<String, List<String>> SECTION_KEYS = createSectionKeys();
-    private static final List<String> SECTIONS = new ArrayList<>(SECTION_KEYS.keySet());
     private static final Pattern COLOR_CONTEXT_PATTERN = Pattern.compile("(&|&#[0-9a-fA-F]{0,6})$");
     private static final List<ColorPreset> COLOR_PRESETS = List.of(
         new ColorPreset("White", "FFFFFF"),
@@ -74,36 +70,39 @@ public final class DCCompletionContributor extends CompletionContributor {
             return;
         }
 
-        if (prefix.trim().isEmpty() || prefix.trim().startsWith("[")) {
-            int bracketInLine = prefix.lastIndexOf('[');
-            for (String section : SECTIONS) {
-                if (prefix.trim().startsWith("[") && bracketInLine >= 0) {
-                    final int replaceStart = lineStart + bracketInLine;
-                    result.addElement(
-                        LookupElementBuilder.create(section + "]")
-                            .withInsertHandler((context, item) -> {
-                                context.getDocument().replaceString(
-                                    replaceStart,
-                                    context.getTailOffset(),
-                                    "[" + section + "]"
-                                );
-                                context.getEditor().getCaretModel().moveToOffset(replaceStart + section.length() + 2);
-                            })
-                    );
-                } else {
-                    result.addElement(LookupElementBuilder.create("[" + section + "]"));
+        var file = parameters.getOriginalFile();
+        if (file.getVirtualFile() == null) return;
+        var snapshot = DCLanguageServer.snapshot(file.getVirtualFile(), document);
+        JsonObject params = new JsonObject(); params.add("position", DCLanguageServer.position(snapshot.text(), offset));
+        JsonElement response = DCLanguageServer.await(DCLanguageServer.get(file.getProject()).request(snapshot, "textDocument/completion", params));
+        if (response == null || response.isJsonNull() || document.getModificationStamp() != snapshot.stamp()) return;
+        JsonArray items = response.isJsonArray() ? response.getAsJsonArray() : response.getAsJsonObject().getAsJsonArray("items");
+        if (items == null) return;
+        CompletionResultSet shared = result.withPrefixMatcher("");
+        for (JsonElement value : items) {
+            JsonObject item = value.getAsJsonObject();
+            String label = item.get("label").getAsString();
+            String detail = item.has("detail") ? item.get("detail").getAsString() : "DC";
+            JsonObject edit = item.has("textEdit") ? item.getAsJsonObject("textEdit") : null;
+            String insert = edit != null ? edit.get("newText").getAsString() : item.has("insertText") ? item.get("insertText").getAsString() : label;
+            shared.addElement(LookupElementBuilder.create(label).withTypeText(detail).withInsertHandler((context, ignored) -> {
+                context.setAddCompletionChar(false);
+                int start = context.getStartOffset(), end = context.getTailOffset();
+                if (edit != null) {
+                    JsonObject range = edit.has("range") ? edit.getAsJsonObject("range") : edit.getAsJsonObject("replace");
+                    start = DCLanguageServer.offset(snapshot.text(), range.getAsJsonObject("start"));
+                    end = replacementEnd(snapshot.text(), context.getDocument().getTextLength(), DCLanguageServer.offset(snapshot.text(), range.getAsJsonObject("end")));
                 }
-            }
-            return;
+                start = Math.max(0, Math.min(start, context.getDocument().getTextLength()));
+                end = Math.max(start, Math.min(end, context.getDocument().getTextLength()));
+                context.getDocument().replaceString(start, end, insert);
+                context.getEditor().getCaretModel().moveToOffset(start + insert.length());
+            }));
         }
+    }
 
-        String section = currentSection(document.getText(), line);
-        List<String> keys = SECTION_KEYS.getOrDefault(section, List.of());
-        if (!prefix.contains("=") && !prefix.contains(":")) {
-            for (String key : keys) {
-                result.addElement(LookupElementBuilder.create(key + " = "));
-            }
-        }
+    static int replacementEnd(String original, int currentLength, int originalEnd) {
+        return originalEnd + currentLength - original.length();
     }
 
     private void provideColorCompletions(
@@ -141,8 +140,6 @@ public final class DCCompletionContributor extends CompletionContributor {
             @Override
             public void handleInsert(@NotNull InsertionContext context) {
                 context.setAddCompletionChar(false);
-                // IntelliJ may perform a temporary replacement before showing the picker.
-                // Restore the original token immediately to avoid visible "text eaten" flicker.
                 replaceColorToken(context, colorContext, colorContext.tokenText);
                 Color initial = colorFromToken(colorContext.tokenText);
                 Color chosen = ColorChooser.chooseColor(
@@ -291,48 +288,4 @@ public final class DCCompletionContributor extends CompletionContributor {
         }
     }
 
-    private String currentSection(String fullText, int lineNumber) {
-        String[] lines = fullText.split("\\R", -1);
-        int idx = Math.min(lineNumber, lines.length - 1);
-        for (int i = idx; i >= 0; i--) {
-            String line = lines[i].trim();
-            if (line.startsWith("[") && line.endsWith("]") && line.length() > 2) {
-                return line.substring(1, line.length() - 1);
-            }
-        }
-        return "basic";
-    }
-
-    private static Map<String, List<String>> createSectionKeys() {
-        Map<String, List<String>> map = new HashMap<>();
-        map.put("download", List.of(
-            "modrinth_projectid", "modrinth_versionid", "curseforge_projectid",
-            "curseforge_fileid", "directUrl", "priority"
-        ));
-        map.put("basic", List.of(
-            "identifier", "file_name", "type", "appliedTarget",
-            "isHidden", "AllowEnableByAll", "dependencies", "conflicts", "alarm",
-            "available", "ShowFrequency", "neverShow", "isNoticeEnabled", "enabled",
-            "platform", "base", "base_new", "dlc", "dlc_new"
-        ));
-        map.put("dependencies", List.of());
-        map.put("DisplayName", List.of());
-        map.put("tip", List.of());
-        map.put("notice", List.of());
-        map.put("version", List.of("platform", "base", "base_new", "dlc", "dlc_new"));
-        map.put("changelog", List.of());
-        map.put("file", List.of());
-        map.put("add", List.of());
-        map.put("del", List.of());
-        map.put("move", List.of());
-        map.put("modify", List.of());
-        map.put("update", List.of());
-        map.put("remote", List.of());
-        map.put("required", List.of());
-        return map;
-    }
-
-    static Map<String, List<String>> sectionKeys() {
-        return SECTION_KEYS;
-    }
 }

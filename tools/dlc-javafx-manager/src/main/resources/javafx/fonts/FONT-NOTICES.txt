@@ -1,0 +1,20 @@
+Bundled fonts
+
+Copyright and version information below is taken from the bundled font name tables.
+SHA-256 values identify the bundled font files.
+
+JetbrainsMono-Regular.ttf
+SHA-256: 41c00ef69436568e245ed7ce8861f3d131297eee5dfbd4a11571beb342ec118f
+
+NotoSansSC-Regular.ttf
+SHA-256: d45f67f0a7c0ca3f256950777ce6a61cc7ce5f9696d02900cbbaac25f8aa7d16
+
+NotoSansSC-SemiBold.ttf
+SHA-256: b5eb7510dff58e0626c72c0861d83a3ed2be1d03047cf90a623682b8667bc5ff
+
+JetBrains Mono 2.304: LICENSE-JetBrainsMono.txt
+Source: https://github.com/JetBrains/JetBrainsMono/tree/v2.304
+
+Noto Sans SC Regular and SemiBold 2.004: LICENSE-NotoSansSC.txt
+Source: https://github.com/notofonts/noto-cjk/tree/Sans2.004
+The Noto copyright notice and Reserved Font Name are preserved from the bundled fonts.

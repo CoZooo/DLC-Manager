@@ -64,6 +64,12 @@ tasks.named('jar') {
     }
 }
 
+tasks.withType(org.gradle.jvm.tasks.Jar).configureEach {
+    from(layout.projectDirectory.file('../../LICENSE')) {
+        into('META-INF')
+    }
+}
+
 mavenPublishing {
     coordinates(HELPER_MOD_GROUP, 'dlc_fileops_helper', providers.gradleProperty('mod_version').get())
 
@@ -76,7 +82,8 @@ mavenPublishing {
         url = 'https://github.com/CoZooo/DLC-Manager'
         licenses {
             license {
-                name = 'All Rights Reserved'
+                name = 'DLC Manager Noncommercial Source License 1.0'
+                url = 'https://github.com/CoZooo/DLC-Manager/blob/HEAD/LICENSE'
                 distribution = 'repo'
             }
         }

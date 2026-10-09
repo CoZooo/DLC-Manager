@@ -47,9 +47,10 @@ public class DlcUpdateManifest {
                 } else {
                     obj = DlcUpdateDcParser.parse(text);
                 }
-            } catch (IOException ignored) {
+            } catch (IOException | com.google.gson.JsonParseException ignored) {
                 return null;
             }
+            return fromJsonObject(obj);
         }
         if (obj == null) {
             try (Reader reader = Files.newBufferedReader(updateJson)) {

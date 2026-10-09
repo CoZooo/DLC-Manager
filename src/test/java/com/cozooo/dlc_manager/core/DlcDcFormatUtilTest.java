@@ -132,7 +132,7 @@ class DlcDcFormatUtilTest {
         assertFalse(written.contains("dependencies ="));
         assertFalse(written.contains("conflicts ="));
         assertTrue(written.contains("[dependencies]"));
-        assertTrue(written.contains("\"identifier_dep\""));
+        assertTrue(DlcDcFormatUtil.readGenericText(written).getAsJsonObject("dependencies").has("identifier_dep"));
         assertTrue(written.contains("[dependencies.mod1]"));
         assertTrue(written.contains("[conflicts]"));
     }

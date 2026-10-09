@@ -1,0 +1,6 @@
+.gradle/
+build/
+**/classes_gen/
+**/.mps/workspace.xml
+languages/dc/lib/
+languages/definition/lib/

@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+DCLANGUAGE_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -n "${JAVA_HOME:-}" ]; then
+  exec "$JAVA_HOME/bin/java" -jar "$DCLANGUAGE_DIR/dclanguage-lsp.jar" --stdio
+fi
+exec java -jar "$DCLANGUAGE_DIR/dclanguage-lsp.jar" --stdio

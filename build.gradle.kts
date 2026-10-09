@@ -16,7 +16,6 @@ import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.GradleBuild
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
-import org.gradle.api.tasks.Sync
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.gradle.api.tasks.bundling.Jar
 import org.gradle.api.tasks.compile.JavaCompile
@@ -24,7 +23,6 @@ import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.language.jvm.tasks.ProcessResources
 import java.io.File
-import java.util.zip.ZipFile
 
 val DLC_MOD_ID = "dlc_manager"
 val DLC_MOD_NAME = "DLC Manager"
@@ -203,51 +201,6 @@ fun Project.configureLocalDevMods(loaderName: String, minecraftVersion: String) 
     }
 }
 
-fun Project.runYGuardObfuscation(inputJar: File, outputJar: File, libDir: File) {
-    require(inputJar.exists()) { "Input jar not found: $inputJar" }
-    require(libDir.exists()) { "Library directory not found: $libDir" }
-
-    outputJar.parentFile.mkdirs()
-    val renameLogDir = outputJar.parentFile.resolve("log")
-    renameLogDir.mkdirs()
-    val renameLog = renameLogDir.resolve("${outputJar.name}.yguard-map.xml")
-    val keptScreenClasses = ZipFile(inputJar).use { zip ->
-        zip.entries().asSequence()
-            .filter { it.name.startsWith("com/cozooo/dlc_manager/client/screen/") && it.name.endsWith(".class") }
-            .map { it.name.removeSuffix(".class").replace('/', '.') }
-            .toList()
-    }
-
-    ant.withGroovyBuilder {
-        "taskdef"(
-            "name" to "yguard",
-            "classname" to "com.yworks.yguard.YGuardTask",
-            "classpath" to configurations.getByName("yguardTool").asPath,
-        )
-        "yguard" {
-            "inoutpair"("in" to inputJar.absolutePath, "out" to outputJar.absolutePath)
-            "externalclasses" {
-                "fileset"("dir" to libDir.absolutePath) {
-                    "include"("name" to "*.jar")
-                }
-            }
-            "rename"("logfile" to renameLog.absolutePath, "replaceClassNameStrings" to true) {
-                "adjust"("replaceContent" to true, "replaceContentSeparator" to ".", "replaceName" to false) {
-                    "include"("name" to "fabric.mod.json")
-                    "include"("name" to "*.mixins.json")
-                    "include"("name" to "**/*.mixins.json")
-                }
-                "keep" {
-                    keptScreenClasses.forEach { className ->
-                        "class"("name" to className, "methods" to "private", "fields" to "private")
-                    }
-                    "class"("methods" to "private", "fields" to "private")
-                }
-            }
-        }
-    }
-}
-
 repositories {
     mavenCentral()
 }
@@ -255,12 +208,6 @@ repositories {
 if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) {
     rootProject.extensions.extraProperties.set("dlcRootBuildTasksConfigured", true)
     rootProject.run {
-    configurations.maybeCreate("yguardTool")
-
-    dependencies {
-        "yguardTool"("com.yworks:yguard:4.1.1")
-    }
-
     tasks.withType<GradleBuild>().configureEach {
         startParameter.projectProperties.putAll(gradle.startParameter.projectProperties)
     }
@@ -287,73 +234,6 @@ if (!rootProject.extensions.extraProperties.has("dlcRootBuildTasksConfigured")) 
 
     tasks.named("test") {
         dependsOn(gradle.includedBuild("dlcBootstrap").task(":test"))
-    }
-
-    tasks.register("exportObfClasspathAll") {
-        group = "build"
-        description = "Export obfuscation classpath jars for all targets."
-        dependsOn(stoneNodes.map { ":$it:exportObfClasspath" })
-    }
-
-    tasks.register("obfuscateJarYguard") {
-        group = "build"
-        description = "Obfuscate one jar with yGuard. Use -PobfInput=... -PobfOutput=... -PobfLibDir=..."
-        doLast {
-            val inputValue = findProperty("obfInput")?.toString()
-            val outputValue = findProperty("obfOutput")?.toString()
-            val libValue = findProperty("obfLibDir")?.toString()
-            require(!inputValue.isNullOrBlank() && !outputValue.isNullOrBlank() && !libValue.isNullOrBlank()) {
-                "Missing required properties: -PobfInput=... -PobfOutput=... -PobfLibDir=..."
-            }
-            runYGuardObfuscation(file(inputValue), file(outputValue), file(libValue))
-        }
-    }
-
-    fun nodeTaskSuffix(nodeName: String): String =
-        stoneNodeLoader(nodeName).replaceFirstChar { it.uppercase() } +
-            stoneNodeMinecraftVersion(nodeName).filter(Char::isDigit)
-
-    fun registerObfuscationTask(nodeName: String): String {
-        val loaderName = stoneNodeLoader(nodeName)
-        val minecraftVersion = stoneNodeMinecraftVersion(nodeName)
-        val modVersion = prop("mod_version")
-        val taskName = "obfuscate${nodeTaskSuffix(nodeName)}Yguard"
-        val earlyLoading = loaderName == "forge" || loaderName == "neoforge"
-        val nodeBuild = if (booleanProp("enable_kotlin", true)) "build/$nodeName" else "build/java-only/$nodeName"
-        val jarName = "DLC-Manager-$loaderName-$minecraftVersion-$modVersion.jar"
-        val obfuscatedPayload = file("$nodeBuild/distribution/obfuscated/$jarName")
-        val obfuscate = tasks.register(taskName) {
-            group = "build"
-            description = "Obfuscate $loaderName $minecraftVersion output jar with yGuard."
-            dependsOn(":$nodeName:exportObfClasspath", ":$nodeName:remapJar")
-            doLast {
-                runYGuardObfuscation(
-                    file(if (earlyLoading) "$nodeBuild/distribution/payload/$jarName" else "output/$modVersion/$jarName"),
-                    if (earlyLoading) obfuscatedPayload else file("output/$modVersion/yGuard/$jarName"),
-                    file("obf-lib/$loaderName-$minecraftVersion"),
-                )
-            }
-        }
-        if (earlyLoading) {
-            val serviceBuild = if (booleanProp("enable_kotlin", true)) "build/dlc-bootstrap" else "build/java-only/dlc-bootstrap"
-            val serviceJar = file("$serviceBuild/services/$loaderName/DLC-Manager-bootstrap-$loaderName-$minecraftVersion-$modVersion.jar")
-            val packageObfuscated = tasks.register<JavaExec>("${taskName}Package") {
-                dependsOn(obfuscate, gradle.includedBuild("dlcBootstrap").task(":${loaderName}BootstrapJar"))
-                classpath = files(serviceJar)
-                mainClass.set("com.cozooo.dlc_bootstrap.launch.DlcDistributionAssembler")
-                args(serviceJar.absolutePath, obfuscatedPayload.absolutePath, file("output/$modVersion/yGuard/$jarName").absolutePath)
-            }
-            obfuscate.configure { finalizedBy(packageObfuscated) }
-        }
-        return taskName
-    }
-
-    val obfuscationTasks = stoneNodes.map(::registerObfuscationTask)
-
-    tasks.register("obfuscateAllYguard") {
-        group = "build"
-        description = "Obfuscate all target jars with yGuard."
-        dependsOn(obfuscationTasks)
     }
 
     fun registerIncludedBuildTask(name: String, groupName: String, descriptionText: String, buildName: String, taskPath: String) {
@@ -592,15 +472,37 @@ if (stoneNodes.contains(project.name)) {
     tasks.withType<KotlinCompile>().configureEach {
         compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.fromTarget(javaVersion.toString()))
     }
-    tasks.withType<Jar>().configureEach {
+    tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
         exclude("rebel.xml")
+        if (name == "sourcesJar") {
+            from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
+            from(rootProject.layout.projectDirectory.file("LICENSING.md")) { into("META-INF/dlc-manager") }
+            from(rootProject.layout.projectDirectory.file("LICENSING.zh.md")) { into("META-INF/dlc-manager") }
+        }
     }
     tasks.withType<ProcessResources>().configureEach {
         notCompatibleWithConfigurationCache("StoneCraft processResources actions capture Project.")
+        if (name == "processResources") {
+            from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
+            from(rootProject.layout.projectDirectory.file("LICENSING.md")) { into("META-INF/dlc-manager") }
+            from(rootProject.layout.projectDirectory.file("LICENSING.zh.md")) { into("META-INF/dlc-manager") }
+        }
+    }
+
+    val stonecutterBuild = extensions.getByType<StonecutterBuildExtension>()
+    extensions.configure<SourceSetContainer> {
+        named("test") {
+            val sharedJava = if (stonecutterBuild.current.isActive) {
+                files(rootProject.layout.projectDirectory.dir("src/test/java"))
+            } else {
+                files(stonecutterBuild.tasks.generatedSourcesDir.dir("test/java"))
+                    .builtBy("stonecutterGenerateTest")
+            }
+            java.setSrcDirs(listOf(layout.projectDirectory.dir("src/test/java"), sharedJava))
+        }
     }
 
     if (kotlinEnabled) {
-        val stonecutterBuild = extensions.getByType<StonecutterBuildExtension>()
         extensions.configure<KotlinJvmProjectExtension> {
             sourceSets.named("main") {
                 kotlin.setSrcDirs(
@@ -711,7 +613,6 @@ if (stoneNodes.contains(project.name)) {
     configurations {
         maybeCreate("embedded")
         if (loaderName == "fabric") {
-            maybeCreate("obfLib")
             named("modApi") {
                 dependencies.removeIf {
                     it.group == "net.fabricmc.fabric-api" &&
@@ -752,7 +653,6 @@ if (stoneNodes.contains(project.name)) {
             if (kotlinEnabled) {
                 add("modImplementation", "net.fabricmc:fabric-language-kotlin:${prop("fabric_language_kotlin_version")}")
             }
-            add("obfLib", "net.fabricmc:intermediary:${prop("minecraft_version")}:v2")
         }
 
         if (loaderName == "forge") {
@@ -778,11 +678,13 @@ if (stoneNodes.contains(project.name)) {
             }
         }
 
+        addEmbedded("com.cozooo:dclanguage:0.1.0")
         addEmbedded("com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
         addEmbedded("org.commonmark:commonmark:0.21.0")
         addEmbedded("org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
 
         if (loaderName == "forge" || loaderName == "neoforge") {
+            add("forgeRuntimeLibrary", "com.cozooo:dclanguage:0.1.0")
             add("forgeRuntimeLibrary", "com.cozooo.dlc_manager:dlc_fileops_helper:${prop("file_ops_helper_version")}")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark:0.21.0")
             add("forgeRuntimeLibrary", "org.commonmark:commonmark-ext-gfm-strikethrough:0.21.0")
@@ -955,22 +857,6 @@ if (stoneNodes.contains(project.name)) {
                 }
             }
         }
-    }
-
-    tasks.register<Sync>("exportObfClasspath") {
-        group = "build"
-        description = "Export obfuscation classpath jars for $loaderName $minecraftVersion."
-        from({
-            val jars = linkedSetOf<File>()
-            listOf(configurations.getByName("compileClasspath"), configurations.getByName("runtimeClasspath")).forEach { configuration ->
-                jars += configuration.resolve().filter { it.name.endsWith(".jar") }
-            }
-            if (loaderName == "fabric") {
-                jars += configurations.getByName("obfLib").resolve().filter { it.name.endsWith(".jar") }
-            }
-            jars
-        })
-        into(rootProject.layout.projectDirectory.dir("obf-lib/$loaderName-$minecraftVersion"))
     }
 
     publishing {

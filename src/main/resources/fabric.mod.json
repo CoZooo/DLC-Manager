@@ -5,7 +5,7 @@
   "name": "${mod_name}",
   "description": "${mod_description}",
   "authors": ["${mod_author}"],
-  "license": "All Rights Reserved",
+  "license": "LicenseRef-DLC-Manager-Noncommercial-1.0",
   "environment": "*",
   "icon": "assets/dlc_manager/textures/gui/icon.png",
   "entrypoints": {
