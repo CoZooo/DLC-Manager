@@ -12,7 +12,7 @@ Run from the repository root:
 ./gradlew build --parallel
 ```
 
-Distribution files for each loader are written to the root `output/<version>/` directory. The root project packages this component and the main mod into one JAR; do not distribute this directory's internal JAR as a separate mod. See [Development](DEVELOPMENT.md) for the two implementations and early loading checks.
+Use the file matching your Minecraft version and loader from `output/<version>/`. See [Progress and troubleshooting](DEVELOPMENT.md) for help with resource preparation.
 
 ## Install
 
@@ -26,7 +26,8 @@ Modpack authors first configure the DLC roots in `config/dlc_manager/config.dc`,
 
 - Wait for required resources to finish installing before startup continues.
 - Existing target files are not replaced at this stage.
-- Startup log entries prefixed with `[dlc-manager-bootstrap]` show progress.
+- On Forge and NeoForge clients, the default loading screen shows download and installation progress.
+- If no progress window is available, check startup log entries prefixed with `[dlc-manager-bootstrap]`. Dedicated servers also show progress in the log.
 - Configuration, download, or installation failures stop startup with a required-resource installation error. Fix the reported issue and restart the instance to retry.
 - Required resources added by an update while the game is running are prepared on the next launch.
 

@@ -46,6 +46,7 @@ class DlcBootstrapArtifactTest {
             assertNotNull(jar.getEntry("META-INF/services/cpw.mods.modlauncher.api.ITransformationService"));
             assertNull(jar.getEntry("com/google/gson/Gson.class"));
             assertNull(jar.getEntry("com/cozooo/dlc_manager/FakeGameMod.class"));
+            assertNotNull(jar.getEntry("com/cozooo/dlc_bootstrap/launch/DlcEarlyProgress.class"));
             
             assertArrayEquals(new byte[]{4, 5}, jar.getInputStream(jar.getEntry("assets/dlc_manager/textures/gui/icon.png")).readAllBytes());
             assertArrayEquals(Files.readAllBytes(modJar), jar.getInputStream(jar.getEntry(DlcModPayload.RESOURCE)).readAllBytes());
@@ -79,6 +80,9 @@ class DlcBootstrapArtifactTest {
                     assertFalse(entry.getName().startsWith("com/cozooo/dclanguage/"));
                     assertFalse(entry.getName().startsWith("jetbrains/mps/"));
                     assertFalse(entry.getName().startsWith("org/jetbrains/mps/"));
+                    assertFalse(entry.getName().startsWith("net/minecraftforge/"));
+                    assertFalse(entry.getName().startsWith("net/neoforged/"));
+                    assertFalse(entry.getName().startsWith("com/sighs/"));
                     installerFound |= entry.getName().equals("com/cozooo/dlc_bootstrap/internal/bootstrap/DlcBootstrapService.class");
                     dcLanguageFound |= entry.getName().equals("com/cozooo/dlc_bootstrap/internal/dclanguage/DcDocuments.class");
                 }
@@ -111,10 +115,11 @@ class DlcBootstrapArtifactTest {
             Class<?> keys = isolated.loadClass("cpw.mods.modlauncher.api.IEnvironment$Keys");
             Object gameKey = ((Supplier<?>) keys.getField("GAMEDIR").get(null)).get();
             Object targetKey = ((Supplier<?>) keys.getField("LAUNCHTARGET").get(null)).get();
+            var launchTarget = new java.util.concurrent.atomic.AtomicReference<>("forgeserver");
             Object environment = Proxy.newProxyInstance(isolated, new Class<?>[]{environmentType}, (proxy, method, arguments) -> {
                 if (method.getName().equals("getProperty")) {
                     if (arguments[0] == gameKey) return Optional.of(game);
-                    if (arguments[0] == targetKey) return Optional.of("forgeserver");
+                    if (arguments[0] == targetKey) return Optional.of(launchTarget.get());
                     return Optional.empty();
                 }
                 throw new UnsupportedOperationException(method.getName());
@@ -130,6 +135,11 @@ class DlcBootstrapArtifactTest {
             var runtimeField = runtimeBridge.getDeclaredField("runtime");
             runtimeField.setAccessible(true);
             ClassLoader privateRuntime = (ClassLoader) runtimeField.get(null);
+            verifyProgressBridge(privateRuntime, serviceType, environmentType, environment);
+            launchTarget.set("forgeclient");
+            serviceType.getMethod("initialize", environmentType).invoke(service, environment);
+            assertEquals(game.toAbsolutePath().normalize().toString(), System.getProperty(DlcStartupRequirements.READY_PROPERTY));
+            launchTarget.set("forgeserver");
             Class<?> dcDocuments = privateRuntime.loadClass("com.cozooo.dlc_bootstrap.internal.dclanguage.DcDocuments");
             assertSame(privateRuntime, dcDocuments.getClassLoader());
             Object parsed = dcDocuments.getMethod("readText", String.class).invoke(null, "[basic]\nidentifier = \"isolated\"\n");
@@ -170,6 +180,45 @@ class DlcBootstrapArtifactTest {
             System.clearProperty(DlcDistributionPaths.DISTRIBUTION_PROPERTY);
         }
     }
+
+    private void verifyProgressBridge(ClassLoader runtime, Class<?> serviceType, Class<?> environmentType, Object environment) throws Exception {
+        Class<?> implementation = runtime.loadClass("com.cozooo.dlc_bootstrap.internal.bootstrap.DlcBootstrapService");
+        assertNotNull(implementation.getConstructor(), "The original no-argument service constructor must remain available");
+        var constructor = implementation.getConstructor(java.util.function.Consumer.class, java.util.function.BooleanSupplier.class);
+        var snapshots = new java.util.ArrayList<java.util.Map<String, Object>>();
+        java.util.function.Consumer<java.util.Map<String, Object>> observe = snapshot -> {
+            assertEquals(java.util.Set.of("stage", "completed", "total", "resource", "bytes", "totalBytes"), snapshot.keySet());
+            assertNull(snapshot.getClass().getClassLoader(), "The callback map must be a JDK type");
+            for (Object value : snapshot.values()) {
+                assertTrue(value instanceof String || value instanceof Integer || value instanceof Long);
+                assertNull(value.getClass().getClassLoader(), "Progress must not expose private-runtime classes");
+            }
+            assertThrows(UnsupportedOperationException.class, () -> snapshot.put("unexpected", true));
+            snapshots.add(snapshot);
+        };
+        Object reporting = constructor.newInstance(observe, (java.util.function.BooleanSupplier) () -> false);
+        serviceType.getMethod("initialize", environmentType).invoke(reporting, environment);
+        var stages = snapshots.stream().map(snapshot -> snapshot.get("stage")).toList();
+        assertTrue(stages.containsAll(java.util.List.of("SCANNING", "PLANNED", "VERIFYING", "COMPLETE")));
+
+        var cancelled = new java.util.concurrent.atomic.AtomicBoolean();
+        java.util.function.Consumer<java.util.Map<String, Object>> cancelOnCompletion = snapshot -> {
+            if ("COMPLETE".equals(snapshot.get("stage"))) cancelled.set(true);
+        };
+        Object interrupted = constructor.newInstance(cancelOnCompletion, (java.util.function.BooleanSupplier) cancelled::get);
+        try {
+            InvocationTargetException failure = assertThrows(InvocationTargetException.class,
+                () -> serviceType.getMethod("initialize", environmentType).invoke(interrupted, environment));
+            assertTrue(failure.getCause() instanceof IllegalStateException);
+            assertTrue(cancelled.get());
+            assertNull(System.getProperty(DlcStartupRequirements.READY_PROPERTY), "Cancellation must not publish early.ready");
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+            System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
+        }
+    }
+
     private void verifyNativeDiscovery(Path artifact, String loaderName) throws Exception {
         var urls = new java.util.ArrayList<URL>();
         urls.add(artifact.toUri().toURL());

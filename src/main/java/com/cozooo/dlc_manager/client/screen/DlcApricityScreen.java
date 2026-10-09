@@ -9,11 +9,21 @@ import com.sighs.apricityui.parser.HTML;
 import com.sighs.apricityui.screen.ApricityScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
 import org.lwjgl.glfw.GLFW;
 
 public abstract class DlcApricityScreen extends ApricityScreen {
+    private static DlcApricityScreen preparedScreen;
     private final DlcUiPage uiPage;
     private final DlcUiResources uiResources;
+    private final DlcUiTransition transition = new DlcUiTransition();
+    private boolean navigationPending;
+    private boolean hasPresentedFrame;
+    private boolean frameTransitionsEnabled;
+    private boolean renderedCurrentFrame;
+    private int transitionReadyFrames;
+    private Document transitionDocument;
+    private long transitionGeneration = -1;
     private DlcUiTemplate uiTemplate;
     private Document templateDocument;
     private long templateGeneration = -1;
@@ -43,6 +53,11 @@ public abstract class DlcApricityScreen extends ApricityScreen {
 
     @Override
     protected void init() {
+        if (preparedScreen == this) preparedScreen = null;
+        if (!navigationPending) transition.cancel();
+        hasPresentedFrame = false;
+        renderedCurrentFrame = false;
+        transitionReadyFrames = 0;
         uiResources.prepare();
         super.init();
         if (!uiResources.isValid(getLinkedDocument())) {
@@ -52,6 +67,13 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         updateViewport();
         resourceGeneration = getLinkedDocument() == null ? -1 : getLinkedDocument().getRefreshGeneration();
         bindCurrentDocument();
+        Document document = getLinkedDocument();
+        if (navigationPending) {
+            transitionDocument = document;
+            transitionGeneration = document == null ? -1 : document.getRefreshGeneration();
+            navigationPending = false;
+            if (document == null || transitionDisabled(document.body)) transition.cancel();
+        }
     }
 
     @Override
@@ -86,6 +108,7 @@ public abstract class DlcApricityScreen extends ApricityScreen {
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        renderedCurrentFrame = false;
         Document document = getLinkedDocument();
         if (document != null && document.isActive() && document.documentElement != null) {
             Selector.Index index = document.getSelectorIndex();
@@ -95,8 +118,55 @@ public abstract class DlcApricityScreen extends ApricityScreen {
             }
         }
         super.render(graphics, mouseX, mouseY, partialTick);
+        renderedCurrentFrame = document != null && document.isActive()
+            && !document.needsInitialFullCommit() && !document.isInitialCommitSlicing()
+            && !document.getPaintList().isEmpty();
         syncInputs(document);
+    }
+
+    public final void finishUiFrame(GuiGraphics graphics) {
+        if (Minecraft.getInstance().screen != this) return;
+        Document document = getLinkedDocument();
+        if (transition.isRunning()) {
+            if (document == null || document != transitionDocument
+                || !document.isCurrentGeneration(transitionGeneration)
+                || transitionDisabled(document.body)) {
+                transition.cancel();
+            } else {
+                boolean ready = renderedCurrentFrame && isUiContentReady();
+                transitionReadyFrames = ready ? transitionReadyFrames + 1 : 0;
+                transition.render(graphics, transitionReadyFrames >= 2, System.nanoTime());
+            }
+        }
+        hasPresentedFrame = renderedCurrentFrame || transition.isRunning();
+        frameTransitionsEnabled = document != null && !transitionDisabled(document.body);
         searchApplications.runPending();
+    }
+
+    protected boolean isUiContentReady() { return true; }
+
+    public static void beforeScreenChange(Screen next) {
+        cancelAbandonedNavigation(null);
+        Screen current = Minecraft.getInstance().screen;
+        if (current == next || !(current instanceof DlcApricityScreen previous)
+            || !(next instanceof DlcApricityScreen target)
+            || !previous.hasPresentedFrame || !previous.frameTransitionsEnabled) return;
+        target.transition.capture(null);
+        target.navigationPending = target.transition.isRunning();
+        if (target.navigationPending) preparedScreen = target;
+    }
+
+    public static void cancelAbandonedNavigation(Screen current) {
+        if (preparedScreen != null && preparedScreen != current) {
+            preparedScreen.transition.cancel();
+            preparedScreen.navigationPending = false;
+            preparedScreen = null;
+        }
+    }
+
+    private static boolean transitionDisabled(Element element) {
+        String value = element == null ? null : element.getAttribute("data-dlc-transition");
+        return value != null && "none".equalsIgnoreCase(value.trim());
     }
 
     private void updateViewport() {
@@ -106,6 +176,8 @@ public abstract class DlcApricityScreen extends ApricityScreen {
 
     @Override
     public void resize(Minecraft minecraft, int width, int height) {
+        navigationPending = false;
+        transition.cancel();
         super.resize(minecraft, width, height);
         updateViewport();
     }
@@ -125,6 +197,7 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         searchApplications.clear();
         pendingInputs.clear();
         if (templateDocument != document || templateGeneration != document.getRefreshGeneration()) {
+            if (!navigationPending) transition.cancel();
             uiTemplate = new DlcUiTemplate(document);
             templateDocument = document;
             templateGeneration = document.getRefreshGeneration();
@@ -152,6 +225,16 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         if (uiTemplate != null && element != null) uiTemplate.restoreAttributes(element);
     }
 
+    protected final void captureUiChange(Element element) {
+        Document document = getLinkedDocument();
+        if (!hasPresentedFrame || document == null || !document.isActive()
+            || element == null || element.document != document || !element.isConnected()) return;
+        Document.runWithContext(document, () -> transition.capture(element));
+        transitionDocument = document;
+        transitionGeneration = document.getRefreshGeneration();
+        transitionReadyFrames = 0;
+    }
+
     protected abstract void bindDocument(Document document);
 
     protected final void filterAsync(String query, java.util.List<DlcUiAsyncSearch.Entry<String>> entries, java.util.function.Consumer<java.util.Set<String>> apply) {
@@ -164,7 +247,14 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         });
     }
 
-    @Override public void removed() { asyncSearch.cancel(); searchApplications.clear(); super.removed(); }
+    @Override public void removed() {
+        transition.cancel();
+        navigationPending = false;
+        renderedCurrentFrame = false;
+        asyncSearch.cancel();
+        searchApplications.clear();
+        super.removed();
+    }
 
     protected final DlcUiInputBinding bindInput(Document document, Element input, java.util.function.Consumer<String> change) {
         return bindInput(document, input, change, false);

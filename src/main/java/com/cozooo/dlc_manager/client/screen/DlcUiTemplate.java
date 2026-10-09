@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** Captures a fresh document before the screen adds runtime content. */
 public final class DlcUiTemplate {
     private final Document document;
     private final Map<Node, Node> parents = new IdentityHashMap<>();
@@ -54,7 +53,6 @@ public final class DlcUiTemplate {
         for (Node child : new ArrayList<>(node.getChildNodes())) capture(child);
     }
 
-    /** Clears this region while leaving descendant template-ID regions and their state intact. */
     public void clear(Element parent) {
         clearChildren(parent);
     }
@@ -70,7 +68,6 @@ public final class DlcUiTemplate {
         }
     }
 
-    /** Uses the first template slot only if it is a dedicated container without nested ID regions. */
     public Element slot(String name, Element fallback) {
         Element element = slots.get(name);
         if (element != null && !nonSlotContainers.contains(element)
@@ -82,13 +79,11 @@ public final class DlcUiTemplate {
         return fallback;
     }
 
-    /** Clears only slots selected since the previous call, including slots outside the content area. */
     public void clearSlots() {
         for (Element element : new ArrayList<>(usedSlots)) clear(element);
         usedSlots.clear();
     }
 
-    /** Restores template classes only; runtime styles and state attributes remain authoritative. */
     public void restoreAttributes(Element element) {
         Set<String> original = classes.get(element);
         if (original == null || original.isEmpty()) return;

@@ -1,6 +1,5 @@
 package com.cozooo.dlc_manager.client.screen
 
-/** Stable page resource identifiers and their fallback template families. */
 enum class DlcUiPage(private val resourceId: String, private val templateFamily: String) {
     PAGE("page", "page"),
     MANAGER("manager", "manager"),

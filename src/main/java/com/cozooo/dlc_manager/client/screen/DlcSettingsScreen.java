@@ -12,6 +12,7 @@ public abstract class DlcSettingsScreen extends DlcPageScreen {
     private final Map<String, String> errors = new LinkedHashMap<>();
     private String category;
     private String query = "";
+    private long categoryTransitionRevision;
     private Element list;
     private Element noResults;
     private boolean emptyResults;
@@ -70,14 +71,20 @@ public abstract class DlcSettingsScreen extends DlcPageScreen {
         if (previous != null) previous.getElement().setAttribute("class", "button filter");
         category = key;
         categoryButtons.get(key).getElement().setAttribute("class", "button filter active");
-        list.setScrollTop(0);
-        renderOptions();
+        renderOptions(++categoryTransitionRevision);
     }
     private void renderOptions() {
+        renderOptions(-1);
+    }
+    private void renderOptions(long transitionRevision) {
         var entries = optionRows.values().stream().map(option -> new DlcUiAsyncSearch.Entry<>(option.value.getName(), option.label, option.value.getName(), option.comment)).toList();
         list.setAttribute("aria-busy", "true");
-        list.setAttribute("style", "pointer-events:none");
+        list.getStyle().setProperty("pointer-events", "none");
         filterAsync(query, entries, matches -> {
+            if (transitionRevision == categoryTransitionRevision && query.isBlank()) {
+                captureUiChange(list);
+                list.setScrollTop(0);
+            }
             Set<String> categoryNames = new HashSet<>();
             if (query.isBlank()) for (var value : categories.getOrDefault(category, List.of())) categoryNames.add(value.getName());
             int count = 0;
@@ -95,7 +102,7 @@ public abstract class DlcSettingsScreen extends DlcPageScreen {
                 noResults.setAttribute("style", empty ? "" : "display:none");
             }
             list.removeAttribute("aria-busy");
-            list.removeAttribute("style");
+            list.getStyle().removeProperty("pointer-events");
         });
     }
     private void createOption(DlcConfigValue value) {

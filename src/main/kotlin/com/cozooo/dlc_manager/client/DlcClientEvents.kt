@@ -3,9 +3,11 @@ package com.cozooo.dlc_manager.client
 import com.cozooo.dlc_manager.client.remote.DlcRemoteManager
 import com.cozooo.dlc_manager.client.required.DlcRequiredManager
 import com.cozooo.dlc_manager.client.screen.DlcManagerScreen
+import com.cozooo.dlc_manager.client.screen.DlcApricityScreen
 import com.cozooo.dlc_manager.client.update.DlcUpdateClient
 import com.cozooo.dlc_manager.core.DlcConfig
 import dev.architectury.event.EventResult
+import dev.architectury.event.CompoundEventResult
 import dev.architectury.event.events.client.ClientCommandRegistrationEvent
 import dev.architectury.event.events.client.ClientGuiEvent
 import dev.architectury.event.events.client.ClientScreenInputEvent
@@ -75,6 +77,10 @@ object DlcClientEvents {
     }
 
     private fun registerGuiEvents() {
+        ClientGuiEvent.SET_SCREEN.register { screen ->
+            DlcApricityScreen.beforeScreenChange(screen)
+            CompoundEventResult.pass()
+        }
         ClientGuiEvent.INIT_POST.register { screen, access ->
             when (screen) {
                 is PauseScreen -> addPauseScreenButton(screen, access)
@@ -82,6 +88,7 @@ object DlcClientEvents {
             }
         }
         ClientGuiEvent.RENDER_POST.register { screen, guiGraphics, mouseX, mouseY, _ ->
+            if (screen is DlcApricityScreen) screen.finishUiFrame(guiGraphics)
             if (screen is TitleScreen) {
                 DlcClientRuntime.renderTitleNoticePanel(screen, guiGraphics, mouseX, mouseY)
             }
@@ -131,6 +138,7 @@ object DlcClientEvents {
 
     private fun registerTickEvents() {
         ClientTickEvent.CLIENT_POST.register { client ->
+            DlcApricityScreen.cancelAbandonedNavigation(client.screen)
             pendingAlignScreen?.let { screen ->
                 if (client.screen === screen) {
                     alignTitleButtons(screen)

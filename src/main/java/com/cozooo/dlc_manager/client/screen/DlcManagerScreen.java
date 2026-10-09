@@ -958,10 +958,10 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         searchMatches = java.util.Set.of();
         savedScrollOffset = 0;
         var list = document.getElementById("manager-list");
-        list.setScrollTop(0); list.setAttribute("style", "pointer-events:none"); list.setAttribute("aria-busy", "true");
+        list.setScrollTop(0); list.getStyle().setProperty("pointer-events", "none"); list.setAttribute("aria-busy", "true");
         searchClearButton.setEnabled(!searchQuery.isBlank());
         java.util.function.Consumer<java.util.Set<String>> apply = matches -> {
-            searchMatches = matches; list.removeAttribute("style"); list.removeAttribute("aria-busy");
+            searchMatches = matches; list.getStyle().removeProperty("pointer-events"); list.removeAttribute("aria-busy");
             renderRows(document); updateHeaderButtonsState();
         };
         if (searchQuery.isBlank()) {
@@ -1025,12 +1025,14 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     }
 
     private void setFilter(DlcType type) {
+        if (activeFilter == type) return;
+        Document document = getLinkedDocument();
+        if (document != null) captureUiChange(document.getElementById("manager-list"));
         syncVisibleItemOverrides();
         activeFilter = type;
         savedScrollOffset = 0;
         savedScrollFilter = type;
         rebuildRows();
-        Document document = getLinkedDocument();
         if (document != null) {
             renderFilters(document);
             renderRows(document);
@@ -1177,16 +1179,19 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         pendingScrollRestore = savedScrollFilter == activeFilter;
     }
 
+    @Override protected boolean isUiContentReady() { return !pendingScrollRestore; }
+
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
         Document document = getLinkedDocument();
-        if (!pendingScrollRestore || document == null || document.isInitialCommitSlicing()) return;
+        if (!pendingScrollRestore || document == null || document.needsInitialFullCommit() || document.isInitialCommitSlicing()) return;
         Element list = document.getElementById("manager-list");
-        if (list.getClientHeight() > 0 && "auto".equals(list.getComputedStyle().overflowY)) {
+        if (list.getClientHeight() > 0 && ("auto".equals(list.getComputedStyle().overflowY)
+            || "scroll".equals(list.getComputedStyle().overflowY))) {
             Document.runWithContext(document, () -> list.setScrollTop(savedScrollOffset));
-            pendingScrollRestore = false;
         }
+        pendingScrollRestore = false;
     }
 
     @Override

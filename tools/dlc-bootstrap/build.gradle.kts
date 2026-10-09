@@ -75,6 +75,7 @@ sourceSets.test {
     runtimeClasspath += launcher.output
     java.srcDir(managerRoot.resolve("src/test/java"))
     java.include("com/cozooo/dlc_manager/bootstrap/**")
+    java.include("com/cozooo/dlc_bootstrap/launch/**")
 }
 
 dependencies {

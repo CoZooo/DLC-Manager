@@ -97,8 +97,6 @@ class DlcUiResourcePackTest {
         packFiles.put(ROOT + "page.css", packPage);
         assertEquals(Loader.ResourceLayer.RESOURCE_PACK, layerOf(MANAGER_CSS));
 
-        // The framework's stream lookup still finds the classpath copy first.
-        // The public adapter must use the winning resource-pack layer instead.
         assertFalse(readResolved(MANAGER_CSS).contains("pack-manager-probe"));
         DlcUiResources resources = new DlcUiResources(DlcUiPage.PAGE);
         String html = HTML.getTemple(resources.prepare());

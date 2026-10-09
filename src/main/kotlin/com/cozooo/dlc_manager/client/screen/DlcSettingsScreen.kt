@@ -10,6 +10,7 @@ abstract class DlcSettingsScreen(page: DlcUiPage, parent: Screen?, title: Compon
     private val drafts = linkedMapOf<String, String>()
     private val errors = linkedMapOf<String, String>()
     private var query = ""
+    private var categoryTransitionRevision = 0L
     private lateinit var list: Element
     private lateinit var noResults: Element
     private var emptyResults = false
@@ -55,14 +56,17 @@ abstract class DlcSettingsScreen(page: DlcUiPage, parent: Screen?, title: Compon
         categoryButtons[category]?.getElement()?.setAttribute("class", "button filter")
         category = key
         categoryButtons[key]?.getElement()?.setAttribute("class", "button filter active")
-        list.scrollTop = 0.0
-        renderOptions()
+        renderOptions(++categoryTransitionRevision)
     }
-    private fun renderOptions() {
+    private fun renderOptions(transitionRevision: Long = -1L) {
         val entries = optionRows.values.map { DlcUiAsyncSearch.Entry(it.value.name, it.label, it.value.name, it.comment) }
         list.setAttribute("aria-busy", "true")
-        list.setAttribute("style", "pointer-events:none")
+        list.getStyle().setProperty("pointer-events", "none")
         filterAsync(query, entries) { matches ->
+            if (transitionRevision == categoryTransitionRevision && query.isBlank()) {
+                captureUiChange(list)
+                list.scrollTop = 0.0
+            }
             val categoryNames = if (query.isBlank()) categories[category].orEmpty().map { it.name }.toSet() else emptySet()
             var count = 0
             for (option in optionRows.values) {
@@ -79,7 +83,7 @@ abstract class DlcSettingsScreen(page: DlcUiPage, parent: Screen?, title: Compon
                 noResults.setAttribute("style", if (empty) "" else "display:none")
             }
             list.removeAttribute("aria-busy")
-            list.removeAttribute("style")
+            list.getStyle().removeProperty("pointer-events")
         }
     }
     private fun createOption(value: DlcConfigValue) {

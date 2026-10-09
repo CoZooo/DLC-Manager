@@ -1337,7 +1337,8 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         types.addAll(visibleFilterTypes());
         for (DlcType type : types) {
             DlcUiButton filter = button(document, filters, tr(type == null ? "dlc_manager.filter.all" : type.getDisplayKey()), () -> {
-                if (!applying) {
+                if (!applying && activeFilter != type) {
+                    captureUiChange(document.getElementById("manager-list"));
                     activeFilter = type;
                     savedScrollOffset = 0;
                     savedScrollFilter = type;
@@ -1359,9 +1360,9 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         searchMatches = java.util.Set.of();
         savedScrollOffset = 0;
         var list = document.getElementById("manager-list");
-        list.setScrollTop(0); list.setAttribute("style", "pointer-events:none"); list.setAttribute("aria-busy", "true");
+        list.setScrollTop(0); list.getStyle().setProperty("pointer-events", "none"); list.setAttribute("aria-busy", "true");
         java.util.function.Consumer<java.util.Set<String>> apply = matches -> {
-            searchMatches = matches; list.removeAttribute("style"); list.removeAttribute("aria-busy");
+            searchMatches = matches; list.getStyle().removeProperty("pointer-events"); list.removeAttribute("aria-busy");
             renderServerRows(document); updateManagerControls(document);
         };
         if (searchQuery.isBlank()) {
@@ -1520,15 +1521,18 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         super.resize(minecraft, width, height);
     }
 
+    @Override protected boolean isUiContentReady() { return !restoreScrollPending; }
+
     @Override public void render(GuiGraphics graphics, int x, int y, float delta) {
         super.render(graphics, x, y, delta);
         Document document = getLinkedDocument();
-        if (!restoreScrollPending || document == null || document.isInitialCommitSlicing()) return;
+        if (!restoreScrollPending || document == null || document.needsInitialFullCommit() || document.isInitialCommitSlicing()) return;
         Element list = document.getElementById("manager-list");
-        if (list.getClientHeight() > 0 && "auto".equals(list.getComputedStyle().overflowY)) {
+        if (list.getClientHeight() > 0 && ("auto".equals(list.getComputedStyle().overflowY)
+            || "scroll".equals(list.getComputedStyle().overflowY))) {
             Document.runWithContext(document, () -> list.setScrollTop(savedScrollOffset));
-            restoreScrollPending = false;
         }
+        restoreScrollPending = false;
     }
 
     private static String tr(String key, Object... args) { return Component.translatable(key, args).getString(); }

@@ -12,7 +12,6 @@ import java.util.Locale
 import java.util.function.Predicate
 import java.util.regex.Pattern
 
-/** Resolves a page's resources without sharing its effective template with other pages. */
 class DlcUiResources internal constructor(private val page: DlcUiPage, private val resources: Resources) {
     interface Resources {
         fun exists(path: String): Boolean
@@ -43,7 +42,6 @@ class DlcUiResources internal constructor(private val page: DlcUiPage, private v
 
     constructor(page: DlcUiPage) : this(page, AuiResources())
 
-    /** Probes resources when a screen opens or the resource set is reloaded. */
     fun prepare(): String {
         ensureBundled()
         candidateAvailable = resources.exists(candidatePath)
@@ -57,7 +55,6 @@ class DlcUiResources internal constructor(private val page: DlcUiPage, private v
         return effectivePath
     }
 
-    /** Checks only in-memory template state; file creation/deletion is handled by prepare(). */
     fun refresh(): Boolean {
         if (!prepared) return false
         if (selected == selectTemplate() && effectiveHtml == resources.cachedHtml(effectivePath)) return false
@@ -79,7 +76,6 @@ class DlcUiResources internal constructor(private val page: DlcUiPage, private v
         return false
     }
 
-    /** Keeps a rejected override disabled until its source content changes. */
     fun useDefault() {
         if (!prepared) prepare()
         rejected = selected

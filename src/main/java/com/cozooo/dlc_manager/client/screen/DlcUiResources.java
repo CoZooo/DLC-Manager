@@ -20,7 +20,6 @@ import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Resolves a page's resources without sharing its effective template with other pages. */
 public final class DlcUiResources {
     private static final String ROOT = "dlc_manager/ui/";
     private static final String CLASSPATH_ROOT = "assets/apricityui/apricity/";
@@ -83,7 +82,6 @@ public final class DlcUiResources {
         effectivePath = ROOT + "__dlc_" + page.id() + ".html";
     }
 
-    /** Probes resources when a screen opens or the resource set is reloaded. */
     public String prepare() {
         ensureBundled();
         candidateAvailable = resources.exists(candidatePath);
@@ -98,7 +96,6 @@ public final class DlcUiResources {
         return effectivePath;
     }
 
-    /** Checks only in-memory template state; file creation/deletion is handled by prepare(). */
     public boolean refresh() {
         if (!prepared) return false;
         if (Objects.equals(selected, selectTemplate()) && Objects.equals(effectiveHtml, resources.cachedHtml(effectivePath))) return false;
@@ -124,7 +121,6 @@ public final class DlcUiResources {
         return false;
     }
 
-    /** Keeps a rejected override disabled until its source content changes. */
     public void useDefault() {
         if (!prepared) prepare();
         rejected = selected;

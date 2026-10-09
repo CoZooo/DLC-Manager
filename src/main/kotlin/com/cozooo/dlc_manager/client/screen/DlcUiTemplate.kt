@@ -6,7 +6,6 @@ import com.sighs.apricityui.init.Node
 import java.util.Collections
 import java.util.IdentityHashMap
 
-/** Captures a fresh document before the screen adds runtime content. */
 class DlcUiTemplate(private val document: Document) {
     private val parents = IdentityHashMap<Node, Node?>()
     private val classes = IdentityHashMap<Element, Set<String>>()
@@ -46,7 +45,6 @@ class DlcUiTemplate(private val document: Document) {
         node.getChildNodes().toList().forEach(::capture)
     }
 
-    /** Clears this region while leaving descendant template-ID regions and their state intact. */
     fun clear(parent: Element) {
         clearChildren(parent)
     }
@@ -62,7 +60,6 @@ class DlcUiTemplate(private val document: Document) {
         }
     }
 
-    /** Uses the first template slot only if it is a dedicated container without nested ID regions. */
     fun slot(name: String, fallback: Element): Element {
         val element = slots[name]
         if (element != null && !nonSlotContainers.contains(element)
@@ -74,13 +71,11 @@ class DlcUiTemplate(private val document: Document) {
         return fallback
     }
 
-    /** Clears only slots selected since the previous call, including slots outside the content area. */
     fun clearSlots() {
         usedSlots.toList().forEach(::clear)
         usedSlots.clear()
     }
 
-    /** Restores template classes only; runtime styles and state attributes remain authoritative. */
     fun restoreAttributes(element: Element) {
         val original = classes[element] ?: return
         if (original.isEmpty()) return

@@ -1,10 +1,12 @@
 package com.cozooo.dlc_manager.client.download;
 
+import com.cozooo.dlc_manager.core.DlcConfig;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -14,7 +16,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -95,6 +102,129 @@ class DlcDownloadServiceTest {
         assertThrows(IOException.class, () -> DlcDownloadService.download("", tempDir, null, null, null));
         assertThrows(IOException.class, () -> DlcDownloadService.download(url("/file"), null, null, null, null));
         assertThrows(IOException.class, () -> DlcDownloadService.suggestFileName(""));
+    }
+
+    @Test
+    void interruptedSegmentWaitCancelsWithoutFallingBackToASingleDownload() {
+        byte[] large = new byte[2 * 1024 * 1024];
+        AtomicInteger singleDownloads = new AtomicInteger();
+        server.createContext("/slow-range", exchange -> {
+            try {
+                exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
+                if (exchange.getRequestMethod().equals("HEAD")) {
+                    exchange.getResponseHeaders().set("Content-Length", Integer.toString(large.length));
+                    exchange.sendResponseHeaders(200, -1);
+                    return;
+                }
+                String range = exchange.getRequestHeaders().getFirst("Range");
+                int start = 0;
+                int end = large.length - 1;
+                if (range == null) {
+                    singleDownloads.incrementAndGet();
+                } else {
+                    String[] parts = range.substring("bytes=".length()).split("-", -1);
+                    start = Integer.parseInt(parts[0]);
+                    if (!parts[1].isEmpty()) end = Integer.parseInt(parts[1]);
+                    exchange.getResponseHeaders().set("Content-Range", "bytes " + start + "-" + end + "/" + large.length);
+                }
+                exchange.sendResponseHeaders(range == null ? 200 : 206, end - start + 1);
+                for (int offset = start; offset <= end; offset += 8192) {
+                    exchange.getResponseBody().write(large, offset, Math.min(8192, end - offset + 1));
+                    exchange.getResponseBody().flush();
+                    LockSupport.parkNanos(5_000_000L);
+                }
+            } finally {
+                exchange.close();
+            }
+        });
+        int previousSegments = DlcConfig.getMaxSegmentsPerFile();
+        long previousMinimum = DlcConfig.getMinSegmentBytes();
+        Thread owner = Thread.currentThread();
+        AtomicBoolean interruptedByWorker = new AtomicBoolean();
+        try {
+            DlcConfig.setMaxSegmentsPerFile(2);
+            DlcConfig.setMinSegmentBytes(1024L * 1024L);
+            assertThrows(DlcDownloadService.DownloadCanceledException.class,
+                () -> DlcDownloadService.download(url("/slow-range"), tempDir, "interrupted.jar", (done, total) -> {
+                    if (done > 0 && Thread.currentThread() != owner && interruptedByWorker.compareAndSet(false, true)) owner.interrupt();
+                }, () -> false));
+            assertTrue(interruptedByWorker.get());
+            assertTrue(owner.isInterrupted());
+            assertEquals(0, singleDownloads.get());
+            assertTrue(!Files.exists(tempDir.resolve("interrupted.jar")));
+        } finally {
+            Thread.interrupted();
+            DlcConfig.setMaxSegmentsPerFile(previousSegments);
+            DlcConfig.setMinSegmentBytes(previousMinimum);
+        }
+    }
+
+    @Test
+    @Timeout(10)
+    void cancellationWaitsForSegmentWorkersBeforeDeletingTheirTemporaryFile() throws Exception {
+        byte[] large = new byte[2 * 1024 * 1024];
+        server.createContext("/blocking-range", exchange -> {
+            try {
+                exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
+                if (exchange.getRequestMethod().equals("HEAD")) {
+                    exchange.getResponseHeaders().set("Content-Length", Integer.toString(large.length));
+                    exchange.sendResponseHeaders(200, -1);
+                    return;
+                }
+                String[] range = exchange.getRequestHeaders().getFirst("Range").substring("bytes=".length()).split("-");
+                int start = Integer.parseInt(range[0]);
+                int end = Integer.parseInt(range[1]);
+                exchange.getResponseHeaders().set("Content-Range", "bytes " + start + "-" + end + "/" + large.length);
+                exchange.sendResponseHeaders(206, end - start + 1);
+                exchange.getResponseBody().write(large, start, end - start + 1);
+            } finally {
+                exchange.close();
+            }
+        });
+        int previousSegments = DlcConfig.getMaxSegmentsPerFile();
+        long previousMinimum = DlcConfig.getMinSegmentBytes();
+        CountDownLatch workerStarted = new CountDownLatch(1);
+        CountDownLatch releaseWorker = new CountDownLatch(1);
+        CountDownLatch returned = new CountDownLatch(1);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        AtomicBoolean interruptedOnReturn = new AtomicBoolean();
+        Thread owner = new Thread(() -> {
+            try {
+                DlcDownloadService.download(url("/blocking-range"), tempDir, "blocked.jar", (done, total) -> {
+                    if (done <= 0) return;
+                    workerStarted.countDown();
+                    boolean interrupted = false;
+                    while (releaseWorker.getCount() != 0) {
+                        try { releaseWorker.await(); }
+                        catch (InterruptedException exception) { interrupted = true; }
+                    }
+                    if (interrupted) Thread.currentThread().interrupt();
+                }, () -> false);
+            } catch (Throwable thrown) {
+                failure.set(thrown);
+            } finally {
+                interruptedOnReturn.set(Thread.currentThread().isInterrupted());
+                returned.countDown();
+            }
+        }, "segmented-download-owner-test");
+        try {
+            DlcConfig.setMaxSegmentsPerFile(2);
+            DlcConfig.setMinSegmentBytes(1024L * 1024L);
+            owner.start();
+            assertTrue(workerStarted.await(5, TimeUnit.SECONDS));
+            owner.interrupt();
+            assertTrue(!returned.await(100, TimeUnit.MILLISECONDS), "Returned while a segment still owned the temporary file");
+        } finally {
+            releaseWorker.countDown();
+            owner.join(5000);
+            DlcConfig.setMaxSegmentsPerFile(previousSegments);
+            DlcConfig.setMinSegmentBytes(previousMinimum);
+        }
+        assertTrue(!owner.isAlive());
+        assertTrue(failure.get() instanceof DlcDownloadService.DownloadCanceledException);
+        assertTrue(interruptedOnReturn.get());
+        assertTrue(!Files.exists(tempDir.resolve("blocked.jar")));
+        assertTrue(!Files.exists(tempDir.resolve("blocked.jar.part")));
     }
 
     private void handleFile(HttpExchange exchange) throws IOException {

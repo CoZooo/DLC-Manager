@@ -7,7 +7,16 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -19,6 +28,8 @@ class DlcEarlyInstallerTest {
     @AfterEach void reset() {
         DlcPlatformServices.setProvider(null);
         DlcConfig.setDlcRoot("DLC");
+        DlcConfig.setMaxSegmentsPerFile(DlcConfig.DEFAULT_MAX_SEGMENTS_PER_FILE);
+        DlcConfig.setMinSegmentBytes(DlcConfig.DEFAULT_MIN_SEGMENT_MB * 1024L * 1024L);
         Thread.interrupted();
     }
 
@@ -144,5 +155,244 @@ class DlcEarlyInstallerTest {
         Thread.currentThread().interrupt();
         assertThrows(InterruptedException.class, () -> install(false));
         assertFalse(Files.exists(game.resolve("mods/main.jar")));
+    }
+
+    private DlcEarlyInstaller.Result install(Consumer<DlcEarlyInstaller.Progress> progress, BooleanSupplier cancelled) throws Exception {
+        return DlcEarlyInstaller.install(game, game.resolve("config"), "forge", "1.20.1", false, message -> {}, progress, cancelled);
+    }
+
+    private static List<DlcEarlyInstaller.Stage> stages(List<DlcEarlyInstaller.Progress> events) {
+        return events.stream().map(DlcEarlyInstaller.Progress::getStage).toList();
+    }
+
+    private static void assertFailedOnce(List<DlcEarlyInstaller.Progress> events) {
+        assertEquals(1, events.stream().filter(event -> event.getStage() == DlcEarlyInstaller.Stage.FAILED).count());
+        assertFalse(stages(events).contains(DlcEarlyInstaller.Stage.COMPLETE));
+        assertEquals(DlcEarlyInstaller.Stage.FAILED, events.get(events.size() - 1).getStage());
+    }
+
+    @Test void emptyPlanPublishesUnknownScanTotalThenCompletesWithoutDividingByZero() throws Exception {
+        var events = new ArrayList<DlcEarlyInstaller.Progress>();
+        var result = install(events::add, () -> false);
+        assertEquals(List.of(DlcEarlyInstaller.Stage.SCANNING, DlcEarlyInstaller.Stage.PLANNED,
+            DlcEarlyInstaller.Stage.VERIFYING, DlcEarlyInstaller.Stage.COMPLETE), stages(events));
+        assertEquals(-1, events.get(0).getTotalCount());
+        assertEquals(0, events.get(1).getTotalCount());
+        assertEquals(0, events.get(events.size() - 1).getCompletedCount());
+        assertEquals(0, result.getCheckedCount());
+    }
+
+    @Test void cachedAndUnchangedEntriesBothAdvanceTheCompletedCountWithoutDownloads() throws Exception {
+        resource(game.resolve("DLC"), "first", "mods/first.jar");
+        resource(game.resolve("DLC"), "second", "mods/second.jar");
+        for (int launch = 0; launch < 2; launch++) {
+            var events = new ArrayList<DlcEarlyInstaller.Progress>();
+            var result = install(events::add, () -> false);
+            assertEquals(launch == 0 ? 2 : 0, result.getInstalledCount());
+            assertEquals(0, result.getDownloadedCount());
+            assertFalse(stages(events).contains(DlcEarlyInstaller.Stage.DOWNLOADING));
+            assertEquals(List.of(1, 2), events.stream()
+                .filter(event -> event.getStage() == DlcEarlyInstaller.Stage.ENTRY_COMPLETE)
+                .map(DlcEarlyInstaller.Progress::getCompletedCount).toList());
+            assertEquals(2, events.get(events.size() - 1).getCompletedCount());
+            assertEquals(2, events.get(events.size() - 1).getTotalCount());
+            assertEquals(DlcEarlyInstaller.Stage.COMPLETE, events.get(events.size() - 1).getStage());
+        }
+    }
+
+    @Test void downloadPublishesActualFinalBytesBeforeInstallationAndThrottlesIntermediateEvents() throws Exception {
+        byte[] data = new byte[256 * 1024];
+        try (DownloadServer http = downloadServer(data, true, false, false)) {
+            downloadable(http.url());
+            List<DlcEarlyInstaller.Progress> events = Collections.synchronizedList(new ArrayList<>());
+            long start = System.nanoTime();
+            assertEquals(1, install(events::add, () -> false).getDownloadedCount());
+            long duration = System.nanoTime() - start;
+            var downloading = events.stream().filter(event -> event.getStage() == DlcEarlyInstaller.Stage.DOWNLOADING).toList();
+            var last = downloading.get(downloading.size() - 1);
+            assertEquals(data.length, last.getDownloadedBytes());
+            assertEquals(data.length, last.getTotalBytes());
+            assertTrue(downloading.size() <= duration / 100_000_000L + 4, "Intermediate progress must be coalesced");
+            assertTrue(events.indexOf(last) < stages(events).indexOf(DlcEarlyInstaller.Stage.INSTALLING));
+            assertArrayEquals(data, Files.readAllBytes(game.resolve("mods/download.jar")));
+            assertEquals(DlcEarlyInstaller.Stage.COMPLETE, events.get(events.size() - 1).getStage());
+        }
+    }
+
+    @Test void chunkedDownloadKeepsItsTotalUnknownAndStillReportsTheFinalByteCount() throws Exception {
+        byte[] data = new byte[32 * 1024];
+        try (DownloadServer http = downloadServer(data, false, false, false)) {
+            downloadable(http.url());
+            List<DlcEarlyInstaller.Progress> events = Collections.synchronizedList(new ArrayList<>());
+            install(events::add, () -> false);
+            var downloading = events.stream().filter(event -> event.getStage() == DlcEarlyInstaller.Stage.DOWNLOADING).toList();
+            assertTrue(downloading.stream().allMatch(event -> event.getTotalBytes() == -1));
+            assertEquals(data.length, downloading.get(downloading.size() - 1).getDownloadedBytes());
+            assertArrayEquals(data, Files.readAllBytes(game.resolve("mods/download.jar")));
+        }
+    }
+
+    @Test void throwingProgressObserverFallsBackToLogsWithoutBreakingDownload() throws Exception {
+        byte[] data = new byte[16 * 1024];
+        try (DownloadServer http = downloadServer(data, true, false, false)) {
+            downloadable(http.url());
+            var warnings = new ArrayList<String>();
+            var failedObserverCalls = new AtomicInteger();
+            var previous = DlcPlatformServices.get();
+            var result = DlcEarlyInstaller.install(game, game.resolve("config"), "forge", "1.20.1", false,
+                warnings::add, event -> {
+                    if (event.getStage() == DlcEarlyInstaller.Stage.DOWNLOADING && event.getDownloadedBytes() > 0) {
+                        failedObserverCalls.incrementAndGet();
+                        throw new IllegalStateException("renderer unavailable");
+                    }
+                }, () -> false);
+            assertEquals(1, failedObserverCalls.get());
+            assertEquals(1, result.getInstalledCount());
+            assertArrayEquals(data, Files.readAllBytes(game.resolve("mods/download.jar")));
+            assertTrue(warnings.stream().anyMatch(message -> message.contains("Progress observer unavailable")));
+            assertTrue(warnings.stream().anyMatch(message -> message.startsWith("Required resources ready:")));
+            assertSame(previous, DlcPlatformServices.get());
+        }
+    }
+
+    @Test void installationFailurePublishesOnlyOneFailureAndRestoresProvider() throws Exception {
+        resource(game.resolve("DLC"), "main", "mods/main.jar");
+        Files.writeString(game.resolve("mods"), "not a directory");
+        var previous = DlcPlatformServices.get();
+        var events = new ArrayList<DlcEarlyInstaller.Progress>();
+        assertThrows(IOException.class, () -> install(events::add, () -> false));
+        assertFailedOnce(events);
+        assertEquals(0, events.get(events.size() - 1).getCompletedCount());
+        assertEquals(1, events.get(events.size() - 1).getTotalCount());
+        assertFalse(events.get(events.size() - 1).getResourceName().isBlank());
+        assertSame(previous, DlcPlatformServices.get());
+    }
+
+    @Test void downloadFailureDoesNotExposeRetryMarkersAsMeasuredByteTotals() throws Exception {
+        try (DownloadServer http = downloadServer(new byte[0], true, false, false)) {
+            http.server().createContext("/failure.jar", exchange -> {
+                exchange.sendResponseHeaders(503, -1);
+                exchange.close();
+            });
+            downloadable(http.url().replace("download.jar", "failure.jar"));
+            var events = new ArrayList<DlcEarlyInstaller.Progress>();
+            assertThrows(IOException.class, () -> install(events::add, () -> false));
+            assertFailedOnce(events);
+            assertFalse(events.stream().anyMatch(event -> event.getTotalBytes() == 1));
+            assertFalse(Files.exists(game.resolve("mods/download.jar")));
+        }
+    }
+
+    @Test void interruptionBeforeScanningStillPublishesFailureAndPreservesTheFlag() {
+        var previous = DlcPlatformServices.get();
+        var events = new ArrayList<DlcEarlyInstaller.Progress>();
+        Thread.currentThread().interrupt();
+        assertThrows(InterruptedException.class, () -> install(events::add, () -> false));
+        assertEquals(List.of(DlcEarlyInstaller.Stage.FAILED), stages(events));
+        assertTrue(Thread.currentThread().isInterrupted());
+        assertSame(previous, DlcPlatformServices.get());
+    }
+
+    @Test void cancellationAtTheInstallingStagePreventsWrites() throws Exception {
+        resource(game.resolve("DLC"), "main", "mods/main.jar");
+        var cancelled = new AtomicBoolean();
+        var events = new ArrayList<DlcEarlyInstaller.Progress>();
+        assertThrows(InterruptedException.class, () -> install(event -> {
+            events.add(event);
+            if (event.getStage() == DlcEarlyInstaller.Stage.INSTALLING) cancelled.set(true);
+        }, cancelled::get));
+        assertFailedOnce(events);
+        assertFalse(Files.exists(game.resolve("mods/main.jar")));
+    }
+
+    @Test void cancellationImmediatelyBeforeCompletionCannotPublishSuccess() throws Exception {
+        resource(game.resolve("DLC"), "main", "mods/main.jar");
+        var cancelled = new AtomicBoolean();
+        var events = new ArrayList<DlcEarlyInstaller.Progress>();
+        assertThrows(InterruptedException.class, () -> DlcEarlyInstaller.install(game, game.resolve("config"), "forge", "1.20.1", false,
+            message -> { if (message.startsWith("Required resources ready:")) cancelled.set(true); }, events::add, cancelled::get));
+        assertFailedOnce(events);
+        assertEquals(1, events.get(events.size() - 1).getCompletedCount());
+    }
+
+    @Test void segmentedWorkerProgressCanInterruptTheInstallerOwnerWithoutContinuingStartup() throws Exception {
+        Files.createDirectories(game.resolve("config/dlc_manager"));
+        Files.writeString(game.resolve("config/dlc_manager/config.dc"), "[downloads]\nmaxSegmentsPerFile = 2\nminSegmentMB = 1\n");
+        byte[] data = new byte[2 * 1024 * 1024];
+        try (DownloadServer http = downloadServer(data, true, true, true)) {
+            downloadable(http.url());
+            Thread owner = Thread.currentThread();
+            var workerInterruptedOwner = new AtomicBoolean();
+            List<DlcEarlyInstaller.Progress> events = Collections.synchronizedList(new ArrayList<>());
+            var previous = DlcPlatformServices.get();
+            assertThrows(InterruptedException.class, () -> install(event -> {
+                events.add(event);
+                if (event.getStage() == DlcEarlyInstaller.Stage.PLANNED) {
+                    assertEquals(2, DlcConfig.getMaxSegmentsPerFile());
+                    assertEquals(1024L * 1024L, DlcConfig.getMinSegmentBytes());
+                }
+                if (event.getStage() == DlcEarlyInstaller.Stage.DOWNLOADING && event.getDownloadedBytes() > 0
+                    && Thread.currentThread() != owner && workerInterruptedOwner.compareAndSet(false, true)) owner.interrupt();
+            }, () -> false));
+            assertTrue(workerInterruptedOwner.get());
+            assertTrue(owner.isInterrupted());
+            assertFailedOnce(events);
+            assertFalse(Files.exists(game.resolve("mods/download.jar")));
+            assertSame(previous, DlcPlatformServices.get());
+        }
+    }
+
+    private void downloadable(String url) throws IOException {
+        Path required = game.resolve("DLC/required");
+        Files.createDirectories(required);
+        Files.writeString(required.resolve("download.dc"), "identifier = \"download\"\nfile_name = \"download.jar\"\nappliedTarget = \"mods/download.jar\"\npriority = \"directurl\"\ndirectUrl = \"" + url + "\"\n");
+    }
+
+    private DownloadServer downloadServer(byte[] data, boolean knownLength, boolean ranges, boolean paced) throws IOException {
+        HttpServer http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        ExecutorService executor = Executors.newCachedThreadPool(task -> {
+            Thread thread = new Thread(task, "early-installer-http-test");
+            thread.setDaemon(true);
+            return thread;
+        });
+        http.setExecutor(executor);
+        http.createContext("/download.jar", exchange -> {
+            try {
+                exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=download.jar");
+                if (ranges) exchange.getResponseHeaders().set("Accept-Ranges", "bytes");
+                if (exchange.getRequestMethod().equals("HEAD")) {
+                    if (knownLength) exchange.getResponseHeaders().set("Content-Length", Integer.toString(data.length));
+                    exchange.sendResponseHeaders(200, -1);
+                    return;
+                }
+                int start = 0;
+                int end = data.length - 1;
+                String range = exchange.getRequestHeaders().getFirst("Range");
+                boolean partial = ranges && range != null;
+                if (partial) {
+                    String[] parts = range.substring("bytes=".length()).split("-", -1);
+                    start = Integer.parseInt(parts[0]);
+                    if (!parts[1].isEmpty()) end = Math.min(end, Integer.parseInt(parts[1]));
+                    exchange.getResponseHeaders().set("Content-Range", "bytes " + start + "-" + end + "/" + data.length);
+                }
+                exchange.sendResponseHeaders(partial ? 206 : 200, knownLength ? end - start + 1 : 0);
+                for (int offset = start; offset <= end; offset += 8192) {
+                    exchange.getResponseBody().write(data, offset, Math.min(8192, end - offset + 1));
+                    if (paced) {
+                        exchange.getResponseBody().flush();
+                        LockSupport.parkNanos(5_000_000L);
+                    }
+                }
+            } finally {
+                exchange.close();
+            }
+        });
+        http.start();
+        return new DownloadServer(http, executor);
+    }
+
+    private record DownloadServer(HttpServer server, ExecutorService executor) implements AutoCloseable {
+        String url() { return "http://127.0.0.1:" + server.getAddress().getPort() + "/download.jar"; }
+        @Override public void close() { server.stop(0); executor.shutdownNow(); }
     }
 }

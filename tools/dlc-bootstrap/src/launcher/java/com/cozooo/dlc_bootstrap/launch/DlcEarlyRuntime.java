@@ -11,7 +11,10 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.Properties;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 public final class DlcEarlyRuntime {
     private static URLClassLoader runtime;
@@ -21,32 +24,64 @@ public final class DlcEarlyRuntime {
     public static synchronized void initialize(IEnvironment environment) {
         System.clearProperty("dlc_manager.early.ready");
         try {
-            if (runtime == null) {
-                Path game = environment.getProperty(IEnvironment.Keys.GAMEDIR.get())
-                    .orElseThrow(() -> new IOException("Game directory is unavailable before mod discovery"));
-                Properties profile = new Properties();
-                try (var input = DlcEarlyRuntime.class.getResourceAsStream("/dlc-bootstrap.properties")) {
-                    if (input == null) throw new IOException("DLC early runtime profile is missing");
-                    profile.load(input);
-                }
-                ArrayList<URL> jars = new ArrayList<>();
-                Path cache = game.resolve(".dlc-manager/runtime/early");
-                jars.add(extract(cache, "META-INF/dlc-manager/early.jar").toUri().toURL());
-                for (String resource : profile.getProperty("runtimeLibraries", "").split(",")) {
-                    if (!resource.isBlank()) jars.add(extract(cache, resource).toUri().toURL());
-                }
-                Path distribution = distributionFile(DlcEarlyRuntime.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-                System.setProperty("dlc_manager.distribution.path", distribution.toAbsolutePath().normalize().toString());
-                runtime = new RuntimeClassLoader(jars.toArray(URL[]::new), DlcEarlyRuntime.class.getClassLoader());
+            Properties profile = new Properties();
+            try (var input = DlcEarlyRuntime.class.getResourceAsStream("/dlc-bootstrap.properties")) {
+                if (input == null) throw new IOException("DLC early runtime profile is missing");
+                profile.load(input);
             }
-            Class<?> implementation = runtime.loadClass("com.cozooo.dlc_bootstrap.internal.bootstrap.DlcBootstrapService");
-            ITransformationService installer = (ITransformationService) implementation.getConstructor().newInstance();
-            installer.initialize(environment);
-        } catch (ReflectiveOperationException | IOException | java.net.URISyntaxException ex) {
-            throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
-        } catch (RuntimeException | LinkageError ex) {
+            String target = environment.getProperty(IEnvironment.Keys.LAUNCHTARGET.get())
+                .orElseThrow(() -> new IOException("Launch target is unavailable before mod discovery"));
+            DlcEarlyProgress.run(target, profile.getProperty("loader"), DlcEarlyRuntime.class.getClassLoader(),
+                (progress, cancelled) -> install(environment, profile, progress, cancelled));
+        } catch (InterruptedException ex) {
+            System.clearProperty("dlc_manager.early.ready");
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Required resource installation failed: installation interrupted; startup stopped", ex);
+        } catch (Exception ex) {
             System.clearProperty("dlc_manager.early.ready");
             throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
+        } catch (LinkageError ex) {
+            System.clearProperty("dlc_manager.early.ready");
+            throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
+        }
+    }
+
+    private static void install(IEnvironment environment, Properties profile, Consumer<Map<String, Object>> progress,
+                                BooleanSupplier cancelled) throws Exception {
+        checkCancelled(cancelled);
+        if (runtime == null) {
+            Path game = environment.getProperty(IEnvironment.Keys.GAMEDIR.get())
+                .orElseThrow(() -> new IOException("Game directory is unavailable before mod discovery"));
+            ArrayList<URL> jars = new ArrayList<>();
+            Path cache = game.resolve(".dlc-manager/runtime/early");
+            jars.add(extract(cache, "META-INF/dlc-manager/early.jar").toUri().toURL());
+            for (String resource : profile.getProperty("runtimeLibraries", "").split(",")) {
+                checkCancelled(cancelled);
+                if (!resource.isBlank()) jars.add(extract(cache, resource).toUri().toURL());
+            }
+            checkCancelled(cancelled);
+            Path distribution = distributionFile(DlcEarlyRuntime.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+            System.setProperty("dlc_manager.distribution.path", distribution.toAbsolutePath().normalize().toString());
+            runtime = new RuntimeClassLoader(jars.toArray(URL[]::new), DlcEarlyRuntime.class.getClassLoader());
+        }
+        Thread thread = Thread.currentThread();
+        ClassLoader previous = thread.getContextClassLoader();
+        try {
+            thread.setContextClassLoader(runtime);
+            Class<?> implementation = runtime.loadClass("com.cozooo.dlc_bootstrap.internal.bootstrap.DlcBootstrapService");
+            ITransformationService installer = (ITransformationService) implementation
+                .getConstructor(Consumer.class, BooleanSupplier.class).newInstance(progress, cancelled);
+            installer.initialize(environment);
+            checkCancelled(cancelled);
+        } finally {
+            thread.setContextClassLoader(previous);
+            if (cancelled.getAsBoolean() || thread.isInterrupted()) System.clearProperty("dlc_manager.early.ready");
+        }
+    }
+
+    private static void checkCancelled(BooleanSupplier cancelled) throws InterruptedException {
+        if (cancelled.getAsBoolean() || Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException("Required resource installation interrupted");
         }
     }
 

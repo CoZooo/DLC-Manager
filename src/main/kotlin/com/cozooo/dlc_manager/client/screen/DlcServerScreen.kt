@@ -1165,7 +1165,8 @@ class DlcServerScreen(
         clearUiContent(filters)
         for (type in listOf(null) + visibleFilterTypes()) {
             val filter = button(document, filters, tr(type?.getDisplayKey() ?: "dlc_manager.filter.all")) {
-                if (!applying) {
+                if (!applying && activeFilter != type) {
+                    captureUiChange(document.getElementById("manager-list"))
                     activeFilter = type
                     savedScrollOffset = 0.0
                     savedScrollFilter = type
@@ -1187,9 +1188,9 @@ class DlcServerScreen(
         searchMatches = emptySet()
         savedScrollOffset = 0.0
         val list = document.getElementById("manager-list")
-        list.setScrollTop(0.0); list.setAttribute("style", "pointer-events:none"); list.setAttribute("aria-busy", "true")
+        list.setScrollTop(0.0); list.getStyle().setProperty("pointer-events", "none"); list.setAttribute("aria-busy", "true")
         val apply = java.util.function.Consumer<Set<String>> { matches ->
-            searchMatches = matches; list.removeAttribute("style"); list.removeAttribute("aria-busy")
+            searchMatches = matches; list.getStyle().removeProperty("pointer-events"); list.removeAttribute("aria-busy")
             renderServerRows(document); updateManagerControls(document)
         }
         if (searchQuery.isBlank()) {
@@ -1340,15 +1341,17 @@ class DlcServerScreen(
         super.resize(minecraft, width, height)
     }
 
+    override fun isUiContentReady(): Boolean = !restoreScrollPending
+
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
         super.render(graphics, mouseX, mouseY, partialTick)
         val document = linkedDocument ?: return
-        if (!restoreScrollPending || document.isInitialCommitSlicing) return
+        if (!restoreScrollPending || document.needsInitialFullCommit() || document.isInitialCommitSlicing) return
         val list = document.getElementById("manager-list")
-        if (list.clientHeight > 0 && list.computedStyle.overflowY == "auto") {
+        if (list.clientHeight > 0 && list.computedStyle.overflowY in setOf("auto", "scroll")) {
             Document.runWithContext(document) { list.setScrollTop(savedScrollOffset) }
-            restoreScrollPending = false
         }
+        restoreScrollPending = false
     }
 
     private fun tr(key: String, vararg args: Any): String = Component.translatable(key, *args).string

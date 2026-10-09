@@ -9,6 +9,7 @@ import com.sighs.apricityui.parser.HTML
 import com.sighs.apricityui.screen.ApricityScreen
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.gui.screens.Screen
 import org.lwjgl.glfw.GLFW
 
 abstract class DlcApricityScreen private constructor(
@@ -17,6 +18,14 @@ abstract class DlcApricityScreen private constructor(
 ) : ApricityScreen(uiResources.prepare()) {
     protected constructor(page: DlcUiPage) : this(page, DlcUiResources(page))
 
+    private val transition = DlcUiTransition()
+    private var navigationPending = false
+    private var hasPresentedFrame = false
+    private var frameTransitionsEnabled = false
+    private var renderedCurrentFrame = false
+    private var transitionReadyFrames = 0
+    private var transitionDocument: Document? = null
+    private var transitionGeneration = -1L
     private var uiTemplate: DlcUiTemplate? = null
     private var templateDocument: Document? = null
     private var templateGeneration = -1L
@@ -33,6 +42,11 @@ abstract class DlcApricityScreen private constructor(
     init { setPauseGame(true) }
 
     override fun init() {
+        if (preparedScreen === this) preparedScreen = null
+        if (!navigationPending) transition.cancel()
+        hasPresentedFrame = false
+        renderedCurrentFrame = false
+        transitionReadyFrames = 0
         uiResources.prepare()
         super.init()
         if (!uiResources.isValid(linkedDocument)) {
@@ -42,6 +56,13 @@ abstract class DlcApricityScreen private constructor(
         updateViewport()
         resourceGeneration = linkedDocument?.refreshGeneration ?: -1L
         bindCurrentDocument()
+        val document = linkedDocument
+        if (navigationPending) {
+            transitionDocument = document
+            transitionGeneration = document?.refreshGeneration ?: -1L
+            navigationPending = false
+            if (document == null || transitionDisabled(document.body)) transition.cancel()
+        }
     }
 
     override fun tick() {
@@ -70,6 +91,7 @@ abstract class DlcApricityScreen private constructor(
     }
 
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+        renderedCurrentFrame = false
         val document = linkedDocument
         if (document != null && document.isActive && document.documentElement != null) {
             val index = document.selectorIndex
@@ -79,9 +101,32 @@ abstract class DlcApricityScreen private constructor(
             }
         }
         super.render(graphics, mouseX, mouseY, partialTick)
+        renderedCurrentFrame = document != null && document.isActive
+            && !document.needsInitialFullCommit() && !document.isInitialCommitSlicing
+            && document.paintList.isNotEmpty()
         syncInputs(document)
+    }
+
+    fun finishUiFrame(graphics: GuiGraphics) {
+        if (Minecraft.getInstance().screen !== this) return
+        val document = linkedDocument
+        if (transition.isRunning()) {
+            if (document == null || document !== transitionDocument
+                || !document.isCurrentGeneration(transitionGeneration)
+                || transitionDisabled(document.body)) {
+                transition.cancel()
+            } else {
+                val ready = renderedCurrentFrame && isUiContentReady()
+                transitionReadyFrames = if (ready) transitionReadyFrames + 1 else 0
+                transition.render(graphics, transitionReadyFrames >= 2, System.nanoTime())
+            }
+        }
+        hasPresentedFrame = renderedCurrentFrame || transition.isRunning()
+        frameTransitionsEnabled = document != null && !transitionDisabled(document.body)
         searchApplications.runPending()
     }
+
+    protected open fun isUiContentReady(): Boolean = true
 
     private fun updateViewport() {
         val document = linkedDocument ?: return
@@ -89,6 +134,8 @@ abstract class DlcApricityScreen private constructor(
     }
 
     override fun resize(minecraft: Minecraft, width: Int, height: Int) {
+        navigationPending = false
+        transition.cancel()
         super.resize(minecraft, width, height)
         updateViewport()
     }
@@ -105,6 +152,7 @@ abstract class DlcApricityScreen private constructor(
         searchApplications.clear()
         pendingInputs.clear()
         if (templateDocument !== document || templateGeneration != document.refreshGeneration) {
+            if (!navigationPending) transition.cancel()
             uiTemplate = DlcUiTemplate(document)
             templateDocument = document
             templateGeneration = document.refreshGeneration
@@ -124,6 +172,16 @@ abstract class DlcApricityScreen private constructor(
     protected fun uiSlot(name: String, fallback: Element): Element = uiTemplate?.slot(name, fallback) ?: fallback
     protected fun restoreUiClasses(element: Element?) { if (element != null) uiTemplate?.restoreAttributes(element) }
 
+    protected fun captureUiChange(element: Element?) {
+        val document = linkedDocument ?: return
+        if (!hasPresentedFrame || !document.isActive || element == null
+            || element.document !== document || !element.isConnected) return
+        Document.runWithContext(document) { transition.capture(element) }
+        transitionDocument = document
+        transitionGeneration = document.refreshGeneration
+        transitionReadyFrames = 0
+    }
+
     protected abstract fun bindDocument(document: Document)
 
     protected fun filterAsync(query: String?, entries: List<DlcUiAsyncSearch.Entry<String>>, apply: java.util.function.Consumer<Set<String>>) {
@@ -135,9 +193,43 @@ abstract class DlcApricityScreen private constructor(
         }
     }
 
-    override fun removed() { asyncSearch.cancel(); searchApplications.clear(); super.removed() }
+    override fun removed() {
+        transition.cancel()
+        navigationPending = false
+        renderedCurrentFrame = false
+        asyncSearch.cancel()
+        searchApplications.clear()
+        super.removed()
+    }
 
     companion object {
+        private var preparedScreen: DlcApricityScreen? = null
+
+        @JvmStatic
+        fun beforeScreenChange(next: Screen?) {
+            cancelAbandonedNavigation(null)
+            val current = Minecraft.getInstance().screen
+            if (current === next || current !is DlcApricityScreen
+                || next !is DlcApricityScreen
+                || !current.hasPresentedFrame || !current.frameTransitionsEnabled) return
+            next.transition.capture(null)
+            next.navigationPending = next.transition.isRunning()
+            if (next.navigationPending) preparedScreen = next
+        }
+
+        @JvmStatic
+        fun cancelAbandonedNavigation(current: Screen?) {
+            val prepared = preparedScreen ?: return
+            if (prepared !== current) {
+                prepared.transition.cancel()
+                prepared.navigationPending = false
+                preparedScreen = null
+            }
+        }
+
+        private fun transitionDisabled(element: Element?): Boolean =
+            element?.getAttribute("data-dlc-transition")?.trim().equals("none", ignoreCase = true)
+
         private val searchWorker = java.util.concurrent.Executors.newFixedThreadPool(2) { task ->
             Thread(task, "dlc-ui-search").apply { isDaemon = true }
         }
