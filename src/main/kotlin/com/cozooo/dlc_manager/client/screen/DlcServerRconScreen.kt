@@ -15,7 +15,7 @@ import java.util.concurrent.CompletableFuture
 class DlcServerRconScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.rcon_title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_RCON, parent, Component.translatable("dlc_manager.server.rcon_title")) {
     private var portField: EditBox? = null
     private var passwordField: EditBox? = null
     private var connectButton: Button? = null

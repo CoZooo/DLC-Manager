@@ -6,7 +6,7 @@ public class DlcSingleButtonScreen extends DlcPageScreen {
     private final Component message;
     private final Component buttonLabel;
     public DlcSingleButtonScreen(Screen parent, Component title, Component message, Component buttonLabel) {
-        super(parent, title); this.message = message; this.buttonLabel = buttonLabel;
+        super(DlcUiPage.SINGLE_BUTTON, parent, title); this.message = message; this.buttonLabel = buttonLabel;
     }
     @Override protected void buildPage() {
         rich(node(content, "div", "page-dialog"), message);

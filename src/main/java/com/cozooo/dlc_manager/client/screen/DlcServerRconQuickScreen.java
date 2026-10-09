@@ -33,7 +33,7 @@ public class DlcServerRconQuickScreen extends DlcPageScreen {
     private int buttonGap;
 
     public DlcServerRconQuickScreen(Screen parent, DlcServerEntry serverEntry, int port, String password) {
-        super(parent, Component.translatable("dlc_manager.server.rcon_common"));
+        super(DlcUiPage.SERVER_RCON_QUICK, parent, Component.translatable("dlc_manager.server.rcon_common"));
         this.parent = parent;
         this.serverEntry = serverEntry;
         this.port = port;

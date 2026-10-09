@@ -13,13 +13,16 @@ import java.util.List;
 import java.util.Map;
 
 public abstract class DlcManagerPageScreen extends DlcApricityScreen {
-    protected DlcManagerPageScreen() { super("dlc_manager/ui/manager.html"); }
+    protected DlcManagerPageScreen() { this(DlcUiPage.MANAGER); }
+    protected DlcManagerPageScreen(DlcUiPage page) { super(page); }
     protected DlcUiButton searchClearButton;
     protected String searchQuery = "";
     protected DlcUiTooltip tooltip;
     private Document layoutDocument;
     private long layoutGeneration = -1;
     private boolean sidebarCollapsed;
+    private double sidebarWidth = 172;
+    private double rowHeight = 40;
     private final DlcUiMotion sidebarMotion = new DlcUiMotion(1);
     private double lastSidebarProgress = Double.NaN;
     private final Map<String, DlcUiMotion> groupMotions = new HashMap<>();
@@ -41,7 +44,11 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
     }
 
     protected void bindManagerLayout(Document document, String title) {
+        Element manager = document.getElementById("manager");
+        sidebarWidth = layoutMetric(manager, "data-sidebar-width", 172);
+        rowHeight = layoutMetric(manager, "data-row-height", 40);
         document.getElementById("manager-header").setAttribute("class", "workspace-header");
+        restoreUiClasses(document.getElementById("manager-header"));
         DlcUiText.set(document.getElementById("manager-title"), title);
         document.getElementById("category-label").setTextContent(layoutTranslate("dlc_manager.ui.categories"));
         document.getElementById("tools-label").setTextContent(layoutTranslate("dlc_manager.ui.tools"));
@@ -103,7 +110,7 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
             });
         });
         Element slot = document.getElementById("sidebar-toggle-slot");
-        slot.setInnerHTML("");
+        clearUiContent(slot);
         DlcUiButton toggle = button(document, slot, "", () -> {
             double scroll = document.getElementById("manager-list").getTargetScrollTop();
             sidebarCollapsed = !sidebarCollapsed;
@@ -121,6 +128,7 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
 
     private void renderSidebarState(Document document) {
         document.getElementById("manager").setAttribute("class", sidebarCollapsed ? "manager sidebar-collapsed" : "manager");
+        restoreUiClasses(document.getElementById("manager"));
         Element toggle = document.getElementById("sidebar-toggle");
         toggle.setTextContent(sidebarCollapsed ? "»" : "«");
         toggle.setAttribute("aria-expanded", Boolean.toString(!sidebarCollapsed));
@@ -135,7 +143,7 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
         input.setAttribute("aria-label", layoutTranslate("dlc_manager.ui.search"));
         DlcUiInputBinding searchBinding = bindInput(document, input, query -> onManagerSearch(document, query), true);
         Element actions = document.getElementById("search-actions");
-        actions.setInnerHTML("");
+        clearUiContent(actions);
         searchClearButton = button(document, actions, "×", () -> {
             input.setValue("");
             searchBinding.run();
@@ -150,14 +158,14 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
             double progress = sidebarMotion.valueAt(now);
             if (progress != lastSidebarProgress) {
                 document.getElementById("manager-sidebar").setAttribute("style",
-                    "width:" + (172 * progress) + "px;border-right-width:" + progress + "px;opacity:" + progress);
+                    "width:" + (sidebarWidth * progress) + "px;border-right-width:" + progress + "px;opacity:" + progress);
                 lastSidebarProgress = progress;
             }
             for (GroupView group : groupViews) {
                 double value = group.motion.valueAt(now);
                 if (value == group.lastProgress) continue;
                 boolean expanded = group.motion.getTarget() == 1;
-                group.body.setAttribute("style", "height:" + (value == 1 ? "auto" : (group.itemCount * 40 * value) + "px")
+                group.body.setAttribute("style", "height:" + (value == 1 ? "auto" : (group.itemCount * rowHeight * value) + "px")
                     + ";opacity:" + value + ";pointer-events:" + (expanded ? "auto" : "none"));
                 group.body.setAttribute("aria-hidden", Boolean.toString(!expanded));
                 group.button.setAttribute("aria-expanded", Boolean.toString(expanded));
@@ -186,4 +194,13 @@ public abstract class DlcManagerPageScreen extends DlcApricityScreen {
     }
 
     private static String layoutTranslate(String key) { return Component.translatable(key).getString(); }
+
+    private static double layoutMetric(Element element, String name, double fallback) {
+        try {
+            double value = Double.parseDouble(element.getAttribute(name));
+            return Double.isFinite(value) && value > 0 && value <= 10000 ? value : fallback;
+        } catch (NumberFormatException | NullPointerException ignored) {
+            return fallback;
+        }
+    }
 }

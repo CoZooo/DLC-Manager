@@ -29,7 +29,7 @@ public class DlcPackUrlScreen extends DlcUrlPageScreen {
     private String urlValue = "";
 
     public DlcPackUrlScreen(DlcPackManagerScreen parent) {
-        super(parent, Component.translatable("dlc_manager.pack.import_url_title"));
+        super(DlcUiPage.LOCAL_PACK_URL, parent, Component.translatable("dlc_manager.pack.import_url_title"));
         this.parent = parent;
     }
 

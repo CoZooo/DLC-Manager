@@ -24,7 +24,7 @@ import java.util.Locale
 
 class DlcUpdateUrlScreen(
     private val parent: Screen?,
-) : DlcUrlPageScreen(parent, Component.translatable("dlc_manager.update.import_url_title")) {
+) : DlcUrlPageScreen(DlcUiPage.LOCAL_UPDATE_URL, parent, Component.translatable("dlc_manager.update.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null

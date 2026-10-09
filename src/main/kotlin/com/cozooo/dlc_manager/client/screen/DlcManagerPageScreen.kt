@@ -8,13 +8,15 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.network.chat.Component
 
-abstract class DlcManagerPageScreen : DlcApricityScreen("dlc_manager/ui/manager.html") {
+abstract class DlcManagerPageScreen(page: DlcUiPage = DlcUiPage.MANAGER) : DlcApricityScreen(page) {
     protected var searchClearButton: DlcUiButton? = null
     protected var searchQuery = ""
     internal var tooltip: DlcUiTooltip? = null
     private var layoutDocument: Document? = null
     private var layoutGeneration = -1L
     private var sidebarCollapsed = false
+    private var sidebarWidth = 172.0
+    private var rowHeight = 40.0
     private val sidebarMotion = DlcUiMotion(1.0)
     private var lastSidebarProgress = Double.NaN
     private val groupMotions = HashMap<String, DlcUiMotion>()
@@ -27,7 +29,11 @@ abstract class DlcManagerPageScreen : DlcApricityScreen("dlc_manager/ui/manager.
     }
 
     protected fun bindManagerLayout(document: Document, title: String) {
+        val manager = document.getElementById("manager")
+        sidebarWidth = layoutMetric(manager, "data-sidebar-width", 172.0)
+        rowHeight = layoutMetric(manager, "data-row-height", 40.0)
         document.getElementById("manager-header").setAttribute("class", "workspace-header")
+        restoreUiClasses(document.getElementById("manager-header"))
         DlcUiText.set(document.getElementById("manager-title"), title)
         document.getElementById("category-label").setTextContent(layoutTranslate("dlc_manager.ui.categories"))
         document.getElementById("tools-label").setTextContent(layoutTranslate("dlc_manager.ui.tools"))
@@ -91,7 +97,7 @@ abstract class DlcManagerPageScreen : DlcApricityScreen("dlc_manager/ui/manager.
             }
         }
         val slot = document.getElementById("sidebar-toggle-slot")
-        slot.setInnerHTML("")
+        clearUiContent(slot)
         val toggle = button(document, slot, "") {
             val scroll = document.getElementById("manager-list").targetScrollTop
             sidebarCollapsed = !sidebarCollapsed
@@ -109,6 +115,7 @@ abstract class DlcManagerPageScreen : DlcApricityScreen("dlc_manager/ui/manager.
 
     private fun renderSidebarState(document: Document) {
         document.getElementById("manager").setAttribute("class", if (sidebarCollapsed) "manager sidebar-collapsed" else "manager")
+        restoreUiClasses(document.getElementById("manager"))
         val toggle = document.getElementById("sidebar-toggle")
         toggle.setTextContent(if (sidebarCollapsed) "»" else "«")
         toggle.setAttribute("aria-expanded", (!sidebarCollapsed).toString())
@@ -123,7 +130,7 @@ abstract class DlcManagerPageScreen : DlcApricityScreen("dlc_manager/ui/manager.
         input.setAttribute("aria-label", layoutTranslate("dlc_manager.ui.search"))
         val searchBinding = bindInput(document, input, { onManagerSearch(document, it) }, true)
         val actions = document.getElementById("search-actions")
-        actions.setInnerHTML("")
+        clearUiContent(actions)
         searchClearButton = button(document, actions, "×") {
             input.setValue("")
             searchBinding.run()
@@ -138,14 +145,14 @@ abstract class DlcManagerPageScreen : DlcApricityScreen("dlc_manager/ui/manager.
             val progress = sidebarMotion.valueAt(now)
             if (progress != lastSidebarProgress) {
                 document.getElementById("manager-sidebar").setAttribute("style",
-                    "width:${172 * progress}px;border-right-width:${progress}px;opacity:$progress")
+                    "width:${sidebarWidth * progress}px;border-right-width:${progress}px;opacity:$progress")
                 lastSidebarProgress = progress
             }
             for (group in groupViews) {
                 val value = group.motion.valueAt(now)
                 if (value == group.lastProgress) continue
                 val expanded = group.motion.getTarget() == 1.0
-                val height = if (value == 1.0) "auto" else "${group.itemCount * 40 * value}px"
+                val height = if (value == 1.0) "auto" else "${group.itemCount * rowHeight * value}px"
                 group.body.setAttribute("style", "height:$height;opacity:$value;pointer-events:" + if (expanded) "auto" else "none")
                 group.body.setAttribute("aria-hidden", (!expanded).toString())
                 group.button.setAttribute("aria-expanded", expanded.toString())
@@ -173,4 +180,9 @@ abstract class DlcManagerPageScreen : DlcApricityScreen("dlc_manager/ui/manager.
     }
 
     private fun layoutTranslate(key: String): String = Component.translatable(key).string
+
+    private fun layoutMetric(element: Element, name: String, fallback: Double): Double {
+        val value = element.getAttribute(name)?.toDoubleOrNull() ?: return fallback
+        return if (value.isFinite() && value > 0 && value <= 10000) value else fallback
+    }
 }

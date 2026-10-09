@@ -38,7 +38,7 @@ import kotlin.math.roundToInt
 
 class DlcPackManagerScreen(
     private val parent: Screen?,
-) : DlcPackPageScreen(parent, Component.translatable("dlc_manager.pack.manager_title")) {
+) : DlcPackPageScreen(DlcUiPage.LOCAL_PACKS, parent, Component.translatable("dlc_manager.pack.manager_title")) {
     private var importButton: Button? = null
     private var urlButton: Button? = null
     private var applyButton: Button? = null

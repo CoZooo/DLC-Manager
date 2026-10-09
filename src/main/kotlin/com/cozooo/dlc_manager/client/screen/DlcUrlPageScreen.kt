@@ -7,7 +7,8 @@ import net.minecraft.network.chat.Component
 import java.util.function.DoubleSupplier
 import java.util.function.Supplier
 
-abstract class DlcUrlPageScreen(parent: Screen?, title: Component) : DlcPageScreen(parent, title) {
+abstract class DlcUrlPageScreen(page: DlcUiPage, parent: Screen?, title: Component) : DlcPageScreen(page, parent, title) {
+    protected constructor(parent: Screen?, title: Component) : this(DlcUiPage.PAGE, parent, title)
     protected fun renderUrlForm(prompt: String, field: EditBox?, paste: Button?, download: Button?,
                                 message: Supplier<String?>, error: Supplier<String?>?,
                                 progressValue: DoubleSupplier?, detail: Supplier<String?>?, downloading: java.util.function.BooleanSupplier) {

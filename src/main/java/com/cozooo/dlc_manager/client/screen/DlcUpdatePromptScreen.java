@@ -37,7 +37,7 @@ public class DlcUpdatePromptScreen extends DlcPageScreen {
     }
 
     public DlcUpdatePromptScreen(Screen parent, UpdateCheckResult result, boolean allowSkipThisUpdate) {
-        super(parent, Component.translatable("dlc_manager.update.title"));
+        super(DlcUiPage.UPDATE_PROMPT, parent, Component.translatable("dlc_manager.update.title"));
         this.parent = parent;
         this.result = result;
         this.forceUpdate = hasHiddenUpdates(result);

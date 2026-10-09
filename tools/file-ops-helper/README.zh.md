@@ -56,4 +56,4 @@ if (FileOpsHelperApi.isSupported()) {
 
 批量操作的 `type` 支持 `delete`、`move`、`copy`、`write_text`、`write_bytes` 和 `mkdir`。删除使用 `path`，创建目录使用 `target`，移动和复制使用 `source`、`target`、`replaceExisting`，写入使用 `target` 和 Base64 编码的 `contentBase64`。单项操作建议优先使用对应的便捷方法。
 
-本项目采用[非商业许可](../../LICENSE)，商用或售卖须事先取得书面授权。
+根据[项目许可](../../LICENSE)，针对本软件自身收费须事先取得书面授权。

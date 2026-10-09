@@ -40,4 +40,4 @@ java -jar build/libs/dclanguage-lsp.jar --stdio
 
 分发 ZIP 带有 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和 `licenses/gson/`，合并后的 JAR 也包含相应第三方资料。共享库的用法见 [DC Language](../README.zh.md)，协议依据 [LSP 3.17 规范](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/)。
 
-本项目采用[非商业许可](../LICENSE)，商用或售卖须事先取得书面授权。
+根据[项目许可](../LICENSE)，针对本软件自身收费须事先取得书面授权。

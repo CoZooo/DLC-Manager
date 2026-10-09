@@ -11,7 +11,7 @@ public class DlcNoticeScreen extends DlcPageScreen {
     private String resolvedContents = "";
     private CompletableFuture<String> future;
     public DlcNoticeScreen(Screen parent, DlcNoticeConfig config) {
-        super(parent, Component.translatable("dlc_manager.notice_title")); this.config = config; neverShow = config.isNeverShow();
+        super(DlcUiPage.NOTICE, parent, Component.translatable("dlc_manager.notice_title")); this.config = config; neverShow = config.isNeverShow();
     }
     @Override protected boolean showHeaderBackButton() { return false; }
     @Override protected void buildPage() {
@@ -21,8 +21,10 @@ public class DlcNoticeScreen extends DlcPageScreen {
         DlcUiText.set(pageDocument.getElementById("page-title"), title.isBlank() ? getTitle().getString() : title);
         String subhead = config.getSubhead().enabled ? config.getSubhead().text.resolve(lang) : "";
         var headerSubhead = pageDocument.getElementById("page-subhead");
-        DlcUiText.set(headerSubhead, subhead);
-        headerSubhead.setAttribute("style", subhead.isBlank() ? "display:none" : "display:block");
+        if (headerSubhead != null) {
+            DlcUiText.set(headerSubhead, subhead);
+            headerSubhead.setAttribute("style", subhead.isBlank() ? "display:none" : "display:block");
+        }
         var body = node(content, "article", "page-prose");
         markdown(body, resolvedContents);
         if (config.getShowFrequency() != DlcNoticeConfig.ShowFrequency.ONCE)

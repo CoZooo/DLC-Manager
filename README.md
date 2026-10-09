@@ -69,4 +69,4 @@ Report problems in [Issues](https://github.com/CoZooo/DLC-Manager/issues). Inclu
 
 ## License
 
-The source is available for noncommercial use, study, modification, and free redistribution under the license conditions. Commercial use, sales, and paid services require prior written permission. Redistributed copies must retain the license and provide corresponding source. See [Licensing and commercial permission](LICENSING.md). Third-party components retain their own licenses.
+Charging for the mod itself requires prior written permission. Redistribution must retain the license and provide corresponding source. See [Licensing](LICENSING.md). Independently supplied content retains its own terms.

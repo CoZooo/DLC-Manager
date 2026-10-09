@@ -4,7 +4,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import com.cozooo.dlc_manager.client.notice.DlcNoticeConfig
 import java.util.concurrent.CompletableFuture
-class DlcNoticeScreen(parent: Screen?, private val config: DlcNoticeConfig) : DlcPageScreen(parent, Component.translatable("dlc_manager.notice_title")) {
+class DlcNoticeScreen(parent: Screen?, private val config: DlcNoticeConfig) : DlcPageScreen(DlcUiPage.NOTICE, parent, Component.translatable("dlc_manager.notice_title")) {
     private var neverShow = config.isNeverShow()
     private var language = ""
     private var resolvedContents = ""
@@ -17,8 +17,10 @@ class DlcNoticeScreen(parent: Screen?, private val config: DlcNoticeConfig) : Dl
         DlcUiText.set(pageDocument.getElementById("page-title"), title.ifBlank { getTitle().string })
         val subhead = if (config.getSubhead().enabled) config.getSubhead().text.resolve(lang) else ""
         val headerSubhead = pageDocument.getElementById("page-subhead")
-        DlcUiText.set(headerSubhead, subhead)
-        headerSubhead.setAttribute("style", if (subhead.isBlank()) "display:none" else "display:block")
+        if (headerSubhead != null) {
+            DlcUiText.set(headerSubhead, subhead)
+            headerSubhead.setAttribute("style", if (subhead.isBlank()) "display:none" else "display:block")
+        }
         val body = node(content, "article", "page-prose")
         markdown(body, resolvedContents)
         if (config.getShowFrequency() != DlcNoticeConfig.ShowFrequency.ONCE) toggle(footer, tr("dlc_manager.notice.never_show"), neverShow) { neverShow = it; refreshPage() }

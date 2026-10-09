@@ -77,7 +77,7 @@ public class DlcModpackUpdateScreen extends DlcPageScreen {
     }
 
     public DlcModpackUpdateScreen(Screen parent, CheckResult checkResult, DlcServerEntry serverEntry, boolean allowSkipThisUpdate) {
-        super(parent, Component.translatable("dlc_manager.pack_update.title"));
+        super(serverEntry == null ? DlcUiPage.LOCAL_MODPACK_UPDATE : DlcUiPage.SERVER_MODPACK_UPDATE, parent, Component.translatable("dlc_manager.pack_update.title"));
         this.parent = parent;
         this.checkResult = checkResult == null ? new CheckResult() : checkResult;
         this.serverEntry = serverEntry;

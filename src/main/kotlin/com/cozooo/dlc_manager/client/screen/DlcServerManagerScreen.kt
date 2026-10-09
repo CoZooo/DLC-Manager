@@ -23,7 +23,7 @@ open class DlcServerManagerScreen @JvmOverloads constructor(
     info: DlcServerInfo?,
     startTab: Tab? = null,
     private val openedFromIngame: Boolean = false,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_TOOLS, parent, Component.translatable("dlc_manager.server.title")) {
     enum class Tab {
         SERVERS,
     }

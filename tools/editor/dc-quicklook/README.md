@@ -4,7 +4,7 @@
 
 Select a `.dc` file in macOS Finder and press Space to preview it with syntax highlighting.
 
-Noncommercial use is subject to the license supplied with the release. Commercial use or resale requires prior written permission.
+Use is subject to the license supplied with the release. Charging for this plugin itself requires prior written permission.
 
 ## Features
 

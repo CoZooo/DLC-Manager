@@ -30,7 +30,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     private val parent: Screen?,
     entries: List<DlcRequiredEntry>?,
     private val postUpdateResult: UpdateApplyResult? = null,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.required.title")) {
+) : DlcPageScreen(DlcUiPage.REQUIRED_DOWNLOAD, parent, Component.translatable("dlc_manager.required.title")) {
     private val entries: List<DlcRequiredEntry> = entries ?: emptyList()
     private val displayList: MutableList<DlcRequiredEntry> = ArrayList()
     private val downloadQueue: MutableList<DlcRequiredEntry> = ArrayList()

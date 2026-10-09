@@ -6,7 +6,8 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.Locale
 
-abstract class DlcPackPageScreen(parent: Screen?, title: Component) : DlcPageScreen(parent, title) {
+abstract class DlcPackPageScreen(page: DlcUiPage, parent: Screen?, title: Component) : DlcPageScreen(page, parent, title) {
+    protected constructor(parent: Screen?, title: Component) : this(DlcUiPage.PAGE, parent, title)
     protected data class PackDetails(val name: Component, val description: Component, val authors: List<String>, val version: String, val icon: String?, val selectedKey: String)
     protected data class PackVersion(val key: String, val label: String)
     protected data class PackAction(val label: String, val danger: Boolean, val run: Runnable)

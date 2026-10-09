@@ -14,7 +14,7 @@ class DlcServerRconConsoleScreen(
     private val entry: DlcServerEntry?,
     private val port: Int,
     password: String?,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.rcon_console")) {
+) : DlcPageScreen(DlcUiPage.SERVER_RCON_CONSOLE, parent, Component.translatable("dlc_manager.server.rcon_console")) {
     private val password: String = password ?: ""
     private val lines: MutableList<String> = ArrayList()
     private var scroll = 0

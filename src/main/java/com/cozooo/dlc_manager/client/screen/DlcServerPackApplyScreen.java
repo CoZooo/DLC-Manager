@@ -33,7 +33,7 @@ public class DlcServerPackApplyScreen extends DlcPageScreen {
 
     public DlcServerPackApplyScreen(DlcServerPackManagerScreen manager, DlcServerEntry entry, List<String> order,
                                     List<String> uninstallIdentifiers, List<String> installArchives) {
-        super(manager, Component.translatable("dlc_manager.server.pack.manager_title"));
+        super(DlcUiPage.SERVER_PACK_APPLY, manager, Component.translatable("dlc_manager.server.pack.manager_title"));
         this.manager = manager;
         this.entry = entry;
         this.order = order;

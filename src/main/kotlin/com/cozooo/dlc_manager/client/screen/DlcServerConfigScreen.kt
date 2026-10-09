@@ -7,7 +7,7 @@ import com.cozooo.dlc_manager.client.config.DlcServerConfigClient
 import com.cozooo.dlc_manager.client.server.DlcServerConnection
 import com.cozooo.dlc_manager.client.server.DlcServerEntry
 import java.util.concurrent.CompletableFuture
-class DlcServerConfigScreen @JvmOverloads constructor(parent: Screen?, private val entry: DlcServerEntry?, tab: Tab? = Tab.SERVER) : DlcConfigScreen(parent, Component.translatable("dlc_manager.server.config_title"), categories(), key(tab)) {
+class DlcServerConfigScreen @JvmOverloads constructor(parent: Screen?, private val entry: DlcServerEntry?, tab: Tab? = Tab.SERVER) : DlcConfigScreen(DlcUiPage.SERVER_CONFIG, parent, Component.translatable("dlc_manager.server.config_title"), categories(), key(tab)) {
     enum class Tab { SERVER, PATHS, UI, MODPACK, DOWNLOADS }
     private var loaded = false
     private var error: String? = null

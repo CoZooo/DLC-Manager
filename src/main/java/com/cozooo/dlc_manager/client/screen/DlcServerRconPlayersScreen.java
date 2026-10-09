@@ -37,7 +37,7 @@ public class DlcServerRconPlayersScreen extends DlcPageScreen {
     private boolean draggingScrollbar;
 
     public DlcServerRconPlayersScreen(Screen parent, DlcServerEntry entry, int port, String password) {
-        super(parent, Component.translatable("dlc_manager.server.rcon_players"));
+        super(DlcUiPage.SERVER_RCON_PLAYERS, parent, Component.translatable("dlc_manager.server.rcon_players"));
         this.parent = parent;
         this.entry = entry;
         this.port = port;

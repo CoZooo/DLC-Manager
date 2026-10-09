@@ -32,7 +32,7 @@ public class DlcServerPasswordScreen extends DlcPageScreen {
     }
 
     public DlcServerPasswordScreen(Screen parent, DlcServerEntry entry, boolean autoConnect, boolean openServerManagerOnSuccess) {
-        super(parent, Component.translatable("dlc_manager.server.password_title"));
+        super(DlcUiPage.SERVER_PASSWORD, parent, Component.translatable("dlc_manager.server.password_title"));
         this.parent = parent;
         this.entry = entry;
         this.autoConnect = autoConnect;

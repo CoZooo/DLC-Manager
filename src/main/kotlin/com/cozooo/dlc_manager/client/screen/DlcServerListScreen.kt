@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.concurrent.CompletableFuture
 
-class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.list_title")) {
+class DlcServerListScreen(private val parent: Screen?) : DlcPageScreen(DlcUiPage.SERVER_LIST, parent, Component.translatable("dlc_manager.server.list_title")) {
     private var servers: MutableList<DlcServerEntry> = ArrayList()
     private var scrollIndex = 0
     private var selectedIndex = -1

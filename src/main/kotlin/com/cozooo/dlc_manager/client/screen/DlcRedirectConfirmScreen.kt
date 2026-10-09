@@ -3,7 +3,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import net.minecraft.Util
-class DlcRedirectConfirmScreen(parent: Screen?, url: String?, notice: String?) : DlcPageScreen(parent, Component.translatable("dlc_manager.redirect.title")) {
+class DlcRedirectConfirmScreen(parent: Screen?, url: String?, notice: String?) : DlcPageScreen(DlcUiPage.REDIRECT_CONFIRM, parent, Component.translatable("dlc_manager.redirect.title")) {
     private val url = url.orEmpty()
     private val notice = notice.orEmpty()
     override fun buildPage() {

@@ -78,7 +78,7 @@ mavenPublishing {
         url.set("https://github.com/CoZooo/DLC-Manager")
         licenses {
             license {
-                name.set("DLC Manager Noncommercial Source License 1.0")
+                name.set("DLC Manager Source License 1.0")
                 url.set("https://github.com/CoZooo/DLC-Manager/blob/HEAD/LICENSE")
                 distribution.set("repo")
             }

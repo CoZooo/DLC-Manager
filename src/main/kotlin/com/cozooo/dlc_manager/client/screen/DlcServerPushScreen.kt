@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture
 class DlcServerPushScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcFilePageScreen(parent, Component.translatable("dlc_manager.server.push_title")) {
+) : DlcFilePageScreen(DlcUiPage.SERVER_PUSH, parent, Component.translatable("dlc_manager.server.push_title")) {
     private val rootDir: Path = DlcPaths.gameDir().toAbsolutePath().normalize()
     private var currentDir: Path = rootDir
 

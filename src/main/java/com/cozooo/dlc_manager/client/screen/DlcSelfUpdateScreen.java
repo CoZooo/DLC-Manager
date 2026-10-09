@@ -25,7 +25,7 @@ public class DlcSelfUpdateScreen extends DlcPageScreen {
     }
 
     public DlcSelfUpdateScreen(Screen parent, SelfUpdateResult preset, boolean showSkipThisUpdateButton) {
-        super(parent, Component.translatable("dlc_manager.self_update.title"));
+        super(DlcUiPage.SELF_UPDATE, parent, Component.translatable("dlc_manager.self_update.title"));
         this.parent = parent;
         this.result = preset;
         this.showSkipThisUpdateButton = showSkipThisUpdateButton;

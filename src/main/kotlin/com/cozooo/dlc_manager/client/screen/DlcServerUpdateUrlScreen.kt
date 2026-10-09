@@ -19,7 +19,7 @@ import java.util.Locale
 class DlcServerUpdateUrlScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcUrlPageScreen(parent, Component.translatable("dlc_manager.update.import_url_title")) {
+) : DlcUrlPageScreen(DlcUiPage.SERVER_UPDATE_URL, parent, Component.translatable("dlc_manager.update.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null

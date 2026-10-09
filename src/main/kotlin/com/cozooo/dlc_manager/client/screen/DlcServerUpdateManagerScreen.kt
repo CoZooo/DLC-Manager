@@ -26,7 +26,7 @@ import kotlin.math.min
 class DlcServerUpdateManagerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcUpdatePageScreen(parent, Component.translatable("dlc_manager.update.manager_title")) {
+) : DlcUpdatePageScreen(DlcUiPage.SERVER_UPDATES, parent, Component.translatable("dlc_manager.update.manager_title")) {
     private var importButton: Button? = null
     private var pushUpdateButton: Button? = null
     private var urlButton: Button? = null

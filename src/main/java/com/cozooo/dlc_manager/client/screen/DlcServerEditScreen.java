@@ -13,7 +13,7 @@ public class DlcServerEditScreen extends DlcPageScreen {
     private String password;
     private DlcUiButton saveButton;
     public DlcServerEditScreen(Screen parent, DlcServerEntry editing, Consumer<DlcServerEntry> onSave) {
-        super(parent, Component.translatable("dlc_manager.server.edit_title")); this.editing = editing; this.onSave = onSave;
+        super(DlcUiPage.SERVER_EDIT, parent, Component.translatable("dlc_manager.server.edit_title")); this.editing = editing; this.onSave = onSave;
         name = editing == null || editing.name == null ? "" : editing.name;
         host = editing == null || editing.host == null ? "" : editing.host;
         port = String.valueOf(editing == null || editing.port <= 0 ? DlcConfig.getServerPort() : editing.port);

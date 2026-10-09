@@ -13,7 +13,8 @@ public abstract class DlcRemotePageScreen extends DlcPageScreen {
     private Element downloadList;
     private double scrollTop;
 
-    protected DlcRemotePageScreen(Screen parent, Component title) { super(parent, title); }
+    protected DlcRemotePageScreen(Screen parent, Component title) { this(DlcUiPage.PAGE, parent, title); }
+    protected DlcRemotePageScreen(DlcUiPage page, Screen parent, Component title) { super(page, parent, title); }
 
     protected final Element remoteList(BooleanSupplier selected, BooleanSupplier enabled, Runnable selectAll) {
         content.parentElement.setAttribute("class", "page-shell remote-page");

@@ -7,7 +7,7 @@ public class DlcRedirectConfirmScreen extends DlcPageScreen {
     private final String url;
     private final String notice;
     public DlcRedirectConfirmScreen(Screen parent, String url, String notice) {
-        super(parent, Component.translatable("dlc_manager.redirect.title"));
+        super(DlcUiPage.REDIRECT_CONFIRM, parent, Component.translatable("dlc_manager.redirect.title"));
         this.url = url == null ? "" : url; this.notice = notice == null ? "" : notice;
     }
     @Override protected void buildPage() {

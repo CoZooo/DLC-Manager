@@ -17,7 +17,7 @@ import kotlin.math.min
 class DlcServerRemoteDownloadScreen(
     private val parent: Screen?,
     private val serverEntry: DlcServerEntry?,
-) : DlcRemotePageScreen(parent, Component.translatable("dlc_manager.remote.title")) {
+) : DlcRemotePageScreen(DlcUiPage.SERVER_REMOTE_DOWNLOAD, parent, Component.translatable("dlc_manager.remote.title")) {
     private val selectedKeys: MutableSet<String> = HashSet(setOf(ALL_MARKER))
     private val progressByKey: MutableMap<String, Float> = ConcurrentHashMap()
     @Volatile

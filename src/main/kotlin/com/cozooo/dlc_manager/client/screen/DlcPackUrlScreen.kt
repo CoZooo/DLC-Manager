@@ -15,7 +15,7 @@ import kotlin.math.min
 
 class DlcPackUrlScreen(
     private val parent: DlcPackManagerScreen,
-) : DlcUrlPageScreen(parent, Component.translatable("dlc_manager.pack.import_url_title")) {
+) : DlcUrlPageScreen(DlcUiPage.LOCAL_PACK_URL, parent, Component.translatable("dlc_manager.pack.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null

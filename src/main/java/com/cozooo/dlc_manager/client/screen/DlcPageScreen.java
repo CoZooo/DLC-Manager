@@ -23,7 +23,11 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
     private final java.util.List<Runnable> bindings = new java.util.ArrayList<>();
 
     protected DlcPageScreen(Screen parent, Component title) {
-        super("dlc_manager/ui/page.html");
+        this(DlcUiPage.PAGE, parent, title);
+    }
+
+    protected DlcPageScreen(DlcUiPage page, Screen parent, Component title) {
+        super(page);
         pageParent = parent;
         pageTitle = title;
     }
@@ -35,13 +39,12 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
         tooltip = new DlcUiTooltip(document);
         lastStatus = null;
         content = document.getElementById("page-content");
-        content.setAttribute("class", "");
         toolbar = document.getElementById("page-toolbar");
         footer = document.getElementById("page-actions");
         footerLeading = document.getElementById("page-leading-actions");
         DlcUiText.set(document.getElementById("page-title"), pageTitle.getString());
         Element back = document.getElementById("page-back");
-        back.setInnerHTML("");
+        clearUiContent(back);
         backAction = null;
         back.setAttribute("style", showHeaderBackButton() ? "" : "display:none");
         if (showHeaderBackButton()) {
@@ -62,12 +65,18 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
             double scroll = content.getScrollTop();
             tooltip.hide();
             bindings.clear();
-            content.setInnerHTML("");
-            toolbar.setInnerHTML("");
-            footer.setInnerHTML("");
-            footerLeading.setInnerHTML("");
+            clearUiSlots();
+            clearUiContent(content);
+            clearUiContent(toolbar);
+            clearUiContent(footer);
+            clearUiContent(footerLeading);
             footerLeading.setAttribute("style", "display:none");
             buildPage();
+            restoreUiClasses(content);
+            restoreUiClasses(content.parentElement);
+            restoreUiClasses(toolbar);
+            restoreUiClasses(footer);
+            restoreUiClasses(footerLeading);
             content.setScrollTop(scroll);
         });
     }
@@ -83,7 +92,9 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
     }
 
     protected Element node(Element parent, String tag, String classes) {
-        Element element = parent.appendChild(pageDocument.createElement(tag));
+        String slot = classes == null || classes.isBlank() ? "" : classes.strip().split("\\s+", 2)[0];
+        Element target = slot.isEmpty() ? parent : uiSlot(slot, parent);
+        Element element = target.appendChild(pageDocument.createElement(tag));
         element.setAttribute("class", classes);
         return element;
     }
@@ -114,7 +125,7 @@ public abstract class DlcPageScreen extends DlcApricityScreen {
     }
 
     protected DlcUiButton primary(String label, Runnable run) {
-        DlcUiButton button = action(footer, label, run);
+        DlcUiButton button = action(uiSlot("primary-action", footer), label, run);
         button.getElement().setAttribute("class", "button primary");
         return button;
     }

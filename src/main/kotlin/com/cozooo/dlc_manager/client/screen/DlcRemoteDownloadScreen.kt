@@ -19,7 +19,7 @@ class DlcRemoteDownloadScreen(
     missing: List<DlcRemoteEntry>?,
     private val partMarkerKey: String = DlcRemoteMarker.PART_DLC,
     title: Component = Component.translatable("dlc_manager.remote.title"),
-) : DlcRemotePageScreen(parent, title) {
+) : DlcRemotePageScreen(if (partMarkerKey == DlcRemoteMarker.PART_DLC_PACK) DlcUiPage.REMOTE_PACK_DOWNLOAD else DlcUiPage.REMOTE_DOWNLOAD, parent, title) {
     private val missing: List<DlcRemoteEntry> = missing ?: emptyList()
     private var previewQueue: List<DlcRemoteEntry> = emptyList()
     private var downloadTargets: List<DlcRemoteEntry> = emptyList()

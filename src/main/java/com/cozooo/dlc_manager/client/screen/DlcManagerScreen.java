@@ -889,7 +889,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     }
 
     public DlcManagerScreen(Screen parent) {
-        super();
+        super(DlcUiPage.MANAGER);
         this.parent = parent;
     }
 
@@ -909,7 +909,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
     protected void bindDocument(Document document) {
         bindManagerLayout(document, translate("dlc_manager.title"));
         Element tools = document.getElementById("manager-tools");
-        tools.setInnerHTML("");
+        clearUiContent(tools);
         if (DlcConfig.isUpdateManagerOn() && !DlcConfig.isUButtomShown())
             button(document, tools, translate("dlc_manager.update.manager"), () -> open(() -> DlcUpdateClient.openUpdateManager(this)));
         if (DlcConfig.isNoticeDisplayModeManagerButton() && hasNoticeContent())
@@ -921,20 +921,20 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         if (canShowServerButton())
             button(document, tools, translate("dlc_manager.server.manage"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcServerListScreen(this))));
         Element context = document.getElementById("manager-context");
-        context.setInnerHTML("");
+        clearUiContent(context);
         if (DlcConfig.isConfigButtonShown())
             button(document, tools, translate("dlc_manager.config"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcConfigScreen(this))));
 
         for (Element tool : tools.getChildren()) tool.setAttribute("class", "button nav-button");
         Element batch = document.getElementById("batch-actions");
-        batch.setInnerHTML("");
+        clearUiContent(batch);
         if (DlcRemoteManager.hasMissing())
             button(document, batch, translate("dlc_manager.remote.complete"), () -> open(() -> Minecraft.getInstance().setScreen(new DlcRemoteDownloadScreen(this, DlcRemoteManager.collectMissing()))));
         enableAllButton = DlcConfig.isEnableAllButtonShown() ? button(document, batch, "", () -> handleBatchToggle(true)) : null;
         disableAllButton = button(document, batch, "", () -> handleBatchToggle(false));
         Element footer = document.getElementById("manager-actions");
-        footer.setInnerHTML("");
-        document.getElementById("manager-mode").setInnerHTML("");
+        clearUiContent(footer);
+        clearUiContent(document.getElementById("manager-mode"));
         modeButton = button(document, document.getElementById("manager-mode"), getDlcApplyModeLabel(), this::toggleDlcApplyMode);
         modeButton.getElement().setAttribute("class", "button mode-button");
         backButton = button(document, footer, getBackButtonLabel(), this::returnToMainMenu);
@@ -1008,7 +1008,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
 
     private void renderFilters(Document document) {
         Element filters = document.getElementById("manager-filters");
-        filters.setInnerHTML("");
+        clearUiContent(filters);
         addFilter(document, filters, null);
         for (DlcType type : DlcType.values()) {
             if (type == DlcType.DLC_PACK || (type == DlcType.TACZ_PACK && !hasTaczMod)) continue;
@@ -1051,7 +1051,7 @@ public class DlcManagerScreen extends DlcManagerPageScreen implements DlcReturnP
         if (tooltip != null) tooltip.hide();
         Element list = document.getElementById("manager-list");
         double scroll = list.getTargetScrollTop();
-        list.setInnerHTML("");
+        clearUiContent(list);
         clearManagerGroups();
         Element rowParent = list;
         int renderedRows = 0;

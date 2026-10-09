@@ -39,7 +39,7 @@ public class DlcServerRemoteDownloadScreen extends DlcRemotePageScreen {
     private float lastTotalProgress;
 
     public DlcServerRemoteDownloadScreen(Screen parent, DlcServerEntry serverEntry) {
-        super(parent, Component.translatable("dlc_manager.remote.title"));
+        super(DlcUiPage.SERVER_REMOTE_DOWNLOAD, parent, Component.translatable("dlc_manager.remote.title"));
         this.parent = parent;
         this.serverEntry = serverEntry;
     }

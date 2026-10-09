@@ -7,7 +7,7 @@ public class DlcUpdateResultScreen extends DlcPageScreen {
     private final boolean success;
     private final Component message;
     public DlcUpdateResultScreen(Screen parent, boolean success, Component message) {
-        super(parent, Component.translatable("dlc_manager.update.title")); this.success = success; this.message = message;
+        super(DlcUiPage.UPDATE_RESULT, parent, Component.translatable("dlc_manager.update.title")); this.success = success; this.message = message;
     }
     @Override protected void buildPage() {
         var body = node(content, "div", "page-dialog");

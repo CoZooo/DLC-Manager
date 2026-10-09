@@ -5,7 +5,8 @@ import net.minecraft.network.chat.Component
 import com.cozooo.dlc_manager.client.preset.DlcPresetEntry
 import com.cozooo.dlc_manager.client.preset.DlcPresetRuntimeState
 import com.cozooo.dlc_manager.client.preset.DlcPresetStatus
-open class DlcPresetManagerScreen(parent: Screen?) : DlcPageScreen(parent, Component.translatable("dlc_manager.preset.title")) {
+open class DlcPresetManagerScreen(page: DlcUiPage, parent: Screen?) : DlcPageScreen(page, parent, Component.translatable("dlc_manager.preset.title")) {
+    constructor(parent: Screen?) : this(DlcUiPage.LOCAL_PRESETS, parent)
     private var query = ""
     private var matchedPresets = emptySet<String>()
     private val presets: List<DlcPresetEntry>

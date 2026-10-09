@@ -53,7 +53,7 @@ public class DlcServerUpdateManagerScreen extends DlcUpdatePageScreen {
     private String packModpackUrl = "";
 
     public DlcServerUpdateManagerScreen(Screen parent, DlcServerEntry entry) {
-        super(parent, Component.translatable("dlc_manager.update.manager_title"));
+        super(DlcUiPage.SERVER_UPDATES, parent, Component.translatable("dlc_manager.update.manager_title"));
         this.parent = parent;
         this.entry = entry;
     }

@@ -61,4 +61,4 @@ The [MPS tool](mps/README.md) maintains `.dc` language rules. Change the MPS mod
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for dependency notices.
 
-This project uses a [noncommercial license](LICENSE). Commercial use or sales require prior written permission.
+Charging for this software itself requires prior written permission under the [project license](LICENSE).

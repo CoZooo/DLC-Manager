@@ -41,7 +41,7 @@ public class DlcUpdateUrlScreen extends DlcUrlPageScreen {
     private boolean applyingUpdates;
 
     public DlcUpdateUrlScreen(Screen parent) {
-        super(parent, Component.translatable("dlc_manager.update.import_url_title"));
+        super(DlcUiPage.LOCAL_UPDATE_URL, parent, Component.translatable("dlc_manager.update.import_url_title"));
         this.parent = parent;
     }
 

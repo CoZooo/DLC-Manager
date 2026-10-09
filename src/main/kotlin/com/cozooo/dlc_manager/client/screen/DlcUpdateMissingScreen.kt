@@ -18,7 +18,7 @@ class DlcUpdateMissingScreen(
     private val parent: Screen?,
     private val updateResult: UpdateCheckResult,
     missingPaths: List<String?>?,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.update.missing_title")) {
+) : DlcPageScreen(DlcUiPage.UPDATE_MISSING, parent, Component.translatable("dlc_manager.update.missing_title")) {
     private val missingPaths: List<String?> = missingPaths ?: emptyList()
     private var forceButton: Button? = null
     private var cancelButton: Button? = null

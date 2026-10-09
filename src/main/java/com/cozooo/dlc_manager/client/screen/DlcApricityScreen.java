@@ -5,12 +5,19 @@ import com.sighs.apricityui.init.Element;
 import com.sighs.apricityui.element.AbstractText;
 import com.sighs.apricityui.event.KeyEvent;
 import com.sighs.apricityui.parser.Selector;
+import com.sighs.apricityui.parser.HTML;
 import com.sighs.apricityui.screen.ApricityScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import org.lwjgl.glfw.GLFW;
 
 public abstract class DlcApricityScreen extends ApricityScreen {
+    private final DlcUiPage uiPage;
+    private final DlcUiResources uiResources;
+    private DlcUiTemplate uiTemplate;
+    private Document templateDocument;
+    private long templateGeneration = -1;
+    private long resourceGeneration = -1;
     private Document boundDocument;
     private long boundGeneration = -1;
     private Selector.Index boundStyleIndex;
@@ -23,23 +30,58 @@ public abstract class DlcApricityScreen extends ApricityScreen {
     private final DlcUiFrameTasks searchApplications = new DlcUiFrameTasks();
     private final DlcUiAsyncSearch<String> asyncSearch = new DlcUiAsyncSearch<>(SEARCH_WORKER, searchApplications);
 
-    protected DlcApricityScreen(String path) {
-        super(path);
+    protected DlcApricityScreen(DlcUiPage page) {
+        this(page, new DlcUiResources(page));
+    }
+
+    private DlcApricityScreen(DlcUiPage page, DlcUiResources resources) {
+        super(resources.prepare());
+        uiPage = page;
+        uiResources = resources;
         setPauseGame(true);
     }
 
     @Override
     protected void init() {
+        uiResources.prepare();
         super.init();
+        if (!uiResources.isValid(getLinkedDocument())) {
+            uiResources.useDefault();
+            super.init();
+        }
         updateViewport();
+        resourceGeneration = getLinkedDocument() == null ? -1 : getLinkedDocument().getRefreshGeneration();
         bindCurrentDocument();
     }
 
     @Override
     public void tick() {
         super.tick();
+        refreshResources();
         updateViewport();
         bindCurrentDocument();
+    }
+
+    private void refreshResources() {
+        Document document = getLinkedDocument();
+        if (document == null) return;
+        boolean fullReload = document.getRefreshGeneration() != resourceGeneration;
+        boolean changed;
+        if (fullReload) {
+            String previousHtml = HTML.getTemple(document.getPath());
+            uiResources.prepare();
+            changed = !java.util.Objects.equals(previousHtml, HTML.getTemple(document.getPath()));
+        } else {
+            changed = uiResources.refresh();
+        }
+        if (changed) {
+            document.refresh();
+            if (!uiResources.isValid(document)) {
+                uiResources.useDefault();
+                document.refresh();
+            }
+        }
+        resourceGeneration = document.getRefreshGeneration();
     }
 
     @Override
@@ -70,15 +112,10 @@ public abstract class DlcApricityScreen extends ApricityScreen {
 
     private void bindCurrentDocument() {
         Document document = getLinkedDocument();
-        if (document == null || !document.isActive() || (document == boundDocument && document.getRefreshGeneration() == boundGeneration)) {
+        if (document == null || !document.isActive()
+            || (document == boundDocument && document.getRefreshGeneration() == boundGeneration)
+            || !uiResources.isValid(document)) {
             return;
-        }
-        if (document != boundDocument) {
-            document.addEventListener("DOMContentLoaded", event -> Minecraft.getInstance().execute(() -> {
-                if (Minecraft.getInstance().screen == this && document == getLinkedDocument()) {
-                    boundGeneration = -1;
-                }
-            }));
         }
         document.setManuallyRendered(false);
         boundDocument = document;
@@ -87,7 +124,32 @@ public abstract class DlcApricityScreen extends ApricityScreen {
         asyncSearch.cancel();
         searchApplications.clear();
         pendingInputs.clear();
-        Document.runWithContext(document, () -> bindDocument(document));
+        if (templateDocument != document || templateGeneration != document.getRefreshGeneration()) {
+            uiTemplate = new DlcUiTemplate(document);
+            templateDocument = document;
+            templateGeneration = document.getRefreshGeneration();
+        }
+        Document.runWithContext(document, () -> {
+            document.body.setAttribute("data-dlc-page", uiPage.id());
+            bindDocument(document);
+        });
+    }
+
+    protected final void clearUiContent(Element element) {
+        if (uiTemplate != null) uiTemplate.clear(element);
+        else element.setInnerHTML("");
+    }
+
+    protected final void clearUiSlots() {
+        if (uiTemplate != null) uiTemplate.clearSlots();
+    }
+
+    protected final Element uiSlot(String name, Element fallback) {
+        return uiTemplate == null ? fallback : uiTemplate.slot(name, fallback);
+    }
+
+    protected final void restoreUiClasses(Element element) {
+        if (uiTemplate != null && element != null) uiTemplate.restoreAttributes(element);
     }
 
     protected abstract void bindDocument(Document document);

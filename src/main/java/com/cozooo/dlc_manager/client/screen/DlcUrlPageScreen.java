@@ -8,7 +8,8 @@ import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 public abstract class DlcUrlPageScreen extends DlcPageScreen {
-    protected DlcUrlPageScreen(Screen parent, Component title) { super(parent, title); }
+    protected DlcUrlPageScreen(Screen parent, Component title) { this(DlcUiPage.PAGE, parent, title); }
+    protected DlcUrlPageScreen(DlcUiPage page, Screen parent, Component title) { super(page, parent, title); }
 
     protected final void renderUrlForm(String prompt, EditBox field, Button paste, Button download,
                                        Supplier<String> message, Supplier<String> error,

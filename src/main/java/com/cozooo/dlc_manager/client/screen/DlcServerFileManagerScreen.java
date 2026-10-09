@@ -37,7 +37,7 @@ public class DlcServerFileManagerScreen extends DlcFilePageScreen {
     private int scrollDragOffset;
 
     public DlcServerFileManagerScreen(Screen parent, DlcServerEntry entry) {
-        super(parent, Component.translatable("dlc_manager.server.files_title"));
+        super(DlcUiPage.SERVER_FILES, parent, Component.translatable("dlc_manager.server.files_title"));
         this.parent = parent;
         this.entry = entry;
     }

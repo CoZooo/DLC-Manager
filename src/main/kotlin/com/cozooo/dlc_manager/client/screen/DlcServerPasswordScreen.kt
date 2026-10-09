@@ -17,7 +17,7 @@ class DlcServerPasswordScreen @JvmOverloads constructor(
     private val entry: DlcServerEntry,
     private val autoConnect: Boolean,
     private val openServerManagerOnSuccess: Boolean = false,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.password_title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_PASSWORD, parent, Component.translatable("dlc_manager.server.password_title")) {
     private var portField: EditBox? = null
     private var passwordField: EditBox? = null
     private var connectButton: Button? = null

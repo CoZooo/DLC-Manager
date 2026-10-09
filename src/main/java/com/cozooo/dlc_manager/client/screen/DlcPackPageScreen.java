@@ -8,7 +8,8 @@ import java.util.List;
 import java.util.Locale;
 
 public abstract class DlcPackPageScreen extends DlcPageScreen {
-    protected DlcPackPageScreen(Screen parent, Component title) { super(parent, title); }
+    protected DlcPackPageScreen(Screen parent, Component title) { this(DlcUiPage.PAGE, parent, title); }
+    protected DlcPackPageScreen(DlcUiPage page, Screen parent, Component title) { super(page, parent, title); }
     protected record PackDetails(Component name, Component description, List<String> authors, String version, String icon, String selectedKey) {}
     protected record PackVersion(String key, String label) {}
     protected record PackAction(String label, boolean danger, Runnable run) {}

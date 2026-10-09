@@ -19,7 +19,7 @@ public class DlcServerPackUrlScreen extends DlcUrlPageScreen {
     private String statusText;
 
     public DlcServerPackUrlScreen(DlcServerPackManagerScreen parent, DlcServerEntry entry) {
-        super(parent, Component.translatable("dlc_manager.pack.import_url_title"));
+        super(DlcUiPage.SERVER_PACK_URL, parent, Component.translatable("dlc_manager.pack.import_url_title"));
         this.parent = parent;
         this.entry = entry;
     }

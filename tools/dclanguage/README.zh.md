@@ -61,4 +61,4 @@ identifier = "example"
 
 第三方组件声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-本项目采用[非商业许可](LICENSE)，商用或售卖须事先取得书面授权。
+根据[项目许可](LICENSE)，针对本软件自身收费须事先取得书面授权。

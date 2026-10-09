@@ -1,6 +1,6 @@
 modLoader="javafml"
 loaderVersion="${forge_loader_version_range}"
-license="LicenseRef-DLC-Manager-Noncommercial-1.0"
+license="LicenseRef-DLC-Manager-Source-1.0"
 
 [[mods]]
 modId="${mod_id}"

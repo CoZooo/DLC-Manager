@@ -40,7 +40,7 @@ public class DlcServerRconScreen extends DlcPageScreen {
     private String rconPassword = "";
 
     public DlcServerRconScreen(Screen parent, DlcServerEntry entry) {
-        super(parent, Component.translatable("dlc_manager.server.rcon_title"));
+        super(DlcUiPage.SERVER_RCON, parent, Component.translatable("dlc_manager.server.rcon_title"));
         this.parent = parent;
         this.entry = entry;
     }

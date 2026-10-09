@@ -15,7 +15,7 @@ public class DlcServerConfigScreen extends DlcConfigScreen {
     private String error;
     public DlcServerConfigScreen(Screen parent, DlcServerEntry entry) { this(parent, entry, Tab.SERVER); }
     public DlcServerConfigScreen(Screen parent, DlcServerEntry entry, Tab tab) {
-        super(parent, Component.translatable("dlc_manager.server.config_title"), categories(), key(tab)); this.entry = entry;
+        super(DlcUiPage.SERVER_CONFIG, parent, Component.translatable("dlc_manager.server.config_title"), categories(), key(tab)); this.entry = entry;
         load();
     }
     private static String key(Tab tab) { return "dlc_manager.config.tab." + (tab == Tab.DOWNLOADS ? "download" : tab == null ? "server" : tab.name().toLowerCase(Locale.ROOT)); }

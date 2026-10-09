@@ -77,7 +77,7 @@ public class DlcServerPackManagerScreen extends DlcPackPageScreen {
     private int iconTextureSerial;
 
     public DlcServerPackManagerScreen(Screen parent, DlcServerEntry entry) {
-        super(parent, Component.translatable("dlc_manager.server.pack.manager_title"));
+        super(DlcUiPage.SERVER_PACKS, parent, Component.translatable("dlc_manager.server.pack.manager_title"));
         this.parent = parent;
         this.entry = entry;
     }

@@ -4,7 +4,8 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import com.sighs.apricityui.init.Element
-abstract class DlcSettingsScreen(parent: Screen?, title: Component, protected val categories: Map<String, List<DlcConfigValue>>, private var category: String) : DlcPageScreen(parent, title) {
+abstract class DlcSettingsScreen(page: DlcUiPage, parent: Screen?, title: Component, protected val categories: Map<String, List<DlcConfigValue>>, private var category: String) : DlcPageScreen(page, parent, title) {
+    protected constructor(parent: Screen?, title: Component, categories: Map<String, List<DlcConfigValue>>, category: String) : this(DlcUiPage.PAGE, parent, title, categories, category)
     private val original = linkedMapOf<String, String>()
     private val drafts = linkedMapOf<String, String>()
     private val errors = linkedMapOf<String, String>()

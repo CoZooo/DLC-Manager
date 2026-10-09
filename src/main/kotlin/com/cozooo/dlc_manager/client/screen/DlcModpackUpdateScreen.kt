@@ -23,7 +23,7 @@ class DlcModpackUpdateScreen @JvmOverloads constructor(
     checkResult: CheckResult?,
     private val serverEntry: DlcServerEntry? = null,
     private val allowSkipThisUpdate: Boolean = false,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.pack_update.title")) {
+) : DlcPageScreen(if (serverEntry == null) DlcUiPage.LOCAL_MODPACK_UPDATE else DlcUiPage.SERVER_MODPACK_UPDATE, parent, Component.translatable("dlc_manager.pack_update.title")) {
     private val checkResult: CheckResult = checkResult ?: CheckResult()
     private val side: Side = if (serverEntry == null) Side.CLIENT else Side.SERVER
     private var openButton: Button? = null

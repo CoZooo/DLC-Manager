@@ -11,7 +11,7 @@ class DlcSelfUpdateScreen @JvmOverloads constructor(
     private val parent: Screen?,
     preset: SelfUpdateResult?,
     private val showSkipThisUpdateButton: Boolean = false,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.self_update.title")) {
+) : DlcPageScreen(DlcUiPage.SELF_UPDATE, parent, Component.translatable("dlc_manager.self_update.title")) {
     private var result: SelfUpdateResult? = preset
     private var downloadButton: Button? = null
     private var skipThisUpdateButton: Button? = null

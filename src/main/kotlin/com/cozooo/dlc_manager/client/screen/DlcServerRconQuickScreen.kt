@@ -15,7 +15,7 @@ class DlcServerRconQuickScreen(
     private val serverEntry: DlcServerEntry?,
     private val port: Int,
     password: String?,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.rcon_common")) {
+) : DlcPageScreen(DlcUiPage.SERVER_RCON_QUICK, parent, Component.translatable("dlc_manager.server.rcon_common")) {
     private val password: String = password ?: ""
     private val quickEntries: MutableList<QuickEntry> = ArrayList()
     private var statusText: String? = null

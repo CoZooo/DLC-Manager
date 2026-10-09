@@ -30,7 +30,7 @@ import kotlin.math.max
 
 class DlcUpdateManagerScreen(
     private val parent: Screen?,
-) : DlcUpdatePageScreen(parent, Component.translatable("dlc_manager.update.manager_title")) {
+) : DlcUpdatePageScreen(DlcUiPage.LOCAL_UPDATES, parent, Component.translatable("dlc_manager.update.manager_title")) {
     private var importButton: Button? = null
     private var urlButton: Button? = null
     private var selfUpdateButton: Button? = null

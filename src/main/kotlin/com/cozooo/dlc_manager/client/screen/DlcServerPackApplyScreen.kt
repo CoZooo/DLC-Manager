@@ -15,7 +15,7 @@ class DlcServerPackApplyScreen(
     private val order: List<String>,
     private val uninstallIdentifiers: List<String>,
     private val installArchives: List<String>,
-) : DlcPageScreen(manager, Component.translatable("dlc_manager.server.pack.manager_title")) {
+) : DlcPageScreen(DlcUiPage.SERVER_PACK_APPLY, manager, Component.translatable("dlc_manager.server.pack.manager_title")) {
     @Volatile private var status: DlcServerPackApplyStatus? = null
     @Volatile private var statusText: Component = Component.translatable("dlc_manager.pack.applying")
     @Volatile private var statusDetail: Component? = null

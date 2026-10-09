@@ -3,7 +3,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
-class DlcUpdateChangelogScreen(parent: Screen?, changelog: String?, private val onDone: Runnable?) : DlcPageScreen(parent, Component.translatable("dlc_manager.update.changelog_title")) {
+class DlcUpdateChangelogScreen(parent: Screen?, changelog: String?, private val onDone: Runnable?) : DlcPageScreen(DlcUiPage.UPDATE_CHANGELOG, parent, Component.translatable("dlc_manager.update.changelog_title")) {
     private val changelog = changelog.orEmpty()
     override fun buildPage() {
         markdown(node(content, "div", "page-prose"), changelog)

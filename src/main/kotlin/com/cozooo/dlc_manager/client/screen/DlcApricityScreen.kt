@@ -5,12 +5,22 @@ import com.sighs.apricityui.init.Element
 import com.sighs.apricityui.element.AbstractText
 import com.sighs.apricityui.event.KeyEvent
 import com.sighs.apricityui.parser.Selector
+import com.sighs.apricityui.parser.HTML
 import com.sighs.apricityui.screen.ApricityScreen
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
 import org.lwjgl.glfw.GLFW
 
-abstract class DlcApricityScreen(path: String) : ApricityScreen(path) {
+abstract class DlcApricityScreen private constructor(
+    private val uiPage: DlcUiPage,
+    private val uiResources: DlcUiResources
+) : ApricityScreen(uiResources.prepare()) {
+    protected constructor(page: DlcUiPage) : this(page, DlcUiResources(page))
+
+    private var uiTemplate: DlcUiTemplate? = null
+    private var templateDocument: Document? = null
+    private var templateGeneration = -1L
+    private var resourceGeneration = -1L
     private var boundDocument: Document? = null
     private var boundGeneration = -1L
     private var boundStyleIndex: Selector.Index? = null
@@ -23,15 +33,40 @@ abstract class DlcApricityScreen(path: String) : ApricityScreen(path) {
     init { setPauseGame(true) }
 
     override fun init() {
+        uiResources.prepare()
         super.init()
+        if (!uiResources.isValid(linkedDocument)) {
+            uiResources.useDefault()
+            super.init()
+        }
         updateViewport()
+        resourceGeneration = linkedDocument?.refreshGeneration ?: -1L
         bindCurrentDocument()
     }
 
     override fun tick() {
         super.tick()
+        refreshResources()
         updateViewport()
         bindCurrentDocument()
+    }
+
+    private fun refreshResources() {
+        val document = linkedDocument ?: return
+        val fullReload = document.refreshGeneration != resourceGeneration
+        val changed = if (fullReload) {
+            val previousHtml = HTML.getTemple(document.getPath())
+            uiResources.prepare()
+            previousHtml != HTML.getTemple(document.getPath())
+        } else uiResources.refresh()
+        if (changed) {
+            document.refresh()
+            if (!uiResources.isValid(document)) {
+                uiResources.useDefault()
+                document.refresh()
+            }
+        }
+        resourceGeneration = document.refreshGeneration
     }
 
     override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
@@ -60,16 +95,8 @@ abstract class DlcApricityScreen(path: String) : ApricityScreen(path) {
 
     private fun bindCurrentDocument() {
         val document = linkedDocument ?: return
-        if (!document.isActive || (document === boundDocument && document.refreshGeneration == boundGeneration)) return
-        if (document !== boundDocument) {
-            document.addEventListener("DOMContentLoaded") {
-                Minecraft.getInstance().execute {
-                    if (Minecraft.getInstance().screen === this && document === linkedDocument) {
-                        boundGeneration = -1L
-                    }
-                }
-            }
-        }
+        if (!document.isActive || (document === boundDocument && document.refreshGeneration == boundGeneration)
+            || !uiResources.isValid(document)) return
         document.setManuallyRendered(false)
         boundDocument = document
         boundGeneration = document.refreshGeneration
@@ -77,8 +104,25 @@ abstract class DlcApricityScreen(path: String) : ApricityScreen(path) {
         asyncSearch.cancel()
         searchApplications.clear()
         pendingInputs.clear()
-        Document.runWithContext(document) { bindDocument(document) }
+        if (templateDocument !== document || templateGeneration != document.refreshGeneration) {
+            uiTemplate = DlcUiTemplate(document)
+            templateDocument = document
+            templateGeneration = document.refreshGeneration
+        }
+        Document.runWithContext(document) {
+            document.body.setAttribute("data-dlc-page", uiPage.id())
+            bindDocument(document)
+        }
     }
+
+    protected fun clearUiContent(element: Element) {
+        val template = uiTemplate
+        if (template != null) template.clear(element) else element.setInnerHTML("")
+    }
+
+    protected fun clearUiSlots() { uiTemplate?.clearSlots() }
+    protected fun uiSlot(name: String, fallback: Element): Element = uiTemplate?.slot(name, fallback) ?: fallback
+    protected fun restoreUiClasses(element: Element?) { if (element != null) uiTemplate?.restoreAttributes(element) }
 
     protected abstract fun bindDocument(document: Document)
 

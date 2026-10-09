@@ -30,7 +30,7 @@ public class DlcServerListScreen extends DlcPageScreen {
     private volatile boolean connecting;
 
     public DlcServerListScreen(Screen parent) {
-        super(parent, Component.translatable("dlc_manager.server.list_title"));
+        super(DlcUiPage.SERVER_LIST, parent, Component.translatable("dlc_manager.server.list_title"));
         this.parent = parent;
     }
 

@@ -9,8 +9,9 @@ import java.util.*;
 public class DlcConfigScreen extends DlcSettingsScreen {
     public enum Tab { SERVER, PATHS, UI, MODPACK, DOWNLOADS }
     public DlcConfigScreen(Screen parent) { this(parent, Tab.PATHS); }
-    public DlcConfigScreen(Screen parent, Tab tab) { this(parent, Component.translatable("dlc_manager.config.menu.title"), categories(), key(tab)); }
-    protected DlcConfigScreen(Screen parent, Component title, Map<String, List<DlcConfigValue>> values, String category) { super(parent, title, values, category); }
+    public DlcConfigScreen(Screen parent, Tab tab) { this(DlcUiPage.LOCAL_CONFIG, parent, Component.translatable("dlc_manager.config.menu.title"), categories(), key(tab)); }
+    protected DlcConfigScreen(Screen parent, Component title, Map<String, List<DlcConfigValue>> values, String category) { this(DlcUiPage.LOCAL_CONFIG, parent, title, values, category); }
+    protected DlcConfigScreen(DlcUiPage page, Screen parent, Component title, Map<String, List<DlcConfigValue>> values, String category) { super(page, parent, title, values, category); }
     private static String key(Tab tab) { return "dlc_manager.config.tab." + (tab == Tab.DOWNLOADS ? "download" : tab == null ? "paths" : tab.name().toLowerCase(Locale.ROOT)); }
     private static Map<String, List<DlcConfigValue>> categories() {
         DlcConfigClient.syncFromConfig();

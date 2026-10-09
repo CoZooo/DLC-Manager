@@ -27,7 +27,7 @@ class DlcServerScreen(
     private val entry: DlcServerEntry?,
     info: DlcServerInfo?,
     private val openedFromIngame: Boolean,
-) : DlcManagerPageScreen(), DlcReturnPositionHost {
+) : DlcManagerPageScreen(DlcUiPage.SERVER_MANAGER), DlcReturnPositionHost {
     constructor(parent: Screen?, entry: DlcServerEntry?, info: DlcServerInfo?) : this(
         parent,
         entry,
@@ -203,7 +203,7 @@ class DlcServerScreen(
     private fun openPreset() {
         if (applying) return
         capturePresetSnapshot()
-        Minecraft.getInstance().setScreen(object : DlcPresetManagerScreen(this@DlcServerScreen) {
+        Minecraft.getInstance().setScreen(object : DlcPresetManagerScreen(DlcUiPage.SERVER_PRESETS, this@DlcServerScreen) {
             override fun onClose() {
                 refreshAfterPresetChange()
                 super.onClose()
@@ -1123,28 +1123,28 @@ class DlcServerScreen(
         bindManagerLayout(document, tr("dlc_manager.server.title"))
         document.getElementById("manager-header").setAttribute("class", "workspace-header connected")
         val connection = document.getElementById("manager-connection")
-        connection.setInnerHTML("")
+        clearUiContent(connection)
         connection.setAttribute("style", "display:flex")
         managerText(document, connection, "span", entry?.getDisplayName().orEmpty(), "connection-name")
         managerText(document, connection, "span", listOf(serverBaseVersion, serverDlcVersion).filter { it.isNotBlank() }.joinToString(" · "), "connection-version")
         val context = document.getElementById("manager-context")
-        context.setInnerHTML("")
+        clearUiContent(context)
         if (entry != null) button(document, context, tr("dlc_manager.server.config")) { openConfig() }
         val tools = document.getElementById("manager-tools")
-        tools.setInnerHTML("")
+        clearUiContent(tools)
         if (DlcConfig.isPresetFuncOn()) button(document, tools, tr("dlc_manager.preset.manager")) { openPreset() }
         button(document, tools, tr("dlc_manager.server.tab.servers")) { openServerTools() }
         for (tool in tools.children) tool.setAttribute("class", "button nav-button")
         val batch = document.getElementById("batch-actions")
-        batch.setInnerHTML("")
+        clearUiContent(batch)
         if (remoteMissingCount > 0) button(document, batch, tr("dlc_manager.server.remote_missing_button")) { startRemoteDownload() }
         enableAllButton = if (DlcConfig.isEnableAllButtonShown()) button(document, batch, "") { confirmBatchToggle(true) } else null
         disableAllButton = button(document, batch, "") { confirmBatchToggle(false) }
         val mode = document.getElementById("manager-mode")
-        mode.setInnerHTML("")
+        clearUiContent(mode)
         mode.setAttribute("style", "display:none")
         val actions = document.getElementById("manager-actions")
-        actions.setInnerHTML("")
+        clearUiContent(actions)
         backButton = button(document, actions, tr("gui.back")) { onClose() }
         applyButton = button(document, actions, tr("dlc_manager.apply")) { applyChanges() }
         applyButton!!.getElement().setAttribute("class", "button primary")
@@ -1162,7 +1162,7 @@ class DlcServerScreen(
 
     private fun renderFilters(document: Document) {
         val filters = document.getElementById("manager-filters")
-        filters.setInnerHTML("")
+        clearUiContent(filters)
         for (type in listOf(null) + visibleFilterTypes()) {
             val filter = button(document, filters, tr(type?.getDisplayKey() ?: "dlc_manager.filter.all")) {
                 if (!applying) {
@@ -1209,7 +1209,7 @@ class DlcServerScreen(
         tooltip?.hide()
         val list = document.getElementById("manager-list")
         val scroll = list.targetScrollTop
-        list.setInnerHTML("")
+        clearUiContent(list)
         clearManagerGroups()
         rebuildRows()
         var parent = list

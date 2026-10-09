@@ -10,7 +10,7 @@ import net.minecraft.network.chat.Component
 class DlcServerPackUrlScreen(
     private val parent: DlcServerPackManagerScreen,
     private val entry: DlcServerEntry,
-) : DlcUrlPageScreen(parent, Component.translatable("dlc_manager.pack.import_url_title")) {
+) : DlcUrlPageScreen(DlcUiPage.SERVER_PACK_URL, parent, Component.translatable("dlc_manager.pack.import_url_title")) {
     private var urlField: EditBox? = null
     private var downloadButton: Button? = null
     private var pasteButton: Button? = null

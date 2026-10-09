@@ -8,7 +8,8 @@ import java.util.List;
 
 public abstract class DlcUpdatePageScreen extends DlcPageScreen {
     private Element updateHistory;
-    protected DlcUpdatePageScreen(Screen parent, Component title) { super(parent, title); }
+    protected DlcUpdatePageScreen(Screen parent, Component title) { this(DlcUiPage.PAGE, parent, title); }
+    protected DlcUpdatePageScreen(DlcUiPage page, Screen parent, Component title) { super(page, parent, title); }
     protected record UpdateRow(String label, String note, String changelog, Button action) {}
 
     protected final Element updateSection(String baseVersion, String currentVersion) {

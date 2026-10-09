@@ -22,7 +22,7 @@ class DlcUpdatePromptScreen @JvmOverloads constructor(
     private val parent: Screen?,
     private val result: UpdateCheckResult?,
     private val allowSkipThisUpdate: Boolean = false,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.update.title")) {
+) : DlcPageScreen(DlcUiPage.UPDATE_PROMPT, parent, Component.translatable("dlc_manager.update.title")) {
     private val forceUpdate = hasHiddenUpdates(result)
     private var applyButton: Button? = null
     private var skipThisUpdateButton: Button? = null

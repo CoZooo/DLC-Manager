@@ -51,7 +51,7 @@ public class DlcUpdateManagerScreen extends DlcUpdatePageScreen {
     private boolean applyingUpdates;
 
     public DlcUpdateManagerScreen(Screen parent) {
-        super(parent, Component.translatable("dlc_manager.update.manager_title"));
+        super(DlcUiPage.LOCAL_UPDATES, parent, Component.translatable("dlc_manager.update.manager_title"));
         this.parent = parent;
     }
 

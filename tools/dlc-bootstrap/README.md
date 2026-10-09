@@ -36,4 +36,4 @@ Fabric versions retain their existing required-resource installation flow. Speci
 
 This component does not load new mods into a running game. See [DLC Manager](../../README.md) for normal management, downloads, and updates.
 
-This project uses a [noncommercial license](../../LICENSE). Commercial use or sales require prior written permission.
+Charging for this software itself requires prior written permission under the [project license](../../LICENSE).

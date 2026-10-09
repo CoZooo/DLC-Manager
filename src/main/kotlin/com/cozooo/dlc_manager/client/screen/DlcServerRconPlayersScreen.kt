@@ -13,7 +13,7 @@ class DlcServerRconPlayersScreen(
     private val entry: DlcServerEntry?,
     private val port: Int,
     password: String?,
-) : DlcPageScreen(parent, Component.translatable("dlc_manager.server.rcon_players")) {
+) : DlcPageScreen(DlcUiPage.SERVER_RCON_PLAYERS, parent, Component.translatable("dlc_manager.server.rcon_players")) {
     private val password: String = password ?: ""
     private val players: MutableList<String> = ArrayList()
     private var selected = -1

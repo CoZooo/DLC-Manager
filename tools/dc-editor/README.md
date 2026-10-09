@@ -37,4 +37,4 @@ To edit `.dc` files in your usual code editor, try the [VS Code plugin](../edito
 
 [Back to DLC Manager](../../README.md)
 
-This project uses a noncommercial source license. Commercial use or resale requires prior written permission; free redistribution must retain the license and provide corresponding source. See [licensing](../../LICENSING.md).
+Charging for this software itself requires prior written permission. Redistribution must retain the license and provide corresponding source. See [licensing](../../LICENSING.md).

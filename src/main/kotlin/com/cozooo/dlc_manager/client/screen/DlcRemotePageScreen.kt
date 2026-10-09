@@ -6,7 +6,8 @@ import net.minecraft.network.chat.Component
 import java.util.function.BooleanSupplier
 import java.util.function.DoubleSupplier
 
-abstract class DlcRemotePageScreen(parent: Screen?, title: Component) : DlcPageScreen(parent, title) {
+abstract class DlcRemotePageScreen(page: DlcUiPage, parent: Screen?, title: Component) : DlcPageScreen(page, parent, title) {
+    protected constructor(parent: Screen?, title: Component) : this(DlcUiPage.PAGE, parent, title)
     private val selections = mutableListOf<Runnable>()
     private var downloadList: Element? = null
     private var scrollTop = 0.0

@@ -33,7 +33,7 @@ public class DlcServerUpdateUrlScreen extends DlcUrlPageScreen {
     private String urlValue = "";
 
     public DlcServerUpdateUrlScreen(Screen parent, DlcServerEntry entry) {
-        super(parent, Component.translatable("dlc_manager.update.import_url_title"));
+        super(DlcUiPage.SERVER_UPDATE_URL, parent, Component.translatable("dlc_manager.update.import_url_title"));
         this.parent = parent;
         this.entry = entry;
     }

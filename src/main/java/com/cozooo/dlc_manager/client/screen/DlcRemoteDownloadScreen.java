@@ -57,7 +57,7 @@ public class DlcRemoteDownloadScreen extends DlcRemotePageScreen {
     }
 
     public DlcRemoteDownloadScreen(Screen parent, List<DlcRemoteEntry> missing, String partMarkerKey, Component title) {
-        super(parent, title);
+        super(DlcRemoteMarker.PART_DLC_PACK.equals(partMarkerKey) ? DlcUiPage.REMOTE_PACK_DOWNLOAD : DlcUiPage.REMOTE_DOWNLOAD, parent, title);
         this.parent = parent;
         this.missing = missing == null ? List.of() : missing;
         this.partMarkerKey = partMarkerKey;

@@ -13,7 +13,8 @@ import java.util.function.Supplier;
 public abstract class DlcFilePageScreen extends DlcPageScreen {
     private final List<Runnable> selections = new ArrayList<>();
 
-    protected DlcFilePageScreen(Screen parent, Component title) { super(parent, title); }
+    protected DlcFilePageScreen(Screen parent, Component title) { this(DlcUiPage.PAGE, parent, title); }
+    protected DlcFilePageScreen(DlcUiPage page, Screen parent, Component title) { super(page, parent, title); }
 
     protected final Element fileList(String title) {
         selections.clear();

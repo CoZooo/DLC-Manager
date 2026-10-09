@@ -106,7 +106,7 @@ public class DlcServerManagerScreen extends DlcPageScreen {
     }
 
     public DlcServerManagerScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info, Tab startTab, boolean openedFromIngame) {
-        super(parent, Component.translatable("dlc_manager.server.title"));
+        super(DlcUiPage.SERVER_TOOLS, parent, Component.translatable("dlc_manager.server.title"));
         this.parent = parent;
         this.entry = entry;
         this.openedFromIngame = openedFromIngame;

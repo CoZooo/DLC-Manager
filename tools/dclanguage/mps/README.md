@@ -43,4 +43,4 @@ The plugin also lets you edit `.dc` categories, lists, and fields while preservi
 
 The sample project is in the [repository's `example` directory](example); it is not included in the plugin ZIP. Obtain the repository and open that project in MPS, or first browse the [sample configuration](solutions/sandbox/models/example.dc). Resolve external file changes or configuration errors before saving.
 
-This project uses a [noncommercial license](../LICENSE). Commercial use or sales require prior written permission.
+Charging for this plugin itself requires prior written permission under the [project license](../LICENSE).

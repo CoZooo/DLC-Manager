@@ -48,7 +48,7 @@ public class DlcServerPushScreen extends DlcFilePageScreen {
     private boolean draggingScrollBar;
 
     public DlcServerPushScreen(Screen parent, DlcServerEntry entry) {
-        super(parent, Component.translatable("dlc_manager.server.push_title"));
+        super(DlcUiPage.SERVER_PUSH, parent, Component.translatable("dlc_manager.server.push_title"));
         this.parent = parent;
         this.entry = entry;
         this.rootDir = DlcPaths.gameDir().toAbsolutePath().normalize();

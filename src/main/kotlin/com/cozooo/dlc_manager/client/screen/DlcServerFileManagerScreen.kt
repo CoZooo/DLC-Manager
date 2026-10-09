@@ -17,7 +17,7 @@ import kotlin.io.path.name
 class DlcServerFileManagerScreen(
     private val parent: Screen?,
     private val entry: DlcServerEntry?,
-) : DlcFilePageScreen(parent, Component.translatable("dlc_manager.server.files_title")) {
+) : DlcFilePageScreen(DlcUiPage.SERVER_FILES, parent, Component.translatable("dlc_manager.server.files_title")) {
     private var pathField: EditBox? = null
     private var entries: List<DlcServerFileEntry> = ArrayList()
     private var scrollIndex = 0

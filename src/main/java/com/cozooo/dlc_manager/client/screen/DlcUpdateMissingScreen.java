@@ -27,7 +27,7 @@ public class DlcUpdateMissingScreen extends DlcPageScreen {
     private boolean applying;
 
     public DlcUpdateMissingScreen(Screen parent, UpdateCheckResult updateResult, List<String> missingPaths) {
-        super(parent, Component.translatable("dlc_manager.update.missing_title"));
+        super(DlcUiPage.UPDATE_MISSING, parent, Component.translatable("dlc_manager.update.missing_title"));
         this.parent = parent;
         this.updateResult = updateResult;
         this.missingPaths = missingPaths == null ? List.of() : missingPaths;

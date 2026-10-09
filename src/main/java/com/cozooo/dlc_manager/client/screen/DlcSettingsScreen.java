@@ -30,7 +30,10 @@ public abstract class DlcSettingsScreen extends DlcPageScreen {
     private DlcUiButton saveButton;
     private Boolean locked;
     protected DlcSettingsScreen(Screen parent, Component title, Map<String, List<DlcConfigValue>> categories, String category) {
-        super(parent, title); this.categories = categories; this.category = category;
+        this(DlcUiPage.PAGE, parent, title, categories, category);
+    }
+    protected DlcSettingsScreen(DlcUiPage page, Screen parent, Component title, Map<String, List<DlcConfigValue>> categories, String category) {
+        super(page, parent, title); this.categories = categories; this.category = category;
         captureValues();
     }
     protected final void captureValues() {

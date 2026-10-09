@@ -4,7 +4,7 @@
 
 Edit `.dc` configuration files in JetBrains IDEs with highlighting, completion, error hints, field documentation, formatting, and color picking.
 
-Noncommercial use is subject to the included license. Commercial use or resale requires prior written permission.
+Use is subject to the included license. Charging for this plugin itself requires prior written permission.
 
 ## Features
 

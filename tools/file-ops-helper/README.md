@@ -56,4 +56,4 @@ Common calls:
 
 Batch operation `type` values are `delete`, `move`, `copy`, `write_text`, `write_bytes`, and `mkdir`. Deletion uses `path`; directory creation uses `target`; moves and copies use `source`, `target`, and `replaceExisting`; writes use `target` and Base64-encoded `contentBase64`. Prefer the convenience methods for individual operations.
 
-This project uses a [noncommercial license](../../LICENSE). Commercial use or sales require prior written permission.
+Charging for this software itself requires prior written permission under the [project license](../../LICENSE).

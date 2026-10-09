@@ -102,7 +102,7 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
     private int iconTextureSerial;
 
     public DlcPackManagerScreen(Screen parent) {
-        super(parent, Component.translatable("dlc_manager.pack.manager_title"));
+        super(DlcUiPage.LOCAL_PACKS, parent, Component.translatable("dlc_manager.pack.manager_title"));
         this.parent = parent;
     }
 

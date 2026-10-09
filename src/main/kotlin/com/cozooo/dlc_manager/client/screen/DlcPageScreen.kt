@@ -9,7 +9,12 @@ import net.minecraft.network.chat.Component
 import java.util.function.Consumer
 import java.util.function.Supplier
 
-abstract class DlcPageScreen(protected val pageParent: Screen?, private val pageTitle: Component) : DlcApricityScreen("dlc_manager/ui/page.html") {
+abstract class DlcPageScreen(
+    page: DlcUiPage,
+    protected val pageParent: Screen?,
+    private val pageTitle: Component
+) : DlcApricityScreen(page) {
+    protected constructor(parent: Screen?, title: Component) : this(DlcUiPage.PAGE, parent, title)
     protected lateinit var pageDocument: Document
     protected lateinit var content: Element
     protected lateinit var toolbar: Element
@@ -27,13 +32,12 @@ abstract class DlcPageScreen(protected val pageParent: Screen?, private val page
         tooltip = DlcUiTooltip(document)
         lastStatus = null
         content = document.getElementById("page-content")
-        content.setAttribute("class", "")
         toolbar = document.getElementById("page-toolbar")
         footer = document.getElementById("page-actions")
         footerLeading = document.getElementById("page-leading-actions")
         DlcUiText.set(document.getElementById("page-title"), pageTitle.string)
         val back = document.getElementById("page-back")
-        back.setInnerHTML("")
+        clearUiContent(back)
         backAction = null
         back.setAttribute("style", if (showHeaderBackButton()) "" else "display:none")
         if (showHeaderBackButton()) {
@@ -54,12 +58,18 @@ abstract class DlcPageScreen(protected val pageParent: Screen?, private val page
             val scroll = content.scrollTop
             tooltip.hide()
             bindings.clear()
-            content.setInnerHTML("")
-            toolbar.setInnerHTML("")
-            footer.setInnerHTML("")
-            footerLeading.setInnerHTML("")
+            clearUiSlots()
+            clearUiContent(content)
+            clearUiContent(toolbar)
+            clearUiContent(footer)
+            clearUiContent(footerLeading)
             footerLeading.setAttribute("style", "display:none")
             buildPage()
+            restoreUiClasses(content)
+            restoreUiClasses(content.parentElement)
+            restoreUiClasses(toolbar)
+            restoreUiClasses(footer)
+            restoreUiClasses(footerLeading)
             content.setScrollTop(scroll)
         }
     }
@@ -74,7 +84,11 @@ abstract class DlcPageScreen(protected val pageParent: Screen?, private val page
         super.render(graphics, mouseX, mouseY, partialTick)
     }
 
-    protected fun node(parent: Element, tag: String, classes: String): Element = parent.appendChild(pageDocument.createElement(tag)).also { it.setAttribute("class", classes) }
+    protected fun node(parent: Element, tag: String, classes: String): Element {
+        val slot = classes.trim().split(Regex("\\s+"), limit = 2).firstOrNull().orEmpty()
+        val target = if (slot.isEmpty()) parent else uiSlot(slot, parent)
+        return target.appendChild(pageDocument.createElement(tag)).also { it.setAttribute("class", classes) }
+    }
     protected fun text(parent: Element, value: String?, classes: String): Element = node(parent, "div", classes).also { DlcUiText.set(it, value.orEmpty()) }
     protected fun section(title: String?, description: String?): Element = node(content, "section", "page-section").also {
         if (!title.isNullOrBlank()) text(it, title, "section-title")
@@ -86,7 +100,7 @@ abstract class DlcPageScreen(protected val pageParent: Screen?, private val page
         if (!description.isNullOrBlank()) text(label, description, "row-description")
     }
     protected fun action(parent: Element, label: String, run: Runnable): DlcUiButton = button(pageDocument, parent, label, run)
-    protected fun primary(label: String, run: Runnable): DlcUiButton = action(footer, label, run).also { it.getElement().setAttribute("class", "button primary") }
+    protected fun primary(label: String, run: Runnable): DlcUiButton = action(uiSlot("primary-action", footer), label, run).also { it.getElement().setAttribute("class", "button primary") }
     protected fun input(parent: Element, label: String, value: String?, type: String, change: Consumer<String>): Element {
         val field = node(parent, "label", "form-field")
         if (label.isNotBlank() && type != "search") text(field, label, "field-label")

@@ -5,7 +5,8 @@ import net.minecraft.client.gui.components.Button
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 
-abstract class DlcUpdatePageScreen(parent: Screen?, title: Component) : DlcPageScreen(parent, title) {
+abstract class DlcUpdatePageScreen(page: DlcUiPage, parent: Screen?, title: Component) : DlcPageScreen(page, parent, title) {
+    protected constructor(parent: Screen?, title: Component) : this(DlcUiPage.PAGE, parent, title)
     private var updateHistory: Element? = null
     protected data class UpdateRow(val label: String, val note: String?, val changelog: String?, val action: Button?)
 

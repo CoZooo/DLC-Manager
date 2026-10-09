@@ -8,7 +8,8 @@ import net.minecraft.network.chat.Component
 import java.util.function.BooleanSupplier
 import java.util.function.Supplier
 
-abstract class DlcFilePageScreen(parent: Screen?, title: Component) : DlcPageScreen(parent, title) {
+abstract class DlcFilePageScreen(page: DlcUiPage, parent: Screen?, title: Component) : DlcPageScreen(page, parent, title) {
+    protected constructor(parent: Screen?, title: Component) : this(DlcUiPage.PAGE, parent, title)
     private val selections = mutableListOf<Runnable>()
 
     protected fun fileList(title: String?): Element {

@@ -67,7 +67,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
     }
 
     public DlcServerScreen(Screen parent, DlcServerEntry entry, DlcServerInfo info, boolean openedFromIngame) {
-        super();
+        super(DlcUiPage.SERVER_MANAGER);
         this.parent = parent;
         this.entry = entry;
         this.openedFromIngame = openedFromIngame;
@@ -230,7 +230,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
     private void openPreset() {
         if (applying) return;
         capturePresetSnapshot();
-        Minecraft.getInstance().setScreen(new DlcPresetManagerScreen(this) {
+        Minecraft.getInstance().setScreen(new DlcPresetManagerScreen(DlcUiPage.SERVER_PRESETS, this) {
             @Override
             public void onClose() {
                 refreshAfterPresetChange();
@@ -1293,28 +1293,28 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         bindManagerLayout(document, tr("dlc_manager.server.title"));
         document.getElementById("manager-header").setAttribute("class", "workspace-header connected");
         Element connection = document.getElementById("manager-connection");
-        connection.setInnerHTML("");
+        clearUiContent(connection);
         connection.setAttribute("style", "display:flex");
         managerText(document, connection, "span", entry == null ? "" : entry.getDisplayName(), "connection-name");
         managerText(document, connection, "span", String.join(" · ", java.util.stream.Stream.of(serverBaseVersion, serverDlcVersion).filter(v -> !v.isBlank()).toList()), "connection-version");
         Element context = document.getElementById("manager-context");
-        context.setInnerHTML("");
+        clearUiContent(context);
         if (entry != null) button(document, context, tr("dlc_manager.server.config"), this::openConfig);
         Element tools = document.getElementById("manager-tools");
-        tools.setInnerHTML("");
+        clearUiContent(tools);
         if (DlcConfig.isPresetFuncOn()) button(document, tools, tr("dlc_manager.preset.manager"), this::openPreset);
         button(document, tools, tr("dlc_manager.server.tab.servers"), this::openServerTools);
         for (Element tool : tools.children) tool.setAttribute("class", "button nav-button");
         Element batch = document.getElementById("batch-actions");
-        batch.setInnerHTML("");
+        clearUiContent(batch);
         if (remoteMissingCount > 0) button(document, batch, tr("dlc_manager.server.remote_missing_button"), this::startRemoteDownload);
         enableAllButton = DlcConfig.isEnableAllButtonShown() ? button(document, batch, "", () -> confirmBatchToggle(true)) : null;
         disableAllButton = button(document, batch, "", () -> confirmBatchToggle(false));
         Element mode = document.getElementById("manager-mode");
-        mode.setInnerHTML("");
+        clearUiContent(mode);
         mode.setAttribute("style", "display:none");
         Element actions = document.getElementById("manager-actions");
-        actions.setInnerHTML("");
+        clearUiContent(actions);
         backButton = button(document, actions, tr("gui.back"), this::onClose);
         applyButton = button(document, actions, tr("dlc_manager.apply"), this::applyChanges);
         applyButton.getElement().setAttribute("class", "button primary");
@@ -1331,7 +1331,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
 
     private void renderFilters(Document document) {
         Element filters = document.getElementById("manager-filters");
-        filters.setInnerHTML("");
+        clearUiContent(filters);
         List<DlcType> types = new ArrayList<>();
         types.add(null);
         types.addAll(visibleFilterTypes());
@@ -1383,7 +1383,7 @@ public class DlcServerScreen extends DlcManagerPageScreen implements DlcReturnPo
         if (tooltip != null) tooltip.hide();
         Element list = document.getElementById("manager-list");
         double scroll = list.getTargetScrollTop();
-        list.setInnerHTML("");
+        clearUiContent(list);
         clearManagerGroups();
         rebuildRows();
         Element parent = list;

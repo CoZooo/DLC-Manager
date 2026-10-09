@@ -37,7 +37,7 @@ import java.util.concurrent.CompletableFuture
 import com.sighs.apricityui.init.Document
 import com.sighs.apricityui.init.Element
 
-class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), DlcReturnPositionHost {
+class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(DlcUiPage.MANAGER), DlcReturnPositionHost {
     private val rows: MutableList<DlcListRow> = ArrayList()
     private val items: MutableList<DlcItem> = ArrayList()
     private val allItems: MutableList<DlcItem> = ArrayList()
@@ -865,7 +865,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), Dl
     override fun bindDocument(document: Document) {
         bindManagerLayout(document, translate("dlc_manager.title"))
         val tools = document.getElementById("manager-tools")
-        tools.setInnerHTML("")
+        clearUiContent(tools)
         if (DlcConfig.isUpdateManagerOn() && !DlcConfig.isUButtomShown())
             button(document, tools, translate("dlc_manager.update.manager")) { open { DlcUpdateClient.openUpdateManager(this) } }
         if (DlcConfig.isNoticeDisplayModeManagerButton() && hasNoticeContent())
@@ -877,13 +877,13 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), Dl
         if (canShowServerButton())
             button(document, tools, translate("dlc_manager.server.manage")) { open { Minecraft.getInstance().setScreen(DlcServerListScreen(this)) } }
         val context = document.getElementById("manager-context")
-        context.setInnerHTML("")
+        clearUiContent(context)
         if (DlcConfig.isConfigButtonShown())
             button(document, tools, translate("dlc_manager.config")) { open { Minecraft.getInstance().setScreen(DlcConfigScreen(this)) } }
 
         for (tool in tools.children) tool.setAttribute("class", "button nav-button")
         val batch = document.getElementById("batch-actions")
-        batch.setInnerHTML("")
+        clearUiContent(batch)
         if (DlcRemoteManager.hasMissing())
             button(document, batch, translate("dlc_manager.remote.complete")) { open {
                 val missing = DlcRemoteManager.collectMissing()
@@ -892,8 +892,8 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), Dl
         enableAllButton = if (DlcConfig.isEnableAllButtonShown()) button(document, batch, "") { handleBatchToggle(true) } else null
         disableAllButton = button(document, batch, "") { handleBatchToggle(false) }
         val footer = document.getElementById("manager-actions")
-        footer.setInnerHTML("")
-        document.getElementById("manager-mode").setInnerHTML("")
+        clearUiContent(footer)
+        clearUiContent(document.getElementById("manager-mode"))
         modeButton = button(document, document.getElementById("manager-mode"), getDlcApplyModeLabel()) { toggleDlcApplyMode() }
         modeButton!!.getElement().setAttribute("class", "button mode-button")
         backButton = button(document, footer, getBackButtonLabel()) { returnToMainMenu() }
@@ -963,7 +963,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), Dl
 
     private fun renderFilters(document: Document) {
         val filters = document.getElementById("manager-filters")
-        filters.setInnerHTML("")
+        clearUiContent(filters)
         addFilter(document, filters, null)
         for (type in DlcType.values()) {
             if (type == DlcType.DLC_PACK || (type == DlcType.TACZ_PACK && !hasTaczMod)) continue
@@ -1005,7 +1005,7 @@ class DlcManagerScreen(private val parent: Screen?) : DlcManagerPageScreen(), Dl
         tooltip?.hide()
         val list = document.getElementById("manager-list")
         val scroll = list.targetScrollTop
-        list.setInnerHTML("")
+        clearUiContent(list)
         clearManagerGroups()
         var rowParent = list
         var renderedRows = 0

@@ -66,7 +66,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
     }
 
     public DlcRequiredDownloadScreen(Screen parent, List<DlcRequiredEntry> entries, UpdateApplyResult postUpdateResult) {
-        super(parent, Component.translatable("dlc_manager.required.title"));
+        super(DlcUiPage.REQUIRED_DOWNLOAD, parent, Component.translatable("dlc_manager.required.title"));
         this.parent = parent;
         this.postUpdateResult = postUpdateResult;
         this.entries = entries == null ? List.of() : entries;

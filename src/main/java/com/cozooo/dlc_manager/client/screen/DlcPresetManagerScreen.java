@@ -11,7 +11,10 @@ public class DlcPresetManagerScreen extends DlcPageScreen {
     private java.util.Set<String> matchedPresets = java.util.Set.of();
     private final List<DlcPresetEntry> presets;
     public DlcPresetManagerScreen(Screen parent) {
-        super(parent, Component.translatable("dlc_manager.preset.title"));
+        this(DlcUiPage.LOCAL_PRESETS, parent);
+    }
+    public DlcPresetManagerScreen(DlcUiPage page, Screen parent) {
+        super(page, parent, Component.translatable("dlc_manager.preset.title"));
         DlcPresetRuntimeState.reload(); presets = DlcPresetRuntimeState.getPresets();
     }
     @Override protected void buildPage() {

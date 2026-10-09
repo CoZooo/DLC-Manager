@@ -12,7 +12,7 @@ public class DlcConfirmScreen extends DlcPageScreen {
         this(callback, title, message, Component.translatable("gui.yes"), Component.translatable("gui.no"));
     }
     public DlcConfirmScreen(BooleanConsumer callback, Component title, Component message, Component yes, Component no) {
-        super(Minecraft.getInstance().screen, title);
+        super(DlcUiPage.CONFIRM, Minecraft.getInstance().screen, title);
         this.callback = callback; this.message = message; this.yes = yes; this.no = no;
     }
     @Override protected void buildPage() {
