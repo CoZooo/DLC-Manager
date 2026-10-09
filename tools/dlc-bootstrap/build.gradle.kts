@@ -43,6 +43,7 @@ val sharedClasses = listOf(
     "client/remote/DlcRemoteEntry",
     "client/required/DlcRequiredDependency", "client/required/DlcRequiredEntry", "client/required/DlcRequiredLoader",
     "client/required/DlcRequiredRuntime", "client/required/DlcRequiredRuntimeState", "client/required/DlcRequiredService",
+    "core/DlcFileMatch", "core/DlcResourceHistory",
     "core/DlcConfig", "core/DlcDcConfigIO", "core/DlcDcFormatUtil", "core/DlcPaths", "core/DlcType",
     "platform/DlcPlatformServices", "platform/PlatformServices",
 )

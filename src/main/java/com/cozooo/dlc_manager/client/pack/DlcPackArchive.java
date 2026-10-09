@@ -23,6 +23,26 @@ public final class DlcPackArchive {
     private DlcPackArchive() {
     }
 
+    public static List<Path> findArchives(Path dlcRoot) throws IOException {
+        Set<Path> archives = new LinkedHashSet<>();
+        Set<Path> shadowed = new java.util.HashSet<>();
+        for (var entry : com.cozooo.dlc_manager.client.remote.DlcRemoteLoader.load(dlcRoot)) {
+            if (entry.getType() != com.cozooo.dlc_manager.core.DlcType.DLC_PACK) continue;
+            Path preferred = entry.getTargetPath();
+            if (preferred != null && Files.isRegularFile(preferred)) archives.add(preferred.toAbsolutePath().normalize());
+            Path downloaded = entry.resolveTargetPath(entry.getFileNameHint());
+            if (downloaded != null && Files.isRegularFile(downloaded)) shadowed.add(dlcRoot.resolve("pack").resolve(downloaded.getFileName()).toAbsolutePath().normalize());
+        }
+        Path local = dlcRoot.resolve("pack");
+        if (Files.isDirectory(local)) {
+            try (var paths = Files.list(local)) {
+                paths.filter(Files::isRegularFile).filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
+                    .map(path -> path.toAbsolutePath().normalize()).filter(path -> !shadowed.contains(path)).forEach(archives::add);
+            }
+        }
+        return archives.stream().sorted().toList();
+    }
+
     public static ExtractResult extractToStaging(Path zipPath, Path dlcRoot) throws IOException {
         if (zipPath == null || !Files.isRegularFile(zipPath)) {
             throw new IOException("DLC Pack archive is not a file");

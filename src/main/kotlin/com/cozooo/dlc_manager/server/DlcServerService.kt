@@ -1010,13 +1010,10 @@ object DlcServerService {
             Files.createDirectories(packRoot)
         } catch (_: IOException) {
         }
-        if (!Files.isDirectory(packRoot)) {
-            return emptyList()
-        }
         val installed = loadInstalledPacks()
         val out = ArrayList<DlcServerPackInfo>()
         try {
-            Files.list(packRoot).use { stream ->
+            DlcPackArchive.findArchives(DlcConfig.getDlcRoot()).stream().use { stream ->
                 stream.filter(Files::isRegularFile)
                     .filter { it.fileName.toString().lowercase(Locale.ROOT).endsWith(".zip") }
                     .sorted(Comparator.comparing { it.fileName.toString().lowercase(Locale.ROOT) })
@@ -1186,12 +1183,13 @@ object DlcServerService {
     }
 
     private fun resolvePackArchive(archivePath: String?): Path? {
-        if (archivePath.isNullOrBlank()) {
-            return null
-        }
-        val root = packArchiveRoot()
-        val target = safeResolve(root, archivePath)?.toAbsolutePath()?.normalize() ?: return null
-        return if (target.startsWith(root)) target else null
+        if (archivePath.isNullOrBlank()) return null
+        return try {
+            val local = packArchiveRoot()
+            val downloaded = DlcConfig.getDlcRoot().resolve("downloaded/DLCs").toAbsolutePath().normalize()
+            val target = local.resolve(archivePath).toAbsolutePath().normalize()
+            if (target.startsWith(local) || target.startsWith(downloaded)) target else null
+        } catch (_: java.nio.file.InvalidPathException) { null }
     }
 
     private fun describePackPrecheck(precheck: DlcPackInstaller.PrecheckResult): String {

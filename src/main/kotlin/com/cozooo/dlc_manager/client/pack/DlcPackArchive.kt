@@ -15,6 +15,27 @@ object DlcPackArchive {
         "dlcpack_metadata/pack.dc",
     )
 
+    @JvmStatic @Throws(IOException::class)
+    fun findArchives(dlcRoot: Path): List<Path> {
+        val archives = LinkedHashSet<Path>()
+        val shadowed = HashSet<Path>()
+        for (entry in com.cozooo.dlc_manager.client.remote.DlcRemoteLoader.load(dlcRoot)) {
+            if (entry.getType() != com.cozooo.dlc_manager.core.DlcType.DLC_PACK) continue
+            val preferred = entry.getTargetPath()
+            if (preferred != null && Files.isRegularFile(preferred)) archives.add(preferred.toAbsolutePath().normalize())
+            val downloaded = entry.resolveTargetPath(entry.getFileNameHint())
+            if (downloaded != null && Files.isRegularFile(downloaded)) shadowed.add(dlcRoot.resolve("pack").resolve(downloaded.fileName).toAbsolutePath().normalize())
+        }
+        val local = dlcRoot.resolve("pack")
+        if (Files.isDirectory(local)) {
+            Files.list(local).use { paths ->
+                paths.filter(Files::isRegularFile).filter { it.fileName.toString().lowercase(java.util.Locale.ROOT).endsWith(".zip") }
+                    .map { it.toAbsolutePath().normalize() }.filter { it !in shadowed }.forEach { archives.add(it) }
+            }
+        }
+        return archives.sorted()
+    }
+
     @JvmStatic
     @Throws(IOException::class)
     fun extractToStaging(zipPath: Path?, dlcRoot: Path?): ExtractResult {

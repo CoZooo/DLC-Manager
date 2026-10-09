@@ -13,60 +13,63 @@ import java.util.Collections
 object DlcStateConfig {
     private val GSON: Gson = GsonBuilder().setPrettyPrinting().create()
 
-    private var configPath: Path? = null
     private var stateById: MutableMap<String, DlcState> = HashMap()
 
     @JvmStatic
     fun load() {
-        val configDir = DlcPlatformServices.configDir().resolve("dlc_manager")
-        configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "state")
         stateById = HashMap()
-        var migrateLegacyStateSection = false
-        val path = configPath
-        if (path != null && Files.exists(path)) {
-            try {
-                val root = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC)
-                if (root != null) {
-                    val data = GSON.fromJson(root, DlcStateConfigData::class.java)
-                    if (data != null && data.DLC == null && data.stateById != null) {
-                        migrateLegacyStateSection = true
-                    }
-                    val loaded = selectStateMap(data)
-                    if (!loaded.isNullOrEmpty()) {
-                        stateById = HashMap(loaded)
-                    } else {
-                        val recovered = recoverFlattenedStateMap(root)
-                        stateById = when {
-                            recovered.isNotEmpty() -> recovered
-                            loaded != null -> HashMap(loaded)
-                            else -> stateById
-                        }
-                    }
-                }
-            } catch (_: Exception) {
-                stateById = HashMap()
+        val legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc")
+        val oldStates = readStates(legacy)
+        for (root in DlcConfig.getDlcRoots()) {
+            val path = root.resolve("tmp/state.dc")
+            val loaded = if (Files.exists(path)) readStates(path) else oldStates
+            for ((id, state) in loaded) if (belongsToRoot(id, state, root)) stateById[id] = state
+        }
+        migrateStoredPaths()
+        migrateStateIds()
+        normalizeEnabledStates()
+        for (items in DlcScanner().scan(true).values) {
+            for (item in items ?: emptyList()) {
+                if (item == null) continue
+                val state = DlcState()
+                state.enabled = item.isEnabled()
+                state.mode = item.getMatchMode()
+                state.root = DlcResourceHistory.relativePath(item.getDlcRoot())
+                state.appliedTargets = item.getAppliedTargets().map { DlcResourceHistory.relativePath(it) }
+                item.getId()?.let { stateById[it] = state }
             }
         }
-        var migrated = migrateLegacyStateSection
-        migrated = migrateStoredPaths() || migrated
-        migrated = migrateStateIds() || migrated
-        migrated = normalizeEnabledStates() || migrated
-        if (migrated) {
-            save()
-        }
+        save()
     }
 
     @JvmStatic
     fun save() {
-        val path = configPath ?: return
-        try {
-            Files.createDirectories(path.parent)
-            val data = DlcStateConfigData()
-            data.DLC = stateById
-            val root = GSON.toJsonTree(data).asJsonObject
-            DlcDcConfigIO.write(path, root, DlcDcConfigIO.Layout.GENERIC)
-        } catch (_: IOException) {
+        for (root in DlcConfig.getDlcRoots()) {
+            val path = root.resolve("tmp/state.dc")
+            try {
+                Files.createDirectories(path.parent)
+                val data = DlcStateConfigData()
+                data.DLC = stateById.filter { (id, state) -> belongsToRoot(id, state, root) }
+                DlcDcConfigIO.write(path, GSON.toJsonTree(data).asJsonObject, DlcDcConfigIO.Layout.GENERIC)
+            } catch (_: IOException) {}
         }
+    }
+
+    private fun readStates(path: Path): Map<String, DlcState> {
+        return try {
+            val obj = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC) ?: return emptyMap()
+            val loaded = selectStateMap(GSON.fromJson(obj, DlcStateConfigData::class.java))
+            if (!loaded.isNullOrEmpty()) loaded else recoverFlattenedStateMap(obj)
+        } catch (_: RuntimeException) { emptyMap() }
+    }
+
+    private fun belongsToRoot(id: String, state: DlcState?, root: Path): Boolean {
+        val relative = DlcResourceHistory.relativePath(root)
+        if (state?.root != null) return state.root == relative
+        val colon = id.indexOf(':')
+        val separator = id.indexOf('|')
+        if (colon >= 0 && separator > colon) return id.substring(colon + 1, separator) == relative
+        return DlcConfig.getDlcRoots().firstOrNull() == root
     }
 
     @JvmStatic
@@ -90,6 +93,9 @@ object DlcStateConfig {
     class DlcState {
         @JvmField
         var enabled: Boolean = false
+
+        @JvmField var root: String? = null
+        @JvmField var mode: String = "hash"
 
         @JvmField
         var appliedTargets: List<String>? = null
@@ -122,6 +128,13 @@ object DlcStateConfig {
         }
         var changed = false
         for (state in stateById.values) {
+            if (state.root != null) {
+                val storedRoot = DlcPaths.parsePathLenient(state.root)
+                if (storedRoot != null && storedRoot.isAbsolute) {
+                    state.root = DlcResourceHistory.relativePath(storedRoot)
+                    changed = true
+                }
+            }
             val applied = state.appliedTargets
             if (applied.isNullOrEmpty()) {
                 continue
@@ -157,7 +170,8 @@ object DlcStateConfig {
                         converted = true
                     }
                     if (!converted) {
-                        migrated.add(normalized.toString())
+                        migrated.add(DlcResourceHistory.relativePath(normalized))
+                        localChanged = true
                     }
                 } else {
                     migrated.add(path.toString())

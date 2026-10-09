@@ -96,6 +96,8 @@ class DlcEarlyInstallerTest {
             Files.writeString(required.resolve("main.dc"), "identifier = \"main\"\nfile_name = \"main.jar\"\nappliedTarget = \"mods/main.jar\"\npriority = \"directurl\"\ndirectUrl = \"http://127.0.0.1:" + http.getAddress().getPort() + "/main.jar\"\n");
             assertEquals(1, install(false).getDownloadedCount());
             assertArrayEquals(body, Files.readAllBytes(game.resolve("mods/main.jar")));
+            assertArrayEquals(body, Files.readAllBytes(game.resolve("DLC/downloaded/required/main.jar")));
+            assertFalse(Files.exists(required.resolve("main.jar")));
             int firstLaunchRequests = requests.get();
             install(false);
             assertEquals(firstLaunchRequests, requests.get());
@@ -121,10 +123,15 @@ class DlcEarlyInstallerTest {
         assertThrows(IOException.class, () -> install(false));
     }
 
-    @Test void directoryCannotBeAcceptedAsInstalledResource() throws Exception {
+    @Test void directoryIsBackedUpAndReplacedByTheRequiredFile() throws Exception {
         resource(game.resolve("DLC"), "main", "mods/main.jar");
         Files.createDirectories(game.resolve("mods/main.jar"));
-        assertThrows(IOException.class, () -> install(false));
+        Files.writeString(game.resolve("mods/main.jar/old.txt"), "old");
+        install(false);
+        assertEquals("main", Files.readString(game.resolve("mods/main.jar")));
+        try (var paths = Files.list(game.resolve("DLC/tmp/required"))) {
+            assertTrue(paths.anyMatch(path -> Files.isDirectory(path) && Files.exists(path.resolve("old.txt"))));
+        }
     }
 
     @Test void emptyInterruptedStartupCannotReturnSuccess() {

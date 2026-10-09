@@ -411,6 +411,7 @@ object DlcRemoteLoader {
         entry.setType(type)
         entry.setConfigType("config".equals(typeRaw?.trim(), ignoreCase = true))
         entry.setAppliedTargetRaw(appliedTarget)
+        entry.setMatchMode(getString(obj, "mode"))
         entry.setRedirectUrl(redirectUrl)
         entry.setHidden(hidden)
         entry.setAllowEnableByAll(allowEnableByAll)

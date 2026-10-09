@@ -1151,11 +1151,8 @@ public class DlcPackManagerScreen extends DlcPackPageScreen {
             Files.createDirectories(packRoot);
         } catch (IOException ignored) {
         }
-        if (!Files.isDirectory(packRoot)) {
-            return List.of();
-        }
         List<PackArchiveEntry> out = new ArrayList<>();
-        try (var stream = Files.list(packRoot)) {
+        try (var stream = DlcPackArchive.findArchives(DlcPaths.dlcRoot()).stream()) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip"))
                 .sorted(Comparator.comparing(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)))

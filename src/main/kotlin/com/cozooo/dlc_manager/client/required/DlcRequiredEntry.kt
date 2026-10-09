@@ -9,6 +9,7 @@ class DlcRequiredEntry(
     private val requiredDir: Path?,
 ) {
     private val baseName: String
+    private var matchMode: String = "hash"
     private var identifier: String
     private var requiredFileName: String? = null
     private var directUrl: String? = null
@@ -27,6 +28,19 @@ class DlcRequiredEntry(
         name = stripConfigExtension(name)
         baseName = name
         identifier = name
+    }
+
+    fun getMatchMode(): String = matchMode
+    fun setMatchMode(value: String?) { matchMode = com.cozooo.dlc_manager.core.DlcFileMatch.mode(value) }
+    fun getDlcRoot(): Path? = requiredDir?.parent
+    fun getDownloadDir(): Path? = getDlcRoot()?.resolve("downloaded/required")
+    fun getHistoryKey(): String = com.cozooo.dlc_manager.core.DlcResourceHistory.key(configPath?.let(com.cozooo.dlc_manager.core.DlcResourceHistory::relativePath) ?: "", identifier)
+
+    fun resolveDownloadPath(fileName: String?): Path? {
+        val directory = getDownloadDir() ?: return null
+        if (fileName.isNullOrBlank()) return null
+        val path = directory.resolve(fileName).normalize()
+        return if (path.startsWith(directory.normalize())) path else null
     }
 
     fun getConfigPath(): Path? = configPath
@@ -160,7 +174,10 @@ class DlcRequiredEntry(
         if (requiredDir == null || fileName.isNullOrBlank()) {
             return null
         }
-        return requiredDir.resolve(fileName)
+        val downloaded = resolveDownloadPath(fileName)
+        if (downloaded != null && java.nio.file.Files.exists(downloaded)) return downloaded
+        val local = requiredDir.resolve(fileName).normalize()
+        return if (local.startsWith(requiredDir.normalize())) local else null
     }
 
     fun resolveAppliedTargets(): List<Path> {

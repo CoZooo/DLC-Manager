@@ -22,6 +22,7 @@ class DlcRemoteEntry(
     private var curseforgeProjectId: String? = null
     private var curseforgeFileId: String? = null
     private var type: DlcType? = null
+    private var matchMode: String = "hash"
     private var configType = false
     private var appliedTargetRaw: String? = null
     private var hidden = false
@@ -33,6 +34,9 @@ class DlcRemoteEntry(
     private var redirectUrl: String? = null
     private var alarm = false
     private var remoteDependencies: List<DlcRemoteEntry> = emptyList()
+
+    fun getMatchMode(): String = matchMode
+    fun setMatchMode(value: String?) { matchMode = com.cozooo.dlc_manager.core.DlcFileMatch.mode(value) }
 
     fun getConfigPath(): Path? = configPath
 
@@ -234,7 +238,7 @@ class DlcRemoteEntry(
             return null
         }
         val targetDir = targetBaseDir() ?: return null
-        return targetDir.resolve(safeName).normalize()
+        return resolveExistingTargetPath(safeName)
     }
 
     fun resolveTargetPath(fileName: String?): Path? {
@@ -249,11 +253,21 @@ class DlcRemoteEntry(
         return targetDir.resolve(safeName).normalize()
     }
 
+    fun resolveExistingTargetPath(fileName: String?): Path? {
+        val downloaded = resolveTargetPath(fileName)
+        if (downloaded != null && java.nio.file.Files.exists(downloaded)) return downloaded
+        val legacy = if (type == DlcType.DLC_PACK) dlcRoot?.resolve("pack") else baseDir
+        val name = fileName?.let { sanitizeFileName(it) }
+        if (name.isNullOrBlank()) return downloaded
+        val old = legacy?.resolve(name)?.normalize()
+        return if (old != null && java.nio.file.Files.exists(old)) old else downloaded
+    }
+
     private fun targetBaseDir(): Path? {
-        if (type == DlcType.DLC_PACK) {
-            return dlcRoot?.resolve("pack")
-        }
-        return baseDir
+        val root = dlcRoot?.toAbsolutePath()?.normalize() ?: return null
+        val base = baseDir?.toAbsolutePath()?.normalize() ?: return null
+        if (!base.startsWith(root)) return null
+        return root.resolve("downloaded/DLCs").resolve(root.relativize(base))
     }
 
     fun getUniqueKey(): String {

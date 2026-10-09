@@ -426,6 +426,7 @@ public final class DlcRemoteLoader {
         entry.setType(type);
         entry.setConfigType("config".equalsIgnoreCase(typeRaw == null ? null : typeRaw.trim()));
         entry.setAppliedTargetRaw(appliedTarget);
+        entry.setMatchMode(getString(obj, "mode"));
         entry.setRedirectUrl(redirectUrl);
         entry.setHidden(hidden);
         entry.setAllowEnableByAll(allowEnableByAll);

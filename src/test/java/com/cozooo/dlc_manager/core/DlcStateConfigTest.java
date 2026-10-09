@@ -30,6 +30,7 @@ class DlcStateConfigTest {
         gameDir = tempDir.resolve("game");
         configDir = tempDir.resolve("config");
         PlatformServices.setProvider(new TestPlatformProvider(gameDir, configDir));
+        DlcConfig.setDlcRoot("DLC");
     }
 
     @AfterEach
@@ -88,7 +89,7 @@ class DlcStateConfigTest {
     }
 
     private String readStateFile() {
-        Path stateFile = configDir.resolve("dlc_manager").resolve("state.dc");
+        Path stateFile = gameDir.resolve("DLC/tmp/state.dc");
         if (!Files.exists(stateFile)) {
             return "missing state.dc";
         }

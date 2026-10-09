@@ -186,7 +186,7 @@ public final class DlcRemoteService {
                             throw new IOException("invalid target path");
                         }
                         Files.createDirectories(target.getParent());
-                        if (Files.exists(target)) {
+                        if (Files.exists(entry.resolveExistingTargetPath(fileName))) {
                             entry.setFileNameHint(fileName);
                             DlcRemoteRuntime.updateFileNameKey(entry, fileName);
                             return fileName;
@@ -282,7 +282,7 @@ public final class DlcRemoteService {
                 continue;
             }
             String fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url);
-            Path target = entry.resolveTargetPath(fileName);
+            Path target = entry.resolveExistingTargetPath(fileName);
             if (target != null && !Files.exists(target)) {
                 return true;
             }

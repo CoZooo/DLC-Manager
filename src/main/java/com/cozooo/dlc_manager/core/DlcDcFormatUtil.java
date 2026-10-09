@@ -662,6 +662,7 @@ public final class DlcDcFormatUtil {
             "identifier",
             "type",
             "file_name",
+            "mode",
             "appliedTarget",
             "isHidden",
             "AllowEnableByAll",
@@ -695,7 +696,8 @@ public final class DlcDcFormatUtil {
     }
 
     private static boolean isKnownBasicKey(String key) {
-        return "identifier".equals(key)
+        return "mode".equals(key)
+            || "identifier".equals(key)
             || "type".equals(key)
             || "file_name".equals(key)
             || "appliedTarget".equals(key)

@@ -25,6 +25,7 @@ public class DlcRemoteEntry {
     private String curseforgeFileId;
     private DlcType type;
     private boolean configType;
+    private String matchMode = "hash";
     private String appliedTargetRaw;
     private boolean hidden;
     private boolean allowEnableByAll;
@@ -42,6 +43,9 @@ public class DlcRemoteEntry {
         this.baseDir = baseDir;
         this.fileNameHint = fileNameHint;
     }
+
+    public String getMatchMode() { return matchMode; }
+    public void setMatchMode(String value) { matchMode = com.cozooo.dlc_manager.core.DlcFileMatch.mode(value); }
 
     public Path getConfigPath() {
         return configPath;
@@ -347,7 +351,7 @@ public class DlcRemoteEntry {
         if (targetDir == null) {
             return null;
         }
-        return targetDir.resolve(safeName).normalize();
+        return resolveExistingTargetPath(safeName);
     }
 
     public Path resolveTargetPath(String fileName) {
@@ -365,11 +369,22 @@ public class DlcRemoteEntry {
         return targetDir.resolve(safeName).normalize();
     }
 
+    public Path resolveExistingTargetPath(String fileName) {
+        Path downloaded = resolveTargetPath(fileName);
+        if (downloaded != null && java.nio.file.Files.exists(downloaded)) return downloaded;
+        String safeName = sanitizeFileName(fileName);
+        if (safeName == null || safeName.isBlank()) return downloaded;
+        Path legacy = type == DlcType.DLC_PACK && dlcRoot != null ? dlcRoot.resolve("pack") : baseDir;
+        Path old = legacy == null ? null : legacy.resolve(safeName).normalize();
+        return old != null && java.nio.file.Files.exists(old) ? old : downloaded;
+    }
+
     private Path targetBaseDir() {
-        if (type == DlcType.DLC_PACK) {
-            return dlcRoot == null ? null : dlcRoot.resolve("pack");
-        }
-        return baseDir;
+        if (dlcRoot == null || baseDir == null) return null;
+        Path root = dlcRoot.toAbsolutePath().normalize();
+        Path base = baseDir.toAbsolutePath().normalize();
+        if (!base.startsWith(root)) return null;
+        return root.resolve("downloaded/DLCs").resolve(root.relativize(base));
     }
 
     public String getUniqueKey() {

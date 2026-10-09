@@ -46,6 +46,13 @@ const basicFields = (options?: { includeType?: boolean; includeDlcPackType?: boo
       help: "static.help.identifier"
     },
     {
+      key: "mode",
+      label: "mode",
+      kind: "select",
+      options: [{ value: "hash", label: "hash" }, { value: "name", label: "name" }],
+      help: "static.help.matchMode"
+    },
+    {
       key: "file_name",
       label: "file_name",
       kind: "text",
@@ -126,6 +133,13 @@ const requiredBasicSection: SectionSchema = {
       label: "identifier",
       kind: "text",
       help: "static.help.dependencyIdentifier"
+    },
+    {
+      key: "mode",
+      label: "mode",
+      kind: "select",
+      options: [{ value: "hash", label: "hash" }, { value: "name", label: "name" }],
+      help: "static.help.matchMode"
     },
     {
       key: "file_name",

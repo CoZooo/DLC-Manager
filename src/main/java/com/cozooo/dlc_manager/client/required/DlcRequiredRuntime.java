@@ -7,6 +7,7 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
@@ -373,9 +374,9 @@ public final class DlcRequiredRuntime {
         }
         for (Path target : entry.resolveAppliedTargets()) {
             Path targetFile = resolveTarget(target, fileName);
-            if (!Files.exists(targetFile)) {
-                return true;
-            }
+            try {
+                if (!com.cozooo.dlc_manager.core.DlcFileMatch.matches(entry.resolveRequiredPath(fileName), targetFile, entry.getMatchMode())) return true;
+            } catch (IOException exception) { return true; }
         }
         return false;
     }
@@ -446,11 +447,8 @@ public final class DlcRequiredRuntime {
     }
 
     private static String resolveFileNameLocal(DlcRequiredEntry entry) {
-        String fileName = guessFileName(entry);
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName;
-        }
-        return null;
+        String guessed = guessFileName(entry);
+        return guessed != null && !guessed.isBlank() ? guessed : DlcRequiredService.resolveExistingFileName(entry);
     }
 
     private static String resolveExistingRequiredFile(DlcRequiredEntry entry) {

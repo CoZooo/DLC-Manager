@@ -10,6 +10,7 @@ public class DlcRequiredEntry {
     private final Path requiredDir;
     private final String baseName;
     private String identifier;
+    private String matchMode = "hash";
     private String requiredFileName;
     private String directUrl;
     private List<String> directUrls = new ArrayList<>();
@@ -29,6 +30,18 @@ public class DlcRequiredEntry {
         name = DlcDcFormatUtil.stripConfigExtension(name);
         this.baseName = name;
         this.identifier = name;
+    }
+
+    public String getMatchMode() { return matchMode; }
+    public void setMatchMode(String value) { matchMode = com.cozooo.dlc_manager.core.DlcFileMatch.mode(value); }
+    public Path getDlcRoot() { return requiredDir == null ? null : requiredDir.getParent(); }
+    public Path getDownloadDir() { return getDlcRoot() == null ? null : getDlcRoot().resolve("downloaded/required"); }
+    public String getHistoryKey() { return com.cozooo.dlc_manager.core.DlcResourceHistory.key(configPath == null ? "" : com.cozooo.dlc_manager.core.DlcResourceHistory.relativePath(configPath), identifier); }
+
+    public Path resolveDownloadPath(String fileName) {
+        if (getDownloadDir() == null || fileName == null || fileName.isBlank()) return null;
+        Path path = getDownloadDir().resolve(fileName).normalize();
+        return path.startsWith(getDownloadDir().normalize()) ? path : null;
     }
 
     public Path getConfigPath() {
@@ -237,7 +250,10 @@ public class DlcRequiredEntry {
         if (requiredDir == null || fileName == null || fileName.isBlank()) {
             return null;
         }
-        return requiredDir.resolve(fileName);
+        Path downloaded = resolveDownloadPath(fileName);
+        if (downloaded != null && java.nio.file.Files.exists(downloaded)) return downloaded;
+        Path local = requiredDir.resolve(fileName).normalize();
+        return local.startsWith(requiredDir.normalize()) ? local : null;
     }
 
     public List<Path> resolveAppliedTargets() {

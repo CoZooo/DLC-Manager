@@ -27,6 +27,7 @@ object DlcEarlyInstaller {
             if (server) DlcConfig.loadServer() else DlcConfig.loadClient()
             validateConfigs(DlcConfig.getDlcRoots())
             val entries = DlcRequiredRuntime.loadAllEntries()
+            DlcRequiredService.reconcileEntries(entries)
             var downloaded = 0
             var installed = 0
             for (entry in entries) {
@@ -44,7 +45,7 @@ object DlcEarlyInstaller {
                         }, { Thread.currentThread().isInterrupted })
                         downloaded++
                     }
-                    if (DlcRequiredRuntime.entryNeedsApply(entry) && DlcRequiredService.installOne(entry)) installed++
+                    if (DlcRequiredService.installOne(entry)) installed++
                 } catch (ex: IOException) {
                     throw IOException("Cannot install required resource '${entry.getIdentifier()}' from ${entry.getConfigPath()}", ex)
                 } catch (ex: RuntimeException) {

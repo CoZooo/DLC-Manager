@@ -13,6 +13,7 @@ import com.cozooo.dlc_manager.client.remote.DlcRemoteEntry
 import com.cozooo.dlc_manager.client.remote.DlcRemoteLoader
 import com.cozooo.dlc_manager.client.remote.DlcRemoteMarker
 import com.cozooo.dlc_manager.client.required.DlcRequiredEntry
+import com.cozooo.dlc_manager.client.required.DlcRequiredService
 import com.cozooo.dlc_manager.client.required.DlcRequiredLoader
 import com.cozooo.dlc_manager.client.selfupdate.DlcSelfUpdateService
 import com.cozooo.dlc_manager.core.*
@@ -1501,12 +1502,15 @@ object DlcUpdateService {
                 context.addedRemote = true
             }
             val wasEnabled = isRemoteEnabled(entry)
+            if (shouldRedownload && wasEnabled) prepareRemoteUpdateBackups(entry, context)
             val oldTarget: Path? = entry.getTargetPath()
+            val oldHistoryKey = oldTarget?.let { DlcResourceHistory.key(buildConfigKey(entry.getDlcRoot(), it, entry.getType()) ?: "", "dlc") }
             if (shouldRedownload && wasEnabled && oldTarget != null) {
                 uninstallDlcPath(oldTarget, context.dlcRoot, context)
             }
             if (shouldRedownload && oldTarget != null && Files.exists(oldTarget)) {
-                backupAndDelete(oldTarget, context)
+                if (oldTarget.toAbsolutePath().normalize().startsWith(entry.getDlcRoot()!!.toAbsolutePath().normalize().resolve("downloaded/DLCs"))) backupAndDelete(oldTarget, context)
+                else backupPath(DlcPathUtil.toGameRelativePath(oldTarget), oldTarget, context)
             }
             val updateEntry = update.value
             val configPath: Path? = entry.getConfigPath()
@@ -1535,6 +1539,11 @@ object DlcUpdateService {
                 updateRemoteFileName(configPath, downloaded.fileName)
             }
             if (wasEnabled) {
+                if (oldHistoryKey != null) {
+                    val newHistoryKey = DlcResourceHistory.key(buildConfigKey(entry.getDlcRoot(), downloaded.path, entry.getType()) ?: "", "dlc")
+                    DlcResourceHistory.rekey(entry.getDlcRoot()!!, "dlc", oldHistoryKey, newHistoryKey)
+                    context.resourceRekeys[oldHistoryKey] = newHistoryKey
+                }
                 val applied: MutableList<Path?> = applyRemoteTargets(entry, downloaded.path, context)
                 updateConfigState(entry, downloaded.path, applied, context)
             }
@@ -1565,19 +1574,8 @@ object DlcUpdateService {
             val oldFileName: kotlin.String? = resolveRequiredFileName(entry, context.dlcRoot)
             val appliedTargets: MutableList<AppliedTarget> = collectExistingRequiredTargets(entry, oldFileName)
             val wasApplied = !appliedTargets.isEmpty()
-            if (shouldRedownload && wasApplied) {
-                for (target in appliedTargets) {
-                    val resolved: Path? = if (target.directory)
-                        (if (oldFileName == null) null else target.path!!.resolve(oldFileName))
-                    else
-                        target.path
-                    if (resolved != null) {
-                        backupAndDelete(resolved, context)
-                    }
-                }
-            }
             if (shouldRedownload && oldFileName != null) {
-                val oldDownload = entry.resolveRequiredPath(oldFileName)
+                val oldDownload = entry.resolveDownloadPath(oldFileName)
                 if (oldDownload != null && Files.exists(oldDownload)) {
                     backupAndDelete(oldDownload, context)
                 }
@@ -1611,7 +1609,7 @@ object DlcUpdateService {
                 rewriteInfoFileWithNewFileName(infoPath, downloaded.fileName, context)
             }
             if (wasApplied) {
-                applyRequiredTargets(downloaded.path, downloaded.fileName, appliedTargets, context)
+                applyRequiredTargets(entry, oldFileName, downloaded.path, downloaded.fileName, appliedTargets, context)
             }
         }
     }
@@ -1753,47 +1751,30 @@ object DlcUpdateService {
         return map
     }
 
+    private fun remoteItem(entry: DlcRemoteEntry?, source: Path?): DlcItem? {
+        if (entry == null || source == null) return null
+        val type = entry.getType() ?: DlcType.UNKNOWN
+        val identifier = entry.getDlcIdentifier()?.takeIf { it.isNotBlank() } ?: source.fileName.toString()
+        val item = DlcItem(buildConfigKey(entry.getDlcRoot(), source, type), identifier, identifier, type, source, entry.getAppliedTargetRaw(), false, null, null, emptyList(), emptyList(), true, false, entry.isConfigType(), false)
+        item.setDlcRoot(entry.getDlcRoot()!!)
+        item.setMatchMode(entry.getMatchMode())
+        return item
+    }
+
+    @Throws(IOException::class)
+    private fun prepareRemoteUpdateBackups(entry: DlcRemoteEntry, context: UpdateContext) {
+        val item = remoteItem(entry, entry.getTargetPath()) ?: return
+        val key = DlcResourceHistory.key(item.getId() ?: "", "dlc")
+        for (target in DlcItemFiles.installed(item)) {
+            DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, item.getSourcePath()!!, target, true, item.getMatchMode())
+            backupAndDelete(target, context)
+        }
+    }
+
     private fun isRemoteEnabled(entry: DlcRemoteEntry?): Boolean {
-        if (entry == null) {
-            return false
-        }
-        var fileName: kotlin.String? = entry.getFileNameHint()
-        if (fileName == null || fileName.isBlank()) {
-            val target: Path? = entry.getTargetPath()
-            if (target == null) {
-                return false
-            }
-            fileName = target.getFileName().toString()
-        }
-        val type = if (entry.getType() == null) DlcType.UNKNOWN else entry.getType()
-        if (type == DlcType.UNKNOWN) {
-            val target: Path? = DlcPaths.resolveAppliedTarget(entry.getAppliedTargetRaw())
-            if (target == null) {
-                return false
-            }
-            val dirTarget =
-                DlcPaths.isAppliedTargetDirectory(entry.getAppliedTargetRaw(), target, entry.getTargetPath())
-            if (dirTarget) {
-                return Files.exists(target.resolve(fileName))
-            }
-            return Files.exists(target)
-        }
-        val targets: MutableList<Path> = when (type) {
-            DlcType.MOD -> mutableListOf(DlcPaths.modsDir())
-            DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots().toMutableList()
-            DlcType.DATA_PACK -> DlcConfig.getDatapackRoots().toMutableList()
-            DlcType.TACZ_PACK -> mutableListOf(DlcPaths.taczDir())
-            else -> mutableListOf()
-        }
-        if (targets.isEmpty()) {
-            return false
-        }
-        for (dir in targets) {
-            if (!Files.exists(dir.resolve(fileName))) {
-                return false
-            }
-        }
-        return true
+        val item = remoteItem(entry, entry?.getTargetPath()) ?: return false
+        return try { DlcItemFiles.installed(item).isNotEmpty() }
+        catch (_: IOException) { false }
     }
 
     private fun isRequiredApplied(entry: DlcRequiredEntry?, dlcRoot: Path?): Boolean {
@@ -2377,7 +2358,7 @@ object DlcUpdateService {
         if (entry is DlcRemoteEntry) {
             target = entry.resolveTargetPath(fileName)
         } else if (entry is DlcRequiredEntry) {
-            target = entry.resolveRequiredPath(fileName)
+            target = entry.resolveDownloadPath(fileName)
         } else {
             target = null
         }
@@ -2391,6 +2372,7 @@ object DlcUpdateService {
         if (!moveWithHelperFallback(tempFile, target, true)) {
             throw IOException(latestFailureMessage("failed to move downloaded file"))
         }
+        if (entry is DlcRequiredEntry) DlcResourceHistory.downloaded(entry.getDlcRoot()!!, entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), target)
         return DownloadedFile(target, fileName)
     }
 
@@ -2446,85 +2428,47 @@ object DlcUpdateService {
     }
 
     private fun applyRemoteTargets(entry: DlcRemoteEntry?, source: Path?, context: UpdateContext?): MutableList<Path?> {
-        val targets: MutableList<Path?> = ArrayList<Path?>()
-        if (entry == null || source == null) {
-            return targets
-        }
-        val type = if (entry.getType() == null) DlcType.UNKNOWN else entry.getType()
-        val fileName = source.getFileName().toString()
+        val targets = ArrayList<Path?>()
+        val item = remoteItem(entry, source) ?: return targets
+        val key = DlcResourceHistory.key(item.getId() ?: "", "dlc")
         try {
-            if (type == DlcType.UNKNOWN) {
-                val target: Path? = DlcPaths.resolveAppliedTarget(entry.getAppliedTargetRaw())
-                if (target == null) {
-                    return targets
-                }
-                val dirTarget = DlcPaths.isAppliedTargetDirectory(entry.getAppliedTargetRaw(), target, source)
-                if (dirTarget) {
-                    Files.createDirectories(target)
-                    val resolved = target.resolve(fileName)
-                    backupOrCreate(resolved, context)
-                    if (!copyWithHelperFallback(source, resolved, true)) {
-                        return targets
-                    }
-                    targets.add(resolved)
-                } else {
-                    if (target.getParent() != null) {
-                        Files.createDirectories(target.getParent())
-                    }
-                    backupOrCreate(target, context)
-                    if (!copyWithHelperFallback(source, target, true)) {
-                        return targets
-                    }
-                    targets.add(target)
-                }
-                return targets
-            }
-            val targetDirs: MutableList<Path> = when (type) {
-            DlcType.MOD -> mutableListOf(DlcPaths.modsDir())
-                DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots().toMutableList()
-                DlcType.DATA_PACK -> DlcConfig.getDatapackRoots().toMutableList()
-            DlcType.TACZ_PACK -> mutableListOf(DlcPaths.taczDir())
-            else -> mutableListOf()
-            }
-            for (targetDir in targetDirs) {
-                Files.createDirectories(targetDir)
-                val target = targetDir.resolve(fileName)
+            for (pair in DlcItemFiles.expected(item)) {
+                val target = pair.target()
                 backupOrCreate(target, context)
-                if (!copyWithHelperFallback(source, target, true)) {
-                    return targets
-                }
+                val replace = !DlcFileMatch.matches(pair.source(), target, "hash")
+                DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, pair.source(), target, replace, item.getMatchMode())
+                if (replace && !copyWithHelperFallback(pair.source(), target, true)) return targets
                 targets.add(target)
             }
-        } catch (ignored: IOException) {
-        }
+            if (targets.isNotEmpty()) DlcResourceHistory.complete(item.getDlcRoot(), "dlc", key)
+        } catch (exception: IOException) { throw java.io.UncheckedIOException("Remote update installation failed", exception) }
         return targets
     }
 
     private fun applyRequiredTargets(
+        entry: DlcRequiredEntry,
+        oldFileName: String?,
         source: Path?,
         fileName: kotlin.String?,
         targets: MutableList<AppliedTarget>?,
         context: UpdateContext?
     ) {
-        if (source == null || fileName == null || fileName.isBlank() || targets == null || targets.isEmpty()) {
-            return
-        }
+        if (source == null || fileName.isNullOrBlank() || targets.isNullOrEmpty()) return
+        entry.setResolvedFileName(fileName)
         for (applied in targets) {
-            if (applied.path == null) {
-                continue
+            val appliedPath = applied.path ?: continue
+            val target = if (applied.directory) appliedPath.resolve(fileName) else appliedPath
+            val oldTarget = if (applied.directory && oldFileName != null) appliedPath.resolve(oldFileName) else appliedPath
+            if (oldTarget != target && Files.exists(oldTarget)) {
+                DlcResourceHistory.prepare(entry.getDlcRoot()!!, "required", entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source, oldTarget, true, entry.getMatchMode())
+                backupAndDelete(oldTarget, context)
             }
-            val target: Path = if (applied.directory) applied.path.resolve(fileName) else applied.path
-            try {
-                if (target.getParent() != null) {
-                    Files.createDirectories(target.getParent())
-                }
-                backupOrCreate(target, context)
-                if (!copyWithHelperFallback(source, target, true)) {
-                    continue
-                }
-            } catch (ignored: IOException) {
-            }
+            backupOrCreate(target, context)
+            val replace = !DlcFileMatch.matches(source, target, "hash")
+            DlcResourceHistory.prepare(entry.getDlcRoot()!!, "required", entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source, target, replace, entry.getMatchMode())
+            if (replace && !copyWithHelperFallback(source, target, true)) throw IOException(latestFailureMessage("required update installation failed"))
         }
+        DlcResourceHistory.complete(entry.getDlcRoot()!!, "required", entry.getHistoryKey())
     }
 
     private fun backupOrCreate(target: Path?, context: UpdateContext?) {
@@ -2556,6 +2500,8 @@ object DlcUpdateService {
         if (state == null) {
             state = DlcState()
         }
+        state.root = DlcPathUtil.toGameRelativePath(entry.getDlcRoot())
+        state.mode = entry.getMatchMode()
         state.enabled = true
         state.appliedTargets = applied.stream()
             .map<kotlin.String?> { obj: Path? -> DlcPathUtil.toGameRelativePath(obj) }
@@ -2571,7 +2517,7 @@ object DlcUpdateService {
             return null
         }
         val rootId: kotlin.String = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/')
-        val relative = dlcRoot.relativize(source).toString().replace('\\', '/')
+        val relative = dlcRoot.relativize(source).toString().replace('\\', '/').removePrefix("downloaded/DLCs/")
         return type.name.lowercase() + ":" + rootId + "|" + relative
     }
 
@@ -2675,6 +2621,16 @@ object DlcUpdateService {
         if (entry == null) {
             return
         }
+        try {
+            for (target in entry.resolveAppliedTargets()) {
+                val resolved = resolveTarget(target, resolveRequiredFileName(entry, dlcRoot))
+                if (resolved != null && Files.exists(resolved)) backupPath(DlcPathUtil.toGameRelativePath(resolved), resolved, context)
+            }
+            if (DlcResourceHistory.restore(dlcRoot, "required", entry.getHistoryKey(), true)) {
+                deleteRequiredDownload(entry, dlcRoot, resolveRequiredFileName(entry, dlcRoot), context)
+                return
+            }
+        } catch (exception: IOException) { throw java.io.UncheckedIOException("Required resource recovery failed", exception) }
         val requiredFileName: kotlin.String? = resolveRequiredFileName(entry, dlcRoot)
         deleteRequiredDownload(entry, dlcRoot, requiredFileName, context)
         for (target in entry.resolveAppliedTargets()) {
@@ -2772,7 +2728,7 @@ object DlcUpdateService {
             return
         }
         val rootId: kotlin.String = DlcPathUtil.toGameRelativePath(dlcRoot).replace('\\', '/')
-        val relative = dlcRoot.relativize(target).toString().replace('\\', '/')
+        val relative = dlcRoot.relativize(target).toString().replace('\\', '/').removePrefix("downloaded/DLCs/")
         val suffix = ":" + rootId + "|" + relative
         for (entry in DlcStateConfig.getAllStates().entries) {
             val key: kotlin.String? = entry.key
@@ -2802,49 +2758,13 @@ object DlcUpdateService {
         requiredFileName: kotlin.String?,
         context: UpdateContext?
     ) {
-        if (entry == null || dlcRoot == null) {
-            return
-        }
-        val requiredDir = dlcRoot.resolve("required")
-        if (!Files.isDirectory(requiredDir)) {
-            return
-        }
-        if (requiredFileName == null || requiredFileName.isBlank()) {
-            return
-        }
-        val downloaded = requiredDir.resolve(requiredFileName)
-        if (Files.exists(downloaded)) {
-            backupAndDelete(downloaded, context)
-        }
+        if (entry == null || requiredFileName == null) return
+        val downloaded = entry.resolveDownloadPath(requiredFileName)
+        if (downloaded != null && Files.exists(downloaded)) backupAndDelete(downloaded, context)
     }
 
     private fun resolveRequiredFileName(entry: DlcRequiredEntry?, dlcRoot: Path?): kotlin.String? {
-        if (entry == null || dlcRoot == null) {
-            return null
-        }
-        val fileName = entry.getRequiredFileName()
-        if (fileName != null && !fileName.isBlank()) {
-            return fileName
-        }
-        val requiredDir = dlcRoot.resolve("required")
-        if (!Files.isDirectory(requiredDir)) {
-            return null
-        }
-        val base = entry.getBaseName()
-        if (base.isBlank()) {
-            return null
-        }
-        try {
-            Files.newDirectoryStream(requiredDir, base + ".*").use { stream ->
-                for (file in stream) {
-                    if (file != null && !DlcDcFormatUtil.isDcName(file.getFileName().toString())) {
-                        return file.getFileName().toString()
-                    }
-                }
-            }
-        } catch (ignored: IOException) {
-        }
-        return null
+        return DlcRequiredService.resolveExistingFileName(entry)
     }
 
     private fun backupAndDelete(target: Path?, context: UpdateContext?) {
@@ -2860,6 +2780,10 @@ object DlcUpdateService {
     private fun rollbackUpdate(context: UpdateContext?) {
         if (context == null || context.backupRoot == null || context.meta == null) {
             return
+        }
+        for ((oldKey, newKey) in context.resourceRekeys) {
+            try { DlcResourceHistory.rekey(context.dlcRoot!!, "dlc", newKey, oldKey) }
+            catch (_: IOException) { recordFileOpFailure(context, "restore DLC history", context.dlcRoot) }
         }
         for (created in context.meta.getCreatedPaths()) {
             val target: Path? = DlcUpdateService.resolveGamePath(DlcPaths.gameDir(), created)
@@ -4229,6 +4153,7 @@ object DlcUpdateService {
         var addedRemote = false
         var helperScheduled = false
         val failureMessages: MutableList<kotlin.String?> = ArrayList<kotlin.String?>()
+        val resourceRekeys = LinkedHashMap<String, String>()
     }
 
     private class JsonObjectHolder(val obj: JsonObject?) {

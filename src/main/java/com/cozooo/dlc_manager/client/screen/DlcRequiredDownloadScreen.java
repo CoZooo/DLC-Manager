@@ -591,34 +591,7 @@ public class DlcRequiredDownloadScreen extends DlcPageScreen {
     }
 
     private String resolveExistingFileName(DlcRequiredEntry entry) {
-        String fileName = entry.getResolvedFileName();
-        if (isConfigFileName(fileName) || isTempFileName(fileName)) {
-            fileName = null;
-        }
-        if (fileName != null && !fileName.isBlank()) {
-            Path target = entry.resolveRequiredPath(fileName);
-            if (target != null && Files.exists(target) && !isConfigFile(entry, target)) {
-                return fileName;
-            }
-        }
-        String base = entry.getBaseName();
-        if (entry.getRequiredDir() == null || base == null || base.isBlank()) {
-            return fileName;
-        }
-        try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
-            for (Path path : stream) {
-                if (isConfigFile(entry, path)) {
-                    continue;
-                }
-                String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (isTempFileName(name)) {
-                    continue;
-                }
-                return name;
-            }
-        } catch (IOException ignored) {
-        }
-        return fileName;
+        return DlcRequiredService.resolveExistingFileName(entry);
     }
 
     private void markDownloadStart(String key) {

@@ -32,6 +32,7 @@ public final class DlcEarlyInstaller {
             if (server) DlcConfig.loadServer(); else DlcConfig.loadClient();
             validateConfigs(DlcConfig.getDlcRoots());
             List<DlcRequiredEntry> entries = DlcRequiredRuntime.loadAllEntries();
+            DlcRequiredService.reconcileEntries(entries);
             int downloaded = 0;
             int installed = 0;
             for (DlcRequiredEntry entry : entries) {
@@ -49,7 +50,7 @@ public final class DlcEarlyInstaller {
                         }, () -> Thread.currentThread().isInterrupted());
                         downloaded++;
                     }
-                    if (DlcRequiredRuntime.entryNeedsApply(entry) && DlcRequiredService.installOne(entry)) installed++;
+                    if (DlcRequiredService.installOne(entry)) installed++;
                 } catch (IOException | RuntimeException ex) {
                     throw new IOException("Cannot install required resource '" + entry.getIdentifier() + "' from " + entry.getConfigPath(), ex);
                 }

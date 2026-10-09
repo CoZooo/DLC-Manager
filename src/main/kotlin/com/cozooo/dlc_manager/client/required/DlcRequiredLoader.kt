@@ -108,6 +108,7 @@ object DlcRequiredLoader {
             return null
         }
         val entry = DlcRequiredEntry(configPath, requiredDir)
+        entry.setMatchMode(getString(obj, "mode"))
         if (!defaultIdentifier.isNullOrBlank()) {
             entry.setIdentifier(defaultIdentifier)
         }

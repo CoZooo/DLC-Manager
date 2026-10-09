@@ -12,6 +12,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.ArrayDeque
@@ -363,9 +364,9 @@ object DlcRequiredRuntime {
         }
         for (target in entry.resolveAppliedTargets()) {
             val targetFile = resolveTarget(target, fileName)
-            if (targetFile == null || !Files.exists(targetFile)) {
-                return true
-            }
+            try {
+                if (!com.cozooo.dlc_manager.core.DlcFileMatch.matches(entry.resolveRequiredPath(fileName), targetFile, entry.getMatchMode())) return true
+            } catch (_: IOException) { return true }
         }
         return false
     }
@@ -439,8 +440,8 @@ object DlcRequiredRuntime {
     }
 
     private fun resolveFileNameLocal(entry: DlcRequiredEntry?): String? {
-        val fileName = guessFileName(entry)
-        return if (!fileName.isNullOrBlank()) fileName else null
+        val guessed = guessFileName(entry)
+        return if (!guessed.isNullOrBlank()) guessed else DlcRequiredService.resolveExistingFileName(entry)
     }
 
     private fun resolveExistingRequiredFile(entry: DlcRequiredEntry?): String? {

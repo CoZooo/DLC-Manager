@@ -38,6 +38,7 @@ public class DlcTooltipLoader {
                     if (entry != null && entry.dlcName != null) {
                         TooltipData data = new TooltipData(entry.dlcIdentifier, entry.tip, entry.displayName, entry.type, entry.typeValid, entry.hasTypeField, entry.configType,
                             entry.hidden, entry.allowEnableByAll, entry.dependencies, entry.conflicts, entry.appliedTargetRaw, entry.redirectUrl, entry.fileNames, entry.alarm);
+                        data.setMatchMode(entry.matchMode);
                         result.put(entry.dlcName, data);
                     }
                 });
@@ -168,6 +169,7 @@ public class DlcTooltipLoader {
         entry.dependencies = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "dependencies"));
         entry.conflicts = parseDependencyNames(DlcDcConfigIO.getIgnoreCase(obj, "conflicts"));
         entry.alarm = getBoolean(obj, "alarm", false);
+        entry.matchMode = DlcFileMatch.mode(getString(obj, "mode"));
         entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "fileNames"));
         if (entry.fileNames.isEmpty()) {
             entry.fileNames = parseFileNames(DlcDcConfigIO.getIgnoreCase(obj, "fileName"));
@@ -575,6 +577,7 @@ public class DlcTooltipLoader {
         String redirectUrl;
         java.util.List<String> fileNames = java.util.List.of();
         boolean alarm;
+        String matchMode = "hash";
     }
 
     public static class TooltipData {
@@ -593,6 +596,9 @@ public class DlcTooltipLoader {
         private final String redirectUrl;
         private final java.util.List<String> fileNames;
         private final boolean alarm;
+        private String matchMode = "hash";
+        public String getMatchMode() { return matchMode; }
+        public void setMatchMode(String value) { matchMode = DlcFileMatch.mode(value); }
 
         public TooltipData(String identifier, Map<String, String> tips, Map<String, String> displayName, DlcType type, boolean typeValid, boolean hasTypeField, boolean configType,
             boolean hidden, boolean allowEnableByAll, java.util.List<String> dependencies, java.util.List<String> conflicts,

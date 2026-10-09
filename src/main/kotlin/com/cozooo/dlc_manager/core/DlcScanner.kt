@@ -19,31 +19,34 @@ class DlcScanner {
     }
 
     fun scan(detectInstalledState: Boolean): MutableMap<DlcType?, MutableList<DlcItem?>?> {
-        val grouped: MutableMap<DlcType?, MutableList<DlcItem?>?> = EnumMap<DlcType, MutableList<DlcItem?>?>(DlcType::class.java)
-        for (type in DlcType.values()) {
-            grouped[type] = ArrayList()
-        }
-
-        val roots = DlcConfig.getDlcRoots()
-        val taczRoots = DlcConfig.getTaczDlcRoots()
-        val tooltipLoader = DlcTooltipLoader()
-        val mainDlcRoot = if (DlcConfig.getDlcRoots().isEmpty()) null else DlcConfig.getDlcRoots()[0]
-        val mainInfoDir = mainDlcRoot?.resolve("info")
-        val tooltips = if (mainDlcRoot == null) emptyMap() else tooltipLoader.loadTooltips(mainDlcRoot)
-        val seen = HashSet<Path>()
-        for (root in roots) {
-            if (!Files.exists(root) || seen.contains(root)) {
-                continue
+        DlcFileMatch.beginScan()
+        try {
+            val grouped: MutableMap<DlcType?, MutableList<DlcItem?>?> = EnumMap<DlcType, MutableList<DlcItem?>?>(DlcType::class.java)
+            for (type in DlcType.values()) {
+                grouped[type] = ArrayList()
             }
-            seen.add(root)
-            scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir, detectInstalledState)
-        }
 
-        if (DlcPlatformServices.isModLoaded("tacz")) {
-            scanTaczRoots(grouped, tooltipLoader, detectInstalledState)
-        }
+            val roots = DlcConfig.getDlcRoots()
+            val taczRoots = DlcConfig.getTaczDlcRoots()
+            val tooltipLoader = DlcTooltipLoader()
+            val mainDlcRoot = if (DlcConfig.getDlcRoots().isEmpty()) null else DlcConfig.getDlcRoots()[0]
+            val mainInfoDir = mainDlcRoot?.resolve("info")
+            val tooltips = if (mainDlcRoot == null) emptyMap() else tooltipLoader.loadTooltips(mainDlcRoot)
+            val seen = HashSet<Path>()
+            for (root in roots) {
+                if (!Files.exists(root) || seen.contains(root)) {
+                    continue
+                }
+                seen.add(root)
+                scanRoot(grouped, root, taczRoots, tooltips, tooltipLoader, mainInfoDir, detectInstalledState)
+            }
 
-        return grouped
+            if (DlcPlatformServices.isModLoaded("tacz")) {
+                scanTaczRoots(grouped, tooltipLoader, detectInstalledState)
+            }
+
+            return grouped
+        } finally { DlcFileMatch.endScan() }
     }
 
     private fun scanRoot(
@@ -69,6 +72,7 @@ class DlcScanner {
                 root,
                 object : SimpleFileVisitor<Path>() {
                     override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
+                        if (dir.normalize().startsWith(root.resolve("downloaded/required").normalize())) return FileVisitResult.SKIP_SUBTREE
                         if (root == dir) {
                             return FileVisitResult.CONTINUE
                         }
@@ -201,10 +205,11 @@ class DlcScanner {
         infoDir: Path?,
         detectInstalledState: Boolean,
     ) {
-        val relative = root.relativize(source).toString().replace('\\', '/')
+        if (source.toAbsolutePath().normalize() in remoteMetadata.shadowed) return
+        val relative = root.relativize(source).toString().replace('\\', '/').removePrefix("downloaded/DLCs/")
         val rootId = DlcPathUtil.toGameRelativePath(root).replace('\\', '/')
         val name = source.fileName.toString()
-        var tooltipData = remoteMetadata.get(name)
+        var tooltipData = remoteMetadata.get(relative) ?: remoteMetadata.get(name)
         if (tooltipData == null) {
             tooltipData = tooltips[name]
         }
@@ -237,11 +242,7 @@ class DlcScanner {
         if (effectiveType == DlcType.UNKNOWN && appliedTargetRaw.isNullOrBlank()) {
             return
         }
-        val enabled = if (detectInstalledState) {
-            isEnabledInTargets(id, name, fileNames, effectiveType, appliedTargetRaw, source, configType)
-        } else {
-            isEnabledInState(id)
-        }
+        val enabled = isEnabledInState(id)
         val tips = tooltipData?.getTips()
         val hidden = tooltipData != null && tooltipData.isHidden()
         var displayNames = tooltipData?.getDisplayName()
@@ -270,173 +271,21 @@ class DlcScanner {
         if (tooltipData != null) {
             item.setRedirectUrl(tooltipData.getRedirectUrl())
         }
-        if (detectInstalledState && enabled) {
-            item.getAppliedTargets().addAll(detectAppliedTargets(id, name, fileNames, effectiveType, appliedTargetRaw, source, configType))
+        item.setDlcRoot(if (root in DlcConfig.getDlcRoots()) root else DlcConfig.getDlcRoot())
+        item.setMatchMode(tooltipData?.getMatchMode() ?: "hash")
+        if (detectInstalledState) {
+            try {
+                val installed = DlcItemFiles.installed(item)
+                item.setEnabled(installed.isNotEmpty())
+                item.getAppliedTargets().addAll(installed)
+            } catch (_: IOException) { item.setEnabled(false) }
         }
         grouped[effectiveType]?.add(item)
-    }
-
-    private fun isEnabledInTargets(
-        itemId: String,
-        fileName: String,
-        fileNames: List<String>,
-        type: DlcType,
-        appliedTargetRaw: String?,
-        source: Path,
-        configType: Boolean,
-    ): Boolean {
-        if (type == DlcType.UNKNOWN) {
-            val target = DlcPaths.resolveAppliedTarget(appliedTargetRaw) ?: return false
-            val dirTarget = DlcPaths.isAppliedTargetDirectory(appliedTargetRaw, target, source)
-            if (fileNames.isNotEmpty()) {
-                if (!dirTarget && fileNames.size > 1) {
-                    return false
-                }
-                for (entry in fileNames) {
-                    if (entry.isBlank()) {
-                        continue
-                    }
-                    val normalized = entry.replace('\\', '/')
-                    val check = if (dirTarget) target.resolve(normalized) else target
-                    if (configType) {
-                        if (!DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check) &&
-                            !DlcConfigTypeSupport.hasBackupForTarget(check)
-                        ) {
-                            return false
-                        }
-                    } else if (!Files.exists(check)) {
-                        return false
-                    }
-                    if (!dirTarget) {
-                        break
-                    }
-                }
-                return true
-            }
-            if (dirTarget) {
-                val check = target.resolve(fileName)
-                return if (configType) {
-                    DlcConfigTypeSupport.hasBackupForItemTarget(itemId, check) || DlcConfigTypeSupport.hasBackupForTarget(check)
-                } else {
-                    Files.exists(check)
-                }
-            }
-            return if (configType) {
-                DlcConfigTypeSupport.hasBackupForItemTarget(itemId, target) || DlcConfigTypeSupport.hasBackupForTarget(target)
-            } else {
-                Files.exists(target)
-            }
-        }
-        val targetDirs = when (type) {
-            DlcType.MOD -> listOf(DlcPaths.modsDir())
-            DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots()
-            DlcType.DATA_PACK -> DlcConfig.getDatapackRoots()
-            DlcType.TACZ_PACK -> listOf(DlcPaths.taczDir())
-            else -> emptyList()
-        }
-        if (type == DlcType.RESOURCE_PACK) {
-            return DlcPlatformServices.isResourcePackSelected(fileName)
-        }
-        if (targetDirs.isEmpty()) {
-            return false
-        }
-        for (dir in targetDirs) {
-            if (!Files.exists(dir.resolve(fileName))) {
-                return false
-            }
-        }
-        return true
     }
 
     private fun isEnabledInState(id: String): Boolean {
         val state = DlcStateConfig.getState(id)
         return state != null && state.enabled
-    }
-
-    private fun detectAppliedTargets(
-        itemId: String,
-        fileName: String,
-        fileNames: List<String>,
-        type: DlcType,
-        appliedTargetRaw: String?,
-        source: Path,
-        configType: Boolean,
-    ): List<Path> {
-        if (type == DlcType.UNKNOWN) {
-            val target = DlcPaths.resolveAppliedTarget(appliedTargetRaw) ?: return emptyList()
-            val dirTarget = DlcPaths.isAppliedTargetDirectory(appliedTargetRaw, target, source)
-            if (fileNames.isNotEmpty()) {
-                val result = ArrayList<Path>()
-                if (!dirTarget && fileNames.size > 1) {
-                    return emptyList()
-                }
-                for (entry in fileNames) {
-                    if (entry.isBlank()) {
-                        continue
-                    }
-                    val normalized = entry.replace('\\', '/')
-                    val check = if (dirTarget) target.resolve(normalized) else target
-                    if (configType) {
-                        val stored = detectConfigStatePath(itemId, check) ?: return emptyList()
-                        result.add(stored)
-                    } else {
-                        if (!Files.exists(check)) {
-                            return emptyList()
-                        }
-                        result.add(check)
-                    }
-                    if (!dirTarget) {
-                        break
-                    }
-                }
-                return result
-            }
-            val check = if (dirTarget) target.resolve(fileName) else target
-            if (configType) {
-                val stored = detectConfigStatePath(itemId, check)
-                return if (stored == null) emptyList() else listOf(stored)
-            }
-            return if (Files.exists(check)) listOf(check) else emptyList()
-        }
-        val targetDirs = when (type) {
-            DlcType.MOD -> listOf(DlcPaths.modsDir())
-            DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots()
-            DlcType.DATA_PACK -> DlcConfig.getDatapackRoots()
-            DlcType.TACZ_PACK -> listOf(DlcPaths.taczDir())
-            else -> emptyList()
-        }
-        if (targetDirs.isEmpty()) {
-            return emptyList()
-        }
-        val result = ArrayList<Path>()
-        for (dir in targetDirs) {
-            val check = dir.resolve(fileName)
-            if (!Files.exists(check)) {
-                return emptyList()
-            }
-            result.add(check)
-        }
-        return result
-    }
-
-    private fun detectConfigStatePath(itemId: String, target: Path): Path? {
-        val backup = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target)
-        val marker = DlcConfigTypeSupport.missingMarkerPath(backup)
-        if (Files.exists(marker)) {
-            return marker
-        }
-        if (Files.exists(backup)) {
-            return backup
-        }
-        val legacyBackup = DlcConfigTypeSupport.backupPathForTarget(target)
-        val legacyMarker = DlcConfigTypeSupport.missingMarkerPath(legacyBackup)
-        if (Files.exists(legacyMarker)) {
-            return legacyMarker
-        }
-        if (Files.exists(legacyBackup)) {
-            return legacyBackup
-        }
-        return null
     }
 
     private fun buildGroupedOwners(tooltips: Map<String, DlcTooltipLoader.TooltipData>?): Map<String, String> {
@@ -550,6 +399,7 @@ class DlcScanner {
             return RemoteMetadataLookup.empty()
         }
         val byFileName = HashMap<String, DlcTooltipLoader.TooltipData>()
+        val lookup = RemoteMetadataLookup(byFileName)
         val ambiguousFileNames = HashSet<String>()
         for (entry: DlcRemoteEntry? in entries) {
             if (entry == null) {
@@ -559,7 +409,12 @@ class DlcScanner {
             if (fileName.isNullOrBlank()) {
                 continue
             }
+            val newPath = entry.resolveTargetPath(fileName)
+            val legacy = if (entry.getType() == DlcType.DLC_PACK) root.resolve("pack").resolve(fileName) else entry.getBaseDir()?.resolve(fileName)
+            if (newPath != null && Files.exists(newPath) && legacy != null) lookup.shadowed.add(legacy.toAbsolutePath().normalize())
             if (entry.getType() == DlcType.DLC_PACK) {
+                if (newPath != null) lookup.shadowed.add(newPath.toAbsolutePath().normalize())
+                if (legacy != null) lookup.shadowed.add(legacy.toAbsolutePath().normalize())
                 continue
             }
             var identifier = entry.getDlcIdentifier()
@@ -584,6 +439,8 @@ class DlcScanner {
                 emptyList(),
                 entry.isAlarm(),
             )
+            data.setMatchMode(entry.getMatchMode())
+            if (legacy != null) lookup.byPath[root.toAbsolutePath().normalize().relativize(legacy.toAbsolutePath().normalize()).toString().replace('\\', '/')] = data
             if (ambiguousFileNames.contains(fileName)) {
                 continue
             }
@@ -595,7 +452,7 @@ class DlcScanner {
                 ambiguousFileNames.add(fileName)
             }
         }
-        return RemoteMetadataLookup(byFileName)
+        return lookup
     }
 
     private class RemoteMetadataLookup(
@@ -608,11 +465,13 @@ class DlcScanner {
             }
         }
 
+        val byPath = HashMap<String, DlcTooltipLoader.TooltipData>()
+        val shadowed = HashSet<Path>()
         fun get(fileName: String?): DlcTooltipLoader.TooltipData? {
             if (fileName.isNullOrBlank()) {
                 return null
             }
-            return byFileName[fileName]
+            return byPath[fileName] ?: byFileName[fileName]
         }
 
         fun contains(fileName: String?): Boolean {

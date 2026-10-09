@@ -146,7 +146,7 @@ object DlcRemoteService {
                         val finalFileName = finalizeFileName(fileName, entry, candidate.url)
                         val target = entry.resolveTargetPath(finalFileName) ?: throw IOException("invalid target path")
                         Files.createDirectories(target.parent)
-                        if (Files.exists(target)) {
+                        if (Files.exists(entry.resolveExistingTargetPath(finalFileName))) {
                             entry.setFileNameHint(finalFileName)
                             DlcRemoteRuntime.updateFileNameKey(entry, finalFileName)
                             return finalFileName
@@ -238,7 +238,7 @@ object DlcRemoteService {
                 continue
             }
             val fileName = finalizeFileName(candidate.fileNameOverride, entry, candidate.url)
-            val target = entry.resolveTargetPath(fileName) ?: continue
+            val target = entry.resolveExistingTargetPath(fileName) ?: continue
             if (!Files.exists(target)) {
                 return true
             }

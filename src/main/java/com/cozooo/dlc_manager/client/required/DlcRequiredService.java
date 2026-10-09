@@ -5,6 +5,8 @@ import com.cozooo.dlc_manager.client.download.DlcDownloadService;
 import com.cozooo.dlc_manager.client.download.DlcDownloadUtil;
 import com.cozooo.dlc_manager.client.download.DlcSharedService;
 import com.cozooo.dlc_manager.core.DlcConfig;
+import com.cozooo.dlc_manager.core.DlcFileMatch;
+import com.cozooo.dlc_manager.core.DlcResourceHistory;
 import com.cozooo.dlc_manager.core.DlcDcFormatUtil;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -134,7 +136,7 @@ public final class DlcRequiredService {
         if (entry == null) {
             throw new IOException("missing required entry");
         }
-        Path requiredDir = entry.getRequiredDir();
+        Path requiredDir = entry.getDownloadDir();
         if (requiredDir == null) {
             throw new IOException("missing required directory");
         }
@@ -176,7 +178,7 @@ public final class DlcRequiredService {
                         if (fileName == null) {
                             fileName = DlcDownloadUtil.stripQuery(entry.getBaseName());
                         }
-                        Path resolvedTarget = entry.resolveRequiredPath(fileName);
+                        Path resolvedTarget = entry.resolveDownloadPath(fileName);
                         if (resolvedTarget == null) {
                             throw new IOException("invalid target path");
                         }
@@ -190,6 +192,7 @@ public final class DlcRequiredService {
                         DlcSharedService.verifyDownloadedFile(resolved, candidate, downloadInfo, cancelChecker);
                         entry.setResolvedFileName(fileName);
                         DlcRequiredRuntime.updateFileNameKey(entry, fileName);
+                        DlcResourceHistory.downloaded(entry.getDlcRoot(), entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), resolved);
                         return fileName;
                     } catch (DlcDownloadService.DownloadCanceledException ex) {
                         if (DlcSharedService.isSwitchRequested(switchChecker, entry)) {
@@ -280,16 +283,36 @@ public final class DlcRequiredService {
                 continue;
             }
             Files.createDirectories(target.getParent());
-            if (!Files.exists(target)) {
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            boolean replace = !DlcFileMatch.matches(source, target, entry.getMatchMode());
+            DlcResourceHistory.prepare(entry.getDlcRoot(), "required", entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source, target, replace, entry.getMatchMode());
+            if (replace) {
+                DlcResourceHistory.replace(source, target);
                 applied = true;
             }
         }
+        if (appliedTargets.isEmpty()) DlcResourceHistory.downloaded(entry.getDlcRoot(), entry.getHistoryKey(), entry.getIdentifier(), entry.getConfigPath(), source);
+        DlcResourceHistory.complete(entry.getDlcRoot(), "required", entry.getHistoryKey());
         String id = entry.getIdentifier();
         if (id != null && !id.isBlank()) {
             DlcRequiredRuntimeState.setOverride(id, true);
         }
         return applied;
+    }
+
+    public static void reconcileEntries(List<DlcRequiredEntry> entries) throws IOException {
+        for (Path root : DlcConfig.getDlcRoots()) reconcileRoot(root, entries);
+    }
+
+    public static void reconcileRoot(Path root, List<DlcRequiredEntry> entries) throws IOException {
+        java.util.Set<String> keys = new java.util.HashSet<>();
+        java.util.Set<String> downloads = new java.util.HashSet<>();
+        for (DlcRequiredEntry entry : entries) {
+            if (!root.toAbsolutePath().normalize().equals(entry.getDlcRoot().toAbsolutePath().normalize())) continue;
+            keys.add(entry.getHistoryKey());
+            Path cache = entry.resolveDownloadPath(resolveExistingFileName(entry));
+            if (cache != null) downloads.add(DlcResourceHistory.relativePath(cache));
+        }
+        DlcResourceHistory.reconcileRequired(root, keys, downloads);
     }
 
     public static String resolveExistingFileName(DlcRequiredEntry entry) {
@@ -310,18 +333,14 @@ public final class DlcRequiredService {
         if (entry.getRequiredDir() == null || base == null || base.isBlank()) {
             return fileName;
         }
-        try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
-            for (Path path : stream) {
-                if (isConfigFile(entry, path)) {
-                    continue;
+        for (Path directory : List.of(entry.getDownloadDir(), entry.getRequiredDir())) {
+            if (!Files.isDirectory(directory)) continue;
+            try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(directory, base + ".*")) {
+                for (Path path : stream) {
+                    String name = path.getFileName().toString();
+                    if (!isConfigFile(entry, path) && !isTempFileName(name) && Files.isRegularFile(path)) return name;
                 }
-                String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (isTempFileName(name)) {
-                    continue;
-                }
-                return name;
-            }
-        } catch (IOException ignored) {
+            } catch (IOException ignored) {}
         }
         return fileName;
     }
@@ -386,26 +405,7 @@ public final class DlcRequiredService {
     }
 
     private static String resolveExistingRequiredFile(DlcRequiredEntry entry) {
-        if (entry == null) {
-            return null;
-        }
-        String base = entry.getBaseName();
-        if (entry.getRequiredDir() == null || base == null || base.isBlank()) {
-            return null;
-        }
-        try (java.nio.file.DirectoryStream<Path> stream = Files.newDirectoryStream(entry.getRequiredDir(), base + ".*")) {
-            for (Path path : stream) {
-                if (isConfigFile(entry, path)) {
-                    continue;
-                }
-                String name = path.getFileName() == null ? "" : path.getFileName().toString();
-                if (!DlcDcFormatUtil.isDcName(name) && !isTempFileName(name)) {
-                    return name;
-                }
-            }
-        } catch (IOException ignored) {
-        }
-        return null;
+        return resolveExistingFileName(entry);
     }
 
     private static String chooseFileNameOriginal(DlcRequiredEntry entry, DlcDownloadCandidate candidate) {

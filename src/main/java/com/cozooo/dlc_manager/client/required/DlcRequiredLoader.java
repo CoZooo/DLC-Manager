@@ -121,6 +121,7 @@ public final class DlcRequiredLoader {
             return null;
         }
         DlcRequiredEntry entry = new DlcRequiredEntry(configPath, requiredDir);
+        entry.setMatchMode(getString(obj, "mode"));
         if (defaultIdentifier != null && !defaultIdentifier.isBlank()) {
             entry.setIdentifier(defaultIdentifier);
         }

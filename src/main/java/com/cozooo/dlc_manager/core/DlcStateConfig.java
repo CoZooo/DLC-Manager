@@ -3,9 +3,7 @@ import com.cozooo.dlc_manager.platform.DlcPlatformServices;
 import com.cozooo.dlc_manager.core.DlcDcConfigIO;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -16,58 +14,66 @@ import com.cozooo.dlc_manager.platform.PlatformServices;
 
 public class DlcStateConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final Type MAP_TYPE = new TypeToken<Map<String, DlcState>>() {}.getType();
 
-    private static Path configPath;
     private static Map<String, DlcState> stateById = new HashMap<>();
 
     public static void load() {
-        Path configDir = DlcPlatformServices.configDir().resolve("dlc_manager");
-        configPath = DlcDcFormatUtil.resolveConfigPath(configDir, "state");
         stateById = new HashMap<>();
-        boolean migrateLegacyStateSection = false;
-        if (configPath != null && Files.exists(configPath)) {
-            try {
-                com.google.gson.JsonObject root = DlcDcConfigIO.read(configPath, DlcDcConfigIO.Layout.GENERIC);
-                if (root != null) {
-                    DlcStateConfigData data = GSON.fromJson(root, DlcStateConfigData.class);
-                    if (data != null && data.DLC == null && data.stateById != null) {
-                        migrateLegacyStateSection = true;
-                    }
-                    Map<String, DlcState> loaded = selectStateMap(data);
-                    if (loaded != null && !loaded.isEmpty()) {
-                        stateById = new HashMap<>(loaded);
-                    } else {
-                        Map<String, DlcState> recovered = recoverFlattenedStateMap(root);
-                        if (!recovered.isEmpty()) {
-                            stateById = recovered;
-                        } else if (loaded != null) {
-                            stateById = new HashMap<>(loaded);
-                        }
-                    }
-                }
-            } catch (Exception ignored) {
-                stateById = new HashMap<>();
+        Path legacy = DlcPlatformServices.configDir().resolve("dlc_manager/state.dc");
+        Map<String, DlcState> oldStates = readStates(legacy);
+        for (Path root : DlcConfig.getDlcRoots()) {
+            Path path = root.resolve("tmp/state.dc");
+            Map<String, DlcState> loaded = Files.exists(path) ? readStates(path) : oldStates;
+            for (var entry : loaded.entrySet()) {
+                if (belongsToRoot(entry.getKey(), entry.getValue(), root)) stateById.put(entry.getKey(), entry.getValue());
             }
         }
-        boolean migrated = migrateLegacyStateSection;
-        migrated = migrateStoredPaths() || migrated;
-        migrated = migrateStateIds() || migrated;
-        migrated = normalizeEnabledStates() || migrated;
-        if (migrated) {
-            save();
+        migrateStoredPaths();
+        migrateStateIds();
+        normalizeEnabledStates();
+        for (List<DlcItem> items : new DlcScanner().scan(true).values()) {
+            for (DlcItem item : items) {
+                DlcState state = new DlcState();
+                state.enabled = item.isEnabled();
+                state.mode = item.getMatchMode();
+                state.root = DlcResourceHistory.relativePath(item.getDlcRoot());
+                state.appliedTargets = item.getAppliedTargets().stream().map(DlcResourceHistory::relativePath).toList();
+                stateById.put(item.getId(), state);
+            }
         }
+        save();
     }
 
     public static void save() {
-        try {
-            Files.createDirectories(configPath.getParent());
-            DlcStateConfigData data = new DlcStateConfigData();
-            data.DLC = stateById;
-            com.google.gson.JsonObject root = GSON.toJsonTree(data).getAsJsonObject();
-            DlcDcConfigIO.write(configPath, root, DlcDcConfigIO.Layout.GENERIC);
-        } catch (IOException ignored) {
+        for (Path root : DlcConfig.getDlcRoots()) {
+            Path path = root.resolve("tmp/state.dc");
+            try {
+                Files.createDirectories(path.getParent());
+                DlcStateConfigData data = new DlcStateConfigData();
+                Map<String, DlcState> states = new HashMap<>();
+                stateById.forEach((id, state) -> { if (belongsToRoot(id, state, root)) states.put(id, state); });
+                data.DLC = states;
+                DlcDcConfigIO.write(path, GSON.toJsonTree(data).getAsJsonObject(), DlcDcConfigIO.Layout.GENERIC);
+            } catch (IOException ignored) {}
         }
+    }
+
+    private static Map<String, DlcState> readStates(Path path) {
+        try {
+            com.google.gson.JsonObject object = DlcDcConfigIO.read(path, DlcDcConfigIO.Layout.GENERIC);
+            if (object == null) return Map.of();
+            Map<String, DlcState> loaded = selectStateMap(GSON.fromJson(object, DlcStateConfigData.class));
+            return loaded != null && !loaded.isEmpty() ? loaded : recoverFlattenedStateMap(object);
+        } catch (RuntimeException exception) { return Map.of(); }
+    }
+
+    private static boolean belongsToRoot(String id, DlcState state, Path root) {
+        String relative = DlcResourceHistory.relativePath(root);
+        if (state != null && state.root != null) return state.root.equals(relative);
+        int colon = id.indexOf(':');
+        int separator = id.indexOf('|');
+        if (colon >= 0 && separator > colon) return id.substring(colon + 1, separator).equals(relative);
+        return !DlcConfig.getDlcRoots().isEmpty() && root.equals(DlcConfig.getDlcRoots().get(0));
     }
 
     public static DlcState getState(String id) {
@@ -83,6 +89,8 @@ public class DlcStateConfig {
     }
 
     public static class DlcState {
+        public String root;
+        public String mode = "hash";
         public boolean enabled;
         public List<String> appliedTargets;
     }
@@ -114,7 +122,15 @@ public class DlcStateConfig {
         }
         boolean changed = false;
         for (DlcState state : stateById.values()) {
-            if (state == null || state.appliedTargets == null || state.appliedTargets.isEmpty()) {
+            if (state == null) continue;
+            if (state.root != null) {
+                Path storedRoot = DlcPaths.parsePathLenient(state.root);
+                if (storedRoot != null && storedRoot.isAbsolute()) {
+                    state.root = DlcResourceHistory.relativePath(storedRoot);
+                    changed = true;
+                }
+            }
+            if (state.appliedTargets == null || state.appliedTargets.isEmpty()) {
                 continue;
             }
             List<String> migrated = new java.util.ArrayList<>();
@@ -148,7 +164,8 @@ public class DlcStateConfig {
                         converted = true;
                     }
                     if (!converted) {
-                        migrated.add(normalized.toString());
+                        migrated.add(DlcResourceHistory.relativePath(normalized));
+                        localChanged = true;
                     }
                 } else {
                     migrated.add(path.toString());

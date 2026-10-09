@@ -48,9 +48,11 @@ object DlcApplier {
                     if (!wasEnabled) {
                         messages.add("Enabled " + item.getName())
                     }
-                    val statePaths = applyItem(item, wasEnabled)
+                    val statePaths = applyItem(item)
                     if (statePaths.isNotEmpty()) {
                         val state = DlcStateConfig.DlcState()
+                        state.root = DlcPathUtil.toGameRelativePath(item.getDlcRoot())
+                        state.mode = item.getMatchMode()
                         state.enabled = true
                         state.appliedTargets = statePaths.map(DlcPathUtil::toGameRelativePath)
                         DlcStateConfig.setState(item.getId(), state)
@@ -62,6 +64,8 @@ object DlcApplier {
                         messages.addAll(removal.messages)
                     }
                     val state = DlcStateConfig.DlcState()
+                    state.root = DlcPathUtil.toGameRelativePath(item.getDlcRoot())
+                    state.mode = item.getMatchMode()
                     state.enabled = false
                     state.appliedTargets = emptyList()
                     DlcStateConfig.setState(item.getId(), state)
@@ -437,117 +441,39 @@ object DlcApplier {
             DlcConfigTypeSupport.isConfigType(item)
     }
 
-    private fun applyItem(item: DlcItem, wasEnabled: Boolean): List<Path> {
+    private fun applyItem(item: DlcItem): List<Path> {
         val statePaths = ArrayList<Path>()
+        val key = DlcResourceHistory.key(item.getId() ?: "", "dlc")
         try {
-            if (item.getType() == DlcType.UNKNOWN) {
-                val target = DlcPaths.resolveAppliedTarget(item.getAppliedTargetRaw()) ?: return statePaths
-                val sources = item.getSourcePaths()
-                if (sources.isEmpty()) {
-                    return statePaths
+            for (pair in DlcItemFiles.expected(item)) {
+                var target = pair.target()
+                if (pair.searchByHash() && item.getMatchMode() == "hash") {
+                    val matching = DlcFileMatch.find(pair.source(), target.parent, "hash")
+                    if (matching != null) target = matching
                 }
-                val dirTarget = DlcPaths.isAppliedTargetDirectory(item.getAppliedTargetRaw(), target, sources[0])
-                if (!dirTarget && sources.size > 1) {
-                    return statePaths
+                val replace = !DlcFileMatch.matches(pair.source(), target, "hash")
+                DlcResourceHistory.prepare(item.getDlcRoot(), "dlc", key, item.getIdentifier(), null, pair.source(), target, replace, item.getMatchMode())
+                if (replace) {
+                    Files.createDirectories(target.parent)
+                    if (Files.isDirectory(target)) deleteRecursive(target)
+                    copyRecursive(pair.source(), target)
                 }
-                if (DlcConfigTypeSupport.isConfigType(item)) {
-                    return applyConfigItem(item, sources, target, dirTarget, wasEnabled)
-                }
-                if (dirTarget) {
-                    Files.createDirectories(target)
-                    for (source in sources) {
-                        val resolved = target.resolve(source.fileName.toString())
-                        if (!wasEnabled && Files.exists(resolved)) {
-                            backupExisting(resolved)
-                        }
-                        copyRecursive(source, resolved)
-                        statePaths.add(resolved)
-                    }
-                } else {
-                    val parent = target.parent
-                    if (parent != null) {
-                        Files.createDirectories(parent)
-                    }
-                    val source = sources[0]
-                    if (!wasEnabled && Files.exists(target)) {
-                        backupExisting(target)
-                    }
-                    copyRecursive(source, target)
-                    statePaths.add(target)
-                }
-                return statePaths
-            }
-            val targetDirs = when (item.getType()) {
-                DlcType.MOD -> listOf(DlcPaths.modsDir())
-                DlcType.RESOURCE_PACK -> DlcConfig.getResourcepackRoots()
-                DlcType.DATA_PACK -> DlcConfig.getDatapackRoots()
-                DlcType.TACZ_PACK -> listOf(DlcPaths.taczDir())
-                else -> emptyList()
-            }
-            for (targetDir in targetDirs) {
-                Files.createDirectories(targetDir)
-                val sourcePath = item.getSourcePath() ?: continue
-                val target = targetDir.resolve(sourcePath.fileName.toString())
-                if (!wasEnabled && Files.exists(target)) {
-                    backupExisting(target)
-                }
-                copyRecursive(sourcePath, target)
                 statePaths.add(target)
             }
-        } catch (ignored: IOException) {
-            recordApplyFailure(ignored)
-        }
-
+            if (statePaths.isNotEmpty()) DlcResourceHistory.complete(item.getDlcRoot(), "dlc", key)
+        } catch (exception: IOException) { recordApplyFailure(exception) }
         return statePaths
-    }
-
-    @Throws(IOException::class)
-    private fun applyConfigItem(item: DlcItem, sources: List<Path>, targetRoot: Path, dirTarget: Boolean, wasEnabled: Boolean): List<Path> {
-        val statePaths = ArrayList<Path>()
-        if (dirTarget) {
-            Files.createDirectories(targetRoot)
-            for (source in sources) {
-                val target = targetRoot.resolve(source.fileName.toString())
-                val statePath = backupConfigTarget(item.getId(), target, !wasEnabled)
-                copyRecursive(source, target)
-                statePaths.add(statePath)
-            }
-            return statePaths
-        }
-        val parent = targetRoot.parent
-        if (parent != null) {
-            Files.createDirectories(parent)
-        }
-        val source = sources[0]
-        val statePath = backupConfigTarget(item.getId(), targetRoot, !wasEnabled)
-        copyRecursive(source, targetRoot)
-        statePaths.add(statePath)
-        return statePaths
-    }
-
-    @Throws(IOException::class)
-    private fun backupConfigTarget(itemId: String?, target: Path, shouldCreate: Boolean): Path {
-        val backupPath = DlcConfigTypeSupport.backupPathForItemTarget(itemId, target)
-        val markerPath = DlcConfigTypeSupport.missingMarkerPath(backupPath)
-        if (shouldCreate) {
-            deleteRecursiveIfExists(backupPath)
-            deleteRecursiveIfExists(markerPath)
-            Files.createDirectories(DlcConfigTypeSupport.backupRootForItem(itemId))
-            if (Files.exists(target)) {
-                copyRecursive(target, backupPath)
-                return backupPath
-            }
-            Files.writeString(markerPath, CONFIG_MISSING_MARKER)
-            return markerPath
-        }
-        if (Files.exists(markerPath)) {
-            return markerPath
-        }
-        return backupPath
     }
 
     private fun removeItem(item: DlcItem, previous: DlcStateConfig.DlcState?): RemovalResult {
         val messages = ArrayList<String>()
+        try {
+            if (DlcResourceHistory.restore(item.getDlcRoot(), "dlc", DlcResourceHistory.key(item.getId() ?: "", "dlc"), false)) return RemovalResult(messages)
+        } catch (exception: IOException) {
+            messages.add("Failed to restore ${item.getName()}: ${exception.message}")
+            recordApplyFailure(exception)
+            return RemovalResult(messages)
+        }
         if (previous == null || previous.appliedTargets == null) {
             return RemovalResult(messages)
         }
@@ -583,7 +509,7 @@ object DlcApplier {
             val fallbackBackup = DlcConfigTypeSupport.backupPathForItemTarget(item.getId(), target)
             val fallbackMarker = DlcConfigTypeSupport.missingMarkerPath(fallbackBackup)
             var statePath = if (i < stored.size) resolveStoredPath(stored[i]) else null
-            if (statePath == null || statePath.toString().isBlank()) {
+            if (statePath == null || statePath.toString().isBlank() || statePath == target) {
                 statePath = if (Files.exists(fallbackMarker)) {
                     fallbackMarker
                 } else if (Files.exists(fallbackBackup)) {
@@ -691,29 +617,6 @@ object DlcApplier {
             )
         } else {
             copyWithHelperFallback(source, target)
-        }
-    }
-
-    private fun backupExisting(target: Path?) {
-        if (target == null || !Files.exists(target)) {
-            return
-        }
-        var backupRoot: Path? = null
-        if (DlcConfig.getDlcRoots().isNotEmpty()) {
-            backupRoot = DlcTmpPaths.resolve(DlcConfig.getDlcRoots()[0], "backup")
-        }
-        if (backupRoot == null) {
-            backupRoot = DlcTmpPaths.resolve(DlcPaths.gameDir(), "backup")
-        }
-        if (backupRoot == null) {
-            backupRoot = DlcPaths.gameDir().resolve("tmp").resolve("backup")
-        }
-        try {
-            Files.createDirectories(backupRoot)
-            val name = target.fileName.toString() + "." + System.currentTimeMillis() + ".bak"
-            val backupTarget = backupRoot.resolve(name)
-            copyRecursive(target, backupTarget)
-        } catch (_: IOException) {
         }
     }
 

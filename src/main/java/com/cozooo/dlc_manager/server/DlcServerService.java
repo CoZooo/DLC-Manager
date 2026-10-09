@@ -1085,12 +1085,9 @@ public class DlcServerService {
             Files.createDirectories(packRoot);
         } catch (IOException ignored) {
         }
-        if (!Files.isDirectory(packRoot)) {
-            return List.of();
-        }
         Map<String, DlcPackMeta> installed = loadInstalledPacks();
         List<DlcServerPackInfo> out = new ArrayList<>();
-        try (var stream = Files.list(packRoot)) {
+        try (var stream = DlcPackArchive.findArchives(DlcConfig.getDlcRoot()).stream()) {
             stream.filter(Files::isRegularFile)
                 .filter(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".zip"))
                 .sorted(java.util.Comparator.comparing(path -> path.getFileName().toString().toLowerCase(java.util.Locale.ROOT)))
@@ -1264,15 +1261,13 @@ public class DlcServerService {
     }
 
     private static Path resolvePackArchive(String archivePath) {
-        if (archivePath == null || archivePath.isBlank()) {
-            return null;
-        }
-        Path root = packArchiveRoot();
-        Path target = safeResolve(root, archivePath);
-        if (target == null) {
-            return null;
-        }
-        return target.toAbsolutePath().normalize().startsWith(root) ? target : null;
+        if (archivePath == null || archivePath.isBlank()) return null;
+        try {
+            Path local = packArchiveRoot();
+            Path downloaded = DlcConfig.getDlcRoot().resolve("downloaded/DLCs").toAbsolutePath().normalize();
+            Path target = local.resolve(archivePath).toAbsolutePath().normalize();
+            return target.startsWith(local) || target.startsWith(downloaded) ? target : null;
+        } catch (java.nio.file.InvalidPathException exception) { return null; }
     }
 
     private static String describePackPrecheck(DlcPackInstaller.PrecheckResult precheck) {

@@ -573,37 +573,7 @@ class DlcRequiredDownloadScreen @JvmOverloads constructor(
     }
 
     private fun resolveExistingFileName(entry: DlcRequiredEntry): String? {
-        var fileName = entry.getResolvedFileName()
-        if (isConfigFileName(fileName) || isTempFileName(fileName)) {
-            fileName = null
-        }
-        if (!fileName.isNullOrBlank()) {
-            val target = entry.resolveRequiredPath(fileName)
-            if (target != null && Files.exists(target) && !isConfigFile(entry, target)) {
-                return fileName
-            }
-        }
-        val base = entry.getBaseName()
-        val requiredDir = entry.getRequiredDir()
-        if (requiredDir == null || base.isBlank()) {
-            return fileName
-        }
-        try {
-            Files.newDirectoryStream(requiredDir, "$base.*").use { stream ->
-                for (path in stream) {
-                    if (isConfigFile(entry, path)) {
-                        continue
-                    }
-                    val name = path.fileName?.toString() ?: ""
-                    if (isTempFileName(name)) {
-                        continue
-                    }
-                    return name
-                }
-            }
-        } catch (_: IOException) {
-        }
-        return fileName
+        return DlcRequiredService.resolveExistingFileName(entry)
     }
 
     private fun markDownloadStart(key: String?) {

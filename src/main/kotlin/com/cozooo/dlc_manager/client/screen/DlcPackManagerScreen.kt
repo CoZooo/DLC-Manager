@@ -1039,10 +1039,9 @@ class DlcPackManagerScreen(
             Files.createDirectories(packRoot)
         } catch (_: IOException) {
         }
-        if (!Files.isDirectory(packRoot)) return emptyList()
         val out = ArrayList<PackArchiveEntry>()
         try {
-            Files.list(packRoot).use { stream ->
+            DlcPackArchive.findArchives(DlcPaths.dlcRoot()).stream().use { stream ->
                 stream.filter { Files.isRegularFile(it) }
                     .filter { it.fileName.toString().lowercase(Locale.ROOT).endsWith(".zip") }
                     .sorted { a, b -> a.fileName.toString().lowercase(Locale.ROOT).compareTo(b.fileName.toString().lowercase(Locale.ROOT)) }
