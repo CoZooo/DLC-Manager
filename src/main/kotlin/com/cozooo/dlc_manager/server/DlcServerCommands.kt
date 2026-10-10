@@ -14,8 +14,8 @@ object DlcServerCommands {
                         Commands.literal("server")
                             .requires { source ->
                                 //? if >=26.1 {
-                                /*true
-                                *///?}
+                                //true
+                                //?}
                                 //? if <26.1 {
                                 source.hasPermission(2)
                                 //?}
@@ -44,8 +44,8 @@ object DlcServerCommands {
                         Commands.literal("server")
                             .requires { source ->
                                 //? if >=26.1 {
-                                /*true
-                                *///?}
+                                //true
+                                //?}
                                 //? if <26.1 {
                                 source.hasPermission(2)
                                 //?}

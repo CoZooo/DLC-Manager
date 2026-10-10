@@ -352,7 +352,7 @@ object DlcServerService {
             return false
         }
         //? if >=26.1 {
-        return false
+        //return false
         //?} else {
         return server.playerList.isOp(player.gameProfile) || player.hasPermissions(4)
         //?}

@@ -199,7 +199,7 @@ public final class DlcMarkdownRenderer {
             Style linkStyle = style.withUnderlined(true)
                 .withColor(0x4EA1FF);
             //? if >=26.1 {
-            //?} else {
+            /**///?} else {
             linkStyle = linkStyle.withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, link.getDestination()));
             //?}
             return renderInlineChildren(link, linkStyle);

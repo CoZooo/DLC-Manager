@@ -145,8 +145,8 @@ public final class DlcServerCommandHandlers {
         //? if >=1.20.1 {
         source.sendSuccess(() -> message, false);
         //?} else {
-        /*source.sendSuccess(message, false);
-        *///?}
+        //source.sendSuccess(message, false);
+        //?}
     }
 
     private static void sendFailure(CommandSourceStack source, Component message) {

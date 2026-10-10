@@ -53,8 +53,8 @@ public final class DlcClientEvents {
             (dispatcher, context) ->
             //?}
             //? if <1.19.2 {
-            /*dispatcher ->
-            *///?}
+            //dispatcher ->
+            //?}
             dispatcher.register(
             ClientCommandRegistrationEvent.literal("dlcmanager")
                 .executes(ctx -> {
@@ -104,8 +104,8 @@ public final class DlcClientEvents {
 
     private static void registerInputEvents() {
         //? if >=26.1 {
-        /*return;
-        *///?}
+        //return;
+        //?}
         //? if <26.1 {
         ClientScreenInputEvent.MOUSE_CLICKED_PRE.register((client, screen, mouseX, mouseY, button) -> {
             if (screen instanceof TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, mouseX, mouseY, button)) {
@@ -372,8 +372,8 @@ public final class DlcClientEvents {
             DlcScreenCompat.setY(modsWidget, rowY);
             modsWidget.setWidth(halfWidth);
             //? if >=1.21.1 {
-            /*modsWidget.setHeight(rowH);
-            *///?}
+            //modsWidget.setHeight(rowH);
+            //?}
             int dlcX = rowX + halfWidth + gap;
             int dlcWidth = halfWidth;
             int defaultUpdateX = dlcX + dlcWidth + iconGap;
@@ -384,16 +384,16 @@ public final class DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*updateWidget.setHeight(rowH);
-                *///?}
+                //updateWidget.setHeight(rowH);
+                //?}
                 DlcScreenCompat.setX(updateWidget, updatePos[0]);
                 DlcScreenCompat.setY(updateWidget, updatePos[1]);
             }
             if (packWidget != null) {
                 packWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*packWidget.setHeight(rowH);
-                *///?}
+                //packWidget.setHeight(rowH);
+                //?}
                 DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap);
                 DlcScreenCompat.setY(packWidget, updatePos[1]);
             }
@@ -401,8 +401,8 @@ public final class DlcClientEvents {
             DlcScreenCompat.setY(dlcWidget, rowY);
             dlcWidget.setWidth(dlcWidth);
             //? if >=1.21.1 {
-            /*dlcWidget.setHeight(rowH);
-            *///?}
+            //dlcWidget.setHeight(rowH);
+            //?}
             moveBottomRow(screen, rowY + rowStep);
         } else {
             int iconGap = 4;
@@ -416,16 +416,16 @@ public final class DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*updateWidget.setHeight(rowH);
-                *///?}
+                //updateWidget.setHeight(rowH);
+                //?}
                 DlcScreenCompat.setX(updateWidget, updatePos[0]);
                 DlcScreenCompat.setY(updateWidget, updatePos[1]);
             }
             if (packWidget != null) {
                 packWidget.setWidth(iconWidth);
                 //? if >=1.21.1 {
-                /*packWidget.setHeight(rowH);
-                *///?}
+                //packWidget.setHeight(rowH);
+                //?}
                 DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap);
                 DlcScreenCompat.setY(packWidget, updatePos[1]);
             }
@@ -433,8 +433,8 @@ public final class DlcClientEvents {
             DlcScreenCompat.setY(dlcWidget, rowY);
             dlcWidget.setWidth(dlcWidth);
             //? if >=1.21.1 {
-            /*dlcWidget.setHeight(rowH);
-            *///?}
+            //dlcWidget.setHeight(rowH);
+            //?}
         }
     }
 }

@@ -122,8 +122,8 @@ object DlcServerCommandHandlers {
         }
         val server = source.server
         //? if >=26.1 {
-        /*return server.isDedicatedServer
-        *///?}
+        //return server.isDedicatedServer
+        //?}
         //? if <26.1 {
         return server != null && server.isDedicatedServer
         //?}
@@ -140,8 +140,8 @@ object DlcServerCommandHandlers {
     private fun execute(source: CommandSourceStack, runnable: Runnable) {
         val server = source.server
         //? if >=26.1 {
-        /*server.execute(runnable)
-        *///?}
+        //server.execute(runnable)
+        //?}
         //? if <26.1 {
         if (server != null) {
             server.execute(runnable)
@@ -155,8 +155,8 @@ object DlcServerCommandHandlers {
         //? if >=1.20.1 {
         source.sendSuccess({ message }, false)
         //?} else {
-        /*source.sendSuccess(message, false)
-        *///?}
+        //source.sendSuccess(message, false)
+        //?}
     }
 
     private fun sendFailure(source: CommandSourceStack, message: Component) {

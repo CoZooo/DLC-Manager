@@ -11,11 +11,11 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 //?}
 //? if <1.20.1 {
-/*import com.mojang.blaze3d.vertex.PoseStack;
-*///?}
+//import com.mojang.blaze3d.vertex.PoseStack;
+//?}
 //? if >=26.1 {
-/*import net.minecraft.client.gui.GuiGraphicsExtractor;
-*///?}
+//import net.minecraft.client.gui.GuiGraphicsExtractor;
+//?}
 import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.HashMap;

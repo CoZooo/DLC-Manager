@@ -62,10 +62,10 @@ public final class DlcPlatformServicesProvider implements DlcPlatformServices.Pr
                 return "Fabric";
             }
             //? if >=1.21.1 {
-            if (Platform.getOptionalMod("neoforge").isPresent()) {
+            /*if (Platform.getOptionalMod("neoforge").isPresent()) {
                 return "NeoForge";
             }
-            //?} else {
+            *///?} else {
             if (Platform.isForge()) {
                 return "Forge";
             }

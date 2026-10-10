@@ -13,8 +13,8 @@ import net.minecraft.client.gui.GuiGraphics
 import net.minecraft.client.gui.components.Widget
 *///?}
 //? if >=26.1 {
-/*import net.minecraft.client.gui.GuiGraphicsExtractor
-*///?}
+//import net.minecraft.client.gui.GuiGraphicsExtractor
+//?}
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.util.function.Consumer
@@ -147,8 +147,8 @@ abstract class DlcPageScreen(
     override fun <T> addRenderableWidget(widget: T): T where T : net.minecraft.client.gui.components.events.GuiEventListener, T : net.minecraft.client.gui.components.Renderable, T : net.minecraft.client.gui.narration.NarratableEntry = widget
     //?}
     //? if <1.20.1 {
-    /*override fun <T> addRenderableWidget(widget: T): T where T : net.minecraft.client.gui.components.events.GuiEventListener, T : Widget, T : net.minecraft.client.gui.narration.NarratableEntry = widget
-    *///?}
+    //override fun <T> addRenderableWidget(widget: T): T where T : net.minecraft.client.gui.components.events.GuiEventListener, T : Widget, T : net.minecraft.client.gui.narration.NarratableEntry = widget
+    //?}
 
     protected fun mount(parent: Element, model: net.minecraft.client.gui.components.Button): DlcUiButton {
         val button = action(parent, model.message.string) { if (model.active && model.visible) DlcScreenCompat.press(model) }

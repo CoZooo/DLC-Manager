@@ -49,8 +49,8 @@ object DlcClientEvents {
             { dispatcher, _ ->
             //?}
             //? if <1.19.2 {
-            /*{ dispatcher ->
-            *///?}
+            //{ dispatcher ->
+            //?}
             dispatcher.register(
                 ClientCommandRegistrationEvent.literal("dlcmanager")
                     .executes {
@@ -106,8 +106,8 @@ object DlcClientEvents {
 
     private fun registerInputEvents() {
         //? if >=26.1 {
-        /*return
-        *///?}
+        //return
+        //?}
         //? if <26.1 {
         ClientScreenInputEvent.MOUSE_CLICKED_PRE.register { _, screen, mouseX, mouseY, button ->
             if (screen is TitleScreen && DlcClientRuntime.handleTitleNoticePanelClick(screen, mouseX, mouseY, button)) {
@@ -361,8 +361,8 @@ object DlcClientEvents {
             DlcScreenCompat.setY(modsWidget, rowY)
             modsWidget.width = halfWidth
             //? if >=1.21.1 {
-            /*modsWidget.height = rowH
-            *///?}
+            //modsWidget.height = rowH
+            //?}
             val dlcX = rowX + halfWidth + gap
             val dlcWidth = halfWidth
             var defaultUpdateX = dlcX + dlcWidth + iconGap
@@ -373,16 +373,16 @@ object DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /*updateWidget.height = rowH
-                *///?}
+                //updateWidget.height = rowH
+                //?}
                 DlcScreenCompat.setX(updateWidget, updatePos[0])
                 DlcScreenCompat.setY(updateWidget, updatePos[1])
             }
             if (packWidget != null) {
                 packWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /*packWidget.height = rowH
-                *///?}
+                //packWidget.height = rowH
+                //?}
                 DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap)
                 DlcScreenCompat.setY(packWidget, updatePos[1])
             }
@@ -390,8 +390,8 @@ object DlcClientEvents {
             DlcScreenCompat.setY(dlcWidget, rowY)
             dlcWidget.width = dlcWidth
             //? if >=1.21.1 {
-            /*dlcWidget.height = rowH
-            *///?}
+            //dlcWidget.height = rowH
+            //?}
             moveBottomRow(screen, rowY + rowStep)
         } else {
             val iconGap = 4
@@ -405,16 +405,16 @@ object DlcClientEvents {
             if (updateWidget != null) {
                 updateWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /*updateWidget.height = rowH
-                *///?}
+                //updateWidget.height = rowH
+                //?}
                 DlcScreenCompat.setX(updateWidget, updatePos[0])
                 DlcScreenCompat.setY(updateWidget, updatePos[1])
             }
             if (packWidget != null) {
                 packWidget.width = iconWidth
                 //? if >=1.21.1 {
-                /*packWidget.height = rowH
-                *///?}
+                //packWidget.height = rowH
+                //?}
                 DlcScreenCompat.setX(packWidget, updatePos[0] + iconWidth + iconGap)
                 DlcScreenCompat.setY(packWidget, updatePos[1])
             }
@@ -422,8 +422,8 @@ object DlcClientEvents {
             DlcScreenCompat.setY(dlcWidget, rowY)
             dlcWidget.width = dlcWidth
             //? if >=1.21.1 {
-            /*dlcWidget.height = rowH
-            *///?}
+            //dlcWidget.height = rowH
+            //?}
         }
     }
 }

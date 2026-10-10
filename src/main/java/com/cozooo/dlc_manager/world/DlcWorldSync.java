@@ -102,7 +102,7 @@ public final class DlcWorldSync {
 
     private static void updateLevelDat(Path worldRoot, List<DlcItem> dataPacks) {
         //? if >=26.1 {
-        if (DlcPlatformServices.mcVersion().startsWith("26.1")) return;
+        //if (DlcPlatformServices.mcVersion().startsWith("26.1")) return;
         //?} else {
         Path levelDat = worldRoot.resolve("level.dat");
         if (!Files.exists(levelDat)) {

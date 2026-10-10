@@ -1238,8 +1238,8 @@ public final class DlcClientRuntime {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null && minecraft.player.getGameProfile() != null) {
             //? if >=26.1 {
-            /*String name = minecraft.player.getGameProfile().name();
-            *///?}
+            //String name = minecraft.player.getGameProfile().name();
+            //?}
             //? if <26.1 {
             String name = minecraft.player.getGameProfile().getName();
             //?}
@@ -1254,8 +1254,8 @@ public final class DlcClientRuntime {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null && minecraft.player.getGameProfile() != null) {
             //? if >=26.1 {
-            /*return minecraft.player.getGameProfile().id().toString();
-            *///?}
+            //return minecraft.player.getGameProfile().id().toString();
+            //?}
             //? if <26.1 {
             if (minecraft.player.getGameProfile().getId() != null) {
                 return minecraft.player.getGameProfile().getId().toString();

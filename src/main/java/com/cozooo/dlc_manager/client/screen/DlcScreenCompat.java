@@ -38,8 +38,8 @@ public final class DlcScreenCompat {
 
     public static Object toastManager(Minecraft minecraft) {
         //? if >=26.1 {
-        /*return minecraft.getToastManager();
-        *///?}
+        //return minecraft.getToastManager();
+        //?}
         //? if <26.1 {
         return minecraft.getToasts();
         //?}
@@ -47,8 +47,8 @@ public final class DlcScreenCompat {
 
     public static void openUri(String uri) {
         //? if >=26.1 {
-        /*net.minecraft.util.Util.getPlatform().openUri(uri);
-        *///?}
+        //net.minecraft.util.Util.getPlatform().openUri(uri);
+        //?}
         //? if <26.1 {
         net.minecraft.Util.getPlatform().openUri(uri);
         //?}
@@ -98,8 +98,8 @@ public final class DlcScreenCompat {
 
     public static DynamicTexture createDynamicTexture(String name, NativeImage image) {
         //? if >=26.1 {
-        /*return new DynamicTexture(() -> name, image);
-        *///?}
+        //return new DynamicTexture(() -> name, image);
+        //?}
         //? if <26.1 {
         return new DynamicTexture(image);
         //?}
@@ -118,8 +118,8 @@ public final class DlcScreenCompat {
 
     public static void releaseTexture(TextureManager manager, Object location) {
         //? if >=26.1 {
-        /*manager.release((Identifier) location);
-        *///?}
+        //manager.release((Identifier) location);
+        //?}
         //? if <26.1 {
         manager.release((ResourceLocation) location);
         //?}
@@ -191,8 +191,8 @@ public final class DlcScreenCompat {
             return Button.builder(message, onPress::press).bounds(x, y, width, height).build();
             //?}
             //? if <1.19.3 {
-            /*return new Button(x, y, width, height, message, onPress::press);
-            *///?}
+            //return new Button(x, y, width, height, message, onPress::press);
+            //?}
         }
     }
 
@@ -219,47 +219,47 @@ public final class DlcScreenCompat {
         //? if >=1.19.3 {
         return widget.getX();
         //?} else {
-        /*return widget.x;
-        *///?}
+        //return widget.x;
+        //?}
     }
 
     public static int getY(AbstractWidget widget) {
         //? if >=1.19.3 {
         return widget.getY();
         //?} else {
-        /*return widget.y;
-        *///?}
+        //return widget.y;
+        //?}
     }
 
     public static void setX(AbstractWidget widget, int x) {
         //? if >=1.19.3 {
         widget.setX(x);
         //?} else {
-        /*widget.x = x;
-        *///?}
+        //widget.x = x;
+        //?}
     }
 
     public static void setY(AbstractWidget widget, int y) {
         //? if >=1.19.3 {
         widget.setY(y);
         //?} else {
-        /*widget.y = y;
-        *///?}
+        //widget.y = y;
+        //?}
     }
 
     public static void setNumericFilter(net.minecraft.client.gui.components.EditBox field) {
         //? if >=26.1 {
-        field.setResponder(value -> {
+        /*field.setResponder(value -> {
             String filtered = value.codePoints()
                 .filter(Character::isDigit)
                 .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
                 .toString();
             if (!filtered.equals(value)) field.setValue(filtered);
         });
-        //?}
-        //? if <26.1 {
-        /*field.setFilter(value -> value.chars().allMatch(Character::isDigit));
         *///?}
+        //? if <26.1 {
+        field.setFilter(value -> value.chars().allMatch(Character::isDigit));
+        //?}
     }
 
     public static void setFocused(AbstractWidget widget, boolean focused) {
@@ -277,115 +277,115 @@ public final class DlcScreenCompat {
 
     public static void fill(Object graphics, int left, int top, int right, int bottom, int color) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).fill(left, top, right, bottom, color);
-        *///?}
+        //((GuiGraphicsExtractor) graphics).fill(left, top, right, bottom, color);
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).fill(left, top, right, bottom, color);
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.fill((PoseStack) graphics, left, top, right, bottom, color);
-        *///?}
+        //GuiComponent.fill((PoseStack) graphics, left, top, right, bottom, color);
+        //?}
     }
 
     public static void drawCenteredString(Object graphics, Font font, Component text, int x, int y, int color) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).centeredText(font, text, x, y, color);
-        *///?}
+        //((GuiGraphicsExtractor) graphics).centeredText(font, text, x, y, color);
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).drawCenteredString(font, text, x, y, color);
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.drawCenteredString((PoseStack) graphics, font, text, x, y, color);
-        *///?}
+        //GuiComponent.drawCenteredString((PoseStack) graphics, font, text, x, y, color);
+        //?}
     }
 
     public static void drawString(Object graphics, Font font, Component text, int x, int y, int color, boolean shadow) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).text(font, text, x, y, color, shadow);
-        *///?}
+        //((GuiGraphicsExtractor) graphics).text(font, text, x, y, color, shadow);
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).drawString(font, text, x, y, color, shadow);
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.drawString((PoseStack) graphics, font, text, x, y, color);
-        *///?}
+        //GuiComponent.drawString((PoseStack) graphics, font, text, x, y, color);
+        //?}
     }
 
     public static void drawString(Object graphics, Font font, FormattedCharSequence text, int x, int y, int color, boolean shadow) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).text(font, text, x, y, color, shadow);
-        *///?}
+        //((GuiGraphicsExtractor) graphics).text(font, text, x, y, color, shadow);
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).drawString(font, text, x, y, color, shadow);
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.drawString((PoseStack) graphics, font, text, x, y, color);
-        *///?}
+        //GuiComponent.drawString((PoseStack) graphics, font, text, x, y, color);
+        //?}
     }
 
     public static void enableScissor(Object graphics, int left, int top, int right, int bottom) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).enableScissor(left, top, right, bottom);
-        *///?}
+        //((GuiGraphicsExtractor) graphics).enableScissor(left, top, right, bottom);
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).enableScissor(left, top, right, bottom);
         //?}
         //? if >=1.19.2 <1.20.1 {
-        /*GuiComponent.enableScissor(left, top, right, bottom);
-        *///?}
+        //GuiComponent.enableScissor(left, top, right, bottom);
+        //?}
         //? if <1.19.2 {
-        /*RenderSystem.enableScissor(left, top, right, bottom);
-        *///?}
+        //RenderSystem.enableScissor(left, top, right, bottom);
+        //?}
     }
 
     public static void disableScissor(Object graphics) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).disableScissor();
-        *///?}
+        //((GuiGraphicsExtractor) graphics).disableScissor();
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).disableScissor();
         //?}
         //? if >=1.19.2 <1.20.1 {
-        /*GuiComponent.disableScissor();
-        *///?}
+        //GuiComponent.disableScissor();
+        //?}
         //? if <1.19.2 {
-        /*RenderSystem.disableScissor();
-        *///?}
+        //RenderSystem.disableScissor();
+        //?}
     }
 
     public static void pushPose(Object graphics) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).pose().pushMatrix();
-        *///?}
+        //((GuiGraphicsExtractor) graphics).pose().pushMatrix();
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).pose().pushPose();
         //?}
         //? if <1.20.1 {
-        /*((PoseStack) graphics).pushPose();
-        *///?}
+        //((PoseStack) graphics).pushPose();
+        //?}
     }
 
     public static void scale(Object graphics, float x, float y, float z) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).pose().scale(x, y);
-        *///?}
+        //((GuiGraphicsExtractor) graphics).pose().scale(x, y);
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).pose().scale(x, y, z);
         //?}
         //? if <1.20.1 {
-        /*((PoseStack) graphics).scale(x, y, z);
-        *///?}
+        //((PoseStack) graphics).scale(x, y, z);
+        //?}
     }
 
     public static void popPose(Object graphics) {
         //? if >=26.1 {
-        /*((GuiGraphicsExtractor) graphics).pose().popMatrix();
-        *///?}
+        //((GuiGraphicsExtractor) graphics).pose().popMatrix();
+        //?}
         //? if >=1.20.1 <26.1 {
         ((GuiGraphics) graphics).pose().popPose();
         //?}
         //? if <1.20.1 {
-        /*((PoseStack) graphics).popPose();
-        *///?}
+        //((PoseStack) graphics).popPose();
+        //?}
     }
 }

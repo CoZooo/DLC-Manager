@@ -1065,8 +1065,8 @@ object DlcClientRuntime {
         val entry = DlcServerEntry()
         entry.name = data.name
         //? if >=26.1 {
-        /*val ip = data.ip
-        *///?}
+        //val ip = data.ip
+        //?}
         //? if <26.1 {
         val ip = data.ip ?: ""
         //?}

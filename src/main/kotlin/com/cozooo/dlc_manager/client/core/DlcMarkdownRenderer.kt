@@ -215,7 +215,7 @@ object DlcMarkdownRenderer {
                 var linkStyle = style.withUnderlined(true)
                     .withColor(0x4EA1FF)
                 //? if >=26.1 {
-                //?} else {
+                /**///?} else {
                 linkStyle = linkStyle.withClickEvent(ClickEvent(ClickEvent.Action.OPEN_URL, node.destination))
                 //?}
                 renderInlineChildren(node, linkStyle)

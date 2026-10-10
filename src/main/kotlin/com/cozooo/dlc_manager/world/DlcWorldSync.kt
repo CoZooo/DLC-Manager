@@ -100,7 +100,7 @@ object DlcWorldSync {
 
     private fun updateLevelDat(worldRoot: Path, dataPacks: List<DlcItem?>) {
         //? if >=26.1 {
-        return
+        //return
         //?} else {
         val levelDat = worldRoot.resolve("level.dat")
         if (!Files.exists(levelDat)) {

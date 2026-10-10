@@ -79,8 +79,8 @@ class DlcPackUrlScreen(
     private fun pasteClipboard() {
         val clipboard = Minecraft.getInstance().keyboardHandler.clipboard
         //? if >=26.1 {
-        /*urlField?.value = clipboard.trim()
-        *///?}
+        //urlField?.value = clipboard.trim()
+        //?}
         //? if <26.1 {
         if (clipboard != null) {
             urlField?.value = clipboard.trim()

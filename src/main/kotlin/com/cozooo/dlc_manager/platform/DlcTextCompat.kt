@@ -9,8 +9,8 @@ object DlcTextCompat {
         //? if >=1.19.2 {
         return Component.literal(value)
         //?} else {
-        /*return construct("net.minecraft.network.chat.TextComponent", arrayOf(String::class.java), value)
-        *///?}
+        //return construct("net.minecraft.network.chat.TextComponent", arrayOf(String::class.java), value)
+        //?}
     }
 
     @JvmStatic
@@ -18,8 +18,8 @@ object DlcTextCompat {
         //? if >=1.19.2 {
         return Component.translatable(key, *args.map { it ?: "" }.toTypedArray())
         //?} else {
-        /*return construct("net.minecraft.network.chat.TranslatableComponent", arrayOf(String::class.java, Array<Any>::class.java), key, args)
-        *///?}
+        //return construct("net.minecraft.network.chat.TranslatableComponent", arrayOf(String::class.java, Array<Any>::class.java), key, args)
+        //?}
     }
 
     @JvmStatic

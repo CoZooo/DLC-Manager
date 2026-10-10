@@ -37,8 +37,8 @@ object DlcScreenCompat {
     @JvmStatic
     fun toastManager(minecraft: Minecraft): Any {
         //? if >=26.1 {
-        /*return minecraft.getToastManager()
-        *///?}
+        //return minecraft.getToastManager()
+        //?}
         //? if <26.1 {
         return minecraft.getToasts()
         //?}
@@ -47,8 +47,8 @@ object DlcScreenCompat {
     @JvmStatic
     fun openUri(uri: String) {
         //? if >=26.1 {
-        /*net.minecraft.util.Util.getPlatform().openUri(uri)
-        *///?}
+        //net.minecraft.util.Util.getPlatform().openUri(uri)
+        //?}
         //? if <26.1 {
         net.minecraft.Util.getPlatform().openUri(uri)
         //?}
@@ -58,8 +58,8 @@ object DlcScreenCompat {
     fun openClickEvent(click: ClickEvent?) {
         if (click == null) return
         //? if >=26.1 {
-        /*if (click is ClickEvent.OpenUrl) net.minecraft.util.Util.getPlatform().openUri(click.uri())
-        *///?}
+        //if (click is ClickEvent.OpenUrl) net.minecraft.util.Util.getPlatform().openUri(click.uri())
+        //?}
         //? if <26.1 {
         if (click.action == ClickEvent.Action.OPEN_URL && !click.value.isNullOrBlank()) {
             net.minecraft.Util.getPlatform().openUri(click.value)
@@ -104,8 +104,8 @@ object DlcScreenCompat {
     @JvmStatic
     fun createDynamicTexture(name: String, image: NativeImage): DynamicTexture {
         //? if >=26.1 {
-        /*return DynamicTexture({ name }, image)
-        *///?}
+        //return DynamicTexture({ name }, image)
+        //?}
         //? if <26.1 {
         return DynamicTexture(image)
         //?}
@@ -126,8 +126,8 @@ object DlcScreenCompat {
     @JvmStatic
     fun releaseTexture(manager: TextureManager, location: Any) {
         //? if >=26.1 {
-        /*manager.release(location as Identifier)
-        *///?}
+        //manager.release(location as Identifier)
+        //?}
         //? if <26.1 {
         manager.release(location as ResourceLocation)
         //?}
@@ -189,8 +189,8 @@ object DlcScreenCompat {
             return Button.builder(message, Button.OnPress { onPress.press(it) }).bounds(x, y, width, height).build()
             //?}
             //? if <1.19.3 {
-            /*return Button(x, y, width, height, message) { onPress.press(it) }
-            *///?}
+            //return Button(x, y, width, height, message) { onPress.press(it) }
+            //?}
         }
     }
 
@@ -219,8 +219,8 @@ object DlcScreenCompat {
         //? if >=1.19.3 {
         return widget.x
         //?} else {
-        /*return widget.x
-        *///?}
+        //return widget.x
+        //?}
     }
 
     @JvmStatic
@@ -228,8 +228,8 @@ object DlcScreenCompat {
         //? if >=1.19.3 {
         return widget.y
         //?} else {
-        /*return widget.y
-        *///?}
+        //return widget.y
+        //?}
     }
 
     @JvmStatic
@@ -237,8 +237,8 @@ object DlcScreenCompat {
         //? if >=1.19.3 {
         widget.x = x
         //?} else {
-        /*widget.x = x
-        *///?}
+        //widget.x = x
+        //?}
     }
 
     @JvmStatic
@@ -246,21 +246,21 @@ object DlcScreenCompat {
         //? if >=1.19.3 {
         widget.y = y
         //?} else {
-        /*widget.y = y
-        *///?}
+        //widget.y = y
+        //?}
     }
 
     @JvmStatic
     fun setNumericFilter(field: net.minecraft.client.gui.components.EditBox) {
         //? if >=26.1 {
-        field.setResponder { value ->
+        /*field.setResponder { value ->
             val filtered = value.filter { it.isDigit() }
             if (filtered != value) field.value = filtered
         }
-        //?}
-        //? if <26.1 {
-        /*field.setFilter { value -> value.chars().allMatch { codePoint -> Character.isDigit(codePoint) } }
         *///?}
+        //? if <26.1 {
+        field.setFilter { value -> value.chars().allMatch { codePoint -> Character.isDigit(codePoint) } }
+        //?}
     }
 
     @JvmStatic
@@ -280,123 +280,123 @@ object DlcScreenCompat {
     @JvmStatic
     fun fill(graphics: Any, left: Int, top: Int, right: Int, bottom: Int, color: Int) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).fill(left, top, right, bottom, color)
-        *///?}
+        //(graphics as GuiGraphicsExtractor).fill(left, top, right, bottom, color)
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).fill(left, top, right, bottom, color)
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.fill(graphics as PoseStack, left, top, right, bottom, color)
-        *///?}
+        //GuiComponent.fill(graphics as PoseStack, left, top, right, bottom, color)
+        //?}
     }
 
     @JvmStatic
     fun drawCenteredString(graphics: Any, font: Font, text: Component, x: Int, y: Int, color: Int) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).centeredText(font, text, x, y, color)
-        *///?}
+        //(graphics as GuiGraphicsExtractor).centeredText(font, text, x, y, color)
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).drawCenteredString(font, text, x, y, color)
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.drawCenteredString(graphics as PoseStack, font, text, x, y, color)
-        *///?}
+        //GuiComponent.drawCenteredString(graphics as PoseStack, font, text, x, y, color)
+        //?}
     }
 
     @JvmStatic
     fun drawString(graphics: Any, font: Font, text: Component, x: Int, y: Int, color: Int, shadow: Boolean) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).text(font, text, x, y, color, shadow)
-        *///?}
+        //(graphics as GuiGraphicsExtractor).text(font, text, x, y, color, shadow)
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).drawString(font, text, x, y, color, shadow)
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.drawString(graphics as PoseStack, font, text, x, y, color)
-        *///?}
+        //GuiComponent.drawString(graphics as PoseStack, font, text, x, y, color)
+        //?}
     }
 
     @JvmStatic
     fun drawString(graphics: Any, font: Font, text: FormattedCharSequence, x: Int, y: Int, color: Int, shadow: Boolean) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).text(font, text, x, y, color, shadow)
-        *///?}
+        //(graphics as GuiGraphicsExtractor).text(font, text, x, y, color, shadow)
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).drawString(font, text, x, y, color, shadow)
         //?}
         //? if <1.20.1 {
-        /*GuiComponent.drawString(graphics as PoseStack, font, text, x, y, color)
-        *///?}
+        //GuiComponent.drawString(graphics as PoseStack, font, text, x, y, color)
+        //?}
     }
 
     @JvmStatic
     fun enableScissor(graphics: Any, left: Int, top: Int, right: Int, bottom: Int) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).enableScissor(left, top, right, bottom)
-        *///?}
+        //(graphics as GuiGraphicsExtractor).enableScissor(left, top, right, bottom)
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).enableScissor(left, top, right, bottom)
         //?}
         //? if >=1.19.2 <1.20.1 {
-        /*GuiComponent.enableScissor(left, top, right, bottom)
-        *///?}
+        //GuiComponent.enableScissor(left, top, right, bottom)
+        //?}
         //? if <1.19.2 {
-        /*RenderSystem.enableScissor(left, top, right, bottom)
-        *///?}
+        //RenderSystem.enableScissor(left, top, right, bottom)
+        //?}
     }
 
     @JvmStatic
     fun disableScissor(graphics: Any) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).disableScissor()
-        *///?}
+        //(graphics as GuiGraphicsExtractor).disableScissor()
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).disableScissor()
         //?}
         //? if >=1.19.2 <1.20.1 {
-        /*GuiComponent.disableScissor()
-        *///?}
+        //GuiComponent.disableScissor()
+        //?}
         //? if <1.19.2 {
-        /*RenderSystem.disableScissor()
-        *///?}
+        //RenderSystem.disableScissor()
+        //?}
     }
 
     @JvmStatic
     fun pushPose(graphics: Any) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).pose().pushMatrix()
-        *///?}
+        //(graphics as GuiGraphicsExtractor).pose().pushMatrix()
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).pose().pushPose()
         //?}
         //? if <1.20.1 {
-        /*(graphics as PoseStack).pushPose()
-        *///?}
+        //(graphics as PoseStack).pushPose()
+        //?}
     }
 
     @JvmStatic
     fun scale(graphics: Any, x: Float, y: Float, z: Float) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).pose().scale(x, y)
-        *///?}
+        //(graphics as GuiGraphicsExtractor).pose().scale(x, y)
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).pose().scale(x, y, z)
         //?}
         //? if <1.20.1 {
-        /*(graphics as PoseStack).scale(x, y, z)
-        *///?}
+        //(graphics as PoseStack).scale(x, y, z)
+        //?}
     }
 
     @JvmStatic
     fun popPose(graphics: Any) {
         //? if >=26.1 {
-        /*(graphics as GuiGraphicsExtractor).pose().popMatrix()
-        *///?}
+        //(graphics as GuiGraphicsExtractor).pose().popMatrix()
+        //?}
         //? if >=1.20.1 <26.1 {
         (graphics as GuiGraphics).pose().popPose()
         //?}
         //? if <1.20.1 {
-        /*(graphics as PoseStack).popPose()
-        *///?}
+        //(graphics as PoseStack).popPose()
+        //?}
     }
 }

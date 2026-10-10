@@ -7,22 +7,22 @@ import com.cozooo.dlc_manager.world.DlcWorldSync
 import dev.architectury.utils.Env
 import dev.architectury.utils.EnvExecutor
 //? if fabric {
-/*import net.fabricmc.api.ModInitializer
-*///?}
+//import net.fabricmc.api.ModInitializer
+//?}
 //? if forge {
 import net.minecraftforge.fml.common.Mod
 //?}
 //? if neoforge {
-/*import net.neoforged.fml.common.Mod
-*///?}
+//import net.neoforged.fml.common.Mod
+//?}
 
 //? if forge || neoforge {
 @Mod(DlcManager.MOD_ID)
 //?}
 class DlcManager
 //? if fabric {
-    /*: ModInitializer
-*///?}
+    //: ModInitializer
+//?}
 {
     //? if fabric {
     /*override fun onInitialize() {
