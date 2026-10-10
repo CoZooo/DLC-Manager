@@ -42,6 +42,9 @@ class DlcBootstrapArtifactTest {
     @ParameterizedTest
     @ValueSource(strings = {"forge", "neoforge"})
     void packagedServiceInstallsResourcesWithoutGameClassesOrExternalKotlin(String loaderName) throws Exception {
+        if (loaderName.equals("forge") && System.getProperty("bootstrapTestTarget", "").endsWith("-neoforge")) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false);
+        }
         Path serviceJar = Path.of(System.getProperty(loaderName + "BootstrapJar"));
         Path modJar = game.resolve("main-mod.jar");
         try (var zip = new java.util.zip.ZipOutputStream(Files.newOutputStream(modJar))) {
@@ -239,14 +242,29 @@ class DlcBootstrapArtifactTest {
     }
 
     private void verifyNativeDiscovery(Path artifact, String loaderName) throws Exception {
+        boolean childFirstJarHandling = "1.18.2-forge".equals(System.getProperty("bootstrapTestTarget"));
         var urls = new java.util.ArrayList<URL>();
         urls.add(artifact.toUri().toURL());
         for (String file : System.getProperty(loaderName + "LocatorApi").split(java.util.regex.Pattern.quote(java.io.File.pathSeparator))) {
             urls.add(Path.of(file).toUri().toURL());
         }
-        try (var isolated = new URLClassLoader(urls.toArray(URL[]::new), loaderName.equals("forge") ? getClass().getClassLoader() : ClassLoader.getPlatformClassLoader()) {
+        try (var isolated = new URLClassLoader(urls.toArray(URL[]::new), getClass().getClassLoader()) {
+            @Override public java.util.Enumeration<URL> getResources(String name) throws java.io.IOException {
+                if (loaderName.equals("forge") && name.equals("META-INF/services/net.minecraftforge.forgespi.locating.IModLocator")) {
+                    URL resource = findResource(name);
+                    return resource == null
+                        ? java.util.Collections.emptyEnumeration()
+                        : java.util.Collections.enumeration(java.util.List.of(resource));
+                }
+                return super.getResources(name);
+            }
+
             @Override protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-                if (!name.startsWith("com.cozooo.dlc_bootstrap.launch.")) return super.loadClass(name, resolve);
+                if (!name.startsWith("com.cozooo.dlc_bootstrap.launch.")
+                    && !(childFirstJarHandling && name.startsWith("cpw.mods.jarhandling."))
+                    && !(loaderName.equals("forge") && name.startsWith("net.minecraftforge."))) {
+                    return super.loadClass(name, resolve);
+                }
                 synchronized (getClassLoadingLock(name)) {
                     Class<?> type = findLoadedClass(name);
                     if (type == null) type = findClass(name);

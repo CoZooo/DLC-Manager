@@ -1,7 +1,5 @@
 package com.cozooo.dlc_bootstrap.launch;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
@@ -41,7 +39,7 @@ public final class DlcEarlyProgress {
     record Frame(int steps, int current, String label) {}
 
     static void run(String launchTarget, String loader, ClassLoader classLoader, Installation installation) throws Exception {
-        run(launchTarget, () -> NativeDisplay.open(loader, classLoader), installation);
+        run(launchTarget, DlcEarlyNativeDisplay::open, installation);
     }
 
     static void run(String launchTarget, DisplayFactory factory, Installation installation) throws Exception {
@@ -286,76 +284,7 @@ public final class DlcEarlyProgress {
         }
 
         private void unavailable(Throwable failure) {
-            Throwable cause = failure instanceof InvocationTargetException wrapped ? wrapped.getCause() : failure;
-            System.err.println("[dlc-manager-bootstrap] Native progress display unavailable: " + cause);
-        }
-    }
-
-    private static final class NativeDisplay implements Display {
-        private final Runnable tick;
-        private final Method create;
-        private final Method label;
-        private final Method absolute;
-        private final Method complete;
-        private Object meter;
-        private int steps = -1;
-
-        private NativeDisplay(Runnable tick, Class<?> manager, Class<?> meterType, boolean neoForge) throws ReflectiveOperationException {
-            this.tick = tick;
-            create = manager.getMethod(neoForge ? "prependProgressBar" : "addProgressBar", String.class, int.class);
-            label = meterType.getMethod("label", String.class);
-            absolute = meterType.getMethod("setAbsolute", int.class);
-            complete = meterType.getMethod("complete");
-        }
-
-        static Display open(String loader, ClassLoader classLoader) throws ReflectiveOperationException {
-            boolean neoForge = "neoforge".equals(loader);
-            if (!neoForge && !"forge".equals(loader)) return null;
-            String prefix = neoForge ? "net.neoforged.fml.loading." : "net.minecraftforge.fml.loading.";
-            Class<?> fml = Class.forName(prefix + "FMLLoader", false, classLoader);
-            Runnable runnable;
-            try {
-                Object tick = fml.getField("progressWindowTick").get(null);
-                if (!(tick instanceof Runnable value)) return null;
-                runnable = value;
-            } catch (NoSuchFieldException missingLegacyTick) {
-                if (!neoForge) throw missingLegacyTick;
-                Method renderTick = Class.forName(prefix + "ImmediateWindowHandler", false, classLoader)
-                    .getMethod("renderTick");
-                runnable = () -> {
-                    try { renderTick.invoke(null); }
-                    catch (ReflectiveOperationException exception) { throw new IllegalStateException("Cannot update NeoForge early window", exception); }
-                };
-            }
-            Class<?> config = Class.forName(prefix + "FMLConfig", false, classLoader);
-            Class<?> values = Class.forName(prefix + "FMLConfig$ConfigValue", false, classLoader);
-            Object control = values.getField("EARLY_WINDOW_CONTROL").get(null);
-            if (!Boolean.TRUE.equals(config.getMethod("getBoolConfigValue", values).invoke(null, control))) return null;
-            Object provider = values.getField("EARLY_WINDOW_PROVIDER").get(null);
-            if (!"fmlearlywindow".equals(config.getMethod("getConfigValue", values).invoke(null, provider))) return null;
-            Class.forName(neoForge ? "net.neoforged.fml.earlydisplay.DisplayWindow" : "net.minecraftforge.fml.earlydisplay.DisplayWindow",
-                false, classLoader);
-            Class<?> manager = Class.forName(prefix + "progress.StartupNotificationManager", false, classLoader);
-            Class<?> meter = Class.forName(prefix + "progress.ProgressMeter", false, classLoader);
-            return new NativeDisplay(runnable, manager, meter, neoForge);
-        }
-
-        @Override public void update(Frame frame) throws ReflectiveOperationException {
-            if (meter == null || steps != frame.steps()) {
-                close();
-                meter = create.invoke(null, "DLC Manager", frame.steps());
-                steps = frame.steps();
-            }
-            label.invoke(meter, frame.label());
-            absolute.invoke(meter, frame.current());
-        }
-
-        @Override public void tick() { tick.run(); }
-
-        @Override public void close() throws ReflectiveOperationException {
-            Object old = meter;
-            meter = null;
-            if (old != null) complete.invoke(old);
+            System.err.println("[dlc-manager-bootstrap] Native progress display unavailable: " + failure);
         }
     }
 }

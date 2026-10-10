@@ -476,16 +476,12 @@ if (stoneNodes.contains(project.name)) {
         exclude("rebel.xml")
         if (name == "sourcesJar") {
             from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
-            from(rootProject.layout.projectDirectory.file("LICENSING.md")) { into("META-INF/dlc-manager") }
-            from(rootProject.layout.projectDirectory.file("LICENSING.zh.md")) { into("META-INF/dlc-manager") }
         }
     }
     tasks.withType<ProcessResources>().configureEach {
         notCompatibleWithConfigurationCache("StoneCraft processResources actions capture Project.")
         if (name == "processResources") {
             from(rootProject.layout.projectDirectory.file("LICENSE")) { into("META-INF/dlc-manager") }
-            from(rootProject.layout.projectDirectory.file("LICENSING.md")) { into("META-INF/dlc-manager") }
-            from(rootProject.layout.projectDirectory.file("LICENSING.zh.md")) { into("META-INF/dlc-manager") }
         }
     }
 

@@ -3,6 +3,7 @@ package com.cozooo.dlc_manager.bootstrap
 import cpw.mods.modlauncher.api.IEnvironment
 import cpw.mods.modlauncher.api.ITransformationService
 import cpw.mods.modlauncher.api.ITransformer
+import com.cozooo.dlc_bootstrap.launch.DlcBootstrapEntrypoint
 import java.io.IOException
 import java.nio.file.Path
 import java.util.Locale
@@ -11,14 +12,18 @@ import java.util.function.BooleanSupplier
 import java.util.function.Consumer
 
 class DlcBootstrapService(
-    private val progress: Consumer<Map<String, Any>>,
-    private val cancelled: BooleanSupplier
-) : ITransformationService {
-    constructor() : this(Consumer {}, BooleanSupplier { false })
+    private var progress: Consumer<Map<String, Any>> = Consumer {},
+    private var cancelled: BooleanSupplier = BooleanSupplier { false }
+) : ITransformationService, DlcBootstrapEntrypoint {
 
     override fun name() = "dlcbootstrap"
     override fun onLoad(environment: IEnvironment, otherServices: Set<String>) {}
     override fun transformers(): List<ITransformer<*>> = emptyList()
+
+    override fun configure(progress: DlcBootstrapEntrypoint.ProgressSink, cancelled: BooleanSupplier) {
+        this.progress = Consumer { progress.accept(it) }
+        this.cancelled = cancelled
+    }
 
     override fun initialize(environment: IEnvironment) {
         System.clearProperty(DlcStartupRequirements.READY_PROPERTY)
@@ -54,7 +59,7 @@ class DlcBootstrapService(
         initialize(game, loader, minecraft, server, false)
     }
 
-    fun initialize(game: Path, loader: String, minecraft: String, server: Boolean, development: Boolean) {
+    override fun initialize(game: Path, loader: String, minecraft: String, server: Boolean, development: Boolean) {
         System.clearProperty(DlcStartupRequirements.READY_PROPERTY)
         var complete = false
         try {
@@ -71,6 +76,10 @@ class DlcBootstrapService(
             if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY)
         }
     }
+
+    override fun modFile(): Path = DlcModPayload.getModFile()
+
+    override fun development(): Boolean = DlcModPayload.isDevelopment()
 
     private fun install(game: Path, loader: String, minecraft: String, server: Boolean, development: Boolean): Boolean {
         DlcModPayload.prepare(game, development)

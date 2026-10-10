@@ -14,21 +14,30 @@ import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
-public final class DlcBootstrapService implements ITransformationService {
-    private final Consumer<Map<String, Object>> progress;
-    private final BooleanSupplier cancelled;
+public final class DlcBootstrapService implements ITransformationService, com.cozooo.dlc_bootstrap.launch.DlcBootstrapEntrypoint {
+    private Consumer<Map<String, Object>> progress = ignored -> {};
+    private BooleanSupplier cancelled = () -> false;
 
     public DlcBootstrapService() { this(ignored -> {}, () -> false); }
 
     public DlcBootstrapService(Consumer<Map<String, Object>> progress, BooleanSupplier cancelled) {
-        this.progress = Objects.requireNonNull(progress);
+        configure(progress::accept, cancelled);
+    }
+
+    @Override public void configure(ProgressSink progress, BooleanSupplier cancelled) {
+        this.progress = Objects.requireNonNull(progress)::accept;
         this.cancelled = Objects.requireNonNull(cancelled);
     }
 
     @Override public String name() { return "dlcbootstrap"; }
     @Override public void onLoad(IEnvironment environment, Set<String> otherServices) {}
+    //? if >=1.21.1 {
+    /*@Override public List<? extends ITransformer<?>> transformers() { return List.of(); }
+    *///?}
+    //? if <1.21.1 {
     @SuppressWarnings("rawtypes")
     @Override public List<ITransformer> transformers() { return List.of(); }
+    //?}
 
     @Override public void initialize(IEnvironment environment) {
         System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
@@ -76,6 +85,10 @@ public final class DlcBootstrapService implements ITransformationService {
             if (!complete || isCancelled()) System.clearProperty(DlcStartupRequirements.READY_PROPERTY);
         }
     }
+
+    @Override public Path modFile() { return DlcModPayload.getModFile(); }
+
+    @Override public boolean development() { return DlcModPayload.isDevelopment(); }
 
     private boolean install(Path game, String loader, String minecraft, boolean server, boolean development) throws IOException, InterruptedException {
         DlcModPayload.prepare(game, development);

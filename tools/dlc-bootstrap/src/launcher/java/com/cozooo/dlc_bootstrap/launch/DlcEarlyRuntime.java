@@ -1,11 +1,12 @@
 package com.cozooo.dlc_bootstrap.launch;
 
 import cpw.mods.modlauncher.api.IEnvironment;
-import cpw.mods.modlauncher.api.ITransformationService;
+//? if >=1.21.1 {
+/*import net.neoforged.neoforgespi.ILaunchContext;
+*///?}
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -14,11 +15,13 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ServiceLoader;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 public final class DlcEarlyRuntime {
     private static URLClassLoader runtime;
+    private static DlcBootstrapEntrypoint bootstrap;
 
     private DlcEarlyRuntime() {}
 
@@ -43,18 +46,19 @@ public final class DlcEarlyRuntime {
         }
     }
 
-    public static synchronized void initialize(Object context) {
+    //? if >=1.21.1 <26.1 {
+    /*public static synchronized void initialize(ILaunchContext context) {
+        initialize(context.environment());
+    }
+    *///?}
+
+    //? if >=26.1 {
+    /*public static synchronized void initialize(ILaunchContext context) {
         System.clearProperty("dlc_manager.early.ready");
         try {
-            Object environment = invokeOptional(context, "environment");
-            if (environment instanceof IEnvironment oldEnvironment) {
-                initialize(oldEnvironment);
-                return;
-            }
             Properties profile = loadProfile();
-            Path game = (Path) invoke(context, "gameDirectory");
-            Object distribution = invoke(context, "getRequiredDistribution");
-            String target = String.valueOf(distribution).toLowerCase(java.util.Locale.ROOT).contains("server")
+            Path game = context.gameDirectory();
+            String target = String.valueOf(context.getRequiredDistribution()).toLowerCase(java.util.Locale.ROOT).contains("server")
                 ? "neoforgeserver" : "neoforgeclient";
             boolean server = target.contains("server");
             boolean development = developmentLaunch();
@@ -72,6 +76,7 @@ public final class DlcEarlyRuntime {
             throw new IllegalStateException("Required resource installation failed: startup stopped", ex);
         }
     }
+    *///?}
 
     private static Properties loadProfile() throws IOException {
         Properties profile = new Properties();
@@ -95,9 +100,8 @@ public final class DlcEarlyRuntime {
         ClassLoader previous = thread.getContextClassLoader();
         try {
             thread.setContextClassLoader(runtime);
-            Class<?> implementation = runtime.loadClass("com.cozooo.dlc_bootstrap.internal.bootstrap.DlcBootstrapService");
-            ITransformationService installer = (ITransformationService) implementation
-                .getConstructor(Consumer.class, BooleanSupplier.class).newInstance(progress, cancelled);
+            DlcBootstrapEntrypoint installer = bootstrap();
+            installer.configure(progress::accept, cancelled);
             installer.initialize(environment);
             checkCancelled(cancelled);
         } finally {
@@ -114,11 +118,9 @@ public final class DlcEarlyRuntime {
         ClassLoader previous = thread.getContextClassLoader();
         try {
             thread.setContextClassLoader(runtime);
-            Class<?> implementation = runtime.loadClass("com.cozooo.dlc_bootstrap.internal.bootstrap.DlcBootstrapService");
-            Object installer = implementation.getConstructor(Consumer.class, BooleanSupplier.class)
-                .newInstance(progress, cancelled);
-            installer.getClass().getMethod("initialize", Path.class, String.class, String.class, boolean.class, boolean.class)
-                .invoke(installer, game, profile.getProperty("loader"), profile.getProperty("minecraft"), server, development);
+            DlcBootstrapEntrypoint installer = bootstrap();
+            installer.configure(progress::accept, cancelled);
+            installer.initialize(game, profile.getProperty("loader"), profile.getProperty("minecraft"), server, development);
             checkCancelled(cancelled);
         } finally {
             thread.setContextClassLoader(previous);
@@ -139,38 +141,20 @@ public final class DlcEarlyRuntime {
         Path distribution = distributionFile(DlcEarlyRuntime.class.getProtectionDomain().getCodeSource().getLocation().toURI());
         System.setProperty("dlc_manager.distribution.path", distribution.toAbsolutePath().normalize().toString());
         runtime = new RuntimeClassLoader(jars.toArray(URL[]::new), DlcEarlyRuntime.class.getClassLoader());
+        bootstrap = ServiceLoader.load(DlcBootstrapEntrypoint.class, runtime).findFirst()
+            .orElseThrow(() -> new IOException("DLC early runtime entrypoint is missing"));
     }
 
     private static boolean developmentLaunch() {
-        try {
-            Class<?> loader = Class.forName("net.neoforged.fml.loading.FMLLoader", false, DlcEarlyRuntime.class.getClassLoader());
-            Object current = loader.getMethod("getCurrentOrNull").invoke(null);
-            return current != null && !Boolean.TRUE.equals(current.getClass().getMethod("isProduction").invoke(current));
-        } catch (ReflectiveOperationException | LinkageError ignored) {
-            return false;
-        }
-    }
-
-    private static Object invokeOptional(Object target, String name) throws ReflectiveOperationException {
-        try {
-            return findContextMethod(target, name).invoke(target);
-        } catch (NoSuchMethodException ignored) {
-            return null;
-        }
-    }
-
-    private static Object invoke(Object target, String name) throws ReflectiveOperationException {
-        return findContextMethod(target, name).invoke(target);
-    }
-
-    private static Method findContextMethod(Object target, String name) throws NoSuchMethodException {
-        for (Class<?> type : target.getClass().getInterfaces()) {
-            try {
-                return type.getMethod(name);
-            } catch (NoSuchMethodException ignored) {
-            }
-        }
-        return target.getClass().getMethod(name);
+        //? if >=26.1 {
+        /*return !net.neoforged.fml.loading.FMLLoader.getCurrent().isProduction();
+        *///?}
+        //? if >=1.21.1 <26.1 {
+        /*return !net.neoforged.fml.loading.FMLLoader.isProduction();
+        *///?}
+        //? if <1.21.1 {
+        return !net.minecraftforge.fml.loading.FMLLoader.isProduction();
+        //?}
     }
 
     private static void checkCancelled(BooleanSupplier cancelled) throws InterruptedException {
@@ -179,23 +163,20 @@ public final class DlcEarlyRuntime {
         }
     }
 
-    public static Path modFile() { return (Path) payloadValue("getModFile"); }
-    public static boolean development() { return (boolean) payloadValue("isDevelopment"); }
+    public static Path modFile() { return bootstrap().modFile(); }
+    public static boolean development() { return bootstrap().development(); }
     public static boolean ready() { return runtime != null && System.getProperty("dlc_manager.early.ready") != null; }
 
-    private static Object payloadValue(String method) {
-        if (runtime == null) throw new IllegalStateException("DLC early runtime has not been initialized");
-        try {
-            return runtime.loadClass("com.cozooo.dlc_bootstrap.internal.bootstrap.DlcModPayload").getMethod(method).invoke(null);
-        } catch (ReflectiveOperationException ex) {
-            throw new IllegalStateException("Cannot access prepared DLC Manager mod", ex);
-        }
+    private static DlcBootstrapEntrypoint bootstrap() {
+        DlcBootstrapEntrypoint value = bootstrap;
+        if (runtime == null || value == null) throw new IllegalStateException("DLC early runtime has not been initialized");
+        return value;
     }
 
-    static Path distributionFile(java.net.URI location) throws ReflectiveOperationException {
+    static Path distributionFile(java.net.URI location) {
         Path path = Path.of(location);
         while ("union".equals(path.getFileSystem().provider().getScheme())) {
-            path = (Path) path.getFileSystem().getClass().getMethod("getPrimaryPath").invoke(path.getFileSystem());
+            path = ((cpw.mods.niofs.union.UnionFileSystem) path.getFileSystem()).getPrimaryPath();
         }
         return path.toAbsolutePath().normalize();
     }

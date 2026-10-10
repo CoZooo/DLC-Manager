@@ -10,5 +10,10 @@ public final class DlcBootstrapBridge implements ITransformationService {
     @Override public String name() { return "dlcbootstrap"; }
     @Override public void onLoad(IEnvironment environment, Set<String> otherServices) {}
     @Override public void initialize(IEnvironment environment) { DlcEarlyRuntime.initialize(environment); }
+    //? if >=1.21.1 {
+    /*@Override public List<? extends ITransformer<?>> transformers() { return List.of(); }
+    *///?}
+    //? if <1.21.1 {
     @Override @SuppressWarnings("rawtypes") public List<ITransformer> transformers() { return List.of(); }
+    //?}
 }

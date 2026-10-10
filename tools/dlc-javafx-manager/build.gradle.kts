@@ -230,15 +230,13 @@ distributions {
             from(files("README.md", "README.zh.md")) {
                 into("")
             }
-            from(files("../../LICENSE", "../../LICENSING.md", "../../LICENSING.zh.md")) { into("") }
+            from(files("../../LICENSE")) { into("") }
         }
     }
 }
 
 tasks.withType<org.gradle.jvm.tasks.Jar>().configureEach {
     from("../../LICENSE") { into("META-INF/dlc-manager") }
-    from("../../LICENSING.md") { into("META-INF/dlc-manager") }
-    from("../../LICENSING.zh.md") { into("META-INF/dlc-manager") }
 }
 
 tasks.named<Test>("test") {
